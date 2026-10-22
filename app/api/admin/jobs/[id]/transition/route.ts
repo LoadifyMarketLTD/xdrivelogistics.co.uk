@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import {
+  getBearerToken,
+  isSupabaseAdminConfigured,
+  supabaseAdmin,
+  supabaseValidator,
+} from '../../../../_lib/supabaseAdmin';
 import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 
 const bodySchema = z.object({
@@ -77,6 +82,14 @@ export async function POST(
 ) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const token = getBearerToken(request);
+  if (!token) return respond(401, { error: 'Unauthorized: missing bearer token.' });
+  const validator = supabaseValidator ?? supabaseAdmin;
+  const { data: authData, error: authError } = await validator.auth.getUser(token);
+  if (authError || !authData.user) {
+    return respond(401, { error: 'Unauthorized: invalid or expired session.' });
   }
 
   const body = await request.json().catch(() => null);

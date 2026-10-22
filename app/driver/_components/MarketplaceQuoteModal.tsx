@@ -1,7 +1,19 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+
+import MarketplaceQuoteNowDialog, {
+  type MarketplaceQuoteNowExtra,
+} from '../../components/workspace/MarketplaceQuoteNowDialog';
 import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
-import { ActionButton } from '../../components/workspace/WorkspaceUI';
+import { AlertBanner } from '../../components/workspace/WorkspaceUI';
+
+export type MarketplaceQuoteSubmitPayload = {
+  totalAmount: number;
+  baseAmount: number;
+  additionalExtrasGbp: number;
+  message: string;
+};
 
 type QuoteTarget = {
   id: string;
@@ -10,12 +22,33 @@ type QuoteTarget = {
   pickup: string;
   delivery: string;
   pickupAt?: string | null;
+  deliveryAt?: string | null;
   vehicle: string;
 };
 
-const when = (value?: string | null) => value
-  ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-  : 'Not set';
+type QuoteExtraKind = 'congestion' | 'ferry' | 'tolls' | 'ulez';
+
+const QUOTE_EXTRA_OPTIONS: Array<{ value: QuoteExtraKind; label: string }> = [
+  { value: 'congestion', label: 'Congestion Charge' },
+  { value: 'ferry', label: 'Ferry Charge' },
+  { value: 'tolls', label: 'Tolls' },
+  { value: 'ulez', label: 'ULEZ' },
+];
+
+const cxWhen = (value?: string | null) => {
+  if (!value) return 'ASAP';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'ASAP';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  }).formatToParts(date);
+  const hour = parts.find((part) => part.type === 'hour')?.value ?? '';
+  const minute = parts.find((part) => part.type === 'minute')?.value ?? '';
+  const zone = parts.find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return `${hour}:${minute}${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}`;
+};
 
 export default function MarketplaceQuoteModal({
   target,
@@ -35,57 +68,80 @@ export default function MarketplaceQuoteModal({
   error?: string;
   onAmountChange: (value: string) => void;
   onMessageChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (payload: MarketplaceQuoteSubmitPayload) => void;
   onClose: () => void;
 }) {
+  const [extras, setExtras] = useState<MarketplaceQuoteNowExtra[]>([]);
+
+  useEffect(() => {
+    setExtras([]);
+  }, [target?.id]);
+
+  const baseAmount = Number(amount);
+  const safeBaseAmount = Number.isFinite(baseAmount) && baseAmount > 0 ? baseAmount : 0;
+  const extrasTotal = useMemo(
+    () => extras.reduce((sum, extra) => {
+      const value = Number(extra.amount);
+      return sum + (Number.isFinite(value) && value > 0 ? value : 0);
+    }, 0),
+    [extras],
+  );
+  const total = safeBaseAmount + extrasTotal;
+
   if (!target) return null;
 
   return (
-    <div className="driver-quote-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !working) onClose(); }}>
-      <section className="driver-quote-modal" style={{ maxHeight: '90dvh', overflowY: 'auto' }} role="dialog" aria-modal="true" aria-labelledby="driver-quote-modal-title">
-        <header className="driver-quote-modal__header">
-          <strong id="driver-quote-modal-title">Quote Now</strong>
-          <button type="button" aria-label="Close quote form" disabled={working} onClick={onClose}>×</button>
-        </header>
-
-        <div className="driver-quote-modal__context">
-          <div>
-            <span>Member</span>
-            <strong>{target.memberName}</strong>
-            {target.memberCode && <small>ID {target.memberCode}</small>}
-          </div>
-          <div>
-            <span>Load</span>
-            <strong>{target.id.slice(0, 8).toUpperCase()}</strong>
-            <small>{target.vehicle}</small>
-          </div>
-          <div className="driver-quote-modal__route">
-            <span>From</span><strong>{target.pickup}</strong><small>{when(target.pickupAt)}</small>
-          </div>
-          <div className="driver-quote-modal__route">
-            <span>To</span><strong>{target.delivery}</strong>
-          </div>
+    <MarketplaceQuoteNowDialog
+      target={{
+        id: target.id,
+        memberName: target.memberName,
+        memberCode: target.memberCode,
+        requestedVehicle: target.vehicle,
+        pickup: target.pickup,
+        delivery: target.delivery,
+        pickupWhen: cxWhen(target.pickupAt),
+        deliveryWhen: cxWhen(target.deliveryAt),
+      }}
+      working={working}
+      errorContent={error ? (
+        <div className="xdrive-quote-modal__error">
+          <AlertBanner tone="danger">{error}</AlertBanner>
+          <WorkspaceRestrictionBanner operation="quote" inline />
         </div>
-
-        {error && <div style={{ padding: '0 12px' }}><p role="alert">{error}</p><WorkspaceRestrictionBanner operation="quote" inline /></div>}
-
-        <div className="driver-quote-modal__form">
-          <label>
-            <span>My quote price (exc. VAT)</span>
-            <div className="driver-quote-modal__money"><b>£</b><input autoFocus type="number" min="1" step="0.01" value={amount} onChange={(event) => onAmountChange(event.target.value)} placeholder="0.00" /></div>
-          </label>
-          <div className="driver-quote-modal__total"><span>Total</span><strong>£ {Number(amount) > 0 ? Number(amount).toFixed(2) : '0.00'}</strong></div>
-          <label>
-            <span>Notes</span>
-            <textarea rows={4} value={message} onChange={(event) => onMessageChange(event.target.value)} placeholder="Optional message to the posting member" />
-          </label>
-        </div>
-
-        <footer className="driver-quote-modal__footer">
-          <ActionButton tone="secondary" disabled={working} onClick={onClose}>Cancel</ActionButton>
-          <ActionButton tone="success" disabled={working || !amount || Number(amount) <= 0} onClick={onSubmit}>{working ? 'Submitting…' : 'Submit Quote'}</ActionButton>
-        </footer>
-      </section>
-    </div>
+      ) : null}
+      vehicleValue=""
+      vehicleOptions={[]}
+      onVehicleChange={() => undefined}
+      currencyValue="GBP"
+      currencyOptions={[{ value: 'GBP', label: 'GBP - Pounds' }]}
+      onCurrencyChange={() => undefined}
+      currencySymbol="£"
+      amount={amount}
+      onAmountChange={onAmountChange}
+      extras={extras}
+      extraOptions={QUOTE_EXTRA_OPTIONS}
+      onAddExtra={() => setExtras((current) => [
+        ...current,
+        { id: `${Date.now()}-${current.length}`, kind: 'congestion', amount: '' },
+      ])}
+      onExtraKindChange={(id, kind) => setExtras((current) => current.map((item) => (
+        item.id === id ? { ...item, kind: kind as QuoteExtraKind } : item
+      )))}
+      onExtraAmountChange={(id, extraAmount) => setExtras((current) => current.map((item) => (
+        item.id === id ? { ...item, amount: extraAmount } : item
+      )))}
+      onRemoveExtra={(id) => setExtras((current) => current.filter((item) => item.id !== id))}
+      total={total}
+      extrasTotal={extrasTotal}
+      message={message}
+      onMessageChange={onMessageChange}
+      onClose={onClose}
+      onSubmit={() => onSubmit({
+        totalAmount: total,
+        baseAmount: safeBaseAmount,
+        additionalExtrasGbp: extrasTotal,
+        message: message.trim(),
+      })}
+    />
   );
 }

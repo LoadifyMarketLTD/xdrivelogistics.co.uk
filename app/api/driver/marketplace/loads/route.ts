@@ -180,24 +180,53 @@ export async function GET(request: NextRequest) {
     return respond(403, { error: 'Commercial marketplace access is not enabled for this Driver account.' });
   }
 
-  const requestedId = new URL(request.url).searchParams.get('id')?.trim() || null;
+  const searchParams = new URL(request.url).searchParams;
+  const requestedId = searchParams.get('id')?.trim() || null;
+  const quotedHistory = searchParams.get('view') === 'quote_history';
+
+  let quotedJobIds: string[] = [];
+  if (quotedHistory) {
+    const { data: quotedRows, error: quotedRowsError } = await supabaseAdmin
+      .from('job_bids')
+      .select('job_id')
+      .eq('bidder_user_id', driver.userId)
+      .order('created_at', { ascending: false })
+      .limit(LIST_LIMIT);
+    if (quotedRowsError) {
+      return operationalError({
+        status: 500,
+        message: 'Your quote history could not be loaded. Please retry.',
+        context: 'driver.marketplace.loads.quote-history-bids',
+        cause: quotedRowsError,
+        retryable: true,
+      });
+    }
+    quotedJobIds = [...new Set((quotedRows ?? []).map((row) => String(row.job_id ?? '')).filter(Boolean))];
+    if (quotedJobIds.length === 0) return respond(200, { loads: [] });
+  }
+
   let query = supabaseAdmin
     .from('jobs')
     .select('*')
-    .not('exchange_posted_at', 'is', null)
-    .is('awarded_carrier_company_id', null)
     .order('exchange_posted_at', { ascending: false });
 
-  query = requestedId
-    ? query.eq('id', requestedId).in('status', ['posted', 'quoted']).limit(1)
-    : query.in('status', ['posted', 'quoted']).limit(LIST_LIMIT);
+  if (quotedHistory) {
+    query = query.in('id', quotedJobIds).limit(LIST_LIMIT);
+  } else {
+    query = query
+      .not('exchange_posted_at', 'is', null)
+      .is('awarded_carrier_company_id', null);
+    query = requestedId
+      ? query.eq('id', requestedId).in('status', ['posted', 'quoted']).limit(1)
+      : query.in('status', ['posted', 'quoted']).limit(LIST_LIMIT);
+  }
 
   const { data: rawJobs, error: jobsError } = await query;
   if (jobsError) {
     return operationalError({
       status: 500,
-      message: 'The live load board could not be loaded. Please retry.',
-      context: requestedId ? `driver.marketplace.load:${requestedId}` : 'driver.marketplace.loads.list',
+      message: quotedHistory ? 'Your quote history could not be loaded. Please retry.' : 'The live load board could not be loaded. Please retry.',
+      context: quotedHistory ? 'driver.marketplace.loads.quote-history' : requestedId ? `driver.marketplace.load:${requestedId}` : 'driver.marketplace.loads.list',
       cause: jobsError,
       retryable: true,
     });
@@ -219,6 +248,7 @@ export async function GET(request: NextRequest) {
     if (!companyId) return false;
     if (driver.companyId && companyId === driver.companyId) return false;
     if (blockedResult.ids.has(companyId)) return false;
+    if (quotedHistory) return quotedJobIds.includes(String(job.id));
     if (!exchangePostActive(job)) return false;
     return visibilityAllows(job, driver.companyId);
   });

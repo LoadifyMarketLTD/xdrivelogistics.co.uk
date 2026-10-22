@@ -8,6 +8,7 @@ import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../li
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
+import { sendGeneratedInvoice } from '../../../lib/client/invoiceDelivery';
 import { useAuth } from '../AuthContext';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
@@ -443,8 +444,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       });
       const payload = await response.json().catch(() => ({})) as { invoice?: { id?: string }; error?: string };
       if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
-      setMessage('Draft invoice created. Review it before sending.');
-      router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
+      await sendGeneratedInvoice(payload.invoice.id, auth);
+      setMessage('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
+      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
@@ -561,12 +563,18 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         eyebrow="Marketplace job"
         title={`${job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → ${job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}`}
         description={`Load ${sheet?.reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`} · ${statusLabel[currentStatus] ?? currentStatus}`}
-        actions={<><ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>← Back</ActionButton><ActionButton tone="secondary" onClick={() => void loadJob()}>Refresh</ActionButton></>}
       />
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {message && <AlertBanner tone="success">{message}</AlertBanner>}
       {sheet?.partial && <AlertBanner tone="warning">Part of the awarded booking could not be enriched. Verified values are shown and missing values remain explicitly unavailable.</AlertBanner>}
+
+      <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'flex-end', marginBottom: 6 }}>
+        <span className="workspace-list-controls__right">
+          <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>← Back</ActionButton>
+          <ActionButton tone="secondary" onClick={() => void loadJob()}>Refresh</ActionButton>
+        </span>
+      </div>
 
       <Panel title="Order" description="Awarded booking confirmation and operational instructions from the driver-authorised job sheet.">
         <div className="driver-detail-grid">

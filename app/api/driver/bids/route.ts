@@ -22,12 +22,16 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null) as {
     jobId?: unknown;
     amount?: unknown;
+    baseAmount?: unknown;
+    additionalExtrasGbp?: unknown;
     message?: unknown;
   } | null;
 
   const result = await submitDriverQuote(supabaseAdmin, driver, {
     jobId: typeof body?.jobId === 'string' ? body.jobId : '',
     amount: Number(body?.amount),
+    baseAmount: body?.baseAmount == null ? null : Number(body.baseAmount),
+    additionalExtrasGbp: body?.additionalExtrasGbp == null ? null : Number(body.additionalExtrasGbp),
     message: typeof body?.message === 'string' ? body.message : '',
   });
 

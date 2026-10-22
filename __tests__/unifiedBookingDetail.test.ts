@@ -67,8 +67,18 @@ describe('unified booking detail', () => {
     expect(diary).toContain('<CompanyJobSheetPanel jobId={selectedJobId} mode="carrier"');
   });
 
-  it('updates Operations Diary quick tabs to the canonical booking detail sections', () => {
-    expect(diary).toContain("['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log']");
+  it('maps CX Diary quick actions into the canonical booking detail sections', () => {
+    for (const [label, tab] of [
+      ['POD', 'pod'],
+      ['Order', 'agreement'],
+      ['Notes', 'progress'],
+      ['History', 'event-log'],
+      ['Documents', 'evidence'],
+      ['View invoice (£)', 'invoice'],
+    ] as const) {
+      expect(diary).toContain(`openJobTab(job.id, '${tab}')`);
+      expect(diary).toContain(`>${label}</button>`);
+    }
     expect(diary).toContain("initialTab={detailTabByJob[selectedJobId] ?? 'agreement'}");
     expect(diary).not.toContain("['order','notes','history','documents','pod','invoice','replay']");
   });

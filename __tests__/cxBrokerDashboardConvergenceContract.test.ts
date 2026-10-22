@@ -18,7 +18,7 @@ describe('Broker dashboard convergence contract', () => {
 
   it('shares the Owner Driver dashboard KPI primitive and keeps data warnings above cards', () => {
     expect(source).toContain('<KpiGrid>');
-    expect((source.match(/<KpiCard/g) ?? []).length).toBe(4);
+    expect((source.match(/<KpiCard/g) ?? []).length).toBe(2);
     expect(source.indexOf('{data.error ? <AlertBanner')).toBeLessThan(
       source.indexOf('className="broker-clean-dashboard xdrive-owner-dashboard-grid"'),
     );

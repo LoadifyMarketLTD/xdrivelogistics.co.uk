@@ -15,8 +15,8 @@ describe('CX Loads confirmed commercial-detail parity', () => {
   it('surfaces poster phone, payment terms and hard-copy POD on XDrive load cards', () => {
     expect(ui).toContain('posterPhone: string | null');
     expect(ui).toContain("href={`tel:${load.posterPhone.replace(/\\s+/g, '')}`}");
-    expect(ui).toContain('Payment terms: ${load.payment_terms}');
-    expect(ui).toContain('Hard-copy POD: ${load.hard_copy_pod}');
+    expect(ui).toContain('<span>Payment Terms:</span><strong>{load.payment_terms');
+    expect(ui).toContain('<span>Hard copy POD:</span><strong>{load.hard_copy_pod');
   });
 
   it('does not invent electronic-quote suppression before CX semantics are confirmed', () => {

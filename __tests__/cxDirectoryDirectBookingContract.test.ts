@@ -5,6 +5,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 
 const directoryApi = read('app/api/directory/route.ts');
 const directoryUi = read('app/components/workspace/MemberDirectoryPage.tsx');
+const memberProfile = read('app/components/workspace/MemberProfile.tsx');
 const postingForm = read('app/components/workspace/LoadPostingForm.tsx');
 const createJobApi = read('app/api/jobs/create/route.ts');
 
@@ -19,7 +20,7 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(directoryApi).not.toContain('exact_lng');
   });
   it('adds CX-useful business filters without fabricating unavailable radius data', () => {
-    for (const label of ['COUNTRY', 'VEHICLE TYPE', 'SPECIALIST SERVICE', 'TAIL LIFT CAPABILITY']) {
+    for (const label of ['COUNTRY', 'VEHICLE SIZE / TYPE', 'SPECIALIST SERVICE', 'Tail Lift']) {
       expect(directoryUi).toContain(label);
     }
     expect(directoryUi).toContain('specialistService');
@@ -40,8 +41,9 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(directoryUi).not.toContain("'/super-admin/");
   });
   it('opens member profiles through the supported overlay instead of dead dynamic routes', () => {
-    expect(directoryUi).toContain('MemberProfileOverlay');
-    expect(directoryUi).toContain('setProfileTarget');
+    expect(directoryUi).toContain('MemberIdentityLink');
+    expect(memberProfile).toContain('MemberProfileOverlay');
+    expect(memberProfile).toContain('setOpen(true)');
     expect(directoryUi).not.toContain('/driver/network/${company.companyId}');
     expect(directoryUi).not.toContain('/driver/network/${driver.companyId}');
   });

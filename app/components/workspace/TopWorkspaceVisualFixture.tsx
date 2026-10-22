@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import TopWorkspaceShell from './TopWorkspaceShell';
 import { FIXTURE_ROLE_CONFIG, type FixtureRole } from './WorkspaceVisualFixture';
 import {
+  ActionButton,
   DataTable,
   KpiCard,
   KpiGrid,
@@ -26,7 +27,12 @@ function FixtureShell({ role, children }: FixtureShellProps) {
 
   return (
     <div className={`xdrive-workspace-visual xdrive-operational-top-workspace xdrive-workspace-measured${driverClass}`}>
-      <TopWorkspaceShell forcedRole={forcedRole}>{children}</TopWorkspaceShell>
+      <TopWorkspaceShell
+        forcedRole={forcedRole}
+        fixtureCompanyName={`XDrive ${FIXTURE_ROLE_CONFIG[role].title}`}
+      >
+        {children}
+      </TopWorkspaceShell>
     </div>
   );
 }
@@ -83,7 +89,7 @@ export default function TopWorkspaceVisualFixture({ role }: { role: OperationalF
             <OperationalCard
               title="Activity at a glance"
               subtitle="Current operational records and next actions."
-
+              actions={<ActionButton tone="secondary">View All</ActionButton>}
               flush
             >
               <DataTable

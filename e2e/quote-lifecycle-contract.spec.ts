@@ -12,6 +12,7 @@
  *  - No SUPABASE_SERVICE_ROLE_KEY required for page rendering.
  */
 import { expect, test } from '@playwright/test';
+import { loginWithCredentials } from './helpers/authLogin';
 
 // ─── Static contract: quote status state machine ─────────────────────────────
 
@@ -97,16 +98,11 @@ test.describe('quote workflow invariants', () => {
 
 // ─── Authenticated tests ──────────────────────────────────────────────────────
 
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? '';
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
+const ADMIN_EMAIL = process.env.E2E_CARRIER_ADMIN_EMAIL ?? process.env.E2E_ADMIN_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.E2E_CARRIER_ADMIN_PASSWORD ?? process.env.E2E_ADMIN_PASSWORD ?? '';
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {
-  await page.goto('/login');
-  await page.waitForSelector('input[type="email"]', { timeout: 10_000 });
-  await page.fill('input[type="email"]', ADMIN_EMAIL);
-  await page.fill('input[type="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"], button:has-text("Sign in"), button:has-text("Login")');
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
+  await loginWithCredentials(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 }
 
 test.describe('admin quote management — authenticated', () => {
@@ -116,18 +112,20 @@ test.describe('admin quote management — authenticated', () => {
     await loginAsAdmin(page);
   });
 
-  test('quotes page loads with heading', async ({ page }) => {
+  test('quotes page loads the canonical quote workspace', async ({ page }) => {
     await page.goto('/admin/quotes');
-    await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('h1, h2').first()).toContainText(/quote/i);
+    await expect(page.getByRole('complementary', { name: 'Quote filters' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('tablist', { name: 'Quote statuses' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('table').first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('quotes page shows status filter tabs', async ({ page }) => {
+  test('quotes page shows canonical status tabs', async ({ page }) => {
     await page.goto('/admin/quotes');
-    await page.waitForLoadState('networkidle');
-    // Expect at least some tab/filter labels
-    const statusLabels = page.getByText(/all|draft|sent|accepted|declined|withdrawn/i);
-    await expect(statusLabels.first()).toBeVisible({ timeout: 8_000 });
+    const tablist = page.getByRole('tablist', { name: 'Quote statuses' });
+    await expect(tablist).toBeVisible({ timeout: 10_000 });
+    for (const label of ['Received', 'Archived', 'Submitted', 'Unsuccessful']) {
+      await expect(tablist.getByRole('tab', { name: label })).toBeVisible();
+    }
   });
 
   test('quotes page exposes New Quote button', async ({ page }) => {

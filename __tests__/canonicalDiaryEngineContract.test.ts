@@ -4,7 +4,7 @@ import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket } from '../lib/diary
 const labels = (role: Parameters<typeof getCanonicalDiaryTabs>[0]) => getCanonicalDiaryTabs(role).map((item) => item.id);
 
 describe('canonical Diary engine', () => {
-  it('gives Customer the complete commercial lifecycle including expiry, feedback and evidence', () => {
+  it('gives Customer the commercial lifecycle while keeping POD evidence on the booking record instead of a CX Diary tab', () => {
     expect(labels('customer')).toEqual([
       'all',
       'open',
@@ -16,8 +16,8 @@ describe('canonical Diary engine', () => {
       'expired',
       'awaiting_feedback',
       'recent_feedback',
-      'evidence',
     ]);
+    expect(labels('customer')).not.toContain('evidence');
   });
 
   it('keeps employed Driver focused on assigned execution rather than company allocation queues', () => {

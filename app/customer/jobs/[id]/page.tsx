@@ -132,19 +132,20 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
         eyebrow="Customer booking"
         title={job ? `XDrive XDL-${job.id.slice(0, 8).toUpperCase()}` : 'Booking detail'}
         description="The authoritative customer-side transport record: compare carrier quotes, award work, then follow Order, exact route, carrier, contacts, POD, history, documents, live tracking and authorised invoice information."
-        actions={
-          <>
-            <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton>
-            {ownerCapabilities?.canEdit && job && <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}/edit`)}>Edit Job</ActionButton>}
-            {ownerCapabilities?.canDelete && job && <ActionButton tone="danger" disabled={working === 'delete'} onClick={() => setDeleteArmed(true)}>Delete Load</ActionButton>}
-            {quotes.length > 0 && <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>Quotes awaiting decision ({quotes.length})</ActionButton>}
-            {invoice && <ActionButton tone="primary" onClick={() => router.push(`/customer/invoices/${invoice.id}`)}>Open invoice</ActionButton>}
-          </>
-        }
       />
 
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}
+
+      <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'flex-end', marginBottom: 6 }}>
+        <span className="workspace-list-controls__right">
+          <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Back to Bookings</ActionButton>
+          {ownerCapabilities?.canEdit && job && <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}/edit`)}>Edit Job</ActionButton>}
+          {ownerCapabilities?.canDelete && job && <ActionButton tone="danger" disabled={working === 'delete'} onClick={() => setDeleteArmed(true)}>Delete Load</ActionButton>}
+          {quotes.length > 0 && <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>Quotes awaiting decision ({quotes.length})</ActionButton>}
+          {invoice && <ActionButton tone="primary" onClick={() => router.push(`/customer/invoices/${invoice.id}`)}>Open invoice</ActionButton>}
+        </span>
+      </div>
 
       {deleteArmed && job && (
         <div style={{ border: '1px solid #fecaca', background: '#fff7f7', borderRadius: 5, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: '#991b1b', fontSize: 12 }}>

@@ -208,13 +208,6 @@ export default function FleetDriversPage() {
         eyebrow="Fleet resources"
         title="Drivers"
         description="Operational readiness combines driver identity, onboarding, vehicle assignment and compliance — not the account status badge alone."
-        actions={(
-          <>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Compliance documents</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live positions</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage drivers</ActionButton>
-          </>
-        )}
       />
 
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
@@ -307,10 +300,10 @@ export default function FleetDriversPage() {
                   <ActionButton tone="secondary" onClick={() => router.push('/admin/documents?type=driver')}>Fix compliance</ActionButton>
                 )}
                 {readiness && readiness.vehicle.active_assigned_count !== 1 && (
-                  <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Fix Vehicle</ActionButton>
+                  <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Fix Vehicle</ActionButton>
                 )}
                 {location && <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Locate</ActionButton>}
-                <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage</ActionButton>
               </span>,
             ];
           })}

@@ -13,13 +13,14 @@ describe('CX-close carrier and fleet top navigation', () => {
       "['carrier-dashboard', 'Dashboard', '/admin']",
       "['carrier-directory', 'Directory', '/admin/marketplace/directory']",
       "['carrier-live-availability', 'Live Availability', '/admin/live-availability']",
-      "['carrier-my-fleet', 'My Fleet', '/admin/fleet']",
+      "['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles']",
       "['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns']",
       "['carrier-loads', 'Loads', '/admin/marketplace']",
-      "['carrier-quotes', 'Quotes', '/admin/exchange-quotes']",
+      "['carrier-quotes', 'Quotes', '/admin/exchange']",
       "['carrier-diary', 'Diary', '/admin/diary']",
       "['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision']",
       "['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources']",
+      "['carrier-settings', 'Settings', '/admin/settings']",
     ];
     let cursor = -1;
     for (const item of sequence) {
@@ -32,14 +33,14 @@ describe('CX-close carrier and fleet top navigation', () => {
     expect(shell).toContain("label: 'More'");
   });
 
-  it('keeps secondary XDrive modules accessible under More rather than removing them', () => {
+  it('keeps secondary XDrive modules reachable without duplicating hub-owned routes in More', () => {
     expect(shell).toContain("'/admin/invoices'");
-    expect(shell).toContain("'/admin/fleet/drivers'");
     expect(shell).toContain("'/admin/jobs'");
-    expect(shell).toContain("'/admin/fleet/vehicles'");
     expect(shell).toContain("'/admin/documents'");
     expect(shell).toContain("'/admin/event-log'");
-    expect(shell).toContain("'/admin/settings'");
+    expect(shell).toContain("'/admin/fleet/drivers'");
+    expect(shell).toContain("'/admin/fleet/vehicles'");
+    expect(shell).toContain("['carrier-settings', 'Settings', '/admin/settings']");
   });
 
   it('keeps Fleet My Fleet and Drivers & Vehicles as separate destinations and retains Action Centre', () => {
@@ -53,7 +54,7 @@ describe('CX-close carrier and fleet top navigation', () => {
     const fleetCapabilityBlock = roles.slice(roles.indexOf('fleet_manager: new Set'), roles.indexOf('dispatcher: new Set'));
     expect(fleetCapabilityBlock).not.toContain("'loads.view.marketplace'");
     expect(fleetCapabilityBlock).not.toContain("'quotes.submit'");
-    expect(shell).toContain("if (role === 'fleet_manager') return composeFleetPrimaryNav(base);");
+    expect(shell).toContain("if (role === 'fleet_manager') return composeFleetPrimaryNav(accessibleBase);");
   });
 
   it('preserves capability gating for Driver and Vehicle links', () => {

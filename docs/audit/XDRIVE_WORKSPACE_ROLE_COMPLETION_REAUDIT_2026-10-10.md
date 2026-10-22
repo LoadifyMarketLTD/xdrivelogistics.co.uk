@@ -14,12 +14,12 @@ The purpose of this pass was not to rebuild any workspace. Existing implementati
 
 ## Phase 25 — Workspace Shell Parity
 
-Revalidated canonical shell geometry, navigation, responsive behavior, dashboard convergence and Owner Driver reference parity.
+Revalidated canonical shell geometry, navigation, responsive behavior and dashboard convergence against Courier Exchange live.
 
 Evidence:
 - 38 shell/navigation/responsive contract files
 - **235 / 235 tests PASS**
-- Owner reference page audit PASS
+- CX live reference page audit PASS
 - unified workspace navbar PASS
 - responsive convergence PASS
 - role-adaptive shell PASS
@@ -120,7 +120,7 @@ Evidence:
 ## Phase 31 — Owner Driver Completion
 
 Revalidated Owner Driver:
-- visual reference;
+- visual surface against Courier Exchange live;
 - onboarding physical contract;
 - dashboard geometry;
 - commercial summary;
@@ -128,10 +128,10 @@ Revalidated Owner Driver:
 - Saved Networks;
 - integrated navigation;
 - More integration;
-- cross-workspace Owner reference parity.
+- cross-workspace Courier Exchange live reference parity.
 
 Evidence:
-- 11 Owner Driver/reference suites
+- 11 workspace/CX-reference suites
 - **38 / 38 tests PASS**
 
 **Verdict: PASS / formally closed at repository-contract level.**

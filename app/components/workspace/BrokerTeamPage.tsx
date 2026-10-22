@@ -172,12 +172,7 @@ export default function BrokerTeamPage() {
       <PageHeader
         eyebrow="Broker administration"
         title="Team"
-        description="Manage broker team invitations, access roles and membership status using server-authorised company-scoped actions."
-        actions={
-          <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </ActionButton>
-        }
+        description="Manage broker team invitations, access roles and membership status."
       />
 
       {workspace.error && <AlertBanner>{workspace.error}</AlertBanner>}
@@ -219,7 +214,7 @@ export default function BrokerTeamPage() {
         </Panel>
       )}
 
-      <Panel title="Broker team" description="Only memberships belonging to the active broker company are returned.">
+      <Panel title="Broker team" description="Only memberships belonging to the active broker company are returned." actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}>
         <DataTable
           columns={['Member', 'Email', 'Role', 'Department', 'Membership', 'Profile', 'Joined', 'Actions']}
           rows={members.map((member) => [

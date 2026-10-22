@@ -1,7 +1,7 @@
-.role-settings-layout{
+﻿.role-settings-layout{
   display:grid;
-  grid-template-columns:var(--ws-filter-rail-w,165px) minmax(0,1fr);
-  gap:var(--ws-gap-grid,8px);
+  grid-template-columns:210px minmax(0,1fr);
+  gap:10px;
   align-items:start;
 }
 .role-settings-nav{
@@ -21,15 +21,16 @@
 .role-settings-company strong{font-size:13px;color:#0b2f6b}
 .role-settings-company span{font-size:var(--ws-font-meta,11px);line-height:14px;color:#64748b;text-transform:capitalize}
 .role-settings-nav button{
-  min-height:var(--ws-control-h,32px);
-  padding:0 9px;
+  min-height:34px;
+  padding:0 10px;
   border:0;
   border-bottom:1px solid #edf2f7;
   border-left:3px solid transparent;
   background:#fff;
   color:#1f3652;
   text-align:left;
-  font-size:var(--ws-font-label,11px);
+  font-size:12px;
+  line-height:16px;
   font-weight:750;
   cursor:pointer;
 }
@@ -40,9 +41,6 @@
   color:#0b2f6b;
 }
 .role-settings-main{min-width:0}
-.role-settings-layout--topnav{
-  grid-template-columns:minmax(0,1fr);
-}
 .role-settings-overview{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -118,3 +116,47 @@
 @media(max-width:760px){
   .role-settings-form{grid-template-columns:1fr}
 }
+
+/* Shared settings density for all seven operational workspaces. */
+.role-settings-company {
+  padding: 6px 8px;
+}
+
+.role-settings-overview {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.role-settings-member {
+  gap: 8px;
+  padding-bottom: 7px;
+  margin-bottom: 5px;
+}
+
+.role-settings-mark {
+  width: 36px;
+  height: 36px;
+}
+
+.role-settings-kv > div {
+  min-height: 30px;
+}
+
+.role-settings-links button {
+  min-height: 34px;
+  gap: 1px;
+  padding: 4px 0;
+}
+
+.role-settings-actions {
+  gap: 5px;
+  margin-top: 7px;
+}
+
+@media (max-width: 1220px) {
+  .role-settings-overview {
+    grid-template-columns: 1fr;
+  }
+}
+

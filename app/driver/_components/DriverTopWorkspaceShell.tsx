@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 
 import TopWorkspaceShell from '../../components/workspace/TopWorkspaceShell';
+import { useDriverAvailabilityPresencePublisher } from '../../hooks/useDriverAvailabilityPresencePublisher';
 
 /**
  * Driver and Owner Driver use the canonical operational workspace shell.
@@ -10,5 +11,6 @@ import TopWorkspaceShell from '../../components/workspace/TopWorkspaceShell';
  * owner-driver capabilities produce different menus without a second navbar.
  */
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
+  useDriverAvailabilityPresencePublisher();
   return <TopWorkspaceShell>{children}</TopWorkspaceShell>;
 }

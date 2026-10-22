@@ -13,7 +13,7 @@ describe('Compliance CX convergence contract', () => {
     expect(source).not.toContain('<KpiCard');
   });
 
-  it('uses the canonical Owner Driver dashboard hierarchy while keeping compliance work role-specific', () => {
+  it('uses the measured Courier Exchange live dashboard hierarchy while keeping compliance work role-specific', () => {
     expect(source).toContain('<OperationalWorkspaceGrid');
     expect(source).toContain('title="Reports & Statistics"');
     expect(source).toContain('title="Activity at a glance"');

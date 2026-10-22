@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 const fieldStyle = {
   width: '100%',
@@ -36,11 +36,16 @@ const validationMessageStyle = {
   fontWeight: 700,
 };
 
-const normalizePostcode = (value: string) => {
+export const normalizeOperationalPostcode = (value: string) => {
   const compact = value.toUpperCase().replace(/\s+/g, '').trim();
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
 };
-const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizePostcode(value));
+const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizeOperationalPostcode(value));
+
+export const operationalAddressSuggestionLabel = (address: string, postcode: string) => {
+  const normalized = normalizeOperationalPostcode(postcode);
+  return [address.trim(), normalized, 'GB'].filter(Boolean).join(', ');
+};
 
 export default function PostcodeAddressField({
   postcode,
@@ -68,11 +73,11 @@ export default function PostcodeAddressField({
   }, [address]);
 
   useEffect(() => {
-    const normalized = normalizePostcode(postcode);
+    const normalized = normalizeOperationalPostcode(postcode);
     setSuggestions([]);
     setOpen(false);
 
-    if (!isSupabaseConfigured || !isFullUkPostcode(normalized)) {
+    if (!isFullUkPostcode(normalized)) {
       setLoading(false);
       return;
     }
@@ -81,8 +86,7 @@ export default function PostcodeAddressField({
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
+        const token = readRouteAuthAccessToken();
         if (!token) return;
 
         const params = new URLSearchParams({ postcode: normalized });
@@ -189,7 +193,7 @@ export default function PostcodeAddressField({
                 setOpen(false);
               }}
             >
-              {suggestion}
+              {operationalAddressSuggestionLabel(suggestion, postcode)}
             </button>
           ))}
         </div>

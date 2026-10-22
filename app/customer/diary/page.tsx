@@ -2,21 +2,30 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
+import { ActionButton, AlertBanner, EmptyState, PageFrame } from '../../components/workspace/WorkspaceUI';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 
 type DiaryTab = CanonicalDiaryBucket;
-type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; would_use_again: boolean | null; delivered_promptly: boolean | null; courteous: boolean | null; created_at: string | null };
 const CUSTOMER_DIARY_TABS = getCanonicalDiaryTabs('customer');
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
+const cxTimeParts = (value: string | null | undefined) => {
+  if (!value) return { primary: 'ASAP', meta: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { primary: 'Not set', meta: '' };
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return { primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}` };
+};
 const routeLocationLabel = (location: string | null | undefined, postcode: string | null | undefined, fallback: string) => {
   const place = location?.trim() ?? '';
   const code = postcode?.trim() ?? '';
@@ -44,6 +53,7 @@ export default function CustomerDiaryPage() {
   const [carrier, setCarrier] = useState('');
   const [date, setDate] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailTabs, setDetailTabs] = useState<Record<string, JobSheetTab>>({});
   const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -61,7 +71,7 @@ export default function CustomerDiaryPage() {
     }
     const { data: reviews, error } = await supabase
       .from('reviews')
-      .select('id, job_id, reviewer_company_id, rating, comment, created_at')
+      .select('id, job_id, reviewer_company_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at')
       .eq('reviewer_company_id', companyId)
       .in('job_id', jobIds)
       .order('created_at', { ascending: false });
@@ -120,65 +130,51 @@ export default function CustomerDiaryPage() {
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')));
   }, [carrier, companyId, data.jobs, date, delivery, pickup, quoteInfoByJob, reference, reviewsByJob, tab]);
 
-  const counts = useMemo(() => Object.fromEntries(
-    CUSTOMER_DIARY_TABS.map((item) => [
-      item.id,
-      data.jobs.filter((job) => matchesTab(
-        job,
-        item.id,
-        (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0,
-        (reviewsByJob[job.id]?.length ?? 0) > 0,
-        companyId,
-      )).length,
-    ]),
-  ) as Record<DiaryTab, number>, [companyId, data.jobs, quoteInfoByJob, reviewsByJob]);
-
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visibleRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
   useEffect(() => { setPage(1); setExpanded(null); setExpandAll(false); }, [tab, reference, pickup, delivery, carrier, date, pageSize]);
 
-  const tabs = CUSTOMER_DIARY_TABS.map((item) => ({ ...item, count: counts[item.id] ?? 0 }));
+  const tabs = CUSTOMER_DIARY_TABS;
   const clear = () => { setReference(''); setPickup(''); setDelivery(''); setCarrier(''); setDate(''); };
-  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
   return (
     <PageFrame>
-      <PageHeader
-        eyebrow="Customer operations"
-        title="Diary"
-        description="Search, scan and expand every transport booking from quote activity through delivery, POD and invoice."
-        actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
-      />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
-      <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Customer diary filters">
-          <div className="workspace-filter-rail__header">Search Diary</div>
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
+        <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Customer diary filters">
+          <div className="cx-diary-rail-nav">
+            <ActionButton tone="secondary" onClick={() => router.push('/customer/network/directory')}>Contacts</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>Invoices</ActionButton>
+          </div>
+          <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
-            <label>DATE<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-            <label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
-            <label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
-            <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
-            <label>AWARDED CARRIER / MEMBER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company / owner driver / ID" /></label>
-            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span><ActionButton tone="secondary" onClick={clear}>Clear</ActionButton></div>
+            <label>Date:<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+            <label>Pickup:<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>Delivery:<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>Load ID / Ref:<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
+            <label>Awarded Carrier / Member:<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier company / owner driver / ID" /></label>
+            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span><div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setPage(1)}>Search</ActionButton><ActionButton tone="secondary" onClick={clear}>Clear</ActionButton></div></div>
           </div>
         </aside>
 
-        <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" role="tablist" aria-label="Customer diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} {item.count}</button>)}
-          </div>
-
-          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
-            <span><strong>{rows.length}</strong> booking{rows.length === 1 ? '' : 's'} · page {safePage}/{totalPages}</span>
+        <main className="workspace-board-main" style={{ minWidth: 0 }}>
+          <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
+            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></span>
             <span className="workspace-list-controls__right">
-              <button type="button" onClick={() => { setExpandAll((current) => !current); setExpanded(null); }} disabled={!visibleRows.length}>{expandAll ? 'Collapse all' : 'Expand all'}</button>
-              <label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
+              <button type="button" className="cx-expand-entries-control" disabled={!visibleRows.length} onClick={() => { setExpandAll((current) => !current); setExpanded(null); }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+              <ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>
+            </span>
+          </div>
+          <div className="workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Customer diary states">
+            {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}</button>)}
+            <span className="cx-diary-pagination">
+              <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
               <span>{rows.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, rows.length)} of ${rows.length}`}</span>
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
             </span>
           </div>
 
@@ -198,17 +194,44 @@ export default function CustomerDiaryPage() {
                 const carrierName = quoteInfo?.acceptedCompanyName ?? (carrierCompanyId ? 'Awarded carrier' : awardedOwnerDriverId ? 'Owner Driver' : 'Not awarded');
                 const review = reviewsByJob[job.id]?.[0] ?? null;
                 const feedbackAvailable = canLeaveCompanyFeedback(job, companyId);
+                const stage = classifyWorkspaceJobStage(job);
+                const pickupWhen = cxTimeParts(job.pickup_datetime);
+                const deliveryWhen = cxTimeParts(job.delivery_datetime);
+                const vehicle = (job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ');
+                const band = stage === 'completed' ? 'Delivered' : workspaceJobOperationalLabel(job);
                 return (
-                  <article key={job.id} className="workspace-operational-row" data-state={normalizedJobStatus(job)}>
-                    <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>AWARDED CARRIER / MEMBER</div><strong>{carrierCompanyId || awardedOwnerDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={awardedOwnerDriverId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}{job.assigned_driver_id ? ' · executing driver assigned' : ''}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={workspaceJobOperationalLabel(job)} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}>{open ? 'Collapse' : 'Expand'}</ActionButton>{classifyWorkspaceJobStage(job) !== 'open' ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open full booking</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</ActionButton>{canManageFeedback && feedbackAvailable ? <ActionButton tone="secondary" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</ActionButton> : null}</div></div>
-                    </div>
-                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Vehicle {(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</span><span>POD {job.pod_generated || job.has_delivery_evidence ? 'Available' : job.pod_required ? 'Required' : 'Not recorded'}</span><span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span><span>Updated {when(job.updated_at)}</span></div>
-                    {open && <CompanyJobSheetPanel jobId={job.id} mode="customer" />}
-                  </article>
+                  <CxDiaryCard
+                    key={job.id}
+                    from={routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}
+                    to={routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}
+                    pickup={pickupWhen}
+                    delivery={deliveryWhen}
+                    band={band}
+                    statusLine={carrierCompanyId || awardedOwnerDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={awardedOwnerDriverId}>{carrierName}</MemberIdentityLink> : <strong>{carrierName}</strong>}
+                    statusStamp={<>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}{job.assigned_driver_id ? ' · executing driver assigned' : ''}</>}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={vehicle}
+                    state={normalizedJobStatus(job)}
+                    stage={stage}
+                    expanded={open}
+                    footer={<CxDiaryActions
+                      expanded={open}
+                      onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
+                      onOpenTab={(tab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
+                      feedback={canManageFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    >
+                      {stage !== 'open' ? <button type="button" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</button> : null}
+                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
+                    </CxDiaryActions>}
+                    expandedMeta={<>
+                      {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
+                      {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
+                      <div><span>POD:</span><strong>{job.pod_generated || job.has_delivery_evidence ? 'Available' : job.pod_required ? 'Required' : 'Not recorded'}</strong></div>
+                      <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
+                      <div><span>Updated:</span><strong>{when(job.updated_at)}</strong></div>
+                    </>}
+                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="customer" initialTab={detailTabs[job.id] ?? 'agreement'} />}
+                  />
                 );
               })}
             </div>
@@ -222,7 +245,7 @@ export default function CustomerDiaryPage() {
         const quoteInfo = job ? quoteInfoByJob.get(job.id) : null;
         const counterpartyLabel = quoteInfo?.acceptedCompanyName ?? (job?.awarded_carrier_company_id ? 'Awarded carrier' : 'Executing carrier');
         const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
-        return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
+        return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment, would_use_again: existing.would_use_again, delivered_promptly: existing.delivered_promptly, courteous: existing.courteous } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
       })() : null}
     </PageFrame>
   );

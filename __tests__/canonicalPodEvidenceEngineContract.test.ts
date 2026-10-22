@@ -6,7 +6,7 @@ describe('canonical POD evidence engine', () => {
     expect(canonicalPodEvidence({
       pod_generated: true,
       delivery_photos: ['company/job/delivery/photo.jpg'],
-      delivery_signature_data: 'signature',
+      delivery_signature_data: 'company/job/signature.png',
       client_signature_name: 'Receiver',
     }).complete).toBe(true);
 
@@ -22,7 +22,7 @@ describe('canonical POD evidence engine', () => {
     const approved = canonicalPodEvidence({
       pod_generated: true,
       delivery_photos: ['photo'],
-      delivery_signature_data: { value: 'signature' },
+      delivery_signature_data: { value: 'company/job/signature.png' },
       client_signature_name: 'Receiver',
       broker_pod_review_status: 'approved',
     });

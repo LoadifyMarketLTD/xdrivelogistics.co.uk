@@ -11,9 +11,20 @@ const nonEmptyEvidence = (value: unknown) =>
     ? value.filter((item) => typeof item === 'string' && item.trim().length > 0)
     : [];
 
-const hasStoredSignature = (value: unknown) => {
-  if (typeof value === 'string') return value.trim().length > 0;
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+export const hasStoredSignature = (value: unknown): boolean => {
+  if (typeof value === 'string') {
+    return /^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/i.test(value.trim())
+      || /^[^/\s]+\/[^/\s]+\/[^\s]+$/.test(value.trim());
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  if (record.type === 'recipient_typed_name_attestation') {
+    return typeof record.recipient_name === 'string' && Boolean(record.recipient_name.trim())
+      && typeof record.confirmed_at === 'string' && Number.isFinite(Date.parse(record.confirmed_at))
+      && typeof record.evidence_path === 'string' && Boolean(record.evidence_path.trim())
+      && typeof record.job_id === 'string' && Boolean(record.job_id.trim());
+  }
+  return typeof record.value === 'string' && hasStoredSignature(record.value);
 };
 
 export function hasCompletePodEvidence(record: PodCompletionRecord) {

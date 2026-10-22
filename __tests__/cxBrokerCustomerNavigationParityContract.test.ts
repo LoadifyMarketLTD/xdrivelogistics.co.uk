@@ -9,7 +9,7 @@ const workspaceUi = fs.readFileSync(path.join(process.cwd(), 'app/components/wor
 describe('CX-close broker/customer navigation discoverability', () => {
   it('uses Directory terminology for broker and customer network routes', () => {
     expect(source).toContain("id: 'broker-directory', label: 'Directory'");
-    expect(source).toContain("href: '/broker/carrier-network'");
+    expect(source).toContain("href: '/broker/carrier-network/directory'");
     expect(source).toContain("id: 'customer-directory', label: 'Directory'");
     expect(source).toContain("href: '/customer/network'");
   });

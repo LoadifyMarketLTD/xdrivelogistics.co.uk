@@ -11,18 +11,18 @@ describe('Driver prototype migration contract', () => {
   const compatibility = read('app/driver/driver-operational.css');
   const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
 
-  it('loads the prototype parity layer after shared Driver structure and the frozen PR675 dashboard layers last', () => {
+  it('loads the shared seven-workspace baseline last so legacy Driver CSS cannot override canonical geometry', () => {
     const operational = layout.indexOf("driver-operational.css");
     const parity = layout.indexOf("driver-prototype-parity.css");
-    const baseline = layout.indexOf("workspace-measured-cx-baseline.css");
+    const baselineIndex = layout.indexOf("workspace-measured-cx-baseline.css");
     const reference = layout.indexOf("driver-dashboard-reference.css");
     const close = layout.indexOf("driver-dashboard-cx-close.css");
     const exact = layout.indexOf("driver-dashboard-prototype-exact.css");
     expect(operational).toBeGreaterThan(-1);
     expect(parity).toBeGreaterThan(operational);
-    expect(reference).toBeGreaterThan(baseline);
     expect(close).toBeGreaterThan(reference);
     expect(exact).toBeGreaterThan(close);
+    expect(baselineIndex).toBeGreaterThan(exact);
   });
 
   it('keeps Driver board and filter primitives owned by the measured shared baseline', () => {
@@ -259,20 +259,14 @@ describe('Driver prototype migration contract', () => {
     expect(collisions).toEqual([]);
   });
 
-  it('keeps live Quotes status tabs at the 28px PR675 height with a 2px blue active underline', () => {
+  it('keeps Driver Quotes status tabs on the shared measured CX-live tab strip', () => {
     const quotes = read('app/driver/quotes/page.tsx');
-    const routeCss = read('app/driver/driver-full-prototype.css');
-    const strip = routeCss.split('.driver-prototype-port .quote-tabs{').at(-1)?.split('}')[0];
-    const button = routeCss.split('.driver-prototype-port .quote-tabs button{').at(-1)?.split('}')[0];
-    const active = routeCss.split('.driver-prototype-port .quote-tabs button.active{').at(-1)?.split('}')[0];
-    const desktop = routeCss.split('  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-tabs,')[1]?.split('  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .return-tabs{')[0];
-    expect(quotes).toContain('className="quote-tabs"');
-    expect(strip).toContain('height:var(--ws-tab-h,28px)!important;');
-    expect(button).toContain('height:var(--ws-tab-h,28px)!important;');
-    expect(button).toContain('font-size:var(--ws-font-label,11px)!important;');
-    expect(active).toContain('border-bottom:2px solid var(--ws-blue,#1d57d8)!important;');
-    expect(desktop).not.toMatch(/(?:height|min-height):(?:29|30|39|40)px!important/);
-    expect(desktop).toContain('height:var(--ws-tab-h,28px)!important;');
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
+    expect(quotes).toContain('workspace-tab-strip cx-quote-state-tabs');
+    expect(quotes).not.toContain('quote-tabs workspace-tab-strip');
+    expect(baseline).toContain('.xdrive-workspace-measured .cx-quote-state-tabs');
+    expect(baseline).toContain('min-height: 28px !important;');
+    expect(baseline).toContain('border-top: 6px solid #bfe0fb;');
   });
 
   it('keeps live Diary tabs and paging controls together at the compact PR675 scale', () => {
@@ -284,13 +278,13 @@ describe('Driver prototype migration contract', () => {
     expect(routeLayout).toContain('driver-diary-route');
     expect(routeLayout).toContain("import './diary-exchange.css'");
     expect(page).toContain('className="driver-diary-controlbar"');
-    expect(page.indexOf('className="driver-diary-controlbar"')).toBeLessThan(page.indexOf('className="diary-head diary-head-cx"'));
+    expect(page.indexOf('className="driver-diary-controlbar"')).toBeLessThan(page.indexOf('className="diary-head diary-head-cx workspace-record-meta workspace-list-controls cx-diary-toolbar"'));
     expect(diaryCss).toContain('grid-template-columns:minmax(0,1fr) auto!important;');
     expect(diaryCss).toContain('grid-template-columns:minmax(0,1fr)!important;');
     expect(diaryCss).not.toContain('.xdrive-diary-layout');
     expect(diaryCss).not.toContain('.xdrive-diary-register');
     expect(diaryCss.match(/\.driver-diary-route \.driver-diary-shell-content\s*\{/g)).toHaveLength(1);
-    expect(diaryCss).toContain('padding: 6px 8px !important;');
+    expect(diaryCss).toContain('padding: var(--ws-page-y, 12px) var(--ws-page-x, 12px) 16px !important;');
 
     const strip = diaryCss.split('.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar > .diary-tabs{')[1]?.split('}')[0];
     const buttons = diaryCss.split('.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar > .diary-tabs button{')[1]?.split('}')[0];

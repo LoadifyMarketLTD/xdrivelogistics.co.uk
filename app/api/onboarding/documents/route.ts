@@ -14,7 +14,7 @@ import { assessStoredOnboardingRecovery } from '../_lib/recovery';
 
 export const runtime = 'nodejs';
 
-const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
@@ -29,13 +29,6 @@ const fleetDocTypeSchema = z.enum(FLEET_DOCUMENT_TYPES);
 const ownerDriverDocTypeSchema = z.enum(OWNER_DRIVER_DOCUMENT_TYPES);
 const brokerDocTypeSchema = z.enum(BROKER_DOCUMENT_TYPES);
 const individualDriverDocTypeSchema = z.enum(INDIVIDUAL_DRIVER_DOCUMENT_TYPES);
-
-type StoredDocument = {
-  id: string;
-  family: 'company' | 'identity';
-  table: 'company_documents' | 'driver_identity_documents';
-  companyId: string | null;
-};
 
 const registerDuplicateCaseAndHold = async (params: {
   subjectUserId: string;
@@ -120,7 +113,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appRows, error: appError } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, user_id, account_type, company_id, risk_status, payload')
+    .select('id, user_id, account_type, company_id, risk_status, payload, status')
     .eq('user_id', authData.user.id)
     .order('created_at', { ascending: false })
     .limit(2);
@@ -134,7 +127,7 @@ export async function POST(request: NextRequest) {
   }
   const app = appRows?.[0] ?? null;
   if (!app) return json(404, { error: 'Onboarding application not found.' });
-  if (app.risk_status === 'confirmed_fraud') {
+  if (app.risk_status === 'confirmed_fraud' || app.status === 'rejected') {
     return json(403, { error: 'This application is blocked from uploading documents.' });
   }
 
@@ -234,7 +227,7 @@ export async function POST(request: NextRequest) {
   }
 
   const ext = path.extname(file.name || '').toLowerCase();
-  const fileName = sanitizeFilename(`${Date.now()}-${docType}${ext}`);
+  const fileName = sanitizeFilename(`${crypto.randomUUID()}-${docType}${ext}`);
   const objectPath = `${authData.user.id}/${app.id}/${fileName}`;
 
   const cleanupUploadedObject = async () => {
@@ -253,306 +246,80 @@ export async function POST(request: NextRequest) {
     return json(500, { error: uploadError.message });
   }
 
-  let storedDocument: StoredDocument | null = null;
-
-  if (accountType === 'fleet_courier') {
-    const parsedDocType = parsedFleetDocType!;
-    if (!app.company_id) {
-      await cleanupUploadedObject();
-      return json(409, { error: 'Fleet onboarding must be bound to a verified company workspace before uploading documents.' });
-    }
-
-    const { data: company, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('id')
-      .eq('id', app.company_id)
-      .maybeSingle();
-
-    if (companyError || !company?.id) {
-      await cleanupUploadedObject();
-      return json(409, { error: companyError?.message ?? 'Bound fleet company workspace could not be found.' });
-    }
-
-    const { data: membership, error: membershipError } = await supabaseAdmin
-      .from('company_memberships')
-      .select('id')
-      .eq('company_id', company.id)
-      .eq('user_id', authData.user.id)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    if (membershipError || !membership?.id) {
-      await cleanupUploadedObject();
-      return json(403, { error: membershipError?.message ?? 'Active company membership is required to upload fleet documents.' });
-    }
-
-    const { data: document, error: documentError } = await supabaseAdmin
-      .from('company_documents')
-      .insert({
-        company_id: company.id,
-        onboarding_application_id: app.id,
-        doc_type: parsedDocType.data,
-        file_path: objectPath,
-        file_sha256: fileSha256,
-        status: 'pending',
-      })
-      .select('id')
-      .single();
-
-    if (documentError) {
-      await cleanupUploadedObject();
-      return json(500, { error: documentError.message });
-    }
-
-    storedDocument = {
-      id: document.id,
-      family: 'company',
-      table: 'company_documents',
-      companyId: company.id,
-    };
-  } else if (accountType === 'owner_driver') {
-    const parsedDocType = parsedOwnerDriverDocType!;
-
-    const { data: document, error: documentError } = await supabaseAdmin
-      .from('driver_identity_documents')
-      .insert({
-        onboarding_application_id: app.id,
-        doc_type: parsedDocType.data,
-        file_path: objectPath,
-        file_sha256: fileSha256,
-        upload_status: 'uploaded',
-        verification_status: 'unverified',
-      })
-      .select('id')
-      .single();
-
-    if (documentError) {
-      await cleanupUploadedObject();
-      return json(500, { error: documentError.message });
-    }
-
-    storedDocument = {
-      id: document.id,
-      family: 'identity',
-      table: 'driver_identity_documents',
-      companyId: app.company_id ?? null,
-    };
-  } else if (accountType === 'broker_shipper') {
-    const parsedDocType = parsedBrokerDocType!;
-    if (!app.company_id) {
-      await cleanupUploadedObject();
-      return json(409, { error: 'Broker onboarding must be bound to a company workspace before uploading documents.' });
-    }
-
-    const { data: company, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('id')
-      .eq('id', app.company_id)
-      .maybeSingle();
-
-    if (companyError || !company?.id) {
-      await cleanupUploadedObject();
-      return json(409, { error: companyError?.message ?? 'Bound broker company workspace could not be found.' });
-    }
-
-    const { data: membership, error: membershipError } = await supabaseAdmin
-      .from('company_memberships')
-      .select('id')
-      .eq('company_id', company.id)
-      .eq('user_id', authData.user.id)
-      .eq('status', 'active')
-      .maybeSingle();
-
-    if (membershipError || !membership?.id) {
-      await cleanupUploadedObject();
-      return json(403, { error: membershipError?.message ?? 'Active company membership is required to upload broker documents.' });
-    }
-
-    const { data: document, error: documentError } = await supabaseAdmin
-      .from('company_documents')
-      .insert({
-        company_id: company.id,
-        onboarding_application_id: app.id,
-        doc_type: parsedDocType.data,
-        file_path: objectPath,
-        file_sha256: fileSha256,
-        status: 'pending',
-      })
-      .select('id')
-      .single();
-
-    if (documentError) {
-      await cleanupUploadedObject();
-      return json(500, { error: documentError.message });
-    }
-
-    storedDocument = {
-      id: document.id,
-      family: 'company',
-      table: 'company_documents',
-      companyId: company.id,
-    };
-  } else if (accountType === 'individual_driver') {
-    const parsedDocType = parsedIndividualDriverDocType!;
-
-    const { data: document, error: documentError } = await supabaseAdmin
-      .from('driver_identity_documents')
-      .insert({
-        onboarding_application_id: app.id,
-        doc_type: parsedDocType.data,
-        file_path: objectPath,
-        file_sha256: fileSha256,
-        upload_status: 'uploaded',
-        verification_status: 'unverified',
-      })
-      .select('id')
-      .single();
-
-    if (documentError) {
-      await cleanupUploadedObject();
-      return json(500, { error: documentError.message });
-    }
-
-    storedDocument = {
-      id: document.id,
-      family: 'identity',
-      table: 'driver_identity_documents',
-      companyId: app.company_id ?? null,
-    };
-  }
-
-  if (!storedDocument) {
-    await cleanupUploadedObject();
-    return json(500, { error: 'Document record was not created.' });
-  }
-
-  const { error: fingerprintError } = await supabaseAdmin
-    .from('document_fingerprints')
-    .insert({
-      document_family: storedDocument.family,
-      document_id: storedDocument.id,
-      onboarding_application_id: app.id,
-      user_id: authData.user.id,
-      company_id: storedDocument.companyId,
-      file_sha256: fileSha256,
-    });
-
-  if (fingerprintError) {
-    if (fingerprintError.code === '23505') {
-      const { data: matchedFingerprint, error: matchedFingerprintError } = await supabaseAdmin
-        .from('document_fingerprints')
-        .select('id, onboarding_application_id, user_id, company_id, document_family, document_id')
-        .eq('file_sha256', fileSha256)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      if (matchedFingerprintError || !matchedFingerprint) {
-        await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
-        await cleanupUploadedObject();
-        return json(503, {
-          error: matchedFingerprintError?.message ?? 'Duplicate fingerprint could not be resolved.',
-          code: 'identity_compliance_registry_unavailable',
-        });
-      }
-
-      if (matchedFingerprint.onboarding_application_id === app.id) {
-        await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
-        await cleanupUploadedObject();
-
-        return json(409, {
-          error: 'This exact document has already been uploaded to this application.',
-          code: 'duplicate_document_in_application',
-        });
-      }
-
-      const { allowed, error: clearanceError } = await hasClearedDuplicateDecision(app.id, fileSha256);
-      if (clearanceError) {
-        await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
-        await cleanupUploadedObject();
-        return json(503, {
-          error: clearanceError.message,
-          code: 'identity_compliance_registry_unavailable',
-        });
-      }
-
-      if (!allowed) {
-        await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
-        await cleanupUploadedObject();
-
-        const { caseId, error: caseError } = await registerDuplicateCaseAndHold({
-          subjectUserId: authData.user.id,
-          subjectCompanyId: app.company_id ?? null,
-          onboardingApplicationId: app.id,
-          matchedUserId: matchedFingerprint.user_id ?? null,
-          matchedCompanyId: matchedFingerprint.company_id ?? null,
-          fileSha256,
-          attemptedDocType: docType,
-          matchedFingerprintId: matchedFingerprint.id,
-          matchedDocumentFamily: (matchedFingerprint.document_family as string | null) ?? null,
-          matchedDocumentId: (matchedFingerprint.document_id as string | null) ?? null,
-        });
-
-        if (caseError || !caseId) {
-          return json(500, { error: caseError?.message ?? 'Failed to create fraud review case.' });
-        }
-
-        return json(409, {
-          error: 'A duplicate document was detected. The application is on hold for Platform Owner review.',
-          code: 'duplicate_document_detected',
-          reviewCaseId: caseId,
-        });
-      }
-    }
-
-    await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
-    await cleanupUploadedObject();
-    return json(500, { error: fingerprintError.message });
-  }
-
-  const assessed = await assessStoredOnboardingRecovery({
-    applicationId: app.id,
-    accountType,
-    companyId: app.company_id,
-    payload: app.payload,
+  const documentFamily = ['owner_driver', 'individual_driver'].includes(accountType) ? 'identity' : 'company';
+  // The database serializes the application, archives prior evidence, inserts
+  // the new unverified revision and preserves the submitted review state.
+  const { data: stored, error: storeError } = await supabaseAdmin.rpc('store_onboarding_document_revision', {
+    p_application_id: app.id,
+    p_actor_user_id: authData.user.id,
+    p_document_family: documentFamily,
+    p_doc_type: docType,
+    p_file_path: objectPath,
+    p_file_sha256: fileSha256,
   });
-
-  if (assessed.error) {
-    await supabaseAdmin.from('document_fingerprints').delete().eq('document_id', storedDocument.id);
-    await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
+  if (storeError) {
     await cleanupUploadedObject();
-    return json(503, {
-      error: 'Document was uploaded but onboarding progress could not be verified.',
-      details: assessed.error,
+    const status = storeError.code === '42501' ? 403 : storeError.code === 'P0002' ? 404
+      : ['23505', '23514'].includes(storeError.code ?? '') ? 409 : 503;
+    return json(status, { error: storeError.message, code: 'document_revision_not_saved' });
+  }
+  const result = stored as Record<string, unknown>;
+  const savedApplication = result.application as Record<string, unknown> | undefined;
+  if (savedApplication?.status === 'in_progress' && !savedApplication.submitted_at) {
+    const assessed = await assessStoredOnboardingRecovery({
+      applicationId: app.id, accountType, companyId: app.company_id, payload: savedApplication.payload,
     });
+    if (!assessed.error) {
+      // Never demote an application that a reviewer/submission advanced while
+      // progress was calculated. A progress-refresh failure keeps the saved file.
+      const { data: refreshed } = await supabaseAdmin.from('onboarding_applications')
+        .update({ completion_percentage: assessed.recovery.progress })
+        .eq('id', app.id).eq('status', 'in_progress').is('submitted_at', null)
+        .select('*').maybeSingle();
+      if (refreshed) result.application = refreshed;
+    }
   }
+  return json(200, { ...result, fileSha256 });
+}
 
-  const { data: latestApp, error: updateError } = await supabaseAdmin
-    .from('onboarding_applications')
-    .update({
-      status: 'in_progress',
-      last_activity_at: new Date().toISOString(),
-      payload: assessed.payload,
-      completion_percentage: assessed.recovery.progress,
-    })
-    .eq('id', app.id)
-    .select('payload, risk_status, completion_percentage')
-    .single();
-
-  if (updateError) {
-    await supabaseAdmin.from('document_fingerprints').delete().eq('document_id', storedDocument.id);
-    await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
-    await cleanupUploadedObject();
-    return json(500, { error: updateError.message });
+// Authenticated self-service only. Pending applicants do not need access to an
+// operational workspace to see or correct their own onboarding evidence.
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Document service is unavailable.' });
+  const token = getBearerToken(request);
+  if (!token) return json(401, { error: 'Sign in to manage your documents.' });
+  const { data: auth, error: authError } = await (supabaseValidator ?? supabaseAdmin).auth.getUser(token);
+  if (authError || !auth.user) return json(401, { error: 'Sign in again to manage your documents.' });
+  const { data: application, error: appError } = await supabaseAdmin.from('onboarding_applications')
+    .select('id, account_type, status, risk_status').eq('user_id', auth.user.id).maybeSingle();
+  if (appError) return json(503, { error: 'Your application could not be loaded.' });
+  if (!application) return json(404, { error: 'No onboarding application was found for your account.' });
+  const identity = ['owner_driver', 'individual_driver'].includes(application.account_type);
+  const table = identity ? 'driver_identity_documents' : 'company_documents';
+  const { data: documents, error } = await supabaseAdmin.from(table)
+    .select(identity ? 'id, doc_type, file_path, upload_status, verification_status, created_at'
+      : 'id, doc_type, file_path, status, created_at')
+    .eq('onboarding_application_id', application.id).order('created_at', { ascending: false });
+  if (error) return json(503, { error: 'Your documents could not be loaded.' });
+  const entries = (documents ?? []) as unknown as Array<Record<string, unknown>>;
+  const previewId = new URL(request.url).searchParams.get('id');
+  if (previewId) {
+    const document = entries.find(entry => entry.id === previewId);
+    if (!document) return json(404, { error: 'Document not found in your application.' });
+    const filePath = typeof document.file_path === 'string' ? document.file_path.trim() : '';
+    if (!filePath) return json(409, { error: 'No file has been uploaded for this document.' });
+    // Applicant uploads use private object paths, never arbitrary external URLs.
+    if (!filePath.startsWith(auth.user.id + '/' + application.id + '/') || filePath.includes('..')) {
+      return json(409, { error: 'This legacy file needs a secure preview from Platform Compliance.' });
+    }
+    const { data: signed, error: signError } = await supabaseAdmin.storage.from('onboarding-documents').createSignedUrl(filePath, 300);
+    if (signError || !signed?.signedUrl) return json(503, { error: 'A secure document preview could not be created.' });
+    return json(200, { url: signed.signedUrl, expiresInSeconds: 300 });
   }
-
-  return json(200, {
-    path: objectPath,
-    docType,
-    accountType,
-    documentId: storedDocument.id,
-    fileSha256,
-    riskStatus: latestApp?.risk_status ?? 'clear',
-    payload: latestApp?.payload ?? null,
-  });
+  return json(200, { application, documents: entries.map(entry => ({
+    id: entry.id, docType: entry.doc_type,
+    status: entry.verification_status ?? entry.status,
+    hasFile: typeof entry.file_path === 'string' && entry.file_path.trim().length > 0,
+    uploadedAt: entry.created_at,
+  })) });
 }

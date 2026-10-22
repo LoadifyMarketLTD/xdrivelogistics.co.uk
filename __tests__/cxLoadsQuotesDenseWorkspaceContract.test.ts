@@ -11,13 +11,14 @@ describe('CX-density Loads and Quotes workspaces', () => {
     expect(source).not.toContain("flex: '0 0 185px'");
     expect(source).toContain('Quote Now');
     expect(source).toContain('Load Notes:');
-    expect(source).toContain('Open Route');
+    expect(source).toContain('View Details');
     expect(source).toContain('List View');
-    expect(source).toContain('Map View');
+    expect(source).toContain('Interactive Freight Radar Map');
+    expect(source).toContain('cx-expand-entries-control');
   });
 
   it('keeps all real marketplace search capabilities available after compaction', () => {
-    for (const field of ['Minimum vehicle','Maximum vehicle','Job timing','Posted within','Pickup from','Pickup to','Budget','Recent searches','Save Default']) {
+    for (const field of ['Minimum vehicle size','Maximum vehicle size','Job Description','Posted within','Pickup from','Pickup to','Budget','Recent searches','Save Default']) {
       expect(source).toContain(field);
     }
     expect(source).toContain('loadLoads(1, true)');
@@ -25,9 +26,9 @@ describe('CX-density Loads and Quotes workspaces', () => {
   });
 
   it('renders the dedicated Quotes route without Marketplace KPI/navigation duplication', () => {
-    expect(source).toContain("const dedicatedQuotes = initialTab === 'bids'");
-    expect(source).toContain("title={dedicatedQuotes ? 'Quotes' : 'Loads'}");
-    expect(source).toContain('{!dedicatedQuotes && <div');
+    expect(source).toContain("initialTab?: 'loads' | 'bids' | 'won'");
+    expect(source).toContain("const [tab] = useState<'loads' | 'bids' | 'won'>(initialTab)");
+    expect(source).toContain("{tab === 'bids' && <div");
     expect(source).toContain('Search Panel');
     expect(source).toContain('Pickup Time Within');
     expect(source).toContain('Delivery Time Within');
@@ -36,9 +37,9 @@ describe('CX-density Loads and Quotes workspaces', () => {
   });
 
   it('preserves real quote lifecycle actions and privacy-safe data', () => {
-    expect(source).toContain("bid.status === 'submitted'");
-    expect(source).toContain('Withdraw');
-    expect(source).toContain('Commercial note');
+    expect(source).toContain("const activeQuote = ['submitted', 'viewed', 'shortlisted'].includes(stage)");
+    expect(source).toContain('Cancel Quote');
+    expect(source).toContain('quoteMessage');
     expect(source).not.toContain('Private execution contact');
   });
 });

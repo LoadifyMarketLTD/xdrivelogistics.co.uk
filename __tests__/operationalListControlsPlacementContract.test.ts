@@ -15,9 +15,10 @@ describe('Operational list controls placement contract', () => {
       expect(source).toContain('Items per Page');
     }
 
-    expect(loads).toContain("justifyContent: 'flex-end'");
+    expect(loads).toContain('className="load-result-head"');
+    expect(loads).toContain("marginLeft: 'auto'");
     expect(loads).not.toContain('<div className="footer"><span>1-');
-    expect(quotes).toContain("justifyContent: 'flex-end'");
+    expect(quotes).toContain('className="cx-quote-pagination-row"');
     expect(quotes).not.toContain('<div className="footer"><span>Items per Page:');
     expect(returns).toContain("toggleExpandAll");
     expect(returns).not.toContain('<div className="footer"><span>Items per Page:');
@@ -37,7 +38,7 @@ describe('Operational list controls placement contract', () => {
       expect(source).toContain('workspace-list-controls');
     }
     for (const source of [diary, customerDiary, brokerDiary, driverDiary]) {
-      expect(source).toContain('Expand all');
+      expect(source).toContain('cx-expand-entries-control');
     }
     expect(driverDiary).toContain('driver-diary-summary-actions');
     expect(eventLog).not.toContain('Page {safePage} / {totalPages}');
@@ -53,5 +54,30 @@ describe('Operational list controls placement contract', () => {
     expect(shellCss).toContain('width:52px!important');
     expect(driverCss).toContain('min-height:31px!important');
     expect(driverCss).toContain('height:24px!important');
+  });
+
+  it('keeps Refresh out of Customer Team and Driver Job PageHeaders', () => {
+    const customerTeam = read('app/components/workspace/CustomerTeamPage.tsx');
+    const driverJob = read('app/components/workspace/DriverJobExecutionPage.tsx');
+
+    const headerBlock = (source: string) => {
+      const start = source.indexOf('<PageHeader');
+      const end = source.indexOf('/>', start);
+      return start >= 0 && end >= 0 ? source.slice(start, end + 2) : '';
+    };
+
+    expect(headerBlock(customerTeam)).not.toContain('Refresh');
+    expect(customerTeam).toContain('title="Company team"');
+    expect(customerTeam).toContain("{loading ? 'Refreshing…' : 'Refresh'}");
+
+    expect(headerBlock(driverJob)).not.toContain('Refresh');
+    expect(driverJob).toContain('className="workspace-record-meta workspace-list-controls"');
+    expect(driverJob).toContain(">Refresh</ActionButton>");
+
+    const customerBooking = read('app/customer/jobs/[id]/page.tsx');
+    expect(headerBlock(customerBooking)).not.toContain('/customer/bookings');
+    expect(customerBooking).toContain('className="workspace-record-meta workspace-list-controls"');
+    expect(customerBooking).toContain('>Back to Bookings</ActionButton>');
+    expect(customerBooking).toContain('>Edit Job</ActionButton>');
   });
 });

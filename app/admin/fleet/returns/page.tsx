@@ -117,7 +117,7 @@ export default function CompanyReturnJourneysPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [tab, setTab] = useState<ReturnTab>('active');
+  const [tab, setTab] = useState<ReturnTab>('all');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -350,25 +350,12 @@ export default function CompanyReturnJourneysPage() {
     return points;
   }, [driverById, latestLocationByDriver, visible]);
 
-  const counts = useMemo(() => ({
-    active: journeys.filter((journey) => ACTIVE_STATUSES.has(normalise(journey.status))).length,
-    all: journeys.length,
-    closed: journeys.filter((journey) => CLOSED_STATUSES.has(normalise(journey.status))).length,
-  }), [journeys]);
-
   return (
     <PageFrame>
       <PageHeader
         eyebrow="Carrier capacity"
         title="Return Journeys"
         description="Company return capacity published by drivers in this carrier organisation, with availability window, driver contact and last-position context."
-        actions={
-          <>
-            {canManageReturnJourneys ? <ActionButton tone="success" onClick={openNewJourney}>Publish Return Journey</ActionButton> : null}
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live / Future Availability</ActionButton>
-            <ActionButton tone="secondary" onClick={() => void loadJourneys()} disabled={loading}>Refresh</ActionButton>
-          </>
-        }
       />
 
       {workspace.error && <AlertBanner tone="warning">Some fleet context is unavailable. Return Journey records remain separated from unavailable workspace datasets.</AlertBanner>}
@@ -414,23 +401,30 @@ export default function CompanyReturnJourneysPage() {
             <label>FROM<input value={from} onChange={(event) => setFrom(event.target.value)} placeholder="Postcode" /></label>
             <label>TO<input value={to} onChange={(event) => setTo(event.target.value)} placeholder="Postcode" /></label>
             <label>DRIVER<input value={driverSearch} onChange={(event) => setDriverSearch(event.target.value)} placeholder="Name / email" /></label>
-            <label>JOURNEY TYPE<select value={journeyKindFilter} onChange={(event) => setJourneyKindFilter(event.target.value as 'all' | 'ad_hoc' | 'regular')}><option value="all">All journey types</option><option value="ad_hoc">Ad hoc</option><option value="regular">Regular</option></select></label>
+            <label>STATUS<select value={tab} onChange={(event) => setTab(event.target.value as ReturnTab)}><option value="all">All states</option><option value="active">Active</option><option value="closed">Closed</option></select></label>
             <label>VEHICLE<select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="all">All vehicle types</option>{vehicleOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
             <label>BODY TYPE<select value={bodyFilter} onChange={(event) => setBodyFilter(event.target.value)}><option value="all">All body types</option>{bodyOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
             <div style={{ fontSize: 11, color: '#64748b', lineHeight: '15px' }}>Filters apply live to company return records.</div>
-            <ActionButton tone="secondary" onClick={() => { setFrom(''); setTo(''); setDriverSearch(''); setJourneyKindFilter('all'); setVehicleFilter('all'); setBodyFilter('all'); }}>Clear filters</ActionButton>
+            <ActionButton tone="secondary" onClick={() => void loadJourneys()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+            <ActionButton tone="secondary" onClick={() => { setFrom(''); setTo(''); setDriverSearch(''); setTab('all'); setJourneyKindFilter('all'); setVehicleFilter('all'); setBodyFilter('all'); }}>Clear filters</ActionButton>
           </div>
         </aside>
 
         <main style={{ minWidth: 0 }}>
+          <div className="workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+            <span className="workspace-list-controls__right">
+              {canManageReturnJourneys ? <ActionButton tone="success" onClick={openNewJourney}>Add Journey</ActionButton> : null}
+              <ActionButton tone="secondary" onClick={() => { setTab('all'); setJourneyKindFilter('all'); }}>Our Journeys</ActionButton>
+            </span>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-            <div className="workspace-tab-strip" role="tablist" aria-label="Return journey states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 0 }}>
+            <div className="workspace-tab-strip" role="tablist" aria-label="Return journey types" style={{ display: 'flex', overflowX: 'auto', marginBottom: 0 }}>
               {([
-                ['active', 'Active', counts.active],
-                ['all', 'All', counts.all],
-                ['closed', 'Closed', counts.closed],
-              ] as const).map(([id, label, count]) => (
-                <button key={id} type="button" role="tab" aria-selected={tab === id} data-active={tab === id ? 'true' : 'false'} onClick={() => setTab(id)}>{label} <span>{count}</span></button>
+                ['all', 'All'],
+                ['ad_hoc', 'Ad Hoc'],
+                ['regular', 'Regular'],
+              ] as const).map(([id, label]) => (
+                <button key={id} type="button" role="tab" aria-selected={journeyKindFilter === id} data-active={journeyKindFilter === id ? 'true' : 'false'} onClick={() => setJourneyKindFilter(id)}>{label}</button>
               ))}
             </div>
             <div role="group" aria-label="Return journey view mode" style={{ display: 'inline-flex', minHeight: 30, border: '1px solid var(--ws-border)', borderRadius: 4, overflow: 'hidden', background: '#fff' }}>
@@ -510,7 +504,7 @@ export default function CompanyReturnJourneysPage() {
                         {driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={compactLinkStyle}>Call driver</a> : null}
                         {canManageReturnJourneys && journey.driver_id ? <ActionButton tone="secondary" onClick={() => openJourney(journey)}>Edit</ActionButton> : null}
                         {canManageReturnJourneys && journey.driver_id && ACTIVE_STATUSES.has(status) ? <ActionButton tone="danger" disabled={saving} onClick={() => void saveJourney(true, journey)}>Close Return</ActionButton> : null}
-                        {journey.driver_id ? <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage driver</ActionButton> : <span>Driver action unavailable</span>}
+                        {journey.driver_id ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage driver</ActionButton> : <span>Driver action unavailable</span>}
                       </div>
                     </div>
                   </article>

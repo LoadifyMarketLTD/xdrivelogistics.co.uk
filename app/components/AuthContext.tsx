@@ -452,6 +452,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (['invited', 'draft', 'in_progress', 'request_changes'].includes(onboardingStatus)) {
             return { success: true, route: '/onboarding/resume' };
           }
+          if (['submitted', 'under_review', 'compliance_review', 'admin_approval'].includes(onboardingStatus)) {
+            return { success: true, route: '/pending-approval' };
+          }
         }
 
         if (result.reason === 'db_error') {

@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  getWorkspaceDatasetMetricValue,
   useCompanyWorkspaceData,
   type WorkspaceDataState,
   type WorkspaceDocument,
@@ -295,10 +294,6 @@ export default function FleetControlDashboardHome() {
   const complianceDataUnavailable = unavailable(data, ['vehicles', 'driverDocuments', 'vehicleDocuments']);
   const trackingAttentionCount = attentionItems.filter((item) => item.area === 'Tracking').length;
   const complianceAttentionCount = attentionItems.filter((item) => item.area === 'Compliance').length;
-  const availableDriverCount = getWorkspaceDatasetMetricValue(
-    data.datasets.drivers,
-    (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available').length,
-  );
 
   const visibleResources = useMemo(() => data.drivers.filter((driver) => {
     if (!resourceSearchTerm) return true;
@@ -349,11 +344,7 @@ export default function FleetControlDashboardHome() {
               ariaLabel="Fleet operational signals"
               items={[
                 { key: 'unallocated', label: 'Unallocated', value: metricValue(data, ['jobs'], () => wonUnallocatedJobs.length), detail: 'Awarded work awaiting driver', tone: unavailable(data, ['jobs']) ? 'blue' : wonUnallocatedJobs.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/assignments') },
-                { key: 'allocated', label: 'Allocated', value: metricValue(data, ['jobs'], () => allocatedJobs.length), detail: 'Driver selected', tone: unavailable(data, ['jobs']) ? 'blue' : 'navy', onClick: () => router.push('/admin/fleet/jobs') },
                 { key: 'active', label: 'Active Jobs', value: metricValue(data, ['jobs'], () => activeJobs.length), detail: 'Currently in execution', tone: unavailable(data, ['jobs']) ? 'blue' : activeJobs.length ? 'green' : 'navy', onClick: () => router.push('/admin/fleet/active-jobs') },
-                { key: 'available-drivers', label: 'Available Drivers', value: availableDriverCount, detail: 'Active + available flag', tone: driverDataUnavailable ? 'blue' : 'green', onClick: () => router.push('/admin/fleet/availability') },
-                { key: 'tracking-alerts', label: 'Tracking Alerts', value: trackingDataUnavailable ? '—' : trackingAttentionCount, detail: trackingDataUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions', tone: trackingDataUnavailable ? 'blue' : trackingAttentionCount ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/positions') },
-                { key: 'compliance-alerts', label: 'Compliance Alerts', value: complianceDataUnavailable ? '—' : complianceAttentionCount, detail: complianceDataUnavailable ? 'Compliance data unavailable' : 'Documents requiring attention', tone: complianceDataUnavailable ? 'blue' : complianceAttentionCount ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/compliance') },
               ]}
             />
           </OperationalCard>
@@ -373,6 +364,8 @@ export default function FleetControlDashboardHome() {
                 <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/availability')}>Availability</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/compliance')}>Compliance</ActionButton>
+                <button type="button" onClick={() => router.push('/admin/fleet/positions')} style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 12, cursor: 'pointer' }}><span>Tracking alerts</span><strong>{trackingDataUnavailable ? 'Unavailable' : trackingAttentionCount}</strong></button>
+                <button type="button" onClick={() => router.push('/admin/fleet/compliance')} style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 12, cursor: 'pointer' }}><span>Compliance alerts</span><strong>{complianceDataUnavailable ? 'Unavailable' : complianceAttentionCount}</strong></button>
                 <button
                   type="button"
                   onClick={() => router.push('/admin/fleet/compliance')}
@@ -386,6 +379,7 @@ export default function FleetControlDashboardHome() {
           </div>
         </div>
 
+        <div className="xdrive-owner-dashboard-column">
         <OperationalCard
           title="Activity at a glance"
           subtitle="Carrier-won work requiring allocation or active execution."
@@ -409,6 +403,7 @@ export default function FleetControlDashboardHome() {
             empty={<EmptyState compact title="No fleet activity requiring control" />}
           />
         </OperationalCard>
+        </div>
       </div>
 
       <OperationalCard

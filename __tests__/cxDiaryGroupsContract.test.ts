@@ -28,7 +28,7 @@ describe('CX Diary Groups parity', () => {
   });
 
   it('exposes group filter, Add/Edit Groups and per-booking membership in Diary', () => {
-    expect(diary).toContain('GROUPS');
+    expect(diary).toContain('>Groups</div>');
     expect(diary).toContain('Add / Edit Groups');
     expect(diary).toContain(".from('diary_groups')");
     expect(diary).toContain(".from('diary_group_jobs')");

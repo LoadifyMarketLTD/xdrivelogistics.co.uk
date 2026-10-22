@@ -16,8 +16,19 @@ export const COMPANY_CONFIG = {
     full: '101 Cornelian Street, Blackburn, BB1 9QL, United Kingdom',
   },
 
-  // Primary operational email
+  // Public and transactional email identities
   email: 'contact@xdrivelogistics.co.uk',
+  emails: {
+    general: 'contact@xdrivelogistics.co.uk',
+    operations: 'operations@xdrivelogistics.co.uk',
+    support: 'support@xdrivelogistics.co.uk',
+    confirmations: 'confirmation@xdrivelogistics.co.uk',
+    pod: 'pod@xdrivelogistics.co.uk',
+    invoices: 'invoices@xdrivelogistics.co.uk',
+    payments: 'payments@xdrivelogistics.co.uk',
+    alerts: 'alerts@xdrivelogistics.co.uk',
+    noReply: 'no-reply@xdrivelogistics.co.uk',
+  },
   phone: '+447423272138',
   phoneDisplay: '07423 272 138',
   

@@ -74,21 +74,20 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
 
       // ── Shell geometry (all viewports) ───────────────────────────────────
 
-      // Header: 50px contract (±2px tolerance per §3)
-      const actionCentreButton = page.getByRole('button', { name: 'Action Centre' });
-      await expect(actionCentreButton).toBeVisible({ timeout: 15_000 });
-      const header = actionCentreButton.locator('xpath=ancestor::header[1]');
-      await expect(header).toBeVisible();
+      // Shared operational header: 50px contract (±2px tolerance).
+      // Jobs now uses the canonical top workspace shell; Action Centre belongs
+      // to navigation/More rather than being duplicated as a global button.
+      const header = page.locator('.top-workspace-shell__header');
+      await expect(header).toBeVisible({ timeout: 15_000 });
       const headerHeight = await header.evaluate((el) =>
         Math.round(el.getBoundingClientRect().height),
       );
       expect(headerHeight, `${vp.label}: header height`).toBeGreaterThanOrEqual(48);
       expect(headerHeight, `${vp.label}: header height`).toBeLessThanOrEqual(52);
 
-      // Activity feed remains mounted for accessibility/live-region semantics but is
-      // intentionally hidden in the current compact operational shell.
-      await expect(page.locator('[aria-label="Activity feed"]')).toHaveCount(1);
-      await expect(page.locator('[aria-label="Activity feed"]')).toBeHidden();
+      // The canonical top workspace shell does not mount the legacy hidden
+      // activity-feed region; operational activity is owned by the page itself.
+      await expect(page.locator('[aria-label="Activity feed"]')).toHaveCount(0);
 
       // No horizontal body overflow at any viewport
       const bodyOverflow = await page.evaluate(
@@ -161,14 +160,11 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
         if (!vp.tablet) {
           // ── Desktop-only ──────────────────────────────────────────────────
 
-          // Sidebar: full 230px
-          const sidebar = page.locator('aside[aria-label$="navigation"]');
-          await expect(sidebar).toBeVisible();
-          const sidebarWidth = await sidebar.evaluate((el) =>
-            Math.round(el.getBoundingClientRect().width),
-          );
-          expect(sidebarWidth, 'desktop: sidebar width').toBeGreaterThanOrEqual(228);
-          expect(sidebarWidth, 'desktop: sidebar width').toBeLessThanOrEqual(232);
+          // Canonical top navigation replaces the legacy workspace sidebar.
+          const primaryNav = page.locator('.top-workspace-nav--primary');
+          await expect(primaryNav).toBeVisible();
+          expect(await primaryNav.evaluate((el) => Math.round(el.getBoundingClientRect().height))).toBe(42);
+          await expect(page.locator('aside[aria-label$="navigation"]')).toHaveCount(0);
 
           // At least 10 data rows visible (fixture has 12 records, perPage=10)
           const viewJobBtns = page.locator(
@@ -270,14 +266,10 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
         } else {
           // ── Tablet-only ───────────────────────────────────────────────────
 
-          // Sidebar: collapsed icon-only (56px)
-          const sidebar = page.locator('aside[aria-label$="navigation"]');
-          await expect(sidebar).toBeVisible();
-          const sidebarWidth = await sidebar.evaluate((el) =>
-            Math.round(el.getBoundingClientRect().width),
-          );
-          expect(sidebarWidth, 'tablet: sidebar width').toBeGreaterThanOrEqual(54);
-          expect(sidebarWidth, 'tablet: sidebar width').toBeLessThanOrEqual(58);
+          // Tablet keeps the same top-navigation owner; no legacy icon rail.
+          const primaryNav = page.locator('.top-workspace-nav--primary');
+          await expect(primaryNav).toBeVisible();
+          await expect(page.locator('aside[aria-label$="navigation"]')).toHaveCount(0);
 
           // Customer column hidden (display: none at ≤768px)
           const customerHeaderDisplay = await page.evaluate(() => {
@@ -329,11 +321,9 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
       } else {
         // ── Mobile ─────────────────────────────────────────────────────────
 
-        // Mobile hamburger visible
-        await expect(
-          page.getByRole('button', { name: 'Open menu' }),
-          'mobile: hamburger button',
-        ).toBeVisible();
+        // Mobile keeps the shared horizontally scrollable top navigation.
+        await expect(page.locator('.top-workspace-nav--primary'), 'mobile: top navigation').toBeVisible();
+        await expect(page.locator('aside[aria-label$="navigation"]')).toHaveCount(0);
 
         // Desktop table section hidden (CSS display: none at ≤480px)
         const tableDisplay = await page.evaluate(() => {
@@ -349,10 +339,9 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
         });
         expect(cardListDisplay, 'mobile: card list display').toBe('flex');
 
-        // Cards are rendered
+        // Cards render after the responsive React viewport effect hydrates.
         const cards = page.locator('[data-testid="jobs-mobile-card"]');
-        const cardCount = await cards.count();
-        expect(cardCount, 'mobile: at least 10 cards (perPage=10)').toBeGreaterThanOrEqual(10);
+        await expect(cards, 'mobile: 10 cards after responsive hydration').toHaveCount(10, { timeout: 10_000 });
 
         // First card (JOB-F001) has required structural elements
         const firstCard = cards.first();

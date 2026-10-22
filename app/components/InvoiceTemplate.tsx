@@ -49,6 +49,7 @@ export interface InvoiceData {
   issuerXdId?: string;
   issuerEmail?: string;
   issuerPhone?: string;
+  issuerLogoUrl?: string;
   customerCompanyNumber?: string;
   customerVatNumber?: string;
   customerXdId?: string;
@@ -68,8 +69,8 @@ const fmtDate = (value?: string, withTime = false) => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return withTime
-    ? d.toLocaleString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-    : d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: 'short', year: 'numeric' });
+    ? d.toLocaleString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+    : d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 const money = (value: number) => `£${Number(value || 0).toFixed(2)}`;
@@ -85,154 +86,138 @@ export default function InvoiceTemplate({
   const bankAccount = invoice.bankAccountNumber || companySettings.bankAccountNumber;
   const status = toCanonicalInvoiceStatus(invoice.status);
   const documentLabel = invoice.documentType === 'credit_note' ? 'CREDIT NOTE' : invoice.documentType === 'supplementary' ? 'SUPPLEMENTARY INVOICE' : 'INVOICE';
-  const documentSubtitle = invoice.documentType === 'credit_note' ? 'Transport Credit Note' : invoice.documentType === 'supplementary' ? 'Supplementary Transport Invoice' : 'Transport Invoice';
   const signedNetAmount = invoice.documentType === 'credit_note' ? -Math.abs(invoice.netAmount) : invoice.netAmount;
   const signedVatAmount = invoice.documentType === 'credit_note' ? -Math.abs(invoice.vatAmount) : invoice.vatAmount;
   const signedTotalAmount = invoice.documentType === 'credit_note' ? -Math.abs(invoice.amount) : invoice.amount;
-  const smallMeta = (items: Array<string | undefined>) => items.filter(Boolean).join(' · ');
+  const recipient = invoice.deliveryRecipient || invoice.recipientName || 'Not supplied';
+  const evidence = (invoice.podPhotos || []).filter(Boolean).slice(0, 4);
+  const issuerMeta = [
+    invoice.issuerCompanyNumber ? `Company No. ${invoice.issuerCompanyNumber}` : '',
+    invoice.issuerVatNumber ? `VAT ${invoice.issuerVatNumber}` : '',
+  ].filter(Boolean).join(' · ');
 
-  const section: React.CSSProperties = { border: '1px solid #e4e7ec', borderRadius: 12, padding: 14, background: '#fff' };
-  const kicker: React.CSSProperties = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.7px', color: '#0B2F6B', marginBottom: 8 };
-  const muted: React.CSSProperties = { color: '#667085', fontSize: 12, lineHeight: 1.45 };
-  const label: React.CSSProperties = { color: '#667085', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' };
+  const navy = '#062b55';
+  const soft = '#eef2f7';
+  const line = '#d7dee8';
+  const muted = '#4b5563';
+  const label: React.CSSProperties = { fontSize: 11, fontWeight: 800, color: '#4d5d70', textTransform: 'uppercase', letterSpacing: '.2px' };
 
   return (
-    <div className="invoice-print-area" style={{ background: '#fff', maxWidth: 860, margin: '0 auto', color: '#1A1F2B', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', border: '1px solid #e4e7ec', borderRadius: 16, overflow: 'hidden' }}>
-      <style>{`@media print{.invoice-print-area{max-width:none!important;border:0!important;border-radius:0!important}.invoice-no-break{break-inside:avoid}}`}</style>
+    <article className="invoice-print-area invoice-a4-reference">
+      <style>{`
+        .invoice-a4-reference{width:210mm;min-height:297mm;max-width:210mm;margin:0 auto;background:#fff;color:#101827;padding:14mm 13mm 11mm;box-sizing:border-box;border:1px solid #e4e8ef;box-shadow:0 10px 30px rgba(15,23,42,.10);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;position:relative;overflow:hidden;font-size:11pt}
+        .invoice-a4-reference *{box-sizing:border-box}.invoice-no-break{break-inside:avoid;page-break-inside:avoid}
+        @media print{html,body{background:#fff!important}.invoice-a4-reference{width:210mm!important;height:297mm!important;max-width:none!important;margin:0!important;border:0!important;box-shadow:none!important;overflow:hidden!important}}
+      `}</style>
 
-      <header style={{ background: '#0B2F6B', color: '#fff', padding: '24px 28px', borderBottom: '5px solid #F5A300', display: 'flex', justifyContent: 'space-between', gap: 20 }}>
-        <div>
-          <div style={{ fontSize: 27, fontWeight: 900 }}>XDRIVE <span style={{ color: '#F5A300', fontSize: 16 }}>LOGISTICS</span></div>
-          <div style={{ opacity: .88, marginTop: 3 }}>{documentSubtitle}</div>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 22, fontWeight: 900 }}>{documentLabel}</div>
-          <div style={{ fontWeight: 800 }}>{invoice.invoiceNumber}</div>
-          <div style={{ fontSize: 11, opacity: .85 }}>{status.toUpperCase()}</div>
-        </div>
-      </header>
+      <div className="invoice-no-break" style={{ display: 'grid', gridTemplateColumns: '1fr .88fr', gap: '18mm', alignItems: 'start', marginBottom: '11mm' }}>
+        <section>
+          {invoice.issuerLogoUrl ? (
+            <img src={invoice.issuerLogoUrl} alt="" style={{ display: 'block', maxWidth: 180, maxHeight: 62, objectFit: 'contain', marginBottom: 16 }} />
+          ) : (
+            <h2 style={{ fontSize: 26, lineHeight: 1.05, margin: '0 0 14px', color: '#101827' }}>{issuerName}</h2>
+          )}
+          <p style={{ margin: '0 0 10px', lineHeight: 1.45 }}>{issuerAddress || 'Address not supplied'}</p>
+          {issuerMeta && <p style={{ margin: '0 0 10px', color: muted }}>{issuerMeta}</p>}
+          {(invoice.issuerEmail || companySettings.email) && <p style={{ margin: '0 0 5px' }}><b>Email:</b> {invoice.issuerEmail || companySettings.email}</p>}
+          {(invoice.issuerPhone || companySettings.phone) && <p style={{ margin: 0 }}><b>Tel:</b> {invoice.issuerPhone || companySettings.phone}</p>}
+        </section>
 
-      <div style={{ padding: 18, display: 'grid', gap: 14 }}>
-        <div className="invoice-no-break" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <section style={{ ...section, background: '#f8fafc' }}>
-            <div style={kicker}>Issued By</div>
-            <strong>{issuerName}</strong>
-            <div style={{ ...muted, marginTop: 6 }}>{issuerAddress || 'Address not supplied'}</div>
-            <div style={{ ...muted, fontSize: 10, marginTop: 8 }}>{smallMeta([
-              invoice.issuerXdId ? `XDrive ID ${invoice.issuerXdId}` : undefined,
-              invoice.issuerCompanyNumber ? `Company No. ${invoice.issuerCompanyNumber}` : undefined,
-              invoice.issuerVatNumber ? `VAT ${invoice.issuerVatNumber}` : undefined,
-            ])}</div>
-          </section>
-          <section style={{ ...section, background: '#f8fafc' }}>
-            <div style={kicker}>Bill To</div>
-            <strong>{invoice.clientName || 'Not supplied'}</strong>
-            <div style={{ ...muted, marginTop: 6 }}>{invoice.clientAddress || 'Address not supplied'}</div>
-            <div style={{ ...muted, fontSize: 10, marginTop: 8 }}>{smallMeta([
-              invoice.customerXdId ? `XDrive ID ${invoice.customerXdId}` : undefined,
-              invoice.customerCompanyNumber ? `Company No. ${invoice.customerCompanyNumber}` : undefined,
-              invoice.customerVatNumber ? `VAT ${invoice.customerVatNumber}` : undefined,
-            ])}</div>
-          </section>
-        </div>
-
-        <section className="invoice-no-break" style={{ ...section, padding: 0, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)' }}>
+        <section style={{ display: 'grid', gap: '5mm' }}>
+          <div style={{ background: soft, borderRadius: 6, padding: '4mm 6mm' }}>
             {[
-              ['Invoice Date', fmtDate(invoice.date)],
-              ['Due Date', fmtDate(invoice.dueDate)],
-              ['Job Ref', invoice.jobRef || '—'],
-              ['Load ID', invoice.loadId || '—'],
-              ['Customer Ref', invoice.customerRef || '—'],
-            ].map(([k, v], index) => (
-              <div key={k} style={{ padding: 12, borderRight: index < 4 ? '1px solid #e4e7ec' : undefined }}>
-                <div style={label}>{k}</div>
-                <strong style={{ display: 'block', marginTop: 4, fontSize: 12, overflowWrap: 'anywhere' }}>{v}</strong>
+              ['DATE', fmtDate(invoice.date)],
+              ['JOB REF', invoice.jobRef || invoice.loadId || '—'],
+              ['INVOICE#', invoice.invoiceNumber],
+            ].map(([k,v], index) => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 18, padding: '8px 0', borderBottom: index < 2 ? '1px solid #cfd7e3' : 0 }}>
+                <b style={label}>{k}</b><span style={{ textAlign: 'right', fontWeight: k === 'INVOICE#' ? 800 : 600 }}>{v}</span>
               </div>
             ))}
           </div>
-        </section>
-
-        {invoice.documentType && invoice.documentType !== 'invoice' && (
-          <section className="invoice-no-break" style={{ ...section, background: '#fff7ed' }}>
-            <div style={kicker}>{invoice.documentType === 'credit_note' ? 'Credit Adjustment' : 'Supplementary Charge'}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
-              <div><span style={label}>Original invoice</span><strong style={{ display: 'block', marginTop: 3 }}>{invoice.parentInvoiceNumber || 'Referenced parent invoice'}</strong></div>
-              <div><span style={label}>Reason</span><strong style={{ display: 'block', marginTop: 3 }}>{invoice.adjustmentReason || 'Adjustment reason recorded in XDrive'}</strong></div>
-            </div>
-          </section>
-        )}
-
-        <section className="invoice-no-break" style={section}>
-          <div style={kicker}>Job & Delivery Record</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div style={{ border: '1px solid #e4e7ec', borderRadius: 10, padding: 12 }}>
-              <div style={label}>Collection</div>
-              <strong style={{ display: 'block', marginTop: 4 }}>{invoice.pickupLocation || 'Not supplied'}</strong>
-              <div style={{ ...muted, marginTop: 5 }}>{fmtDate(invoice.pickupDateTime, true)}</div>
-            </div>
-            <div style={{ border: '1px solid #e4e7ec', borderRadius: 10, padding: 12 }}>
-              <div style={label}>Delivery</div>
-              <strong style={{ display: 'block', marginTop: 4 }}>{invoice.deliveryLocation || 'Not supplied'}</strong>
-              <div style={{ ...muted, marginTop: 5 }}>{fmtDate(invoice.deliveryDateTime, true)}</div>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-            <div><span style={label}>Vehicle</span><strong style={{ display: 'block', marginTop: 3 }}>{[invoice.vehicleType, invoice.vehicleRegistration].filter(Boolean).join(' · ') || 'Not supplied'}</strong></div>
-            <div><span style={label}>Cargo</span><strong style={{ display: 'block', marginTop: 3 }}>{invoice.cargoSummary || (invoice.noOfItems ? `${invoice.noOfItems} item(s)` : 'Not supplied')}</strong></div>
-          </div>
-          {invoice.orderedAt && <div style={{ ...muted, marginTop: 8 }}><strong style={{ color: '#344054' }}>Ordered:</strong> {fmtDate(invoice.orderedAt, true)}</div>}
-        </section>
-
-        <section className="invoice-no-break" style={{ ...section, background: '#f8fafc' }}>
-          <div style={kicker}>Proof of Delivery</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
-            {[
-              ['Delivered', fmtDate(invoice.deliveredAt || invoice.deliveryDateTime, true)],
-              ['Received By', invoice.deliveryRecipient || invoice.recipientName || 'Not supplied'],
-              ['Left At', invoice.leftAt || 'Not recorded'],
-              ['Items', invoice.noOfItems != null ? String(invoice.noOfItems) : 'Not recorded'],
-            ].map(([k,v]) => <div key={k} style={{ background: '#fff', border: '1px solid #e4e7ec', borderRadius: 9, padding: 10 }}><div style={label}>{k}</div><strong style={{ display: 'block', marginTop: 4, fontSize: 12 }}>{v}</strong></div>)}
-          </div>
-          <div style={{ marginTop: 10 }}><span style={label}>Delivery Notes</span><div style={{ marginTop: 4, fontWeight: 600 }}>{invoice.deliveryNotes || 'No delivery notes recorded.'}</div></div>
-          <div style={{ marginTop: 8, textAlign: 'right', color: '#0B2F6B', fontSize: 11, fontWeight: 800 }}>{invoice.signature ? 'Recipient signature captured in XDrive' : 'POD status recorded in XDrive'}</div>
-        </section>
-
-        <section className="invoice-no-break" style={section}>
-          <div style={kicker}>Charges</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 110px 110px 120px', background: '#0B2F6B', color: '#fff', borderRadius: '9px 9px 0 0', padding: '10px 8px', fontSize: 11, fontWeight: 800 }}>
-            <span>Qty</span><span>Description</span><span>Net</span><span>VAT</span><span>Total</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 110px 110px 120px', border: '1px solid #e4e7ec', borderTop: 0, borderRadius: '0 0 9px 9px', padding: '12px 8px', fontSize: 12, fontWeight: 700 }}>
-            <span>1</span><span>{invoice.serviceDescription || 'Transport service'}</span><span>{money(signedNetAmount)}</span><span>{money(signedVatAmount)} ({invoice.vatRate}%)</span><span>{money(signedTotalAmount)}</span>
+          <div style={{ background: soft, borderRadius: 6, padding: '7mm 6mm', minHeight: '29mm' }}>
+            <b style={{ display: 'block', marginBottom: 8 }}>Invoice to:</b>
+            <h3 style={{ fontSize: 20, margin: '0 0 7px' }}>{invoice.clientName || 'Not supplied'}</h3>
+            <p style={{ margin: '0 0 5px', lineHeight: 1.35 }}>{invoice.clientAddress || 'Address not supplied'}</p>
+            {invoice.clientEmail && <p style={{ margin: 0, color: muted }}>{invoice.clientEmail}</p>}
           </div>
         </section>
-
-        <div className="invoice-no-break" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }}>
-          <section style={{ ...section, background: '#f8fafc' }}>
-            <div style={kicker}>Payment</div>
-            <strong>Please ensure payment is received by {fmtDate(invoice.dueDate)}.</strong>
-            <div style={{ ...muted, marginTop: 6 }}>Payment terms: {invoice.paymentTerms}</div>
-            <div style={{ ...muted, marginTop: 8 }}>{bankName && bankSort && bankAccount ? `Account: ${bankName} · Sort code: ${bankSort} · Account no: ${bankAccount}` : 'Bank details are available from the invoice issuer.'}</div>
-            <div style={{ ...muted, fontSize: 10, marginTop: 8 }}>{invoice.lateFee}</div>
-          </section>
-          <section style={section}>
-            {[['Subtotal', money(signedNetAmount)], ['VAT', money(signedVatAmount)]].map(([k,v]) => <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}><span>{k}</span><strong>{v}</strong></div>)}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #d0d5dd', paddingTop: 10, color: '#0B2F6B', fontSize: 17, fontWeight: 900 }}><span>TOTAL</span><span>{money(signedTotalAmount)}</span></div>
-          </section>
-        </div>
       </div>
 
-      <footer style={{ borderTop: '1px solid #e4e7ec', padding: '12px 18px 16px', textAlign: 'center', color: '#667085', fontSize: 10 }}>
-        {smallMeta([
-          issuerName,
-          invoice.issuerCompanyNumber ? `Company No. ${invoice.issuerCompanyNumber}` : undefined,
-          invoice.issuerVatNumber ? `VAT ${invoice.issuerVatNumber}` : undefined,
-          invoice.issuerXdId ? `XDrive ID ${invoice.issuerXdId}` : undefined,
-          invoice.issuerEmail || companySettings.email,
-          invoice.issuerPhone || companySettings.phone,
-        ])}
+      <div className="invoice-no-break" style={{ width: '86mm', background: navy, color: '#fff', fontSize: 30, fontWeight: 900, padding: '5mm 7mm 4.5mm', lineHeight: 1, marginBottom: 0 }}>{documentLabel}</div>
+
+      {invoice.documentType && invoice.documentType !== 'invoice' && (
+        <div className="invoice-no-break" style={{ border: `1px solid ${line}`, background: '#fff7ed', padding: '10px 14px', marginBottom: 8 }}>
+          <b>{invoice.documentType === 'credit_note' ? 'Credit adjustment' : 'Supplementary charge'}</b>
+          <span style={{ marginLeft: 12 }}>{invoice.parentInvoiceNumber || 'Referenced parent invoice'}{invoice.adjustmentReason ? ` · ${invoice.adjustmentReason}` : ''}</span>
+        </div>
+      )}
+
+      <table className="invoice-no-break" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', margin: 0 }}>
+        <tbody>
+          <tr><th colSpan={3} style={{ background: navy, color: '#fff', textAlign: 'left', padding: '4mm 6mm', fontSize: 17 }}>PICKUP</th></tr>
+          <tr>
+            <td style={{ width: '45mm', border: `1px solid ${line}`, padding: '4mm 6mm', background: '#fbfcfe' }}><b>Location</b></td>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm' }}>{invoice.pickupLocation || 'Not supplied'}</td>
+            <td style={{ width: '48mm', border: `1px solid ${line}`, padding: '4mm 6mm', textAlign: 'center', fontWeight: 700 }}>{invoice.noOfItems != null ? `${invoice.noOfItems} item(s)` : invoice.cargoSummary || 'Cargo'}</td>
+          </tr>
+          <tr>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm', background: '#fbfcfe' }}><b>Cargo Details</b></td>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm' }}>{invoice.cargoSummary || invoice.serviceDescription || 'Transport service'}</td>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm' }}>{fmtDate(invoice.pickupDateTime, true)}</td>
+          </tr>
+          <tr><th colSpan={3} style={{ background: navy, color: '#fff', textAlign: 'left', padding: '4mm 6mm', fontSize: 17 }}>DELIVERY</th></tr>
+          <tr>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm', background: '#fbfcfe' }}><b>Location</b></td>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm' }}>{invoice.deliveryLocation || 'Not supplied'}</td>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm' }}>{fmtDate(invoice.deliveryDateTime, true)}</td>
+          </tr>
+          <tr>
+            <td style={{ border: `1px solid ${line}`, padding: '4mm 6mm', background: '#fbfcfe' }}><b>Recipient</b></td>
+            <td colSpan={2} style={{ border: `1px solid ${line}`, padding: '4mm 6mm' }}>{recipient}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="invoice-no-break" style={{ marginTop: '4.5mm' }}><b style={label}>Proof of Delivery</b></div>
+      <div className="invoice-no-break" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '3mm', margin: '2mm 0 4mm' }}>
+        {[0,1,2,3].map((index) => (
+          <div key={index} style={{ height: '31mm', background: soft, border: `1px solid ${line}`, display: 'grid', placeItems: 'center', overflow: 'hidden', color: '#687586', fontWeight: 800, fontSize: 12, textAlign: 'center' }}>
+            {evidence[index] ? <img src={evidence[index]} alt="POD evidence" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span>{['Vehicle','Cargo','Delivery','Signature / POD'][index]}</span>}
+          </div>
+        ))}
+      </div>
+
+      <div className="invoice-no-break" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '5mm 6mm', marginBottom: '5mm' }}>
+        <div><small style={{ display: 'block', color: muted, marginBottom: 5 }}>Delivery by</small><span>{recipient}</span></div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 18 }}><b>PAYABLE</b><strong style={{ fontSize: 34, color: navy }}>{money(signedTotalAmount)}</strong></div>
+      </div>
+
+      <table className="invoice-no-break" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+        <tbody>
+          <tr><th colSpan={2} style={{ textAlign: 'left', border: `1px solid ${line}`, padding: '5mm 6mm', fontSize: 19 }}>Payment Details</th></tr>
+          <tr><td colSpan={2} style={{ border: `1px solid ${line}`, padding: '3.6mm 6mm', background: '#f8fafc' }}><b>Bank Transfer</b> (Preferred Method)</td></tr>
+          <tr>
+            <td style={{ border: `1px solid ${line}`, padding: '3.6mm 6mm' }}><b>Account Name:</b> {bankName || 'Available from issuer'}</td>
+            <td style={{ border: `1px solid ${line}`, padding: '3.6mm 6mm' }}><b>Sort code:</b> {bankSort || '—'}</td>
+          </tr>
+          <tr>
+            <td style={{ border: `1px solid ${line}`, padding: '3.6mm 6mm' }}><b>Account Number:</b> {bankAccount || '—'}</td>
+            <td style={{ border: `1px solid ${line}`, padding: '3.6mm 6mm' }}><b>VAT:</b> {money(signedVatAmount)} ({invoice.vatRate}%)</td>
+          </tr>
+          <tr>
+            <td style={{ border: `1px solid ${line}`, padding: '3.6mm 6mm' }}><b>Subtotal:</b> {money(signedNetAmount)}</td>
+            <td style={{ border: `1px solid ${line}`, padding: '3.6mm 6mm' }}><b>Status:</b> {status}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p style={{ fontSize: 12, color: muted, margin: '4mm 0 0' }}>Payment terms: {invoice.paymentTerms}. Please ensure payment is received by {fmtDate(invoice.dueDate)}.{invoice.lateFee ? ` ${invoice.lateFee}` : ''}</p>
+
+      <footer style={{ position: 'absolute', left: 0, right: 0, bottom: 0, background: navy, color: '#fff', padding: '5mm 13mm', fontSize: 11.5, lineHeight: 1.45 }}>
+        <b>{issuerName}</b> | {issuerAddress || 'Address not supplied'}<br />
+        {[invoice.issuerEmail || companySettings.email, invoice.issuerPhone || companySettings.phone].filter(Boolean).join(' | ')}
       </footer>
-    </div>
+    </article>
   );
 }

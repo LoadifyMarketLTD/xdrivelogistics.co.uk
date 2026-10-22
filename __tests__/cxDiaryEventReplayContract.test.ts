@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
@@ -46,8 +46,8 @@ describe('CX-inspired Diary / Event Log / Journey Replay convergence', () => {
   });
 
   it('connects operational Diaries to the same Replay surface', () => {
-    expect(operationsDiary).toContain("['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log']");
-    expect(operationsDiary).toContain('onClick={() => openJobTab(job.id, tabId)}');
+    expect(operationsDiary).toContain("openJobTab(job.id, DIARY_JOB_SHEET_TABS[tab])");
+    expect(read('app/components/workspace/CxDiaryActions.tsx')).toContain("history: 'event-log'");
     expect(brokerDiary).toContain('/job-replay/${job.id}');
     expect(customerDiary).toContain('/job-replay/${job.id}');
   });

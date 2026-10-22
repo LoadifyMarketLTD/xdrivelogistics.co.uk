@@ -57,13 +57,14 @@ describe('workspace visual fixture harness contract', () => {
     expect(fixtureComponent).toContain('compliance:');
   });
 
-  it('uses the Owner Driver 675 dashboard geometry for operational visual fixtures', () => {
+  it('uses the measured Courier Exchange live dashboard geometry for operational visual fixtures', () => {
     expect(topFixture).toContain('xdrive-admin-dashboard-home');
     expect(topFixture).toContain('xdrive-owner-dashboard-grid');
     expect(topFixture).toContain('xdrive-owner-dashboard-column');
     expect(topFixture).toContain('xdrive-owner-dashboard-subgrid');
     expect(topFixture).toContain('title="Reports & Statistics"');
     expect(topFixture).toContain('title="Activity at a glance"');
+    expect(topFixture).toContain('config.kpis.map');
     expect(topFixture).not.toContain('<PageHeader');
     expect(topFixture).not.toContain('<OperationalToolbar');
     expect(topFixture).not.toContain('<ExchangeKpiStrip');

@@ -119,11 +119,6 @@ function BrokerInvitationsContent() {
         eyebrow="Network"
         title="Broker Invitations"
         description="Broker companies that have invited your company into their preferred carrier network."
-        actions={
-          <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </ActionButton>
-        }
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
@@ -135,6 +130,7 @@ function BrokerInvitationsContent() {
       <Panel
         title="Invitations"
         description="Accept to join a broker's preferred carrier network, or reject to decline."
+        actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       >
         <DataTable
           columns={['Broker company', 'Message', 'Invited', 'Status', 'Actions']}

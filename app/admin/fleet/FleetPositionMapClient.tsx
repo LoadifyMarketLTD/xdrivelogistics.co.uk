@@ -64,10 +64,12 @@ export default function FleetPositionMapClient({
   points,
   selectedDriverId,
   mode = 'live',
+  height = 440,
 }: {
   points: FleetMapPoint[];
   selectedDriverId: string | null;
   mode?: FleetMapMode;
+  height?: number;
 }) {
   const [providerError, setProviderError] = useState(false);
   const validPoints = useMemo(() => points.filter(hasValidCoordinates), [points]);
@@ -83,42 +85,44 @@ export default function FleetPositionMapClient({
     ? [selected.lat, selected.lng]
     : [validPoints[0]?.lat ?? 54.5, validPoints[0]?.lng ?? -3.0];
 
-  if (validPoints.length === 0) {
-    return (
-      <div
-        style={{
-          height: '440px',
-          width: '100%',
-          overflow: 'hidden',
-          borderRadius: '9px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#f1f5f9',
-          color: '#64748b',
-          fontSize: '0.9rem',
-        }}
-        data-testid="fleet-map-no-coords"
-        role="status"
-        aria-live="polite"
-      >
-        {mode === 'future' ? 'No geocoded future fleet positions available.' : 'No live fleet positions available.'}
-      </div>
-    );
-  }
-
   return (
     <div
       data-testid="fleet-map-ready"
       style={{
         position: 'relative',
-        height: '440px',
+        height: `${height}px`,
         width: '100%',
         overflow: 'hidden',
         borderRadius: '9px',
         background: '#e2e8f0',
       }}
     >
+      {validPoints.length === 0 && (
+        <div
+          data-testid="fleet-map-no-coords"
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: '12px',
+            left: '12px',
+            right: '12px',
+            zIndex: 1000,
+            border: '1px solid #cbd5e1',
+            borderRadius: '8px',
+            background: 'rgba(255, 255, 255, 0.94)',
+            color: '#475569',
+            padding: '10px 12px',
+            fontSize: '0.86rem',
+            lineHeight: 1.4,
+            textAlign: 'center',
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.10)',
+          }}
+        >
+          {mode === 'future' ? 'No future fleet positions available.' : 'No live fleet positions available.'}
+        </div>
+      )}
+
       {providerError && (
         <div
           data-testid="fleet-map-provider-error"
@@ -147,7 +151,7 @@ export default function FleetPositionMapClient({
       <MapContainer
         center={centre}
         zoom={8}
-        scrollWheelZoom={false}
+        scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer

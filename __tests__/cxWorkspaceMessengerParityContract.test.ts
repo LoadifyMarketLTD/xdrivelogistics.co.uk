@@ -51,7 +51,8 @@ describe('CX-close participant messaging parity', () => {
     expect(topShell).toContain("fleet_manager: '/admin/messages'");
     expect(topShell).toContain("dispatcher: '/admin/messages'");
     expect(topShell).toContain("label: 'Messages'");
-    expect(customerQuotes).toContain("router.push('/customer/messages')");
-    expect(customerQuotes).toContain('>Messages</ActionButton>');
+    expect(customerQuotes).toContain('MessageParticipantDialog');
+    expect(customerQuotes).toContain('>Message</ActionButton>');
+    expect(customerQuotes).not.toContain("router.push('/customer/messages')");
   });
 });

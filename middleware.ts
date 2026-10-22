@@ -5,7 +5,7 @@ import { isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './a
 import { getPostLoginRoute } from './lib/authSession';
 import { resolveActiveCompanyContext, type RawMembershipRow } from './lib/activeWorkspace';
 import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
-import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
+import { hasDriverProviderWorkspaceEvidence, isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
 import { resolveMembershipRole, type MembershipRole } from './lib/membershipRole';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
@@ -70,6 +70,7 @@ type DriverRouteRow = {
   must_change_password?: boolean | null;
   status?: string | null;
   can_commercial_bid?: boolean | null;
+  driver_type?: string | null;
 };
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
@@ -163,7 +164,7 @@ const isMissingDriverCanBidColumn = (
 ): boolean => {
   if (!error || error.code !== '42703') return false;
   const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
-  return text.includes('can_commercial_bid');
+  return text.includes('can_commercial_bid') || text.includes('driver_type');
 };
 
 const isServiceFailure = (message: string | null | undefined) => {
@@ -389,7 +390,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     if (standaloneDriverIdentity) {
       const { data: standaloneDriverInitial, error: standaloneDriverErrorInitial } = await supabaseAdmin
         .from('drivers')
-        .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
+        .select('id, company_id, app_access, must_change_password, status, can_commercial_bid, driver_type')
         .eq('user_id', authData.user.id)
         .eq('status', 'active')
         .limit(2);
@@ -421,7 +422,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
         return { kind: 'forbidden' };
       }
 
-      const ownerDriverWorkspace = ownerDriverWorkspaceRequested;
+      const ownerDriverWorkspace = hasDriverProviderWorkspaceEvidence(driver, ownerDriverWorkspaceRequested);
       const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
 
       return {
@@ -461,11 +462,29 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
         ? profilePortalRole
         : null;
 
-  const activeCompany = resolveActiveCompanyContext(memberships, {
+  let recoveringOwnerDriverLanding = false;
+  let activeCompany = resolveActiveCompanyContext(memberships, {
     preferredCompanyId: profile.company_id ?? null,
     targetPathname: request.nextUrl.pathname,
     identityRole: portalIdentityRole,
   });
+  // An old login/bookmark may still target /admin after owner-driver approval.
+  // Resolve only this landing page against the existing owner-operator company;
+  // the scoped active-driver checks below still run before redirecting to /driver.
+  // Never enable admin capabilities or recover nested admin/platform-owner URLs.
+  if (!activeCompany.ok && activeCompany.error === 'workspace_not_enabled'
+      && request.nextUrl.pathname === '/admin' && profile.is_driver === true) {
+    const recoveryCompany = resolveActiveCompanyContext(memberships, {
+      preferredCompanyId: profile.company_id ?? null,
+      targetPathname: '/driver',
+      identityRole: portalIdentityRole,
+    });
+    if (recoveryCompany.ok && recoveryCompany.context.activeWorkspace === 'owner_operator'
+        && ['owner', 'admin'].includes(recoveryCompany.context.membershipRole)) {
+      activeCompany = recoveryCompany;
+      recoveringOwnerDriverLanding = true;
+    }
+  }
   if (!activeCompany.ok) {
     return { kind: 'forbidden' };
   }
@@ -477,7 +496,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
 
   const { data: driverDataInitial, error: driverErrorInitial } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
+    .select('id, company_id, app_access, must_change_password, status, can_commercial_bid, driver_type')
     .eq('user_id', authData.user.id)
     .eq('company_id', activeCompany.context.companyId)
     .limit(1)
@@ -515,7 +534,12 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   if (companyStatus !== 'active') {
     return { kind: 'forbidden' };
   }
-  const ownerDriverWorkspace = ownerDriverWorkspaceRequested && Boolean(driver?.id);
+  if (recoveringOwnerDriverLanding && (!driver?.id
+      || driver.driver_type?.trim().toLowerCase() !== 'owner_driver'
+      || driver.status?.toLowerCase() !== 'active' || driver.app_access !== true)) {
+    return { kind: 'forbidden' };
+  }
+  const ownerDriverWorkspace = hasDriverProviderWorkspaceEvidence(driver, ownerDriverWorkspaceRequested);
   const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
 
   const role = resolveAuthoritativeRole({
@@ -577,8 +601,8 @@ function generateNonce(): string {
 function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string {
   const isDev = process.env.NODE_ENV === 'development';
   const scriptSrc = isDev
-    ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
-    : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
+    ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app https://maps.googleapis.com https://maps.gstatic.com`
+    : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app https://maps.googleapis.com https://maps.gstatic.com`;
   // The current UI still relies on React style attributes in several public and
   // authenticated surfaces. Blocking inline styles makes the rendered page unusable.
   // Keep script execution nonce-protected, but allow inline CSS until those style
@@ -589,8 +613,8 @@ function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string
     `script-src ${scriptSrc}`,
     `style-src ${styleSrc}`,
     "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://maps.googleapis.com https://mapsresources-pa.googleapis.com https://maps.gstatic.com",
     allowNetlifyPreviewFrame ? "frame-src 'self' https://app.netlify.com" : "frame-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",

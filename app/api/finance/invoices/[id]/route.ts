@@ -5,6 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
+import { membershipHasCapability, resolveMembershipRole } from '../../../../../lib/membershipRole';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -53,6 +54,9 @@ const toCustomerInvoice = (invoice: Record<string, unknown>) => ({
   document_type: invoice.document_type,
   parent_invoice_id: invoice.parent_invoice_id,
   adjustment_reason: invoice.adjustment_reason,
+  submitted_at: invoice.submitted_at,
+  approved_at: invoice.approved_at,
+  approved_by: invoice.approved_by,
   created_at: invoice.created_at,
   updated_at: invoice.updated_at,
 });
@@ -73,11 +77,11 @@ export async function GET(
 
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('company_id')
+    .select('company_id, role_in_company')
     .eq('user_id', authData.user.id)
     .eq('status', 'active');
   if (membershipError) return respond(500, { error: membershipError.message });
-  const companyIds = new Set((memberships ?? []).map((membership) => membership.company_id as string));
+  const companyIds = new Set((memberships ?? []).filter(membership => { const role = resolveMembershipRole(membership.role_in_company); return role && (membershipHasCapability(role, 'invoices.carrier.manage') || membershipHasCapability(role, 'invoices.customer.manage')); }).map(membership => membership.company_id as string));
 
   const { id } = await params;
   const { data: invoice, error } = await supabaseAdmin
@@ -100,12 +104,11 @@ export async function GET(
   }
 
   const issuerAuthorised =
-    invoice.created_by === authData.user.id ||
     companyIds.has(invoice.company_id as string) ||
     companyIds.has(invoice.supplier_company_id as string);
   const buyerAuthorised =
     companyIds.has(invoice.buyer_company_id as string) ||
-    (jobOwnerCompanyId ? companyIds.has(jobOwnerCompanyId) : false);
+    (!invoice.buyer_company_id && jobOwnerCompanyId ? companyIds.has(jobOwnerCompanyId) : false);
 
   if (!issuerAuthorised && !buyerAuthorised) {
     return respond(403, { error: 'This invoice is outside your company workspace.' });
@@ -148,11 +151,24 @@ export async function GET(
         note: entry.to_status === 'Submitted' ? 'Invoice sent to customer.' : null,
       }));
 
+  const buyerCompanyId = typeof invoice.buyer_company_id === 'string' ? invoice.buyer_company_id : jobOwnerCompanyId;
+  const buyerMembership = (memberships ?? []).find((membership) => membership.company_id === buyerCompanyId);
+  const buyerRole = resolveMembershipRole(buyerMembership?.role_in_company ?? null);
+  const canManageBuyerPayments = Boolean(
+    buyerCompanyId && buyerRole && membershipHasCapability(buyerRole, 'payments.manage'),
+  );
+
   return respond(200, {
     invoice: issuerAuthorised ? invoice : toCustomerInvoice(invoice as Record<string, unknown>),
     statusHistory: safeHistory,
     payments: payments.data ?? [],
     disputes: disputes.data ?? [],
     documents: documents.data ?? [],
+    viewerContext: {
+      isIssuer: issuerAuthorised,
+      isBuyer: Boolean(buyerCompanyId && companyIds.has(buyerCompanyId)),
+      buyerCompanyId,
+      canManageBuyerPayments,
+    },
   });
 }

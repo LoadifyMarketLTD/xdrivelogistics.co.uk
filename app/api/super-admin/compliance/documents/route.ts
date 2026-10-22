@@ -2,12 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
-  getBearerToken,
   isSupabaseAdminConfigured,
   supabaseAdmin,
-  supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag, getGlobalSettingNumber } from '../../../_lib/platformFlags';
+import { verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -40,26 +39,6 @@ const reviewSchema = viewSchema.extend({
   action: z.enum(['approve', 'reject', 'request_update']),
   reason: z.string().trim().max(5000).optional(),
 });
-
-const verifyPlatformOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-
-  const token = getBearerToken(request);
-  if (!token) return null;
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-
-  if (profileError || profile?.role !== 'owner') return null;
-  return authData.user;
-};
 
 const text = (value: unknown, fallback = '') =>
   typeof value === 'string' && value.trim() ? value.trim() : fallback;

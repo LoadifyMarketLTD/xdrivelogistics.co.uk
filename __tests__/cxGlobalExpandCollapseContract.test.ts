@@ -30,12 +30,16 @@ describe('CX global Expand all / Collapse all operational contract', () => {
   });
 
   it('keeps Driver Loads, Advanced Search, Quotes and Diary globally expandable', () => {
-    expect(driverLoads).toMatch(/Collapse all visible loads|Expand all visible loads/);
+    expect(driverLoads).toContain('OperationalExpandAllControl');
     expect(driverAdvancedLoads).toContain('OperationalExpandAllControl');
     expect(driverAdvancedLoads).toContain('allExpanded');
     expect(driverAdvancedLoads).toContain('new Set(loads.map');
-    expect(driverQuotes).toContain("allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'");
-    expect(driverDiary).toContain("allExpanded ? 'Collapse all' : 'Expand all'");
+    expect(driverQuotes).toContain('cx-expand-entries-control');
+    expect(driverQuotes).toContain('allVisibleExpanded');
+    expect(driverQuotes).toContain('toggleExpandAll');
+    expect(driverDiary).toContain('cx-expand-entries-control');
+    expect(driverDiary).toContain('allExpanded');
+    expect(driverDiary).toContain('toggleExpandAll');
   });
 
   it('keeps Driver Return Journeys globally expandable even when no row is initially open', () => {
@@ -48,14 +52,15 @@ describe('CX global Expand all / Collapse all operational contract', () => {
   it('keeps Admin Diary globally expandable', () => {
     expect(adminDiary).toContain('allVisibleExpanded');
     expect(adminDiary).toContain('toggleExpandAll');
-    expect(adminDiary).toMatch(/Collapse all|Collapse All Entries/);
-    expect(adminDiary).toMatch(/Expand all|Expand All Entries/);
+    expect(adminDiary).toContain('cx-expand-entries-control');
+    expect(adminDiary).toContain('onClick={toggleExpandAll}');
   });
 
   it('keeps Company Marketplace load results globally expandable', () => {
-    expect(companyMarketplace).toContain('OperationalExpandAllControl');
+    expect(companyMarketplace).toContain('cx-expand-entries-control');
     expect(companyMarketplace).toContain('allVisibleExpanded');
-    expect(companyMarketplace).toContain('new Set(loads.map');
+    expect(companyMarketplace).toContain('toggleExpandAll');
+    expect(companyMarketplace).toContain('for (const load of visibleLoads)');
   });
 
   it('keeps Admin Jobs globally expandable on desktop and mobile through the same state set', () => {

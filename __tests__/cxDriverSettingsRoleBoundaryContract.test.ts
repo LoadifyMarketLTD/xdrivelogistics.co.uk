@@ -12,15 +12,18 @@ describe('CX-informed Driver vs Owner Driver settings boundary', () => {
     expect(page).toContain('<RoleSettingsWorkspace role={settingsRole} />');
   });
 
-  it('keeps personal driver settings separate from company ownership and billing controls', () => {
+  it('keeps personal driver settings separate from privileged billing controls while exposing company settings read-only', () => {
     expect(settings).toContain("driver: 'Driver'");
-    expect(settings).toContain("const companyProfileRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier'];");
+    expect(settings).toContain("const companyProfileVisible = true;");
     expect(settings).toContain("const billingRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier'];");
-    expect(settings).toContain("!companyProfileVisible && <ActionButton tone=\"secondary\" onClick={() => setSection('profile')}>My Profile</ActionButton>");
+    expect(settings).toContain("{ label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' }");
+    expect(settings).toContain("{ label: 'Company Settings', action: () => setSection('company'), active: section === 'company' }");
+    expect(settings).toContain("disabled={!canEditCompany}");
   });
 
-  it('keeps Driver and Owner Driver inside the same top-level Settings visual composition', () => {
-    expect(settings).toContain("role === 'owner' || role === 'driver'");
-    expect(settings).toContain("role !== 'owner' && role !== 'driver'");
+  it('keeps Driver and Owner Driver inside the same shared Settings sidebar composition', () => {
+    expect(settings).toContain('<div className="role-settings-layout">');
+    expect(settings).toContain('<aside className="role-settings-nav">');
+    expect(settings).not.toContain("role !== 'owner' && role !== 'driver'");
   });
 });

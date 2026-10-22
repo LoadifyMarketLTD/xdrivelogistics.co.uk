@@ -113,6 +113,7 @@ export default function SuperAdminSidebar({
 
   return (
     <aside
+      id="super-admin-navigation"
       className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''} ${mobileOpen ? styles.sidebarMobileOpen : ''}`}
       aria-label="Super Admin navigation"
     >

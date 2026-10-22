@@ -82,7 +82,6 @@ export default function FleetAvailabilityPage() {
         eyebrow="Fleet capacity"
         title="Availability"
         description="Current driver availability, vehicle assignment signals, latest position and Fleet workload in one operational matrix."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/driver-availability')}>Manage availability</ActionButton>}
       />
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       <Panel title="Fleet availability matrix" description="Active-job tracking and published availability are combined for your own Fleet. Driver and vehicle eligibility is checked again before allocation.">
@@ -108,7 +107,7 @@ export default function FleetAvailabilityPage() {
               location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : 'Location unavailable',
               work ? <span key="work"><strong style={{ display: 'block' }}>{work.job.pickup_postcode ?? work.job.pickup_location ?? 'Collection'} → {work.job.delivery_postcode ?? work.job.delivery_location ?? 'Delivery'}</strong><span>{work.stage === 'in_progress' ? 'Execution in progress' : work.stage === 'allocated' ? 'Allocated / awaiting execution' : 'Allocation incomplete — driver and eligible vehicle required'}</span></span> : 'No current or allocated Fleet job',
               docs.length ? `${docs.length} document(s)` : 'No documents recorded',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton>,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage</ActionButton>,
             ];
           })}
           empty={<EmptyState title="No drivers available for Fleet planning" />}

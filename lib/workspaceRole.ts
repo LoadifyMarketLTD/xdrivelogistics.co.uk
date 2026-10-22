@@ -105,6 +105,14 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
     return 'owner_driver';
   }
 
+  // Active company subroles take precedence over the generic company_admin profile.
+  // This keeps client workspace resolution aligned with server-side membership authority.
+  if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin' || membershipRole === 'fleet_manager') return 'fleet_manager';
+  if (rawRole === 'dispatcher' || rawRole === 'operations_controller' || membershipRole === 'dispatcher') return 'dispatcher';
+  if (rawRole === 'finance' || rawRole === 'accounting' || rawRole === 'accountant' || membershipRole === 'finance') return 'finance';
+  if (rawRole === 'compliance' || rawRole === 'compliance_manager' || membershipRole === 'compliance') return 'compliance';
+  if (rawRole === 'viewer' || membershipRole === 'viewer') return 'viewer';
+
   if (membershipRole === 'owner') return 'company_owner';
   if (membershipRole === 'admin' || appRole === 'company_admin') return rawRole === 'carrier' ? 'carrier_admin' : 'company_admin';
 
@@ -116,12 +124,6 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
   }
 
   if (appRole === 'driver' || rawRole === 'driver' || rawRole === 'company_driver' || rawRole === 'solo_driver') return 'driver';
-
-  if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin' || membershipRole === 'fleet_manager') return 'fleet_manager';
-  if (rawRole === 'dispatcher' || rawRole === 'operations_controller' || membershipRole === 'dispatcher') return 'dispatcher';
-  if (rawRole === 'finance' || rawRole === 'accounting' || rawRole === 'accountant' || membershipRole === 'finance') return 'finance';
-  if (rawRole === 'compliance' || rawRole === 'compliance_manager' || membershipRole === 'compliance') return 'compliance';
-  if (rawRole === 'viewer' || membershipRole === 'viewer') return 'viewer';
 
   if (appRole === 'company_staff' || membershipRole === 'member') return 'carrier_admin';
 
@@ -167,6 +169,7 @@ const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
   { id: 'home', label: 'Driver', items: [
     { id: 'today', label: 'Today', href: '/driver', icon: 'HOME' },
     { id: 'action-centre', label: 'Action Centre', href: '/driver/action-centre', icon: '!' },
+    { id: 'directory', label: 'Directory', href: '/driver/directory', icon: '⊕' },
   ] },
   { id: 'operations', label: 'My Work', items: [
     { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
@@ -189,6 +192,7 @@ const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
   ...DRIVER_EXECUTION_NAV,
   { id: 'commercial', label: 'Commercial', items: [
     { id: 'live-availability', label: 'Live Availability', href: '/driver/availability/live', icon: '◷' },
+    { id: 'my-fleet', label: 'My Fleet', href: '/driver/fleet', icon: '▰' },
     { id: 'loads', label: 'Loads', href: '/driver/loads', icon: '▦' },
     { id: 'quotes', label: 'Quotes', href: '/driver/quotes', icon: '◫' },
     { id: 'won-work', label: 'Won Work', href: '/driver/won-work', icon: '✓' },
@@ -216,7 +220,7 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   broker: new Set<WorkspaceCapability>(['company.manage', 'billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'documents.company.manage', 'invoices.customer.manage', 'invoices.carrier.manage', 'margins.view', 'incidents.manage', 'settings.manage']),
   customer: new Set<WorkspaceCapability>(['billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
   fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage']),
-  dispatcher: new Set<WorkspaceCapability>(['loads.create', 'loads.publish', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage', 'settings.manage']),
+  dispatcher: new Set<WorkspaceCapability>(['loads.create', 'loads.publish', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'quotes.receive', 'quotes.compare', 'quotes.award', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage', 'settings.manage']),
   driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
   owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'drivers.manage', 'company.members.manage', 'invoices.carrier.manage', 'billing.manage']),
   finance: new Set<WorkspaceCapability>(['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view', 'settings.manage']),
@@ -235,7 +239,7 @@ const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/admin/marketplace/directory', icon: '⊕', capability: 'loads.view.marketplace' }] },
   { id: 'carrier-live', label: 'Live Availability', items: [{ id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◉', capability: 'fleet.positions.view' }] },
   { id: 'carrier-freight-vision', label: 'Freight Vision', items: [{ id: 'freight-vision', label: 'Freight Vision', href: '/admin/freight-vision', icon: '◎', capability: 'jobs.track' }] },
-  { id: 'carrier-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/admin/exchange-quotes', icon: '◫', capability: 'quotes.submit' }] },
+  { id: 'carrier-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/admin/exchange', icon: '◫', capability: 'quotes.submit' }] },
   { id: 'carrier-won-work', label: 'Won Work', items: [{ id: 'won-work', label: 'Won Work', href: '/admin/won-work', icon: '✓', capability: 'jobs.view' }] },
   { id: 'carrier-jobs', label: 'Jobs', items: [
     { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣', capability: 'jobs.view' },
@@ -249,7 +253,7 @@ const carrierNav: WorkspaceNavGroup[] = [
     { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰', capability: 'vehicles.manage' },
     { id: 'vehicle-tracking', label: 'Vehicle Tracking', href: '/admin/fleet/positions', icon: '⌖', capability: 'fleet.positions.view' },
   ] },
-  { id: 'carrier-fleet', label: 'Fleet', items: [{ id: 'fleet', label: 'Fleet', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' }, { id: 'fleet-managers', label: 'Fleet Managers', href: '/admin/fleet/managers', icon: '◉', capability: 'company.members.manage' }] },
+  { id: 'carrier-fleet', label: 'Fleet', items: [{ id: 'fleet', label: 'Fleet', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' }, { id: 'my-fleet', label: 'My Fleet', href: '/admin/fleet/vehicles', icon: '▰', capability: 'fleet.positions.view' }, { id: 'fleet-managers', label: 'Fleet Managers', href: '/admin/fleet/managers', icon: '◉', capability: 'company.members.manage' }] },
   { id: 'carrier-team', label: 'Team & Roles', items: [{ id: 'team-roles', label: 'Team & Roles', href: '/admin/team', icon: 'TEAM', capability: 'company.members.manage' }, { id: 'dispatchers', label: 'Dispatchers', href: '/admin/dispatchers', icon: 'OPS', capability: 'company.members.manage' }] },
   { id: 'carrier-returns', label: 'Returns', items: [{ id: 'returns', label: 'Returns', href: '/admin/fleet/returns', icon: '↩' }] },
   { id: 'carrier-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }] },
@@ -282,7 +286,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'broker-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/broker/bids', icon: '◫', capability: 'quotes.receive' }] },
       { id: 'broker-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/broker/jobs', icon: '▣', capability: 'jobs.track' }] },
       { id: 'broker-pod', label: 'POD', items: [{ id: 'pod', label: 'POD Review', href: '/broker/pod-review', icon: '▤', capability: 'jobs.review_pod' }] },
-      { id: 'broker-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/broker/carrier-network', icon: '⊕', capability: 'settings.manage' }] },
+      { id: 'broker-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/broker/carrier-network/directory', icon: '⊕', capability: 'quotes.receive' }] },
       { id: 'broker-customers', label: 'Customers', items: [{ id: 'customers', label: 'Customers', href: '/broker/customers', icon: '◌' }] },
       { id: 'broker-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/broker/diary', icon: '□', capability: 'jobs.view' }] },
       { id: 'broker-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/broker/messages', icon: '◫' }] },
@@ -298,6 +302,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     role: 'customer', label: 'Customer Workspace', subtitle: 'Post, award and track your transport', homeHref: '/customer', primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' },
     nav: [
       { id: 'customer-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/customer', icon: '⌂' }] },
+      { id: 'customer-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/customer/network/directory', icon: '⊕' }] },
       { id: 'customer-loads', label: 'Loads', items: [
         { id: 'loads', label: 'Loads', href: '/customer/loads', icon: '▦', capability: 'loads.view.own' },
         { id: 'bulk-import', label: 'Bulk Import', href: '/customer/bulk-import', icon: '⇩', capability: 'loads.create' },
@@ -311,7 +316,6 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'customer-notifications', label: 'Notifications', items: [{ id: 'notifications', label: 'Notifications', href: '/customer/notifications', icon: '◫' }] },
       { id: 'customer-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/customer/messages', icon: '◫' }] },
       { id: 'customer-event-log', label: 'Event Log', items: [{ id: 'event-log', label: 'Event Log', href: '/customer/event-log', icon: '≡', capability: 'jobs.view' }] },
-      { id: 'customer-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/customer/network', icon: '◌' }] },
       { id: 'customer-disputes', label: 'Disputes', items: [{ id: 'disputes', label: 'Disputes', href: '/customer/disputes', icon: '!', capability: 'jobs.view' }] },
       { id: 'customer-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/customer/settings/billing', icon: '£', capability: 'billing.manage' }] },
       { id: 'customer-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/customer/account', icon: '⚙', capability: 'settings.manage' }] },
@@ -321,6 +325,9 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     role: 'fleet_manager', label: 'Fleet Workspace', subtitle: 'Capacity, assignments, compliance and live operations', homeHref: '/admin/fleet',
     nav: [
       { id: 'fleet-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin/fleet', icon: '⌂' }] },
+      { id: 'fleet-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/admin/marketplace/directory', icon: '⊕' }] },
+      { id: 'fleet-live-availability', label: 'Live Availability', items: [{ id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◷', capability: 'fleet.positions.view' }] },
+      { id: 'fleet-resources', label: 'Drivers & Vehicles', items: [{ id: 'resources', label: 'Drivers & Vehicles', href: '/admin/fleet/resources', icon: '◉', capability: 'fleet.positions.view' }] },
       { id: 'fleet-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/admin/fleet/jobs', icon: '▣', capability: 'jobs.view' }] },
       { id: 'fleet-assignments', label: 'Assignments', items: [{ id: 'assignments', label: 'Assignments', href: '/admin/fleet/assignments', icon: '⇄', capability: 'jobs.allocate' }] },
       { id: 'fleet-drivers', label: 'Drivers', items: [{ id: 'drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: '◉', capability: 'drivers.manage' }] },
@@ -343,7 +350,10 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
   dispatcher: {
     role: 'dispatcher', label: 'Operations Workspace', subtitle: 'Allocate, monitor and recover daily jobs', homeHref: '/admin',
     nav: [
-      { id: 'home', label: 'Operations', items: [{ id: 'dashboard', label: 'Dispatcher Dashboard', href: '/admin', icon: '⌂' }] },
+      { id: 'home', label: 'Operations', items: [
+        { id: 'dashboard', label: 'Dispatcher Dashboard', href: '/admin', icon: '⌂' },
+        { id: 'directory', label: 'Directory', href: '/admin/marketplace/directory', icon: '⊕' },
+      ] },
       { id: 'work', label: 'Daily Work', items: [
         { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□' },
         { id: 'bulk-import', label: 'Bulk Import', href: '/admin/bulk-import', icon: '⇩', capability: 'loads.create' },
@@ -355,6 +365,11 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'pod', label: 'POD Queue', href: '/admin/pod', icon: '▤' },
       ] },
       { id: 'resources', label: 'Resources', items: [
+        { id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◷', capability: 'fleet.positions.view' },
+        { id: 'my-fleet', label: 'My Fleet', href: '/admin/fleet/vehicles', icon: '▰', capability: 'fleet.positions.view' },
+        { id: 'return-journeys', label: 'Return Journeys', href: '/admin/fleet/returns', icon: '↩' },
+        { id: 'drivers-vehicles', label: 'Drivers & Vehicles', href: '/admin/fleet/resources', icon: '◉', capability: 'fleet.positions.view' },
+        { id: 'freight-vision', label: 'Freight Vision', href: '/admin/freight-vision', icon: '◎', capability: 'jobs.track' },
         { id: 'drivers', label: 'Drivers', href: '/admin/drivers', icon: '◉' },
         { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰' },
         { id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖' },

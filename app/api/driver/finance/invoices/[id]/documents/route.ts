@@ -1,3 +1,4 @@
+import { isInvoiceDocumentPath } from '../../../../../../../lib/server/invoiceDocumentPath';
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { requireDriverFinanceAccess } from '../../../_lib/financeAccess';
@@ -72,6 +73,14 @@ export async function POST(
 
   if (!file_url || typeof file_url !== 'string' || !file_url.trim()) {
     return respond(400, { error: 'file_url is required.' });
+  }
+
+  if (!isInvoiceDocumentPath(file_url, driver.companyId, id)) {
+    return respond(403, { error: 'Document path must belong to this company and invoice.' });
+  }
+
+  if (doc_type === 'invoice_pdf') {
+    return respond(403, { error: 'Official invoice PDFs are created only by the controlled invoice delivery service.' });
   }
 
   const validDocTypes = ['invoice_pdf', 'pod_photo', 'pod_signature', 'other'] as const;

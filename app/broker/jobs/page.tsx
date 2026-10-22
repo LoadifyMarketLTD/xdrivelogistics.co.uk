@@ -99,7 +99,7 @@ export default function BrokerJobsPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Broker operations" title="Jobs" description="Monitor awarded carrier work from allocation through live execution, traffic ETA, delivery evidence and completion in one operational board." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
+      <PageHeader eyebrow="Broker operations" title="Jobs" description="Monitor awarded carrier work from allocation through execution and completion." />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
@@ -117,6 +117,10 @@ export default function BrokerJobsPage() {
         <main style={{ minWidth: 0 }}>
           <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
             {tabs.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} {item.count}</button>)}
+          </div>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
+            <span><strong>{rows.length}</strong> job{rows.length === 1 ? '' : 's'}</span>
+            <span className="workspace-list-controls__right"><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton></span>
           </div>
 
           {rows.length === 0 ? (

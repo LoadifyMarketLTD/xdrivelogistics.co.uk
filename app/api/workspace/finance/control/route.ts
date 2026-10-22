@@ -1,5 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { invoiceAgingBucket, type AgingBucket } from '../../../../../lib/finance/accounts';
+import { resolveWorkspaceRole } from '../../../../../lib/workspaceRole';
+import { hasWorkspaceCapabilityForContext } from '../../../../../lib/roleCapabilities';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -90,14 +92,35 @@ export async function GET(request: NextRequest) {
     .eq('status', 'active');
   if (membershipResult.error) return json(500, { error: 'Finance scope could not be verified.' });
 
-  const companyIds = [...new Set((membershipResult.data ?? [])
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('user_id', authData.user.id)
+    .maybeSingle();
+  const profileRole = text(profile?.role);
+  const financeMemberships = (membershipResult.data ?? []).filter((row) => {
+    const membershipRole = text(row.role_in_company);
+    const workspaceRole = resolveWorkspaceRole({
+      role: profileRole,
+      rawRole: profileRole,
+      membershipRole,
+    });
+    return hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.customer.manage', { membershipRole })
+      || hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.carrier.manage', { membershipRole });
+  });
+  const companyIds = [...new Set(financeMemberships
     .map((row) => text(row.company_id))
     .filter((value): value is string => Boolean(value)))];
-  if (!companyIds.length) return json(200, {
-    invoices: [], readyToInvoice: [], counterparties: [],
-    summary: { receivableOutstanding: 0, payableOutstanding: 0, overdueCount: 0, overdueValue: 0, paidValue: 0, readyToInvoiceCount: 0, receivableAging: emptyAging(), payableAging: emptyAging() },
-    note: 'No active company membership is available for company finance control.',
-  });
+  if (!companyIds.length) {
+    if ((membershipResult.data ?? []).length > 0) {
+      return json(403, { error: 'Finance access is not available for this workspace role.' });
+    }
+    return json(200, {
+      invoices: [], readyToInvoice: [], counterparties: [],
+      summary: { receivableOutstanding: 0, payableOutstanding: 0, overdueCount: 0, overdueValue: 0, paidValue: 0, readyToInvoiceCount: 0, receivableAging: emptyAging(), payableAging: emptyAging() },
+      note: 'No active company membership is available for company finance control.',
+    });
+  }
 
   const invoiceQueries = await Promise.all(companyIds.map((companyId) => supabaseAdmin!
     .from('invoices')
@@ -127,20 +150,28 @@ export async function GET(request: NextRequest) {
   }
 
   const paidByInvoice = new Map<string, number>();
+  const paymentCountByInvoice = new Map<string, number>();
   for (const payment of paymentRows) {
     const invoiceId = text(payment.invoice_id);
     if (!invoiceId) continue;
     paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) ?? 0) + numberValue(payment.amount));
+    paymentCountByInvoice.set(invoiceId, (paymentCountByInvoice.get(invoiceId) ?? 0) + 1);
   }
   const companyIdSet = new Set(companyIds);
   const invoices = rawInvoices.map((row) => classifyInvoice(row, companyIdSet, paidByInvoice.get(String(row.id)) ?? 0));
 
   const counterpartyIds = [...new Set(invoices.map((invoice) => invoice.counterpartyCompanyId).filter((value): value is string => Boolean(value)))];
   const companyNameById = new Map<string, string>();
+  const companyCustomerIdById = new Map<string, string>();
   if (counterpartyIds.length) {
-    const companiesResult = await supabaseAdmin.from('companies').select('id, name').in('id', counterpartyIds).limit(500);
+    const companiesResult = await supabaseAdmin.from('companies').select('id, name, xd_id').in('id', counterpartyIds).limit(500);
     if (!companiesResult.error) {
-      for (const company of companiesResult.data ?? []) companyNameById.set(String(company.id), text(company.name) ?? 'Counterparty');
+      for (const company of companiesResult.data ?? []) {
+        const id = String(company.id);
+        companyNameById.set(id, text(company.name) ?? 'Counterparty');
+        const customerId = text(company.xd_id);
+        if (customerId) companyCustomerIdById.set(id, customerId);
+      }
     }
   }
 
@@ -181,13 +212,49 @@ export async function GET(request: NextRequest) {
     updatedAt: text(job.updated_at),
   }));
 
-  const counterpartyMap = new Map<string, { name: string; receivable: number; payable: number; overdue: number; invoices: number }>();
+  const counterpartyMap = new Map<string, {
+    name: string;
+    customerId: string;
+    receivable: number;
+    payable: number;
+    overdue: number;
+    invoices: number;
+    totalInvoicedCount: number;
+    totalInvoicedNet: number;
+    totalInvoicedGross: number;
+    paymentsReceivedCount: number;
+    paymentsReceivedNet: number;
+    paymentsReceivedGross: number;
+  }>();
   for (const invoice of enrichedInvoices) {
     const key = invoice.counterpartyCompanyId ?? `snapshot:${invoice.counterpartyName}`;
-    const current = counterpartyMap.get(key) ?? { name: invoice.counterpartyName, receivable: 0, payable: 0, overdue: 0, invoices: 0 };
+    const current = counterpartyMap.get(key) ?? {
+      name: invoice.counterpartyName,
+      customerId: invoice.counterpartyCompanyId ? (companyCustomerIdById.get(invoice.counterpartyCompanyId) ?? '') : '',
+      receivable: 0,
+      payable: 0,
+      overdue: 0,
+      invoices: 0,
+      totalInvoicedCount: 0,
+      totalInvoicedNet: 0,
+      totalInvoicedGross: 0,
+      paymentsReceivedCount: 0,
+      paymentsReceivedNet: 0,
+      paymentsReceivedGross: 0,
+    };
     current.invoices += 1;
-    if (invoice.direction === 'receivable') current.receivable += invoice.outstandingAmount;
-    else current.payable += invoice.outstandingAmount;
+    if (invoice.direction === 'receivable') {
+      current.receivable += invoice.outstandingAmount;
+      current.totalInvoicedCount += 1;
+      current.totalInvoicedNet += invoice.net;
+      current.totalInvoicedGross += invoice.gross;
+      const paidGross = Math.min(invoice.gross, invoice.paidAmount);
+      current.paymentsReceivedCount += paymentCountByInvoice.get(invoice.id) ?? 0;
+      current.paymentsReceivedGross += paidGross;
+      current.paymentsReceivedNet += invoice.gross > 0 ? paidGross * (invoice.net / invoice.gross) : 0;
+    } else {
+      current.payable += invoice.outstandingAmount;
+    }
     if (invoice.lifecycle === 'overdue') current.overdue += invoice.outstandingAmount;
     counterpartyMap.set(key, current);
   }

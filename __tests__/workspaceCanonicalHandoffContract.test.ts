@@ -247,8 +247,7 @@ describe('workspace canonical handoff geometry', () => {
     const broker = read('app/broker/layout.tsx');
     const customer = read('app/customer/layout.tsx');
     const driver = read('app/driver/layout.tsx');
-    for (const layout of [admin, broker, customer]) expect(layout).toContain('xdrive-workspace-visual');
-    expect(driver).not.toContain('xdrive-workspace-visual');
+    for (const layout of [admin, broker, customer, driver]) expect(layout).toContain('xdrive-workspace-visual');
   });
 
   it('keeps shared PageFrame and PageHeader styles in WorkspaceUI instead of competing shell overrides', () => {

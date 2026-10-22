@@ -1,27 +1,19 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+
 import {
-  getWorkspaceDatasetMetricValue,
   useCompanyWorkspaceData,
   type WorkspaceJob,
 } from './useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   OperationalCard,
-  OperationalFilterField,
-  OperationalFilterInput,
-  OperationalFilterSelect,
-  OperationalFilters,
-  OperationalPageLayout,
   StatusBadge,
-  workspaceTheme,
 } from './WorkspaceUI';
-import { OperationalSignalStrip, type OperationalSignalItem } from './OperationalConvergence';
 import {
   daysUntil,
   exceptionStatuses,
@@ -37,37 +29,17 @@ import {
   workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
 import { toCanonicalInvoiceDisplayStatus } from '../../../lib/invoiceStatus';
-
-type ControlView = 'attention' | 'unallocated' | 'live' | 'pod' | 'exceptions' | 'all';
-
-type ControlSignal = OperationalSignalItem & { key: ControlView | 'drivers' };
-
-const CONTROL_VIEWS: Array<{ value: ControlView; label: string }> = [
-  { value: 'attention', label: 'Needs attention' },
-  { value: 'unallocated', label: 'Unallocated' },
-  { value: 'live', label: 'Live jobs' },
-  { value: 'pod', label: 'Photo evidence' },
-  { value: 'exceptions', label: 'Exceptions' },
-  { value: 'all', label: 'All carrier work' },
-];
+import { supabase } from '../../../lib/supabaseClient';
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 const jobStatus = (job: WorkspaceJob) => normalise(job.current_status ?? job.status);
-const isActiveAvailableDriver = (driver: { status: string | null; availability_status: string | null }) =>
-  normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available';
-const isActiveBusyDriver = (driver: { status: string | null; availability_status: string | null }) =>
-  normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'busy';
 
-// These predicates are lifecycle predicates only. Carrier company scoping is
-// applied first at `carrierExecutionJobs` and never delegated to the predicate.
 const isUnallocatedJob = (job: WorkspaceJob) =>
   workspaceJobPresentationStatus(job) === 'awarded' || fleetQueueStage(job) === 'unallocated';
-const isLiveJob = (job: WorkspaceJob) => classifyWorkspaceJobStage(job) === 'in_progress';
-// The shared dashboard feed exposes delivery_photos but not the full POD
-// signature/recipient/document contract. This predicate therefore means only
-// "completed work with no delivery-photo evidence in this feed".
+
 const isDeliveryEvidenceMissingJob = (job: WorkspaceJob) =>
   classifyWorkspaceJobStage(job) === 'completed' && (job.delivery_photos?.length ?? 0) === 0;
+
 const isExceptionJob = (job: WorkspaceJob) => {
   const status = jobStatus(job);
   return status !== 'cancelled' && exceptionStatuses.has(status);
@@ -76,316 +48,830 @@ const isExceptionJob = (job: WorkspaceJob) => {
 export const isCarrierAttentionJob = (job: WorkspaceJob) =>
   isExceptionJob(job) || isUnallocatedJob(job) || isDeliveryEvidenceMissingJob(job);
 
-const attentionScore = (job: WorkspaceJob) => {
-  if (isExceptionJob(job)) return 0;
-  if (isUnallocatedJob(job)) return 1;
-  if (isLiveJob(job)) return 2;
-  if (isDeliveryEvidenceMissingJob(job)) return 3;
-  return 4;
+type FeedbackMode = 'received' | 'given';
+
+type FeedbackSummary = {
+  received: { count: number; average: number | null };
+  given: { count: number; average: number | null };
 };
 
-const priorityLabel = (job: WorkspaceJob) => {
-  if (isExceptionJob(job)) return 'Exception';
-  if (isUnallocatedJob(job)) return 'Allocate';
-  if (isLiveJob(job)) return 'Live';
-  if (isDeliveryEvidenceMissingJob(job)) return 'Photo evidence';
-  return 'Routine';
+type WatchlistSummary = {
+  total: number;
+  fullyCompliant: number;
+  aboutToExpire: number;
+  updatesNeeded: number;
 };
 
-const priorityStyle = (job: WorkspaceJob) => {
-  if (isExceptionJob(job)) return { color: workspaceTheme.red, background: '#FEF2F2', border: '#FECACA' };
-  if (isUnallocatedJob(job)) return { color: '#92400E', background: '#FFFBEB', border: '#FDE68A' };
-  if (isLiveJob(job)) return { color: workspaceTheme.blue, background: '#EFF6FF', border: '#BFDBFE' };
-  if (isDeliveryEvidenceMissingJob(job)) return { color: '#92400E', background: '#FFF8E8', border: '#FDE68A' };
-  return { color: workspaceTheme.muted, background: workspaceTheme.surfaceMuted, border: workspaceTheme.border };
+const emptyFeedback: FeedbackSummary = {
+  received: { count: 0, average: null },
+  given: { count: 0, average: null },
 };
 
-const moneyOrDash = (value: number) => (value > 0 ? money(value) : '—');
+const emptyWatchlist: WatchlistSummary = {
+  total: 0,
+  fullyCompliant: 0,
+  aboutToExpire: 0,
+  updatesNeeded: 0,
+};
 
-function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
+function CommercialRow({
+  label,
+  detail,
+  value,
+  onClick,
+}: {
+  label: string;
+  detail: string;
+  value: ReactNode;
+  onClick: () => void;
+}) {
   return (
-    <div data-testid="carrier-control-signals">
-      <OperationalSignalStrip ariaLabel="Carrier control signals" items={signals} />
-    </div>
-  );
-}
-
-function RailMetric({ label, value, onClick }: { label: string; value: ReactNode; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} style={{ width: '100%', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '5px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, cursor: 'pointer', textAlign: 'left', fontSize: '11px' }}>
-      <span>{label}</span><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>{value}</strong>
+    <button type="button" className="carrier-cx-list-button" onClick={onClick}>
+      <span className="carrier-cx-list-button__copy">
+        <strong>{label}</strong>
+        <small>{detail}</small>
+      </span>
+      <strong className="carrier-cx-list-button__value">{value}</strong>
     </button>
   );
 }
 
-function WorkflowLink({ label, detail, onClick }: { label: string; detail: string; onClick: () => void }) {
+function WorkflowLink({
+  label,
+  detail,
+  onClick,
+}: {
+  label: string;
+  detail: string;
+  onClick: () => void;
+}) {
   return (
-    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: 'var(--ws-table-row-h, 42px)', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
-      <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
-      <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>→</span>
+    <button type="button" className="carrier-cx-list-button" onClick={onClick}>
+      <span className="carrier-cx-list-button__copy">
+        <strong>{label}</strong>
+        <small>{detail}</small>
+      </span>
+      <span className="carrier-cx-list-button__arrow" aria-hidden="true">›</span>
     </button>
   );
 }
 
-function CommercialRow({ label, detail, value, onClick }: { label: string; detail: string; value: ReactNode; onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '10px', minHeight: '42px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
-      <span><strong style={{ display: 'block', color: workspaceTheme.text, fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
-      <strong style={{ color: workspaceTheme.navy, fontSize: '13px', whiteSpace: 'nowrap' }}>{value}</strong>
-    </button>
-  );
+function percentage(numerator: number, denominator: number) {
+  return denominator > 0 ? Math.round((numerator / denominator) * 100) : null;
 }
 
 export default function CarrierOperationsDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
-  const [view, setView] = useState<ControlView>('attention');
-  const [searchDraft, setSearchDraft] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [driverFilter, setDriverFilter] = useState('');
-  const [vehicleFilter, setVehicleFilter] = useState('');
 
-  // `useCompanyWorkspaceData` intentionally also carries jobs owned by this
-  // company. Carrier execution surfaces must never treat those customer-role
-  // jobs as work being executed by this carrier unless the award says so.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const [reportFrom, setReportFrom] = useState(() => `${todayKey.slice(0, 8)}01`);
+  const [reportTo, setReportTo] = useState(todayKey);
+
+  const [activityIdentity, setActivityIdentity] = useState('');
+  const [activityLocation, setActivityLocation] = useState('');
+  const [activityReference, setActivityReference] = useState('');
+
+  const [paymentFeedbackMode, setPaymentFeedbackMode] = useState<FeedbackMode>('received');
+  const [deliveryFeedbackMode, setDeliveryFeedbackMode] = useState<FeedbackMode>('given');
+  const [feedbackSummary, setFeedbackSummary] = useState<FeedbackSummary>(emptyFeedback);
+  const [watchlistSummary, setWatchlistSummary] = useState<WatchlistSummary>(emptyWatchlist);
+  const [watchlistError, setWatchlistError] = useState('');
+
+  useEffect(() => {
+    if (!data.companyId) {
+      setFeedbackSummary(emptyFeedback);
+      return;
+    }
+
+    let cancelled = false;
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+
+    void Promise.all([
+      supabase
+        .from('reviews')
+        .select('rating')
+        .eq('company_id', data.companyId)
+        .gte('created_at', since),
+      supabase
+        .from('reviews')
+        .select('rating')
+        .eq('reviewer_company_id', data.companyId)
+        .gte('created_at', since),
+    ]).then(([receivedResult, givenResult]) => {
+      if (cancelled) return;
+
+      const summarise = (rows: Array<{ rating: number | null }> | null | undefined) => {
+        const ratings = (rows ?? [])
+          .map((row) => Number(row.rating))
+          .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+        const average = ratings.length
+          ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10
+          : null;
+        return { count: ratings.length, average };
+      };
+
+      setFeedbackSummary({
+        received: receivedResult.error ? emptyFeedback.received : summarise(receivedResult.data),
+        given: givenResult.error ? emptyFeedback.given : summarise(givenResult.data),
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data.companyId]);
+
+  useEffect(() => {
+    const companyId = data.companyId;
+    if (!companyId) {
+      setWatchlistSummary(emptyWatchlist);
+      setWatchlistError('');
+      return;
+    }
+
+    let cancelled = false;
+
+    void supabase.auth.getSession().then(async ({ data: authData }) => {
+      const token = authData.session?.access_token;
+      if (!token) {
+        if (!cancelled) setWatchlistError('Watchlist unavailable until the session is refreshed.');
+        return;
+      }
+
+      const response = await fetch(
+        '/api/settings/company-watchlist?companyId=' + encodeURIComponent(companyId),
+        {
+          headers: { Authorization: 'Bearer ' + token },
+          cache: 'no-store',
+        },
+      );
+      const payload = await response.json().catch(() => ({})) as {
+        summary?: Partial<WatchlistSummary>;
+        error?: string;
+      };
+
+      if (cancelled) return;
+      if (!response.ok) {
+        setWatchlistSummary(emptyWatchlist);
+        setWatchlistError(payload.error || 'Supplier watchlist could not be loaded.');
+        return;
+      }
+
+      setWatchlistError('');
+      setWatchlistSummary({
+        total: Number(payload.summary?.total ?? 0),
+        fullyCompliant: Number(payload.summary?.fullyCompliant ?? 0),
+        aboutToExpire: Number(payload.summary?.aboutToExpire ?? 0),
+        updatesNeeded: Number(payload.summary?.updatesNeeded ?? 0),
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data.companyId]);
+
   const carrierExecutionJobs = useMemo(
     () => data.jobs.filter((job) => isCompanyExecutionJob(job, data.companyId)),
     [data.companyId, data.jobs],
   );
 
   const driverById = useMemo(
-    () => new Map(data.drivers.map((driver) => [driver.id, driver.display_name ?? driver.email ?? 'Driver'])),
+    () => new Map(data.drivers.map((driver) => [
+      driver.id,
+      driver.display_name ?? driver.email ?? 'Driver',
+    ])),
     [data.drivers],
-  );
-
-  const vehicleTypes = useMemo(
-    () => Array.from(new Set(carrierExecutionJobs.map((job) => job.vehicle_type).filter((value): value is string => Boolean(value)))).sort(),
-    [carrierExecutionJobs],
   );
 
   const metrics = useMemo(() => {
     const companyBids = data.bids.filter((bid) => bid.company_id === data.companyId);
     const awardedJobIds = new Set(carrierExecutionJobs.map((job) => job.id));
+
     const carrierInvoices = data.invoices.filter((invoice) => {
       if (invoice.supplier_company_id) return invoice.supplier_company_id === data.companyId;
       return Boolean(invoice.buyer_company_id)
         && invoice.buyer_company_id !== data.companyId
         && invoice.company_id === data.companyId;
     });
-    const unallocatedJobs = carrierExecutionJobs.filter(isUnallocatedJob);
-    const liveJobs = carrierExecutionJobs.filter(isLiveJob);
-    const evidenceReview = carrierExecutionJobs.filter(isDeliveryEvidenceMissingJob);
-    const exceptions = carrierExecutionJobs.filter(isExceptionJob);
-    const attentionJobs = carrierExecutionJobs.filter(isCarrierAttentionJob).sort((a, b) => attentionScore(a) - attentionScore(b));
+
     const overdueInvoices = carrierInvoices.filter((invoice) =>
-      toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status) === 'Overdue');
-    const overdueExposure = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
+      toCanonicalInvoiceDisplayStatus(
+        invoice.status,
+        invoice.due_date,
+        invoice.payment_status,
+      ) === 'Overdue');
+
+    const overdueExposure = overdueInvoices.reduce(
+      (sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0),
+      0,
+    );
+
     const wonValue = companyBids
       .filter((bid) => normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id))
       .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
-    const expiringDocuments = data.driverDocuments.concat(data.vehicleDocuments).filter((document) => {
-      const days = daysUntil(document.expiry_date);
-      return days !== null && days <= 30;
-    }).length;
 
-    return { companyBids, unallocatedJobs, liveJobs, evidenceReview, exceptions, attentionJobs, overdueInvoices, overdueExposure, wonValue, expiringDocuments };
+    const submittedQuotes = companyBids.filter(
+      (bid) => normalise(bid.status) === 'submitted',
+    ).length;
+
+    const expiringDocuments = data.driverDocuments
+      .concat(data.vehicleDocuments)
+      .filter((document) => {
+        const days = daysUntil(document.expiry_date);
+        return days !== null && days <= 30;
+      }).length;
+
+    return {
+      companyBids,
+      carrierInvoices,
+      overdueInvoices,
+      overdueExposure,
+      wonValue,
+      submittedQuotes,
+      expiringDocuments,
+    };
   }, [carrierExecutionJobs, data]);
 
-  const latestBookings = useMemo(
-    () => [...carrierExecutionJobs]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 5),
-    [carrierExecutionJobs],
+  const cxDashboard = useMemo(() => {
+    const payables = data.invoices.filter((invoice) =>
+      invoice.buyer_company_id === data.companyId
+      && Boolean(invoice.supplier_company_id)
+      && invoice.supplier_company_id !== data.companyId);
+
+    const fromMs = new Date(`${reportFrom}T00:00:00`).getTime();
+    const toMs = new Date(`${reportTo}T23:59:59.999`).getTime();
+
+    const inReportRange = (value: string | null | undefined) => {
+      if (!value) return false;
+      const timestamp = new Date(value).getTime();
+      return Number.isFinite(timestamp) && timestamp >= fromMs && timestamp <= toMs;
+    };
+
+    const reportPayables = payables.filter((invoice) =>
+      inReportRange(invoice.invoice_date ?? invoice.created_at));
+
+    const payableTotal = reportPayables.reduce(
+      (sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0),
+      0,
+    );
+
+    const currentMonth = new Date();
+    const monthlyPayables = payables.filter((invoice) => {
+      const source = invoice.invoice_date ?? invoice.created_at;
+      const date = source ? new Date(source) : null;
+      return Boolean(date)
+        && date!.getFullYear() === currentMonth.getFullYear()
+        && date!.getMonth() === currentMonth.getMonth();
+    });
+
+    const monthlyPayableTotal = monthlyPayables.reduce(
+      (sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0),
+      0,
+    );
+
+    const payableStates = payables.map((invoice) =>
+      toCanonicalInvoiceDisplayStatus(
+        invoice.status,
+        invoice.due_date,
+        invoice.payment_status,
+      ));
+
+    const paidPayables = payableStates.filter((state) => state === 'Paid').length;
+    const overduePayables = payableStates.filter((state) => state === 'Overdue').length;
+    const awaitingPayables = payableStates.filter(
+      (state) => state !== 'Paid' && state !== 'Overdue',
+    ).length;
+
+    const completedJobs = carrierExecutionJobs.filter(
+      (job) => classifyWorkspaceJobStage(job) === 'completed',
+    );
+    const completedWithoutException = completedJobs.filter(
+      (job) => !isExceptionJob(job),
+    ).length;
+    const subcontracted = carrierExecutionJobs.filter(
+      (job) => Boolean(job.assigned_company_id)
+        && job.assigned_company_id !== data.companyId,
+    ).length;
+    const allocated = carrierExecutionJobs.filter(
+      (job) => Boolean(job.assigned_driver_id),
+    ).length;
+
+    const carrierJobIds = new Set(carrierExecutionJobs.map((job) => job.id));
+    const reportWonValue = metrics.companyBids
+      .filter((bid) =>
+        normalise(bid.status) === 'accepted'
+        && carrierJobIds.has(bid.job_id)
+        && inReportRange(bid.created_at))
+      .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+
+    return {
+      payables,
+      payableTotal,
+      monthlyPayableTotal,
+      paidPayables,
+      overduePayables,
+      awaitingPayables,
+      completedJobs,
+      completedWithoutException,
+      subcontracted,
+      allocated,
+      grossMargin: reportWonValue - payableTotal,
+    };
+  }, [
+    carrierExecutionJobs,
+    data.companyId,
+    data.invoices,
+    metrics.companyBids,
+    reportFrom,
+    reportTo,
+  ]);
+
+  const latestBookings = useMemo(() => {
+    const identityQuery = normalise(activityIdentity);
+    const locationQuery = normalise(activityLocation);
+    const referenceQuery = normalise(activityReference);
+
+    return [...carrierExecutionJobs]
+      .filter((job) => {
+        if (identityQuery) {
+          const driver = job.assigned_driver_id
+            ? driverById.get(job.assigned_driver_id) ?? ''
+            : '';
+          const identity = [
+            driver,
+            job.client_name,
+            job.id,
+            job.booking_reference,
+            job.customer_reference,
+          ].map(normalise).join(' ');
+          if (!identity.includes(identityQuery)) return false;
+        }
+
+        if (locationQuery) {
+          const location = [
+            job.pickup_location,
+            job.pickup_postcode,
+            job.delivery_location,
+            job.delivery_postcode,
+          ].map(normalise).join(' ');
+          if (!location.includes(locationQuery)) return false;
+        }
+
+        if (referenceQuery) {
+          const reference = [
+            job.id,
+            job.booking_reference,
+            job.customer_reference,
+          ].map(normalise).join(' ');
+          if (!reference.includes(referenceQuery)) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5);
+  }, [
+    activityIdentity,
+    activityLocation,
+    activityReference,
+    carrierExecutionJobs,
+    driverById,
+  ]);
+
+  const paymentPerformance = percentage(
+    cxDashboard.paidPayables,
+    cxDashboard.paidPayables + cxDashboard.overduePayables,
+  );
+  const deliveryPerformance = percentage(
+    cxDashboard.completedWithoutException,
+    cxDashboard.completedJobs.length,
   );
 
-  const filteredJobs = useMemo(() => {
-    const base = view === 'attention'
-      ? metrics.attentionJobs
-      : view === 'unallocated'
-        ? metrics.unallocatedJobs
-        : view === 'live'
-          ? metrics.liveJobs
-          : view === 'pod'
-            ? metrics.evidenceReview
-            : view === 'exceptions'
-              ? metrics.exceptions
-              : carrierExecutionJobs;
+  const paymentFeedback = feedbackSummary[paymentFeedbackMode];
+  const deliveryFeedback = feedbackSummary[deliveryFeedbackMode];
+  const jobsDataset = data.datasets.jobs;
+  const invoicesDataset = data.datasets.invoices;
+  const jobsUnavailable = jobsDataset.availability !== 'available';
+  const jobsPartial = !jobsUnavailable && (jobsDataset.partialData || jobsDataset.limitedData);
+  const invoicesUnavailable = invoicesDataset.availability !== 'available';
+  const invoicesPartial = !invoicesUnavailable && (invoicesDataset.partialData || invoicesDataset.limitedData);
 
-    const query = normalise(searchTerm);
-    return base
-      .filter((job) => !driverFilter || job.assigned_driver_id === driverFilter)
-      .filter((job) => !vehicleFilter || job.vehicle_type === vehicleFilter)
-      .filter((job) => {
-        if (!query) return true;
-        const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : '';
-        const haystack = [job.id, job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode, job.client_name, job.vehicle_type, driver, job.status, job.current_status].map(normalise).join(' ');
-        return haystack.includes(query);
-      })
-      .sort((a, b) => {
-        const priority = attentionScore(a) - attentionScore(b);
-        if (priority !== 0) return priority;
-        const aTime = a.pickup_datetime ? new Date(a.pickup_datetime).getTime() : Number.MAX_SAFE_INTEGER;
-        const bTime = b.pickup_datetime ? new Date(b.pickup_datetime).getTime() : Number.MAX_SAFE_INTEGER;
-        return aTime - bTime;
-      });
-  }, [carrierExecutionJobs, driverById, driverFilter, metrics, searchTerm, vehicleFilter, view]);
+  const selectReportRange = (value: string) => {
+    const end = new Date();
+    const start = new Date(end);
 
-  const viewCounts: Record<ControlView, ReactNode> = {
-    attention: metricValue(data, ['jobs'], () => metrics.attentionJobs.length),
-    unallocated: metricValue(data, ['jobs'], () => metrics.unallocatedJobs.length),
-    live: metricValue(data, ['jobs'], () => metrics.liveJobs.length),
-    pod: metricValue(data, ['jobs'], () => metrics.evidenceReview.length),
-    exceptions: metricValue(data, ['jobs'], () => metrics.exceptions.length),
-    all: metricValue(data, ['jobs'], () => carrierExecutionJobs.length),
+    if (value === 'month') start.setDate(1);
+    if (value === '30') start.setDate(start.getDate() - 29);
+    if (value === '90') start.setDate(start.getDate() - 89);
+
+    if (value !== 'custom') {
+      setReportFrom(start.toISOString().slice(0, 10));
+      setReportTo(end.toISOString().slice(0, 10));
+    }
   };
-
-  const signals: ControlSignal[] = [
-    { key: 'attention', label: 'Needs attention', value: viewCounts.attention, tone: 'orange', active: view === 'attention', onClick: () => setView('attention') },
-    { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, tone: 'orange', active: view === 'unallocated', onClick: () => setView('unallocated') },
-    { key: 'live', label: 'Live jobs', value: viewCounts.live, tone: 'blue', active: view === 'live', onClick: () => setView('live') },
-    { key: 'pod', label: 'Photo evidence', value: viewCounts.pod, tone: 'navy', active: view === 'pod', onClick: () => setView('pod') },
-    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), tone: 'green', onClick: () => router.push('/admin/live-availability') },
-    { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, tone: 'red', active: view === 'exceptions', onClick: () => setView('exceptions') },
-  ];
-
-  const activeViewLabel = CONTROL_VIEWS.find((item) => item.value === view)?.label ?? 'Work';
-  const jobFeedLabel = data.datasets.jobs.availability === 'unavailable'
-    ? 'Job data unavailable'
-    : data.datasets.jobs.partialData
-      ? 'Job data partial'
-      : `${filteredJobs.length} visible`;
-  const jobEmptyTitle = data.datasets.jobs.availability === 'unavailable'
-    ? 'Job data unavailable'
-    : data.datasets.jobs.partialData
-      ? 'Some job records are unavailable'
-      : 'No assigned or awarded work matches this view';
-  const jobEmptyDescription = data.datasets.jobs.availability === 'unavailable'
-    ? 'Operational job records cannot be confirmed right now.'
-    : data.datasets.jobs.partialData
-      ? 'Some job records are unavailable, so this view may be incomplete. Open the full jobs register or refresh.'
-      : 'Change the control view or clear the filters.';
 
   return (
     <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
+      {jobsUnavailable ? (
+        <AlertBanner tone="warning">
+          Job data unavailable. Carrier activity and allocation metrics are hidden until the jobs dataset is available.
+        </AlertBanner>
+      ) : jobsPartial ? (
+        <AlertBanner tone="warning">
+          Job data is partial. Carrier activity and allocation metrics may be incomplete.
+        </AlertBanner>
+      ) : null}
+      {invoicesUnavailable ? (
+        <AlertBanner tone="warning">
+          Financial data unavailable. Accounts Payable and commercial totals are hidden until invoice data is available.
+        </AlertBanner>
+      ) : invoicesPartial ? (
+        <AlertBanner tone="warning">
+          Financial data is partial. Accounts Payable and commercial totals remain partial until complete invoice data is available.
+        </AlertBanner>
+      ) : null}
 
-      <div className="carrier-owner-parity-grid xdrive-owner-dashboard-grid">
-        <div className="carrier-owner-parity-column xdrive-owner-dashboard-column">
-          <OperationalCard title="Reports & Statistics" subtitle="Live carrier operations and commercial position.">
-            <CarrierControlSignals signals={signals} />
+      <div className="carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid">
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column">
+          <OperationalCard
+            title="Reports & Statistics"
+            className="carrier-cx-reporting-card"
+            flush
+          >
+            <div className="carrier-cx-reporting-body">
+              <div className="carrier-cx-report-controls">
+                <input
+                  aria-label="Report from date"
+                  type="date"
+                  value={reportFrom}
+                  max={reportTo}
+                  onChange={(event) => setReportFrom(event.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportFrom(todayKey);
+                    setReportTo(todayKey);
+                  }}
+                >
+                  Today
+                </button>
+                <select
+                  aria-label="Select report date range"
+                  defaultValue="custom"
+                  onChange={(event) => selectReportRange(event.target.value)}
+                >
+                  <option value="custom">Select Dates</option>
+                  <option value="month">This month</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                </select>
+              </div>
+              <div className="carrier-cx-stat-grid">
+              <button
+                type="button"
+                className="carrier-cx-stat-card"
+                onClick={() => router.push('/admin/won-work')}
+              >
+                <span>Gross Margin</span>
+                <strong>
+                  {metricValue(data, ['bids', 'jobs', 'invoices'], () =>
+                    money(cxDashboard.grossMargin))}
+                </strong>
+                <small>Won work less recorded sub-contract spend</small>
+                <em>How is this calculated?</em>
+              </button>
+
+              <button
+                type="button"
+                className="carrier-cx-stat-card"
+                onClick={() => router.push('/admin/invoices')}
+              >
+                <span>Sub-contract Spend</span>
+                <strong>
+                  {metricValue(data, ['invoices'], () =>
+                    money(cxDashboard.payableTotal))}
+                </strong>
+                <small>
+                  {cxDashboard.payables.length} supplier invoice
+                  {cxDashboard.payables.length === 1 ? '' : 's'}
+                </small>
+                <em>How is this calculated?</em>
+              </button>
+              </div>
+            </div>
           </OperationalCard>
 
-          <div className="carrier-owner-parity-subgrid xdrive-owner-dashboard-subgrid">
-            <OperationalCard title="Commercial & Finance" subtitle="Verified commercial signals from awarded work and invoices.">
-              <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
-              <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
-              <CommercialRow label="Submitted quotes" detail="Marketplace pricing awaiting an outcome" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/exchange-quotes')} />
-              <CommercialRow label="Compliance due" detail="Driver and vehicle evidence expiring within 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)} onClick={() => router.push('/admin/fleet/compliance')} />
+          <div className="carrier-cx-dashboard-subgrid xdrive-owner-dashboard-subgrid">
+            <OperationalCard title="Accounts Payable" flush>
+              <CommercialRow
+                label="Latest Invoices Received"
+                detail="Supplier invoices visible to this company"
+                value={metricValue(data, ['invoices'], () => cxDashboard.payables.length)}
+                onClick={() => router.push('/admin/invoices')}
+              />
+              <CommercialRow
+                label="Invoices due for Payment"
+                detail="Recorded supplier invoices currently overdue"
+                value={metricValue(data, ['invoices'], () => cxDashboard.overduePayables)}
+                onClick={() => router.push('/admin/invoices')}
+              />
+              <CommercialRow
+                label="Invoices Awaiting Payment"
+                detail="Open supplier invoices not yet overdue"
+                value={metricValue(data, ['invoices'], () => cxDashboard.awaitingPayables)}
+                onClick={() => router.push('/admin/invoices')}
+              />
+              <CommercialRow
+                label="Monthly Totals"
+                detail="Supplier invoice total for the current month"
+                value={metricValue(data, ['invoices'], () =>
+                  money(cxDashboard.monthlyPayableTotal))}
+                onClick={() => router.push('/admin/invoices')}
+              />
             </OperationalCard>
 
-            <OperationalCard title="Reports" subtitle="Direct routes to the operational registers behind each report.">
-              <WorkflowLink label="Invoices / accounts" detail="Draft, awaiting payment, overdue, disputed and paid invoices" onClick={() => router.push('/admin/invoices')} />
-              <WorkflowLink label="Bookings / Diary" detail="Operational booking history, evidence and feedback" onClick={() => router.push('/admin/diary')} />
-              <WorkflowLink label="Return Journeys" detail="Published and available return capacity" onClick={() => router.push('/admin/fleet/returns')} />
-              <WorkflowLink label="Fleet resources" detail="Drivers, vehicles and live availability" onClick={() => router.push('/admin/fleet/resources')} />
+            <OperationalCard title="Reports" flush>
+              <CommercialRow
+                label="Bookings Received"
+                detail="Carrier-awarded bookings in this workspace"
+                value={metricValue(data, ['jobs'], () => carrierExecutionJobs.length)}
+                onClick={() => router.push('/admin/diary')}
+              />
+              <CommercialRow
+                label="Bookings Sub-contracted"
+                detail="Awarded work delegated to another company"
+                value={metricValue(data, ['jobs'], () => cxDashboard.subcontracted)}
+                onClick={() => router.push('/admin/diary')}
+              />
+              <CommercialRow
+                label="Loads Allocated"
+                detail="Carrier work with an allocated driver"
+                value={metricValue(data, ['jobs'], () => cxDashboard.allocated)}
+                onClick={() => router.push('/admin/fleet/assignments')}
+              />
+              <WorkflowLink
+                label="Return Journeys"
+                detail="Open the published and available return capacity register"
+                onClick={() => router.push('/admin/fleet/returns')}
+              />
             </OperationalCard>
           </div>
+
+          <OperationalCard
+            title="Feedback in Last 90 Days"
+            className="carrier-cx-feedback-card"
+            flush
+          >
+            <div className="carrier-cx-feedback-grid">
+              <section className="carrier-cx-feedback-panel">
+                <div className="carrier-cx-feedback-panel__toolbar">
+                  <strong>Payment Performance</strong>
+                  <select
+                    aria-label="Payment feedback direction"
+                    value={paymentFeedbackMode}
+                    onChange={(event) =>
+                      setPaymentFeedbackMode(event.target.value as FeedbackMode)}
+                  >
+                    <option value="received">Received</option>
+                    <option value="given">Given</option>
+                  </select>
+                </div>
+                <div className="carrier-cx-performance-chart">
+                  <div
+                    className="carrier-cx-performance-chart__bar"
+                    style={{ width: `${paymentPerformance ?? 0}%` }}
+                  />
+                  <strong>{paymentPerformance == null ? '—' : `${paymentPerformance}%`}</strong>
+                </div>
+                <small>
+                  {paymentFeedback.count
+                    ? `${paymentFeedback.count} feedback · ${paymentFeedback.average?.toFixed(1) ?? '—'} / 5 average`
+                    : 'No verified feedback in this direction yet'}
+                </small>
+              </section>
+
+              <section className="carrier-cx-feedback-panel">
+                <div className="carrier-cx-feedback-panel__toolbar">
+                  <strong>Delivery Performance</strong>
+                  <select
+                    aria-label="Delivery feedback direction"
+                    value={deliveryFeedbackMode}
+                    onChange={(event) =>
+                      setDeliveryFeedbackMode(event.target.value as FeedbackMode)}
+                  >
+                    <option value="received">Received</option>
+                    <option value="given">Given</option>
+                  </select>
+                </div>
+                <div className="carrier-cx-performance-chart">
+                  <div
+                    className="carrier-cx-performance-chart__bar"
+                    style={{ width: `${deliveryPerformance ?? 0}%` }}
+                  />
+                  <strong>{deliveryPerformance == null ? '—' : `${deliveryPerformance}%`}</strong>
+                </div>
+                <small>
+                  {deliveryFeedback.count
+                    ? `${deliveryFeedback.count} feedback · ${deliveryFeedback.average?.toFixed(1) ?? '—'} / 5 average`
+                    : 'No verified feedback in this direction yet'}
+                </small>
+              </section>
+            </div>
+          </OperationalCard>
         </div>
 
-        <div className="carrier-owner-parity-column xdrive-owner-dashboard-column">
-          <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." flush>
-            <DataTable
-              columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}
-              rows={latestBookings.map((job) => {
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column">
+          <OperationalCard
+            title="Activity at a glance"
+            className="carrier-cx-activity-card"
+            flush
+          >
+            <div className="carrier-cx-booking-header">
+              <strong>Latest Bookings</strong>
+              <button type="button" onClick={() => router.push('/admin/diary')}>
+                View All...
+              </button>
+            </div>
+
+            <div className="carrier-cx-booking-filters">
+              <input
+                aria-label="Member, driver or ID"
+                value={activityIdentity}
+                onChange={(event) => setActivityIdentity(event.target.value)}
+                placeholder="Member / Driver / ID"
+              />
+              <input
+                aria-label="Location"
+                value={activityLocation}
+                onChange={(event) => setActivityLocation(event.target.value)}
+                placeholder="Location"
+              />
+              <input
+                aria-label="Load ID or reference"
+                value={activityReference}
+                onChange={(event) => setActivityReference(event.target.value)}
+                placeholder="Load ID / Ref"
+              />
+              <button
+                type="button"
+                aria-label="Clear booking filters"
+                onClick={() => {
+                  setActivityIdentity('');
+                  setActivityLocation('');
+                  setActivityReference('');
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="carrier-cx-booking-list" role="region" aria-label="Carrier operational workboard">
+              {latestBookings.map((job) => {
                 const completed = classifyWorkspaceJobStage(job) === 'completed';
                 const evidenceReady = (job.delivery_photos?.length ?? 0) > 0;
                 const needsAllocation = isUnallocatedJob(job);
-                return [
-                  <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
-                  when(job.pickup_datetime),
-                  (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-                  <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
-                  completed ? <StatusBadge key="evidence" value={evidenceReady ? 'POD / photos recorded' : 'Evidence attention'} tone={evidenceReady ? 'green' : 'orange'} /> : '—',
-                  <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</ActionButton>,
-                ];
+
+                return (
+                  <article key={job.id} className="carrier-cx-booking-card">
+                    <div className="carrier-cx-booking-route">
+                      <div>
+                        <span>From:</span>
+                        <strong>
+                          {job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>To:</span>
+                        <strong>
+                          {job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Veh:</span>
+                        <strong>{(job.vehicle_type ?? 'Not specified').replace(/_/g, ' ')}</strong>
+                      </div>
+                    </div>
+
+                    <div className="carrier-cx-booking-schedule">
+                      <div>
+                        <span>Pickup:</span>
+                        <strong>{when(job.pickup_datetime)}</strong>
+                      </div>
+                      <div>
+                        <span>Deliver:</span>
+                        <strong>{when(job.delivery_datetime)}</strong>
+                      </div>
+                    </div>
+
+                    <div className="carrier-cx-booking-meta">
+                      <StatusBadge
+                        value={workspaceJobOperationalLabel(job)}
+                        tone={completed ? 'green' : needsAllocation ? 'orange' : undefined}
+                      />
+                      <div>
+                        <span>Load ID:</span>
+                        <strong>{job.id.slice(0, 8).toUpperCase()}</strong>
+                      </div>
+                      <div>
+                        <span>Driver:</span>
+                        <strong>
+                          {job.assigned_driver_id
+                            ? driverById.get(job.assigned_driver_id) ?? 'Assigned'
+                            : 'Unallocated'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="carrier-cx-booking-actions">
+                      {completed ? (
+                        <ActionButton
+                          tone="secondary"
+                          onClick={() => router.push(`/admin/jobs/${job.id}`)}
+                        >
+                          {evidenceReady ? 'POD' : 'Enter POD'}
+                        </ActionButton>
+                      ) : (
+                        <ActionButton
+                          tone="secondary"
+                          onClick={() => router.push(`/admin/jobs/${job.id}`)}
+                        >
+                          Track
+                        </ActionButton>
+                      )}
+
+                      <ActionButton
+                        tone={needsAllocation ? 'success' : 'secondary'}
+                        onClick={() => router.push(
+                          needsAllocation
+                            ? `/admin/fleet/assignments?job=${job.id}`
+                            : `/admin/jobs/${job.id}`,
+                        )}
+                      >
+                        {needsAllocation ? 'Allocate' : 'Open booking'}
+                      </ActionButton>
+                    </div>
+                  </article>
+                );
               })}
-              empty={<EmptyState compact title="No recent carrier bookings" description="Awarded carrier work will appear here when available." />}
-            />
+
+              {!latestBookings.length ? (
+                <EmptyState
+                  compact
+                  title="No recent carrier bookings"
+                  description="Awarded carrier work matching these filters will appear here."
+                />
+              ) : null}
+            </div>
           </OperationalCard>
 
-          <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the exchange operating sequence without changing lifecycle authority.">
-            <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
-            <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/exchange-quotes')} />
-            <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible driver and vehicle" onClick={() => router.push('/admin/fleet/assignments')} />
-            <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
-            <WorkflowLink label="5. Review POD and exceptions" detail="Review delivery evidence and operational exceptions" onClick={() => router.push('/admin/pod')} />
+          <OperationalCard
+            title="Compliance - Manage Your Suppliers"
+            className="carrier-cx-compliance-card"
+            actions={(
+              <button
+                type="button"
+                className="carrier-cx-card-link"
+                onClick={() => router.push('/admin/marketplace/directory')}
+              >
+                Add Members to My Watchlist
+              </button>
+            )}
+            flush
+          >
+            <div className="carrier-cx-compliance-body">
+              <button
+                type="button"
+                className="carrier-cx-watchlist-orb"
+                onClick={() => router.push('/admin/marketplace/directory')}
+              >
+                <strong>{watchlistSummary.total}</strong>
+                <span>Add Members to My Watchlist</span>
+              </button>
+
+              <div className="carrier-cx-compliance-legend">
+                <button type="button" onClick={() => router.push('/admin/marketplace/directory')}>
+                  <span>Fully Compliant ({watchlistSummary.fullyCompliant} suppliers)</span>
+                  <i className="carrier-cx-compliance-dot carrier-cx-compliance-dot--green" />
+                </button>
+                <button type="button" onClick={() => router.push('/admin/marketplace/directory')}>
+                  <span>About to Expire ({watchlistSummary.aboutToExpire} suppliers)</span>
+                  <i className="carrier-cx-compliance-dot carrier-cx-compliance-dot--amber" />
+                </button>
+                <button type="button" onClick={() => router.push('/admin/marketplace/directory')}>
+                  <span>Updates Needed ({watchlistSummary.updatesNeeded} suppliers)</span>
+                  <i className="carrier-cx-compliance-dot carrier-cx-compliance-dot--red" />
+                </button>
+                {watchlistError ? <small>{watchlistError}</small> : null}
+              </div>
+            </div>
           </OperationalCard>
         </div>
       </div>
-
-      <OperationalPageLayout
-        style={{ padding: 0 }}
-        searchPanel={
-          <OperationalFilters
-            title="Control filters"
-            onSearch={() => setSearchTerm(searchDraft.trim())}
-            onClear={() => { setSearchDraft(''); setSearchTerm(''); setView('attention'); setDriverFilter(''); setVehicleFilter(''); }}
-            footer={
-              <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: `1px solid ${workspaceTheme.border}` }}>
-                <div style={{ marginBottom: '3px', color: workspaceTheme.navy, fontSize: '11px', lineHeight: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Resource readiness</div>
-                <RailMetric label="Available drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length)} onClick={() => router.push('/admin/live-availability')} />
-                <RailMetric label="Busy drivers" value={getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveBusyDriver).length)} onClick={() => router.push('/admin/live-availability')} />
-                <RailMetric label="Unassigned vehicles" value={getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length)} onClick={() => router.push('/admin/fleet/vehicles')} />
-                <RailMetric label="Document expiry alerts" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)} onClick={() => router.push('/admin/fleet/compliance')} />
-              </div>
-            }
-          >
-            <OperationalFilterField label="Find work" htmlFor="carrier-work-search"><OperationalFilterInput id="carrier-work-search" value={searchDraft} onChange={setSearchDraft} onClear={() => { setSearchDraft(''); setSearchTerm(''); }} placeholder="Ref, route, client" /></OperationalFilterField>
-            <OperationalFilterField label="Work view" htmlFor="carrier-work-view"><OperationalFilterSelect id="carrier-work-view" value={view} onChange={(value) => setView(value as ControlView)} options={CONTROL_VIEWS} /></OperationalFilterField>
-            <OperationalFilterField label="Driver" htmlFor="carrier-driver-filter"><OperationalFilterSelect id="carrier-driver-filter" value={driverFilter} onChange={setDriverFilter} options={[{ value: '', label: 'All drivers' }, ...data.drivers.map((driver) => ({ value: driver.id, label: driver.display_name ?? driver.email ?? 'Driver' }))]} /></OperationalFilterField>
-            <OperationalFilterField label="Required vehicle" htmlFor="carrier-vehicle-filter"><OperationalFilterSelect id="carrier-vehicle-filter" value={vehicleFilter} onChange={setVehicleFilter} options={[{ value: '', label: 'All required vehicles' }, ...vehicleTypes.map((vehicle) => ({ value: vehicle, label: vehicle.replace(/_/g, ' ') }))]} /></OperationalFilterField>
-          </OperationalFilters>
-        }
-      >
-        <section aria-label="Carrier operational workboard" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ minHeight: '40px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, flexWrap: 'wrap' }}>
-            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} · carrier-awarded work only</p></div>
-            <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{jobFeedLabel}</div>
-          </div>
-
-          <div role="tablist" aria-label="Carrier work views" style={{ display: 'flex', alignItems: 'stretch', minHeight: '28px', overflowX: 'auto', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface }}>
-            {CONTROL_VIEWS.map((item) => {
-              const selected = item.value === view;
-              return <button key={item.value} type="button" role="tab" aria-selected={selected} onClick={() => setView(item.value)} style={{ height: '28px', padding: '0 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: 0, borderBottom: `2px solid ${selected ? workspaceTheme.blue : 'transparent'}`, background: selected ? '#F1F6FF' : 'transparent', color: selected ? workspaceTheme.blue : workspaceTheme.muted, fontSize: '11px', fontWeight: selected ? 800 : 650, whiteSpace: 'nowrap', cursor: 'pointer' }}>{item.label}<span style={{ minWidth: '18px', height: '18px', padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9px', background: selected ? workspaceTheme.blue : workspaceTheme.surfaceMuted, color: selected ? '#fff' : workspaceTheme.text, fontSize: '10px', fontWeight: 800 }}>{viewCounts[item.value]}</span></button>;
-            })}
-          </div>
-
-          <div style={{ margin: '-1px' }}>
-            <DataTable
-              columns={['Ref', 'Priority', 'Route', 'Pickup', 'Required vehicle', 'Driver', 'Status', 'Action']}
-              rows={filteredJobs.slice(0, 10).map((job) => {
-                const priority = priorityStyle(job);
-                const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) ?? 'Assigned' : 'Unassigned';
-                const actionPath = isUnallocatedJob(job) ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`;
-                return [
-                  job.id.slice(0, 8).toUpperCase(),
-                  <span key="priority" style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 6px', border: `1px solid ${priority.border}`, borderRadius: '4px', background: priority.background, color: priority.color, fontSize: '10px', fontWeight: 800 }}>{priorityLabel(job)}</span>,
-                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
-                  when(job.pickup_datetime),
-                  (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-                  assignedDriver,
-                  <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} tone={jobStatus(job) === 'cancelled' ? 'grey' : isExceptionJob(job) ? 'red' : undefined} />,
-                  <button key="action" type="button" onClick={() => router.push(actionPath)} style={{ height: '28px', padding: '0 9px', border: `1px solid ${isUnallocatedJob(job) ? workspaceTheme.green : workspaceTheme.border}`, borderRadius: '4px', background: isUnallocatedJob(job) ? workspaceTheme.green : '#fff', color: isUnallocatedJob(job) ? '#fff' : workspaceTheme.blue, fontSize: '11px', fontWeight: 750, cursor: 'pointer' }}>{isUnallocatedJob(job) ? 'Allocate' : 'Open'}</button>,
-                ];
-              })}
-              empty={<EmptyState compact title={jobEmptyTitle} description={jobEmptyDescription} />}
-            />
-          </div>
-
-          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of currently available job data` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
-        </section>
-
-      </OperationalPageLayout>
     </div>
   );
 }

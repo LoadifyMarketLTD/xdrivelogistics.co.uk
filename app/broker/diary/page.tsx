@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
-import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
+import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
+import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
@@ -18,10 +20,20 @@ type ReviewRow = {
   reviewer_company_id: string | null;
   rating: number | null;
   comment: string | null;
+  would_use_again: boolean | null;
+  delivered_promptly: boolean | null;
+  courteous: boolean | null;
   created_at: string | null;
 };
 
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
+const cxTimeParts = (value: string | null | undefined) => {
+  if (!value) return { primary: 'ASAP', meta: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { primary: 'Not set', meta: '' };
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return { primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}` };
+};
 const postcodeOrLocation = (postcode: string | null | undefined, location: string | null | undefined) => postcode || location || 'Not set';
 
 const hasRecentFeedback = (reviews: ReviewRow[]) => reviews.length > 0;
@@ -47,6 +59,7 @@ export default function BrokerDiaryPage() {
   const [delivery, setDelivery] = useState('');
   const [date, setDate] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailTabs, setDetailTabs] = useState<Record<string, JobSheetTab>>({});
   const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -57,7 +70,20 @@ export default function BrokerDiaryPage() {
   const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackWouldUseAgain, setFeedbackWouldUseAgain] = useState(true);
+  const [feedbackDeliveredPromptly, setFeedbackDeliveredPromptly] = useState(true);
+  const [feedbackCourteous, setFeedbackCourteous] = useState(true);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [diaryClock, setDiaryClock] = useState('');
+
+  useEffect(() => {
+    const updateClock = () => setDiaryClock(
+      new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }),
+    );
+    updateClock();
+    const timer = window.setInterval(updateClock, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const companyId = data.companyId;
   const canLeaveCompanyFeedback = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher'].includes(user.membershipRole));
@@ -72,7 +98,7 @@ export default function BrokerDiaryPage() {
     setFeedbackError('');
     const { data: reviewRows, error } = await supabase
       .from('reviews')
-      .select('id,job_id,reviewer_company_id,rating,comment,created_at')
+      .select('id,job_id,reviewer_company_id,rating,comment,would_use_again,delivered_promptly,courteous,created_at')
       .eq('reviewer_company_id', companyId)
       .order('created_at', { ascending: false });
     if (error) {
@@ -125,17 +151,6 @@ export default function BrokerDiaryPage() {
       .sort((a, b) => String(b.pickup_datetime || b.created_at).localeCompare(String(a.pickup_datetime || a.created_at)));
   }, [acceptedCarrierByJob, carrier, companyId, customer, data.jobs, date, delivery, pickup, reference, reviewsByJob, tab]);
 
-  const counts = useMemo(() => ({
-    all: data.jobs.length,
-    unallocated: data.jobs.filter((job) => matchesTab(job, 'unallocated', reviewsByJob[job.id] ?? [], companyId)).length,
-    allocated: data.jobs.filter((job) => matchesTab(job, 'allocated', reviewsByJob[job.id] ?? [], companyId)).length,
-    in_progress: data.jobs.filter((job) => matchesTab(job, 'in_progress', reviewsByJob[job.id] ?? [], companyId)).length,
-    completed: data.jobs.filter((job) => matchesTab(job, 'completed', reviewsByJob[job.id] ?? [], companyId)).length,
-    cancelled: data.jobs.filter((job) => matchesTab(job, 'cancelled', reviewsByJob[job.id] ?? [], companyId)).length,
-    expired: data.jobs.filter((job) => matchesTab(job, 'expired', reviewsByJob[job.id] ?? [], companyId)).length,
-    awaiting_feedback: data.jobs.filter((job) => matchesTab(job, 'awaiting_feedback', reviewsByJob[job.id] ?? [], companyId)).length,
-    recent_feedback: data.jobs.filter((job) => matchesTab(job, 'recent_feedback', reviewsByJob[job.id] ?? [], companyId)).length,
-  }), [companyId, data.jobs, reviewsByJob]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -143,16 +158,16 @@ export default function BrokerDiaryPage() {
   useEffect(() => { setPage(1); setExpanded(null); setExpandAll(false); }, [tab, reference, customer, carrier, pickup, delivery, date, pageSize]);
 
   const reset = () => { setReference(''); setCustomer(''); setCarrier(''); setPickup(''); setDelivery(''); setDate(''); };
-  const tabs: Array<{ id: DiaryTab; label: string; count?: number }> = [
-    { id: 'all', label: 'All', count: counts.all },
-    { id: 'unallocated', label: 'Unallocated', count: counts.unallocated },
-    { id: 'allocated', label: 'Allocated', count: counts.allocated },
-    { id: 'in_progress', label: 'In Progress', count: counts.in_progress },
-    { id: 'completed', label: 'Completed', count: counts.completed },
-    { id: 'cancelled', label: 'Cancelled', count: counts.cancelled },
-    { id: 'expired', label: 'Expired', count: counts.expired },
-    { id: 'awaiting_feedback', label: 'Awaiting Feedback', count: counts.awaiting_feedback },
-    { id: 'recent_feedback', label: 'Recent Feedback', count: counts.recent_feedback },
+  const tabs: Array<{ id: DiaryTab; label: string }> = [
+    { id: 'all', label: 'All' },
+    { id: 'unallocated', label: 'Unallocated' },
+    { id: 'allocated', label: 'Allocated' },
+    { id: 'in_progress', label: 'In Progress' },
+    { id: 'completed', label: 'Completed' },
+    { id: 'cancelled', label: 'Cancelled' },
+    { id: 'expired', label: 'Expired' },
+    { id: 'awaiting_feedback', label: 'Awaiting Feedback' },
+    { id: 'recent_feedback', label: 'Recent Feedback' },
   ];
 
   const openFeedback = (job: WorkspaceJob) => {
@@ -160,6 +175,9 @@ export default function BrokerDiaryPage() {
     setFeedbackJobId(job.id);
     setFeedbackRating(existing?.rating ?? 5);
     setFeedbackComment(existing?.comment ?? '');
+    setFeedbackWouldUseAgain(existing?.would_use_again ?? true);
+    setFeedbackDeliveredPromptly(existing?.delivered_promptly ?? true);
+    setFeedbackCourteous(existing?.courteous ?? true);
     setFeedbackError('');
     setNotice('');
   };
@@ -176,7 +194,14 @@ export default function BrokerDiaryPage() {
       const response = await fetch(`/api/admin/jobs/${encodeURIComponent(feedbackJobId)}/feedback`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, rating: feedbackRating, comment: feedbackComment }),
+        body: JSON.stringify({
+          companyId,
+          rating: feedbackRating,
+          comment: feedbackComment,
+          wouldUseAgain: feedbackWouldUseAgain,
+          deliveredPromptly: feedbackDeliveredPromptly,
+          courteous: feedbackCourteous,
+        }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string; updated?: boolean };
       if (!response.ok) throw new Error(payload.error || 'Company feedback could not be saved.');
@@ -190,43 +215,47 @@ export default function BrokerDiaryPage() {
     }
   };
 
-  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Broker operations" title="Diary" description="Search, scan and expand every broker-managed booking from one operational register." actions={<ActionButton tone="secondary" onClick={() => { void data.refresh(); void loadReviews(); }}>Refresh</ActionButton>} />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {feedbackError && <AlertBanner tone="warning">{feedbackError}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
-      <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Diary filters">
-          <div className="workspace-filter-rail__header">Search Diary</div>
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
+        <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary filters">
+          <div className="cx-diary-rail-nav">
+            <ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network/directory')}>Contacts</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Payment Report</ActionButton>
+          </div>
+          <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
-            <label>DATE<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-            <label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
-            <label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
-            <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
-            <label>CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
-            <label>CARRIER / MEMBER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier name / company ID" /></label>
-            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Customer and executing carrier remain separate operational relationships.</span><ActionButton tone="secondary" onClick={reset}>Clear</ActionButton></div>
+            <label>Date:<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+            <label>Pickup:<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>Delivery:<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>Load ID / Ref:<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
+            <label>Customer:<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
+            <label>Carrier / Member:<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier name / company ID" /></label>
+            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Customer and executing carrier remain separate operational relationships.</span><div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setPage(1)}>Search</ActionButton><ActionButton tone="secondary" onClick={reset}>Clear</ActionButton></div></div>
           </div>
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {tabs.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}{typeof item.count === 'number' ? ` ${item.count}` : ''}</button>)}
-          </div>
-
-          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
-            <span><strong>{rows.length}</strong> booking{rows.length === 1 ? '' : 's'} · page {safePage}/{totalPages}</span>
+          <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
+            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>{diaryClock ? `Diary at ${diaryClock}` : 'Diary'}</strong></span>
             <span className="workspace-list-controls__right">
-              <button type="button" onClick={() => { setExpandAll((current) => !current); setExpanded(null); }} disabled={!visibleRows.length}>{expandAll ? 'Collapse all' : 'Expand all'}</button>
-              <label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button>
+              <button type="button" className="cx-expand-entries-control" disabled={!visibleRows.length} onClick={() => { setExpandAll((current) => !current); setExpanded(null); }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+              <ActionButton tone="secondary" onClick={() => { void data.refresh(); void loadReviews(); }}>Refresh</ActionButton>
+            </span>
+          </div>
+          <div className="workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Broker diary states">
+            {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}</button>)}
+            <span className="cx-diary-pagination">
+              <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
               <span>{rows.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, rows.length)} of ${rows.length}`}</span>
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</button>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
             </span>
           </div>
 
@@ -247,17 +276,43 @@ export default function BrokerDiaryPage() {
                 const reviews = reviewsByJob[job.id] ?? [];
                 const review = reviews[0];
                 const feedbackAvailable = isCompanyFeedbackEligible(job, companyId);
+                const stage = brokerDiaryStage(job);
+                const pickupWhen = cxTimeParts(job.pickup_datetime);
+                const deliveryWhen = cxTimeParts(job.delivery_datetime);
+                const vehicle = (job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ');
+                const band = stage === 'completed' ? 'Delivered' : workspaceJobOperationalLabel(job);
                 return (
-                  <article className="workspace-operational-row" key={job.id} data-state={normalizedJobStatus(job)}>
-                    <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{postcodeOrLocation(job.pickup_postcode, job.pickup_location)}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{postcodeOrLocation(job.delivery_postcode, job.delivery_location)}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>CUSTOMER / CARRIER</div><strong>{job.client_name || 'Customer not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierCompanyId ? <MemberIdentityLink companyId={carrierCompanyId}>{carrierName}</MemberIdentityLink> : carrierName} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={workspaceJobOperationalLabel(job)} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}>{open ? 'Collapse' : 'Expand'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open job</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</ActionButton>{canLeaveCompanyFeedback && feedbackAvailable && <ActionButton tone="secondary" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</ActionButton>}</div></div>
-                    </div>
-                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span>{review ? <span>Feedback: {review.rating ?? '—'}/5 · {when(review.created_at)}</span> : feedbackAvailable ? <span>Feedback: Awaiting</span> : null}</div>
-                    {open && <CompanyJobSheetPanel jobId={job.id} mode="broker" />}
-                  </article>
+                  <CxDiaryCard
+                    key={job.id}
+                    from={postcodeOrLocation(job.pickup_postcode, job.pickup_location)}
+                    to={postcodeOrLocation(job.delivery_postcode, job.delivery_location)}
+                    pickup={pickupWhen}
+                    delivery={deliveryWhen}
+                    band={band}
+                    statusLine={carrierCompanyId ? <MemberIdentityLink companyId={carrierCompanyId}>{carrierName}</MemberIdentityLink> : <strong>{carrierName}</strong>}
+                    statusStamp={job.client_name || 'Customer not set'}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={vehicle}
+                    state={normalizedJobStatus(job)}
+                    stage={stage}
+                    expanded={open}
+                    footer={<CxDiaryActions
+                      expanded={open}
+                      onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
+                      onOpenTab={(tab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
+                      feedback={canLeaveCompanyFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    >
+                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open booking</button>
+                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
+                    </CxDiaryActions>}
+                    expandedMeta={<>
+                      {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
+                      {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
+                      <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
+                      {review ? <div><span>Feedback:</span><strong>{review.rating ?? '—'}/5 · {when(review.created_at)}</strong></div> : feedbackAvailable ? <div><span>Feedback:</span><strong>Awaiting</strong></div> : null}
+                    </>}
+                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="broker" initialTab={detailTabs[job.id] ?? 'agreement'} />}
+                  />
                 );
               })}
             </div>
@@ -275,6 +330,11 @@ export default function BrokerDiaryPage() {
         actions={<><ActionButton tone="secondary" disabled={feedbackSaving} onClick={() => setFeedbackJobId(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={feedbackSaving} onClick={() => void saveFeedback()}>{feedbackSaving ? 'Saving...' : 'Save Feedback'}</ActionButton></>}
       >
         <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))}>{[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Would use again</span><input type="checkbox" checked={feedbackWouldUseAgain} onChange={(event) => setFeedbackWouldUseAgain(event.target.checked)} /></label>
+          <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Delivered promptly</span><input type="checkbox" checked={feedbackDeliveredPromptly} onChange={(event) => setFeedbackDeliveredPromptly(event.target.checked)} /></label>
+          <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Courteous / professional</span><input type="checkbox" checked={feedbackCourteous} onChange={(event) => setFeedbackCourteous(event.target.checked)} /></label>
+        </div>
         <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" /></label>
       </WorkspaceDialog>}
     </PageFrame>

@@ -11,7 +11,11 @@ describe('XDrive Stripe Connect direct-charge contract', () => {
     expect(onboarding).toContain("'controller[losses][payments]': 'stripe'");
     expect(onboarding).toContain("'controller[requirement_collection]': 'stripe'");
     expect(onboarding).toContain("'controller[stripe_dashboard][type]': 'full'");
-    expect(onboarding).toContain("new Set(['owner', 'admin'])");
+    expect(onboarding).toContain('listStripeSetupCompanies(supabaseAdmin, authData.user.id)');
+    const setupAccess = source('app/api/_lib/stripeSetupAccess.ts');
+    expect(setupAccess).toContain("new Set(['owner', 'admin'])");
+    expect(setupAccess).toContain('company.created_by !== actorId');
+    expect(setupAccess).toContain('app.user_id === actorId && app.company_id === company.id');
     expect(onboarding).toContain("type: 'account_onboarding'");
   });
 
@@ -31,11 +35,13 @@ describe('XDrive Stripe Connect direct-charge contract', () => {
     expect(checkout).toContain('The carrier has not completed Stripe payment and payout onboarding.');
   });
 
-  it('verifies Connect webhook signatures and never performs automatic refund or payout mutations', () => {
+  it('verifies Connect webhook signatures and delegates transport settlement atomically without automatic refund or payout mutations', () => {
     const webhook = source('app/api/payments/webhooks/connect/route.ts');
     expect(webhook).toContain('STRIPE_CONNECT_WEBHOOK_SECRET');
     expect(webhook).toContain('verifyStripeWebhookSignature');
-    expect(webhook).toContain("event.type === 'charge.dispute.created' || event.type === 'charge.refunded'");
+    expect(webhook).toContain("'charge.dispute.created'");
+    expect(webhook).toContain("'charge.refunded'");
+    expect(webhook).toContain("supabaseAdmin.rpc('apply_invoice_stripe_event'");
     expect(webhook).not.toContain("'/refunds'");
     expect(webhook).not.toContain("'/payouts'");
   });

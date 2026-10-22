@@ -36,8 +36,8 @@ const extensionRoute = readFileSync(
   resolve(process.cwd(), 'app/api/admin/invoices/[id]/extend-due-date/route.ts'),
   'utf8',
 );
-const submitRoute = readFileSync(
-  resolve(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'),
+const invoiceDelivery = readFileSync(
+  resolve(process.cwd(), 'lib/server/invoiceDelivery.ts'),
   'utf8',
 );
 const invoiceEmailTemplate = readFileSync(
@@ -117,10 +117,10 @@ describe('XDrive financial payment-term contract', () => {
     expect(COMPANY_CONFIG.payment.lateFeeNote).toContain('statutory interest');
     expect(COMPANY_CONFIG.payment.lateFeeAmount).toContain('legally and contractually applicable');
     expect(invoiceEmailTemplate).toContain('statutory interest and recovery-cost compensation where applicable');
-    expect(submitRoute).toContain('DEFAULT_INVOICE_EMAIL_MESSAGE');
+    expect(invoiceDelivery).toContain('DEFAULT_INVOICE_EMAIL_MESSAGE');
     expect(invoiceEmailTemplate).not.toContain('£25.00 per week');
     expect(invoiceEmailTemplate).not.toContain('more than 7 days overdue');
-    expect(submitRoute).not.toContain('£25.00 per week');
-    expect(submitRoute).not.toContain('more than 7 days overdue');
+    expect(invoiceDelivery).not.toContain('£25.00 per week');
+    expect(invoiceDelivery).not.toContain('more than 7 days overdue');
   });
 });

@@ -14,12 +14,13 @@
  */
 import { expect, test } from '@playwright/test';
 import { canRecordInvoicePayments, PAYMENT_RECORDING_ROLES } from '../lib/financePermissions';
+import { loginWithCredentials } from './helpers/authLogin';
 
 // ─── Static contract tests ────────────────────────────────────────────────────
 
 test.describe('finance role permission contract', () => {
-  const paymentRoles = ['owner', 'admin', 'dispatcher', 'finance'];
-  const nonPaymentRoles = ['driver', 'customer', 'broker'];
+  const paymentRoles = ['owner', 'admin', 'finance'];
+  const nonPaymentRoles = ['dispatcher', 'driver', 'customer', 'broker'];
 
   for (const role of paymentRoles) {
     test(`${role} can record invoice payments`, () => {
@@ -40,7 +41,7 @@ test.describe('finance role permission contract', () => {
   });
 
   test('payment recording roles set has correct size', () => {
-    expect(PAYMENT_RECORDING_ROLES.size).toBe(4);
+    expect(PAYMENT_RECORDING_ROLES.size).toBe(3);
   });
 });
 
@@ -69,16 +70,11 @@ test.describe('finance API schema contract', () => {
 
 // ─── Authenticated tests ──────────────────────────────────────────────────────
 
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? '';
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
+const ADMIN_EMAIL = process.env.E2E_CARRIER_ADMIN_EMAIL ?? process.env.E2E_ADMIN_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.E2E_CARRIER_ADMIN_PASSWORD ?? process.env.E2E_ADMIN_PASSWORD ?? '';
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {
-  await page.goto('/login');
-  await page.waitForSelector('input[type="email"]', { timeout: 10_000 });
-  await page.fill('input[type="email"]', ADMIN_EMAIL);
-  await page.fill('input[type="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"], button:has-text("Sign in"), button:has-text("Login")');
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
+  await loginWithCredentials(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 }
 
 test.describe('admin finance pages — authenticated', () => {

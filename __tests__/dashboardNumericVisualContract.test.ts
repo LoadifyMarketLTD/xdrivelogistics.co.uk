@@ -24,7 +24,8 @@ describe('dashboard numeric visual contract', () => {
       'utf8',
     );
 
-    expect(component).toContain('<OperationalSignalStrip ariaLabel="Carrier control signals" items={signals} />');
+    expect(component).toContain('carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid');
+    expect(component).toContain('carrier-cx-stat-grid');
     expect(component).not.toContain("minWidth: '780px'");
     expect(baseline).toContain('.xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals');
     expect(baseline).toContain('grid-template-columns: repeat(2, minmax(0, 1fr)) !important');

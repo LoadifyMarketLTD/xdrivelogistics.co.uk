@@ -37,12 +37,26 @@ async function authenticatedDriver(request: NextRequest) {
   return { driver };
 }
 
-async function ensureAvailabilityEligible(driver: { id: string; availability_status?: string | null }) {
+async function ensureAvailabilityEligible(
+  driver: { id: string; availability_status?: string | null },
+  clearPresenceWhenIneligible = false,
+) {
+  const clearPresence = async () => {
+    if (!clearPresenceWhenIneligible) return true;
+    const { error } = await supabaseAdmin!
+      .from('driver_availability_presence')
+      .delete()
+      .eq('driver_id', driver.id);
+    return !error;
+  };
+
   if (String(driver.availability_status ?? '').toLowerCase() !== 'available') {
+    if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
     return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
   }
   try {
     if (await hasActiveAssignedJob(driver.id)) {
+      if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
       return NextResponse.json({ error: 'Availability sharing is disabled while you have an active assigned job.' }, { status: 409 });
     }
   } catch {
@@ -77,7 +91,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
-  const eligibilityError = await ensureAvailabilityEligible(auth.driver);
+  const eligibilityError = await ensureAvailabilityEligible(auth.driver, true);
   if (eligibilityError) return eligibilityError;
 
   let body: { lat?: number; lng?: number; visibility?: string; hours?: number };
@@ -109,7 +123,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
-  const eligibilityError = await ensureAvailabilityEligible(auth.driver);
+  const eligibilityError = await ensureAvailabilityEligible(auth.driver, true);
   if (eligibilityError) return eligibilityError;
 
   let body: { lat?: number; lng?: number };

@@ -21,10 +21,10 @@ describe('Driver Loads / Quotes runtime visibility regressions', () => {
     expect(css).toContain('grid-row:4!important');
   });
 
-  it('adds the parent open state required by Quotes CSS when a quote is expanded', () => {
-    expect(quotes).toContain("quote-sheet${expanded ? ' open' : ''}");
-    expect(css).toContain('.driver-quotes-prototype .quote-sheet.open .quote-entry-extra');
-    expect(css).toContain('display:grid!important');
+  it('renders canonical quote detail only when a quote is expanded', () => {
+    expect(quotes).toContain('className="xdrive-cx-quote-card"');
+    expect(quotes).toContain('expanded && <div className="xdrive-cx-quote-card__expanded-cx"');
+    expect(quotes).toContain('xdrive-cx-quote-card__footer');
   });
 
   it('allows a withdrawn quote to become actionable again', () => {

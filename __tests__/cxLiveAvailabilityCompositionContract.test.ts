@@ -1,71 +1,70 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 const source = fs.readFileSync(path.join(process.cwd(), 'app/admin/live-availability/page.tsx'), 'utf8');
 
 describe('CX-close Live Availability composition', () => {
-  it('uses role-specific compact operational signals instead of the old KPI wall', () => {
-    expect(source).toContain('OperationalSignalStrip');
-    expect(source).not.toContain('KpiGrid');
-    expect(source).not.toContain('<KpiCard');
+  it('uses the current CX operational layout instead of a dashboard preamble', () => {
+    expect(source).toContain('<OperationalPageLayout');
+    expect(source).toContain('<OperationalFilters');
+    expect(source).not.toContain('<OperationalSignalStrip');
+    expect(source).not.toContain('<PageHeader');
+    expect(source).not.toContain('Fleet resources');
+    expect(source).not.toContain('Intelligence updated');
   });
 
-  it('keeps Live Fleet, Future and Nearby Exchange as primary page tabs', () => {
-    expect(source).toContain('Live Fleet');
-    expect(source).toContain('Future');
-    expect(source).toContain('Nearby Exchange');
+  it('keeps the CX left rail controls and availability period switch', () => {
+    for (const label of ['Add Future Position', 'Live', 'Future', 'Search Panel', 'Location', 'Radius Search', 'Availability Status', 'Member / Driver', 'Vehicle Size', 'Body Type', 'My Sub-contractors', 'Groups', 'UK &amp; Euro', 'Euro', 'Display dropdown version', 'Add / Edit Groups']) {
+      expect(source).toContain(label);
+    }
+    expect(source).toContain('xdrive-vehicle-size-range');
+    expect(source).toContain('saveAsDefault={saveAsDefault}');
+    expect(source).toContain('onClear={clearFilters}');
+  });
+
+  it('keeps the exact CX audience strip above the map', () => {
+    expect(source).toContain('>All</button>');
+    expect(source).toContain('>Drivers &amp; Sub-contractors</button>');
+    expect(source).toContain('>Other Drivers <span');
+    expect(source).toContain('aria-label="Quick Search"');
+    expect(source).toContain("tab === 'all' ? [...livePoints, ...nearbyPoints] : livePoints");
+    expect(source).toContain("tab === 'all' ? [...fleetTableRows, ...nearbyTableRows] : fleetTableRows");
     const tabs = source.indexOf('aria-label="Availability views"');
-    const signals = source.indexOf('<OperationalSignalStrip');
+    const map = source.indexOf('<FleetPositionMap', tabs);
     expect(tabs).toBeGreaterThan(0);
-    expect(signals).toBeGreaterThan(tabs);
+    expect(map).toBeGreaterThan(tabs);
   });
 
-  it('keeps meaningful Fleet signals without imposing a global dashboard count', () => {
-    expect(source).toContain("label: 'Available'");
-    expect(source).toContain("label: 'Busy'");
-    expect(source).toContain("label: 'Fresh locations'");
-    expect(source).toContain("label: 'Stale / missing'");
-    expect(source).toContain("label: 'Future positions'");
-    expect(source).toContain("label: 'Availability conflicts'");
-  });
-
-  it('uses the measured control geometry', () => {
-    expect(source).toContain('minHeight: 32');
-    expect(source).toContain('borderRadius: 4');
-    expect(source).toContain('className="workspace-tab-strip"');
-    expect(source).toContain("data-active={tab === 'live' ? 'true' : 'false'}");
-  });
-
-  it('stacks Fleet and Nearby Exchange filter fields using shared workspace geometry at tablet and mobile widths', () => {
-    const css = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/workspace-measured-cx-baseline.css'), 'utf8');
-    expect(source).toContain('className="workspace-filter-fields"');
-    expect(source).not.toContain("gridTemplateColumns: tab === 'live'");
-    expect(css).toContain('.xdrive-workspace-measured .workspace-filter-fields');
-    expect(css).toMatch(/@media \(max-width: 1024px\)[\s\S]*?\.workspace-filter-fields\s*\{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important;/);
-    expect(css).toMatch(/@media \(max-width: 768px\)[\s\S]*?\.workspace-filter-fields\s*\{\s*grid-template-columns: minmax\(0, 1fr\) !important;/);
-    expect(css).toContain('.workspace-filter-fields > :first-child');
+  it('keeps the map dominant and the CX register below it', () => {
+    const map = source.indexOf('height={300}');
+    const register = source.indexOf("columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys', 'Action']}");
+    expect(map).toBeGreaterThan(0);
+    expect(register).toBeGreaterThan(map);
+    expect(source).not.toContain('<TwoColumn');
   });
 
   it('supports CX-style saved availability defaults without inventing server preferences', () => {
     expect(source).toContain('LIVE_AVAILABILITY_DEFAULTS_KEY');
     expect(source).toContain('window.localStorage.setItem');
-    expect(source).toContain('Save Default');
-    expect(source).toContain('Load Default');
+    expect(source).toContain('loadDefaults();');
     expect(source).toContain('Clear');
+    expect(source).not.toContain('>Load Default<');
   });
 
-  it('preserves privacy-scoped Nearby Exchange behaviour', () => {
+  it('preserves privacy-scoped Exchange discovery and postcode area lookup', () => {
     expect(source).toContain('/api/availability/nearby');
     expect(source).toContain("position.scope === 'exchange'");
-    expect(source).toContain('driver identity is not disclosed');
+    expect(source).toContain('/api/location/postcode-area');
+    expect(source).toContain('workspace-postcode-area');
+    expect(source).toContain("position.scope === 'exchange'");
+    expect(source).toContain("position.scope === 'fleet'");
+    expect(source).toContain("fetch('/api/availability/nearby?scope=fleet'");
   });
 
-  it('adds CX-style contextual actions without exposing driver identity', () => {
-    expect(source).toContain('/admin/messages?companyId=');
-    expect(source).toContain('/admin/post-load?directCarrier=');
-    expect(source).toContain('Message');
+  it('supports direct booking from an available Exchange member without publishing to the open board first', () => {
     expect(source).toContain('Book Direct');
-    expect(source).not.toContain('position.driver_id');
+    expect(source).toContain('/admin/post-load?directCarrier=');
   });
 
   it('does not introduce Super Admin coupling', () => {

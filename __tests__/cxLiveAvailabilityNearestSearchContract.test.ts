@@ -8,8 +8,9 @@ describe('CX Live Availability nearest search contract', () => {
   const api = read('app/api/availability/nearby/route.ts');
 
   it('supports postcode/outcode + radius nearest discovery', () => {
-    expect(page).toContain('Near postcode / outcode');
-    expect(page).toContain('Find Nearest');
+    expect(page).toContain('Location');
+    expect(page).toContain('Radius Search');
+    expect(page).toContain('onSearch={() => {');
     expect(page).toContain('nearbyRadius');
     expect(api).toContain("searchParams.get('postcode')");
     expect(api).toContain("searchParams.get('radiusMiles')");
@@ -26,7 +27,7 @@ describe('CX Live Availability nearest search contract', () => {
   });
 
   it('does not expose Exchange driver identity while adding nearest distance', () => {
-    expect(page).toContain('driver identity is not disclosed');
+    expect(api).toContain("never the driver's identity or exact position");
     expect(api).not.toContain("scope: 'exchange',\n      driver_id");
     expect(page).toContain('position.distance_miles');
   });

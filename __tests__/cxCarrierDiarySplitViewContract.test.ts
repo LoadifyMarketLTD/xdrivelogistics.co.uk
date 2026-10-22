@@ -27,7 +27,7 @@ describe('CX carrier Diary list / split view parity', () => {
   it('retains List View expand/collapse and the shared Replay job-sheet action', () => {
     expect(source).toContain('toggleExpandAll');
     expect(source).toContain('toggleJob(job.id)');
-    expect(source).toContain("['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log']");
-    expect(source).toContain('onClick={() => openJobTab(job.id, tabId)}');
+    expect(source).toContain("openJobTab(job.id, DIARY_JOB_SHEET_TABS[tab])");
+    expect(fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/CxDiaryActions.tsx'), 'utf8')).toContain("history: 'event-log'");
   });
 });

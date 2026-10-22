@@ -1476,7 +1476,7 @@
     height:31px!important;
     min-height:31px!important;
     padding:0 9px!important;
-    font-size:10.5px!important;
+    font-size:var(--ws-interactive-font-size,14px)!important;
   }
   .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-result-head,
   .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-head-cx,

@@ -35,7 +35,7 @@ If that branch or path already exists, inspect it first. Do not overwrite unknow
 Read these before modifying Owner Driver More:
 
 1. docs/checkpoints/XDRIVE_MORE_ALL_WORKSPACES_AUDIT_2026-10-03.md
-2. docs/checkpoints/XDRIVE_ALL_WORKSPACES_OWNER_REFERENCE_ALIGNMENT_2026-10-02.md
+2. docs/checkpoints/XDRIVE_ALL_WORKSPACES_CX_REFERENCE_ALIGNMENT_2026-10-02.md
 3. docs/checkpoints/XDRIVE_MASTER_HANDOFF_2026-09-28.md
 4. docs/benchmarks/XDRIVE_OPERATIONAL_WORKSPACE_SHELL_CANONICAL_2026-09-28.md
 5. docs/benchmarks/CX_ROLE_FUNCTION_MASTER_BLUEPRINT_2026-09-25.md
@@ -43,7 +43,7 @@ Read these before modifying Owner Driver More:
 7. docs/ui/cx/driver-dashboard.md
 8. docs/design/CX_TO_XDRIVE_VISUAL_OPERATIONAL_BLUEPRINT.md
 
-Do not copy Courier Exchange visual identity. Use CX only for functional and information hierarchy reference. XDrive visual identity and current shell remain canonical.
+Courier Exchange live at `https://app.transportexchangegroup.com/pp/freight-exchange` is the final visual and structural reference. Preserve XDrive branding, but match CX live geometry, density, hierarchy, spacing, tab/subtab structure, control placement and operational behavior.
 
 ## 3. What has already been completed
 
@@ -54,7 +54,7 @@ Already merged to main:
 - 94f0f945 align operational workspaces to owner reference
 - ad564033 scope owner reference alignment to non-driver workspaces
 
-Carrier/Admin, Fleet, Dispatcher, Finance, Compliance, Viewer, Broker and Customer were aligned to the Owner Driver reference while Super Admin was excluded.
+Historical note: these workspaces were previously aligned against an internal Driver surface. That visual-reference rule is superseded; Courier Exchange live is now the final reference. Super Admin remains excluded.
 
 ### B. Owner Driver navbar/dashboard contract repair
 
@@ -728,7 +728,7 @@ The platform-wide operational alignment work is already present on main through:
 
 Scope already covered:
 
-- Owner Driver / Driver shell reference
+- Owner Driver / Driver shell implementation
 - Carrier/Admin
 - Fleet
 - Dispatcher

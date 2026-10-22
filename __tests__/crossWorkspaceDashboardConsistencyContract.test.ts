@@ -44,9 +44,9 @@ describe('cross-workspace dashboard consistency', () => {
   });
 
   it('keeps Fleet assignment eligibility on canonical lifecycle truth', () => {
-    const admin = read('app/admin/AdminWorkspaceModules.tsx');
-    expect(admin).toContain("fleetQueueStage(job) === 'unallocated'");
-    expect(admin).not.toContain("['posted', 'awarded'].includes(job.status)");
+    const assignments = read('app/admin/fleet/assignments/page.tsx');
+    expect(assignments).toContain("fleetQueueStage(job) === 'unallocated'");
+    expect(assignments).not.toContain("['posted', 'awarded'].includes(job.status)");
   });
   it('does not render duplicate Track actions on the customer dashboard', () => {
     expect(customer).toContain("(stage === 'allocated' || stage === 'awarded') && !pendingOffer");
@@ -57,7 +57,7 @@ describe('cross-workspace dashboard consistency', () => {
     expect(tracking).toContain('const trackingState = delayed');
     expect(tracking).toContain('value="Live ETA"');
     expect(tracking).toContain('value="Awaiting live position"');
-    expect(tracking).toContain("sheet ? 'Expand' : 'Details'");
+    expect(tracking).toContain("aria-label={sheet && open ? 'Collapse booking' : sheet ? 'Expand booking' : 'Open booking'}");
     expect(tracking).toContain('actionLabel="Open full booking"');
   });
 
@@ -95,7 +95,6 @@ describe('cross-workspace dashboard consistency', () => {
       read('app/broker/jobs/page.tsx'),
       read('app/broker/loads/page.tsx'),
       read('app/components/workspace/CompanyMarketplaceExchange.tsx'),
-      read('app/admin/AdminWorkspaceModules.tsx'),
     ];
     for (const surface of operationalSurfaces) {
       expect(surface).toContain('workspaceJobOperationalLabel');
@@ -107,9 +106,11 @@ describe('cross-workspace dashboard consistency', () => {
     const brokerDiary = read('app/broker/diary/page.tsx');
     const brokerJobs = read('app/broker/jobs/page.tsx');
     const brokerLoads = read('app/broker/loads/page.tsx');
-    expect(brokerDiary).toContain("{open ? 'Collapse' : 'Expand'}");
+    expect(brokerDiary).toContain('<CxDiaryActions');
+    expect(read('app/components/workspace/CxDiaryActions.tsx')).toContain("aria-label={expanded ? 'Collapse booking' : 'Expand booking'}");
     expect(brokerJobs).toContain("{open ? 'Collapse' : 'Expand'}");
-    expect(brokerLoads).toContain("{open ? 'Collapse' : 'Expand'}");
+    expect(brokerLoads).toContain('OperationalExpandAllControl');
+    expect(brokerLoads).toContain('expandedAllIds.has(job.id)');
     expect(brokerJobs).toContain('normalizedJobStatus(job)');
     expect(brokerLoads).toContain('normalizedJobStatus(job)');
   });

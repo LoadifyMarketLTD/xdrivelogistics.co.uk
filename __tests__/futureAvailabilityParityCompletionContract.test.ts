@@ -43,14 +43,14 @@ describe('Future Availability parity completion', () => {
     expect(intelligenceHook).toContain('notes: string | null');
   });
 
-  it('shows future availability windows, assigned vehicle capacity and notes in Fleet planning surfaces', () => {
+  it('keeps future availability windows, assigned vehicle capacity and notes in the dedicated Fleet planning surface rather than adding a non-CX Live Availability tab', () => {
     expect(futurePage).toContain('Published future capacity');
     expect(futurePage).toContain('Vehicle / capacity');
     expect(futurePage).toContain('Published future positions');
-    expect(livePage).toContain('Availability window');
-    expect(livePage).toContain('Vehicle / capacity');
-    expect(livePage).toContain('future.futurePositionUntil');
-    expect(livePage).toContain('future?.notes');
+    expect(futurePage).toContain('Availability window');
+    expect(futurePage).toContain('futurePositionUntil');
+    expect(futurePage).toContain('notes');
+    expect(livePage).not.toContain("tab === 'future'");
   });
 
   it('exposes the completed future declaration in the Driver availability summary', () => {

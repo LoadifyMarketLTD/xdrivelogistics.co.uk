@@ -32,7 +32,6 @@ export default function FleetActiveJobsPage() {
         eyebrow="Fleet operations"
         title="Active Jobs"
         description="Carrier-won jobs that have moved beyond allocation and are currently in execution. Persisted driver + vehicle binding is shown separately from the load's vehicle requirement."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet')}>Fleet Dashboard</ActionButton>}
       />
       <Panel title="Carrier-won execution register" description="Allocated/accepted jobs remain in Allocated until the driver starts execution. Execution identity reflects the persisted driver and vehicle on the job; current operational eligibility remains server-authoritative.">
         <DataTable

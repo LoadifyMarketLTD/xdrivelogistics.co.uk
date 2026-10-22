@@ -1,3 +1,5 @@
+import { hasCurrentOnboardingLegalEvidence } from '../../../../lib/legal/onboardingLegalReadiness';
+import type { RegistrationLegalRole } from '../../../../lib/legal/registrationAgreements';
 import { NextRequest, NextResponse } from 'next/server';
 import type { User } from '@supabase/supabase-js';
 import type { z } from 'zod';
@@ -83,7 +85,7 @@ const verifySignedRegistrationLegalAcceptance = async ({
 
   const { data, error } = await supabaseAdmin
     .from('registration_legal_acceptances')
-    .select('id, signer_full_name, signature_method, signature_payload_hash, signed_pdf_path, signed_pdf_hash, accepted_at')
+    .select('id, signer_full_name, signature_method, signature_payload_hash, signed_pdf_path, signed_pdf_hash, accepted_at, registration_role, legal_version, privacy_version, acceptance_language, language_comprehension_confirmed_at, agreements, privacy_document_hash')
     .eq('user_id', userId)
     .eq('onboarding_application_id', onboardingApplicationId)
     .eq('registration_role', registrationRole)
@@ -116,7 +118,7 @@ const verifySignedRegistrationLegalAcceptance = async ({
     && data.accepted_at
   );
 
-  if (!signedPackageComplete) {
+  if (!signedPackageComplete || !hasCurrentOnboardingLegalEvidence(data, registrationRole as RegistrationLegalRole)) {
     return {
       ok: false as const,
       status: 409,

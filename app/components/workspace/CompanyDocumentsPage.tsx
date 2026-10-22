@@ -97,17 +97,28 @@ export default function CompanyDocumentsPage() {
       return;
     }
 
-    const { data, error: queryError } = await supabase
-      .from('company_documents')
-      .select('id, company_id, doc_type, file_path, status, expiry_date, review_notes, created_at, updated_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-
-    if (queryError) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
       setDocuments([]);
-      setError(`Failed to load company documents: ${queryError.message}`);
+      setError('Your session has expired. Please sign in again.');
+      setLoading(false);
+      return;
+    }
+
+    const response = await fetch(`/api/company/documents?companyId=${encodeURIComponent(companyId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      documents?: CompanyDocumentRow[];
+      error?: string;
+    };
+
+    if (!response.ok) {
+      setDocuments([]);
+      setError(`Failed to load company documents: ${payload.error ?? `HTTP ${response.status}`}`);
     } else {
-      setDocuments((data ?? []) as CompanyDocumentRow[]);
+      setDocuments(payload.documents ?? []);
     }
     setLoading(false);
   }, [companyId]);
@@ -167,6 +178,7 @@ export default function CompanyDocumentsPage() {
         description="Company-level compliance records and their recorded review state. This workspace does not self-approve company compliance evidence."
       />
 
+      <p><a href="/onboarding/documents" style={{ fontWeight: 700 }}>View or replace my onboarding documents</a>. Only documents belonging to your own application can be changed.</p>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
 
       <KpiGrid>

@@ -79,52 +79,23 @@ export default function DriverWorkspaceShell({
   const resolvedTitle = resolveDriverPageTitle(pathname, driverName);
   const accountPath = isDriverAccountPath(pathname);
 
-  if (pathname === '/driver/history') {
-    return (
-      <section className="page driver-prototype-page-shell driver-diary-page-shell">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>{resolvedTitle}</b></span>
-          <div className="sub-actions">{headerActions}</div>
-        </div>
-        <div className="driver-diary-shell-content">
-          {children}
-        </div>
-      </section>
-    );
-  }
-
-  if (pathname !== '/driver' && !accountPath) {
-    return (
-      <section className="page driver-prototype-page-shell">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>{resolvedTitle}</b></span>
-          <div className="sub-actions">
-            {availabilityLabel && <StatusBadge value={availabilityLabel} />}
-            {headerActions}
-          </div>
-        </div>
-        <div className="pagebody no-left">
-          <main className="main">
-            <div className="head">
-              <div><h1>{resolvedTitle}</h1>{subtitle && <p>{subtitle}</p>}</div>
-            </div>
-            {children}
-          </main>
-        </div>
-      </section>
-    );
-  }
-
   return (
     <PageFrame>
       <div className="driver-operational-page">
-        {!hideHeader && (resolvedTitle || subtitle || availabilityLabel || personaLabel || headerActions) && (
+        {!hideHeader && (resolvedTitle || subtitle || personaLabel) && (
           <PageHeader
             eyebrow={pathname === '/driver' ? undefined : (personaLabel ?? 'Driver workspace')}
             title={resolvedTitle}
             description={subtitle}
-            actions={<>{availabilityLabel && <StatusBadge value={availabilityLabel} />}{headerActions}</>}
           />
+        )}
+        {(availabilityLabel || headerActions) && (
+          <div className="workspace-record-meta workspace-list-controls driver-workspace-page-toolbar" style={{ justifyContent: 'flex-end' }}>
+            <span className="workspace-list-controls__right">
+              {availabilityLabel && <StatusBadge value={availabilityLabel} />}
+              {headerActions}
+            </span>
+          </div>
         )}
         {accountPath ? (
           <div className="driver-account-workspace driver-account-workspace--single">

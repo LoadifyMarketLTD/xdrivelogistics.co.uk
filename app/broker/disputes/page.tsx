@@ -94,7 +94,7 @@ export default function BrokerDisputesPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Commercial exceptions" title="Disputes" description="Customer, carrier and POD disputes linked only to broker-managed loads." actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>} />
+      <PageHeader eyebrow="Commercial exceptions" title="Disputes" description="Customer, carrier and POD disputes linked to broker-managed loads." />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
@@ -110,7 +110,7 @@ export default function BrokerDisputesPage() {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta"><span><strong>{visibleRows.length}</strong> dispute{visibleRows.length === 1 ? '' : 's'}</span><span>Open {counts.open} · Investigating {counts.investigating} · Resolved {counts.resolved}</span></div>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}><span><strong>{visibleRows.length}</strong> dispute{visibleRows.length === 1 ? '' : 's'} · Open {counts.open} · Investigating {counts.investigating} · Resolved {counts.resolved}</span><span className="workspace-list-controls__right"><ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton></span></div>
           <div className="workspace-panel">
             <DataTable
               columns={['Job', 'Raised by', 'Issue', 'Opened', 'Status', 'Resolution note', 'Actions']}

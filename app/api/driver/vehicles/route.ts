@@ -65,7 +65,7 @@ const resolveDriver = async (request: NextRequest) => {
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, status')
+    .select('id, company_id, status, driver_type')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
@@ -106,18 +106,22 @@ const resolveDriver = async (request: NextRequest) => {
   }
 
   const canManageCompanyVehicles = ['owner', 'admin'].includes(String(membership?.role_in_company ?? '').toLowerCase());
+  const isOwnerDriver = String(driver.driver_type ?? '').toLowerCase() === 'owner_driver';
+  const canManageOwnVehicles = isOwnerDriver;
   return {
     user: authData.user,
     driverId: driver.id,
     companyId: driver.company_id as string,
+    isOwnerDriver,
     canManageCompanyVehicles,
+    canManageOwnVehicles,
   };
 };
 
 export async function GET(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { driverId, companyId, canManageCompanyVehicles } = resolved;
+  const { driverId, companyId, canManageCompanyVehicles, canManageOwnVehicles } = resolved;
   const admin = supabaseAdmin!;
 
   let query = admin
@@ -163,16 +167,16 @@ export async function GET(request: NextRequest) {
     assignedVehicleId: (vehicles ?? []).find((v) => v.assigned_driver_id === driverId)?.id ?? null,
     canonicalVehicleId,
     canonicalVehicleSignalAvailable,
-    canManageVehicles: canManageCompanyVehicles,
+    canManageVehicles: canManageCompanyVehicles || canManageOwnVehicles,
   });
 }
 
 export async function POST(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { companyId, canManageCompanyVehicles } = resolved;
-  if (!canManageCompanyVehicles) {
-    return json(403, { error: 'Only an owner/admin driver can add company vehicles. Fleet changes are managed by your company.' });
+  const { companyId, driverId, isOwnerDriver, canManageCompanyVehicles, canManageOwnVehicles } = resolved;
+  if (!canManageCompanyVehicles && !canManageOwnVehicles) {
+    return json(403, { error: 'Only a company owner/admin or an owner-driver can add a vehicle.' });
   }
   const admin = supabaseAdmin!;
 
@@ -188,9 +192,33 @@ export async function POST(request: NextRequest) {
     return json(400, { error: 'Validation failed.', details: parsed.error.flatten() });
   }
 
+  let assignToSelf = false;
+  if (isOwnerDriver && !canManageCompanyVehicles) {
+    const existing = await admin
+      .from('vehicles')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('assigned_driver_id', driverId)
+      .eq('status', 'active')
+      .limit(1);
+    if (existing.error) {
+      return operationalError({
+        status: 500,
+        message: 'We could not verify your current vehicle assignment. Please try again.',
+        context: `driver.vehicles.create.assignment:${driverId}`,
+        cause: existing.error,
+        retryable: true,
+      });
+    }
+    if ((existing.data ?? []).length > 0) {
+      return json(409, { error: 'You already have an active vehicle. Edit that vehicle or remove its assignment before adding another.' });
+    }
+    assignToSelf = true;
+  }
+
   const { data: inserted, error: insertError } = await admin
     .from('vehicles')
-    .insert({ ...parsed.data, company_id: companyId })
+    .insert({ ...parsed.data, company_id: companyId, ...(assignToSelf ? { assigned_driver_id: driverId } : {}) })
     .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
     .maybeSingle();
 
@@ -210,9 +238,9 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { companyId, driverId, canManageCompanyVehicles } = resolved;
-  if (!canManageCompanyVehicles) {
-    return json(403, { error: 'Only an owner/admin driver can change company vehicle records. Contact your fleet manager for assignment changes.' });
+  const { companyId, driverId, canManageCompanyVehicles, canManageOwnVehicles } = resolved;
+  if (!canManageCompanyVehicles && !canManageOwnVehicles) {
+    return json(403, { error: 'Only a company owner/admin or an owner-driver can change vehicle records.' });
   }
   const admin = supabaseAdmin!;
 
@@ -276,7 +304,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: vehicle, error: vehicleError } = await admin
     .from('vehicles')
-    .select('id, company_id')
+    .select('id, company_id, assigned_driver_id')
     .eq('id', vehicleId)
     .maybeSingle();
 
@@ -292,6 +320,9 @@ export async function PATCH(request: NextRequest) {
   if (!vehicle) return json(404, { error: 'Vehicle not found.' });
   if (vehicle.company_id !== companyId) {
     return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
+  }
+  if (!canManageCompanyVehicles && vehicle.assigned_driver_id !== driverId) {
+    return json(403, { error: 'Owner-drivers can edit only the vehicle assigned to their own driver profile.' });
   }
 
   const { data: updated, error: updateError } = await admin

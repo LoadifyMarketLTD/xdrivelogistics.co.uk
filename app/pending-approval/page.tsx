@@ -9,6 +9,11 @@ export default function PendingApprovalPage() {
         <p style={{ margin: '0 0 1rem', color: '#475569', lineHeight: 1.6 }}>
           XDrive is reviewing your account setup. You will be able to access your workspace once approval and required onboarding checks are complete.
         </p>
+        <div style={{ margin: '1rem 0 1.5rem', padding: '1rem', background: '#eff6ff', borderRadius: 8 }}>
+          <strong>Uploaded the wrong document?</strong>
+          <p>You can view or replace your own documents while your application is being reviewed. A replacement will need a new compliance review.</p>
+          <Link href="/onboarding/documents" style={{ fontWeight: 800, color: '#0b2f6b' }}>View or replace my documents</Link>
+        </div>
         <div style={{ marginBottom: '1.5rem', border: '1px solid #f5d48a', background: '#fff8e8', borderRadius: '8px', padding: '1rem', color: '#5a4a24', lineHeight: 1.6 }}>
           <strong style={{ display: 'block', color: '#0b2f6b', marginBottom: '0.35rem' }}>Commercial accounts: complete Stripe setup</strong>
           Customer, Broker, Carrier/Fleet and Owner Driver accounts must complete and activate the company Stripe setup before XDrive can approve commercial readiness or allow transport work to be published, quoted, awarded or accepted. Company Drivers use the Stripe setup of their employing fleet company and do not need a personal Stripe account.

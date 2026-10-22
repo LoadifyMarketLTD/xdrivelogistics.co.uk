@@ -61,8 +61,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     optionalRows(supabaseAdmin.from('company_memberships').select('user_id, invited_email, role_in_company, status, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Company memberships'),
     optionalRows(supabaseAdmin.from('drivers').select('id, user_id, display_name, full_name, name, email, phone, status, availability_status, app_access, driver_type, reg_number, vehicle_type, can_commercial_bid, international_work_approved, last_app_login, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Drivers'),
     optionalRows(supabaseAdmin.from('vehicles').select('id, assigned_driver_id, reg, registration, reg_plate, make, model, vehicle_type, status, current_status, is_available, is_tracked, current_location, last_tracked_at, international_work_approved, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Vehicles'),
-    optionalRows(supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, current_status, pickup_location, delivery_location, assigned_driver_id, vehicle_id, agreed_rate_gbp, currency, exchange_visibility, created_at, completed_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Posted jobs'),
-    optionalRows(supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, current_status, pickup_location, delivery_location, assigned_driver_id, vehicle_id, agreed_rate_gbp, currency, exchange_visibility, created_at, completed_at').eq('awarded_carrier_company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Awarded jobs'),
+    optionalRows(supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_lat, pickup_lng, delivery_lat, delivery_lng, assigned_driver_id, vehicle_id, agreed_rate_gbp, currency, exchange_visibility, created_at, completed_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Posted jobs'),
+    optionalRows(supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_lat, pickup_lng, delivery_lat, delivery_lng, assigned_driver_id, vehicle_id, agreed_rate_gbp, currency, exchange_visibility, created_at, completed_at').eq('awarded_carrier_company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Awarded jobs'),
     optionalRows(supabaseAdmin.from('invoices').select('id, company_id, buyer_company_id, supplier_company_id, invoice_number, job_id, status, payment_status, amount, total, currency, due_date, paid_at, created_at, updated_at').or(`company_id.eq.${entityId},buyer_company_id.eq.${entityId},supplier_company_id.eq.${entityId}`).order('created_at', { ascending: false }).limit(250), 'Invoices'),
     optionalRows(supabaseAdmin.from('quotes').select('id, status, amount, currency, customer_name, pickup_location, delivery_location, quote_sent_at, accepted_at, converted_at, converted_job_id, execution_mode, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Quotes'),
     optionalRows(supabaseAdmin.from('job_bids').select('id, job_id, bidder_driver_id, quote_vehicle_id, status, amount, amount_gbp, bid_price_gbp, currency, created_at, updated_at').eq('bidder_company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Marketplace bids'),
@@ -141,7 +141,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
   const onboardingIds = onboarding.data.map((row) => String((row as AnyRow).id ?? '')).filter(Boolean);
   const relatedJobIds = Array.from(new Set([...postedJobs.data, ...awardedJobs.data].map((row) => String((row as AnyRow).id ?? '')).filter(Boolean)));
 
-  const [driverDocs, vehicleDocs, payments, companyNotifications, onboardingNotifications, raisedJobDisputes, relatedJobDisputes] = await Promise.all([
+  const [driverDocs, vehicleDocs, payments, companyNotifications, onboardingNotifications, raisedJobDisputes, relatedJobDisputes, driverLocations, availabilityPresence] = await Promise.all([
     driverIds.length ? optionalRows(supabaseAdmin.from('driver_documents').select('id, driver_id, doc_type, status, expiry_date, issued_date, rejection_reason, verified_by, verified_at, risk_status, risk_reasons, created_at').in('driver_id', driverIds).order('created_at', { ascending: false }).limit(500), 'Driver documents') : Promise.resolve({ data: [], available: true } as Result<AnyRow[]>),
     vehicleIds.length ? optionalRows(supabaseAdmin.from('vehicle_documents').select('id, vehicle_id, doc_type, status, expiry_date, issued_date, rejection_reason, verified_by, verified_at, risk_status, risk_reasons, created_at').in('vehicle_id', vehicleIds).order('created_at', { ascending: false }).limit(500), 'Vehicle documents') : Promise.resolve({ data: [], available: true } as Result<AnyRow[]>),
     invoiceIds.length ? optionalRows(supabaseAdmin.from('invoice_payment_history').select('id, invoice_id, company_id, amount, currency, settlement_method, external_reference, note, status_after, paid_at, created_at').in('invoice_id', invoiceIds).order('created_at', { ascending: false }).limit(500), 'Payment history') : Promise.resolve({ data: [], available: true } as Result<AnyRow[]>),
@@ -149,6 +149,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     onboardingIds.length ? optionalRows(supabaseAdmin.from('notification_events').select('id, event_type, entity_type, entity_id, company_id, recipient_user_id, status, created_at, processed_at, attempt_count, last_error').eq('entity_type', 'onboarding_application').in('entity_id', onboardingIds).order('created_at', { ascending: false }).limit(250), 'Onboarding notifications') : Promise.resolve({ data: [], available: true } as Result<AnyRow[]>),
     optionalRows(supabaseAdmin.from('job_disputes').select('id, job_id, raised_by_company_id, status, description, resolution_note, resolved_by, resolved_at, created_at, updated_at').eq('raised_by_company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Raised job disputes'),
     relatedJobIds.length ? optionalRows(supabaseAdmin.from('job_disputes').select('id, job_id, raised_by_company_id, status, description, resolution_note, resolved_by, resolved_at, created_at, updated_at').in('job_id', relatedJobIds).order('created_at', { ascending: false }).limit(250), 'Related job disputes') : Promise.resolve({ data: [], available: true } as Result<AnyRow[]>),
+    driverIds.length ? optionalRows(supabaseAdmin.from('driver_locations').select('id, driver_id, vehicle_id, job_id, lat, lng, speed_mph, heading, recorded_at, source, source_provider').in('driver_id', driverIds).order('recorded_at', { ascending: false }).limit(1000), 'Driver locations') : Promise.resolve({ data: [], available: true } as Result<AnyRow[]>),
+    driverIds.length ? optionalRows(supabaseAdmin.from('driver_availability_presence').select('driver_id, exact_lat, exact_lng, visibility, available_until, recorded_at, updated_at').in('driver_id', driverIds).order('recorded_at', { ascending: false }).limit(1000), 'Driver availability presence') : Promise.resolve({ data: [], available: true } as Result<AnyRow[]>),
   ]);
 
   const latestOnboarding = onboarding.data[0] as AnyRow | undefined;
@@ -193,11 +195,154 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     optionalCount('company_documents', 'company_id', entityId),
   ]);
 
+  const coverageCandidates = [
+    { domain: 'people.memberships', returned: members.data.length, limit: 250, exactTotal: counts[0] },
+    { domain: 'fleet.drivers', returned: drivers.data.length, limit: 250, exactTotal: counts[1] },
+    { domain: 'fleet.vehicles', returned: vehicles.data.length, limit: 250, exactTotal: counts[2] },
+    { domain: 'operations.postedJobs', returned: postedJobs.data.length, limit: 250, exactTotal: counts[3] },
+    { domain: 'operations.awardedJobs', returned: awardedJobs.data.length, limit: 250, exactTotal: counts[4] },
+    { domain: 'finance.invoices', returned: invoices.data.length, limit: 250, exactTotal: null },
+    { domain: 'marketplace.quotes', returned: quotes.data.length, limit: 250, exactTotal: null },
+    { domain: 'marketplace.bids', returned: bids.data.length, limit: 250, exactTotal: null },
+    { domain: 'support.tickets', returned: tickets.data.length, limit: 250, exactTotal: counts[5] },
+    { domain: 'support.invoiceDisputes', returned: invoiceDisputes.data.length, limit: 250, exactTotal: null },
+    { domain: 'audit.rows', returned: audit.data.length, limit: 250, exactTotal: null },
+    { domain: 'support.cases', returned: cases.data.length, limit: 250, exactTotal: null },
+    { domain: 'onboarding.applications', returned: onboarding.data.length, limit: 50, exactTotal: null },
+    { domain: 'compliance.companyDocuments', returned: companyDocs.data.length, limit: 250, exactTotal: counts[6] },
+    { domain: 'support.complaints', returned: reviews.data.length, limit: 250, exactTotal: null },
+    { domain: 'compliance.fraudCases', returned: fraudCases.data.length, limit: 250, exactTotal: null },
+    { domain: 'compliance.driverDocuments', returned: driverDocs.data.length, limit: 500, exactTotal: null },
+    { domain: 'compliance.vehicleDocuments', returned: vehicleDocs.data.length, limit: 500, exactTotal: null },
+    { domain: 'finance.payments', returned: payments.data.length, limit: 500, exactTotal: null },
+    { domain: 'notifications.company', returned: companyNotifications.data.length, limit: 250, exactTotal: null },
+    { domain: 'notifications.onboarding', returned: onboardingNotifications.data.length, limit: 250, exactTotal: null },
+    { domain: 'support.raisedJobDisputes', returned: raisedJobDisputes.data.length, limit: 250, exactTotal: null },
+    { domain: 'support.relatedJobDisputes', returned: relatedJobDisputes.data.length, limit: 250, exactTotal: null },
+    { domain: 'live.driverLocations', returned: driverLocations.data.length, limit: 1000, exactTotal: null },
+    { domain: 'live.availabilityPresence', returned: availabilityPresence.data.length, limit: 1000, exactTotal: null },
+  ];
+  const unavailableEvidenceCount = [
+    members, drivers, vehicles, postedJobs, awardedJobs, invoices, quotes, bids, tickets,
+    invoiceDisputes, audit, cases, onboarding, companyDocs, reviews, fraudCases, profiles,
+    driverDocs, vehicleDocs, payments, companyNotifications, onboardingNotifications,
+    raisedJobDisputes, relatedJobDisputes, driverLocations, availabilityPresence,
+  ].filter((source) => !source.available).length + (missingDocumentsAvailable ? 0 : 1);
+  const limitedDomains = coverageCandidates.filter((entry) =>
+    entry.exactTotal !== null ? entry.exactTotal > entry.returned : entry.returned >= entry.limit,
+  );
+
+  const latestLocationByDriver = new Map<string, AnyRow>();
+  for (const row of driverLocations.data as AnyRow[]) {
+    const driverId = String(row.driver_id ?? '');
+    if (driverId && !latestLocationByDriver.has(driverId)) latestLocationByDriver.set(driverId, row);
+  }
+  const availabilityByDriver = new Map<string, AnyRow>();
+  for (const row of availabilityPresence.data as AnyRow[]) {
+    const driverId = String(row.driver_id ?? '');
+    if (driverId && !availabilityByDriver.has(driverId)) availabilityByDriver.set(driverId, row);
+  }
+  const vehicleByDriver = new Map<string, AnyRow>();
+  for (const row of vehicles.data as AnyRow[]) {
+    const driverId = String(row.assigned_driver_id ?? '');
+    if (driverId && !vehicleByDriver.has(driverId)) vehicleByDriver.set(driverId, row);
+  }
+
+  const nowMs = Date.now();
+  const liveDrivers = (drivers.data as AnyRow[]).map((driver) => {
+    const id = String(driver.id ?? '');
+    const location = latestLocationByDriver.get(id) ?? null;
+    const presence = availabilityByDriver.get(id) ?? null;
+    const locationAt = location?.recorded_at ? Date.parse(String(location.recorded_at)) : Number.NaN;
+    const presenceAt = presence?.recorded_at
+      ? Date.parse(String(presence.recorded_at))
+      : presence?.updated_at
+        ? Date.parse(String(presence.updated_at))
+        : Number.NaN;
+    const presenceFresh = Number.isFinite(presenceAt)
+      && presenceAt >= nowMs - 30 * 60_000
+      && presenceAt <= nowMs + 2 * 60_000;
+    const presenceActive = presence?.exact_lat != null
+      && presence?.exact_lng != null
+      && (!presence.available_until || Date.parse(String(presence.available_until)) > nowMs)
+      && presenceFresh;
+    const usePresence = presenceActive && (!Number.isFinite(locationAt) || (Number.isFinite(presenceAt) && presenceAt >= locationAt));
+    const lat = usePresence ? presence?.exact_lat ?? null : location?.lat ?? null;
+    const lng = usePresence ? presence?.exact_lng ?? null : location?.lng ?? null;
+    const recordedAt = usePresence ? presence?.recorded_at ?? presence?.updated_at ?? null : location?.recorded_at ?? null;
+    const ageMinutes = recordedAt ? Math.max(0, Math.round((nowMs - Date.parse(String(recordedAt))) / 60_000)) : null;
+    const fresh = ageMinutes !== null && ageMinutes <= 30;
+    const availability = String(driver.availability_status ?? '').toLowerCase();
+    const status: 'online' | 'busy' | 'offline' | 'sold' =
+      String(driver.status ?? '').toLowerCase() === 'inactive'
+        ? 'offline'
+        : availability === 'busy'
+          ? 'busy'
+          : fresh || presenceActive
+            ? 'online'
+            : 'offline';
+    const vehicle = vehicleByDriver.get(id) ?? null;
+    const registration = vehicle ? String(vehicle.registration ?? vehicle.reg_plate ?? vehicle.reg ?? '—') : null;
+    const vehicleLabel = vehicle
+      ? [vehicle.make, vehicle.model].filter(Boolean).join(' ') || String(vehicle.vehicle_type ?? 'Vehicle')
+      : null;
+    return {
+      id,
+      name: String(driver.display_name ?? driver.full_name ?? driver.name ?? 'Driver'),
+      status,
+      vehicle: vehicle ? { registration, label: vehicleLabel } : null,
+      location: lat != null && lng != null ? {
+        lat: Number(lat),
+        lng: Number(lng),
+        heading: usePresence || location?.heading == null ? null : Number(location.heading),
+        speed_mph: usePresence || location?.speed_mph == null ? null : Number(location.speed_mph),
+        recorded_at: recordedAt == null ? null : String(recordedAt),
+        source: usePresence ? 'availability_presence' : location?.source == null ? null : String(location.source),
+      } : null,
+    };
+  });
+
+  const mapJobs = activeJobs.map((job) => ({
+    id: String(job.id ?? ''),
+    short_id: String(job.load_ref ?? job.load_id ?? job.id ?? '').slice(0, 12),
+    client: String(company.trading_name ?? company.name ?? company.legal_name ?? 'Company job'),
+    status: String(job.current_status ?? job.status ?? 'unknown'),
+    pickup: String(job.pickup_location ?? job.pickup_postcode ?? 'Pickup'),
+    delivery: String(job.delivery_location ?? job.delivery_postcode ?? 'Delivery'),
+    eta: null,
+    map: {
+      pickup_lat: job.pickup_lat == null ? null : Number(job.pickup_lat),
+      pickup_lng: job.pickup_lng == null ? null : Number(job.pickup_lng),
+      delivery_lat: job.delivery_lat == null ? null : Number(job.delivery_lat),
+      delivery_lng: job.delivery_lng == null ? null : Number(job.delivery_lng),
+    },
+  }));
+
   return respond(200, {
+    coverage: {
+      complete: limitedDomains.length === 0 && unavailableEvidenceCount === 0,
+      unavailableEvidenceCount,
+      limitedDomains,
+      note: limitedDomains.length
+        ? 'Company 360 contains capped recent snapshots for the listed domains. Exact total counters are used where available; derived issue/open metrics can be lower bounds when a snapshot is capped.'
+        : unavailableEvidenceCount ? 'Some Company 360 sources are unavailable, so coverage cannot be confirmed.'
+        : 'No Company 360 snapshot cap or unavailable source was detected.',
+    },
     company: {
       ...company,
       created_by_profile: company.created_by ? profileById.get(String(company.created_by)) ?? null : null,
       reviewed_by_profile: company.reviewed_by ? profileById.get(String(company.reviewed_by)) ?? null : null,
+    },
+    liveMap: {
+      drivers: liveDrivers,
+      jobs: mapJobs,
+      routes: mapJobs.filter((job) =>
+        job.map.pickup_lat !== null
+        && job.map.pickup_lng !== null
+        && job.map.delivery_lat !== null
+        && job.map.delivery_lng !== null,
+      ),
+      note: 'Platform Owner fleet map uses the newest execution-tracking or active availability-presence position for each company driver. Fresh locations are live; stale last-known locations remain visible only as offline context.',
     },
     identityResolution,
     summary: {

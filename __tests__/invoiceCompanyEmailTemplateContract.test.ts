@@ -1,16 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const submit = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'), 'utf8');
+const delivery = fs.readFileSync(path.join(process.cwd(), 'lib/server/invoiceDelivery.ts'), 'utf8');
 const defaultsApi = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/finance/invoices/[id]/email-defaults/route.ts'), 'utf8');
 const panel = fs.readFileSync(path.join(process.cwd(), 'app/driver/finance/invoices/[id]/DriverInvoiceEmailPanel.tsx'), 'utf8');
 const template = fs.readFileSync(path.join(process.cwd(), 'lib/invoiceEmailTemplate.ts'), 'utf8');
 
 describe('company-level invoice email defaults', () => {
   it('uses company template before the canonical XDrive fallback', () => {
-    expect(submit).toContain("select('invoice_email_subject_template,invoice_email_message_template')");
-    expect(submit).toContain('requestedSubject || companySubjectTemplate || DEFAULT_INVOICE_EMAIL_SUBJECT');
-    expect(submit).toContain('requestedMessage || companyMessageTemplate || DEFAULT_INVOICE_EMAIL_MESSAGE');
+    expect(delivery).toContain("select('invoice_email_subject_template,invoice_email_message_template')");
+    expect(delivery).toContain('requestedSubject || companySubjectTemplate || DEFAULT_INVOICE_EMAIL_SUBJECT');
+    expect(delivery).toContain('requestedMessage || companyMessageTemplate || DEFAULT_INVOICE_EMAIL_MESSAGE');
   });
 
   it('loads the saved company default for authorised invoice senders', () => {

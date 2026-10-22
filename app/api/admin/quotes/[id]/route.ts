@@ -31,7 +31,7 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json(400, { error: 'Quote status request is invalid.' });
 
-  const admin = await requireCompanyCapability(request, parsed.data.companyId, 'company.manage');
+  const admin = await requireCompanyCapability(request, parsed.data.companyId, 'quotes.submit');
   if (!isCompanyCapabilityContext(admin)) return admin;
 
   const { id } = await context.params;

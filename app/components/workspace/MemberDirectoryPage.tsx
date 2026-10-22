@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useAuth } from '../AuthContext';
-import { MemberIdentityLink, MemberProfileOverlay } from './MemberProfile';
+import { MemberIdentityLink } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 import { usePrivateNetworkGroups } from './usePrivateNetworkGroups';
 
@@ -75,12 +75,55 @@ type SavedNetworkResponse = {
   error?: string;
 };
 
+type DirectorySort = 'Distance' | 'Member Name' | 'Delivery Reliability' | 'Payment Reliability';
+
 const normalise = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
-export function MemberDirectoryPage({
-  title = 'Directory',
-  eyebrow = 'XDrive member network',
-}: {
+const VEHICLE_RANK: Record<string, number> = {
+  'small van': 1, van: 1, swb: 2, 'swb van': 2, lwb: 3, 'lwb van': 3,
+  xlwb: 4, 'xlwb van': 4, luton: 5, 'luton van': 5, 'luton tail lift': 5,
+  '7.5t': 6, '7.5 tonne': 6, '18t': 7, '18 tonne': 7, '26t': 8, '26 tonne': 8, artic: 9, articulated: 9,
+};
+
+function vehicleRank(value: string | null | undefined) {
+  const key = normalise(value).replaceAll('_', ' ');
+  const exact = VEHICLE_RANK[key];
+  if (exact != null) return exact;
+  const match = Object.entries(VEHICLE_RANK).find(([name]) => key.includes(name));
+  return match?.[1] ?? null;
+}
+
+function vehicleMatches(values: Array<string | null | undefined>, query: string, mode: 'minimum' | 'exact') {
+  const needle = normalise(query).replaceAll('_', ' ');
+  if (!needle) return true;
+  const available = values.map((value) => normalise(value).replaceAll('_', ' ')).filter(Boolean);
+  if (mode === 'exact') return available.some((value) => value === needle || value.includes(needle));
+  const requiredRank = vehicleRank(needle);
+  if (requiredRank == null) return available.some((value) => value.includes(needle));
+  return available.some((value) => {
+    const rank = vehicleRank(value);
+    return rank != null && rank >= requiredRank;
+  });
+}
+
+function sortDirectoryRecords<T extends DirectoryCompany | DirectoryDriver>(records: T[], sort: DirectorySort): T[] {
+  return [...records].sort((a, b) => {
+    if (sort === 'Member Name') {
+      const nameA = 'name' in a ? a.name : a.displayName;
+      const nameB = 'name' in b ? b.name : b.displayName;
+      return nameA.localeCompare(nameB);
+    }
+    if (sort === 'Delivery Reliability') {
+      return (b.deliveryReliability.score ?? -1) - (a.deliveryReliability.score ?? -1);
+    }
+    if (sort === 'Payment Reliability') {
+      return (b.paymentReliability.score ?? -1) - (a.paymentReliability.score ?? -1);
+    }
+    return (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY);
+  });
+}
+
+export function MemberDirectoryPage(_props: {
   title?: string;
   eyebrow?: string;
 }) {
@@ -90,11 +133,11 @@ export function MemberDirectoryPage({
   const ownerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const [companies, setCompanies] = useState<DirectoryCompany[]>([]);
   const [drivers, setDrivers] = useState<DirectoryDriver[]>([]);
-  const [tab, setTab] = useState<'companies' | 'drivers'>('companies');
   const [member, setMember] = useState('');
   const [location, setLocation] = useState('');
   const [memberType, setMemberType] = useState('');
   const [vehicle, setVehicle] = useState('');
+  const [vehicleMatchMode, setVehicleMatchMode] = useState<'minimum' | 'exact'>('minimum');
   const [availability, setAvailability] = useState('');
   const [country, setCountry] = useState('');
   const [specialistService, setSpecialistService] = useState('');
@@ -110,6 +153,7 @@ export function MemberDirectoryPage({
   const [truncation, setTruncation] = useState<DirectoryTruncation>({});
   const [privacy, setPrivacy] = useState('');
   const [reputationNote, setReputationNote] = useState('');
+  const [directorySort, setDirectorySort] = useState<DirectorySort>('Distance');
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
   const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
   const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
@@ -122,7 +166,6 @@ export function MemberDirectoryPage({
   const [privateGroupEditName, setPrivateGroupEditName] = useState('');
   const [privateGroupWorking, setPrivateGroupWorking] = useState(false);
   const [privateGroupActionError, setPrivateGroupActionError] = useState('');
-  const [profileTarget, setProfileTarget] = useState<{ companyId?: string; driverId?: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -398,20 +441,19 @@ export function MemberDirectoryPage({
     return companies.filter((company) => {
       const memberText = normalise(`${company.name} ${company.memberId ?? ''}`);
       const locationText = normalise(`${company.city ?? ''} ${company.postcode ?? ''} ${company.country ?? ''}`);
-      const vehicleText = normalise((company.vehicleTypes ?? []).join(' '));
       const serviceText = normalise((company.specialistServices ?? []).join(' '));
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
         && (!typeNeedle || normalise(company.memberType).includes(typeNeedle))
         && (!countryNeedle || normalise(company.country) === countryNeedle)
-        && (!vehicleNeedle || vehicleText.includes(vehicleNeedle))
+        && vehicleMatches(company.vehicleTypes ?? [], vehicleNeedle, vehicleMatchMode)
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
         && (!tailLiftOnly || serviceText.includes('tail lift'))
         && (!deliveryThreshold || (company.deliveryReliability.score != null && company.deliveryReliability.score >= deliveryThreshold))
         && (!paymentThreshold || (company.paymentReliability.score != null && company.paymentReliability.score >= paymentThreshold))
         && (!savedOnly || savedCompanyIds.has(company.companyId));
     });
-  }, [companies, country, deliveryMin, location, member, memberType, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle]);
+  }, [companies, country, deliveryMin, location, member, memberType, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle, vehicleMatchMode]);
 
   const visibleDrivers = useMemo(() => {
     const memberNeedle = normalise(member);
@@ -429,7 +471,7 @@ export function MemberDirectoryPage({
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
         && (!countryNeedle || normalise(driver.country) === countryNeedle)
-        && (!vehicleNeedle || normalise(driver.vehicleType).includes(vehicleNeedle))
+        && vehicleMatches([driver.vehicleType], vehicleNeedle, vehicleMatchMode)
         && (!availabilityNeedle || normalise(driver.availability) === availabilityNeedle)
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
         && (!tailLiftOnly || driver.hasTailLift === true)
@@ -437,13 +479,28 @@ export function MemberDirectoryPage({
         && (!paymentThreshold || (driver.paymentReliability.score != null && driver.paymentReliability.score >= paymentThreshold))
         && (!savedOnly || Boolean(driver.companyId && savedCompanyIds.has(driver.companyId)));
     });
-  }, [availability, country, deliveryMin, drivers, location, member, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle]);
+  }, [availability, country, deliveryMin, drivers, location, member, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle, vehicleMatchMode]);
+
+  const sortedCompanies = useMemo(
+    () => sortDirectoryRecords(visibleCompanies, directorySort),
+    [directorySort, visibleCompanies],
+  );
+  const sortedDrivers = useMemo(
+    () => sortDirectoryRecords(visibleDrivers, directorySort),
+    [directorySort, visibleDrivers],
+  );
+  const displayedCompanies = sortedCompanies.slice(0, directoryVisibleCount);
+  const displayedDrivers = sortedDrivers.slice(0, directoryVisibleCount);
+  const totalRecords = sortedCompanies.length + sortedDrivers.length;
+  const shownCount = displayedCompanies.length + displayedDrivers.length;
+  const canShowMore = directoryVisibleCount < sortedCompanies.length || directoryVisibleCount < sortedDrivers.length;
 
   const clear = () => {
     setMember('');
     setLocation('');
     setMemberType('');
     setVehicle('');
+    setVehicleMatchMode('minimum');
     setAvailability('');
     setCountry('');
     setSpecialistService('');
@@ -454,6 +511,8 @@ export function MemberDirectoryPage({
     setNearestRadius('50');
     setNearestQuery({ near: '', radius: '50' });
     setSavedOnly(false);
+    setDirectorySort('Distance');
+    setDirectoryVisibleCount(directoryPageSize);
   };
 
   const selectedPrivateGroup = privateGroups.groups.find((group) => group.id === selectedPrivateGroupId) ?? null;
@@ -467,11 +526,12 @@ export function MemberDirectoryPage({
         </select>
         {privateGroups.canManage ? <><input className="input" style={{ maxWidth: 220 }} value={newPrivateGroupName} onChange={(event) => setNewPrivateGroupName(event.target.value)} placeholder="New group name" /><button type="button" className="rowbtn blue" disabled={privateGroupWorking || newPrivateGroupName.trim().length < 2} onClick={() => void createPrivateGroup()}>Create Group</button></> : null}
         {privateGroups.loading ? <span className="meta">Loading groups…</span> : null}
+        {!pathname.startsWith('/driver') ? <button type="button" className="rowbtn" style={{ marginLeft: 'auto' }} onClick={() => void load()}>Refresh</button> : null}
       </div>
       {privateGroups.error ? <AlertBanner tone="warning">{privateGroups.error}</AlertBanner> : null}
       {privateGroupActionError ? <AlertBanner tone="warning">{privateGroupActionError}</AlertBanner> : null}
       {selectedPrivateGroup && privateGroups.canManage ? <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}><input className="input" style={{ maxWidth: 220 }} value={privateGroupEditName} onChange={(event) => setPrivateGroupEditName(event.target.value)} placeholder="Rename selected group" /><button type="button" className="rowbtn" disabled={privateGroupWorking || privateGroupEditName.trim().length < 2 || privateGroupEditName.trim() === selectedPrivateGroup.name} onClick={() => void renamePrivateGroup()}>Rename</button><button type="button" className="rowbtn" disabled={privateGroupWorking} onClick={() => void deletePrivateGroup()}>Delete Group</button><label className="check"><input type="checkbox" checked={selectedPrivateGroup.allowLoadVisibility} disabled={privateGroupWorking} onChange={(event) => void updatePrivateGroupPermission('allowLoadVisibility', event.target.checked)} />Loads</label><label className="check"><input type="checkbox" checked={selectedPrivateGroup.allowAvailabilityVisibility} disabled={privateGroupWorking} onChange={(event) => void updatePrivateGroupPermission('allowAvailabilityVisibility', event.target.checked)} />Availability</label></div> : null}
-      {selectedPrivateGroup ? <div style={{ marginTop: 7, display: 'flex', gap: 5, flexWrap: 'wrap' }}>{selectedPrivateGroup.members.length ? selectedPrivateGroup.members.map((member) => <span key={member.companyId} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid #dbe2ea', borderRadius: 999, padding: '3px 7px', background: '#f8fafc', fontSize: 11 }}>{member.companyName}{privateGroups.canManage ? <button type="button" aria-label={`Remove ${member.companyName} from group`} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }} onClick={() => void updatePrivateGroupMember(selectedPrivateGroup.id, member.companyId, true)}>×</button> : null}</span>) : <span className="meta">No companies in this group yet. Select a group, then use Add to Group on a Directory member.</span>}</div> : null}
+      {selectedPrivateGroup ? <div style={{ marginTop: 7, display: 'flex', gap: 5, flexWrap: 'wrap' }}>{selectedPrivateGroup.members.length ? selectedPrivateGroup.members.map((member) => <span key={member.companyId} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid #dbe2ea', borderRadius: 999, padding: '3px 7px', background: '#f8fafc', fontSize: 14 }}>{member.companyName}{privateGroups.canManage ? <button type="button" aria-label={`Remove ${member.companyName} from group`} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }} onClick={() => void updatePrivateGroupMember(selectedPrivateGroup.id, member.companyId, true)}>×</button> : null}</span>) : <span className="meta">No companies in this group yet. Select a group, then use Add to Group on a Directory member.</span>}</div> : null}
     </div>
   ) : null;
 
@@ -480,169 +540,75 @@ export function MemberDirectoryPage({
     ? `Directory results may be incomplete because the current endpoint is capped at ${truncation.limits?.companies ?? 500} companies and ${truncation.limits?.drivers ?? 500} drivers${truncation.vehicleEnrichment ? `, with vehicle enrichment capped at ${truncation.limits?.vehicles ?? 1000} records` : ''}. Do not treat the visible list as the complete XDrive network.`
     : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
 
-  if (pathname.startsWith('/driver')) {
-    const records = tab === 'companies' ? visibleCompanies : visibleDrivers;
-    const displayedCompanies = visibleCompanies.slice(0, directoryVisibleCount);
-    const displayedDrivers = visibleDrivers.slice(0, directoryVisibleCount);
-    const shownCount = Math.min(directoryVisibleCount, records.length);
-    const canShowMore = directoryVisibleCount < records.length;
-    return (
-      <section className="page driver-directory-prototype-page">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Directory</b></span>
-          <div className="sub-actions">
-            {ownerDriver ? (
-              <button
-                type="button"
-                className={savedOnly ? 'btn primary' : 'btn'}
-                disabled={savedNetworkLoading}
-                onClick={() => setSavedOnly((current) => !current)}
-              >
-                {savedNetworkLoading ? 'Loading Saved…' : `Saved Networks (${savedCompanyIds.size})`}
-              </button>
-            ) : null}
-            <button type="button" className="btn" onClick={clear}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find Nearest</button>
-          </div>
-        </div>
-        <div className="pagebody">
-          <aside className="left">
-            <div className="left-title">Search</div>
-            <button type="button" className="directory-nearest" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</button>
-            <div className="filter"><span className="label">Country</span><select className="select" value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
-            <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={member} onChange={(event) => setMember(event.target.value)} placeholder="Name or XD member ID" /></div>
-            <div className="filter"><span className="label">Location / Radius</span><div className="row2"><input className="input" value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Town / postcode" /><select className="select" value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
-            <div className="filter"><span className="label">Vehicle Size</span><input className="input" value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Any vehicle" /></div>
-            {tab === 'companies' && <div className="filter"><span className="label">Member Type</span><input className="input" value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier / Owner Driver / Broker" /></div>}
-            <div className="filter"><span className="label">Specialist Services</span><select className="select" value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail Lift</label></div>
-            <div className="filter"><span className="label">Reliability</span><div className="row2"><select className="select" value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any delivery score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select><select className="select" value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any payment score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></div></div>
-            {tab === 'drivers' && <div className="filter"><span className="label">Availability</span><select className="select" value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></div>}
-          </aside>
-          <main className="main">
-            <div className="head"><div><h1>Directory</h1><p>Search the XDrive member network by identity, location, capability, vehicle and performance</p></div></div>
-            {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-            {savedNetworkError && <AlertBanner tone="warning">{savedNetworkError}</AlertBanner>}
-            {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
-            {privateGroupPanel}
-            <div className="directory-hero">
-              <div><b>XDrive Member Network</b><span>Companies and drivers · capability · trust · reliability</span></div>
-              <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button></div>
-            </div>
-            <div className="dir-tabs">
-              <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
-              <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
-              <div className="dir-sort">Sort By: <select className="select" defaultValue="Distance"><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
-            </div>
-            <div className="dir-summary">
-              <span>{records.length} matching loaded record(s)</span>
-              <span className="spacer">Click a company identity for Member Profile</span>
-              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryVisibleCount(next); }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
-                <span>{records.length ? `1-${shownCount} of ${records.length}` : '0 results'}</span>
-                {canShowMore && <button type="button" className="rowbtn blue" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Next</button>}
-              </span>
-            </div>
-            {loading ? <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div> : (
-              <div className="tablewrap">
-                <table className="dir-table" style={{ minWidth: 1280 }}>
-                  <thead><tr><th>Member</th><th>Location</th><th>Member Type</th><th>Vehicle / Capability</th><th>Delivery / Tracking</th><th>Payment / Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {tab === 'companies' ? displayedCompanies.map((company) => (
-                      <tr key={company.companyId} className="dir-row">
-                        <td><div className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></div></td>
-                        <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
-                        <td>{company.memberType}</td>
-                        <td>{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Not supplied'}<span className="meta">{company.specialistServices?.length ? company.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
-                        <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
-                        <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
-                        <td><StatusBadge value="Not advertised" /></td>
-                        <td><button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ companyId: company.companyId })}>Profile</button>{ownerDriver && <button type="button" className="rowbtn" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</button>}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <button type="button" className="rowbtn" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</button> : null}{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
-                      </tr>
-                    )) : displayedDrivers.map((driver) => (
-                      <tr key={driver.driverId} className="dir-row">
-                        <td><b>{driver.displayName}</b><span className="meta">{driver.memberId ?? driver.companyName}</span></td>
-                        <td>{[driver.city, driver.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{driver.country ?? 'Country not supplied'}{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi` : ''}</span></td>
-                        <td>{driver.memberType}</td>
-                        <td>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}<span className="meta">{driver.hasTailLift ? 'Tail Lift · ' : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
-                        <td>{driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}<span className="meta">Company-level delivery evidence</span></td>
-                        <td>{driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`}<span className="meta">Company-level payment evidence</span></td>
-                        <td><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></td>
-                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ driverId: driver.driverId })}>Profile</button>}{driver.companyId && privateGroups.canManage && selectedPrivateGroupId && driver.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === driver.companyId) ? <button type="button" className="rowbtn" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, driver.companyId as string)}>Add to Group</button> : null}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string)}>Message</button>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            {reputationNote && <div className="footer">{reputationNote}</div>}
-            {privacy && <div className="footer">{privacy}</div>}
-          </main>
-        </div>
-        {profileTarget ? <MemberProfileOverlay companyId={profileTarget.companyId} driverId={profileTarget.driverId} onClose={() => setProfileTarget(null)} /> : null}
-      </section>
-    );
-  }
-
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-        <span><strong>{eyebrow}</strong> · {title}</span>
-        <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
-      </div>
+    <div className="xdrive-directory-page">
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+      {savedNetworkError && <AlertBanner tone="danger">{savedNetworkError}</AlertBanner>}
       {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
-      {privateGroupPanel}
 
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout xdrive-directory-layout">
         <aside className="workspace-filter-rail" aria-label="Directory filters">
           <div className="workspace-filter-rail__header">Search Directory</div>
           <div className="workspace-filter-rail__body">
-            <label>MEMBER / XDRIVE ID<input value={member} onChange={(event) => setMember(event.target.value)} placeholder="Company, driver or XDrive member ID" /></label>
-            <label>LOCATION<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town / postcode / country" /></label>
-            <label>FIND MY NEAREST<input value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Postcode / outcode, e.g. BB1" /></label>
-            <label>RADIUS<select value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
+            <ActionButton tone="success" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</ActionButton>
             <label>COUNTRY<select value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-            {tab === 'companies' ? <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label> : null}
-            <label>VEHICLE TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="LWB, Luton, Artic…" /></label>
+            <label>MEMBER NAME / ID<input value={member} onChange={(event) => setMember(event.target.value)} placeholder="Company, driver or XDrive ID" /></label>
+            <label>LOCATION<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town / postcode / country" /></label>
+            <label>NEAREST POSTCODE<input value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Postcode / outcode, e.g. BB1" /></label>
+            <label>RADIUS SEARCH<select value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
+            <label>VEHICLE SIZE / TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="SWB, LWB, Luton, Artic…" /></label>
+            <div className="xdrive-directory-vehicle-match" role="group" aria-label="Vehicle size matching">
+              <label><input type="radio" name="directory-vehicle-match" checked={vehicleMatchMode === 'minimum'} onChange={() => setVehicleMatchMode('minimum')} /> Minimum</label>
+              <label><input type="radio" name="directory-vehicle-match" checked={vehicleMatchMode === 'exact'} onChange={() => setVehicleMatchMode('exact')} /> Exact</label>
+            </div>
+            <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label>
             <label>SPECIALIST SERVICE<select value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> TAIL LIFT CAPABILITY</label>
+            <label className="xdrive-directory-check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> Tail Lift</label>
             <label>DELIVERY RELIABILITY<select value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
             <label>PAYMENT RELIABILITY<select value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
-            {tab === 'drivers' ? <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label> : null}
-            <ActionButton tone="success" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</ActionButton>
-            <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
-            {reputationNote && <span style={{ color: '#475569', fontSize: 11, lineHeight: '14px' }}>{reputationNote}</span>}
-            {privacy && <span style={{ color: '#64748b', fontSize: 11, lineHeight: '14px' }}>{privacy}</span>}
+            <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label>
+            {ownerDriver ? <ActionButton tone={savedOnly ? 'success' : 'secondary'} disabled={savedNetworkLoading} onClick={() => setSavedOnly((current) => !current)}>{savedNetworkLoading ? 'Loading Saved…' : `Saved Networks (${savedCompanyIds.size})`}</ActionButton> : null}
+            <div className="xdrive-directory-filter-actions">
+              <ActionButton tone="success" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</ActionButton>
+              <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
+            </div>
+            {reputationNote && <span className="xdrive-directory-helper-copy">{reputationNote}</span>}
+            {privacy && <span className="xdrive-directory-helper-copy">{privacy}</span>}
           </div>
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" role="tablist" aria-label="Directory member types" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
-            <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
+          <div className="workspace-record-meta xdrive-directory-toolbar">
+            <span><strong>{totalRecords}</strong> matching loaded record(s)</span>
+            <label>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value as DirectorySort); setDirectoryVisibleCount(directoryPageSize); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label>
+            <span className="xdrive-directory-toolbar__note">Companies and drivers are separated below.</span>
+            <label className="xdrive-directory-page-size">Items per Page <select value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryVisibleCount(next); }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
+            <span>{totalRecords ? `1-${shownCount} of ${totalRecords}` : '0 results'}</span>
+            {canShowMore ? <ActionButton tone="secondary" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Next</ActionButton> : null}
           </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><span>Click a company identity for Member Profile</span></div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div>
-          ) : tab === 'companies' ? (
-            <div className="workspace-record-list">
-              {visibleCompanies.map((company) => (
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div className="workspace-record-meta"><strong>COMPANIES</strong><span>{visibleCompanies.length}</span></div>
+              <div className="workspace-record-list">
+              {displayedCompanies.map((company) => (
                 <article key={company.companyId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Member ID ${company.memberId}` : 'Member ID not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <ActionButton tone="secondary" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</ActionButton> : null}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{ownerDriver ? <ActionButton tone="secondary" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <ActionButton tone="secondary" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</ActionButton> : null}</div></div>
                   </div>
                 </article>
               ))}
               {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState compact title="No companies match these loaded records" /></div>}
-            </div>
-          ) : (
-            <div className="workspace-record-list">
-              {visibleDrivers.map((driver) => (
+              </div>
+              <div className="workspace-record-meta"><strong>DRIVERS</strong><span>{visibleDrivers.length}</span></div>
+              <div className="workspace-record-list">
+              {displayedDrivers.map((driver) => (
                 <article key={driver.driverId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Member ID ${driver.memberId}` : ''}</div></div>
@@ -654,10 +620,16 @@ export function MemberDirectoryPage({
                 </article>
               ))}
               {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState compact title="No drivers match these loaded records" /></div>}
+              </div>
+              <div className="workspace-record-meta xdrive-directory-pagination">
+                <span>{totalRecords ? `Showing ${shownCount} of ${totalRecords}` : '0 results'}</span>
+                {canShowMore ? <ActionButton tone="secondary" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Show more</ActionButton> : null}
+              </div>
             </div>
           )}
         </main>
       </div>
+      {privateGroupPanel}
     </div>
   );
 }

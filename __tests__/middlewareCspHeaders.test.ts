@@ -149,6 +149,10 @@ describe('middleware CSP nonce contract', () => {
     const scriptSrc = csp.split(';').find((directive) => directive.trim().startsWith('script-src')) ?? '';
     expect(scriptSrc).not.toContain('unsafe-inline');
     expect(scriptSrc).not.toContain('unsafe-eval');
+    expect(scriptSrc).toContain('https://maps.googleapis.com');
+    expect(scriptSrc).toContain('https://maps.gstatic.com');
+    expect(csp).toContain('https://mapsresources-pa.googleapis.com');
+    expect(csp).toContain('https://fonts.gstatic.com');
   });
 
   it('allows only the Netlify preview toolbar frame on deploy-preview hosts', async () => {

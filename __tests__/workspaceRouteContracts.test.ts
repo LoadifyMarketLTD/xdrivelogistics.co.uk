@@ -31,6 +31,7 @@ describe('workspace route contracts', () => {
   it('keeps the canonical Customer navigation matrix', () => {
     expect(hrefs('customer')).toEqual([
       '/customer',
+      '/customer/network/directory',
       '/customer/loads',
       '/customer/bulk-import',
       '/customer/quotes',
@@ -42,7 +43,6 @@ describe('workspace route contracts', () => {
       '/customer/notifications',
       '/customer/messages',
       '/customer/event-log',
-      '/customer/network',
       '/customer/disputes',
       '/customer/settings/billing',
       '/customer/account',
@@ -52,6 +52,9 @@ describe('workspace route contracts', () => {
   it('keeps the canonical Fleet navigation matrix', () => {
     expect(hrefs('fleet_manager')).toEqual([
       '/admin/fleet',
+      '/admin/marketplace/directory',
+      '/admin/live-availability',
+      '/admin/fleet/resources',
       '/admin/fleet/jobs',
       '/admin/fleet/assignments',
       '/admin/fleet/drivers',
@@ -79,7 +82,7 @@ describe('workspace route contracts', () => {
       '/admin/marketplace/directory',
       '/admin/live-availability',
       '/admin/freight-vision',
-      '/admin/exchange-quotes',
+      '/admin/exchange',
       '/admin/won-work',
       '/admin/jobs',
       '/admin/bulk-import',
@@ -90,6 +93,7 @@ describe('workspace route contracts', () => {
       '/admin/vehicles',
       '/admin/fleet/positions',
       '/admin/fleet',
+      '/admin/fleet/vehicles',
       '/admin/fleet/managers',
       '/admin/team',
       '/admin/dispatchers',
@@ -115,7 +119,7 @@ describe('workspace route contracts', () => {
       '/broker/bids',
       '/broker/jobs',
       '/broker/pod-review',
-      '/broker/carrier-network',
+      '/broker/carrier-network/directory',
       '/broker/customers',
       '/broker/diary',
       '/broker/messages',
@@ -136,8 +140,8 @@ describe('workspace route contracts', () => {
 
   it('authorizes canonical Directory routes and retains legacy aliases only as compatibility redirects', () => {
     expect(getProtectedRouteRequirement('/customer/network/directory')?.prefix).toBe('/customer/network');
-    expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network');
-    expect(getProtectedRouteRequirement('/admin/marketplace/directory')?.prefix).toBe('/admin/marketplace');
+    expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network/directory');
+    expect(getProtectedRouteRequirement('/admin/marketplace/directory')?.prefix).toBe('/admin/marketplace/directory');
     expect(getProtectedRouteRequirement('/driver/loads/directory')?.prefix).toBe('/driver/loads/directory');
     expect(getProtectedRouteRequirement('/driver/network')?.prefix).toBe('/driver/network');
 

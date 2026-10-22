@@ -1,14 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../components/AuthContext';
-import { supabase } from '../../lib/supabaseClient';
 import { downloadXlsx, spreadsheetDate } from '../../lib/spreadsheetExport';
-import { classifyWorkspaceJobStage, fleetQueueStage, workspaceJobOperationalLabel } from '../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import FleetPositionMap, { type FleetMapPoint } from './fleet/FleetPositionMap';
-import SharedActionCentrePage from '../components/workspace/ActionCentrePage';
 import {
   ActionButton,
   DataTable,
@@ -30,96 +25,8 @@ const money = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(
     Number.isFinite(value) ? value : 0
   );
-const active = new Set([
-  'awarded',
-  'allocated',
-  'accepted',
-  'on_my_way',
-  'on_my_way_to_pickup',
-  'on_site_pickup',
-  'loaded',
-  'collected',
-  'in_transit',
-  'on_my_way_to_delivery',
-  'on_site_delivery',
-]);
-const exceptionStatuses = new Set([
-  'cancelled',
-  'failed',
-  'exception',
-  'disputed',
-  'collection_failed',
-  'delivery_failed',
-  'damaged',
-  'breakdown',
-]);
 const daysUntil = (value: string | null | undefined) =>
   value ? Math.ceil((new Date(value).getTime() - Date.now()) / 86400000) : null;
-
-export function DriverAvailabilityPage() {
-  const data = useCompanyWorkspaceData();
-  const router = useRouter();
-
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Fleet resources"
-        title="Driver Availability"
-        description="Current driver capacity, account status and operational readiness."
-      />
-      <KpiGrid>
-        <KpiCard
-          label="Available"
-          value={data.drivers.filter((driver) => driver.availability_status === 'available').length}
-          tone="green"
-        />
-        <KpiCard
-          label="Busy"
-          value={data.drivers.filter((driver) => driver.availability_status === 'busy').length}
-          tone="purple"
-        />
-        <KpiCard
-          label="Offline"
-          value={
-            data.drivers.filter(
-              (driver) => !driver.availability_status || driver.availability_status === 'offline'
-            ).length
-          }
-          tone="navy"
-        />
-      </KpiGrid>
-      <Panel title="Driver availability register">
-        <DataTable
-          columns={['Driver', 'Phone', 'Account status', 'Availability', 'Action']}
-          rows={data.drivers.map((driver) => [
-            <strong key="name">{driver.display_name ?? driver.email ?? 'Driver'}</strong>,
-            driver.phone ?? 'Not recorded',
-            <StatusBadge key="account" value={driver.status ?? 'unknown'} />,
-            <StatusBadge
-              key="availability"
-              value={driver.availability_status ?? 'offline'}
-              tone={
-                driver.availability_status === 'available'
-                  ? 'green'
-                  : driver.availability_status === 'busy'
-                    ? 'purple'
-                    : 'grey'
-              }
-            />,
-            <ActionButton
-              key="action"
-              tone="secondary"
-              onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}
-            >
-              View
-            </ActionButton>,
-          ])}
-          empty={<EmptyState title="No drivers in the company roster" />}
-        />
-      </Panel>
-    </PageFrame>
-  );
-}
 
 export function FleetPositionsPage() {
   const data = useCompanyWorkspaceData();
@@ -230,251 +137,6 @@ export function FleetPositionsPage() {
   );
 }
 
-export function FleetAssignmentsPage() {
-  const data = useCompanyWorkspaceData();
-  const router = useRouter();
-  const jobs = data.jobs.filter(
-    (job) => fleetQueueStage(job) === 'unallocated' && !job.assigned_driver_id
-  );
-
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Fleet allocation"
-        title="Assignments"
-        description="Match each awarded job with an available driver and a suitable vehicle."
-        actions={
-          <ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>
-            Open Diary
-          </ActionButton>
-        }
-      />
-      <KpiGrid>
-        <KpiCard label="Jobs awaiting allocation" value={jobs.length} tone="orange" />
-        <KpiCard
-          label="Available drivers"
-          value={data.drivers.filter((driver) => driver.availability_status === 'available').length}
-          tone="green"
-        />
-        <KpiCard
-          label="Unassigned vehicles"
-          value={data.vehicles.filter((vehicle) => !vehicle.assigned_driver_id).length}
-          tone="blue"
-        />
-      </KpiGrid>
-      <Panel title="Allocation queue">
-        <DataTable
-          columns={['Route', 'Pickup', 'Vehicle required', 'Available resources', 'Action']}
-          rows={jobs.map((job) => [
-            <strong key="route">
-              {job.pickup_location} → {job.delivery_location}
-            </strong>,
-            when(job.pickup_datetime),
-            (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-            `${data.drivers.filter((driver) => driver.availability_status === 'available').length} drivers · ${data.vehicles.length} vehicles`,
-            <ActionButton
-              key="action"
-              tone="success"
-              onClick={() => router.push(`/admin/diary?job=${job.id}`)}
-            >
-              Allocate
-            </ActionButton>,
-          ])}
-          empty={<EmptyState title="No jobs awaiting allocation" />}
-        />
-      </Panel>
-    </PageFrame>
-  );
-}
-
-export function FleetActiveJobsPage() {
-  const data = useCompanyWorkspaceData();
-  const router = useRouter();
-  const jobs = data.jobs.filter((job) => active.has(job.current_status ?? job.status));
-
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Fleet operations"
-        title="Active Jobs"
-        description="Live collections and deliveries with resource and delay visibility."
-      />
-      <Panel>
-        <DataTable
-          columns={['Route', 'Pickup', 'Delivery', 'Driver', 'Vehicle', 'Status', 'Action']}
-          rows={jobs.map((job) => [
-            <strong key="route">
-              {job.pickup_location} → {job.delivery_location}
-            </strong>,
-            when(job.pickup_datetime),
-            when(job.delivery_datetime),
-            job.assigned_driver_id?.slice(0, 8).toUpperCase() ?? 'Not assigned',
-            (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-            <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
-            <ActionButton
-              key="action"
-              tone="secondary"
-              onClick={() => router.push(`/admin/jobs/${job.id}`)}
-            >
-              Open
-            </ActionButton>,
-          ])}
-          empty={<EmptyState title="No active jobs" />}
-        />
-      </Panel>
-    </PageFrame>
-  );
-}
-
-export function FleetMaintenancePage() {
-  const data = useCompanyWorkspaceData();
-  const router = useRouter();
-
-  const readiness = data.vehicles.map((vehicle) => {
-    const documents = data.vehicleDocuments.filter((document) => document.vehicle_id === vehicle.id);
-    const expired = documents.some((document) => (daysUntil(document.expiry_date) ?? 1) < 0);
-    const expiring = documents.some((document) => {
-      const days = daysUntil(document.expiry_date);
-      return days !== null && days >= 0 && days <= 30;
-    });
-    const state = expired
-      ? { value: 'document expired', tone: 'red' as const }
-      : expiring
-        ? { value: 'attention due', tone: 'orange' as const }
-        : documents.length > 0
-          ? { value: 'documents current', tone: 'green' as const }
-          : { value: 'documents missing', tone: 'grey' as const };
-    return { vehicle, documents, state };
-  });
-
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Vehicle readiness"
-        title="Maintenance"
-        description="Vehicle readiness is based on recorded fleet and compliance data; no vehicle is marked operational without evidence."
-      />
-      <KpiGrid>
-        <KpiCard label="Fleet vehicles" value={data.vehicles.length} />
-        <KpiCard
-          label="Without assigned driver"
-          value={data.vehicles.filter((vehicle) => !vehicle.assigned_driver_id).length}
-          tone="orange"
-        />
-        <KpiCard
-          label="Expired documents"
-          value={data.vehicleDocuments.filter((document) => (daysUntil(document.expiry_date) ?? 1) < 0).length}
-          tone="red"
-        />
-      </KpiGrid>
-      <Panel title="Vehicle readiness register">
-        <DataTable
-          columns={['Registration', 'Vehicle', 'Assigned driver', 'Evidence', 'Readiness', 'Action']}
-          rows={readiness.map(({ vehicle, documents, state }) => [
-            <strong key="registration">{vehicle.reg_plate ?? 'No registration'}</strong>,
-            `${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim() ||
-              vehicle.type?.replace(/_/g, ' ') ||
-              'Vehicle',
-            vehicle.assigned_driver_id?.slice(0, 8).toUpperCase() ?? 'Not assigned',
-            `${documents.length} document(s)`,
-            <StatusBadge key="status" value={state.value} tone={state.tone} />,
-            <ActionButton
-              key="action"
-              tone="secondary"
-              onClick={() => router.push(`/admin/vehicles?vehicle=${vehicle.id}`)}
-            >
-              Open vehicle
-            </ActionButton>,
-          ])}
-          empty={<EmptyState title="No vehicles in the fleet" />}
-        />
-      </Panel>
-    </PageFrame>
-  );
-}
-
-export function FutureAvailabilityPage() {
-  const data = useCompanyWorkspaceData();
-  const router = useRouter();
-  const now = Date.now();
-  const futureJobs = data.jobs
-    .filter((job) => {
-      const pickup = job.pickup_datetime ? new Date(job.pickup_datetime).getTime() : Number.NaN;
-      const stage = classifyWorkspaceJobStage(job);
-      return Number.isFinite(pickup) && pickup > now && stage !== 'cancelled' && stage !== 'completed';
-    })
-    .sort(
-      (left, right) =>
-        new Date(left.pickup_datetime ?? 0).getTime() - new Date(right.pickup_datetime ?? 0).getTime()
-    );
-  const upcomingExpiry = data.driverDocuments
-    .concat(data.vehicleDocuments)
-    .filter((document) => {
-      const days = daysUntil(document.expiry_date);
-      return days !== null && days >= 0 && days <= 30;
-    });
-
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Capacity planning"
-        title="Future Availability"
-        description="Forward workload, currently available resources and upcoming compliance constraints."
-        actions={
-          <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>
-            Return Journeys
-          </ActionButton>
-        }
-      />
-      <KpiGrid>
-        <KpiCard label="Future booked jobs" value={futureJobs.length} tone="blue" />
-        <KpiCard
-          label="Drivers available now"
-          value={data.drivers.filter((driver) => driver.availability_status === 'available').length}
-          tone="green"
-        />
-        <KpiCard
-          label="Unassigned future jobs"
-          value={futureJobs.filter((job) => !job.assigned_driver_id).length}
-          tone="orange"
-        />
-        <KpiCard label="Compliance due in 30 days" value={upcomingExpiry.length} tone="red" />
-      </KpiGrid>
-      <TwoColumn>
-        <Panel title="Forward job schedule" description="Jobs ordered by planned collection time.">
-          <DataTable
-            columns={['Route', 'Pickup', 'Delivery', 'Driver', 'Vehicle', 'Status']}
-            rows={futureJobs.map((job) => [
-              <strong key="route">
-                {job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}
-              </strong>,
-              when(job.pickup_datetime),
-              when(job.delivery_datetime),
-              job.assigned_driver_id?.slice(0, 8).toUpperCase() ?? 'Unassigned',
-              (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-              <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
-            ])}
-            empty={<EmptyState title="No future jobs recorded" />}
-          />
-        </Panel>
-        <Panel title="Available resources" description="Current capacity that can be planned against future work.">
-          <DataTable
-            columns={['Driver', 'Availability', 'Account']}
-            rows={data.drivers
-              .filter((driver) => driver.availability_status === 'available')
-              .map((driver) => [
-                driver.display_name ?? driver.email ?? 'Driver',
-                <StatusBadge key="availability" value="available" tone="green" />,
-                <StatusBadge key="account" value={driver.status ?? 'unknown'} />,
-              ])}
-            empty={<EmptyState title="No drivers currently marked available" />}
-          />
-        </Panel>
-      </TwoColumn>
-    </PageFrame>
-  );
-}
-
 export function DocumentExpiryPage() {
   const data = useCompanyWorkspaceData();
   const documents = data.driverDocuments
@@ -542,76 +204,6 @@ export function DocumentExpiryPage() {
             <StatusBadge key="status" value={document.status ?? 'pending'} />,
           ])}
           empty={<EmptyState title="No expiry dates recorded" />}
-        />
-      </Panel>
-    </PageFrame>
-  );
-}
-
-export function IncidentsPage() {
-  const data = useCompanyWorkspaceData();
-  const router = useRouter();
-  const rows = data.jobs
-    .map((job) => {
-      const status = job.current_status ?? job.status;
-      const overdue =
-        active.has(status) &&
-        Boolean(job.delivery_datetime) &&
-        new Date(job.delivery_datetime ?? 0).getTime() < Date.now();
-      return { job, status, overdue };
-    })
-    .filter(({ status, overdue }) => exceptionStatuses.has(status) || overdue);
-
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Operational exceptions"
-        title="Incidents"
-        description="A live exception queue derived from failed, disputed, cancelled and overdue jobs."
-        actions={
-          <ActionButton tone="secondary" onClick={() => router.push('/admin/disputes')}>
-            Open Disputes
-          </ActionButton>
-        }
-      />
-      <KpiGrid>
-        <KpiCard label="Open exceptions" value={rows.length} tone="red" />
-        <KpiCard label="Overdue active jobs" value={rows.filter((row) => row.overdue).length} tone="orange" />
-        <KpiCard
-          label="Failed or cancelled"
-          value={rows.filter((row) => exceptionStatuses.has(row.status)).length}
-          tone="navy"
-        />
-      </KpiGrid>
-      <Panel title="Exception register">
-        <DataTable
-          columns={['Job', 'Route', 'Planned delivery', 'Exception', 'Updated', 'Action']}
-          rows={rows.map(({ job, status, overdue }) => [
-            job.id.slice(0, 8).toUpperCase(),
-            <strong key="route">
-              {job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}
-            </strong>,
-            when(job.delivery_datetime),
-            <StatusBadge
-              key="status"
-              value={overdue && !exceptionStatuses.has(status) ? 'delivery overdue' : status}
-              tone={overdue ? 'red' : 'orange'}
-            />,
-            when(job.updated_at),
-            <ActionButton
-              key="action"
-              tone="secondary"
-              onClick={() => router.push(`/admin/jobs/${job.id}`)}
-            >
-              Investigate
-            </ActionButton>,
-          ])}
-          empty={
-            <EmptyState
-              title="No operational exceptions"
-              description="Failed, disputed, cancelled or overdue jobs will appear automatically."
-            />
-          }
         />
       </Panel>
     </PageFrame>
@@ -826,16 +418,7 @@ export function FinanceReportsPage() {
       <PageHeader
         eyebrow="Finance / Reports & Data"
         title="Reports & Exports"
-        description="Generate professional company-scoped Excel workbooks from the operational and finance registers."
-        actions={
-          <ActionButton
-            tone="secondary"
-            disabled={data.invoices.length === 0 && data.jobs.length === 0}
-            onClick={() => void exportFullWorkbook()}
-          >
-            Export Full Workbook
-          </ActionButton>
-        }
+        description="Generate company-scoped Excel workbooks from the operational and finance registers."
       />
       <KpiGrid>
         <KpiCard label="Invoices" value={data.invoices.length} tone="blue" />
@@ -843,6 +426,9 @@ export function FinanceReportsPage() {
         <KpiCard label="Outstanding value" value={money(outstandingValue)} tone="orange" />
         <KpiCard label="Jobs in report scope" value={data.jobs.length} tone="navy" />
       </KpiGrid>
+      <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'flex-end' }}>
+        <span className="workspace-list-controls__right"><ActionButton tone="secondary" disabled={data.invoices.length === 0 && data.jobs.length === 0} onClick={() => void exportFullWorkbook()}>Export Full Workbook</ActionButton></span>
+      </div>
       <div
         style={{
           display: 'grid',
@@ -892,48 +478,4 @@ export function FinanceReportsPage() {
       </div>
     </PageFrame>
   );
-}
-
-export function NotificationsPage() {
-  const { user } = useAuth();
-  const [rows, setRows] = useState<
-    Array<{ id: string; event_type: string; entity_type: string; status: string; created_at: string }>
-  >([]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    supabase
-      .from('notification_events')
-      .select('id,event_type,entity_type,status,created_at')
-      .eq('recipient_user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(100)
-      .then(({ data }) => setRows((data ?? []) as typeof rows));
-  }, [user?.id]);
-
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Workspace notifications"
-        title="Notifications"
-        description="Operational and commercial events addressed to the current user."
-      />
-      <Panel>
-        <DataTable
-          columns={['Event', 'Entity', 'Time', 'Delivery status']}
-          rows={rows.map((row) => [
-            row.event_type.replace(/_/g, ' '),
-            row.entity_type,
-            when(row.created_at),
-            <StatusBadge key="status" value={row.status} />,
-          ])}
-          empty={<EmptyState title="No notifications" />}
-        />
-      </Panel>
-    </PageFrame>
-  );
-}
-
-export function ActionCentrePage() {
-  return <SharedActionCentrePage role="admin" />;
 }

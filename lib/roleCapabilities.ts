@@ -112,6 +112,18 @@ const CUSTOMER_BROKER_VIEWER_CAPABILITIES = new Set<WorkspaceCapability>([
   'jobs.track',
 ]);
 
+const CUSTOMER_MEMBER_CAPABILITIES = new Set<WorkspaceCapability>([
+  ...CUSTOMER_BROKER_VIEWER_CAPABILITIES,
+  'invoices.customer.manage',
+]);
+
+const BROKER_MEMBER_CAPABILITIES = new Set<WorkspaceCapability>([
+  ...CUSTOMER_BROKER_VIEWER_CAPABILITIES,
+  'invoices.customer.manage',
+  'invoices.carrier.manage',
+  'margins.view',
+]);
+
 export const hasWorkspaceCapabilityForContext = (
   workspaceRole: WorkspaceRole,
   capability: WorkspaceCapability,
@@ -143,7 +155,22 @@ export const hasWorkspaceCapabilityForContext = (
     return allowed.has(capability) && hasWorkspaceCapability(workspaceRole, capability);
   }
 
-  if (membershipRole === 'viewer' || membershipRole === 'member') {
+  if (membershipRole === 'member') {
+    const rawRole = context.rawRole?.trim().toLowerCase() ?? '';
+    if (
+      workspaceRole === 'broker'
+      && rawRole === 'broker'
+      && (capability === 'loads.create' || capability === 'loads.publish')
+    ) {
+      return hasWorkspaceCapability(workspaceRole, capability);
+    }
+    const allowed = workspaceRole === 'customer'
+      ? CUSTOMER_MEMBER_CAPABILITIES
+      : BROKER_MEMBER_CAPABILITIES;
+    return allowed.has(capability) && hasWorkspaceCapability(workspaceRole, capability);
+  }
+
+  if (membershipRole === 'viewer') {
     return CUSTOMER_BROKER_VIEWER_CAPABILITIES.has(capability)
       && hasWorkspaceCapability(workspaceRole, capability);
   }
@@ -252,8 +279,6 @@ const isDriverCommercialRoute = (pathname: string) => {
     clean.startsWith('/driver/finance/') ||
     clean === '/driver/returns' ||
     clean.startsWith('/driver/returns/') ||
-    clean === '/driver/directory' ||
-    clean.startsWith('/driver/directory/') ||
     clean === '/driver/nearby' ||
     clean.startsWith('/driver/nearby/')
   );
@@ -306,8 +331,10 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/fleet/maintenance', workspace: 'carrier_fleet', anyOf: ['fleet.maintenance.manage'] },
   { prefix: '/admin/fleet', workspace: 'carrier_fleet', anyOf: ['fleet.positions.view'] },
   { prefix: '/admin/operations-centre', workspace: 'carrier_fleet', anyOf: ['jobs.dispatch'] },
+  { prefix: '/admin/marketplace/directory', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'fleet_manager', 'dispatcher'] },
   { prefix: '/admin/marketplace', workspace: 'carrier_fleet', anyOf: ['loads.view.marketplace'] },
   { prefix: '/admin/won-work', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
+  { prefix: '/admin/exchange', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },
   { prefix: '/admin/exchange-quotes', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },
   { prefix: '/admin/pod', workspace: 'carrier_fleet', anyOf: ['jobs.review_pod'] },
   { prefix: '/admin/quotes', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },
@@ -340,6 +367,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/action-centre', workspace: 'broker' },
   { prefix: '/broker/enquiries', workspace: 'broker', anyOf: ['quotes.receive'] },
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
+  { prefix: '/broker/carrier-network/directory', workspace: 'broker', anyOf: ['quotes.receive'] },
   { prefix: '/broker/carrier-network', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
   { prefix: '/broker/bulk-import', workspace: 'broker', anyOf: ['loads.create'] },
@@ -401,11 +429,12 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/load-alerts', workspace: 'owner_operator', roles: ['owner_driver'] },
-  { prefix: '/driver/directory', workspace: 'owner_operator' },
+  { prefix: '/driver/directory', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/network', workspace: 'owner_operator' },
   { prefix: '/driver/loads/directory', workspace: 'owner_operator' },
   { prefix: '/driver/nearby', workspace: 'owner_operator' },
   { prefix: '/driver/freight-vision', workspace: 'owner_operator', anyOf: ['jobs.track'] },
+  { prefix: '/driver/fleet', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/drivers-vehicles', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/drivers', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['drivers.manage'] },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },

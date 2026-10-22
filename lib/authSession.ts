@@ -17,7 +17,7 @@ import {
 } from './authActiveCompanyContext';
 import type { RawMembershipRow } from './activeWorkspace';
 import { resolveAuthContext } from './authContextResolver';
-import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
+import { hasDriverProviderWorkspaceEvidence, isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './driverWorkspaceMode';
 import { resolveMembershipRole, type MembershipRole } from './membershipRole';
 import { supabase } from './supabaseClient';
 import type { Driver, Profile } from './types/database';
@@ -445,7 +445,7 @@ export const resolveAuthenticatedUser = async (
     driverCompanyId: bootstrapScopedDriverEvidence?.company_id ?? null,
     creatorCompanyId: creatorCompany?.id ?? null,
     mustChangePassword: bootstrapScopedDriverEvidence?.must_change_password === true,
-    ownerDriverWorkspaceRequested,
+    ownerDriverWorkspaceRequested: hasDriverProviderWorkspaceEvidence(bootstrapScopedDriverEvidence, ownerDriverWorkspaceRequested),
   });
 
   companyId = resolvedContext.companyId;
@@ -475,7 +475,7 @@ export const resolveAuthenticatedUser = async (
   });
   const scopedDriverId = scopedDriver?.id ?? null;
   const scopedMustChangePassword = scopedDriver?.must_change_password === true;
-  const scopedOwnerDriverWorkspace = ownerDriverWorkspaceRequested && Boolean(scopedDriverId);
+  const scopedOwnerDriverWorkspace = hasDriverProviderWorkspaceEvidence(scopedDriver, ownerDriverWorkspaceRequested);
   const scopedOwnerDriverExecutionMode = scopedOwnerDriverWorkspace && ownerDriverExecutionModeRequested;
   const scopedCanAccessDriverMode =
     Boolean(scopedDriverId) &&

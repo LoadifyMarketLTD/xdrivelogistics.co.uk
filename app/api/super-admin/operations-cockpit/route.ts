@@ -144,7 +144,14 @@ export async function GET(request: NextRequest) {
     const executionAgeMs = executionRecordedAt ? nowMs - Date.parse(executionRecordedAt) : Number.POSITIVE_INFINITY;
     const presenceRecordedAt = iso(presence?.recorded_at) ?? iso(presence?.updated_at);
     const presenceUntil = iso(presence?.available_until);
-    const presenceActive = Boolean(presenceUntil && Date.parse(presenceUntil) > nowMs && num(presence?.exact_lat) !== null && num(presence?.exact_lng) !== null);
+    const presenceAgeMs = presenceRecordedAt ? nowMs - Date.parse(presenceRecordedAt) : Number.POSITIVE_INFINITY;
+    const presenceActive = Boolean(
+      presenceUntil
+      && Date.parse(presenceUntil) > nowMs
+      && presenceAgeMs <= ONLINE_LOCATION_MAX_AGE_MS
+      && num(presence?.exact_lat) !== null
+      && num(presence?.exact_lng) !== null
+    );
     const executionFresh = executionLat !== null && executionLng !== null && executionAgeMs <= ONLINE_LOCATION_MAX_AGE_MS;
     const useAvailabilityPresence = presenceActive && (!executionRecordedAt || (presenceRecordedAt && Date.parse(presenceRecordedAt) >= Date.parse(executionRecordedAt)));
     const baseAvailability = text(driver.availability_status) ?? 'offline';

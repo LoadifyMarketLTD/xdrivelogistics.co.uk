@@ -11,10 +11,13 @@ describe('final Loads density cleanup', () => {
     expect(layout).toContain('return children');
   });
 
-  it('uses Loads as the page identity and leaves Quotes to the primary route', () => {
-    expect(exchange).toContain("title={dedicatedQuotes ? 'Quotes' : 'Loads'}");
+  it('keeps Loads, Quotes and Won Work route-selected instead of rendering duplicate local navigation', () => {
+    expect(exchange).toContain("initialTab?: 'loads' | 'bids' | 'won'");
+    expect(exchange).toContain("const [tab] = useState<'loads' | 'bids' | 'won'>(initialTab)");
+    expect(exchange).toContain("{tab === 'loads' && <>");
+    expect(exchange).toContain("{tab === 'bids' && <div");
+    expect(exchange).toContain("{tab === 'won' && <div");
     expect(exchange).not.toContain("tabButton('bids', 'My Quotes')");
     expect(exchange).not.toContain('Marketplace operational signals');
-    expect(exchange).toContain("tabButton('won', 'Won Work')");
   });
 });

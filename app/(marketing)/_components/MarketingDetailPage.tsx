@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { COMPANY_CONFIG } from '../../config/company';
 import { SocialShareBar } from './SocialShareBar';
 
 export type DetailSection = { title: string; copy: string; points?: string[] };
@@ -257,6 +258,11 @@ export function MarketingDetailPage({
                 <p>Registered in England and Wales</p>
                 <p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p>
                 <p>VAT No. GB 375949535</p>
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.general}`} className="hover:text-white">Contact: {COMPANY_CONFIG.emails.general}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.operations}`} className="hover:text-white">Operations: {COMPANY_CONFIG.emails.operations}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.support}`} className="hover:text-white">Support: {COMPANY_CONFIG.emails.support}</a></p>
+                </div>
               </div>
             </div>
 

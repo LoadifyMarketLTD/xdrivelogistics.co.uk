@@ -11,7 +11,7 @@ describe('Owner Driver Saved Networks contract', () => {
   it('exposes Saved Networks only to the Owner Driver workspace', () => {
     expect(directory).toContain("resolveWorkspaceRole(user) === 'owner_driver'");
     expect(directory).toContain('Saved Networks (');
-    expect(directory).toContain('ownerDriver ? (');
+    expect(directory).toContain('ownerDriver ? <div className="filter">');
     expect(directory).not.toContain('Saved Networks is not yet backed by a Driver API');
   });
 

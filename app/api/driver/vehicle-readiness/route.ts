@@ -39,7 +39,10 @@ async function context(request: NextRequest, selectedCompany?: string | null) {
   if (membershipResult.error || driverResult.error || companyResult.error) return json(503,{error:'Vehicle recovery permissions could not be verified. Please retry.'});
   if (!membershipResult.data || !driverResult.data) return json(403,{error:'An active membership and your own driver record in this company are required.'});
   if (!['active','approved'].includes(normal(companyResult.data?.status)) || ['suspended','blocked','rejected','inactive'].includes(normal(driverResult.data.status))) return json(403,{error:'The company or driver account requires an administrator review.'});
-  return {admin,userId:auth.user.id,companyId,driverId:String(driverResult.data.id),canManage:['owner','admin'].includes(normal(membershipResult.data.role_in_company))};
+  const driverType = normal(driverResult.data.driver_type);
+  const canManageOwnVehicle = driverType === 'owner_driver';
+  const canManageCompanyVehicles = ['owner','admin'].includes(normal(membershipResult.data.role_in_company));
+  return {admin,userId:auth.user.id,companyId,driverId:String(driverResult.data.id),driverType,canManage:canManageOwnVehicle || canManageCompanyVehicles};
 }
 
 export async function GET(request: NextRequest) {

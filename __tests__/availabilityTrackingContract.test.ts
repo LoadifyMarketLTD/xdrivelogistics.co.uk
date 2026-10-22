@@ -5,7 +5,9 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260826103000_driver_availability_presence.sql'), 'utf8');
 const driverApi = readFileSync(resolve(process.cwd(), 'app/api/driver/availability-presence/route.ts'), 'utf8');
 const nearbyApi = readFileSync(resolve(process.cwd(), 'app/api/availability/nearby/route.ts'), 'utf8');
-const page = readFileSync(resolve(process.cwd(), 'app/driver/availability/live/page.tsx'), 'utf8');
+const page = readFileSync(resolve(process.cwd(), 'app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx'), 'utf8');
+const publisher = readFileSync(resolve(process.cwd(), 'app/hooks/useDriverAvailabilityPresencePublisher.ts'), 'utf8');
+const driverShell = readFileSync(resolve(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'), 'utf8');
 
 describe('opt-in availability tracking contract', () => {
   it('keeps availability location separate from job tracking and server-only', () => {
@@ -23,13 +25,29 @@ describe('opt-in availability tracking contract', () => {
     expect(driverApi).not.toContain('mapbox.com');
     expect(page).toContain('Start live availability');
     expect(page).toContain('Stop live availability');
-    expect(page).toContain('OFF by default');
+    expect(page).not.toContain('OFF by default');
+    expect(page).not.toContain('Only you. Your position');
+  });
+
+  it('keeps pre-job availability genuinely live across the Driver workspace while the driver is opted in', () => {
+    expect(driverShell).toContain('useDriverAvailabilityPresencePublisher();');
+    expect(publisher).toContain('navigator.geolocation.watchPosition');
+    expect(publisher).toContain("method: 'PUT'");
+    expect(publisher).toContain('const PUBLISH_INTERVAL_MS = 30_000');
+    expect(publisher).toContain('navigator.geolocation.clearWatch');
+    expect(publisher).toContain("document.addEventListener('visibilitychange'");
+    expect(publisher).toContain("method: 'DELETE'");
+    expect(page).toContain('DRIVER_AVAILABILITY_PRESENCE_CHANGED');
+    expect(page).not.toContain('navigator.geolocation.watchPosition');
   });
 
   it('suppresses availability for active jobs and non-available drivers', () => {
     expect(driverApi).toContain('const ACTIVE_JOB_STATUSES = new Set([');
     expect(driverApi).toContain(".eq('assigned_driver_id', driverId)");
     expect(driverApi).toContain('Availability sharing is disabled while you have an active assigned job.');
+    expect(driverApi).toContain('clearPresenceWhenIneligible');
+    expect(driverApi).toContain(".from('driver_availability_presence')");
+    expect(driverApi).toContain(".delete()");
     expect(driverApi).toContain("return NextResponse.json({ active: false, presence: null });");
     expect(nearbyApi).toContain(".select('id, company_id, status, app_access, availability_status')");
     expect(nearbyApi).toContain("availability_status ?? '').toLowerCase() === 'available'");
@@ -43,6 +61,8 @@ describe('opt-in availability tracking contract', () => {
     expect(nearbyApi).toContain('lat: Number(row.exact_lat)');
     expect(nearbyApi).toContain("scope: 'exchange'");
     expect(nearbyApi).toContain('lat: Number(row.exchange_lat)');
+    expect(nearbyApi).toContain('AVAILABILITY_LOCATION_MAX_AGE_MS = 5 * 60_000');
+    expect(nearbyApi).toContain(".gte('recorded_at', freshnessCutoff)");
     expect(nearbyApi).toContain("if (ownCompanies.size === 0)");
     expect(nearbyApi).not.toContain("scope: 'exchange',\n      driver_id");
   });

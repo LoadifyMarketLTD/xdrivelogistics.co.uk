@@ -30,7 +30,7 @@ describe('role-adaptive workspace shell contract', () => {
     for (const role of ['carrier', 'fleet', 'dispatcher', 'finance', 'compliance', 'viewer']) {
       expect(adminSettings).toContain(`'${role}' as const`);
     }
-    expect(settings).toContain("companyProfileRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier']");
+    expect(settings).toContain("const companyProfileVisible = true;");
     expect(settings).toContain("billingRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier']");
   });
 });

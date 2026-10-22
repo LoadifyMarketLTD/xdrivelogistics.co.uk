@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isValidTargetPriceGbp } from '../../../../lib/smartReadLoad';
 import { z } from 'zod';
 import { labelToCargoType, labelToVehicleType } from '../../../../lib/vehicleTypes';
 import {
@@ -157,6 +158,9 @@ export async function POST(request: NextRequest) {
     });
   }
   const input = parsed.data;
+  if (input.publish && !input.directBookingTarget && !isValidTargetPriceGbp(input.customerPrice)) {
+    return respond(400, { error: 'Public marketplace posts require a positive GBP target price with no more than 2 decimal places (ex VAT).' });
+  }
   if (input.loadType === 'regular_load' && !input.regularSchedule?.days.length) {
     return respond(400, { error: 'Regular Load requires at least one operating day.' });
   }
@@ -178,7 +182,6 @@ export async function POST(request: NextRequest) {
     .eq('company_id', input.companyId)
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
-    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
     .maybeSingle();
   if (membershipError) {
     return operationalError({
@@ -189,7 +192,31 @@ export async function POST(request: NextRequest) {
       retryable: true,
     });
   }
-  if (!membership) return respond(403, {
+
+  const membershipRole = String(membership?.role_in_company ?? '').trim().toLowerCase();
+  let canPostForCompany = ['owner', 'admin', 'dispatcher'].includes(membershipRole);
+  if (!canPostForCompany && input.mode === 'broker' && membershipRole === 'member') {
+    const { data: brokerProfile, error: brokerProfileError } = await supabaseAdmin
+      .from('profiles')
+      .select('role,status,company_id')
+      .eq('user_id', authData.user.id)
+      .maybeSingle();
+    if (brokerProfileError) {
+      return operationalError({
+        status: 500,
+        message: 'We could not verify your broker workspace access. Please try again.',
+        context: `jobs.create.broker-profile.company:${input.companyId}.user:${authData.user.id}`,
+        cause: brokerProfileError,
+        retryable: true,
+      });
+    }
+    canPostForCompany =
+      String(brokerProfile?.role ?? '').trim().toLowerCase() === 'broker'
+      && String(brokerProfile?.status ?? '').trim().toLowerCase() === 'active'
+      && String(brokerProfile?.company_id ?? '') === input.companyId;
+  }
+
+  if (!membership || !canPostForCompany) return respond(403, {
     error: 'You cannot post loads for this company workspace.',
     code: 'COMPANY_MEMBERSHIP_REQUIRED',
     setupUrl: '/onboarding/resume',

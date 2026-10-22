@@ -10,21 +10,24 @@ describe('approved prototype Driver primary navigation', () => {
   const diary = read('app/driver/history/page.tsx');
   const messages = read('app/driver/messages/page.tsx');
 
-  it('uses the canonical Owner Driver modules in the shared shell', () => {
+  it('uses the CX-live-aligned Driver modules in the shared shell', () => {
     for (const label of ['Directory','Availability','Vehicle','Return Journeys','Loads','Quotes','Auto-match & Alerts','Diary','Freight Vision','Invoices','Drivers & Staff']) {
       expect(roles).toContain(`label: '${label}'`);
     }
     for (const primary of [
       "['owner-driver-dashboard-primary', 'Dashboard', '/driver']",
+      "['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']",
       "['owner-driver-directory-primary', 'Directory', '/driver/directory']",
       "['owner-driver-returns-primary', 'Return Journeys', '/driver/returns']",
       "['owner-driver-loads-primary', 'Loads', '/driver/loads']",
       "['owner-driver-quotes-primary', 'Quotes', '/driver/quotes']",
+      "['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs']",
       "['owner-driver-diary-primary', 'Diary', '/driver/history']",
+      "['owner-driver-settings-primary', 'Settings', '/driver/settings']",
     ]) expect(shell).toContain(primary);
     expect(shell).toContain("], 'owner-driver-more', 'More', [");
     expect(shell).toContain("'/driver/event-log'");
-    expect(shell).toContain("'/driver/freight-vision'");
+    expect(shell).not.toContain("['owner-driver-freight-vision-primary'");
   });
 
   it('keeps Directory on the real shared member data source', () => {

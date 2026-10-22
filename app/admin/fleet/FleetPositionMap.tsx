@@ -14,7 +14,7 @@ const FleetPositionMapClient = dynamic(() => import('./FleetPositionMapClient'),
         borderRadius: '4px',
         background: '#f8fafc',
         color: '#64748b',
-        fontSize: '12px',
+        fontSize: '14px',
       }}
     >
       Loading live map…
@@ -28,10 +28,12 @@ export default function FleetPositionMap({
   points,
   selectedDriverId,
   mode = 'live',
+  height,
 }: {
   points: FleetMapPoint[];
   selectedDriverId: string | null;
   mode?: FleetMapMode;
+  height?: number;
 }) {
-  return <FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} mode={mode} />;
+  return <FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} mode={mode} height={height} />;
 }

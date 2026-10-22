@@ -7,6 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { VehicleRegisterShell } from '../../components/workspace/VehicleRegisterShell';
 
 type VehicleRow = {
   id: string;
@@ -31,7 +32,7 @@ export default function DriverDriversVehiclesPage() {
   const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<'users' | 'vehicles' | 'tracking' | 'documents' | 'events'>('vehicles');
+  const [tab, setTab] = useState<'users' | 'vehicles' | 'tracking'>('users');
   const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
@@ -65,66 +66,54 @@ export default function DriverDriversVehiclesPage() {
       .filter(Boolean).join(' ').toLowerCase().includes(needle));
   }, [search, vehicles]);
 
-  const assignedCount = vehicles.filter((vehicle) => vehicle.assigned_driver_id === driverId).length;
   const trackedCount = canonicalVehicleId ? 1 : 0;
   const canManageDrivers = user?.ownerDriverWorkspace === true;
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-drivers-vehicles-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Drivers & Vehicles</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => router.push('/driver/account')}>Company Profile</button>
-            {canManageDrivers && <button type="button" className="btn" onClick={() => router.push('/driver/drivers')}>Add Driver</button>}
-            <button type="button" className="btn primary" disabled={!canManage} onClick={() => router.push('/driver/vehicles')}>Add Vehicle</button>
+      <VehicleRegisterShell
+        title="Drivers & Vehicles"
+        subtitle="Driver, vehicle, tracking and document resources."
+        actions={<>
+          {canManageDrivers && <button type="button" onClick={() => router.push('/driver/drivers')}>Add Driver</button>}
+          <button type="button" className="carrier-register-action" disabled={!canManage} onClick={() => router.push('/driver/vehicles?action=add')}>+ Add Vehicle</button>
+        </>}
+      >
+        {error && <div className="xdrive-alert-banner" style={{ marginBottom: 8, backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c' }}>{error}</div>}
+
+        <section className="carrier-register-results" style={{ marginBottom: 8, padding: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,1fr) auto', gap: 8, alignItems: 'end' }}>
+            <label style={{ display: 'grid', gap: 4, color: '#64748b', fontSize: 11, fontWeight: 700 }}>SEARCH
+              <input style={{ minHeight: 32, border: '1px solid #cfd7e3', borderRadius: 4, padding: '5px 8px' }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Driver, vehicle, registration" />
+            </label>
+            <div className="carrier-register-toolbar__actions">
+              <button type="button" data-active={tab === 'users'} onClick={() => setTab('users')}>Users / Drivers</button>
+              <button type="button" data-active={tab === 'vehicles'} onClick={() => setTab('vehicles')}>Company Vehicles</button>
+              <button type="button" data-active={tab === 'tracking'} onClick={() => setTab('tracking')}>Vehicle Tracking</button>
+            </div>
           </div>
-        </div>
-        <div className="pagebody">
-          <aside className="left">
-            <div className="left-title">Search</div>
-            <div className="filter"><span className="label">Driver / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Driver, vehicle, registration" /></div>
-            <div className="filter"><span className="label">Quick filters</span>
-              <label className="check"><input type="checkbox" checked readOnly />Current Driver</label>
-              <label className="check"><input type="checkbox" checked={trackedCount > 0} readOnly />Canonical vehicle</label>
-              <label className="check"><input type="checkbox" checked={assignedCount > 0} readOnly />Assigned vehicles</label>
-            </div>
-          </aside>
-          <main className="main">
-            <div className="head"><div><h1>Drivers & Vehicles</h1><p>Manage users, drivers, vehicles, tracking, documents and audit history</p></div></div>
-            {error && <div className="vision-note">{error}</div>}
-            <div className="subtabs">
-              <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users / Drivers</button>
-              <button type="button" className={tab === 'vehicles' ? 'active' : ''} onClick={() => setTab('vehicles')}>Company Vehicles</button>
-              <button type="button" className={tab === 'tracking' ? 'active' : ''} onClick={() => setTab('tracking')}>Vehicle Tracking</button>
-              <button type="button" className={tab === 'documents' ? 'active' : ''} onClick={() => setTab('documents')}>Documents</button>
-              <button type="button" className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>Event Log</button>
-            </div>
-            {tab === 'users' && <div className="dv-panel active">
-              <div className="toolbar"><b>Users / Drivers</b><span className="spacer" />{canManageDrivers && <button type="button" className="btn primary" onClick={() => router.push('/driver/drivers')}>Open Driver Manager</button>}</div>
-              <div className="tablewrap"><table style={{ minWidth: 900 }}><thead><tr><th>Name</th><th>Role</th><th>Mobile Access</th><th>Status</th><th>Actions</th></tr></thead><tbody>
-                <tr><td><b>{user?.email ?? 'Current driver'}</b></td><td>{user?.ownerDriverWorkspace ? 'Workspace Owner' : 'Driver'}</td><td>Enabled</td><td><StatusBadge value="Active" tone="green" /></td><td><button type="button" className="rowbtn blue" onClick={() => router.push('/driver/account')}>Manage</button></td></tr>
-              </tbody></table></div>
-            </div>}
+        </section>
 
-            {tab === 'vehicles' && <div className="dv-panel active">
-              <div className="dv-integration"><div><b>Company Vehicles</b><span>Keep vehicles, capacity, documents and tracking readiness in one place.</span></div><button type="button" className="btn" onClick={() => router.push('/driver/vehicles')}>Open Vehicle Manager</button></div>
-              <div className="tablewrap"><table style={{ minWidth: 1180 }}><thead><tr><th>Name</th><th>Size / Type</th><th>Payload</th><th>Pallets</th><th>Tail Lift</th><th>Assignment</th><th>Actions</th></tr></thead><tbody>
-                {visible.map((vehicle) => <tr key={vehicle.id} className="dv-row"><td><b>{vehicleName(vehicle)}</b><span className="meta">{vehicle.reg_plate ?? 'Registration not supplied'}</span></td><td>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Not supplied'}</td><td>{vehicle.payload_kg != null ? `${vehicle.payload_kg} kg` : 'Not supplied'}</td><td>{vehicle.pallets_capacity ?? '—'}</td><td>{vehicle.has_tail_lift == null ? 'Not supplied' : vehicle.has_tail_lift ? 'Yes' : 'No'}</td><td>{vehicle.id === canonicalVehicleId ? <StatusBadge value="Canonical active" tone="green" /> : vehicle.assigned_driver_id === driverId ? <StatusBadge value="Assigned" tone="blue" /> : <StatusBadge value="Fleet record" />}</td><td><button type="button" className="rowbtn blue" onClick={() => router.push('/driver/vehicles')}>Open</button></td></tr>)}
-              </tbody></table></div>
-              {!loading && visible.length === 0 && <div className="xd2-calm-empty"><b>No vehicle records</b><span>No real vehicle record matches the current filter.</span></div>}
-            </div>}
-            {tab === 'tracking' && <div className="dv-panel active">
-              <div className="toolbar"><b>Vehicle Tracking</b><span className="spacer muted small">{trackedCount} canonical tracked signal</span></div>
-              <div className="split"><div className="splitlist">{vehicles.map((vehicle) => <div key={vehicle.id} className="listrow"><div className="grow"><b>{vehicle.reg_plate ?? vehicleName(vehicle)}</b><span className="meta">{vehicleName(vehicle)}</span></div><StatusBadge value={vehicle.id === canonicalVehicleId ? 'Canonical' : 'No live signal'} tone={vehicle.id === canonicalVehicleId ? 'green' : 'grey'} /></div>)}</div><div className="splitmain"><div className="map"><div className="mapnote">Approved XDrive tracking only. No position is fabricated when tracking data is unavailable.</div></div></div></div>
-            </div>}
+        {tab === 'users' && <section className="carrier-register-results" aria-label="Users and drivers">
+          <div className="carrier-register-table-wrap"><table className="carrier-register-table"><thead><tr><th>Name</th><th>Role</th><th>Mobile Access</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+            <tr><td><b>{user?.email ?? 'Current driver'}</b></td><td>{user?.ownerDriverWorkspace ? 'Workspace Owner' : 'Driver'}</td><td>Enabled</td><td><StatusBadge value="Active" tone="green" /></td><td><button type="button" onClick={() => router.push('/driver/account')}>Manage</button></td></tr>
+          </tbody></table></div>
+        </section>}
 
-            {tab === 'documents' && <div className="dv-panel active"><div className="toolbar"><b>Vehicle & Driver Documents</b><span className="spacer" /><button type="button" className="btn primary" onClick={() => router.push('/driver/documents')}>Open Documents</button></div><div className="xd2-calm-empty"><b>Documents remain server-authoritative</b><span>Open the Driver Documents register to review or upload real records.</span></div></div>}
+        {tab === 'vehicles' && <section className="carrier-register-results" aria-label="Company vehicles">
+          {loading ? <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center' }}>Loading...</div> : visible.length === 0 ? <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center' }}>No vehicle records match the current filter.</div> :
+          <div className="carrier-register-table-wrap"><table className="carrier-register-table"><thead><tr><th>Vehicle</th><th>Size / Type</th><th>Payload</th><th>Pallets</th><th>Tail Lift</th><th>Assignment</th><th>Actions</th></tr></thead><tbody>
+            {visible.map((vehicle) => <tr key={vehicle.id}><td><b>{vehicleName(vehicle)}</b><div style={{ color: '#64748b' }}>{vehicle.reg_plate ?? 'Registration not supplied'}</div></td><td>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Not supplied'}</td><td>{vehicle.payload_kg != null ? vehicle.payload_kg + ' kg' : 'Not supplied'}</td><td>{vehicle.pallets_capacity ?? '-'}</td><td>{vehicle.has_tail_lift == null ? 'Not supplied' : vehicle.has_tail_lift ? 'Yes' : 'No'}</td><td>{vehicle.id === canonicalVehicleId ? <StatusBadge value="Canonical active" tone="green" /> : vehicle.assigned_driver_id === driverId ? <StatusBadge value="Assigned" tone="blue" /> : <StatusBadge value="Fleet record" />}</td><td><button type="button" onClick={() => router.push('/driver/vehicles')}>Open</button></td></tr>)}
+          </tbody></table></div>}
+        </section>}
 
-            {tab === 'events' && <div className="dv-panel active"><div className="toolbar"><b>Event Log</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/event-log')}>Open Event Log</button></div><div className="xd2-calm-empty"><b>Operational history</b><span>Open the Event Log to review recorded operational activity for this workspace.</span></div></div>}
-          </main>
-        </div>
-      </section>
+        {tab === 'tracking' && <section className="carrier-register-results" aria-label="Vehicle tracking">
+          <div className="carrier-register-results__header"><strong>Vehicle Tracking</strong><span style={{ color: '#64748b' }}>{trackedCount} canonical tracked signal</span></div>
+          <div className="carrier-register-table-wrap"><table className="carrier-register-table"><thead><tr><th>Vehicle</th><th>Tracking</th></tr></thead><tbody>
+            {vehicles.map((vehicle) => <tr key={vehicle.id}><td><b>{vehicle.reg_plate ?? vehicleName(vehicle)}</b><div style={{ color: '#64748b' }}>{vehicleName(vehicle)}</div></td><td><StatusBadge value={vehicle.id === canonicalVehicleId ? 'Canonical' : 'No live signal'} tone={vehicle.id === canonicalVehicleId ? 'green' : 'grey'} /></td></tr>)}
+          </tbody></table></div>
+        </section>}
+      </VehicleRegisterShell>
     </ProtectedRoute>
   );
 }

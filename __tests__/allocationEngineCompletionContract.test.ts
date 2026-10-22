@@ -12,6 +12,7 @@ describe('canonical Allocation engine completion',()=>{
   const directResources=read('app/api/jobs/direct-booking-resources/route.ts');
   const create=read('app/api/jobs/create/route.ts');
   const allocationRpc=read('supabase/migrations/20260927110000_fleet_manager_persisted_role_foundation.sql');
+  const idempotentAllocationRpc=read('supabase/migrations/20261018134000_idempotent_driver_assignment_retries.sql');
   const doubleBooking=read('supabase/migrations/20260820104000_fleet_resource_double_booking_guard.sql');
   const acceptance=read('supabase/migrations/20260917214605_driver_explicit_acceptance.sql');
 
@@ -20,6 +21,17 @@ describe('canonical Allocation engine completion',()=>{
     expect(assignApi).toContain('p_expected_assigned_driver_id');
     expect(allocationRpc).toContain("v_job.assigned_driver_id IS DISTINCT FROM p_expected_assigned_driver_id");
     expect(allocationRpc).toContain("NOT IN ('owner', 'admin', 'fleet_manager', 'dispatcher')");
+  });
+
+  it('makes duplicate assignment delivery idempotent without weakening stale-write protection',()=>{
+    const authIndex=idempotentAllocationRpc.indexOf("COALESCE(v_role, '') NOT IN");
+    const idempotentIndex=idempotentAllocationRpc.indexOf('v_job.assigned_driver_id IS NOT DISTINCT FROM p_driver_id');
+    const staleIndex=idempotentAllocationRpc.indexOf('v_job.assigned_driver_id IS DISTINCT FROM p_expected_assigned_driver_id');
+    expect(authIndex).toBeGreaterThanOrEqual(0);
+    expect(idempotentIndex).toBeGreaterThan(authIndex);
+    expect(staleIndex).toBeGreaterThan(idempotentIndex);
+    expect(idempotentAllocationRpc).toContain('RETURN QUERY');
+    expect(idempotentAllocationRpc).toContain("USING ERRCODE = '40001'");
   });
 
   it('revalidates canonical driver and vehicle readiness server-side',()=>{

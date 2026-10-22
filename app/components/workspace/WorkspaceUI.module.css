@@ -12,15 +12,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 10px;
   min-height: 44px;
   margin-bottom: var(--ws-gap-internal, 8px);
 }
 
 .pageHeaderCopy {
   min-width: 0;
-  flex: 1 1 520px;
+  flex: 1 1 auto;
 }
 
 .pageHeaderEyebrow {
@@ -54,13 +54,30 @@
   display: flex;
   align-items: center;
   gap: var(--ws-gap-internal, 8px);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.pageHeaderActions {
+  margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .pageHeaderMeta {
   margin-top: var(--ws-gap-micro, 4px);
   font-size: var(--ws-font-meta, 11px);
   line-height: 14px;
+}
+
+@media (max-width: 760px) {
+  .pageHeader {
+    flex-wrap: wrap;
+  }
+
+  .pageHeaderActions {
+    width: 100%;
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
 }
 
 .workspaceDialogOverlay {

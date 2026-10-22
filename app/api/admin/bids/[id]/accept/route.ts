@@ -32,7 +32,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ── 3. Pre-check caller role on owning company ──────────────────────────────
   const { data: bidJob, error: bidJobError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, company_id, bid_price_gbp, amount, jobs!inner(company_id)')
+    .select('id, company_id, bid_price_gbp, amount, jobs!job_bids_job_id_fkey(company_id)')
     .eq('id', bidId)
     .maybeSingle();
 

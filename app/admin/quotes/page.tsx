@@ -14,7 +14,6 @@ import {
   DataTable,
   EmptyState,
   PageFrame,
-  PageHeader,
   StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
 
@@ -22,11 +21,9 @@ const CARGO_TYPES: CargoType[] = ['documents', 'packages', 'pallets', 'furniture
 
 const QUOTE_TABS: Array<{ id: string; label: string; statuses: string[] }> = [
   { id: 'received', label: 'Received', statuses: ['draft'] },
+  { id: 'archived', label: 'Archived', statuses: ['accepted', 'converted', 'withdrawn'] },
   { id: 'submitted', label: 'Submitted', statuses: ['sent'] },
-  { id: 'accepted', label: 'Accepted', statuses: ['accepted'] },
-  { id: 'converted', label: 'Converted', statuses: ['converted'] },
   { id: 'rejected', label: 'Unsuccessful', statuses: ['declined'] },
-  { id: 'withdrawn', label: 'Withdrawn', statuses: ['withdrawn'] },
 ] as const;
 
 export default function QuotesPage() {
@@ -266,13 +263,6 @@ export default function QuotesPage() {
   return (
     <ProtectedRoute>
       <PageFrame>
-        <PageHeader
-          eyebrow="Carrier commercial"
-          title="Quotes"
-          description="Manage customer quotes through the existing quote lifecycle from one dense operational register."
-          actions={<ActionButton tone="success" onClick={() => setShowModal(true)}>New Quote</ActionButton>}
-        />
-
         {!isSupabaseConfigured && <AlertBanner tone="warning">Supabase is not configured for this workspace.</AlertBanner>}
         {flowMessage && <AlertBanner tone="success">{flowMessage}</AlertBanner>}
         {flowError && <AlertBanner tone="danger">{flowError}</AlertBanner>}
@@ -302,22 +292,23 @@ export default function QuotesPage() {
           </aside>
 
           <main style={{ minWidth: 0 }}>
-            <div className="workspace-tab-strip" role="tablist" aria-label="Quote statuses" style={{ display: 'flex', overflowX: 'auto', marginBottom: 8 }}>
-              {QUOTE_TABS.map((tab) => {
-                const count = quotes.filter((quote) => tab.statuses.includes((quote.status || '').toLowerCase())).length;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === tab.id}
-                    data-active={activeTab === tab.id ? 'true' : 'false'}
-                    onClick={() => setActiveTab(tab.id)}
-                  >
-                    {tab.label} <span>{count}</span>
-                  </button>
-                );
-              })}
+            <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Quote statuses">
+              {QUOTE_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  data-active={activeTab === tab.id ? 'true' : 'false'}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              <span className="cx-quote-state-tabs__action">
+                <button type="button" className="cx-expand-entries-control" onClick={() => void loadQuotes()} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</button>
+                <ActionButton tone="success" onClick={() => setShowModal(true)}>New Quote</ActionButton>
+              </span>
             </div>
 
             {loading ? (

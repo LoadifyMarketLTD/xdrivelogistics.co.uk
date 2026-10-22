@@ -18,7 +18,8 @@ describe('postcode address lookup contract', () => {
     expect(route).toContain('supabaseValidator.auth.getUser(token)');
     expect(route).toContain('process.env.IDEAL_POSTCODES_API_KEY');
     expect(route).toContain('process.env.GETADDRESS_API_KEY');
-    expect(route).not.toContain('MAPBOX_ACCESS_TOKEN');
+    expect(route).toContain('MAPBOX_ACCESS_TOKEN');
+    expect(field).not.toContain('MAPBOX_ACCESS_TOKEN');
     expect(route).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(field).not.toContain('IDEAL_POSTCODES_API_KEY');
     expect(field).not.toContain('GETADDRESS_API_KEY');
@@ -28,8 +29,14 @@ describe('postcode address lookup contract', () => {
     expect(field).toContain('isFullUkPostcode(normalized)');
     expect(route).toContain('api.ideal-postcodes.co.uk/v1/postcodes/');
     expect(route).toContain('api.getAddress.io/find/');
-    expect(route).not.toContain('api.mapbox.com');
+    expect(route).toContain('api.mapbox.com/search/geocode/v6/forward');
+    expect(route).toContain("provider: 'mapbox-geocoding-autocomplete'");
     expect(route).not.toContain('api.postcodes.io/postcodes/');
+    expect(field).not.toContain('api.postcodes.io');
+    expect(route).toContain("'Cache-Control': 'private, no-store, max-age=0, must-revalidate'");
+    expect(route).toContain("'Netlify-CDN-Cache-Control': 'no-store'");
+    expect(route).toContain("Origin: 'https://www.xdrivelogistics.co.uk'");
+    expect(route).toContain("Referer: 'https://www.xdrivelogistics.co.uk/'");
   });
 
   it('formats structured address rows returned for the exact postcode', () => {
@@ -47,7 +54,7 @@ describe('postcode address lookup contract', () => {
   });
 
   it('clears stale suggestions when postcode or provider state changes', () => {
-    expect(field).toContain('const normalized = normalizePostcode(postcode);\n    setSuggestions([]);\n    setOpen(false);');
+    expect(field).toContain('const normalized = normalizeOperationalPostcode(postcode);\n    setSuggestions([]);\n    setOpen(false);');
     expect(field).toContain('if (!response.ok) return;');
     expect(field).toContain('if (payload.configured === false) return;');
   });
@@ -59,8 +66,8 @@ describe('postcode address lookup contract', () => {
     expect(field).not.toContain('Select a street below');
   });
 
-  it('keeps manual address entry available when lookup is unavailable', () => {
-    expect(route).toContain('configured: false');
+  it('keeps manual address entry available even when every lookup provider returns no suggestions', () => {
+    expect(route).toContain('suggestions: []');
     expect(field).toContain('onAddress(event.target.value)');
   });
 });

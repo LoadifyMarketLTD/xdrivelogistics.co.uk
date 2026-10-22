@@ -18,7 +18,7 @@
 
 const resendApiKey = Deno.env.get('RESEND_API_KEY');
 const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET');
-const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
+const fromEmail = Deno.env.get('AUTH_FROM_EMAIL') ?? 'XDrive Support <support@xdrivelogistics.co.uk>';
 const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk').replace(/\/$/, '');
 
 if (!resendApiKey) {

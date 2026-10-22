@@ -21,15 +21,15 @@ describe('cross-workspace quote lifecycle wiring', () => {
     }
   });
 
-  it('wires driver and carrier bidder views to canonical won/unsuccessful/withdrawn/expired/archive lifecycle', () => {
-    expect(driver).toContain('Accepted / Won');
-    expect(driver).toContain('Withdrawn');
-    expect(driver).toContain('Expired');
-    expect(driver).toContain('archive_bidder');
-    expect(carrier).toContain('Accepted / Won');
-    expect(carrier).toContain('Withdrawn');
-    expect(carrier).toContain('Expired');
-    expect(carrier).toContain('archive_bidder');
+  it('keeps CX-live four-tab bidder presentation while preserving terminal lifecycle actions on records', () => {
+    for (const source of [driver, carrier]) {
+      for (const label of ['Received', 'Archived', 'Submitted', 'Unsuccessful']) expect(source).toContain(label);
+      expect(source).toContain('archive_bidder');
+      for (const terminal of ['accepted', 'unsuccessful', 'withdrawn', 'expired']) expect(source).toContain(`'${terminal}'`);
+      expect(source).toContain("stage === 'archived'");
+    }
+    expect(driver).not.toContain('Accepted / Won');
+    expect(carrier).not.toContain('Accepted / Won');
   });
 
   it('keeps lifecycle metadata available in shared company workspace bid reads', () => {
@@ -44,6 +44,8 @@ describe('cross-workspace quote lifecycle wiring', () => {
     expect(lifecycle).toContain("String(bid.bidder_user_id ?? '') === auth.user.id");
     expect(lifecycle).toContain(".from('company_memberships')");
     expect(lifecycle).toContain(".from('job_tracking_events').insert");
+    expect(lifecycle).toContain("event_type: 'note'");
+    expect(lifecycle).toContain('lifecycle_event: eventType');
     expect(lifecycle).toContain('quote_shortlisted');
     expect(lifecycle).toContain('quote_archived_by_bidder');
   });

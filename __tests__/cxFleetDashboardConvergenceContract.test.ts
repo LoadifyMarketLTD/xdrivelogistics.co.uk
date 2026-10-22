@@ -7,13 +7,14 @@ describe('Fleet CX convergence contract', () => {
     'utf8',
   );
 
-  it('uses compact signals instead of the six-card KPI wall', () => {
+  it('uses two CX-sized primary signals instead of the six-card KPI wall', () => {
     expect(source).toContain('<OperationalSignalStrip');
     expect(source).not.toContain('<ExchangeKpiStrip>');
     expect(source).not.toContain('<KpiCard');
     expect(source).toContain("label: 'Unallocated'");
-    expect(source).toContain("label: 'Tracking Alerts'");
-    expect(source).toContain("label: 'Compliance Alerts'");
+    expect(source).toContain("label: 'Active Jobs'");
+    expect(source).toContain('Tracking alerts');
+    expect(source).toContain('Compliance alerts');
   });
 
   it('uses a dense Fleet resource register and keeps attention below rather than reserving a permanent side rail', () => {
@@ -31,8 +32,8 @@ describe('Fleet CX convergence contract', () => {
   });
 
   it('keeps unavailable tracking and compliance signals truthful', () => {
-    expect(source).toContain("value: trackingDataUnavailable ? '—' : trackingAttentionCount");
-    expect(source).toContain("value: complianceDataUnavailable ? '—' : complianceAttentionCount");
+    expect(source).toContain("trackingDataUnavailable ? 'Unavailable' : trackingAttentionCount");
+    expect(source).toContain("complianceDataUnavailable ? 'Unavailable' : complianceAttentionCount");
     expect(source).not.toContain('Vehicles unavailable');
   });
 

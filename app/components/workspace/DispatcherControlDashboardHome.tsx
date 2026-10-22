@@ -111,11 +111,7 @@ export default function DispatcherControlDashboardHome() {
                 ariaLabel="Dispatcher operational signals"
                 items={[
                   { key: 'unallocated', label: 'Unallocated', value: metricValue(data, ['jobs'], () => unallocated.length), detail: 'Dispatch decision required', tone: unavailable(data, ['jobs']) ? 'blue' : unallocated.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/assignments') },
-                  { key: 'due-soon', label: 'Due next 2h', value: metricValue(data, ['jobs'], () => dueSoon.length), detail: 'Pickup window approaching', tone: unavailable(data, ['jobs']) ? 'blue' : dueSoon.length ? 'orange' : 'navy', onClick: () => router.push('/admin/diary') },
                   { key: 'active', label: 'Active', value: metricValue(data, ['jobs'], () => active.length), detail: 'Execution in progress', tone: unavailable(data, ['jobs']) ? 'blue' : active.length ? 'green' : 'navy', onClick: () => router.push('/admin/fleet/active-jobs') },
-                  { key: 'exceptions', label: 'Exceptions', value: metricValue(data, ['jobs'], () => exceptions.length), detail: 'Immediate intervention', tone: unavailable(data, ['jobs']) ? 'blue' : exceptions.length ? 'red' : 'green', onClick: () => router.push('/admin/incidents') },
-                  { key: 'available-drivers', label: 'Available Drivers', value: availableDrivers, detail: 'Active + available flag', tone: unavailable(data, ['drivers']) ? 'blue' : 'green', onClick: () => router.push('/admin/drivers') },
-                  { key: 'stale-gps', label: 'Stale GPS', value: trackingUnavailable ? '—' : stalePositions.length, detail: trackingUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions', tone: trackingUnavailable ? 'blue' : stalePositions.length ? 'red' : 'green', onClick: () => router.push('/admin/fleet/positions') },
                 ]}
               />
             </OperationalCard>

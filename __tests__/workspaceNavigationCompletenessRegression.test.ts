@@ -12,79 +12,231 @@ import {
   composeFleetPrimaryNav,
   mergeCanonicalNavFallback,
 } from '../app/components/workspace/TopWorkspaceShell';
-import { getVisibleWorkspaceNav, type WorkspaceRole } from '../lib/workspaceRole';
+import { getVisibleWorkspaceNav } from '../lib/workspaceRole';
 
+const read = (file: string) => readFileSync(join(process.cwd(), file), 'utf8');
 const hrefs = (groups: Array<{ items: Array<{ href: string }> }>) =>
   groups.flatMap((group) => group.items.map((item) => item.href));
 
-const assertCanonicalPreserved = (
-  role: WorkspaceRole,
-  presented: Array<{ items: Array<{ href: string }> }>,
-) => {
-  const canonical = new Set(hrefs(getVisibleWorkspaceNav(role)));
-  const visible = new Set(hrefs(presented));
-  for (const href of canonical) {
-    expect(visible.has(href), role + ' lost canonical nav route ' + href).toBe(true);
-  }
+const expectVisible = (visible: Set<string>, routes: string[]) => {
+  for (const href of routes) expect(visible.has(href), href).toBe(true);
 };
 
-describe('all operational workspace navigation remains visually reachable', () => {
-  it('preserves every canonical Customer route while keeping the preferred layout', () => {
+describe('operational navigation remains reachable through primary, More, header, Settings or a canonical hub', () => {
+  const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+  const settings = read('app/components/workspace/RoleSettingsWorkspace.tsx');
+
+  it('keeps Customer frequent work visible and moves account/billing/notifications to their owning surfaces', () => {
     const canonical = getVisibleWorkspaceNav('customer');
     const merged = mergeCanonicalNavFallback(composeCustomerPrototypeNav(), canonical);
-    assertCanonicalPreserved('customer', composeCustomerPrimaryNav(merged));
+    const visible = new Set(hrefs(composeCustomerPrimaryNav(merged)));
+
+    expectVisible(visible, [
+      '/customer',
+      '/customer/action-centre',
+      '/customer/loads',
+      '/customer/quotes',
+      '/customer/bookings',
+      '/customer/diary',
+      '/customer/tracking',
+      '/customer/network',
+      '/customer/settings',
+      '/customer/bulk-import',
+      '/customer/deliveries',
+      '/customer/documents',
+      '/customer/updates',
+      '/customer/messages',
+      '/customer/disputes',
+      '/customer/event-log',
+      '/customer/invoices',
+      '/customer/team',
+    ]);
+    expect(shell).toContain('onClick={() => router.push(notificationsHref)}');
+    expect(settings).toContain("billing: '/customer/settings/billing'");
+    expect(settings).toContain("legal: '/customer/account/legal-agreements'");
   });
 
-  it('preserves every canonical Broker route while keeping the preferred layout', () => {
+  it('keeps Broker commercial operations visible and consolidates account/billing under Settings', () => {
     const canonical = getVisibleWorkspaceNav('broker');
     const merged = mergeCanonicalNavFallback(composeBrokerPrototypeNav(), canonical);
-    assertCanonicalPreserved('broker', composeBrokerPrimaryNav(merged));
+    const visible = new Set(hrefs(composeBrokerPrimaryNav(merged)));
+
+    expectVisible(visible, [
+      '/broker',
+      '/broker/action-centre',
+      '/broker/carrier-network/directory',
+      '/broker/enquiries',
+      '/broker/loads',
+      '/broker/bids',
+      '/broker/jobs',
+      '/broker/diary',
+      '/broker/pod-review',
+      '/broker/finance',
+      '/broker/settings',
+      '/broker/bulk-import',
+      '/broker/customers',
+      '/broker/margins',
+      '/broker/messages',
+      '/broker/event-log',
+      '/broker/disputes',
+      '/broker/customer-invoices',
+      '/broker/carrier-costs',
+      '/broker/reports',
+      '/broker/team',
+    ]);
+    expect(settings).toContain("billing: '/broker/settings/billing'");
+    expect(settings).toContain("legal: '/broker/account/legal-agreements'");
   });
 
-  it('preserves every canonical Carrier route', () => {
-    assertCanonicalPreserved('company_owner', composeCarrierPrimaryNav(getVisibleWorkspaceNav('company_owner')));
+  it('keeps Carrier primary operations compact while fleet/team/billing detail is reachable from hubs', () => {
+    const visible = new Set(hrefs(composeCarrierPrimaryNav(getVisibleWorkspaceNav('company_owner'))));
+    expectVisible(visible, [
+      '/admin',
+      '/admin/marketplace/directory',
+      '/admin/live-availability',
+      '/admin/fleet/vehicles',
+      '/admin/fleet/returns',
+      '/admin/marketplace',
+      '/admin/exchange',
+      '/admin/diary',
+      '/admin/freight-vision',
+      '/admin/fleet/resources',
+      '/admin/settings',
+      '/admin/action-centre',
+      '/admin/bulk-import',
+      '/admin/jobs',
+      '/admin/fleet/assignments',
+      '/admin/pod',
+      '/admin/invoices',
+      '/admin/documents',
+      '/admin/messages',
+      '/admin/event-log',
+    ]);
+
+    const resources = read('app/admin/fleet/resources/page.tsx');
+    expect(resources).toContain("router.push('/admin/fleet/positions')");
+    expect(resources).toContain('Company Vehicles');
+    expect(settings).toContain("team: '/admin/team'");
+    expect(settings).toContain("billing: '/admin/settings/billing'");
+    const team = read('app/admin/team/page.tsx');
+    expect(team).toContain("router.push('/admin/fleet/managers')");
+    expect(team).toContain("router.push('/admin/dispatchers')");
   });
 
-  it('preserves every canonical Fleet Manager route', () => {
-    assertCanonicalPreserved('fleet_manager', composeFleetPrimaryNav(getVisibleWorkspaceNav('fleet_manager')));
+  it('keeps Fleet Manager daily fleet modules visible while low-frequency tools stay in More', () => {
+    const visible = new Set(hrefs(composeFleetPrimaryNav(getVisibleWorkspaceNav('fleet_manager'))));
+    expectVisible(visible, [
+      '/admin/fleet',
+      '/admin/live-availability',
+      '/admin/fleet/vehicles',
+      '/admin/fleet/returns',
+      '/admin/fleet/jobs',
+      '/admin/diary',
+      '/admin/freight-vision',
+      '/admin/fleet/resources',
+      '/admin/action-centre',
+      '/admin/fleet/assignments',
+      '/admin/fleet/maintenance',
+      '/admin/incidents',
+      '/admin/messages',
+      '/admin/event-log',
+      '/admin/invoices',
+      '/admin/fleet/compliance',
+    ]);
+    const resources = read('app/admin/fleet/resources/page.tsx');
+    expect(resources).toContain("router.push('/admin/fleet/positions')");
   });
 
-  it('preserves every canonical Dispatcher route', () => {
-    assertCanonicalPreserved('dispatcher', composeDispatcherPrimaryNav(getVisibleWorkspaceNav('dispatcher')));
+  it('keeps Dispatcher focused on dispatch execution rather than duplicate Carrier browsing modules', () => {
+    const visible = new Set(hrefs(composeDispatcherPrimaryNav(getVisibleWorkspaceNav('dispatcher'))));
+    expectVisible(visible, [
+      '/admin',
+      '/admin/diary',
+      '/admin/fleet/assignments',
+      '/admin/fleet/active-jobs',
+      '/admin/collections',
+      '/admin/deliveries',
+      '/admin/fleet/positions',
+      '/admin/fleet/resources',
+      '/admin/settings',
+      '/admin/action-centre',
+      '/admin/bulk-import',
+      '/admin/incidents',
+      '/admin/pod',
+      '/admin/messages',
+      '/admin/event-log',
+    ]);
+    expect(visible.has('/admin/fleet/vehicles')).toBe(false);
+    expect(visible.has('/admin/fleet/returns')).toBe(false);
   });
 
-  it('keeps every Owner Driver capability visually reachable through compact primary navigation plus More', () => {
-    const presented = composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true);
-    assertCanonicalPreserved('owner_driver', presented);
-    const visible = new Set(hrefs(presented));
-    for (const href of ['/driver/jobs','/driver/won-work','/driver/availability','/driver/load-alerts','/driver/nearby','/driver/finance','/driver/documents','/driver/messages','/driver/event-log','/driver/freight-vision','/driver/settings','/driver/drivers-vehicles']) {
-      expect(visible.has(href), `owner_driver lost route ${href}`).toBe(true);
+  it('keeps Owner Driver commercial work visible and moves vehicle/tracking detail into My Fleet', () => {
+    const visible = new Set(hrefs(composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true)));
+    expectVisible(visible, [
+      '/driver',
+      '/driver/action-centre',
+      '/driver/directory',
+      '/driver/availability/live',
+      '/driver/fleet',
+      '/driver/returns',
+      '/driver/loads',
+      '/driver/quotes',
+      '/driver/jobs',
+      '/driver/history',
+      '/driver/settings',
+      '/driver/availability',
+      '/driver/load-alerts',
+      '/driver/nearby',
+      '/driver/documents',
+      '/driver/finance',
+      '/driver/messages',
+      '/driver/event-log',
+    ]);
+
+    const fleet = read('app/driver/_components/DriverFleetIntegratedNav.tsx');
+    for (const href of ['/driver/vehicles', '/driver/drivers-vehicles', '/driver/freight-vision']) {
+      expect(fleet).toContain(`href: '${href}'`);
     }
-    expect(presented.some((group) => group.id === 'owner-driver-more')).toBe(true);
-    const shell = readFileSync(join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
+    const quotes = read('app/driver/quotes/page.tsx');
+    expect(quotes).toContain("stage === 'archived' || stage === 'accepted'");
     expect(shell).toContain('onClick={() => router.push(notificationsHref)}');
-    expect(shell).toContain("], 'owner-driver-more', 'More', [");
   });
 
-  it('preserves every canonical Driver route', () => {
-    assertCanonicalPreserved('driver', composeDriverPrimaryNav(getVisibleWorkspaceNav('driver'), false));
+  it('keeps employed Driver execution-only and owns profile/security through Settings/header', () => {
+    const visible = new Set(hrefs(composeDriverPrimaryNav(getVisibleWorkspaceNav('driver'), false)));
+    expectVisible(visible, [
+      '/driver',
+      '/driver/action-centre',
+      '/driver/jobs',
+      '/driver/history',
+      '/driver/availability',
+      '/driver/vehicles',
+      '/driver/documents',
+      '/driver/settings',
+      '/driver/messages',
+      '/driver/event-log',
+    ]);
+    for (const commercial of ['/driver/loads', '/driver/quotes', '/driver/fleet', '/driver/returns']) {
+      expect(visible.has(commercial), commercial).toBe(false);
+    }
+    expect(settings).toContain("legal: '/driver/account/legal-agreements'");
+    expect(shell).toContain('onClick={() => router.push(notificationsHref)}');
   });
 
-  it('uses one shared tab/navigation geometry across Driver secondary pages', () => {
-    const integratedNav = readFileSync(join(process.cwd(), 'app/driver/_components/DriverIntegratedNav.tsx'), 'utf8');
-    const sharedTabs = readFileSync(join(process.cwd(), 'app/components/workspace/WorkspaceUI.tsx'), 'utf8');
-    const driverLayout = readFileSync(join(process.cwd(), 'app/driver/layout.tsx'), 'utf8');
+  it('does not expose a wrong fallback-role navbar before auth role resolution', () => {
+    expect(shell).toContain('isLoading: authLoading');
+    expect(shell).toContain('const workspaceRoleReady = Boolean(fixtureCompanyName || (!authLoading && user));');
+    expect(shell).toContain('if (!workspaceRoleReady) return []');
+    expect(shell).toContain('const accessibleBase = filterWorkspaceNavByAccess(base, role, user);');
+    expect(shell).toContain('mergeCanonicalNavFallback(preferred, accessibleBase)');
+    expect(shell).toContain('data-role-ready={workspaceRoleReady');
+    expect(shell).toContain('{workspaceRoleReady && nav.map');
+  });
+
+  it('uses one shared tab geometry for Driver secondary workspace hubs', () => {
+    const integratedNav = read('app/driver/_components/DriverIntegratedNav.tsx');
+    const sharedTabs = read('app/components/workspace/WorkspaceUI.tsx');
     expect(integratedNav).toContain('<WorkspaceRouteTabs ariaLabel={label} items={items} />');
     expect(sharedTabs).toContain('.sort((a, b) => b.href.length - a.href.length)');
-    expect(driverLayout).not.toContain("import './driver-integrated-nav.css'");
-  });
-
-  it('does not hide operational header actions at tablet/mobile breakpoints', () => {
-    const shell = readFileSync(join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
-    const css = readFileSync(join(process.cwd(), 'app/components/workspace/top-workspace-shell.css'), 'utf8');
-    expect(shell).toContain('className="top-workspace-action top-workspace-action--primary"');
-    expect(css).not.toContain('.top-workspace-action--signout {\n    display: none;');
-    expect(css).not.toContain('.top-workspace-action:not(.top-workspace-action--primary):not(.top-workspace-action--context)');
-    expect(css).toContain('overflow-x: auto;');
   });
 });

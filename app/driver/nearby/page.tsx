@@ -6,11 +6,12 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
-import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import DriverNearbyMap from '../_components/DriverNearbyMap';
 import { useAuth } from '../../components/AuthContext';
-import { matchesAvailabilityFilters } from '../../../lib/availability/canonicalAvailability';
+import { AVAILABILITY_BODY_TYPE_OPTIONS, matchesAvailabilityFilters } from '../../../lib/availability/canonicalAvailability';
 import { usePrivateNetworkGroups } from '../../components/workspace/usePrivateNetworkGroups';
+import { marketplaceVehicleSizeOptions } from '../../../lib/vehicleSizeRange';
 
 type NearbyPosition = {
   company_id: string | null;
@@ -60,6 +61,7 @@ export default function DriverNearbyPage() {
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
   const [privateGroupId, setPrivateGroupId] = useState('');
   const [postcode, setPostcode] = useState('');
+  const [postcodeArea, setPostcodeArea] = useState('');
   const [radius, setRadius] = useState('100');
   const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
@@ -108,8 +110,37 @@ export default function DriverNearbyPage() {
 
   useEffect(() => { void loadNearby(); }, [loadNearby]);
 
-  const vehicleOptions = useMemo(() => [...new Set(positions.map((position) => position.vehicle_type).filter((value): value is string => Boolean(value)))].sort(), [positions]);
-  const bodyOptions = useMemo(() => [...new Set(positions.map((position) => position.body_type).filter((value): value is string => Boolean(value)))].sort(), [positions]);
+  useEffect(() => {
+    const raw = postcode.trim().toUpperCase();
+    if (raw.length < 2) {
+      setPostcodeArea('');
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      const compact = raw.replace(/\s+/g, '');
+      const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(compact);
+      const outcode = /^[A-Z]{1,2}\d[A-Z\d]?$/.test(compact);
+      if (!fullPostcode && !outcode) {
+        setPostcodeArea('');
+        return;
+      }
+      try {
+        const response = await fetch(`/api/location/postcode-area?q=${encodeURIComponent(compact)}`, { cache: 'no-store' });
+        if (!response.ok) {
+          setPostcodeArea('');
+          return;
+        }
+        const payload = await response.json() as { area?: string | null };
+        setPostcodeArea(payload.area ?? '');
+      } catch {
+        setPostcodeArea('');
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [postcode]);
+
+  const vehicleOptions = useMemo(() => marketplaceVehicleSizeOptions(), []);
+  const bodyOptions = useMemo(() => AVAILABILITY_BODY_TYPE_OPTIONS, []);
   const visible = useMemo(() => positions.filter((position) => {
     if (!matchesAvailabilityFilters(position, {
       search,
@@ -144,38 +175,32 @@ export default function DriverNearbyPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-live-availability-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Who's Nearby</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setPostcode(''); setRadius('100'); setAudience('all'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); }}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
-          </div>
-        </div>
+        <PageHeader eyebrow="Driver availability" title="Who's Nearby" description="Find exchange-visible vehicle capacity by location and vehicle." />
         <DriverIntegratedNav label="Availability tools" items={[{ href: '/driver/availability/live', label: 'Live' }, { href: '/driver/availability', label: 'Future & Schedule' }, { href: '/driver/nearby', label: "Who's Nearby" }]} />
 
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Panel</div>
             <div className="filter"><span className="label">Scope</span><select className="select" defaultValue="UK only"><option>UK only</option></select></div>
-            <div className="filter"><span className="label">Near postcode / outcode</span><input className="input" value={postcode} onChange={(event) => setPostcode(event.target.value)} placeholder="e.g. BB1" /></div>
+            <div className="filter"><span className="label">Location</span><input className="input" value={postcode} onChange={(event) => setPostcode(event.target.value)} placeholder="Enter Location" />{postcodeArea && <span className="driver-live-postcode-area">{postcodeArea}</span>}</div>
             <div className="filter"><span className="label">Radius</span><select className="select" value={radius} onChange={(event) => setRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}</select></div>
             <div className="filter"><span className="label">Member / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, member ID or vehicle" /></div>
-            <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>
-            <div className="filter"><span className="label">Body type</span><select className="select" value={bodyType} onChange={(event) => setBodyType(event.target.value)}><option value="all">Any body</option>{bodyOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>
+            <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+            <div className="filter"><span className="label">Body type</span><select className="select" value={bodyType} onChange={(event) => setBodyType(event.target.value)}><option value="all">Any body</option>{bodyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             <div className="filter"><span className="label">Min payload (kg)</span><input className="input" type="number" min="0" value={minPayload} onChange={(event) => setMinPayload(event.target.value)} placeholder="Any" /></div>
             <div className="filter"><span className="label">Min pallets</span><input className="input" type="number" min="0" value={minPallets} onChange={(event) => setMinPallets(event.target.value)} placeholder="Any" /></div>
             <div className="filter"><span className="label">Equipment</span><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail lift required</label></div>
             <div className="filter"><span className="label">Private Group</span><select className="select" value={privateGroupId} onChange={(event) => setPrivateGroupId(event.target.value)}><option value="">All Exchange members</option>{privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}</select></div>
+            <div className="filter"><button type="button" className="btn primary" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button> <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setPostcode(''); setPostcodeArea(''); setRadius('100'); setAudience('all'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); }}>Clear</button></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Who's Nearby</h1><p>Find exchange-visible nearby vehicle capacity by location, member and vehicle</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="avail-topbar">
               <div className="avail-view-tabs"><button type="button" className={viewMode === 'map' ? 'active' : ''} onClick={() => setViewMode('map')}>Map View</button><button type="button" className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List View</button></div>
               <div className="avail-audience"><button type="button" className={audience === 'all' ? 'active' : ''} onClick={() => setAudience('all')}>All</button><button type="button" className={audience === 'drivers-subcontractors' ? 'active' : ''} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button><button type="button" className={audience === 'other-drivers' ? 'active' : ''} onClick={() => setAudience('other-drivers')}>Other Drivers</button></div>
               <button type="button" className="text-action" onClick={openVisibleMap}>Open map in new window</button>
             </div>
-            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
+            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><span className="muted small">{visible.length} visible position{visible.length === 1 ? '' : 's'}</span></div>
             <div className="availgrid" style={viewMode === 'list' ? { gridTemplateColumns: '1fr' } : undefined}>
               <div className="map availmap" style={viewMode === 'list' ? { display: 'none' } : undefined}>
                 {viewMode === 'map' && (
@@ -193,7 +218,6 @@ export default function DriverNearbyPage() {
                     }))}
                   />
                 )}
-                <div className="mapnote">Privacy-rounded exchange availability. Exact driver coordinates remain protected.</div>
               </div>
               <div style={{ overflow: 'auto' }}>
                 <div className="tablewrap avail-tablewrap">

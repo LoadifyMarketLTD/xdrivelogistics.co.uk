@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { normaliseAvailabilityFilterValue } from '../../../../lib/availability/canonicalAvailability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const AVAILABILITY_LOCATION_MAX_AGE_MS = 5 * 60_000;
 
 const ACTIVE_JOB_STATUSES = new Set([
   'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
@@ -121,10 +124,13 @@ export async function GET(request: NextRequest) {
     privateGroupCompanyIds = new Set((groupMembers ?? []).map((row) => String(row.company_id)).filter(Boolean));
   }
 
+  const now = new Date();
+  const freshnessCutoff = new Date(now.getTime() - AVAILABILITY_LOCATION_MAX_AGE_MS).toISOString();
   const { data, error } = await supabaseAdmin
     .from('driver_availability_presence')
     .select('driver_id, company_id, visibility, exact_lat, exact_lng, exchange_lat, exchange_lng, available_until, recorded_at')
-    .gt('available_until', new Date().toISOString())
+    .gt('available_until', now.toISOString())
+    .gte('recorded_at', freshnessCutoff)
     .in('visibility', ['fleet', 'exchange'])
     .order('recorded_at', { ascending: false })
     .limit(500);
@@ -244,8 +250,8 @@ export async function GET(request: NextRequest) {
     if (requestedScope === 'fleet' || requestedScope === 'exchange') {
       if (position.scope !== requestedScope) return false;
     }
-    if (requestedVehicleType && String(position.vehicle_type ?? '').toLowerCase() !== requestedVehicleType) return false;
-    if (requestedBodyType && String(position.body_type ?? '').toLowerCase() !== requestedBodyType) return false;
+    if (requestedVehicleType && normaliseAvailabilityFilterValue(position.vehicle_type) !== normaliseAvailabilityFilterValue(requestedVehicleType)) return false;
+    if (requestedBodyType && normaliseAvailabilityFilterValue(position.body_type) !== normaliseAvailabilityFilterValue(requestedBodyType)) return false;
     if (Number.isFinite(minPayloadKg) && minPayloadKg > 0 && Number(position.payload_kg ?? 0) < minPayloadKg) return false;
     if (Number.isFinite(minPallets) && minPallets > 0 && Number(position.pallets_capacity ?? 0) < minPallets) return false;
     if (tailLiftOnly && position.has_tail_lift !== true) return false;

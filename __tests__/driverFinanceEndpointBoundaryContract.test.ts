@@ -24,13 +24,18 @@ describe('Driver finance endpoint role boundary', () => {
       'app/api/driver/finance/invoices/[id]/payment-history/route.ts',
       'app/api/driver/finance/invoices/[id]/draft/route.ts',
       'app/api/driver/finance/invoices/[id]/email-defaults/route.ts',
-      'app/api/driver/finance/invoices/[id]/submit/route.ts',
     ];
     for (const route of routes) {
       const source = read(route);
       expect(source).toContain('requireDriverFinanceAccess(request)');
       expect(source).toContain('if (!access.ok) return access.response');
     }
+
+    const submitRoute = read('app/api/driver/finance/invoices/[id]/submit/route.ts');
+    const delivery = read('lib/server/invoiceDelivery.ts');
+    expect(submitRoute).toContain('submitInvoice(request, context)');
+    expect(delivery).toContain('requireDriverFinanceAccess(request)');
+    expect(delivery).toContain('if (!access.ok) return access.response');
   });
 
   it('protects invoice preview with the same active Driver finance authority boundary', () => {

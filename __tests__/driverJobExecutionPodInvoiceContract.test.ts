@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const page = fs.readFileSync(path.join(root, 'app/components/workspace/DriverJobExecutionPage.tsx'), 'utf8');
 const helper = fs.readFileSync(path.join(root, 'lib/jobs/podCompletion.ts'), 'utf8');
+const deliveredGuard = fs.readFileSync(path.join(root, 'supabase/migrations/20261017190500_align_delivered_before_pod_guard.sql'), 'utf8');
 
 describe('Driver Job Execution mandatory POD to invoice contract', () => {
   it('requires complete POD evidence before job completion', () => {
@@ -21,6 +22,13 @@ describe('Driver Job Execution mandatory POD to invoice contract', () => {
     expect(helper).toContain('evidenceCount > 0');
     expect(helper).toContain('hasStoredSignature(record.delivery_signature_data)');
     expect(helper).toContain('recipientName.length > 0');
+  });
+
+  it('allows Delivered after persistent evidence and defers recipient signature to POD', () => {
+    expect(deliveredGuard).toContain("if lower(coalesce(new.status::text, '')) = 'delivered'");
+    expect(deliveredGuard).toContain('At least one delivery photo or POD document is required before delivery.');
+    expect(deliveredGuard).not.toContain('Recipient signature is required before delivery.');
+    expect(deliveredGuard).not.toContain('Recipient name is required before delivery.');
   });
 
   it('unlocks invoice creation only after complete POD', () => {

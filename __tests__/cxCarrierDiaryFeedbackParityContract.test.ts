@@ -17,7 +17,7 @@ describe('CX carrier Diary feedback parity contract', () => {
   });
 
   it('derives awaiting feedback only from completed jobs with no real review', () => {
-    expect(diary).toContain("matchesCanonicalDiaryBucket(job, 'awaiting_feedback'");
+    expect(diary).toContain('matchesCanonicalDiaryBucket(job, tab');
     expect(diary).toContain('feedbackEligible: isCompanyFeedbackEligible(job, companyId)');
     expect(canonicalDiary).toContain("stage === 'completed' && feedbackEligible && !hasFeedback");
     expect(diary).not.toContain('feedbackCount: 0');

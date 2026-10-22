@@ -8,6 +8,11 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 
 const activeContext = (workspaceRole: WorkspaceRole) => ({
   workspaceRole,
+  membershipRole: workspaceRole === 'dispatcher'
+    ? 'dispatcher'
+    : ['company_owner', 'company_admin', 'carrier_admin'].includes(workspaceRole)
+      ? 'owner'
+      : null,
   accountStatus: 'active',
   companyStatus: 'active',
   driverId: workspaceRole === 'driver' || workspaceRole === 'owner_driver' ? 'driver-fixture' : null,
@@ -28,35 +33,74 @@ describe('workspace More audit contract', () => {
     expect(css).toContain('right: 8px !important;');
   });
 
-  it('removes compatibility-only Broker and Customer destinations from More', () => {
+  it('keeps More curated instead of automatically dumping every leftover route into it', () => {
+    const generic = shell.slice(shell.indexOf('export function composeRolePrimaryNav'), shell.indexOf('export function composeCustomerPrimaryNav'));
+    expect(generic).toContain('const secondaryEntries = moreHrefs');
+    expect(generic).not.toContain('for (const [href, item] of items)');
+    const carrier = shell.slice(shell.indexOf('export function composeCarrierPrimaryNav'), shell.indexOf('export function composeFleetPrimaryNav'));
+    const fleet = shell.slice(shell.indexOf('export function composeFleetPrimaryNav'), shell.indexOf('type PrimaryNavEntry'));
+    expect(carrier).not.toContain('const represented = new Set');
+    expect(fleet).not.toContain('const represented = new Set');
+  });
+
+  it('keeps compatibility-only Broker and Customer routes out of the curated navigation', () => {
     const broker = shell.slice(shell.indexOf('function composeBrokerPrototypeNav'), shell.indexOf('function filterWorkspaceNavByAccess'));
     const customer = shell.slice(shell.indexOf('function composeCustomerPrototypeNav'), shell.indexOf('export default function TopWorkspaceShell'));
     expect(broker).not.toContain('/broker/compare-quotes');
     expect(broker).not.toContain('/broker/awards');
     expect(customer).not.toContain('/customer/awards');
-    expect(broker).toContain("label: 'Directory', href: '/broker/carrier-network'");
+    expect(broker).toContain("label: 'Directory', href: '/broker/carrier-network/directory'");
     expect(customer).toContain("label: 'Directory', href: '/customer/network'");
   });
 
-  it('does not duplicate the consolidated Drivers & Vehicles hub inside Carrier and Dispatcher More', () => {
-    const carrier = shell.slice(shell.indexOf('function composeCarrierPrimaryNav'), shell.indexOf('function composeFleetPrimaryNav'));
-    const dispatcher = shell.slice(shell.indexOf('function composeDispatcherPrimaryNav'), shell.indexOf('function composeFinancePrimaryNav'));
-    expect(carrier).not.toContain("'/admin/fleet/drivers'");
-    expect(carrier).not.toContain("'/admin/fleet/vehicles'");
-    expect(carrier).not.toContain("'/admin/fleet/positions'");
-    expect(dispatcher).not.toContain("'/admin/fleet/drivers'");
-    expect(dispatcher).not.toContain("'/admin/fleet/vehicles'");
+  it('moves frequent operational destinations out of More and into primary navigation', () => {
+    const customer = shell.slice(shell.indexOf('export function composeCustomerPrimaryNav'), shell.indexOf('export function composeBrokerPrimaryNav'));
+    const broker = shell.slice(shell.indexOf('export function composeBrokerPrimaryNav'), shell.indexOf('export function composeDriverPrimaryNav'));
+    const driver = shell.slice(shell.indexOf('export function composeDriverPrimaryNav'), shell.indexOf('export function composeDispatcherPrimaryNav'));
+    const dispatcher = shell.slice(shell.indexOf('export function composeDispatcherPrimaryNav'), shell.indexOf('function composeFinancePrimaryNav'));
+
+    for (const needle of [
+      "['customer-action-centre-primary', 'Action Centre', '/customer/action-centre']",
+      "['customer-bookings-primary', 'Bookings', '/customer/bookings']",
+      "['customer-settings-primary', 'Settings', '/customer/settings']",
+    ]) expect(customer).toContain(needle);
+
+    for (const needle of [
+      "['broker-action-centre-primary', 'Action Centre', '/broker/action-centre']",
+      "['broker-jobs-primary', 'Jobs', '/broker/jobs']",
+      "['broker-pod-primary', 'POD Review', '/broker/pod-review']",
+      "['broker-finance-primary', 'Finance', '/broker/finance']",
+      "['broker-settings-primary', 'Settings', '/broker/settings']",
+    ]) expect(broker).toContain(needle);
+
+    for (const needle of [
+      "['driver-action-centre-primary', 'Action Centre', '/driver/action-centre']",
+      "['driver-jobs-primary', 'My Jobs', '/driver/jobs']",
+      "['driver-settings-primary', 'Settings', '/driver/settings']",
+      "['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']",
+      "['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs']",
+      "['owner-driver-settings-primary', 'Settings', '/driver/settings']",
+    ]) expect(driver).toContain(needle);
+
+    for (const needle of [
+      "['dispatcher-unallocated-primary', 'Unallocated', '/admin/fleet/assignments']",
+      "['dispatcher-active-jobs-primary', 'Active Jobs', '/admin/fleet/active-jobs']",
+      "['dispatcher-collections-primary', 'Collections', '/admin/collections']",
+      "['dispatcher-deliveries-primary', 'Deliveries', '/admin/deliveries']",
+      "['dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions']",
+      "['dispatcher-settings-primary', 'Settings', '/admin/settings']",
+    ]) expect(dispatcher).toContain(needle);
   });
 
   it('keeps every retained More destination permitted for its operational role', () => {
     const routes: Array<[WorkspaceRole, string[]]> = [
-      ['company_admin', ['/admin/action-centre', '/admin/won-work', '/admin/jobs', '/admin/fleet/assignments', '/admin/pod', '/admin/quotes', '/admin/invoices', '/admin/documents', '/admin/messages', '/admin/event-log', '/admin/team', '/admin/fleet/managers', '/admin/dispatchers']],
-      ['broker', ['/broker/customers', '/broker/margins', '/broker/disputes', '/broker/messages', '/broker/event-log', '/broker/carrier-network', '/broker/customer-invoices', '/broker/carrier-costs', '/broker/team']],
-      ['customer', ['/customer/deliveries', '/customer/documents', '/customer/updates', '/customer/network', '/customer/messages', '/customer/disputes', '/customer/event-log', '/customer/team']],
-      ['driver', ['/driver/notifications', '/driver/messages', '/driver/change-password', '/driver/event-log', '/driver/account']],
-      ['owner_driver', ['/driver/won-work', '/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/documents', '/driver/finance', '/driver/messages', '/driver/event-log', '/driver/freight-vision', '/driver/drivers-vehicles', '/driver/settings']],
-      ['fleet_manager', ['/admin/fleet/assignments', '/admin/fleet/availability', '/admin/fleet/future-availability', '/admin/fleet/positions', '/admin/fleet/maintenance', '/admin/incidents', '/admin/messages', '/admin/event-log', '/admin/invoices', '/admin/fleet/compliance']],
-      ['dispatcher', ['/admin/incidents', '/admin/pod', '/admin/freight-vision', '/admin/live-availability', '/admin/fleet/resources', '/admin/messages', '/admin/event-log']],
+      ['company_admin', ['/admin/action-centre', '/admin/bulk-import', '/admin/jobs', '/admin/fleet/assignments', '/admin/pod', '/admin/invoices', '/admin/documents', '/admin/messages', '/admin/event-log']],
+      ['broker', ['/broker/bulk-import', '/broker/customers', '/broker/margins', '/broker/messages', '/broker/event-log', '/broker/disputes', '/broker/customer-invoices', '/broker/carrier-costs', '/broker/reports', '/broker/team']],
+      ['customer', ['/customer/bulk-import', '/customer/deliveries', '/customer/documents', '/customer/updates', '/customer/messages', '/customer/disputes', '/customer/event-log', '/customer/invoices', '/customer/team']],
+      ['driver', ['/driver/messages', '/driver/event-log']],
+      ['owner_driver', ['/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/documents', '/driver/finance', '/driver/messages', '/driver/event-log']],
+      ['fleet_manager', ['/admin/action-centre', '/admin/fleet/assignments', '/admin/fleet/maintenance', '/admin/incidents', '/admin/messages', '/admin/event-log', '/admin/invoices', '/admin/fleet/compliance']],
+      ['dispatcher', ['/admin/action-centre', '/admin/bulk-import', '/admin/incidents', '/admin/pod', '/admin/messages', '/admin/event-log']],
     ];
 
     for (const [role, paths] of routes) {
@@ -66,31 +110,18 @@ describe('workspace More audit contract', () => {
     }
   });
 
-  it('keeps Action Centre visible in both Driver and Owner Driver primary navigation', () => {
-    const driver = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
-    expect(driver).toContain("['driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
-    expect(driver).toContain("['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
-    expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('driver'))).toBe(true);
-    expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('owner_driver'))).toBe(true);
-  });
-  it('keeps Owner Driver More focused on secondary work, business, operations and administration', () => {
-    const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
-    for (const href of ['/driver/won-work', '/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/documents', '/driver/finance', '/driver/messages', '/driver/event-log', '/driver/freight-vision', '/driver/drivers-vehicles', '/driver/settings']) {
-      expect(owner).toContain(`'${href}'`);
-    }
-    for (const duplicate of ['/driver/notifications', '/driver/change-password', '/driver/profile', '/driver/settings?section=company', '/driver/settings?section=overview', '/settings/billing']) {
-      expect(owner).not.toContain(`'${duplicate}'`);
-    }
-    expect(owner).toContain("], 'owner-driver-more', 'More', [");
-    expect(shell).toContain("'/driver/won-work': 'Work'");
-    expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
-    expect(shell).toContain("'/driver/finance': 'Business'");
-    expect(shell).toContain("'/driver/event-log': 'Operations'");
-    expect(shell).toContain("'/driver/settings': 'Administration'");
-  });
+  it('keeps Settings and Action Centre out of More whenever they are primary', () => {
+    const customer = shell.slice(shell.indexOf('export function composeCustomerPrimaryNav'), shell.indexOf('export function composeBrokerPrimaryNav'));
+    const broker = shell.slice(shell.indexOf('export function composeBrokerPrimaryNav'), shell.indexOf('export function composeDriverPrimaryNav'));
+    const driver = shell.slice(shell.indexOf('export function composeDriverPrimaryNav'), shell.indexOf('export function composeDispatcherPrimaryNav'));
+    const dispatcher = shell.slice(shell.indexOf('export function composeDispatcherPrimaryNav'), shell.indexOf('function composeFinancePrimaryNav'));
 
-  it('allows employed Driver Settings because the primary navbar exposes it', () => {
-    expect(isCapabilityAllowedForPath('/driver/settings', null, activeContext('driver'))).toBe(true);
+    expect(customer.slice(customer.indexOf("], 'customer-more', 'More', ["))).not.toContain("'/customer/settings'");
+    expect(customer.slice(customer.indexOf("], 'customer-more', 'More', ["))).not.toContain("'/customer/action-centre'");
+    expect(broker.slice(broker.indexOf("], 'broker-more', 'More', ["))).not.toContain("'/broker/settings'");
+    expect(broker.slice(broker.indexOf("], 'broker-more', 'More', ["))).not.toContain("'/broker/action-centre'");
+    expect(driver.slice(driver.indexOf("], 'driver-more', 'More', ["), driver.indexOf("return composeRolePrimaryNav(groups, [", driver.indexOf("], 'driver-more', 'More', [")))).not.toContain("'/driver/settings'");
+    expect(dispatcher.slice(dispatcher.indexOf("], 'dispatcher-more', 'More', ["))).not.toContain("'/admin/settings'");
   });
 
   it('retires the obsolete standalone Driver More cards in favour of the canonical shell', () => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { companyRecoveryAction, documentRecoveryHref, isSafeRecoveryHref, resolveReadinessContext } from '../lib/workspaceReadiness';
+import { companyRecoveryAction, documentRecoveryHref, driverReadinessBlocker, isSafeRecoveryHref, resolveReadinessContext } from '../lib/workspaceReadiness';
 import { XDRIVE_LOGISTICS_COMPANY_ID } from '../lib/activeWorkspace';
 
 const state = vi.hoisted(() => ({
@@ -210,5 +210,13 @@ describe('recovery destination validation', () => {
   });
   it('keeps a verified owner-driver identity despite the legacy profile role driver', () => {
     expect(resolveReadinessContext({ companyId: COMPANY, membershipRole: 'owner', profileRole: 'driver', driverType: 'owner_driver' }).role).toBe('owner_driver');
+    expect(resolveReadinessContext({ companyId: COMPANY, membershipRole: 'driver', profileRole: 'driver', driverType: 'owner_driver' }).role).toBe('owner_driver');
+  });
+  it('gives owner-drivers a self-service vehicle recovery action instead of company-admin copy', () => {
+    const context = resolveReadinessContext({ companyId: COMPANY, membershipRole: 'member', profileRole: 'driver', driverType: 'owner_driver' });
+    const blocker = driverReadinessBlocker('canonical_vehicle_missing', context);
+    expect(blocker.title).toBe('Vehicle setup requires attention');
+    expect(blocker.actionLabel).toBe('Add or manage vehicle');
+    expect(blocker.message).not.toContain('company administrator');
   });
 });

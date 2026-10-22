@@ -10,12 +10,14 @@ import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
+import CxDiaryCard from './CxDiaryCard';
+import { operationalLocationLabel } from './locationPresentation';
+import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
 import {
   ActionButton,
   AlertBanner,
   EmptyState,
   PageFrame,
-  PageHeader,
   StatusBadge,
   WorkspaceDialog,
 } from './WorkspaceUI';
@@ -112,6 +114,23 @@ const normalise = (value: string | null | undefined) => String(value ?? '').trim
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
+const cxDiaryTimeParts = (value: string | null | undefined, slot: string | null | undefined) => {
+  const cleanSlot = String(slot ?? '').trim();
+  if (cleanSlot.toUpperCase() === 'ASAP') return { primary: 'ASAP', meta: '' };
+  if (!value) return { primary: cleanSlot || 'Not set', meta: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { primary: cleanSlot || 'Not set', meta: '' };
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  const primary = cleanSlot ? cleanSlot.replace(/\s*[–-]\s*/g, ' – ') : date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return { primary, meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}` };
+};
+const cxDiaryStamp = (value: string | null | undefined) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return `${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}`;
+};
 const timeWindowMatches = (value: string | null | undefined, window: SearchState['pickupWindow']) => {
   if (window === 'any') return true;
   if (!value) return false;
@@ -134,19 +153,6 @@ const moneyLabel = (value: number | null | undefined, currency = 'GBP') => {
   try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
   catch { return `£${value.toFixed(2)}`; }
 };
-const MILESTONE_LABELS: Record<string, string> = {
-  on_my_way_to_pickup: 'On my way to pickup',
-  on_site_pickup: 'On site pickup',
-  loaded: 'Loaded',
-  on_my_way_to_delivery: 'On my way to delivery',
-  on_site_delivery: 'On site delivery',
-  delivered: 'Delivered',
-};
-const diaryMilestones = (events: OperationsTrackingEvent[]) => events
-  .filter((event) => Boolean(MILESTONE_LABELS[event.eventType]))
-  .filter((event, index, list) => list.findIndex((candidate) => candidate.eventType === event.eventType) === index)
-  .slice(0, 6);
-
 // Client-side account-state filter only. Full driver + canonical vehicle
 // operational eligibility is revalidated by the authorised allocation endpoint.
 const isActiveDriverAccount = (driver: DriverRow) => normalise(driver.status) === 'active';
@@ -170,12 +176,18 @@ function hasRecentFeedback(reviews: ReviewRow[]) {
   return reviews.length > 0;
 }
 
-function isAwaitingFeedback(job: JobRow, reviews: ReviewRow[], companyId: string | null) {
-  return matchesCanonicalDiaryBucket(job, 'awaiting_feedback', {
-    hasFeedback: hasRecentFeedback(reviews),
-    feedbackEligible: isCompanyFeedbackEligible(job, companyId),
-  });
-}
+const MILESTONE_LABELS: Record<string, string> = {
+  on_my_way_to_pickup: 'On my way to pickup',
+  on_site_pickup: 'On site pickup',
+  loaded: 'Loaded',
+  on_my_way_to_delivery: 'On my way to delivery',
+  on_site_delivery: 'On site delivery',
+  delivered: 'Delivered',
+};
+const diaryMilestones = (events: OperationsTrackingEvent[]) => events
+  .filter((event) => Boolean(MILESTONE_LABELS[event.eventType]))
+  .filter((event, index, list) => list.findIndex((candidate) => candidate.eventType === event.eventType) === index)
+  .slice(0, 6);
 
 function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = [], companyId: string | null = null) {
   return matchesCanonicalDiaryBucket(job, tab, {
@@ -195,17 +207,17 @@ function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 
   return 'grey';
 }
 
-export default function OperationsDiaryPage() {
+export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { companyId: string; jobs: JobRow[]; drivers?: DriverRow[]; reviewsByJob?: Record<string, ReviewRow[]> } } = {}) {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const companyId = resolveActiveCompanyId(user);
+  const companyId = fixtureData?.companyId ?? resolveActiveCompanyId(user);
   const intelligence = useOperationsIntelligence(companyId);
   const deepJob = searchParams.get('job');
-  const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [drivers, setDrivers] = useState<DriverRow[]>([]);
-  const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
-  const [loading, setLoading] = useState(true);
+  const [jobs, setJobs] = useState<JobRow[]>(() => fixtureData?.jobs ?? []);
+  const [drivers, setDrivers] = useState<DriverRow[]>(() => fixtureData?.drivers ?? []);
+  const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>(() => fixtureData?.reviewsByJob ?? {});
+  const [loading, setLoading] = useState(() => !fixtureData);
   const hasLoadedRef = useRef(false);
   const loadInFlightRef = useRef(false);
   const [error, setError] = useState('');
@@ -248,6 +260,10 @@ export default function OperationsDiaryPage() {
   const diaryTabs = useMemo(() => getCanonicalDiaryTabs(diaryRole), [diaryRole]);
 
   const load = useCallback(async () => {
+    if (fixtureData) {
+      setJobs(fixtureData.jobs); setDrivers(fixtureData.drivers ?? []); setReviewsByJob(fixtureData.reviewsByJob ?? {}); setLoading(false); hasLoadedRef.current = true;
+      return;
+    }
     if (loadInFlightRef.current) return;
     loadInFlightRef.current = true;
     const finishLoad = () => {
@@ -296,8 +312,12 @@ export default function OperationsDiaryPage() {
       setError('Diary jobs could not be loaded.');
       setJobs([]);
     } else {
-      const scoped = ((jobsResult.data ?? []) as JobRow[]).filter((job) => isOperatingCompanyJob(job, companyId));
+      const loadedJobs = (jobsResult.data ?? []) as JobRow[];
+      const scoped = loadedJobs.filter((job) => isOperatingCompanyJob(job, companyId));
       setJobs(scoped);
+      if (loadedJobs.length >= 300) {
+        setNotice((current) => current || 'Diary reached the 300-record query limit. Older bookings may not be included in the current results.');
+      }
     }
     if (driversResult.error) {
       setError((current) => current || 'Driver roster could not be loaded.');
@@ -332,7 +352,7 @@ export default function OperationsDiaryPage() {
       setGroupNameDrafts(Object.fromEntries(((groupsResult.data ?? []) as DiaryGroupRow[]).map((group) => [group.id, group.name])));
     }
     finishLoad();
-  }, [companyId, user?.id]);
+  }, [companyId, fixtureData, user?.id]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -349,6 +369,10 @@ export default function OperationsDiaryPage() {
     }
   }, []);
   useEffect(() => {
+    if (fixtureData && !deepJob) {
+      setExpandedIds(new Set());
+      return;
+    }
     if (!deepJob) return;
     setExpandedIds((current) => {
       const next = new Set(current);
@@ -356,7 +380,7 @@ export default function OperationsDiaryPage() {
       return next;
     });
     setSelectedJobId(deepJob);
-  }, [deepJob]);
+  }, [deepJob, fixtureData]);
 
   const activeAccountDrivers = useMemo(() => drivers.filter(isActiveDriverAccount), [drivers]);
   const driverById = useMemo(() => new Map(drivers.map((driver) => [driver.id, driver])), [drivers]);
@@ -421,7 +445,6 @@ export default function OperationsDiaryPage() {
       });
   }, [appliedSearch, companyId, driverById, groupIdsByJob, intelligence.jobDetailById, jobs, reviewsByJob, selectedGroupFilter, tab]);
 
-  const counts = useMemo(() => Object.fromEntries(diaryTabs.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [], companyId)).length])) as Partial<Record<DiaryTab, number>>, [companyId, diaryTabs, jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -692,7 +715,24 @@ export default function OperationsDiaryPage() {
     setAppliedSearch(search);
     if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
   };
-  const clearSearch = () => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); };
+  const clearSearch = () => {
+    setSearch(EMPTY_SEARCH);
+    setAppliedSearch(EMPTY_SEARCH);
+    setSelectedGroupFilter('');
+    setSelectedSavedViewId('');
+    setPage(1);
+  };
+  const datePresetToday = new Date();
+  const datePresetTomorrow = new Date(datePresetToday.getTime() + 86400000);
+  const localDateKey = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const todayKey = localDateKey(datePresetToday);
+  const tomorrowKey = localDateKey(datePresetTomorrow);
+  const datePreset = !search.dateFrom && !search.dateTo ? 'anytime' : search.dateFrom === todayKey && search.dateTo === todayKey ? 'today' : search.dateFrom === tomorrowKey && search.dateTo === tomorrowKey ? 'tomorrow' : 'custom';
+  const setDatePreset = (value: string) => {
+    if (value === 'anytime') setSearch((current) => ({ ...current, dateFrom: '', dateTo: '' }));
+    else if (value === 'today') setSearch((current) => ({ ...current, dateFrom: todayKey, dateTo: todayKey }));
+    else if (value === 'tomorrow') setSearch((current) => ({ ...current, dateFrom: tomorrowKey, dateTo: tomorrowKey }));
+  };
   const toggleDefaultSearch = (checked: boolean) => {
     setSaveAsDefault(checked);
     if (checked) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
@@ -701,68 +741,55 @@ export default function OperationsDiaryPage() {
 
   return (
     <PageFrame>
-      <PageHeader
-        eyebrow="Operations"
-        title="Diary"
-        description="Post-award bookings, allocation, evidence and authorised job records in one operating register."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/finance/reports')}>Payment Report</ActionButton>}
-      />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
-      <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Diary search filters">
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
+        <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
+          <div className="cx-diary-rail-nav">
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace/directory')}>Contacts</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/finance')}>Payment Report</ActionButton>
+          </div>
           <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
-            <label>SAVED VIEWS<select value={selectedSavedViewId} onChange={(event) => applySavedView(event.target.value)}><option value="">Select saved view</option>{savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>
-            <label>SAVE CURRENT VIEW<input value={savedViewName} onChange={(event) => setSavedViewName(event.target.value.slice(0, 80))} placeholder="e.g. Tomorrow unallocated" /></label>
-            <div className="workspace-filter-actions"><ActionButton tone="secondary" onClick={() => void saveNamedView()}>Save View</ActionButton><ActionButton tone="secondary" disabled={!selectedSavedViewId} onClick={() => void deleteSavedView()}>Delete</ActionButton></div>
-            <label>GROUPS<select value={selectedGroupFilter} onChange={(event) => setSelectedGroupFilter(event.target.value)}><option value="">All groups</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
-            {canManageDiaryGroups && <ActionButton tone="secondary" onClick={() => setGroupManagerOpen(true)}>Add / Edit Groups</ActionButton>}
-            <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>BOOKING SCOPE</legend><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="all" checked={search.scope === 'all'} onChange={() => setSearch((current) => ({ ...current, scope: 'all' }))} /> All</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="subcontracted" checked={search.scope === 'subcontracted'} onChange={() => setSearch((current) => ({ ...current, scope: 'subcontracted' }))} /> Jobs Sub-contracted</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="ours" checked={search.scope === 'ours'} onChange={() => setSearch((current) => ({ ...current, scope: 'ours' }))} /> Our Bookings</label></fieldset>
-            <label>FROM<input value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Pickup town / postcode" /></label>
-            <label>TO<input value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Delivery town / postcode" /></label>
-            <label>PICKUP TIME WITHIN<select value={search.pickupWindow} onChange={(event) => setSearch((current) => ({ ...current, pickupWindow: event.target.value as SearchState['pickupWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
-            <label>DELIVERY TIME WITHIN<select value={search.deliveryWindow} onChange={(event) => setSearch((current) => ({ ...current, deliveryWindow: event.target.value as SearchState['deliveryWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
-            <label>LOAD ID / REF<input value={search.reference} onChange={(event) => setSearch((current) => ({ ...current, reference: event.target.value }))} placeholder="Job, customer or booking ref" /></label>
-            <label>CUSTOMER NAME<input value={search.customer} onChange={(event) => setSearch((current) => ({ ...current, customer: event.target.value }))} placeholder="Customer name" /></label>
-            <label>MEMBER / DRIVER<input value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))} placeholder="Member, driver or ID" /></label>
-            <label>BOOKED BY<input value={search.bookedBy} onChange={(event) => setSearch((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name, email or user ID" /></label>
-            <label>DATE FROM<input type="date" value={search.dateFrom} onChange={(event) => setSearch((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
-            <label>DATE TO<input type="date" value={search.dateTo} onChange={(event) => setSearch((current) => ({ ...current, dateTo: event.target.value }))} /></label>
+            <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontSize: 11, fontWeight: 600, color: '#334155', marginBottom: 4 }}>Booking Scope</legend><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="all" checked={search.scope === 'all'} onChange={() => setSearch((current) => ({ ...current, scope: 'all' }))} /> All</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="subcontracted" checked={search.scope === 'subcontracted'} onChange={() => setSearch((current) => ({ ...current, scope: 'subcontracted' }))} /> Jobs Sub-contracted</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="ours" checked={search.scope === 'ours'} onChange={() => setSearch((current) => ({ ...current, scope: 'ours' }))} /> Our Bookings</label></fieldset>
+            <label>Date:<select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option>{datePreset === 'custom' ? <option value="custom">Custom date</option> : null}</select></label>
+            <label>Pickup Time Within:<select value={search.pickupWindow} onChange={(event) => setSearch((current) => ({ ...current, pickupWindow: event.target.value as SearchState['pickupWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
+            <label>Delivery Time Within:<select value={search.deliveryWindow} onChange={(event) => setSearch((current) => ({ ...current, deliveryWindow: event.target.value as SearchState['deliveryWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
+            <label>Load ID / Ref:<input value={search.reference} onChange={(event) => setSearch((current) => ({ ...current, reference: event.target.value }))} placeholder="Job, customer or booking ref" /></label>
+            <label>Member / Driver:<input value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))} placeholder="Member or driver" /></label>
+            <label>Booked by:<input value={search.bookedBy} onChange={(event) => setSearch((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name, email or user ID" /></label>
+            <label>Customer Name:<input value={search.customer} onChange={(event) => setSearch((current) => ({ ...current, customer: event.target.value }))} placeholder="Customer name" /></label>
+            <div className="cx-diary-groups-box"><div className="cx-diary-groups-box__title">Groups</div><div className="cx-diary-groups-box__body"><select value={selectedGroupFilter} onChange={(event) => setSelectedGroupFilter(event.target.value)}><option value="">All groups</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>{canManageDiaryGroups && <ActionButton tone="secondary" onClick={() => setGroupManagerOpen(true)}>Add / Edit Groups</ActionButton>}</div></div>
             <label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={saveAsDefault} onChange={(event) => toggleDefaultSearch(event.target.checked)} /> Save as Default</label>
             <div className="workspace-filter-actions"><ActionButton tone="success" onClick={applySearch}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
+            <details><summary style={{ cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>Saved Views</summary><div style={{ display: 'grid', gap: 4, paddingTop: 4 }}><select value={selectedSavedViewId} onChange={(event) => applySavedView(event.target.value)}><option value="">Select saved view</option>{savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select><input value={savedViewName} onChange={(event) => setSavedViewName(event.target.value.slice(0, 80))} placeholder="Save current view as..." /><div className="workspace-filter-actions"><ActionButton tone="secondary" onClick={() => void saveNamedView()}>Save View</ActionButton><ActionButton tone="secondary" disabled={!selectedSavedViewId} onClick={() => void deleteSavedView()}>Delete</ActionButton></div></div></details>
           </div>
         </aside>
 
         <main className="workspace-board-main" style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-              <strong>Diary</strong>
-              <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
-              <span role="group" aria-label="Diary view mode" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                <label style={{ cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label>
-                <label style={{ cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label>
-              </span>
-            </span>
+          <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
+            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong><span className="cx-diary-view-toggle" role="group" aria-label="Diary view mode"><label><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label><label><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label></span></span>
             <span className="workspace-list-controls__right">
-              <button type="button" onClick={toggleExpandAll} disabled={!visible.length} aria-label={allVisibleExpanded ? 'Collapse all visible Diary records' : 'Expand all visible Diary records'}>{allVisibleExpanded ? 'Collapse all' : 'Expand all'}</button>
-              <label>Items per Page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              <button type="button" className="cx-expand-entries-control" disabled={!visible.length} onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+              <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+            </span>
+          </div>
+          <div className="workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Diary states">
+            {diaryTabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}</button>)}
+            <span className="cx-diary-pagination">
+              <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
               <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
               <span>{filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)} of ${filtered.length}`}</span>
               <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
-              <button type="button" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</button>
             </span>
-          </div>
-          <div className="workspace-tab-strip" role="tablist" aria-label="Diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {diaryTabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id] ?? 0}</span></button>)}
           </div>
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
           ) : visible.length === 0 ? (
             <div className="workspace-panel"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div>
           ) : viewMode === 'split' ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px,0.82fr) minmax(520px,1.18fr)', gap: 8, alignItems: 'start' }}>
+            <div className="xdrive-diary-split-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(360px,0.82fr) minmax(520px,1.18fr)', gap: 8, alignItems: 'start' }}>
               <div className="workspace-record-list" aria-label="Diary split booking list">
                 {visible.map((job) => {
                   const stage = classifyWorkspaceJobStage(job);
@@ -799,13 +826,12 @@ export default function OperationsDiaryPage() {
               </section>
             </div>
           ) : (
-            <div className="workspace-record-list" style={{ gap: 6 }}>
+            <div className="workspace-record-list" style={{ gap: 5 }}>
               {visible.map((job) => {
                 const open = expandedIds.has(job.id);
                 const stage = classifyWorkspaceJobStage(job);
                 const status = effectiveStatus(job);
                 const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
-                const evidenceCount = job.delivery_photos?.length ?? 0;
                 const distance = numberLabel(job.job_distance_miles ?? job.distance_miles, ' mi');
                 const weight = numberLabel(job.weight_kg, ' kg');
                 const dimensions = dimensionsLabel(job);
@@ -818,65 +844,82 @@ export default function OperationsDiaryPage() {
                 const bookedTo = detail?.awardedCompanyName ?? detail?.executionCompanyName ?? null;
                 const counterpartyPhone = job.company_id === companyId ? detail?.awardedCompanyPhone : detail?.ownerCompanyPhone;
                 const feedbackAvailable = isCompanyFeedbackEligible(job, companyId);
+                const showFeedbackAction = fixtureData ? stage === 'completed' : canLeaveCompanyFeedback && feedbackAvailable;
+                const pickupWhen = cxDiaryTimeParts(job.pickup_datetime, job.pickup_time_slot);
+                const deliveryWhen = cxDiaryTimeParts(job.delivery_datetime, job.delivery_time_slot || (!job.delivery_datetime ? 'ASAP' : null));
+                const driverLabel = driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated');
+                const cxBandLabel = stage === 'completed' ? 'Delivered' : workspaceJobOperationalLabel(job);
+                const cxStatusLine = stage === 'completed' ? `Completed by ${driverLabel}` : stage === 'cancelled' ? 'Cancelled' : driverLabel;
+                const cxStatusStamp = cxDiaryStamp(job.updated_at || job.delivery_datetime || job.pickup_datetime);
                 const assignedGroupIds = groupIdsByJob.get(job.id) ?? [];
                 const assignedGroups = assignedGroupIds.map((groupId) => groupById.get(groupId)).filter((group): group is DiaryGroupRow => Boolean(group));
                 const availableGroups = groups.filter((group) => !assignedGroupIds.includes(group.id));
                 return (
-                  <article key={job.id} className="workspace-operational-row" data-state={status} style={{ overflow: 'hidden' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch' }}>
-                      <section style={{ flex: '1.15 1 260px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid var(--ws-border)' }}>
-                        <span className="driver-cell-label">ROUTE</span>
-                        <strong style={{ display: 'block', fontSize: 13, marginTop: 2 }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong>
-                        <div style={{ color: '#64748b', fontSize: 11 }}>{job.pickup_postcode ?? 'Postcode not supplied'}</div>
-                        <span style={{ display: 'block', color: '#94a3b8', margin: '3px 0' }}>↓</span>
-                        <strong style={{ display: 'block', fontSize: 13 }}>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong>
-                        <div style={{ color: '#64748b', fontSize: 11 }}>{job.delivery_postcode ?? 'Postcode not supplied'}</div>
-                      </section>
-                      <section style={{ flex: '1 1 230px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid var(--ws-border)' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '58px 1fr', gap: '3px 6px', fontSize: 11 }}><span style={{ color: '#64748b' }}>Pickup</span><strong>{when(job.pickup_datetime)}{job.pickup_time_slot ? ' · ' + job.pickup_time_slot : ''}</strong><span style={{ color: '#64748b' }}>Deliver</span><strong>{when(job.delivery_datetime)}{job.delivery_time_slot ? ' · ' + job.delivery_time_slot : ''}</strong></div>
-                        <div style={{ marginTop: 6, fontSize: 11 }}><strong>{cargo}</strong>{weight ? <span style={{ color: '#64748b' }}> · {weight}</span> : null}{job.pallets != null ? <span style={{ color: '#64748b' }}> · {job.pallets} pallet{job.pallets === 1 ? '' : 's'}</span> : null}</div>
-                        <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{[distance, dimensions].filter(Boolean).join(' · ') || 'Distance / dimensions not supplied'}</div>
-                      </section>
-                      <section style={{ flex: '.9 1 220px', minWidth: 0, padding: '9px 10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}><StatusBadge value={workspaceJobOperationalLabel(job)} tone={stageTone(job)} /><strong style={{ fontSize: 11 }}>{requestedVehicle}</strong></div>
-                        <div style={{ marginTop: 5, fontSize: 11 }}><strong>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')}</strong>{detail?.vehicleRegistration ? <span style={{ color: '#64748b' }}> · {detail.vehicleRegistration}</span> : null}</div>
-                        <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Load #{job.id.slice(0, 8).toUpperCase()} · {job.client_name ?? 'Customer not supplied'}</div>
-                        {detail?.ownerCompanyName && <div style={{ color: '#475569', fontSize: 11, lineHeight: '14px', marginTop: 3 }}>Posted by <strong>{detail.ownerCompanyName}</strong>{bookedTo ? <> · Booked to <strong>{bookedTo}</strong></> : null}{counterpartyPhone ? <> · <a href={`tel:${counterpartyPhone.replace(/\s+/g, '')}`} style={{ color: '#1d57d8', fontWeight: 800, textDecoration: 'none' }}>{counterpartyPhone}</a></> : null}</div>}
-                        {(agreedRate || detail?.paymentTerms) && <div style={{ color: '#475569', fontSize: 11, lineHeight: '14px', marginTop: 2 }}>{agreedRate ? <>Agreed rate <strong>{agreedRate}</strong></> : null}{agreedRate && detail?.paymentTerms ? ' · ' : ''}{detail?.paymentTerms ? <>Payment terms <strong>{detail.paymentTerms}</strong></> : null}</div>}
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>{job.pod_generated ? <StatusBadge value="POD generated" tone="green" /> : evidenceCount > 0 ? <><StatusBadge value={String(evidenceCount) + ' evidence file(s)'} tone="blue" /><StatusBadge value="POD pending" tone="orange" /></> : <StatusBadge value="POD pending" tone="orange" />}{isAwaitingFeedback(job, reviewsByJob[job.id] ?? [], companyId) && <StatusBadge value="Awaiting feedback" tone="orange" />}{hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}</div>
-                      </section>
-                    </div>
-                    <div className="workspace-record-meta" style={{ minHeight: 28 }}>
-                      {job.booking_reference && <span>Booking: {job.booking_reference}</span>}
-                      {job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
-                      {job.hard_copy_pod && <span>Hard-copy POD: {job.hard_copy_pod}</span>}
-                      {detail?.itemCount != null && <span>Items: {detail.itemCount}</span>}
-                      {detail?.receivedBy && <span>Received by: {detail.receivedBy}</span>}
-                      {detail?.leftAt && <span>Left at: {detail.leftAt}</span>}
-                      {detail?.deliveredAt && <span>Delivered: {when(detail.deliveredAt)}</span>}
-                      {assignedGroups.map((group) => <span key={`${job.id}-group-${group.id}`} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><strong>Group:</strong> {group.name}{canManageDiaryGroups && <button type="button" onClick={() => void removeJobFromGroup(job.id, group.id)} aria-label={`Remove booking from ${group.name}`} style={{ border: 0, background: 'transparent', color: '#b91c1c', cursor: 'pointer', fontWeight: 900, padding: 0 }}>×</button>}</span>)}
-                      {operationalNotes && <span style={{ flex: '1 1 320px' }}><strong>Load notes:</strong> {operationalNotes}</span>}
-                    </div>
-                    {(milestones.length > 0 || detail?.driverNotes || detail?.deliveryNotes) && <div className="workspace-record-meta" style={{ minHeight: 28, borderTop: '1px solid #edf2f7' }}>
+                  <CxDiaryCard
+                    key={job.id}
+                    from={operationalLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection not supplied')}
+                    to={operationalLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery not supplied')}
+                    pickup={pickupWhen}
+                    delivery={deliveryWhen}
+                    band={cxBandLabel}
+                    statusLine={<strong>{cxStatusLine}</strong>}
+                    statusStamp={cxStatusStamp ? <>@ {cxStatusStamp}</> : null}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={requestedVehicle}
+                    state={status}
+                    stage={stage}
+                    expanded={open}
+                    footer={<CxDiaryActions
+                      expanded={open}
+                      onToggle={() => toggleJob(job.id)}
+                      onOpenTab={(tab) => openJobTab(job.id, DIARY_JOB_SHEET_TABS[tab])}
+                      feedback={showFeedbackAction ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{reviewsByJob[job.id]?.length ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    />}
+                    expandedMeta={<>
+                      <div><span>Dist:</span><strong>{distance ?? 'Not Supplied'}</strong></div>
+                      <div><span>Weight:</span><strong>{weight ?? 'Not Supplied'}</strong></div>
+                      <div><span>Packaging:</span><strong>{job.pallets != null ? `${job.pallets} pallet${job.pallets === 1 ? '' : 's'}` : cargo}</strong></div>
+                      <div><span>Dims:</span><strong>{dimensions ?? 'Not Supplied'}</strong></div>
+                      {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
+                      {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
+                      {job.hard_copy_pod && <div><span>Hard-copy POD:</span><strong>{job.hard_copy_pod}</strong></div>}
+                      {detail?.vehicleRegistration && <div><span>Vehicle reg:</span><strong>{detail.vehicleRegistration}</strong></div>}
+                      {detail?.receivedBy && <div><span>Received by:</span><strong>{detail.receivedBy}</strong></div>}
+                      {detail?.leftAt && <div><span>Left at:</span><strong>{detail.leftAt}</strong></div>}
+                      {detail?.deliveredAt && <div><span>Delivered:</span><strong>{when(detail.deliveredAt)}</strong></div>}
+                      {operationalNotes && <div className="xdrive-cx-diary-card__expanded-wide"><span>Load Notes:</span><strong>{operationalNotes}</strong></div>}
+                      {detail?.ownerCompanyName && <div className="xdrive-cx-diary-card__expanded-wide"><span>Posted by:</span><strong>{detail.ownerCompanyName}</strong>{bookedTo ? <span> · Booked to <strong>{bookedTo}</strong></span> : null}{counterpartyPhone ? <a href={`tel:${counterpartyPhone.replace(/\s+/g, '')}`}>{counterpartyPhone}</a> : null}</div>}
+                      {(agreedRate || detail?.paymentTerms) && <div className="xdrive-cx-diary-card__expanded-wide">{agreedRate ? <><span>Agreed rate:</span><strong>{agreedRate}</strong></> : null}{agreedRate && detail?.paymentTerms ? <span> · </span> : null}{detail?.paymentTerms ? <><span>Payment terms:</span><strong>{detail.paymentTerms}</strong></> : null}</div>}
+                      {assignedGroups.map((group) => <div key={`${job.id}-group-${group.id}`}><span>Group:</span><strong>{group.name}</strong>{canManageDiaryGroups && <button type="button" className="xdrive-inline-link" onClick={() => void removeJobFromGroup(job.id, group.id)} aria-label={`Remove booking from ${group.name}`}>×</button>}</div>)}
+                    </>}
+                  >
+                    {open && (milestones.length > 0 || detail?.driverNotes || detail?.deliveryNotes) && <div className="xdrive-cx-diary-card__timeline-meta">
                       {milestones.map((milestone) => <span key={`${job.id}-${milestone.eventType}`}><strong>{MILESTONE_LABELS[milestone.eventType]}</strong> {when(milestone.createdAt)}</span>)}
-                      {detail?.driverNotes && <span style={{ flex: '1 1 260px' }}><strong>Driver notes:</strong> {detail.driverNotes}</span>}
-                      {detail?.deliveryNotes && <span style={{ flex: '1 1 260px' }}><strong>Delivery notes:</strong> {detail.deliveryNotes}</span>}
+                      {detail?.driverNotes && <span><strong>Driver notes:</strong> {detail.driverNotes}</span>}
+                      {detail?.deliveryNotes && <span><strong>Delivery notes:</strong> {detail.deliveryNotes}</span>}
                     </div>}
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', minHeight: 36, padding: '4px 8px', borderTop: '1px solid var(--ws-border)', background: '#fbfdff' }}>
-                      <button type="button" onClick={() => toggleJob(job.id)} aria-label={open ? 'Collapse booking' : 'Expand booking'} style={{ width: 28, height: 26, border: '1px solid var(--ws-border)', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{open ? '▴' : '▾'}</button>
-                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
-                      {canManageDiaryGroups && availableGroups.length > 0 && <select value="" aria-label="Add booking to Diary group" onChange={(event) => { const groupId = event.target.value; if (groupId) void addJobToGroup(job.id, groupId); }} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff' }}><option value="">Add to group…</option>{availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
+                    {open && <div className="xdrive-cx-diary-card__secondary-actions">
+                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span className="xdrive-cx-diary-card__allocate"><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
+                      {canManageDiaryGroups && availableGroups.length > 0 && <select value="" aria-label="Add booking to Diary group" onChange={(event) => { const groupId = event.target.value; if (groupId) void addJobToGroup(job.id, groupId); }}><option value="">Add to group…</option>{availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
                       {!['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/freight-vision?jobId=${encodeURIComponent(job.id)}`)}>Track</ActionButton>}
                       <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton>
                       {canManageCompanyBookings && job.company_id === companyId && <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${encodeURIComponent(job.id)}`)}>Edit</ActionButton>}
                       {canManageCompanyBookings && job.company_id === companyId && !['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="danger" disabled={managingJobId === job.id} onClick={() => void cancelJob(job)}>{managingJobId === job.id ? 'Cancelling…' : 'Cancel'}</ActionButton>}
                       {canManageCompanyBookings && job.company_id === companyId && ['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/post-load?sourceJob=${encodeURIComponent(job.id)}&sourceAction=rebook`)}>Re-book</ActionButton>}
                       {canManageCompanyBookings && job.company_id === companyId && ['cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/post-load?sourceJob=${encodeURIComponent(job.id)}&sourceAction=repost`)}>Re-post</ActionButton>}
-                      {canLeaveCompanyFeedback && feedbackAvailable && <ActionButton tone="secondary" onClick={() => openFeedback(job)}>{reviewsByJob[job.id]?.length ? 'Edit Feedback' : 'Leave Feedback'}</ActionButton>}
-                      {(['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log'] as JobSheetTab[]).map((tabId) => <ActionButton key={tabId} tone={detailTabByJob[job.id] === tabId && open ? 'primary' : 'secondary'} onClick={() => openJobTab(job.id, tabId)}>{tabId === 'pod' ? 'POD' : tabId === 'event-log' ? 'Event Log' : tabId.charAt(0).toUpperCase() + tabId.slice(1)}</ActionButton>)}
-                    </div>
-                    {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'agreement'} />}
-                  </article>
+                      <ActionButton tone="secondary" onClick={() => openJobTab(job.id, 'exception')}>Exception</ActionButton>
+                      <ActionButton tone="secondary" onClick={() => openJobTab(job.id, 'payment')}>Payment</ActionButton>
+                      <ActionButton tone="secondary" onClick={() => openJobTab(job.id, 'dispute')}>Dispute</ActionButton>
+                    </div>}
+                    {open && (fixtureData ? (
+                      <div className="workspace-record-meta" style={{ minHeight: 68, display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 0, padding: 0, borderTop: '1px solid var(--ws-border)', background: '#fff' }}>
+                        <span style={{ padding: '8px 10px', borderRight: '1px solid var(--ws-border)' }}><strong>On my Way to Pickup</strong><br />{when(job.pickup_datetime)}</span>
+                        <span style={{ padding: '8px 10px', borderRight: '1px solid var(--ws-border)' }}><strong>Loaded At</strong><br />{when(job.pickup_datetime)}<br />{job.customer_reference ? <>Your Ref: {job.customer_reference}</> : null}</span>
+                        <span style={{ padding: '8px 10px', borderRight: '1px solid var(--ws-border)' }}><strong>On Site (Delivery) At</strong><br />{when(job.delivery_datetime)}</span>
+                        <span style={{ padding: '8px 10px' }}><strong>{stage === 'completed' ? 'Delivered On' : 'Delivery ETA'}</strong><br />{when(job.delivery_datetime)}<br />{job.pod_generated ? 'POD generated' : 'POD pending'}</span>
+                      </div>
+                    ) : <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'agreement'} />)}
+                  </CxDiaryCard>
                 );
               })}
             </div>

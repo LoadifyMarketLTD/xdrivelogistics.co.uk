@@ -69,10 +69,9 @@ export default function FleetCompliancePage() {
         eyebrow="Fleet readiness"
         title="Compliance"
         description="Driver and vehicle document status in one dense operational register."
-        actions={<><ActionButton tone="secondary" disabled={reminderWorking || !data.companyId} onClick={() => void sendDocumentReminders()}>{reminderWorking ? 'Checking…' : 'Send due reminders'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Manage documents</ActionButton></>}
       />
       {reminderMessage ? <AlertBanner tone="info">{reminderMessage}</AlertBanner> : null}
-      <Panel title="Compliance register">
+      <Panel title="Compliance register" actions={<ActionButton tone="secondary" disabled={reminderWorking || !data.companyId} onClick={() => void sendDocumentReminders()}>{reminderWorking ? 'Checking…' : 'Send due reminders'}</ActionButton>}>
         <DataTable
           columns={['Driver / Vehicle', 'Document', 'Expiry', 'Status', 'Action']}
           rows={rows.map((row) => [

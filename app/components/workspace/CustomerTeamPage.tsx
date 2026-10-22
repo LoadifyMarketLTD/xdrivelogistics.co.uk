@@ -198,11 +198,6 @@ export default function CustomerTeamPage() {
         eyebrow="Customer administration"
         title="Team"
         description="Manage team invitations, access roles and membership status using server-authorised company-scoped actions."
-        actions={
-          <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>
-            {loading ? 'Refreshing…' : 'Refresh'}
-          </ActionButton>
-        }
       />
 
       {workspace.error && <AlertBanner>{workspace.error}</AlertBanner>}
@@ -270,6 +265,11 @@ export default function CustomerTeamPage() {
       <Panel
         title="Company team"
         description="Only memberships belonging to the active customer company are returned."
+        actions={
+          <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>
+            {loading ? 'Refreshing…' : 'Refresh'}
+          </ActionButton>
+        }
       >
         <DataTable
           columns={['Member', 'Email', 'Phone', 'Role', 'Department', 'Membership', 'Profile', 'Joined', 'Actions']}

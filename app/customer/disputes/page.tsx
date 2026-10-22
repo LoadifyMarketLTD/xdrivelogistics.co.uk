@@ -107,7 +107,6 @@ export default function CustomerDisputesPage() {
         eyebrow="Booking support"
         title="Feedback & Disputes"
         description="Raise and track booking disputes. Trading-partner reputation remains a separate verified feedback contract."
-        actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       />
 
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
@@ -149,9 +148,9 @@ export default function CustomerDisputesPage() {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta">
-            <span><strong>{rows.length}</strong> dispute{rows.length === 1 ? '' : 's'}</span>
-            <span>Customer booking scope only</span>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
+            <span><strong>{rows.length}</strong> dispute{rows.length === 1 ? '' : 's'} · Customer booking scope only</span>
+            <span className="workspace-list-controls__right"><ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton></span>
           </div>
           <div className="workspace-panel">
             <DataTable

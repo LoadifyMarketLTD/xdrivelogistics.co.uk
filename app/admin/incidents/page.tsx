@@ -72,12 +72,12 @@ export default function IncidentsPage(){
   const criticalCount=exceptions.filter((row)=>row.status!=='resolved'&&row.severity==='critical').length;
 
   return <PageFrame>
-    <PageHeader eyebrow="Operational exceptions" title="Incidents" description="Operational exceptions are execution facts such as delay, breakdown, failed collection/delivery or damage. Formal commercial disagreements remain in Disputes." actions={<><ActionButton tone="secondary" disabled={loadingExceptions} onClick={()=>void loadExceptions()}>{loadingExceptions?'Refreshing…':'Refresh'}</ActionButton><ActionButton tone="secondary" onClick={()=>router.push('/admin/disputes')}>Open Disputes</ActionButton></>} />
+    <PageHeader eyebrow="Operational exceptions" title="Incidents" description="Operational exceptions are execution facts such as delay, breakdown, failed collection/delivery or damage. Formal commercial disagreements remain in Disputes." />
     {data.error?<AlertBanner>{data.error}</AlertBanner>:null}
     {exceptionError?<AlertBanner tone="danger">{exceptionError}</AlertBanner>:null}
     <KpiGrid><KpiCard label="Open recorded exceptions" value={openCount} tone="red"/><KpiCard label="Critical open" value={criticalCount} tone="red"/><KpiCard label="Derived operational signals" value={derivedRows.length} tone="orange"/></KpiGrid>
 
-    <Panel title="Recorded operational exceptions" description="Persistent execution exceptions. Resolving an exception does not resolve or close a commercial dispute.">
+    <Panel title="Recorded operational exceptions" description="Persistent execution exceptions. Resolving an exception does not resolve or close a commercial dispute." actions={<ActionButton tone="secondary" disabled={loadingExceptions} onClick={()=>void loadExceptions()}>{loadingExceptions?'Refreshing…':'Refresh'}</ActionButton>}>
       <DataTable columns={['Job','Category','Severity','Status','Occurred','Issue','Action']} rows={exceptions.map((row)=>[
         <strong key="job">{row.job_id.slice(0,8).toUpperCase()}</strong>,
         human(row.category),

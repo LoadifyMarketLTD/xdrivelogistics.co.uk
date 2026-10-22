@@ -8,8 +8,9 @@ describe('CX Directory nearest member search contract', () => {
   const route = read('app/api/directory/route.ts');
 
   it('adds CX-style Find My Nearest controls to Directory', () => {
-    expect(page).toContain('FIND MY NEAREST');
     expect(page).toContain('Find My Nearest');
+    expect(page).toContain('NEAREST POSTCODE');
+    expect(page).toContain('RADIUS SEARCH');
     expect(page).toContain('nearestRadius');
     expect(page).toContain('distanceMiles');
   });

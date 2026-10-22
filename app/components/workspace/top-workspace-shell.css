@@ -271,9 +271,12 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__item {
   position: relative;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
   height: 29px !important;
   min-height: 29px !important;
-  padding: 2px 8px 9px !important;
+  padding: 0 13px !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -318,10 +321,11 @@
   right: 16px;
   left: auto;
   z-index: 95;
-  width: 230px !important;
+  width: 248px !important;
   max-height: calc(100vh - 104px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 4px !important;
   border: 1px solid #cfd7e3 !important;
   border-radius: 4px !important;
@@ -336,6 +340,7 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__menu-item {
   width: 100%;
+  text-decoration: none;
   min-height: 32px !important;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
@@ -516,7 +521,7 @@
     right: 8px !important;
     left: 8px !important;
     width: auto !important;
-    max-height: calc(100vh - 60px);
+    max-height: calc(100vh - 104px);
     overflow-y: auto;
   }
 
@@ -626,20 +631,13 @@
 }
 
 
-/* Owner Driver More: compact, legible secondary navigation without affecting other roles. */
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
-  width: 252px !important;
-}
-
 .xdrive-operational-top-workspace .top-workspace-nav__trigger:focus-visible,
 .xdrive-operational-top-workspace .top-workspace-nav__menu-item:focus-visible {
   outline: 2px solid #1d57d8;
   outline-offset: -2px;
 }
 
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-section,
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu-section {
+.xdrive-operational-top-workspace .top-workspace-shell .top-workspace-nav__menu-section {
   padding: 7px 9px 4px;
   color: #526377;
   font-size: 10px;
@@ -647,30 +645,12 @@
   font-weight: 800;
 }
 
-@media (max-width: 768px) {
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
-    width: auto !important;
-  }
-}
-
-
-@media (min-width: 481px) and (max-width: 768px) {
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
-    right: 8px !important;
-    left: auto !important;
-    width: 280px !important;
-  }
-}
-
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-icon svg,
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu-icon svg {
+.xdrive-operational-top-workspace .top-workspace-shell .top-workspace-nav__menu-icon svg {
   width: 14px;
   height: 14px;
 }
 
-/* Owner Driver More - Preview 656 canonical behaviour, reconciled with current main shell. */
+/* Legacy Owner Driver More behaviour, reconciled under the Courier Exchange live shell contract. */
 .xdrive-driver-workspace .top-workspace-nav__group[data-group-id="owner-driver-more"] .top-workspace-nav__menu {
   position: fixed;
   top: 92px !important;
@@ -698,4 +678,22 @@
     width: auto !important;
     max-height: calc(100vh - 104px);
   }
+}
+
+
+/* Global postcode/outcode area resolution. Any operational text/search input
+ * labelled as postcode/outcode receives a compact CX-style area confirmation. */
+.xdrive-postcode-area-hint {
+  display: block;
+  margin-top: 3px;
+  color: #31506f;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.xdrive-postcode-area-hint[data-state='loading'] {
+  color: #66778a;
+  font-weight: 500;
 }

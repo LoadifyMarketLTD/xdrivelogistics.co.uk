@@ -33,8 +33,8 @@ describe('CX operational gaps closed in the XDrive workspace language', () => {
   it('keeps admin Diary scan-expand-act parity with an Expand all control', () => {
     expect(operationsDiary).toContain('allVisibleExpanded');
     expect(operationsDiary).toContain('toggleExpandAll');
-    expect(operationsDiary).toContain("'Expand all'");
-    expect(operationsDiary).toContain("'Collapse all'");
+    expect(operationsDiary).toContain('cx-expand-entries-control');
+    expect(operationsDiary).toContain('onClick={toggleExpandAll}');
     expect(operationsDiary).toContain('expandedIds.has(job.id)');
   });
 
