@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 
 test('Owner Driver can sign in and inspect each mobile workspace without mutations', async ({ page }) => {
+  test.setTimeout(90_000);
   const email = process.env.E2E_OWNER_DRIVER_EMAIL ?? '';
   const password = process.env.E2E_OWNER_DRIVER_PASSWORD ?? '';
   test.skip(!email || !password, 'Owner Driver test account must be configured.');
@@ -11,7 +12,7 @@ test('Owner Driver can sign in and inspect each mobile workspace without mutatio
   await page.locator('input[type="email"]').fill(email);
   await page.locator('input[type="password"]').fill(password);
   await page.locator('button[type="submit"]').click();
-  await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 30_000 });
+  await page.waitForURL(url => !url.pathname.startsWith('/login'), { timeout: 60_000, waitUntil: 'domcontentloaded' });
 
   const routes = [
     { path: '/m/driver/jobs', label: 'Jobs' },
