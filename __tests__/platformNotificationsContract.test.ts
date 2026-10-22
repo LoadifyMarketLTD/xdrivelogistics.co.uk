@@ -307,6 +307,32 @@ describe('platform notifications route flow', () => {
     });
   });
 
+  it('rejects malformed notification retry payloads before the governance RPC', async () => {
+    const { PATCH } = await import('../app/api/super-admin/platform/route');
+
+    const tooShort = await PATCH(
+      patchRequest('http://localhost/api/super-admin/platform', {
+        section: 'notifications',
+        action: 'retry',
+        notificationId: 'evt-1',
+        reason: 'bad',
+      }),
+    );
+    expect(tooShort.status).toBe(400);
+
+    const unexpectedField = await PATCH(
+      patchRequest('http://localhost/api/super-admin/platform', {
+        section: 'notifications',
+        action: 'retry',
+        notificationId: 'evt-1',
+        reason: 'Valid retry reason.',
+        unsafeOverride: true,
+      }),
+    );
+    expect(unexpectedField.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it('retries notifications only through the owner-governed retry RPC', async () => {
     const { PATCH } = await import('../app/api/super-admin/platform/route');
 

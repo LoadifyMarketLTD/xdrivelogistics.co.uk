@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import SuperAdminLiveTablePage from '../_components/SuperAdminLiveTablePage';
+import { useSuperAdminDialogA11y } from '../_components/useSuperAdminDialogA11y';
 import {
   createNotificationColumns,
   notificationsTableProps,
@@ -25,12 +26,17 @@ export default function Page() {
   const [retryTarget, setRetryTarget] = useState<string | null>(null);
   const [retryReason, setRetryReason] = useState('');
   const retryReasonRef = useRef<HTMLTextAreaElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const pendingByIdRef = useRef(pendingById);
-
-  useEffect(() => {
-    pendingByIdRef.current = pendingById;
-  }, [pendingById]);
+  const retryPending = retryTarget ? pendingById[retryTarget] === true : false;
+  const retryDialogRef = useSuperAdminDialogA11y({
+    open: Boolean(retryTarget),
+    onClose: () => {
+      if (retryPending) return;
+      setRetryTarget(null);
+      setRetryReason('');
+    },
+    initialFocusRef: retryReasonRef,
+    canClose: !retryPending,
+  });
 
   const openRetry = useCallback((notificationId: string) => {
     if (pendingById[notificationId]) return;
@@ -43,28 +49,6 @@ export default function Page() {
     setRetryTarget(null);
     setRetryReason('');
   }, [pendingById, retryTarget]);
-
-  useEffect(() => {
-    if (!retryTarget) return;
-    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const timer = window.setTimeout(() => retryReasonRef.current?.focus(), 0);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const notificationId = retryTarget;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !pendingByIdRef.current[notificationId]) {
-        setRetryTarget(null);
-        setRetryReason('');
-      }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previousFocusRef.current?.focus();
-    };
-  }, [retryTarget]);
 
   const confirmRetry = useCallback(async () => {
     const notificationId = retryTarget;
@@ -101,7 +85,6 @@ export default function Page() {
   }, [search, status, category, severity]);
 
   const clearFilters = () => { setSearch(''); setStatus('all'); setCategory('all'); setSeverity('all'); };
-  const retryPending = retryTarget ? pendingById[retryTarget] === true : false;
 
   return <>
     <SuperAdminLiveTablePage<NotificationRow> key={endpoint} {...notificationsTableProps} endpoint={endpoint} refreshKey={refreshKey} columns={columns} toolbar={
@@ -114,7 +97,7 @@ export default function Page() {
       </div>
     } />
 
-    {retryTarget && <div role="dialog" aria-modal="true" aria-labelledby="retry-notification-title" style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(7,27,60,0.42)', display: 'grid', placeItems: 'center', padding: '20px' }} onClick={(event) => { if (event.target === event.currentTarget && !retryPending) closeRetry(); }}>
+    {retryTarget && <div ref={retryDialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="retry-notification-title" style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(7,27,60,0.42)', display: 'grid', placeItems: 'center', padding: '20px' }} onClick={(event) => { if (event.target === event.currentTarget && !retryPending) closeRetry(); }}>
       <div style={{ width: 'min(520px, 100%)', background: X.white, border: `1px solid ${X.border}`, borderRadius: '8px', boxShadow: '0 22px 60px rgba(7,27,60,.24)', padding: '20px' }}>
         <div id="retry-notification-title" style={{ color: X.navy, fontSize: '18px', fontWeight: 800 }}>Retry notification</div>
         <p style={{ margin: '8px 0 14px', color: X.muted, fontSize: '13px', lineHeight: 1.5 }}>This will release any stale queue lease and requeue the event. The original attempt history is preserved and your reason is written to the Platform Owner audit log.</p>
