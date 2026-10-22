@@ -63,6 +63,7 @@ export default function PostcodeAddressField({
   const onAddressRef = useRef(onAddress);
   const addressRef = useRef(address);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [towns,setTowns]=useState<Record<string,string>>({});
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -77,6 +78,7 @@ export default function PostcodeAddressField({
   useEffect(() => {
     const normalized = normalizeOperationalPostcode(postcode);
     setSuggestions([]);
+    setTowns({});
     setOpen(false);
 
     if (!isFullUkPostcode(normalized)) {
@@ -98,7 +100,7 @@ export default function PostcodeAddressField({
         });
         if (!response.ok) return;
 
-        const payload = await response.json() as { suggestions?: unknown; configured?: boolean };
+        const payload = await response.json() as { suggestions?: unknown; towns?: Record<string,string>; configured?: boolean };
         if (payload.configured === false) return;
 
         const next = Array.isArray(payload.suggestions)
@@ -107,8 +109,11 @@ export default function PostcodeAddressField({
         if (cancelled) return;
 
         setSuggestions(next);
+        setTowns(payload.towns ?? {});
         if (!addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);
+          const confirmedTown=payload.towns?.[next[0]];
+          if(confirmedTown) onTown?.(confirmedTown);
           setOpen(false);
         } else {
           setOpen(next.length > 0);
@@ -116,6 +121,7 @@ export default function PostcodeAddressField({
       } catch {
         if (!cancelled) {
           setSuggestions([]);
+    setTowns({});
           setOpen(false);
         }
       } finally {
@@ -192,10 +198,8 @@ export default function PostcodeAddressField({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 onAddress(suggestion);
-                const parts = suggestion.split(",").map(part => part.trim()).filter(Boolean);
-                const candidates = parts.filter(part => !/^(GB|UK|UNITED KINGDOM)$/i.test(part) && !/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(part));
-                const town = candidates.length > 1 ? candidates[candidates.length - 1] : "";
-                if (town && /^[\p{L}][\p{L}\p{M} .\u2019\x27&-]*$/u.test(town)) onTown?.(town);
+                const town=towns[suggestion];
+                if(town) onTown?.(town);
                 setOpen(false);
               }}
             >

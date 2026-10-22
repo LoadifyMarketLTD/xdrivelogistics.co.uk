@@ -294,6 +294,7 @@ async function lookupIdealPostcodes(postcode: string, apiKey: string) {
         row.post_town,
         row.county,
       ])).filter(Boolean)),
+      towns: Object.fromEntries(rows.map(row => [formatAddress([row.line_1,row.line_2,row.line_3,row.dependant_locality,row.post_town,row.county]),clean(row.post_town)]).filter(item=>item[0]&&item[1])),
       notFound: false,
     };
   } catch {
@@ -326,6 +327,7 @@ async function lookupGetAddress(postcode: string, apiKey: string) {
         row.town_or_city,
         row.county,
       ])).filter(Boolean)),
+      towns: Object.fromEntries(rows.map(row => [formatAddress([row.line_1,row.line_2,row.line_3,row.line_4,row.locality,row.town_or_city,row.county]),clean(row.town_or_city)]).filter(item=>item[0]&&item[1])),
       notFound: false,
     };
   } catch {
@@ -424,6 +426,7 @@ export async function GET(request: NextRequest) {
     if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
+        towns: result.towns,
         configured: true,
         provider: 'ideal-postcodes',
         postcodeFound: !result.notFound,
@@ -436,6 +439,7 @@ export async function GET(request: NextRequest) {
     if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
+        towns: result.towns,
         configured: true,
         provider: 'getaddress',
         postcodeFound: !result.notFound,
