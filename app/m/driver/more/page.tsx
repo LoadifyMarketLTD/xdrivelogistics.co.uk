@@ -15,7 +15,7 @@ const essentials: MenuItem[] = [
   { label: 'Documents', href: '/m/driver/documents' },
   { label: 'Availability', href: '/m/driver/availability' },
   { label: 'Messages', href: '/driver/messages' },
-  { label: 'Profile & settings', href: '/driver/profile' },
+  { label: 'Profile & settings', href: '/m/driver/settings' },
   { label: 'Help & support', href: '/driver/support' },
 ];
 export default function MobileMorePage() {
