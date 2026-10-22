@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isValidTargetPriceGbp } from '../../../../lib/smartReadLoad';
 import { z } from 'zod';
 import { labelToCargoType, labelToVehicleType } from '../../../../lib/vehicleTypes';
 import {
@@ -157,6 +158,9 @@ export async function POST(request: NextRequest) {
     });
   }
   const input = parsed.data;
+  if (input.publish && !input.directBookingTarget && !isValidTargetPriceGbp(input.customerPrice)) {
+    return respond(400, { error: 'Public marketplace posts require a positive GBP target price with no more than 2 decimal places (ex VAT).' });
+  }
   if (input.loadType === 'regular_load' && !input.regularSchedule?.days.length) {
     return respond(400, { error: 'Regular Load requires at least one operating day.' });
   }

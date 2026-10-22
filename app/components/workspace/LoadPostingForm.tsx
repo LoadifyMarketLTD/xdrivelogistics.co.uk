@@ -12,6 +12,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import { usePrivateNetworkGroups } from './usePrivateNetworkGroups';
 import { WORKSPACE_READINESS_CHANGED, isSafeRecoveryHref } from '../../../lib/workspaceReadiness';
 import { resolveLegalRemediationUrl } from '../../../lib/workspaceRemediation';
+import { isValidTargetPriceGbp, smartReadLoad } from '../../../lib/smartReadLoad';
 import { COMPANY_CONFIG } from '../../config/company';
 import './load-posting-exchange.css';
 
@@ -231,6 +232,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const privateGroups = usePrivateNetworkGroups(postingCompany?.id);
 
+  const [smartReadText, setSmartReadText] = useState('');
+  const [smartReadFeedback, setSmartReadFeedback] = useState('');
+  const [targetPriceError, setTargetPriceError] = useState(false);
   const [form, setForm] = useState({
     loadType: 'on_demand' as CanonicalLoadType,
     regularDays: [] as Array<(typeof REGULAR_DAYS)[number][0]>,
@@ -469,6 +473,15 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       return;
     }
     setShowValidation(true);
+
+    const requiresTargetPrice = publish && !directCarrierId && directTargetMode === 'marketplace';
+    if (requiresTargetPrice && !isValidTargetPriceGbp(Number(form.customerPrice))) {
+      setTargetPriceError(true);
+      setError('A public marketplace post needs a positive GBP target price, up to 2 decimal places, excluding VAT.');
+      document.getElementById('xdrive-target-price')?.focus();
+      return;
+    }
+    setTargetPriceError(false);
 
     if (hasRequiredErrors || hasDimensionErrors || loadTypeError) {
       setError(loadTypeError || 'Load details are incomplete or invalid. Complete the fields highlighted in red.');
@@ -747,6 +760,81 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       {cloneNotice && <AlertBanner tone="info">{cloneNotice}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
+      <Panel title="Smart Read - optional text import" description="Paste transport instructions to prefill recognised fields. Source text stays in this browser; review all values before saving.">
+        <textarea aria-label="Transport instructions for Smart Read" value={smartReadText} onChange={(event) => setSmartReadText(event.target.value)} rows={4} maxLength={20000} style={{ width: '100%', padding: 12, border: '1px solid #c8d3e0', borderRadius: 7, font: 'inherit', color: '#111827' }} placeholder="Collection: M1 1AE today 10:15; Delivery: SW1A 1AA; Vehicle: LWB; Total weight: 450 kg; 2 pallets; Dimensions: 120cm x 80cm x 60cm" />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
+          <ActionButton tone="secondary" onClick={() => {
+            const parsed = smartReadLoad(smartReadText);
+            if (parsed.targetPriceGbp) setTargetPriceError(false);
+            const vehicleMap: Record<string, string> = { 'SMALL VAN': 'Small Van', SWB: 'SWB Van', LWB: 'LWB Van', XLWB: 'XLWB Van', LUTON: 'Luton' };
+            const pickupIndex = parsed.locations.findIndex((stop) => stop.type === 'collection');
+            let deliveryIndex = -1;
+            parsed.locations.forEach((stop, index) => { if (stop.type === 'delivery') deliveryIndex = index; });
+            const pickup = pickupIndex >= 0 ? parsed.locations[pickupIndex] : undefined;
+            const delivery = deliveryIndex >= 0 ? parsed.locations[deliveryIndex] : undefined;
+            const importedStops = pickup && delivery && pickupIndex < deliveryIndex
+              ? parsed.locations.filter((_, index) => index !== pickupIndex && index !== deliveryIndex).slice(0, 8)
+              : [];
+            if (parsed.locations.length > 2 && importedStops.length !== parsed.locations.length - 2) {
+              parsed.warnings.push('The stop order could not be mapped fully; review the route manually.');
+            }
+            const mergeText = (current: string, incoming?: string) => {
+              if (!incoming) return current;
+              if (!current.trim()) return incoming;
+              return current.includes(incoming) ? current : current + '\n' + incoming;
+            };
+            setForm((current) => ({
+              ...current,
+              pickupPostcode: pickup?.postcode.value ?? current.pickupPostcode,
+              pickupAddress: pickup?.address?.value ?? (pickup && pickup.postcode.value !== current.pickupPostcode ? '' : current.pickupAddress),
+              pickupDate: pickup?.date?.value ?? current.pickupDate,
+              pickupTime: pickup?.asap ? '' : pickup?.time?.value ?? current.pickupTime,
+              deliveryPostcode: delivery?.postcode.value ?? current.deliveryPostcode,
+              deliveryAddress: delivery?.address?.value ?? (delivery && delivery.postcode.value !== current.deliveryPostcode ? '' : current.deliveryAddress),
+              deliveryDate: delivery?.date?.value ?? current.deliveryDate,
+              deliveryTime: delivery?.time?.value ?? current.deliveryTime,
+              vehicle: parsed.vehicleType ? (vehicleMap[parsed.vehicleType.value] ?? current.vehicle) : current.vehicle,
+              weight: parsed.weightKg?.value ?? current.weight,
+              pallets: parsed.pallets?.value ?? current.pallets,
+              itemCount: parsed.itemCount?.value ?? current.itemCount,
+              length: parsed.dimensionsCm?.length.value ?? current.length,
+              width: parsed.dimensionsCm?.width.value ?? current.width,
+              height: parsed.dimensionsCm?.height.value ?? current.height,
+              customerPrice: parsed.targetPriceGbp?.value ?? current.customerPrice,
+              targetCarrierCost: parsed.targetCarrierCostGbp?.value ?? current.targetCarrierCost,
+              isFixedPrice: parsed.fixedPrice ?? current.isFixedPrice,
+              tailLift: parsed.equipment.tailLiftCollection ?? current.tailLift,
+              deliveryTailLift: parsed.equipment.tailLiftDelivery ?? current.deliveryTailLift,
+              forklift: parsed.equipment.forkliftCollection ?? current.forklift,
+              deliveryForklift: parsed.equipment.forkliftDelivery ?? current.deliveryForklift,
+              handball: parsed.equipment.handballCollection ?? current.handball,
+              deliveryHandball: parsed.equipment.handballDelivery ?? current.deliveryHandball,
+              adr: parsed.equipment.adr ?? current.adr,
+              temperatureControlled: parsed.equipment.temperatureControlled ?? current.temperatureControlled,
+              fragile: parsed.equipment.fragile ?? current.fragile,
+              pumpTruck: parsed.equipment.pumpTruck ?? current.pumpTruck,
+              twoPersonCrew: parsed.equipment.twoPersonCrew ?? current.twoPersonCrew,
+              dedicatedVehicle: parsed.equipment.dedicatedVehicle ?? current.dedicatedVehicle,
+              collectionAccessRestrictions: mergeText(current.collectionAccessRestrictions, parsed.collectionAccessRestrictions?.value),
+              deliveryAccessRestrictions: mergeText(current.deliveryAccessRestrictions, parsed.deliveryAccessRestrictions?.value),
+              executionInstructions: mergeText(current.executionInstructions, parsed.executionInstructions?.value),
+            }));
+            if (pickup && delivery && pickupIndex < deliveryIndex) {
+              setAdditionalStops(importedStops.map((stop) => ({
+                ...createAdditionalStop(),
+                type: stop.type,
+                postcode: stop.postcode.value,
+                address: stop.address?.value ?? '',
+                date: stop.date?.value ?? '',
+                time: stop.time?.value ?? '',
+              })));
+            }
+            const recognised = [pickup, delivery, parsed.vehicleType, parsed.weightKg, parsed.pallets, parsed.itemCount, parsed.dimensionsCm, parsed.targetPriceGbp, parsed.targetCarrierCostGbp, ...parsed.requirements, parsed.collectionAccessRestrictions, parsed.deliveryAccessRestrictions, parsed.executionInstructions].filter(Boolean).length;
+            setSmartReadFeedback(['Recognised ' + recognised + ' items. Check imported values and complete any missing stop addresses before saving.', ...parsed.warnings].join(' '));
+          }}>Prefill recognised fields</ActionButton>
+          {smartReadFeedback && <span role="status" style={{ fontSize: 13 }}>{smartReadFeedback}</span>}
+        </div>
+      </Panel>
       <Panel title="Posting identity & XDrive references" description="Platform ownership and the XDrive load reference are automatic. Customer-owned references remain optional inputs below.">
         <div style={gridStyle}>
           <label style={labelStyle}>Posting member<div style={readOnlyStyle}>{postingCompany?.name ?? 'Signed-in company'}</div></label>
@@ -1129,7 +1217,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <label style={labelStyle}>Customer reference<input style={fieldStyle} value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} /></label>
           <label style={labelStyle}>PO number<input style={fieldStyle} value={form.purchaseOrder} onChange={(event) => set('purchaseOrder', event.target.value)} /></label>
           <label style={labelStyle}>Customer booking reference (optional)<input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} /></label>
-          <label style={labelStyle}>{mode === 'broker' ? 'Customer price (£)' : 'Budget (£)'}<input style={fieldStyle} type="number" min="0" value={form.customerPrice} onChange={(event) => set('customerPrice', event.target.value)} /></label>
+          <label style={labelStyle}>{mode === 'broker' ? 'Customer target price (£, ex VAT)' : 'Target price / budget (£, ex VAT)'}<input id="xdrive-target-price" style={{ ...fieldStyle, ...(targetPriceError ? invalidFieldStyle : {}) }} aria-invalid={targetPriceError || undefined} type="number" min="0.01" step="0.01" value={form.customerPrice} onChange={(event) => { set('customerPrice', event.target.value); setTargetPriceError(false); }} /><span style={{ fontSize: 10, color: targetPriceError ? '#b91c1c' : '#64748b' }}>{targetPriceError ? 'Required to publish a public marketplace job.' : 'Required for public posts; optional for drafts and direct bookings.'}</span></label>
           <label style={labelStyle}>Payment terms<select style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>{PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
           {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
         </div>
