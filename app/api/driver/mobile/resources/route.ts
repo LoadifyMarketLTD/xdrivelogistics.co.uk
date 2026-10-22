@@ -1,12 +1,22 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { COMPANY_DRIVER_DOCUMENT_TYPES, OWNER_DRIVER_DOCUMENT_TYPES } from '../../../../../lib/onboardingContract';
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, requireDriver } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
 const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const MAX_DOCUMENT_BASE64_CHARS = 14_000_000;
+const DRIVER_DOCUMENT_TYPES = new Set<string>(COMPANY_DRIVER_DOCUMENT_TYPES);
+const OWNER_DOCUMENT_TYPES = new Set<string>(OWNER_DRIVER_DOCUMENT_TYPES);
+const VEHICLE_DOCUMENT_TYPES = new Set(['mot', 'insurance']);
+const DOCUMENT_MIME_EXTENSIONS: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 function cleanString(value: unknown, max = 5000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -325,16 +335,25 @@ export async function POST(request: NextRequest) {
 
   if (action === 'upload_document') {
     const docType = cleanString(body.docType, 100);
-    const fileName = cleanString(body.fileName, 160).replace(/[^a-zA-Z0-9._-]/g, '-') || 'document';
-    const mimeType = cleanString(body.mimeType, 100) || 'application/octet-stream';
+    const safeFileName = cleanString(body.fileName, 160).replace(/[^a-zA-Z0-9._-]/g, '-') || 'document';
+    const mimeType = cleanString(body.mimeType, 100).toLowerCase();
+    const extension = DOCUMENT_MIME_EXTENSIONS[mimeType];
     const issuedDate = cleanString(body.issuedDate, 10);
     const expiryDate = cleanString(body.expiryDate, 10);
     const base64 = typeof body.base64 === 'string' ? body.base64 : '';
     const isVehicleDocument = body.isVehicleDocument === true;
+    const allowedDriverTypes = context.driverType?.trim().toLowerCase() === 'owner_driver'
+      ? OWNER_DOCUMENT_TYPES : DRIVER_DOCUMENT_TYPES;
     if (!docType || !base64) return NextResponse.json({ error: 'Document type and file are required.' }, { status: 400 });
+    if (isVehicleDocument ? !VEHICLE_DOCUMENT_TYPES.has(docType) : !allowedDriverTypes.has(docType)) {
+      return NextResponse.json({ error: 'Choose a supported document type for your role.' }, { status: 400 });
+    }
     if (!validIsoDate(issuedDate) || !validIsoDate(expiryDate)) return NextResponse.json({ error: 'Issue and expiry dates must be valid dates.' }, { status: 400 });
     if (issuedDate && expiryDate && expiryDate < issuedDate) return NextResponse.json({ error: 'Expiry date cannot be before the issue date.' }, { status: 400 });
-    if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) return NextResponse.json({ error: 'Use a PDF, JPG, PNG or WEBP document.' }, { status: 400 });
+    if (isVehicleDocument && (!expiryDate || expiryDate < new Date().toISOString().slice(0, 10))) {
+      return NextResponse.json({ error: 'MOT and vehicle insurance require a current expiry date.' }, { status: 400 });
+    }
+    if (!extension) return NextResponse.json({ error: 'Use a PDF, JPG, PNG or WEBP document.' }, { status: 415 });
     if (base64.length > MAX_DOCUMENT_BASE64_CHARS) return NextResponse.json({ error: 'Document must be 10 MB or smaller.' }, { status: 413 });
     const bytes = Buffer.from(base64, 'base64');
     if (bytes.length === 0 || bytes.length > MAX_DOCUMENT_BYTES) return NextResponse.json({ error: 'Document must be 10 MB or smaller.' }, { status: 413 });
@@ -342,6 +361,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Document content does not match its declared file type.' }, { status: 415 });
     }
 
+    if (isVehicleDocument && !context.companyId) {
+      return NextResponse.json({ error: 'Driver company context is required for vehicle documents.' }, { status: 409 });
+    }
     const vehicleResult = isVehicleDocument
       ? await supabaseAdmin!.from('vehicles').select('id').eq('assigned_driver_id', context.driverId).eq('company_id', context.companyId).limit(1).maybeSingle()
       : { data: null, error: null };
@@ -349,16 +371,20 @@ export async function POST(request: NextRequest) {
     if (isVehicleDocument && !vehicleResult.data?.id) return NextResponse.json({ error: 'No assigned vehicle is available for this document.' }, { status: 409 });
 
     const uploadFolder = context.companyId ?? context.driverId;
-    const path = `${uploadFolder}/${context.driverId}/${randomUUID()}-${fileName}`;
-    const { error: storageError } = await supabaseAdmin!.storage.from('driver-docs').upload(path, bytes, { contentType: mimeType, upsert: false });
+    const storageBucket = isVehicleDocument ? 'vehicle-docs' : 'driver-docs';
+    const baseName = safeFileName.replace(/\.[^.]*$/, '').slice(0, 80) || 'document';
+    const path = isVehicleDocument
+      ? `${uploadFolder}/${vehicleResult.data!.id}/${randomUUID()}-${docType}.${extension}`
+      : `${uploadFolder}/${context.driverId}/${randomUUID()}-${baseName}.${extension}`;
+    const { error: storageError } = await supabaseAdmin!.storage.from(storageBucket).upload(path, bytes, { contentType: mimeType, upsert: false });
     if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
 
     const insertResult = isVehicleDocument
-      ? await supabaseAdmin!.from('vehicle_documents').insert({ vehicle_id: vehicleResult.data!.id, doc_type: docType, file_path: path, status: 'pending', uploaded_by: context.userId, issued_date: issuedDate || null, expiry_date: expiryDate || null })
+      ? await supabaseAdmin!.from('vehicle_documents').insert({ vehicle_id: vehicleResult.data!.id, doc_type: docType, file_path: path, status: 'pending', uploaded_by: context.userId, file_sha256: createHash('sha256').update(bytes).digest('hex'), issued_date: issuedDate || null, expiry_date: expiryDate || null })
       : await supabaseAdmin!.from('driver_documents').insert({ driver_id: context.driverId, doc_type: docType, file_path: path, status: 'pending', issued_date: issuedDate || null, expiry_date: expiryDate || null });
     if (insertResult.error) {
-      await supabaseAdmin!.storage.from('driver-docs').remove([path]);
-      return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
+      await supabaseAdmin!.storage.from(storageBucket).remove([path]);
+      return NextResponse.json({ error: 'Document record could not be saved. Uploaded file was removed.' }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

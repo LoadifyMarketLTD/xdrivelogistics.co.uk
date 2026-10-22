@@ -8,15 +8,30 @@ type Document = {
   id: string; doc_type?: string; status?: string; expiry_date?: string | null;
   rejection_reason?: string | null; is_vehicle_document: boolean;
 };
-type Resources = { documents?: Document[]; partial?: string[]; vehicle?: { reg_plate?: string | null } | null };
+type Resources = {
+  documents?: Document[];
+  partial?: string[];
+  vehicle?: { reg_plate?: string | null } | null;
+  driver?: { driver_type?: string | null } | null;
+};
+const documentLabels: Record<string, string> = {
+  driving_licence: 'Driving licence',
+  proof_of_address: 'Proof of address',
+  right_to_work: 'Right to work',
+  cpc: 'Driver CPC',
+  visa_document: 'Visa / immigration document',
+  mot: 'MOT',
+  insurance: 'Insurance',
+};
 export default function MobileDriverDocumentsPage() {
   const [data, setData] = useState<Resources | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [opening, setOpening] = useState('');
   const [link, setLink] = useState<{ id: string; url: string; expiresAt: number } | null>(null);
   const refresh = useCallback(async () => {
-    setLoading(true); setData(null); setLink(null);
+    setLoading(true); setData(null); setLink(null); setNotice('');
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to see your documents.');
@@ -62,12 +77,13 @@ export default function MobileDriverDocumentsPage() {
     {loading ? <p role="status">Loading documents...</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
+    {notice ? <p role="status" className="xd-mobile-success">{notice}</p> : null}
     {!loading && data ? <>
       {data.partial?.some(name => name === 'driver_documents' || name === 'vehicle_documents')
         ? <p role="alert">Some documents could not be loaded. Retry to refresh.</p> : null}
       {!docs.length ? <p>No documents uploaded yet.</p> : null}
       {docs.map(doc => <article key={`${doc.is_vehicle_document}-${doc.id}`} className="xd-mobile-card">
-        <div className="xd-mobile-card__top"><strong>{doc.doc_type || 'Document'}</strong>
+        <div className="xd-mobile-card__top"><strong>{documentLabels[doc.doc_type ?? ''] ?? (doc.doc_type || 'Document')}</strong>
           <span className="xd-mobile-pill">{doc.status || 'pending'}</span></div>
         <p>{doc.is_vehicle_document ? 'Assigned vehicle' : 'Driver document'}</p>
         {doc.expiry_date ? <p>Expires: {doc.expiry_date}</p> : null}
@@ -78,7 +94,9 @@ export default function MobileDriverDocumentsPage() {
             onClick={event => { if (Date.now() > link.expiresAt) { event.preventDefault(); setLink(null); setError('Link expired. Request a new link.'); } }}>
             Open document</a> : null}</div>
       </article>)}
-      <DriverDocumentUpload hasAssignedVehicle={Boolean(data.vehicle)} onUploaded={refresh} />
+      <DriverDocumentUpload hasAssignedVehicle={Boolean(data.vehicle)}
+        ownerDriver={data.driver?.driver_type?.trim().toLowerCase() === 'owner_driver'}
+        onUploaded={async () => { await refresh(); setNotice('Document uploaded for review.'); }} />
     </> : null}
   </section>;
 }

@@ -105,4 +105,21 @@ describe('Driver PWA operational wiring', () => {
     expect(upload).toContain("isVehicleDocument: kind === 'vehicle'");
     expect(upload).toContain('file.size > 10 * 1024 * 1024');
   });
+
+  it('uses canonical driver and vehicle document schemas and storage buckets', () => {
+    const upload = source('app/m/driver/documents/DriverDocumentUpload.tsx');
+    const resources = source('app/api/driver/mobile/resources/route.ts');
+    const signed = source('app/api/driver/mobile/documents/[id]/route.ts');
+    expect(resources).toContain('COMPANY_DRIVER_DOCUMENT_TYPES');
+    expect(resources).toContain('OWNER_DRIVER_DOCUMENT_TYPES');
+    expect(resources).toContain('VEHICLE_DOCUMENT_TYPES.has(docType)');
+    expect(resources).toContain('allowedDriverTypes.has(docType)');
+    expect(resources).toContain("isVehicleDocument ? 'vehicle-docs' : 'driver-docs'");
+    expect(resources).toContain("file_sha256: createHash('sha256')");
+    expect(resources).toContain('(!expiryDate || expiryDate < new Date()');
+    expect(signed).toContain("isVehicleDocument ? 'vehicle-docs' : 'driver-docs'");
+    expect(upload).toContain("{ value: 'mot', label: 'MOT' }");
+    expect(upload).toContain('ownerDriver ?');
+    expect(upload).toContain("setDocType(next === 'vehicle' ? 'mot' : 'driving_licence')");
+  });
 });

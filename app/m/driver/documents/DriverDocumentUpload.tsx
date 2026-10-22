@@ -3,10 +3,18 @@ import { useRef, useState, type FormEvent } from 'react';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
 
 const mimeTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
-const documentTypes = {
-  driver: ['Driving Licence', 'Insurance', 'Hire & Reward'],
-  vehicle: ['MOT', 'Insurance', 'Hire & Reward'],
-};
+const driverDocumentTypes = [
+  { value: 'driving_licence', label: 'Driving licence' },
+  { value: 'proof_of_address', label: 'Proof of address' },
+  { value: 'right_to_work', label: 'Right to work' },
+  { value: 'cpc', label: 'Driver CPC' },
+  { value: 'visa_document', label: 'Visa / immigration document' },
+];
+const ownerInsuranceType = { value: 'insurance', label: 'Owner Driver insurance' };
+const vehicleDocumentTypes = [
+  { value: 'mot', label: 'MOT' },
+  { value: 'insurance', label: 'Vehicle insurance' },
+];
 
 async function encodeFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -22,12 +30,15 @@ async function encodeFile(file: File): Promise<string> {
   });
 }
 
-export default function DriverDocumentUpload({ hasAssignedVehicle, onUploaded }: {
+export default function DriverDocumentUpload({ hasAssignedVehicle, ownerDriver, onUploaded }: {
   hasAssignedVehicle: boolean;
+  ownerDriver: boolean;
   onUploaded: () => Promise<void>;
 }) {
   const [kind, setKind] = useState<'driver' | 'vehicle'>('driver');
-  const [docType, setDocType] = useState('Driving Licence');
+  const [docType, setDocType] = useState('driving_licence');
+  const typeOptions = kind === 'vehicle' ? vehicleDocumentTypes
+    : ownerDriver ? [...driverDocumentTypes, ownerInsuranceType] : driverDocumentTypes;
   const [issuedDate, setIssuedDate] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -45,6 +56,9 @@ export default function DriverDocumentUpload({ hasAssignedVehicle, onUploaded }:
     }
     if (issuedDate && expiryDate && issuedDate > expiryDate) {
       setError('Expiry date cannot be before the issue date.'); return;
+    }
+    if (kind === 'vehicle' && (!expiryDate || expiryDate < new Date().toISOString().slice(0, 10))) {
+      setError('A current MOT or insurance expiry date is required.'); return;
     }
     if (kind === 'vehicle' && !hasAssignedVehicle) {
       setError('No assigned vehicle is available.'); return;
@@ -79,7 +93,8 @@ export default function DriverDocumentUpload({ hasAssignedVehicle, onUploaded }:
       <select value={kind} onChange={event => {
         const next = event.target.value as 'driver' | 'vehicle';
         setKind(next);
-        setDocType(next === 'vehicle' ? 'MOT' : 'Driving Licence');
+        setDocType(next === 'vehicle' ? 'mot' : 'driving_licence');
+        setExpiryDate('');
       }}>
         <option value="driver">Driver</option>
         {hasAssignedVehicle ? <option value="vehicle">Assigned vehicle</option> : null}
@@ -87,14 +102,14 @@ export default function DriverDocumentUpload({ hasAssignedVehicle, onUploaded }:
     </label>
     <label>Document type
       <select value={docType} onChange={event => setDocType(event.target.value)}>
-        {documentTypes[kind].map(value => <option key={value} value={value}>{value}</option>)}
+        {typeOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>
     </label>
     <label>Issue date (optional)
       <input type="date" value={issuedDate} onChange={event => setIssuedDate(event.target.value)}/>
     </label>
-    <label>Expiry date (optional)
-      <input type="date" value={expiryDate} onChange={event => setExpiryDate(event.target.value)}/>
+    <label>Expiry date {kind === 'vehicle' ? '(required)' : '(optional)'}
+      <input type="date" required={kind === 'vehicle'} value={expiryDate} onChange={event => setExpiryDate(event.target.value)}/>
     </label>
     <label>Document (PDF or image, maximum 10 MB)
       <input ref={inputRef} type="file" required
