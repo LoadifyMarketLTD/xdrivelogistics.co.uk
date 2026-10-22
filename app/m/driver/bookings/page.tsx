@@ -1,11 +1,71 @@
 'use client';
-import {useCallback,useEffect,useState} from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import {readRouteAuthAccessToken} from '../../../../lib/routeAuthCookie';
-type Booking={id:string;reference:string;status:string;pickupLocation:string;pickupPostcode:string;deliveryLocation:string;deliveryPostcode:string;pickupTime:string;deliveryTime:string;vehicleRequirement:string;stops?:Array<{sequence:number;address:string;type:string}>};
-export default function MobileBookingsPage(){
- const [jobs,setJobs]=useState<Booking[]>([]);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
- const refresh=useCallback(async()=>{setLoading(true);setError('');try{const token=readRouteAuthAccessToken();if(!token)throw new Error('Please sign in to view bookings.');const response=await fetch('/api/driver/mobile/jobs?scope=active',{headers:{Authorization:`Bearer ${token}`},cache:'no-store'});if(!response.ok)throw new Error('Bookings are unavailable. Please retry.');const data=await response.json();setJobs(Array.isArray(data.jobs)?data.jobs:[])}catch(e){setError(e instanceof Error?e.message:'Unable to load bookings.')}finally{setLoading(false)}},[]);
- useEffect(()=>{void refresh();const resume=()=>void refresh();window.addEventListener('focus',resume);return()=>window.removeEventListener('focus',resume)},[refresh]);
- return <section className="xd-mobile-list"><header><h1>Bookings</h1><p>Awarded and assigned work</p></header>{loading?<p role="status">Loading bookings…</p>:error?<div role="alert"><p>{error}</p><button onClick={()=>void refresh()}>Retry</button></div>:jobs.length===0?<p>No active bookings assigned to you.</p>:jobs.map(job=><article className="xd-mobile-card" key={job.id}><div className="xd-mobile-card__top"><strong>{job.reference}</strong><span>{job.status}</span></div><p className="xd-mobile-route">{job.pickupLocation} {job.pickupPostcode} → {job.deliveryLocation} {job.deliveryPostcode}</p><p>Collection: {job.pickupTime&& !Number.isNaN(Date.parse(job.pickupTime))?new Date(job.pickupTime).toLocaleString('en-GB'):'To be confirmed'}</p><p>Delivery: {job.deliveryTime&& !Number.isNaN(Date.parse(job.deliveryTime))?new Date(job.deliveryTime).toLocaleString('en-GB'):'To be confirmed'}</p><p>{job.vehicleRequirement}</p>{Array.isArray(job.stops)&&job.stops.length>2?<ol>{[...job.stops].sort((a,b)=>a.sequence-b.sequence).map(s=><li key={s.sequence}>{s.type}: {s.address}</li>)}</ol>:null}<Link href={`/m/driver/bookings/${encodeURIComponent(job.id)}`}>Open booking and actions</Link></article>)}</section>
+import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
+
+type Booking = {
+  id: string; reference: string; status: string;
+  pickupLocation: string; pickupPostcode: string;
+  deliveryLocation: string; deliveryPostcode: string;
+  pickupTime: string; deliveryTime: string;
+  vehicleRequirement: string; paymentTerms?: string;
+  podGenerated?: boolean;
+  stops?: Array<{ sequence: number; address: string; type: string }>;
+};
+const when = (raw?: string) =>
+  raw && Number.isFinite(Date.parse(raw))
+    ? new Date(raw).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'To be confirmed';
+
+export default function MobileBookingsPage() {
+  const [jobs, setJobs] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = readRouteAuthAccessToken();
+      if (!token) throw Error('Please sign in to see your bookings.');
+      const response = await fetch('/api/driver/mobile/jobs?scope=active', {
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw Error(payload.error || 'Bookings are unavailable.');
+      setJobs(Array.isArray(payload.jobs) ? payload.jobs : []);
+      setError('');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to load bookings.');
+    } finally { setLoading(false); }
+  }, []);
+  useEffect(() => {
+    void refresh();
+    const onFocus = () => void refresh();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refresh]);
+
+  return <section className="xd-mobile-list">
+    <header><h1>Bookings</h1><p>Your assigned transport jobs</p></header>
+    {loading ? <p role="status">Loading bookings...</p> : null}
+    {error ? <div className="xd-mobile-error" role="alert"><p>{error}</p>
+      <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
+    {!loading && !error && jobs.length === 0 ? <p>No active bookings assigned to you.</p> : null}
+    {!loading && jobs.map(job => <article className="xd-mobile-card" key={job.id}>
+      <div className="xd-mobile-card__top">
+        <strong>{job.reference}</strong>
+        <span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span>
+      </div>
+      <p className="xd-mobile-route">{job.pickupLocation} {job.pickupPostcode} → {job.deliveryLocation} {job.deliveryPostcode}</p>
+      <div className="xd-mobile-two-cols">
+        <div><small>COLLECTION</small><strong>{when(job.pickupTime)}</strong></div>
+        <div><small>DELIVERY</small><strong>{when(job.deliveryTime)}</strong></div>
+      </div>
+      <p><strong>Vehicle:</strong> {job.vehicleRequirement}</p>
+      {job.paymentTerms ? <p><strong>Payment:</strong> {job.paymentTerms}</p> : null}
+      {job.podGenerated ? <p className="xd-mobile-success">POD available</p> : null}
+      {Array.isArray(job.stops) && job.stops.length > 2
+        ? <p>{job.stops.length} collection/delivery stops</p> : null}
+      <Link href={`/m/driver/bookings/${encodeURIComponent(job.id)}`}>Open booking and actions</Link>
+    </article>)}
+  </section>;
 }
