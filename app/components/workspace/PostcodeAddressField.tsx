@@ -113,6 +113,18 @@ export default function PostcodeAddressField({
 
         setSuggestions(next);
         setTowns(payload.towns ?? {});
+        // Auto-resolve only when every suggestion agrees on the same verified town.
+        // Never mistake administrative districts such as London Borough of Bexley for a post town.
+        const candidates = next.map(label => {
+          const supplied = payload.towns?.[label]?.trim();
+          if (supplied) return supplied;
+          const parts = label.split(',').map(part => part.trim());
+          const postcodeIndex = parts.findIndex(part => isFullUkPostcode(part));
+          const candidate = postcodeIndex >= 2 ? parts[postcodeIndex - 1] : '';
+          return /\b(?:borough|county|district|region)\b/i.test(candidate) ? '' : candidate;
+        });
+        const resolved = candidates.length > 0 && candidates.every(town => town && town.toLowerCase() === candidates[0].toLowerCase()) ? candidates[0] : '';
+        if (resolved && isFullUkPostcode(normalized)) onTownRef.current?.(resolved);
         if (isFullUkPostcode(normalized) && !addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);
           const confirmedTown=payload.towns?.[next[0]];
