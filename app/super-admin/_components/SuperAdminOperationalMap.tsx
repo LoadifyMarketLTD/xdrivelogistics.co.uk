@@ -79,7 +79,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       const popup = (title: string, lines: string[]) => {
         const root = document.createElement('div');
         root.style.minWidth = '180px';
-        root.style.fontFamily = 'Inter, Arial, sans-serif';
+        root.style.fontFamily = '"HK Nova", Arial, sans-serif';
         root.style.color = COLORS.grey;
         root.style.background = COLORS.white;
         const heading = document.createElement('strong');
@@ -91,7 +91,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
         for (const line of lines) {
           const item = document.createElement('div');
           item.textContent = line;
-          item.style.fontSize = '12px';
+          item.style.fontSize = '14px';
           item.style.marginTop = '6px';
           item.style.color = COLORS.grey;
           root.appendChild(item);
@@ -101,7 +101,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
 
       for (const pin of validDrivers) {
         const moving = (pin.location?.speed_mph ?? 0) > 3;
-        const state = pin.status === 'offline' ? 'OFFLINE' : 'AVAILABLE';
+        const state = pin.status === 'offline' ? 'OFFLINE' : pin.status === 'busy' ? 'BUSY' : 'AVAILABLE';
         const sourceLabel = pin.location?.source === 'availability_presence' ? 'Availability presence' : 'Execution tracking';
         const lines = [
           `${state}${pin.location?.speed_mph != null ? ` · ${Math.round(pin.location.speed_mph)} mph` : ''}`,
@@ -161,8 +161,9 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
           button.style.borderRadius = '8px';
           button.style.padding = '6px 9px';
           button.style.boxShadow = COLORS.shadow;
-          button.style.fontFamily = 'Inter, Arial, sans-serif';
-          button.style.fontSize = '11px';
+          button.style.fontFamily = '"HK Nova", Arial, sans-serif';
+          button.style.fontSize = '13px';
+          button.style.minHeight = '40px';
           button.style.fontWeight = '700';
           button.onclick = () => map.setView([region.lat, region.lng], region.zoom);
           wrap.appendChild(button);
