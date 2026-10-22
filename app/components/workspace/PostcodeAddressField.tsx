@@ -61,6 +61,7 @@ export default function PostcodeAddressField({
   error?: string;
 }) {
   const onAddressRef = useRef(onAddress);
+  const onTownRef = useRef(onTown);
   const addressRef = useRef(address);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [towns,setTowns]=useState<Record<string,string>>({});
@@ -113,7 +114,7 @@ export default function PostcodeAddressField({
         if (!addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);
           const confirmedTown=payload.towns?.[next[0]];
-          if(confirmedTown) onTown?.(confirmedTown);
+          if (confirmedTown) onTownRef.current?.(confirmedTown);
           setOpen(false);
         } else {
           setOpen(next.length > 0);
