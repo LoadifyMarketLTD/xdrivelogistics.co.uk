@@ -208,6 +208,13 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 12_000);
+
     const run = async () => {
       setLoading(true);
       setError(null);
@@ -215,20 +222,33 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
       setSummary(null);
       setRows([]);
       setHasNextPage(false);
-      setTotalCount(null);      try {
+      setTotalCount(null);
+
+      try {
         const auth = await getAuthHeader();
-        if (!auth) { setError('No active session.'); return; }
+        if (controller.signal.aborted && !timedOut) return;
+        if (!auth) {
+          setError('No active session.');
+          return;
+        }
+
         const url = new URL(endpoint, window.location.origin);
         url.searchParams.set('page', String(page));
         url.searchParams.set('limit', String(pageSize));
         if (search) url.searchParams.set('search', search);
         else url.searchParams.delete('search');
+
         const res = await fetch(`${url.pathname}${url.search}`, {
           headers: { Authorization: auth },
           cache: 'no-store',
+          signal: controller.signal,
         });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) { setError((body as { error?: string }).error ?? 'The requested service is currently unavailable.'); return; }
+        if (!res.ok) {
+          setError((body as { error?: string }).error ?? 'The requested service is currently unavailable.');
+          return;
+        }
+
         const fieldValue = (body as Record<string, unknown>)[rowsField];
         setRows(Array.isArray(fieldValue) ? fieldValue as T[] : []);
         const pagination = (body as Record<string, unknown>).pagination as Record<string, unknown> | undefined;
@@ -239,11 +259,24 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
           setSummary(value && typeof value === 'object' ? value as Record<string, unknown> : null);
         }
         setNotices(readLiveTableNotices(body as Record<string, unknown>, noteField, diagnosticField));
-      } catch { setError('The requested service is currently unavailable.'); } finally {
-        setLoading(false);
+      } catch (cause) {
+        if (controller.signal.aborted && !timedOut) return;
+        setError(timedOut
+          ? 'The requested service timed out. No stale data is being shown.'
+          : cause instanceof Error
+            ? cause.message
+            : 'The requested service is currently unavailable.');
+      } finally {
+        window.clearTimeout(timeout);
+        if (!controller.signal.aborted || timedOut) setLoading(false);
       }
     };
+
     void run();
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [endpoint, rowsField, summaryField, noteField, diagnosticField, page, pageSize, refreshKey, search]);
 
   return (
