@@ -118,10 +118,10 @@ const EMPTY_FORM: FormState = {
 };
 
 function StopFields({
-  title, date, time, postcode, address, contact, phone, onDate, onTime, onPostcode, onAddress, onContact, onPhone, showErrors,
+  title, date, time, postcode, address, contact, phone, onDate, onTime, onPostcode, onAddress, onTown, town, onContact, onPhone, showErrors,
 }: {
   title: string; date: string; time: string; postcode: string; address: string; contact: string; phone: string;
-  onDate: (value: string) => void; onTime: (value: string) => void; onPostcode: (value: string) => void; onAddress: (value: string) => void; onContact: (value: string) => void; onPhone: (value: string) => void; showErrors: boolean;
+  onDate: (value: string) => void; onTime: (value: string) => void; onPostcode: (value: string) => void; onAddress: (value: string) => void; onTown?: (value: string) => void; town?: string; onContact: (value: string) => void; onPhone: (value: string) => void; showErrors: boolean;
 }) {
   const postcodeError = showErrors && (!postcode.trim() ? 'Required' : !isFullUkPostcode(postcode) ? 'Enter a full UK postcode' : '');
   const addressError = showErrors && !address.trim() ? 'Required' : '';
@@ -132,7 +132,8 @@ function StopFields({
       <label style={labelStyle}>Time *<select style={{ ...fieldStyle, ...(showErrors && !time ? invalidStyle : {}) }} value={time} onChange={(event) => onTime(event.target.value)}><option value="">Select time</option>{QUARTER_HOUR_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}</select>{showErrors && !time ? <span style={errorTextStyle}>Required</span> : null}</label>
     </div>
     <label style={labelStyle}>Postcode *<input style={{ ...fieldStyle, ...(postcodeError ? invalidStyle : {}) }} value={postcode} onChange={(event) => onPostcode(event.target.value.toUpperCase())} />{postcodeError ? <span style={errorTextStyle}>{postcodeError}</span> : null}</label>
-    <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} error={addressError || undefined} />
+    <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} error={addressError || undefined} />
+    {onTown ? <div style={{fontSize:11,color:"#475569"}}>Public town: {town || "Select an address or enter the town below"}</div> : null}
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
       <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
@@ -250,10 +251,14 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
 
     <Panel title="Collection and delivery" description="Update the route whenever required. Existing lifecycle status, award/allocation and operational evidence remain preserved.">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 12 }}>
-        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><label>Collection town (public)<input required value={form.pickupTown} onChange={e=>set("pickupTown",e.target.value)}/></label><label>Delivery town (public)<input required value={form.deliveryTown} onChange={e=>set("deliveryTown",e.target.value)}/></label></div>
-        <div style={{display:"grid",gap:8}}><label style={labelStyle}>Collection town (public) *<input style={fieldStyle} required value={form.pickupTown} onChange={e=>set("pickupTown",e.target.value)} placeholder="e.g. Blackburn" /></label><StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(v) => set('pickupDate', v)} onTime={(v) => set('pickupTime', v)} onPostcode={(v) => set('pickupPostcode', v)} onAddress={(v) => set('pickupAddress', v)} onContact={(v) => set('collectionContact', v)} onPhone={(v) => set('collectionPhone', v)} showErrors={showErrors} />
-        <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(v) => set('deliveryDate', v)} onTime={(v) => set('deliveryTime', v)} onPostcode={(v) => set('deliveryPostcode', v)} onAddress={(v) => set('deliveryAddress', v)} onContact={(v) => set('deliveryContact', v)} onPhone={(v) => set('deliveryPhone', v)} showErrors={showErrors} /></div>
-      </div>
+        <div style={{display:'grid',gap:8}}>
+          <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(v) => set('pickupDate', v)} onTime={(v) => set('pickupTime', v)} onPostcode={(v) => set('pickupPostcode', v)} onAddress={(v) => set('pickupAddress', v)} onTown={(v) => set('pickupTown', v)} onContact={(v) => set('collectionContact', v)} onPhone={(v) => set('collectionPhone', v)} showErrors={showErrors} town={form.pickupTown} />
+          <label style={labelStyle}>Collection town *<input style={fieldStyle} required value={form.pickupTown} onChange={(e) => set('pickupTown', e.target.value)} placeholder="Select an address or enter town" /></label>
+        </div>
+        <div style={{display:'grid',gap:8}}>
+          <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(v) => set('deliveryDate', v)} onTime={(v) => set('deliveryTime', v)} onPostcode={(v) => set('deliveryPostcode', v)} onAddress={(v) => set('deliveryAddress', v)} onTown={(v) => set('deliveryTown', v)} onContact={(v) => set('deliveryContact', v)} onPhone={(v) => set('deliveryPhone', v)} showErrors={showErrors} town={form.deliveryTown} />
+          <label style={labelStyle}>Delivery town *<input style={fieldStyle} required value={form.deliveryTown} onChange={(e) => set('deliveryTown', e.target.value)} placeholder="Select an address or enter town" /></label>
+        </div>      </div>
       <div style={{ display: 'grid', gap: 8, borderTop: '1px solid #e2e8f0', marginTop: 12, paddingTop: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><div><strong style={{ fontSize: 12 }}>Additional stops</strong><div style={{ fontSize: 11, color: '#64748b' }}>Corrections are allowed at any stage. A progressed stop can be corrected, but its executed position/type cannot be removed or reordered.</div></div><ActionButton tone="secondary" disabled={saving || additionalStops.length >= 8} onClick={addStop}>{additionalStops.length >= 8 ? 'Maximum 8 stops' : 'Add stop'}</ActionButton></div>
         {additionalStops.map((stop, index) => <div key={stop.id} style={{ border: '1px solid #dbe3ee', borderRadius: 4, padding: 10, display: 'grid', gap: 8, background: '#fbfdff' }}>
