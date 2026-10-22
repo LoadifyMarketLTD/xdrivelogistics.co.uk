@@ -13,9 +13,10 @@ type Resources = {
 type MenuItem = { label: string; href: string };
 const essentials: MenuItem[] = [
   { label: 'Documents', href: '/m/driver/documents' },
-  { label: 'Availability', href: '/driver/availability/live' },
-  { label: 'Messages', href: '/driver/messages' },
-  { label: 'Profile & settings', href: '/driver/profile' },
+  { label: 'Availability', href: '/m/driver/availability' },
+  { label: 'Return Journeys', href: '/m/driver/return-journeys' },
+  { label: 'Messages', href: '/m/driver/messages' },
+  { label: 'Profile & settings', href: '/m/driver/settings' },
   { label: 'Help & support', href: '/driver/support' },
 ];
 export default function MobileMorePage() {

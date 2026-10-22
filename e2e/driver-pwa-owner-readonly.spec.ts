@@ -34,6 +34,10 @@ test('Owner Driver can sign in and inspect each mobile workspace without mutatio
     { path: '/m/driver/bookings', label: 'Bookings', api: '/api/driver/web/jobs' },
     { path: '/m/driver/more', label: 'More', api: '/api/driver/web/resources' },
     { path: '/m/driver/documents', label: 'More', api: '/api/driver/web/resources' },
+    { path: '/m/driver/availability', label: 'More', api: '/api/driver/availability-profile' },
+    { path: '/m/driver/return-journeys', label: 'More', api: '/api/driver/web/resources' },
+    { path: '/m/driver/messages', label: 'More', api: '/api/driver/web/resources' },
+    { path: '/m/driver/settings', label: 'More', api: '/api/driver/web/resources' },
   ];
   for (const { path, label, api } of routes) {
     const apiRequest = page.waitForResponse(response =>
