@@ -1051,7 +1051,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               pickupTime: availableQuarterHourSlots(value, clockNow).includes(current.pickupTime) ? current.pickupTime : '',
             }))}
             onTime={(value) => set('pickupTime', value)}
-            onPostcode={(value) => set('pickupPostcode', value.toUpperCase())}
+            onPostcode={(value) => setForm(current => ({...current,pickupPostcode:value.toUpperCase(),pickupTown:''}))}
             onAddress={(value) => set('pickupAddress', value)}
             onTown={(value) => set('pickupTown', value)}
             onContact={(value) => set('collectionContact', value)}
@@ -1076,7 +1076,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               deliveryTime: availableQuarterHourSlots(value, clockNow).includes(current.deliveryTime) ? current.deliveryTime : '',
             }))}
             onTime={(value) => set('deliveryTime', value)}
-            onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())}
+            onPostcode={(value) => setForm(current => ({...current,deliveryPostcode:value.toUpperCase(),deliveryTown:''}))}
             onAddress={(value) => set('deliveryAddress', value)}
             onTown={(value) => set('deliveryTown', value)}
             onContact={(value) => set('deliveryContact', value)}
