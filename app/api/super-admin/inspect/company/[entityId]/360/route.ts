@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '@/app/api/_lib/supabaseAdmin';
 import { verifyPlatformOwner } from '@/app/api/super-admin/_lib/verifyPlatformOwner';
+import { isTimestampFresh } from '@/app/api/super-admin/_lib/operationalMapTruth';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const OPTIONAL_SCHEMA_CODES = new Set(['42P01', 'PGRST202', 'PGRST204', 'PGRST205', '42703']);
@@ -42,8 +43,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
   const { entityId: rawId } = await context.params;
-  const entityId = decodeURIComponent(rawId).trim();
-  if (!entityId || entityId.length > 240) return respond(400, { error: 'Invalid company identifier.' });
+  const entityId = rawId.trim();
+  if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(entityId)) {
+    return respond(400, { error: 'Invalid company identifier.' });
+  }
 
   const companyResult = await supabaseAdmin
     .from('companies')
@@ -59,7 +62,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     tickets, invoiceDisputes, audit, cases, onboarding, companyDocs, reviews, fraudCases,
   ] = await Promise.all([
     optionalRows(supabaseAdmin.from('company_memberships').select('user_id, invited_email, role_in_company, status, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Company memberships'),
-    optionalRows(supabaseAdmin.from('drivers').select('id, user_id, display_name, full_name, name, email, phone, status, availability_status, app_access, driver_type, reg_number, vehicle_type, can_commercial_bid, international_work_approved, last_app_login, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Drivers'),
+    optionalRows(supabaseAdmin.from('drivers').select('id, user_id, display_name, full_name, name, email, phone, status, is_active, availability_status, app_access, driver_type, reg_number, vehicle_type, can_commercial_bid, international_work_approved, last_app_login, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Drivers'),
     optionalRows(supabaseAdmin.from('vehicles').select('id, assigned_driver_id, reg, registration, reg_plate, make, model, vehicle_type, status, current_status, is_available, is_tracked, current_location, last_tracked_at, international_work_approved, created_at, updated_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Vehicles'),
     optionalRows(supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_lat, pickup_lng, delivery_lat, delivery_lng, assigned_driver_id, vehicle_id, agreed_rate_gbp, currency, exchange_visibility, created_at, completed_at').eq('company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Posted jobs'),
     optionalRows(supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_lat, pickup_lng, delivery_lat, delivery_lng, assigned_driver_id, vehicle_id, agreed_rate_gbp, currency, exchange_visibility, created_at, completed_at').eq('awarded_carrier_company_id', entityId).order('created_at', { ascending: false }).limit(250), 'Awarded jobs'),
@@ -259,9 +262,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
       : presence?.updated_at
         ? Date.parse(String(presence.updated_at))
         : Number.NaN;
-    const presenceFresh = Number.isFinite(presenceAt)
-      && presenceAt >= nowMs - 30 * 60_000
-      && presenceAt <= nowMs + 2 * 60_000;
+    const presenceFresh = isTimestampFresh(presenceAt, nowMs);
     const presenceActive = presence?.exact_lat != null
       && presence?.exact_lng != null
       && (!presence.available_until || Date.parse(String(presence.available_until)) > nowMs)
@@ -270,17 +271,16 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
     const lat = usePresence ? presence?.exact_lat ?? null : location?.lat ?? null;
     const lng = usePresence ? presence?.exact_lng ?? null : location?.lng ?? null;
     const recordedAt = usePresence ? presence?.recorded_at ?? presence?.updated_at ?? null : location?.recorded_at ?? null;
-    const ageMinutes = recordedAt ? Math.max(0, Math.round((nowMs - Date.parse(String(recordedAt))) / 60_000)) : null;
-    const fresh = ageMinutes !== null && ageMinutes <= 30;
+    const recordedTimestamp = recordedAt ? Date.parse(String(recordedAt)) : Number.NaN;
+    const fresh = isTimestampFresh(recordedTimestamp, nowMs);
     const availability = String(driver.availability_status ?? '').toLowerCase();
     const status: 'online' | 'busy' | 'offline' | 'sold' =
       String(driver.status ?? '').toLowerCase() === 'inactive'
+        || driver.is_active === false || availability === 'offline' || (!fresh && !presenceActive)
         ? 'offline'
         : availability === 'busy'
           ? 'busy'
-          : fresh || presenceActive
-            ? 'online'
-            : 'offline';
+          : 'online';
     const vehicle = vehicleByDriver.get(id) ?? null;
     const registration = vehicle ? String(vehicle.registration ?? vehicle.reg_plate ?? vehicle.reg ?? '—') : null;
     const vehicleLabel = vehicle

@@ -124,6 +124,9 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       }
 
       for (const job of routes) {
+        // Guard nullable coordinates before Number(null) would turn them into a false 0,0 route.
+        if (!Number.isFinite(job.map.pickup_lat) || !Number.isFinite(job.map.pickup_lng)
+          || !Number.isFinite(job.map.delivery_lat) || !Number.isFinite(job.map.delivery_lng)) continue;
         const a: [number, number] = [Number(job.map.pickup_lat), Number(job.map.pickup_lng)];
         const b: [number, number] = [Number(job.map.delivery_lat), Number(job.map.delivery_lng)];
         if (![...a, ...b].every(Number.isFinite)) continue;
@@ -144,6 +147,8 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
       control.onAdd = () => {
         const wrap = L.DomUtil.create('div');
         wrap.style.display = 'flex';
+        wrap.style.flexWrap = 'wrap';
+        wrap.style.maxWidth = 'min(260px, calc(100vw - 72px))';
         wrap.style.gap = '6px';
         wrap.style.background = COLORS.white;
         wrap.style.padding = '8px';
@@ -163,7 +168,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
           button.style.boxShadow = COLORS.shadow;
           button.style.fontFamily = '"HK Nova", Arial, sans-serif';
           button.style.fontSize = '13px';
-          button.style.minHeight = '40px';
+          button.style.minHeight = '44px';
           button.style.fontWeight = '700';
           button.onclick = () => map.setView([region.lat, region.lng], region.zoom);
           wrap.appendChild(button);
@@ -183,7 +188,7 @@ export default function SuperAdminOperationalMap({ drivers, jobs, routes }: {
 
   return (
     <div style={{ padding: '12px', border: `1px solid ${COLORS.grey}`, borderRadius: '8px', boxShadow: COLORS.shadow, background: COLORS.white }}>
-      <div ref={nodeRef} aria-label="Live operational map UK and Ireland" style={{ width: '100%', minHeight: 420, border: `1px solid ${COLORS.grey}`, borderRadius: '8px', overflow: 'hidden', background: COLORS.white, boxShadow: COLORS.shadow }} />
+      <div ref={nodeRef} role="region" aria-label="Live operational map UK and Ireland" style={{ width: '100%', minHeight: 420, border: `1px solid ${COLORS.grey}`, borderRadius: '8px', overflow: 'hidden', background: COLORS.white, boxShadow: COLORS.shadow }} />
     </div>
   );
 }
