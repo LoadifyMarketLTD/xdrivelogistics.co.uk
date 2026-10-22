@@ -132,7 +132,7 @@ function StopFields({
       <label style={labelStyle}>Time *<select style={{ ...fieldStyle, ...(showErrors && !time ? invalidStyle : {}) }} value={time} onChange={(event) => onTime(event.target.value)}><option value="">Select time</option>{QUARTER_HOUR_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}</select>{showErrors && !time ? <span style={errorTextStyle}>Required</span> : null}</label>
     </div>
     <label style={labelStyle}>Postcode *<input style={{ ...fieldStyle, ...(postcodeError ? invalidStyle : {}) }} value={postcode} onChange={(event) => onPostcode(event.target.value.toUpperCase())} />{postcodeError ? <span style={errorTextStyle}>{postcodeError}</span> : null}</label>
-    <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} error={addressError || undefined} />
+    <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} onPostcodeResolved={onPostcode} error={addressError || undefined} />
     {onTown ? <div style={{fontSize:11,color:"#475569"}}>Public town: {town || "Select an address or enter the town below"}</div> : null}
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>

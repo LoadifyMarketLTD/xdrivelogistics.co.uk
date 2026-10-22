@@ -52,12 +52,14 @@ export default function PostcodeAddressField({
   address,
   onAddress,
   onTown,
+  onPostcodeResolved,
   error,
 }: {
   postcode: string;
   address: string;
   onAddress: (value: string) => void;
   onTown?: (value: string) => void;
+  onPostcodeResolved?: (value: string) => void;
   error?: string;
 }) {
   const onAddressRef = useRef(onAddress);
@@ -82,7 +84,7 @@ export default function PostcodeAddressField({
     setTowns({});
     setOpen(false);
 
-    if (!isFullUkPostcode(normalized)) {
+    if (postcode.replace(/\s/g, "").length < 3) {
       setLoading(false);
       return;
     }
@@ -94,7 +96,7 @@ export default function PostcodeAddressField({
         const token = readRouteAuthAccessToken();
         if (!token) return;
 
-        const params = new URLSearchParams({ postcode: normalized });
+        const params = isFullUkPostcode(normalized) ? new URLSearchParams({postcode:normalized}) : new URLSearchParams({q:postcode.trim()});
         const response = await fetch(`/api/location/postcode-addresses?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
@@ -111,7 +113,7 @@ export default function PostcodeAddressField({
 
         setSuggestions(next);
         setTowns(payload.towns ?? {});
-        if (!addressRef.current.trim() && next.length === 1) {
+        if (isFullUkPostcode(normalized) && !addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);
           const confirmedTown=payload.towns?.[next[0]];
           if (confirmedTown) onTownRef.current?.(confirmedTown);
@@ -199,6 +201,8 @@ export default function PostcodeAddressField({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 onAddress(suggestion);
+                const found = suggestion.match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/i);
+                if (found) onPostcodeResolved?.(normalizeOperationalPostcode(found[0]));
                 const town=towns[suggestion];
                 if(town) onTown?.(town);
                 setOpen(false);

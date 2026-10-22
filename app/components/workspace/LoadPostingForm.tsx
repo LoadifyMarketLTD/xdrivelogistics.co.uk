@@ -1382,7 +1382,7 @@ function StopFields({
         <input style={{ ...fieldStyle, ...(errors?.postcode ? invalidFieldStyle : {}) }} aria-invalid={errors?.postcode ? 'true' : undefined} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} />
         {errors?.postcode ? <span style={validationMessageStyle}>{errors.postcode}</span> : null}
       </label>
-      <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} error={errors?.address} />
+      <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} onPostcodeResolved={onPostcode} error={errors?.address} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
         <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
