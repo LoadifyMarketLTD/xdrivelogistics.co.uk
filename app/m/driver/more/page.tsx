@@ -48,7 +48,7 @@ export default function MobileMorePage() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const type = String(data?.driver?.driver_type ?? '').toLowerCase();
-  const ownerDriver = type === 'owner_driver';
+  const ownerDriver = type === 'owner_driver' || type === 'owner_operator';
   const sections: Section[] = [
     { title: 'Operations', items: [
       ...operations,

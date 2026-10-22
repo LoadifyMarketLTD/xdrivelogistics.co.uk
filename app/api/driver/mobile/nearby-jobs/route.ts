@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { sortSmartDestinationCandidates } from '../../../../../lib/smartDestinationPriority';
+import { mobilePublicArea, publicTown } from '../../_lib/mobilePublicArea';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   marketplaceNumber,
@@ -20,6 +21,7 @@ type NearbyJobRow = {
   assigned_driver_id: string | null;
   direct_invite_company_id: string | null;
   pickup_location: string | null;
+  pickup_city: string | null;
   pickup_postcode: string | null;
   pickup_lat: number | null;
   pickup_lng: number | null;
@@ -27,6 +29,7 @@ type NearbyJobRow = {
   pickup_time_slot: string | null;
   collection_window_end?: string | null;
   delivery_location: string | null;
+  delivery_city: string | null;
   delivery_postcode: string | null;
   delivery_lat: number | null;
   delivery_lng: number | null;
@@ -45,6 +48,9 @@ type NearbyJobRow = {
   weight_kg: number | string | null;
   budget_amount: number | string | null;
   currency: string | null;
+  payment_terms: string | null;
+  pod_required: boolean | null;
+  hard_copy_pod: string | null;
   is_fixed_price: boolean | null;
   load_details: string | null;
   special_requirements: string | null;
@@ -70,11 +76,11 @@ type NearbyJobRow = {
 // Explicit company FK keeps PostgREST embedding deterministic for mobile loads.
 const nearbySelect = [
   'id', 'company_id', 'created_by', 'status', 'exchange_visibility', 'awarded_carrier_company_id', 'assigned_company_id', 'assigned_driver_id', 'direct_invite_company_id',
-  'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot', 'collection_window_end',
-  'delivery_location', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
+  'pickup_location', 'pickup_city', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot', 'collection_window_end',
+  'delivery_location', 'delivery_city', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
   'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
-  'pallets', 'weight_kg', 'budget_amount', 'currency', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
+  'pallets', 'weight_kg', 'budget_amount', 'currency', 'payment_terms', 'pod_required', 'hard_copy_pod', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
   'job_distance_miles', 'job_distance_minutes', 'exchange_posted_at', 'exchange_expires_at',
   'companies!jobs_company_id_fkey(name,xd_id,company_type,created_at)',
 ].join(',');
@@ -82,11 +88,6 @@ const nearbySelect = [
 function companyInfo(companies: NearbyJobRow['companies']) {
   if (Array.isArray(companies)) return companies[0] ?? null;
   return companies ?? null;
-}
-
-function publicArea(postcode: unknown) {
-  const outcode = publicOutcode(postcode);
-  return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
 }
 
 function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: Record<string, unknown> = {}) {
@@ -105,7 +106,7 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     },
     posterCompanyName: company?.name ?? null,
     pickup: {
-      addressSummary: publicArea(row.pickup_postcode),
+      addressSummary: mobilePublicArea(row.pickup_postcode, row.pickup_city),
       postcode: publicOutcode(row.pickup_postcode),
       // Pre-award Alerts privacy: exact collection postcode is withheld until allocation.
       fullPostcode: null,
@@ -115,7 +116,7 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
       collectionTo: row.collection_window_end || null,
     },
     delivery: {
-      addressSummary: publicArea(row.delivery_postcode),
+      addressSummary: mobilePublicArea(row.delivery_postcode, row.delivery_city),
       postcode: publicOutcode(row.delivery_postcode),
       // Pre-award Alerts privacy: exact delivery postcode is withheld until allocation.
       fullPostcode: null,
@@ -140,6 +141,9 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     },
     hasProposedPrice,
     proposedPriceGbp: proposedPrice,
+    paymentTerms: row.payment_terms || null,
+    podRequired: row.pod_required !== false,
+    hardCopyPod: row.hard_copy_pod || null,
     canQuote: true,
     canSave: true,
     expiresAt: row.exchange_expires_at,
@@ -158,6 +162,8 @@ function matchesPublicSearch(row: NearbyJobRow, search: string, posterMemberId: 
   const publicText = [
     publicOutcode(row.pickup_postcode),
     publicOutcode(row.delivery_postcode),
+    publicTown(row.pickup_city),
+    publicTown(row.delivery_city),
     row.vehicle_type,
     row.requested_vehicle_type,
     row.requested_vehicle_label,
@@ -492,7 +498,7 @@ export async function GET(request: NextRequest) {
         active: false,
         currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
         returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
-        destinationArea: publicArea(matchingOriginPostcode),
+        destinationArea: mobilePublicArea(matchingOriginPostcode, null),
         reason: 'The matching origin could not be located yet.',
       },
     });
@@ -529,7 +535,7 @@ export async function GET(request: NextRequest) {
         active: false,
         currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
         returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
-        destinationArea: publicArea(matchingOriginPostcode),
+        destinationArea: mobilePublicArea(matchingOriginPostcode, null),
         availableAfter,
         radiusMiles,
         reason: 'Destination priority is disabled in Driver Availability.',
@@ -600,7 +606,7 @@ export async function GET(request: NextRequest) {
       active: true,
       currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
       returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
-      destinationArea: publicArea(matchingOriginPostcode),
+      destinationArea: mobilePublicArea(matchingOriginPostcode, null),
       availableAfter,
       radiusMiles,
     },

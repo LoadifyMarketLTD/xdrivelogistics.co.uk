@@ -53,3 +53,17 @@
   .xd-driver-mobile__nav a { font-size: 12px; }
   .xd-mobile-card { padding: 11px; }
 }
+
+.xd-mobile-two-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+.xd-mobile-two-cols > div { padding: 8px; background: #f3f7fc; border: 1px solid #e3ebf5; border-radius: 6px; min-width: 0; }
+.xd-mobile-two-cols small { display: block; font-size: 10px; font-weight: 800; color: #4b607a; letter-spacing: .06em; }
+.xd-mobile-two-cols strong { display: block; font-size: 12px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.xd-mobile-card:where(form), .xd-mobile-search { display: grid; gap: 12px; }
+.xd-mobile-search { margin-bottom: 14px; padding: 12px; background: white; border: 1px solid #dce5f0; border-radius: 9px; }
+.xd-mobile-search label { display: grid; font-weight: 600; gap: 5px; }
+.xd-mobile-search input { min-height: 44px; border: 1px solid #8b9eb7; border-radius: 8px; padding: 9px 10px; }
+.xd-mobile-facts { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 0; border-top: 1px solid #edf2f8; border-bottom: 1px solid #edf2f8; }
+.xd-mobile-facts span { font-size: 12px; }
+.xd-mobile-muted { color: #597089; font-size: 11px; }
+.xd-mobile-note { padding: 8px; background: #f3f6fa; white-space: pre-wrap; border-radius: 5px; }
+.xd-mobile-count { color: #415b77; }

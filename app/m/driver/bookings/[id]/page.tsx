@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { readRouteAuthAccessToken } from '../../../../../lib/routeAuthCookie';
-import { CollectionHandover, CollectionPass, PodCapture } from './BookingEvidence';
+import { CollectionHandover, CollectionPass, PodCapture, StopCollectionHandover } from './BookingEvidence';
 
 type Stop = {
   id: string; sequence: number; type: string; address: string;
@@ -106,6 +106,9 @@ export default function MobileBookingDetail() {
   const canUndo = undoable.has(status);
   const needsHandover = collectionSite && !collected;
   const stops = [...(job?.stops || [])].sort((a, b) => a.sequence - b.sequence);
+  const multiStop = stops.length > 2;
+  const incompleteStops = multiStop ? stops.filter(stop => !['completed', 'skipped'].includes(stop.status)).length : 0;
+  const stopCompletionBlocked = action?.api === 'delivered' && incompleteStops > 0;
 
   return <section className="xd-mobile-list">
     <header>
@@ -136,9 +139,10 @@ export default function MobileBookingDetail() {
           {job.contactPhone ? <a href={`tel:${job.contactPhone}`}>Call {job.contactName || 'contact'}</a> : null}
         </div>
         {needsHandover ? <p>Complete collection handover and attach photos before marking Loaded.</p> : null}
-        {action && !needsHandover ? <button type="button" disabled={busy}
+        {action && !needsHandover ? <button type="button" disabled={busy || stopCompletionBlocked}
           onClick={() => void perform(action.api)}>
           {busy ? 'Updating...' : action.label}</button> : null}
+        {stopCompletionBlocked ? <p role="status">Complete the {incompleteStops} remaining stop(s) before marking the booking delivered.</p> : null}
         {canUndo ? <button type="button" className="xd-mobile-button--secondary"
           disabled={busy} onClick={() => {
             if (window.confirm('Undo the most recent status change?'))
@@ -160,16 +164,36 @@ export default function MobileBookingDetail() {
         : null}
 
       <h2>Stops and contacts</h2>
-      {stops.length > 2 ? <p>Multi-stop bookings must have every stop completed before delivery confirmation.</p> : null}
-      {stops.map(stop => <article className="xd-mobile-card" key={stop.id}>
+      {multiStop ? <p>Complete each stop in sequence. Collection stops require a photo handover.</p> : null}
+      {stops.map((stop, index) => {
+        const earlierComplete = stops.slice(0, index).every(item => ['completed', 'skipped'].includes(item.status));
+        const isCollection = stop.type.toLowerCase() === 'collection';
+        return <article className="xd-mobile-card" key={stop.id}>
         <div className="xd-mobile-card__top">
           <strong>{stop.sequence}. {stop.type}</strong><span>{stop.status}</span>
         </div>
         <p>{stop.address}</p>
         {stop.contactPerson ? <p>Contact: {stop.contactPerson}</p> : null}
         {stop.telephone ? <a href={`tel:${stop.telephone}`}>Call stop contact</a> : null}
+        {stop.address ? <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(stop.address)}`}
+          target="_blank" rel="noopener noreferrer">Directions to stop</a> : null}
         {stop.notes ? <p>{stop.notes}</p> : null}
-      </article>)}
+        {multiStop && stop.status === 'pending' ? <>
+          <button type="button" disabled={busy || !earlierComplete}
+            onClick={() => void perform('stop-status', { stop_id: stop.id, status: 'arrived' })}>
+            {busy ? 'Updating...' : 'Arrived at this stop'}
+          </button>
+          {!earlierComplete ? <p>Complete earlier stops first.</p> : null}
+        </> : null}
+        {multiStop && stop.status === 'arrived' && isCollection
+          ? <StopCollectionHandover key={stop.id} jobId={job.id} stopId={stop.id} onSaved={refresh}/>
+          : null}
+        {multiStop && stop.status === 'arrived' && !isCollection ? <button type="button"
+          disabled={busy} onClick={() => void perform('stop-status', { stop_id: stop.id, status: 'completed' })}>
+            {busy ? 'Updating...' : 'Complete delivery stop'}
+          </button> : null}
+      </article>;
+      })}
       {stops.length > 2 ? <Link href={`/driver/jobs/${encodeURIComponent(job.id)}`}>Manage multi-drop stops</Link> : null}
     </> : null}
   </section>;

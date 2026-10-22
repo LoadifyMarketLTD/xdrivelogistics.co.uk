@@ -18,7 +18,7 @@ async function callJob(jobId: string, path: string, payload: unknown) {
   return result;
 }
 
-async function uploadEvidence(jobId: string, file: File, kind: EvidenceKind, category: EvidenceCategory) {
+async function uploadEvidence(jobId: string, file: File, kind: EvidenceKind, category: EvidenceCategory, stopId?: string) {
   if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Select a JPEG or PNG photo.');
   if (file.size === 0 || file.size > 10 * 1024 * 1024) throw new Error('Photos must be 10 MB or smaller.');
   const token = readRouteAuthAccessToken();
@@ -29,7 +29,8 @@ async function uploadEvidence(jobId: string, file: File, kind: EvidenceKind, cat
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': file.type,
       'x-xdrive-evidence-kind': kind,
       'x-xdrive-evidence-category': category,
-      'x-xdrive-evidence-name': name },
+      'x-xdrive-evidence-name': name,
+      'x-xdrive-stop-id': stopId || '' },
     body: file,
   });
   const result = await response.json().catch(() => ({}));
@@ -41,13 +42,14 @@ async function uploadEvidence(jobId: string, file: File, kind: EvidenceKind, cat
 
 type PhotoUploaderProps = {
   jobId: string;
+  stopId?: string;
   kind: EvidenceKind;
   category?: EvidenceCategory;
   paths: string[];
   setPaths: (paths: string[]) => void;
   disabled: boolean;
 };
-export function PhotoUploader({ jobId, kind, category = 'photos', paths, setPaths, disabled }: PhotoUploaderProps) {
+export function PhotoUploader({ jobId, stopId, kind, category = 'photos', paths, setPaths, disabled }: PhotoUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const upload = async (files: FileList | null) => {
@@ -57,7 +59,7 @@ export function PhotoUploader({ jobId, kind, category = 'photos', paths, setPath
     try {
       for (const file of Array.from(files)) {
         if (next.length >= 10) throw new Error('Maximum 10 photos per job.');
-        const path = await uploadEvidence(jobId, file, kind, category);
+        const path = await uploadEvidence(jobId, file, kind, category, stopId);
         next.push(path);
         setPaths([...next]);
       }
@@ -114,6 +116,63 @@ export function CollectionHandover({ jobId, existingPaths, onSaved }: {
     <label>Collection notes<textarea maxLength={2000} value={notes} onChange={event => setNotes(event.target.value)}/></label>
     {error ? <p role="alert" className="xd-mobile-error">{error}</p> : null}
     <button type="submit" disabled={busy || !photos.length}>{busy ? 'Saving...' : 'Save collection handover'}</button>
+  </form>;
+}
+
+export function StopCollectionHandover({ jobId, stopId, onSaved }: {
+  jobId: string;
+  stopId: string;
+  onSaved: () => Promise<void>;
+}) {
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [count, setCount] = useState('');
+  const [packaging, setPackaging] = useState('');
+  const [weight, setWeight] = useState('');
+  const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    if (!photos.length) { setError('Upload a collection photo for this stop.'); return; }
+    setBusy(true); setError('');
+    try {
+      await callJob(jobId, 'stop-status', {
+        stop_id: stopId,
+        status: 'completed',
+        handover: {
+          photoPaths: photos,
+          documentPaths: [],
+          itemCount: count ? Number(count) : null,
+          packaging,
+          weightKg: weight ? Number(weight) : null,
+          notes,
+        },
+      });
+      await onSaved();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Stop handover could not be saved.');
+    } finally { setBusy(false); }
+  };
+
+  return <form className="xd-mobile-card" onSubmit={event => void save(event)}>
+    <h3>Complete collection stop</h3>
+    <p>Collection stops require photo evidence and handover before completion.</p>
+    <PhotoUploader jobId={jobId} stopId={stopId} kind="collection"
+      paths={photos} setPaths={setPhotos} disabled={busy}/>
+    <label>Items collected (optional)<input type="number" min="0" max="100000"
+      step="1" value={count} onChange={event => setCount(event.target.value)}/></label>
+    <label>Packaging (optional)<input maxLength={120} value={packaging}
+      onChange={event => setPackaging(event.target.value)}/></label>
+    <label>Weight kg (optional)<input type="number" min="0" max="100000"
+      step="0.1" value={weight} onChange={event => setWeight(event.target.value)}/></label>
+    <label>Handover notes<textarea maxLength={2000} value={notes}
+      onChange={event => setNotes(event.target.value)}/></label>
+    {error ? <p role="alert" className="xd-mobile-error">{error}</p> : null}
+    <button type="submit" disabled={busy || !photos.length}>
+      {busy ? 'Saving stop handover...' : 'Complete collection stop'}
+    </button>
   </form>;
 }
 
