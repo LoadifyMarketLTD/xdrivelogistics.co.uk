@@ -17,7 +17,7 @@ const essentials: MenuItem[] = [
   { label: 'Return Journeys', href: '/m/driver/return-journeys' },
   { label: 'Messages', href: '/m/driver/messages' },
   { label: 'Profile & settings', href: '/m/driver/settings' },
-  { label: 'Help & support', href: '/driver/support' },
+  { label: 'Help & support', href: '/m/driver/support' },
 ];
 export default function MobileMorePage() {
   const [data, setData] = useState<Resources | null>(null);
