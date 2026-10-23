@@ -69,6 +69,8 @@ export default function PostcodeAddressField({
   const [towns,setTowns]=useState<Record<string,string>>({});
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [lookupComplete, setLookupComplete] = useState(false);
+  const [postcodeFound, setPostcodeFound] = useState<boolean | null>(null);
 
   useEffect(() => {
     onAddressRef.current = onAddress;
@@ -83,6 +85,8 @@ export default function PostcodeAddressField({
     setSuggestions([]);
     setTowns({});
     setOpen(false);
+    setLookupComplete(false);
+    setPostcodeFound(null);
 
     if (postcode.replace(/\s/g, "").length < 3) {
       setLoading(false);
@@ -101,11 +105,14 @@ export default function PostcodeAddressField({
         const response = await fetch(`/api/location/postcode-addresses?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
-          signal: AbortSignal.any([controller.signal,AbortSignal.timeout(9000)]),
+          signal: AbortSignal.any([controller.signal,AbortSignal.timeout(15000)]),
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled) setLookupComplete(true);
+          return;
+        }
 
-        const payload = await response.json() as { suggestions?: unknown; towns?: Record<string,string>; configured?: boolean; provider?: string | null };
+        const payload = await response.json() as { suggestions?: unknown; towns?: Record<string,string>; configured?: boolean; provider?: string | null; postcodeFound?: boolean | null };
         if (payload.configured === false) return;
 
         const expected = normalized.replace(/\s/g, '').toUpperCase();
@@ -117,6 +124,8 @@ export default function PostcodeAddressField({
 
         setSuggestions(next);
         setTowns(payload.towns ?? {});
+        setPostcodeFound(payload.postcodeFound ?? null);
+        setLookupComplete(true);
         // Auto-resolve only when every suggestion agrees on the same verified town.
         // Never mistake administrative districts such as London Borough of Bexley for a post town.
         const candidates = next.map(label => {
@@ -140,8 +149,9 @@ export default function PostcodeAddressField({
       } catch {
         if (!cancelled) {
           setSuggestions([]);
-    setTowns({});
+          setTowns({});
           setOpen(false);
+          setLookupComplete(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -217,6 +227,11 @@ export default function PostcodeAddressField({
               }}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
+                if (isFullUkPostcode(suggestion)) {
+                  onPostcodeResolved?.(normalizeOperationalPostcode(suggestion));
+                  setOpen(false);
+                  return;
+                }
                 onAddress(suggestion);
                 const found = suggestion.match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/i);
                 if (found) onPostcodeResolved?.(normalizeOperationalPostcode(found[0]));
@@ -225,10 +240,21 @@ export default function PostcodeAddressField({
                 setOpen(false);
               }}
             >
-              {operationalAddressSuggestionLabel(suggestion, postcode)}
+              {isFullUkPostcode(suggestion)
+                ? `${normalizeOperationalPostcode(suggestion)}, GB`
+                : operationalAddressSuggestionLabel(suggestion, postcode)}
             </button>
           ))}
         </div>
+      ) : null}
+      {lookupComplete && visibleSuggestions.length === 0 ? (
+        <span aria-live="polite" style={{ color: '#475569', fontSize: '14px', lineHeight: '18px' }}>
+          {isFullUkPostcode(normalizeOperationalPostcode(postcode)) && postcodeFound === true
+            ? 'Postcode confirmed. Enter the property number and street manually.'
+            : isFullUkPostcode(normalizeOperationalPostcode(postcode)) && postcodeFound === false
+              ? 'Postcode not recognised. Check it, then enter the full address manually.'
+              : 'No address suggestions found. You can enter the full address manually.'}
+        </span>
       ) : null}
       {error ? <span style={validationMessageStyle}>{error}</span> : null}
     </label>

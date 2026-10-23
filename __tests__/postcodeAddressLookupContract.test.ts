@@ -21,6 +21,7 @@ describe('postcode address lookup contract', () => {
     expect(route).toContain('process.env.IDEAL_POSTCODES_API_KEY');
     expect(route).toContain('process.env.GETADDRESS_API_KEY');
     expect(route).toContain('process.env.MAPBOX_ACCESS_TOKEN');
+    expect(route).toContain('process.env.ADDRESS_LOOKUP_PAID_FALLBACK_ENABLED');
     expect(field).not.toContain('MAPBOX_ACCESS_TOKEN');
     expect(route).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(field).not.toContain('IDEAL_POSTCODES_API_KEY');
@@ -33,7 +34,9 @@ describe('postcode address lookup contract', () => {
     expect(route).toContain('api.getAddress.io/find/');
     expect(route).toContain('api.mapbox.com/search/geocode/v6/forward');
     expect(route).toContain("provider: 'mapbox-geocoding-autocomplete'");
-    expect(route).not.toContain('api.postcodes.io/postcodes/');
+    expect(route).toContain('api.postcodes.io/postcodes');
+    expect(route).toContain('lookupOpenPostcodeSuggestions(autocompleteQuery)');
+    expect(route).toContain('verifyPostcodeWithOpenData(exactPostcode)');
     expect(field).not.toContain('api.postcodes.io');
     expect(route).toContain('return found.some(value => postcodeFragment(value) === compact)');
     expect(route).toContain("'Cache-Control': 'private, no-store, max-age=0, must-revalidate'");
@@ -56,6 +59,8 @@ describe('postcode address lookup contract', () => {
     expect(field).toContain('normalizedSuggestion.includes(query)');
     expect(field).toContain('onAddress(suggestion);');
     expect(field).toContain('onPostcodeResolved?.(normalizeOperationalPostcode(found[0]))');
+    expect(field).toContain('if (isFullUkPostcode(suggestion))');
+    expect(field).toContain('onPostcodeResolved?.(normalizeOperationalPostcode(suggestion))');
     expect(route).toContain("isFullUkPostcode(rawQuery) ? normalizePostcode(rawQuery) : '';");
     expect(route).toContain("const autocompleteQuery = rawQuery || postcode;");
   });
@@ -63,15 +68,15 @@ describe('postcode address lookup contract', () => {
   it('clears stale suggestions and aborts the previous postcode request', () => {
     expect(field).toContain('const normalized = normalizeOperationalPostcode(postcode);\n    setSuggestions([]);\n    setTowns({});\n    setOpen(false);');
     expect(field).toContain('controller.abort();');
-    expect(field).toContain('if (!response.ok) return;');
+    expect(field).toContain('if (!response.ok) {');
     expect(field).toContain('if (payload.configured === false) return;');
   });
 
   it('falls through from a failed Ideal exact lookup to GetAddress and Photon', () => {
     expect(route).toContain('if (postcodeLikeQuery && !exactPostcode)');
-    const idealIndex = route.indexOf('if (idealKey && exactPostcode)');
-    const getAddressIndex = route.indexOf('if (getAddressKey && exactPostcode)');
-    const photonFallbackIndex = route.indexOf('// Continue with the public source if exact address providers have no results.');
+    const idealIndex = route.indexOf('if (paidFallbackEnabled && idealKey && exactPostcode)');
+    const getAddressIndex = route.indexOf('if (paidFallbackEnabled && getAddressKey && exactPostcode)');
+    const photonFallbackIndex = route.indexOf('// Search open map data for exact-postcode address points');
     expect(idealIndex).toBeGreaterThan(-1);
     expect(getAddressIndex).toBeGreaterThan(idealIndex);
     expect(photonFallbackIndex).toBeGreaterThan(getAddressIndex);
@@ -88,5 +93,6 @@ describe('postcode address lookup contract', () => {
   it('keeps manual address entry available even when every lookup provider returns no suggestions', () => {
     expect(route).toContain('suggestions: []');
     expect(field).toContain('onAddress(event.target.value)');
+    expect(field).toContain('You can enter the full address manually.');
   });
 });
