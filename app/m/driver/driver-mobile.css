@@ -183,3 +183,9 @@
 .xd-driver-mobile__nav-pending { position: absolute; bottom: 3px; left: 35%; width: 30%; height: 2px; background: #0b4289; border-radius: 3px; }
 @media (prefers-reduced-motion: no-preference) { .xd-driver-mobile__nav-pending { animation: xd-nav-pulse .8s ease-in-out infinite alternate; } }
 @keyframes xd-nav-pulse { from { opacity: .35; } to { opacity: 1; } }
+
+/* Job details identity uses the same company-first hierarchy as the approved Jobs cards. */
+.xd-detail-heading .xd-detail-identity{min-width:0;flex:1}
+.xd-detail-heading .xd-detail-identity strong{display:block;font-size:20px;line-height:1.25;font-weight:800;letter-spacing:-.02em;overflow-wrap:anywhere}
+.xd-detail-heading .xd-detail-identity small{display:block;margin-top:4px;color:#586474;font-size:12px;line-height:1.4}
+.xd-detail-heading .xd-mobile-pill{flex-shrink:0}
