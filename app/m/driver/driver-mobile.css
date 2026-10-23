@@ -176,3 +176,10 @@
 .xd-mobile-jobs .xd-job-footer .xd-job-quote{width:100%;flex:1;min-height:56px;font-size:21px;font-weight:750;border-radius:5px}
 .xd-mobile-jobs .xd-mobile-pill{font-size:13px;padding:7px 10px}
 @media (max-width:360px){.xd-mobile-jobs .xd-job-company strong{font-size:18px}.xd-mobile-jobs .xd-job-places strong{font-size:20px}.xd-mobile-jobs .xd-job-places small{font-size:15px}}
+
+/* Instant navigation feedback: visual state updates before network navigation completes. */
+.xd-driver-mobile__nav a { position: relative; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.xd-driver-mobile__nav a:active, .xd-driver-mobile__nav a[data-pending='true'] { color: #0b4289; background: #eaf2ff; }
+.xd-driver-mobile__nav-pending { position: absolute; bottom: 3px; left: 35%; width: 30%; height: 2px; background: #0b4289; border-radius: 3px; }
+@media (prefers-reduced-motion: no-preference) { .xd-driver-mobile__nav-pending { animation: xd-nav-pulse .8s ease-in-out infinite alternate; } }
+@keyframes xd-nav-pulse { from { opacity: .35; } to { opacity: 1; } }
