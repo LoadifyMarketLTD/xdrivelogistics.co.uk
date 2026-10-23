@@ -65,7 +65,7 @@ describe('global operational postcode autocomplete', () => {
 
   it('prioritises the fast postcode-fragment provider before commercial provider timeouts', () => {
     const route = read('app/api/location/postcode-addresses/route.ts');
-    const fastBranch = route.indexOf('if (postcodeLikeQuery)');
+    const fastBranch = route.indexOf('if (postcodeLikeQuery && !exactPostcode)');
     const idealBranch = route.indexOf('if (idealKey && !exactPostcode)');
     expect(fastBranch).toBeGreaterThanOrEqual(0);
     expect(idealBranch).toBeGreaterThan(fastBranch);

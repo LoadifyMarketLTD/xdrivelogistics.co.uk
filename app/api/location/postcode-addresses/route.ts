@@ -348,7 +348,9 @@ export async function GET(request: NextRequest) {
   const rawQuery = clean(request.nextUrl.searchParams.get('q') ?? '');
   const postcode = normalizePostcode(request.nextUrl.searchParams.get('postcode') ?? '');
   const autocompleteQuery = rawQuery || postcode;
-  const exactPostcode = isFullUkPostcode(postcode);
+  const exactPostcode = isFullUkPostcode(postcode)
+    ? postcode
+    : isFullUkPostcode(rawQuery) ? normalizePostcode(rawQuery) : '';
 
   if (!autocompleteQuery || autocompleteQuery.length < 2) {
     return NextResponse.json({ error: 'Enter at least 2 characters.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -365,14 +367,13 @@ export async function GET(request: NextRequest) {
   // queries, while a misconfigured commercial provider can otherwise consume
   // its full timeout before we reach the useful result. Resolve postcode-like
   // input first so interactive filters remain responsive during React rerenders.
-  if (postcodeLikeQuery) {
+  if (postcodeLikeQuery && !exactPostcode) {
     const suggestions = await lookupPhotonAutocomplete(autocompleteQuery);
     if (suggestions.length) {
       return NextResponse.json({
         suggestions,
         configured: true,
         provider: 'photon-openstreetmap',
-        ...(exactPostcode ? { postcodeFound: true } : {}),
       }, { headers: NO_STORE_HEADERS });
     }
   }
@@ -422,7 +423,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (idealKey && exactPostcode) {
-    const result = await lookupIdealPostcodes(postcode, idealKey);
+    const result = await lookupIdealPostcodes(exactPostcode, idealKey);
     if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
@@ -435,7 +436,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (getAddressKey && exactPostcode) {
-    const result = await lookupGetAddress(postcode, getAddressKey);
+    const result = await lookupGetAddress(exactPostcode, getAddressKey);
     if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
@@ -450,8 +451,8 @@ export async function GET(request: NextRequest) {
   // Continue with the public source if exact address providers have no results.
   // Keep only addresses belonging to the complete requested postcode.
   if (exactPostcode) {
-    const fallback = await lookupPhotonAutocomplete(postcode);
-    const compact = postcodeFragment(postcode);
+    const fallback = await lookupPhotonAutocomplete(exactPostcode);
+    const compact = postcodeFragment(exactPostcode);
     const matching = fallback.filter(label => {
       const found = label.toUpperCase().match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/g) ?? [];
       return found.some(value => postcodeFragment(value) === compact);
