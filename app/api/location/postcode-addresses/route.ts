@@ -194,7 +194,8 @@ async function lookupPhotonAutocomplete(query: string) {
       reverse.searchParams.set('lon', String(coordinates[0]));
       reverse.searchParams.set('lat', String(coordinates[1]));
       reverse.searchParams.set('limit', '5');
-      reverse.searchParams.set('lang', 'en');
+      // Native OSM names preserve settlements (Erith); lang=en can substitute
+      // an enclosing administrative borough for the settlement's city name.
       return photonFeatures(reverse);
     }));
 
