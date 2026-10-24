@@ -51,6 +51,23 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
    L.circleMarker(a,{radius:9,color:'#14559b',fillColor:'#14559b',fillOpacity:1}).addTo(map).bindPopup(`Collection area ${outcode(pickup)}`);
    L.circleMarker(b,{radius:9,color:'#76a918',fillColor:'#76a918',fillOpacity:1}).addTo(map).bindPopup(`Delivery area ${outcode(delivery)}`);
    map.fitBounds(L.latLngBounds([a,b]).pad(0.4));
+   // Opening the map requests GPS and includes the driver in the initial view.
+   if(navigator.geolocation){
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(position=>{
+     if(cancelled)return;
+     setLocating(false);
+     const here=L.latLng(position.coords.latitude,position.coords.longitude);
+     positionMarker.current?.remove();
+     positionMarker.current=L.circleMarker(here,{radius:10,color:'#ffffff',weight:3,fillColor:'#177bff',fillOpacity:1}).addTo(map).bindPopup('Your current location');
+     map.fitBounds(L.latLngBounds([a,b,here]).pad(0.18));
+     setLocationMessage('GPS location found (accuracy about '+Math.round(position.coords.accuracy)+' m).');
+    },err=>{
+     if(cancelled)return;
+     setLocating(false);
+     setLocationMessage(err.code===1?'Location permission denied. Enable location for this website.':'GPS unavailable. You can retry using Show my location.');
+    },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
+   }
    requestAnimationFrame(()=>{if(!cancelled)map.invalidateSize();});
    setNote('Showing approximate collection and delivery areas. Calculating driving route...');
    const route=await drivingRoute(start,end);
@@ -58,7 +75,9 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
    const coords=route?.geometry.coordinates.filter(pair=>Array.isArray(pair)&&pair.length>=2&&Number.isFinite(pair[0])&&Number.isFinite(pair[1])).map(pair=>L.latLng(pair[1],pair[0]))??[];
    if(coords.length>=2){
     const line=L.polyline(coords,{color:'#1476d4',weight:5,opacity:0.85}).addTo(map);
-    map.fitBounds(line.getBounds().pad(0.18));
+    const bounds=line.getBounds();
+    if(positionMarker.current)bounds.extend(positionMarker.current.getLatLng());
+    map.fitBounds(bounds.pad(0.18));
     setNote(`Driving route between approximate ${outcode(pickup)} and ${outcode(delivery)} areas: ${route?.distanceMiles} miles, about ${route?.durationMinutes} minutes. Exact job addresses are not shown before allocation.`);
    }else{
     setNote('Driving route unavailable. Collection and delivery markers represent postcode areas, not exact job addresses.');
