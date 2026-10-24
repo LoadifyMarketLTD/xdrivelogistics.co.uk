@@ -152,11 +152,13 @@ export default function MobileBookingDetail() {
       </article>
 
       <section className="xd-booking-timeline" aria-label="Booking status progression">
-        <h2>Booking status</h2>
+        <details>
+          <summary>Booking progress · {history.filter(step => step.active).length} of {history.length} steps</summary>
         <ol>{history.map(step => <li key={step.key} className={step.active ? 'xd-booking-step--done' : ''}>
           <span aria-hidden="true" className="xd-booking-step-dot">{step.active ? '✓' : '○'}</span>
           <span>{step.label}</span>
         </li>)}</ol>
+        </details>
         {canUndo ? <button type="button" className="xd-mobile-button--secondary" disabled={busy}
           onClick={() => { if (window.confirm('Undo the most recent status change?')) void perform('undo-status', { expectedCurrentStatus: job.currentStatus || job.status }); }}>
           Undo last status
@@ -183,7 +185,7 @@ export default function MobileBookingDetail() {
         const isCollection = stop.type.toLowerCase() === 'collection';
         return <article className="xd-mobile-card" key={stop.id}>
         <div className="xd-mobile-card__top">
-          <strong>{stop.sequence}. {stop.type}</strong><span>{stop.status}</span>
+          <strong>{index + 1}. {stop.type}</strong><span>{stop.status}</span>
         </div>
         <p>{stop.address}</p>
         {stop.contactPerson ? <p>Contact: {stop.contactPerson}</p> : null}
