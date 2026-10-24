@@ -52,3 +52,22 @@
 .xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-mobile-card.xd-cx-booking-card,
 .xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card-link { background:#fff !important; color:#14263e; }
 .xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-details { background:#fff; color:#0b4289; border:1px solid #91a9c4; }
+
+/* Bookings list parity with Jobs/Quotes: reset global anchor-card rules. */
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list{background:transparent}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list>header{background:transparent;border:0;padding:0;margin:0 0 12px;min-height:0}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-mobile-card.xd-cx-booking-card{background:#fff;border:1px solid #dce5f0;border-radius:9px;box-shadow:0 1px 3px #122c4d0a;margin:0 0 12px;padding:0;overflow:hidden}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-mobile-card.xd-cx-booking-card>.xd-cx-booking-card-link{display:block;width:100%;min-height:0;margin:0;padding:0;text-align:left;font-size:inherit;font-weight:inherit;line-height:inherit;border-radius:0;background:#fff;color:#14263e}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-company{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:0;padding:15px 15px 8px;border-bottom:0}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-company strong{font-size:20px;line-height:1.25;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-company small{font-size:12px;line-height:1.4;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-type{display:flex;gap:9px;align-items:center;padding:0 15px 13px;border:0;font-size:16px;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-stops{display:flex;gap:17px;padding:18px 17px;border-top:1px solid #e6ecf1;border-bottom:1px solid #e6ecf1;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-places{display:flex;flex:1;min-width:0;flex-direction:column;gap:6px;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-places strong{display:block;font-size:22px;line-height:1.25;font-weight:800;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-places small{display:block;font-size:18px;line-height:1.4;margin-top:6px;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-facts{padding:10px 15px;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-facts:empty{display:none}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-footer{padding:12px 15px;margin:0;text-align:left}
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-details{width:100%;min-height:56px;margin:0;font-size:19px;font-weight:700}
+@media(max-width:360px){.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-places strong{font-size:20px}.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-places small{font-size:15px}}
