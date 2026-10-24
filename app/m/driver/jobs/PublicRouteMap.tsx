@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
+import { publishAvailabilityLocation } from './publishAvailabilityLocation';
 
 type Point = {latitude:number;longitude:number};
 type PublicRoute = {geometry:{type:'LineString';coordinates:number[][]};distanceMiles:number;durationMinutes:number};
@@ -25,6 +26,24 @@ async function drivingRoute(start:Point,end:Point):Promise<PublicRoute|null>{
   if(data.geometry?.type!=='LineString'||!Array.isArray(data.geometry.coordinates)||data.geometry.coordinates.length<2)return null;
   return data;
  }catch{return null;}
+}
+async function publishLocation(lat: number, lng: number): Promise<string> {
+ const token = readRouteAuthAccessToken();
+ if (!token) return 'GPS acquired locally. Sign in to enable server tracking.';
+ try {
+  const response = await fetch('/api/driver/location', {
+   method: 'POST',
+   headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+   body: JSON.stringify({ lat, lng }),
+   signal: AbortSignal.timeout(10000),
+  });
+  if (response.ok) return 'GPS saved to XDrive tracking for your active allocated job.';
+  if (response.status === 409 || response.status === 403) return publishAvailabilityLocation(lat, lng, token);
+  if (response.status === 401) return 'GPS acquired locally; sign in again to enable server tracking.';
+  return 'GPS acquired locally, but XDrive could not save the position (' + response.status + ').';
+ } catch {
+  return 'GPS acquired locally, but the tracking server could not be reached.';
+ }
 }
 export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery:string}){
  const container=useRef<HTMLDivElement>(null);
@@ -54,14 +73,16 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
    // Opening the map requests GPS and includes the driver in the initial view.
    if(navigator.geolocation){
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(position=>{
+    navigator.geolocation.getCurrentPosition(async position=>{
      if(cancelled)return;
      setLocating(false);
      const here=L.latLng(position.coords.latitude,position.coords.longitude);
      positionMarker.current?.remove();
      positionMarker.current=L.circleMarker(here,{radius:10,color:'#ffffff',weight:3,fillColor:'#177bff',fillOpacity:1}).addTo(map).bindPopup('Your current location');
      map.fitBounds(L.latLngBounds([a,b,here]).pad(0.18));
-     setLocationMessage('GPS location found (accuracy about '+Math.round(position.coords.accuracy)+' m).');
+     setLocationMessage('GPS acquired. Sending to XDrive...');
+     const result=await publishLocation(position.coords.latitude,position.coords.longitude);
+     if(!cancelled)setLocationMessage(result);
     },err=>{
      if(cancelled)return;
      setLocating(false);
@@ -97,7 +118,8 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
    positionMarker.current?.remove();
    positionMarker.current=L.circleMarker(here,{radius:10,color:'#ffffff',weight:3,fillColor:'#177bff',fillOpacity:1}).addTo(map).bindPopup('Your current location');
    map.panTo(here,{animate:true});
-   setLocationMessage(`Your location shown (accuracy about ${Math.round(position.coords.accuracy)} m). Tap the marker to view it.`);
+   setLocationMessage('GPS acquired. Sending to XDrive...');
+   setLocationMessage(await publishLocation(position.coords.latitude,position.coords.longitude));
   },err=>{
    setLocating(false);
    setLocationMessage(err.code===1?'Location permission denied. Enable location for this website in your phone settings.':'Unable to locate you. Check GPS and browser location settings.');
