@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import './booking-cx.css';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
 import { useDriverLocationPublisher } from '../../../hooks/useDriverLocationPublisher';
 
@@ -48,7 +49,7 @@ export default function MobileBookingsPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [refresh]);
 
-  return <section className="xd-mobile-list xd-mobile-unified-list">
+  return <section className="xd-mobile-list xd-mobile-unified-list xd-cx-bookings">
     <header><h1>Bookings</h1><p>Your assigned transport jobs</p></header>
     {loading ? <p role="status">Loading bookings...</p> : null}
     {error ? <div className="xd-mobile-error" role="alert"><p>{error}</p>

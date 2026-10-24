@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import '../booking-cx.css';
 import { useParams } from 'next/navigation';
 import { readRouteAuthAccessToken } from '../../../../../lib/routeAuthCookie';
 import { CollectionHandover, CollectionPass, PodCapture, StopCollectionHandover } from './BookingEvidence';
@@ -120,7 +121,7 @@ export default function MobileBookingDetail() {
   const incompleteStops = multiStop ? stops.filter(stop => !['completed', 'skipped'].includes(stop.status)).length : 0;
   const stopCompletionBlocked = action?.api === 'delivered' && incompleteStops > 0;
 
-  return <section className="xd-mobile-list">
+  return <section className="xd-mobile-list xd-cx-bookings">
     <header>
       <Link href="/m/driver/bookings" className="xd-mobile-back">← Bookings</Link>
       <h1>{job?.reference || 'Booking'}</h1>
@@ -152,7 +153,7 @@ export default function MobileBookingDetail() {
       </article>
 
       <section className="xd-booking-timeline" aria-label="Booking status progression">
-        <details>
+        <details open>
           <summary>Booking progress · {history.filter(step => step.active).length} of {history.length} steps</summary>
         <ol>{history.map(step => <li key={step.key} className={step.active ? 'xd-booking-step--done' : ''}>
           <span aria-hidden="true" className="xd-booking-step-dot">{step.active ? '✓' : '○'}</span>
