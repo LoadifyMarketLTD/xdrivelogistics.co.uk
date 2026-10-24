@@ -5,6 +5,7 @@ import DriverMobileNavigation from './DriverMobileNavigation';
 import DriverPwaRegistration from './DriverPwaRegistration';
 import './driver-mobile.css';
 import './driver-touch-response.css';
+import './map-immersive.css';
 import './driver-v2-tokens.css';
 import './driver-v2-components.css';
 import './driver-v2-page-parity.css';

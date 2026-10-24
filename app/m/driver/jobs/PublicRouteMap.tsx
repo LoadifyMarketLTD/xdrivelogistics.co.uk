@@ -52,7 +52,7 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
  const [note,setNote]=useState('Loading collection and delivery areas...');
  const [error,setError]=useState(false);
  const [locationMessage,setLocationMessage]=useState('');
- const [locating,setLocating]=useState(false); const [expanded,setExpanded]=useState(false);
+ const [locating,setLocating]=useState(false); const [expanded,setExpanded]=useState(false); const [routeSummary,setRouteSummary]=useState<{miles:number;minutes:number}|null>(null);
  useEffect(()=>{
   let cancelled=false;
   setError(false);
@@ -95,6 +95,7 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
    if(cancelled)return;
    const coords=route?.geometry.coordinates.filter(pair=>Array.isArray(pair)&&pair.length>=2&&Number.isFinite(pair[0])&&Number.isFinite(pair[1])).map(pair=>L.latLng(pair[1],pair[0]))??[];
    if(coords.length>=2){
+    if(route)setRouteSummary({miles:route.distanceMiles,minutes:route.durationMinutes});
     const line=L.polyline(coords,{color:'#1476d4',weight:5,opacity:0.85}).addTo(map);
     const bounds=line.getBounds();
     if(positionMarker.current)bounds.extend(positionMarker.current.getLatLng());
@@ -126,7 +127,8 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
   },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
  };
  return <section className={expanded?"xd-public-map-section xd-public-map-expanded":"xd-public-map-section"}>
-  {!error?<div className="xd-map-toolbar"><strong>Route map</strong><button type="button" onClick={()=>setExpanded(value=>!value)}>{expanded?"Close map":"Full screen map"}</button></div>:null} {!error?<div ref={container} className="xd-public-route-map"  role="img" aria-label="Approximate driving route between collection and delivery postcode areas"/>:null}
+  {!error?<div className="xd-map-toolbar"><strong>Route map</strong><button type="button" onClick={()=>setExpanded(value=>!value)}>{expanded?"Close":"Full screen map"}</button></div>:null} {!error?<div ref={container} className="xd-public-route-map"  role="img" aria-label="Approximate driving route between collection and delivery postcode areas"/>:null}
+  {expanded&&routeSummary?<div className="xd-map-route-popup"><strong>Collection: {outcode(pickup)}</strong><span>Delivery: {outcode(delivery)}</span><strong>Job distance: {routeSummary.miles} miles</strong><span>Estimated driving: {routeSummary.minutes} min</span><small>Approximate postcode-area route</small></div>:null}
   {!error?<button type="button" onClick={locate} disabled={locating} style={{minHeight:44,marginTop:10,padding:'8px 14px',border:'1px solid #d9d9d9',borderRadius:4,background:'#fff',fontWeight:700}}>{locating?'Locating...':'Show my location'}</button>:null}
   {locationMessage?<p role="status" className="xd-public-map-note">{locationMessage}</p>:null}
   <p role="status" className="xd-public-map-note">{note}</p>
