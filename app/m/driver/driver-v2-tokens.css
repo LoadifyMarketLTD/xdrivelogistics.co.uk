@@ -1,0 +1,37 @@
+/* XDrive Driver PWA V2: canonical light mobile tokens. Scoped to existing PWA only. */
+.xd-driver-mobile {
+ --xdv2-primary:#ffbf00; --xdv2-header:#ffa000; --xdv2-surface:#fff;
+ --xdv2-page:#cecece; --xdv2-text:#252525; --xdv2-muted:#686868;
+ --xdv2-border:#d9d9d9; --xdv2-success:#77d263; --xdv2-quote:#82af14;
+ --xdv2-danger:#eb6059; --xdv2-card-radius:5px; --xdv2-button-radius:4px;
+ background:var(--xdv2-page);color:var(--xdv2-text);font-family:Arial,Helvetica,sans-serif;
+ font-size:16px;line-height:1.45;
+}
+.xd-driver-mobile__content{padding:12px 12px calc(84px + env(safe-area-inset-bottom));}
+.xd-driver-mobile .xd-mobile-list{font-size:16px;line-height:1.45;}
+.xd-driver-mobile .xd-mobile-list h1,.xd-driver-mobile .xd-mobile-list header h1{font-size:20px;line-height:26px;font-weight:700;}
+.xd-driver-mobile .xd-mobile-list h2{font-size:18px;line-height:24px;font-weight:700;}
+.xd-driver-mobile .xd-mobile-list h3{font-size:17px;line-height:23px;font-weight:700;}
+.xd-driver-mobile .xd-mobile-card{background:var(--xdv2-surface);border:1px solid var(--xdv2-border);border-radius:var(--xdv2-card-radius);padding:14px;margin-bottom:9px;box-shadow:none;}
+.xd-driver-mobile .xd-job-card{padding:0;}
+.xd-driver-mobile .xd-mobile-card p{font-size:15px;line-height:22px;margin:8px 0;}
+.xd-driver-mobile .xd-mobile-route,.xd-driver-mobile .xd-job-places strong{font-size:19px;line-height:25px;font-weight:800;color:var(--xdv2-text);}
+.xd-driver-mobile .xd-job-places small,.xd-driver-mobile .xd-job-stops small{font-size:16px;line-height:22px;color:var(--xdv2-muted);}
+.xd-driver-mobile .xd-job-company strong{font-size:18px;line-height:24px;font-weight:700;}
+.xd-driver-mobile .xd-job-company small{font-size:14px;line-height:20px;color:var(--xdv2-muted);}
+.xd-driver-mobile .xd-mobile-muted,.xd-driver-mobile .xd-mobile-count{font-size:14px;line-height:20px;color:var(--xdv2-muted);}
+.xd-driver-mobile .xd-mobile-pill{font-size:13px;line-height:17px;font-weight:700;border-radius:4px;background:#fff5d7;color:#493500;}
+.xd-driver-mobile .xd-mobile-card a,.xd-driver-mobile .xd-mobile-list button{min-height:44px;font-size:16px;line-height:22px;font-weight:700;border-radius:var(--xdv2-button-radius);padding:10px 13px;background:var(--xdv2-primary);color:#252525;}
+.xd-driver-mobile .xd-job-quote,.xd-driver-mobile .xd-job-submit{background:var(--xdv2-quote)!important;color:#172300!important;}
+.xd-driver-mobile .xd-mobile-list input,.xd-driver-mobile .xd-mobile-list select,.xd-driver-mobile .xd-mobile-list textarea{min-height:44px;font-size:17px;line-height:23px;border:1px solid #868686;border-radius:4px;color:var(--xdv2-text);background:#fff;}
+.xd-driver-mobile .xd-mobile-list label{font-size:16px;line-height:22px;font-weight:700;}
+.xd-driver-mobile .xd-mobile-list :is(input,select,textarea)[aria-invalid="true"]{border:2px solid #b42318;background:#fff5f3;}
+.xd-driver-mobile .xd-mobile-list :is(button,a,input,select,textarea):focus-visible,.xd-driver-mobile__nav a:focus-visible{outline:3px solid #785300;outline-offset:2px;}
+.xd-driver-mobile .xd-mobile-list :is(button,a)[disabled],.xd-driver-mobile .xd-mobile-list [aria-disabled="true"]{opacity:.58;cursor:not-allowed;}
+.xd-driver-mobile .xd-mobile-error{color:#8e211a;background:#fff3f1;border-color:var(--xdv2-danger);}
+.xd-driver-mobile .xd-mobile-success{color:#205b20;background:#e7f7e4;border-color:var(--xdv2-success);}
+.xd-driver-mobile__nav{background:#fff;border-top:1px solid var(--xdv2-border);padding:5px 4px calc(5px + env(safe-area-inset-bottom));}
+.xd-driver-mobile__nav a{min-height:48px;font-size:14px;line-height:20px;font-weight:700;color:var(--xdv2-text);border-radius:4px;}
+.xd-driver-mobile__nav a[aria-current=page]{background:#fff0bf;color:#302400;border-bottom:3px solid var(--xdv2-header);}
+@media(max-width:380px){.xd-driver-mobile__content{padding-inline:10px;}.xd-driver-mobile__nav a{font-size:14px;}}
+@media(prefers-reduced-motion:reduce){.xd-driver-mobile *, .xd-driver-mobile *::before,.xd-driver-mobile *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}
