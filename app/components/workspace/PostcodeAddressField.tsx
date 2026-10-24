@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { townFromPostingAddress, validPostingTown } from '../../../lib/loadPostingTown';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 const fieldStyle = {
@@ -77,6 +78,10 @@ export default function PostcodeAddressField({
   }, [onAddress]);
 
   useEffect(() => {
+    onTownRef.current = onTown;
+  }, [onTown]);
+
+  useEffect(() => {
     addressRef.current = address;
   }, [address]);
 
@@ -130,18 +135,19 @@ export default function PostcodeAddressField({
         // Never mistake administrative districts such as London Borough of Bexley for a post town.
         const candidates = next.map(label => {
           const supplied = payload.towns?.[label]?.trim();
-          if (supplied) return supplied;
+          if (supplied && validPostingTown(supplied)) return supplied;
           const parts = label.split(',').map(part => part.trim());
           const postcodeIndex = parts.findIndex(part => isFullUkPostcode(part));
           const candidate = postcodeIndex >= 2 ? parts[postcodeIndex - 1] : '';
-          return /\b(?:borough|county|district|region)\b/i.test(candidate) ? '' : candidate;
+          return validPostingTown(candidate) ? candidate : '';
         });
         const resolved = candidates.length > 0 && candidates.every(town => town && town.toLowerCase() === candidates[0].toLowerCase()) ? candidates[0] : '';
-        if (resolved && isFullUkPostcode(normalized)) onTownRef.current?.(resolved);
+        const sourceTown = townFromPostingAddress(addressRef.current, normalized);
+        if ((sourceTown || resolved) && isFullUkPostcode(normalized)) onTownRef.current?.(sourceTown || resolved);
         if (isFullUkPostcode(normalized) && !addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);
           const confirmedTown=payload.towns?.[next[0]];
-          if (confirmedTown) onTownRef.current?.(confirmedTown);
+          if (confirmedTown && validPostingTown(confirmedTown)) onTownRef.current?.(confirmedTown);
           setOpen(false);
         } else {
           setOpen(next.length > 0);
@@ -235,8 +241,8 @@ export default function PostcodeAddressField({
                 onAddress(suggestion);
                 const found = suggestion.match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/i);
                 if (found) onPostcodeResolved?.(normalizeOperationalPostcode(found[0]));
-                const town=towns[suggestion];
-                if(town) onTown?.(town);
+                const town=townFromPostingAddress(suggestion, found?.[0] ?? postcode) || towns[suggestion];
+                if(town && validPostingTown(town)) onTown?.(town);
                 setOpen(false);
               }}
             >
