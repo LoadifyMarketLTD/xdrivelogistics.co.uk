@@ -5,6 +5,7 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 export default function DriverLocationSharing() {
  const [status, setStatus] = useState('Location sharing is off.');
  const [sharing, setSharing] = useState(false);
+ const [permissionDenied, setPermissionDenied] = useState(false);
  const watch = useRef<number | null>(null);
  const lastSent = useRef(0);
  const busy = useRef(false);
@@ -43,12 +44,14 @@ export default function DriverLocationSharing() {
  };
  const start = () => {
   if (!navigator.geolocation || !window.isSecureContext) { setStatus('GPS requires a secure browser with location enabled.'); return; }
+  setPermissionDenied(false);
   sharingRef.current = true;
   setSharing(true);
   setStatus('Requesting location permission...');
   watch.current = navigator.geolocation.watchPosition(position => { void send(position); }, error => {
    stopWatch();
-   setStatus(error.code === 1 ? 'Location permission denied. Allow location access to XDrive.' : 'GPS unavailable. Check phone location services.');
+   setPermissionDenied(error.code === 1);
+   setStatus(error.code === 1 ? 'Location blocked by browser or site settings. Allow Location for www.xdrivelogistics.co.uk, then retry this button.' : 'GPS unavailable. Check phone location services.');
   }, { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 });
  };
  const stop = async () => {
@@ -64,7 +67,8 @@ export default function DriverLocationSharing() {
   <h2>Live GPS availability</h2>
   <p>Share your current position with XDrive to be discoverable for nearby jobs. Requires Available status. Sharing runs while this page remains open; mobile browsers may suspend GPS in the background.</p>
   <p role="status">{status}</p>
+  {permissionDenied ? <p>Open the browser that installed XDrive PWA, go to Site settings → Location → www.xdrivelogistics.co.uk → Allow. Also check Android Settings → Apps → your browser → Permissions → Location. Return here and press the same GPS button again. A website cannot open or change these protected settings automatically.</p> : null}
   {sharing ? <button type="button" onClick={() => void stop()}>Stop sharing GPS</button> :
-   <button type="button" onClick={start}>Share my GPS for nearby jobs</button>}
+   <button type="button" onClick={start}>{permissionDenied ? 'Retry GPS after allowing location' : 'Share my GPS for nearby jobs'}</button>}
  </section>;
 }
