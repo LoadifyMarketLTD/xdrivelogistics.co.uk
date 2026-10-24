@@ -105,6 +105,15 @@ export default function MobileBookingDetail() {
   const collected = Boolean(job?.collectionHandover);
   const deliveryDone = status === 'delivered' || status === 'completed' || status === 'invoiced';
   const canUndo = undoable.has(status);
+  const history = [
+    { key: 'accepted', label: 'Accepted', active: !['awarded', 'allocated'].includes(status) },
+    { key: 'on_my_way_pickup', label: 'On my way to pickup', active: !['awarded', 'allocated', 'accepted'].includes(status) },
+    { key: 'arrived_pickup', label: 'On site (pickup)', active: !['awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_pickup'].includes(status) },
+    { key: 'loaded', label: 'Loaded', active: ['loaded', 'collected', 'in_transit', 'on_my_way_delivery', 'arrived_delivery', 'on_site_delivery', 'delivered', 'completed', 'invoiced'].includes(status) },
+    { key: 'on_my_way_delivery', label: 'On my way to delivery', active: ['in_transit', 'on_my_way_delivery', 'arrived_delivery', 'on_site_delivery', 'delivered', 'completed', 'invoiced'].includes(status) },
+    { key: 'arrived_delivery', label: 'On site (delivery)', active: ['arrived_delivery', 'on_site_delivery', 'delivered', 'completed', 'invoiced'].includes(status) },
+    { key: 'delivered', label: 'Delivered / POD', active: ['delivered', 'completed', 'invoiced'].includes(status) },
+  ];
   const needsHandover = collectionSite && !collected;
   const stops = [...(job?.stops || [])].sort((a, b) => a.sequence - b.sequence);
   const multiStop = stops.length > 2;
@@ -122,34 +131,37 @@ export default function MobileBookingDetail() {
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
     {!loading && job ? <>
-      <article className="xd-mobile-card">
+      <article className="xd-mobile-card xd-booking-detail-card">
         <div className="xd-mobile-card__top">
           <strong>Status</strong><span className="xd-mobile-pill">{status.replaceAll('_', ' ')}</span>
         </div>
-        <p className="xd-mobile-route">{job.pickupLocation} {job.pickupPostcode} → {job.deliveryLocation} {job.deliveryPostcode}</p>
-        <p><strong>Collection:</strong> {displayTime(job.pickupTime)}</p>
-        <p><strong>Delivery:</strong> {displayTime(job.deliveryTime)}</p>
+        <div className="xd-job-stops"><div className="xd-job-track"><span className="xd-job-dot"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{job.pickupLocation} {job.pickupPostcode}</strong><small>Collection · {displayTime(job.pickupTime)}</small></div><div><strong>{job.deliveryLocation} {job.deliveryPostcode}</strong><small>Delivery · {displayTime(job.deliveryTime)}</small></div></div></div>
+        <div className="xd-booking-primary-actions"><a href={mapsDirections(job)} target="_blank" rel="noopener noreferrer">View on map</a>{job.contactPhone ? <a href={`tel:${job.contactPhone}`}>Call {job.contactName || 'contact'}</a> : null}</div>
+        <h2 className="xd-booking-detail-heading">Job details</h2>
         {job.vehicleRequirement ? <p><strong>Vehicle:</strong> {job.vehicleRequirement}</p> : null}
         {job.cargoType ? <p><strong>Cargo:</strong> {job.cargoType}</p> : null}
         {job.distanceMiles != null ? <p><strong>Journey:</strong> {job.distanceMiles} miles</p> : null}
         {job.price ? <p><strong>Agreed rate:</strong> {job.price}</p> : null}
         {job.paymentTerms ? <p><strong>Payment terms:</strong> {job.paymentTerms}</p> : null}
-        {job.requirements || job.specialInstructions ? <p><strong>Instructions:</strong> {job.specialInstructions || job.requirements}</p> : null}
-        <div className="xd-mobile-actions">
-          <a href={mapsDirections(job)} target="_blank" rel="noopener noreferrer">Open driving directions</a>
-          {job.contactPhone ? <a href={`tel:${job.contactPhone}`}>Call {job.contactName || 'contact'}</a> : null}
-        </div>
+        {job.requirements || job.specialInstructions ? <section className="xd-booking-notes"><h2>Notes and instructions</h2><p>{job.specialInstructions || job.requirements}</p></section> : null}
         {needsHandover ? <p>Complete collection handover and attach photos before marking Loaded.</p> : null}
         {action && !needsHandover ? <button type="button" disabled={busy || stopCompletionBlocked}
           onClick={() => void perform(action.api)}>
           {busy ? 'Updating...' : action.label}</button> : null}
         {stopCompletionBlocked ? <p role="status">Complete the {incompleteStops} remaining stop(s) before marking the booking delivered.</p> : null}
-        {canUndo ? <button type="button" className="xd-mobile-button--secondary"
-          disabled={busy} onClick={() => {
-            if (window.confirm('Undo the most recent status change?'))
-              void perform('undo-status', { expectedCurrentStatus: job.currentStatus || job.status });
-          }}>Undo last status</button> : null}
       </article>
+
+      <section className="xd-booking-timeline" aria-label="Booking status progression">
+        <h2>Booking status</h2>
+        <ol>{history.map(step => <li key={step.key} className={step.active ? 'xd-booking-step--done' : ''}>
+          <span aria-hidden="true" className="xd-booking-step-dot">{step.active ? '✓' : '○'}</span>
+          <span>{step.label}</span>
+        </li>)}</ol>
+        {canUndo ? <button type="button" className="xd-mobile-button--secondary" disabled={busy}
+          onClick={() => { if (window.confirm('Undo the most recent status change?')) void perform('undo-status', { expectedCurrentStatus: job.currentStatus || job.status }); }}>
+          Undo last status
+        </button> : null}
+      </section>
 
       {needsHandover ? <CollectionHandover key={job.id} jobId={job.id}
         existingPaths={job.pickupPhotos || []} onSaved={refresh}/> : null}

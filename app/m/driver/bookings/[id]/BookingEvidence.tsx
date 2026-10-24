@@ -268,11 +268,11 @@ export function PodCapture({ jobId, existingPhotos, hardCopyPod, onSaved }: {
     } finally { setBusy(false); }
   };
   return <form className="xd-mobile-card" onSubmit={event => void save(event)}>
-    <h3>Proof of delivery</h3>
-    <p>Complete after the booking is marked Delivered.</p>
+    <h3>Proof of delivery (POD)</h3>
+    <p>Confirm the delivery recipient, outcome and signature. Attach photographic evidence before sending the POD.</p>
     <PhotoUploader jobId={jobId} kind="delivery" paths={photos} setPaths={setPhotos} disabled={busy}/>
     {existingPhotos.length ? <p>{existingPhotos.length} previously uploaded delivery photo(s) found.</p> : null}
-    <label>Recipient full name<input required maxLength={200} autoComplete="name"
+    <label>Received by (full name) *<input required maxLength={200} autoComplete="name"
       value={recipient} onChange={event => setRecipient(event.target.value)}/></label>
     <label>Delivery outcome<select value={deliveryStatus} onChange={event => setDeliveryStatus(event.target.value)}>
       {['Completed Delivery', 'Partial Delivery', 'Failed Delivery', 'Refused', 'Left Safe']
@@ -283,12 +283,12 @@ export function PodCapture({ jobId, existingPhotos, hardCopyPod, onSaved }: {
       <button type="button" className="xd-mobile-button--secondary" onClick={() => {
         signature.current?.getContext('2d')?.clearRect(0, 0, 640, 220);
         setSigned(false);
-      }}>Clear signature</button>
+      }}>Edit / clear signature</button>
     </div>
     {needsHardCopy ? <label className="xd-mobile-check"><input type="checkbox" checked={hardCopy}
       onChange={event => setHardCopy(event.target.checked)}/> I confirm the hard-copy POD requirement.</label> : null}
     <label>Delivery notes<textarea maxLength={5000} value={notes} onChange={event => setNotes(event.target.value)}/></label>
     {error ? <p role="alert" className="xd-mobile-error">{error}</p> : null}
-    <button type="submit" disabled={busy || !recipient.trim()}>{busy ? 'Saving POD...' : 'Submit POD'}</button>
+    <button type="submit" disabled={busy || !recipient.trim()}>{busy ? 'Sending POD...' : 'Send POD'}</button>
   </form>;
 }
