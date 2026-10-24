@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
+import DriverLocationSharing from '../DriverLocationSharing';
 
 type AvailabilityStatus = 'available' | 'busy' | 'offline';
 type DriverAvailability = {
@@ -122,5 +123,6 @@ export default function DriverAvailabilityPage() {
         <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save preferences'}</button>
       </div>
     </form> : null}
+    {driver?.availability_status === 'available' && !loading ? <DriverLocationSharing /> : null}
   </section>;
 }
