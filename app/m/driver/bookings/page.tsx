@@ -48,22 +48,15 @@ export default function MobileBookingsPage() {
     return () => window.removeEventListener('focus', onFocus);
   }, [refresh]);
 
-  return <section className="xd-mobile-list">
+  return <section className="xd-mobile-list xd-mobile-unified-list">
     <header><h1>Bookings</h1><p>Your assigned transport jobs</p></header>
     {loading ? <p role="status">Loading bookings...</p> : null}
     {error ? <div className="xd-mobile-error" role="alert"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
     {!loading && !error && jobs.length === 0 ? <p>No active bookings assigned to you.</p> : null}
     {!loading && !error && jobs.map(job => <article className="xd-mobile-card" key={job.id}>
-      <div className="xd-mobile-card__top">
-        <strong>{job.reference}</strong>
-        <span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span>
-      </div>
-      <p className="xd-mobile-route">{job.pickupLocation} {job.pickupPostcode} → {job.deliveryLocation} {job.deliveryPostcode}</p>
-      <div className="xd-mobile-two-cols">
-        <div><small>COLLECTION</small><strong>{when(job.pickupTime)}</strong></div>
-        <div><small>DELIVERY</small><strong>{when(job.deliveryTime)}</strong></div>
-      </div>
+      <div className="xd-job-company"><div><strong>{job.reference}</strong><small>{job.vehicleRequirement}</small></div><span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span></div>
+      <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{job.pickupLocation} {job.pickupPostcode}</strong><small>Collection · {when(job.pickupTime)}</small></div><div><strong>{job.deliveryLocation} {job.deliveryPostcode}</strong><small>Delivery · {when(job.deliveryTime)}</small></div></div></div>
       <p><strong>Vehicle:</strong> {job.vehicleRequirement}</p>
       {job.paymentTerms ? <p><strong>Payment:</strong> {job.paymentTerms}</p> : null}
       {job.podGenerated ? <p className="xd-mobile-success">POD available</p> : null}

@@ -105,7 +105,7 @@ export default function MobileQuotesPage() {
     } finally { setPending(null); }
   };
 
-  return <section className="xd-mobile-list">
+  return <section className="xd-mobile-list xd-mobile-unified-list">
     <header><h1>Quotes</h1><p>Your quotes and their outcomes</p></header>
     {notice ? <p role="status" className="xd-mobile-success">{notice}</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p><button type="button" onClick={() => void refresh()}>Retry loading</button></div> : null}
@@ -113,14 +113,8 @@ export default function MobileQuotesPage() {
     {!loading && !error && quotes.map((quote) => {
       const submitted = quote.status.toLowerCase() === 'submitted';
       return <article className="xd-mobile-card" key={quote.id}>
-        <div className="xd-mobile-card__top">
-          <span className="xd-mobile-pill">{quote.status}</span>
-          <strong>{quote.amount == null ? 'Amount unavailable' :
-            new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong>
-        </div>
-        <p className="xd-mobile-route">{quote.pickupLocation} → {quote.deliveryLocation}</p>
-        <p>Collection: {formatTime(quote.pickupDatetime)}</p>
-        <p>Quoted: {formatTime(quote.createdAt)}</p>
+        <div className="xd-job-company"><div><strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong><small>Quoted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
+        <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{quote.pickupLocation}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{quote.deliveryLocation}</strong><small>Delivery location</small></div></div></div>
         {quote.executionUnlocked
           ? <Link href={`/m/driver/bookings/${encodeURIComponent(quote.jobId)}`}>View booking</Link>
           : <Link href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>}

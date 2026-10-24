@@ -210,3 +210,17 @@
 .xd-mobile-job-detail .xd-detail-cta{font-size:18px;min-height:48px}
 .xd-mobile-job-detail .xd-detail-actions button{font-size:18px}
 @media(max-width:360px){.xd-mobile-job-detail .xd-detail-places strong{font-size:21px}.xd-mobile-job-detail .xd-detail-lines p,.xd-mobile-job-detail .xd-detail-panel>p{grid-template-columns:minmax(0,36%) minmax(0,1fr)}}
+/* Match Quotes and Bookings to the existing Loads card rhythm. */
+.xd-mobile-unified-list .xd-mobile-card{padding:0;overflow:hidden}
+.xd-mobile-unified-list .xd-job-company{padding:16px 18px;border-bottom:1px solid #dce3eb}
+.xd-mobile-unified-list .xd-job-company strong{font-size:22px;line-height:1.25}
+.xd-mobile-unified-list .xd-job-company small{font-size:15px;line-height:1.35}
+.xd-mobile-unified-list .xd-job-stops{padding:16px 18px;border-bottom:1px solid #dce3eb}
+.xd-mobile-unified-list .xd-job-places strong{font-size:22px;line-height:1.25;overflow-wrap:break-word}
+.xd-mobile-unified-list .xd-job-places small{font-size:17px;line-height:1.3}
+.xd-mobile-unified-list .xd-mobile-card>p{margin:0;padding:12px 18px;font-size:17px;line-height:1.4;border-bottom:1px solid #e4e9ef}
+.xd-mobile-unified-list .xd-mobile-card>a{display:block;margin:12px 18px;font-size:17px;font-weight:700;text-align:center}
+.xd-mobile-unified-list .xd-mobile-actions{margin:0;padding:12px 18px 18px;gap:12px}
+.xd-mobile-unified-list .xd-mobile-actions button{font-size:17px;min-height:46px}
+.xd-mobile-unified-list .xd-mobile-card>form{padding:14px 18px}
+.xd-mobile-unified-list .xd-mobile-card .xd-mobile-success{margin:12px 18px;padding:12px}
