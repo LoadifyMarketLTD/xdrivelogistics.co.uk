@@ -143,7 +143,7 @@ export default function DriverJobsPage() {
     () => jobs.find((job) => driverJobStage(job) === 'in_progress') ?? null,
     [jobs],
   );
-  useDriverLocationPublisher(activeJob ? effectiveStatus(activeJob) : undefined, Boolean(activeJob));
+  useDriverLocationPublisher(activeJob ? effectiveStatus(activeJob) : undefined, Boolean(activeJob), activeJob?.id);
 
   const filteredJobs = useMemo(() => jobs.filter((job) => matchesFilter(job, filter)), [filter, jobs]);
   const countFor = (target: DriverJobView) => jobs.filter((job) => matchesFilter(job, target)).length;

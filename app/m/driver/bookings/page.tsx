@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
+import { useDriverLocationPublisher } from '../../../hooks/useDriverLocationPublisher';
 
 type Booking = {
   id: string; reference: string; status: string;
@@ -21,6 +22,8 @@ export default function MobileBookingsPage() {
   const [jobs, setJobs] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const trackingJob = jobs.find((job) => ['allocated', 'accepted', 'on_my_way', 'on_my_way_pickup', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_delivery', 'on_my_way_to_delivery', 'on_site_delivery', 'arrived_delivery'].includes(job.status.toLowerCase())) ?? null;
+  useDriverLocationPublisher(trackingJob?.status, Boolean(trackingJob), trackingJob?.id);
   const refresh = useCallback(async () => {
     setLoading(true);
     setJobs([]);
