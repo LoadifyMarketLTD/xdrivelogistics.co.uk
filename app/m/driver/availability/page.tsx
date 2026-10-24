@@ -118,7 +118,7 @@ export default function DriverAvailabilityPage() {
         onChange={event => setDriver(previous => previous ? { ...previous, destination_radius_miles: Number(event.target.value) } : null)}>
         {radii.map(radius => <option key={radius} value={radius}>{radius} miles</option>)}
       </select>
-      <p className="xd-mobile-muted">Setting Available does not share your precise location. Location sharing requires a separate, explicit action and is not enabled on this page.</p>
+      <p className="xd-mobile-muted">Setting Available does not automatically share your precise location. To enable GPS, save Available status and use the separate Share my GPS button below. Location sharing stops when you stop it or leave this page; background GPS is not guaranteed in a PWA.</p>
       <div className="xd-mobile-actions">
         <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save preferences'}</button>
       </div>
