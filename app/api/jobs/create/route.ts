@@ -161,8 +161,8 @@ export async function POST(request: NextRequest) {
     });
   }
   const input = parsed.data;
-  if (input.publish && !input.directBookingTarget && !isValidTargetPriceGbp(input.customerPrice)) {
-    return respond(400, { error: 'Public marketplace posts require a positive GBP target price with no more than 2 decimal places (ex VAT).' });
+  if (input.publish && input.isFixedPrice && !isValidTargetPriceGbp(input.customerPrice)) {
+    return respond(400, { error: 'Fixed-price posts require a positive GBP price with no more than 2 decimal places (ex VAT).' });
   }
   if (input.loadType === 'regular_load' && !input.regularSchedule?.days.length) {
     return respond(400, { error: 'Regular Load requires at least one operating day.' });
@@ -730,7 +730,7 @@ export async function POST(request: NextRequest) {
     width_cm: input.widthCm ?? null,
     height_cm: input.heightCm ?? null,
     cargo_value_gbp: input.cargoValueGbp ?? null,
-    budget_amount: input.customerPrice ?? null,
+    budget_amount: input.isFixedPrice ? input.customerPrice ?? null : null,
     collection_tail_lift_required: input.tailLift,
     collection_forklift_available: input.forklift,
     collection_handball_required: input.handball,
