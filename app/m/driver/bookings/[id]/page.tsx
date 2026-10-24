@@ -146,9 +146,6 @@ export default function MobileBookingDetail() {
         {job.paymentTerms ? <p><strong>Payment terms:</strong> {job.paymentTerms}</p> : null}
         {job.requirements || job.specialInstructions ? <section className="xd-booking-notes"><h2>Notes and instructions</h2><p>{job.specialInstructions || job.requirements}</p></section> : null}
         {needsHandover ? <p>Complete collection handover and attach photos before marking Loaded.</p> : null}
-        {action && !needsHandover ? <button type="button" disabled={busy || stopCompletionBlocked}
-          onClick={() => void perform(action.api)}>
-          {busy ? 'Updating...' : action.label}</button> : null}
         {stopCompletionBlocked ? <p role="status">Complete the {incompleteStops} remaining stop(s) before marking the booking delivered.</p> : null}
       </article>
 
@@ -160,6 +157,7 @@ export default function MobileBookingDetail() {
           <span>{step.label}</span>
         </li>)}</ol>
         </details>
+        {action && !needsHandover ? <button type="button" className="xd-cx-next-action" disabled={busy || stopCompletionBlocked} onClick={() => void perform(action.api)}>{busy ? 'Updating...' : action.label}</button> : null}
         {canUndo ? <button type="button" className="xd-mobile-button--secondary" disabled={busy}
           onClick={() => { if (window.confirm('Undo the most recent status change?')) void perform('undo-status', { expectedCurrentStatus: job.currentStatus || job.status }); }}>
           Undo last status
@@ -179,14 +177,14 @@ export default function MobileBookingDetail() {
           : <p>Delivery completed. Contact support if POD needs correction.</p>
         : null}
 
-      <h2>Stops and contacts</h2>
+      <h2 className="xd-cx-stops-heading">Pickup and delivery details</h2>
       {multiStop ? <p>Complete each stop in sequence. Collection stops require a photo handover.</p> : null}
       {stops.map((stop, index) => {
         const earlierComplete = stops.slice(0, index).every(item => ['completed', 'skipped'].includes(item.status));
         const isCollection = stop.type.toLowerCase() === 'collection';
         return <article className="xd-mobile-card" key={stop.id}>
         <div className="xd-mobile-card__top">
-          <strong>{index + 1}. {stop.type}</strong><span>{stop.status}</span>
+          <strong>{stop.type.toLowerCase() === 'collection' ? 'Pickup' : 'Delivery'} details</strong><span>{stop.status}</span>
         </div>
         <p>{stop.address}</p>
         {stop.contactPerson ? <p>Contact: {stop.contactPerson}</p> : null}
