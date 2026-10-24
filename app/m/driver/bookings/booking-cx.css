@@ -47,3 +47,8 @@
 .xd-cx-bookings .xd-cx-booking-card-link:active{background:#fff5d7}
 .xd-cx-bookings .xd-cx-booking-card .xd-job-footer{width:100%;padding-top:9px}
 .xd-cx-bookings .xd-cx-booking-card .xd-job-details{display:flex;width:100%;box-sizing:border-box;min-height:48px;align-items:center;justify-content:center;text-align:center}
+/* Booking list: neutral surfaces; yellow is reserved for explicit actions, not cards. */
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list > header { background:#fff; color:#14263e; border-bottom:1px solid #e1e7ed; }
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-mobile-card.xd-cx-booking-card,
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card-link { background:#fff !important; color:#14263e; }
+.xd-driver-mobile .xd-cx-bookings.xd-mobile-unified-list .xd-cx-booking-card .xd-job-details { background:#fff; color:#0b4289; border:1px solid #91a9c4; }
