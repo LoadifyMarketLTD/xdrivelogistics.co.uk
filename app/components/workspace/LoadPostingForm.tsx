@@ -14,6 +14,7 @@ import { WORKSPACE_READINESS_CHANGED, isSafeRecoveryHref } from '../../../lib/wo
 import { resolveLegalRemediationUrl } from '../../../lib/workspaceRemediation';
 import { isValidTargetPriceGbp, smartReadLoad } from '../../../lib/smartReadLoad';
 import { COMPANY_CONFIG } from '../../config/company';
+import { importedPostingTown, townFromPostingAddress, validPostingTown } from '../../../lib/loadPostingTown';
 import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
@@ -180,7 +181,7 @@ const validateStop = ({
     date: dateError,
     time: timeError,
     postcode: !postcode.trim() ? 'Required' : !isFullUkPostcode(postcode) ? 'Enter a full UK postcode' : undefined,
-    address: !address.trim() ? 'Required' : undefined,
+    address: !address.trim() ? 'Required' : address.trim().length < 3 ? 'Enter a complete address' : undefined,
   };
 };
 
@@ -434,7 +435,11 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     minimumDate: minimumRouteDate || undefined,
     now: clockNow,
   }));
-  const hasRequiredErrors = hasStopErrors(collectionErrors) || hasStopErrors(deliveryErrors) || additionalStopErrors.some(hasStopErrors) || !form.pickupTown.trim() || !form.deliveryTown.trim();
+  const townErrors = {
+    pickup: !form.pickupTown.trim() ? 'Enter the collection town' : !validPostingTown(form.pickupTown) ? 'Enter a town, not a street address' : '',
+    delivery: !form.deliveryTown.trim() ? 'Enter the delivery town' : !validPostingTown(form.deliveryTown) ? 'Enter a town, not a street address' : '',
+  };
+  const hasRequiredErrors = hasStopErrors(collectionErrors) || hasStopErrors(deliveryErrors) || additionalStopErrors.some(hasStopErrors) || Boolean(townErrors.pickup || townErrors.delivery);
   const loadTypeError = form.loadType === 'regular_load' && form.regularDays.length === 0
     ? 'Select at least one operating day for a Regular Load.'
     : form.loadType === 'daily_hire' && !form.hireEndTime
@@ -448,6 +453,12 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     width: dimensionError(form.width),
     height: dimensionError(form.height),
   };
+  const numericErrors = Object.fromEntries((['weight', 'pallets', 'itemCount', 'cargoValue'] as const).map(key => {
+    const value = form[key].trim();
+    const parsed = Number(value);
+    return [key, value && (!Number.isFinite(parsed) || parsed < 0 || ((key === 'pallets' || key === 'itemCount') && !Number.isInteger(parsed))) ? 'Enter a valid non-negative ' + (key === 'pallets' || key === 'itemCount' ? 'whole number' : 'number') : ''];
+  }));
+  const emailError = mode !== 'customer' && form.clientEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.clientEmail.trim()) ? 'Enter a valid customer email address' : '';
   const hasDimensionErrors = Boolean(dimensionErrors.length || dimensionErrors.width || dimensionErrors.height);
   const dimensionsCm = [form.length, form.width, form.height].map(numberOrNull);
   const hasDimensionValues = dimensionsCm.some((value) => value != null);
@@ -457,7 +468,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
   const focusFirstInvalidField = () => {
     window.setTimeout(() => {
-      const field = document.querySelector<HTMLElement>('[aria-invalid="true"]');
+      const field = document.querySelector<HTMLElement>('.xdrive-post-load-form [aria-invalid="true"]:not(:disabled)');
       field?.focus();
       field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 0);
@@ -478,12 +489,12 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     if (requiresFixedPrice && !isValidTargetPriceGbp(Number(form.customerPrice))) {
       setFixedPriceError(true);
       setError('A fixed-price post needs a positive GBP price, up to 2 decimal places, excluding VAT.');
-      document.getElementById('xdrive-fixed-price')?.focus();
+      focusFirstInvalidField();
       return;
     }
     setFixedPriceError(false);
 
-    if (hasRequiredErrors || hasDimensionErrors || loadTypeError) {
+    if (hasRequiredErrors || hasDimensionErrors || loadTypeError || Object.values(numericErrors).some(Boolean) || emailError) {
       setError(loadTypeError || 'Load details are incomplete or invalid. Complete the fields highlighted in red.');
       focusFirstInvalidField();
       return;
@@ -509,11 +520,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       setError(directCarrierError || 'The Direct Booking carrier could not be verified. Return to Directory and choose the member again.');
       return;
     }
-    if (publish && !directCarrierId && directTargetMode === 'external_subcontractor' && (!externalTarget.contactName.trim() || !externalTarget.phone.trim())) {
+    if (publish && !directCarrierId && directTargetMode === 'external_subcontractor' && (externalTarget.contactName.trim().length < 2 || externalTarget.phone.trim().length < 5)) {
+      focusFirstInvalidField();
       setError('External Direct Booking requires a subcontractor contact name and phone number.');
       return;
     }
     if (publish && !directCarrierId && directTargetMode === 'internal_resource' && (!internalDriverId || !internalVehicleId)) {
+      focusFirstInvalidField();
       setError('Internal Direct Booking requires both a driver and a vehicle.');
       return;
     }
@@ -739,6 +752,16 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       {error && (
         <AlertBanner tone="danger">
           {error}
+          {showValidation && <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
+            {[
+              ...Object.entries(collectionErrors).filter(([, message]) => message).map(([key, message]) => 'Collection ' + key + ': ' + message),
+              ...Object.entries(deliveryErrors).filter(([, message]) => message).map(([key, message]) => 'Delivery ' + key + ': ' + message),
+              ...additionalStopErrors.flatMap((errors, index) => Object.entries(errors).filter(([, message]) => message).map(([key, message]) => 'Stop ' + (index + 1) + ' ' + key + ': ' + message)),
+              townErrors.pickup, townErrors.delivery, loadTypeError, emailError,
+              ...Object.entries(dimensionErrors).filter(([, message]) => message).map(([key, message]) => key + ': ' + message),
+              ...Object.entries(numericErrors).filter(([, message]) => message).map(([key, message]) => key + ': ' + message),
+            ].filter(Boolean).map(message => <li key={message}>{message}</li>)}
+          </ul>}
             <WorkspaceRestrictionBanner role={mode === 'owner' ? 'owner_driver' : mode === 'admin' ? 'company_owner' : mode} inline operation="post_load" />
           {stripeSetupCompanyId ? (
             <StripeSetupAction
@@ -786,10 +809,12 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             setForm((current) => ({
               ...current,
               pickupPostcode: pickup?.postcode.value ?? current.pickupPostcode,
+              pickupTown: importedPostingTown(pickup, current.pickupPostcode, current.pickupTown),
               pickupAddress: pickup?.address?.value ?? (pickup && pickup.postcode.value !== current.pickupPostcode ? '' : current.pickupAddress),
               pickupDate: pickup?.date?.value ?? current.pickupDate,
               pickupTime: pickup?.asap ? '' : pickup?.time?.value ?? current.pickupTime,
               deliveryPostcode: delivery?.postcode.value ?? current.deliveryPostcode,
+              deliveryTown: importedPostingTown(delivery, current.deliveryPostcode, current.deliveryTown),
               deliveryAddress: delivery?.address?.value ?? (delivery && delivery.postcode.value !== current.deliveryPostcode ? '' : current.deliveryAddress),
               deliveryDate: delivery?.date?.value ?? current.deliveryDate,
               deliveryTime: delivery?.time?.value ?? current.deliveryTime,
@@ -915,13 +940,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           {directTargetMode === 'external_subcontractor' && mode !== 'customer' && (
             <div style={{ ...gridStyle, marginTop: 10 }}>
               <label style={labelStyle}>Contact name
-                <input style={fieldStyle} value={externalTarget.contactName} onChange={(event) => setExternalTarget((current) => ({ ...current, contactName: event.target.value }))} />
+                <input style={fieldStyle} aria-invalid={showValidation && (externalTarget.contactName.trim().length < 2)} value={externalTarget.contactName} onChange={(event) => setExternalTarget((current) => ({ ...current, contactName: event.target.value }))} />
               </label>
               <label style={labelStyle}>Company name
                 <input style={fieldStyle} value={externalTarget.companyName} onChange={(event) => setExternalTarget((current) => ({ ...current, companyName: event.target.value }))} />
               </label>
               <label style={labelStyle}>Phone
-                <input style={fieldStyle} value={externalTarget.phone} onChange={(event) => setExternalTarget((current) => ({ ...current, phone: event.target.value }))} />
+                <input style={fieldStyle} aria-invalid={showValidation && (externalTarget.phone.trim().length < 5)} value={externalTarget.phone} onChange={(event) => setExternalTarget((current) => ({ ...current, phone: event.target.value }))} />
               </label>
               <label style={labelStyle}>Email
                 <input style={fieldStyle} type="email" value={externalTarget.email} onChange={(event) => setExternalTarget((current) => ({ ...current, email: event.target.value }))} />
@@ -941,13 +966,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             <div style={{ ...gridStyle, marginTop: 10 }}>
               {internalResourcesError ? <AlertBanner tone="danger">{internalResourcesError}</AlertBanner> : null}
               <label style={labelStyle}>Driver
-                <select style={fieldStyle} value={internalDriverId} onChange={(event) => { setInternalDriverId(event.target.value); setInternalVehicleId(''); }}>
+                <select style={fieldStyle} aria-invalid={showValidation && (!internalDriverId)} value={internalDriverId} onChange={(event) => { setInternalDriverId(event.target.value); setInternalVehicleId(''); }}>
                   <option value="">Choose driver</option>
                   {internalDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name}{driver.availabilityStatus ? ` · ${driver.availabilityStatus}` : ''}</option>)}
                 </select>
               </label>
               <label style={labelStyle}>Vehicle
-                <select style={fieldStyle} value={internalVehicleId} onChange={(event) => setInternalVehicleId(event.target.value)}>
+                <select style={fieldStyle} aria-invalid={showValidation && (!internalVehicleId)} value={internalVehicleId} onChange={(event) => setInternalVehicleId(event.target.value)}>
                   <option value="">Choose vehicle</option>
                   {internalVehicles.filter((vehicle) => vehicle.assignedDriverId === internalDriverId).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.registration}{vehicle.type ? ` · ${vehicle.type}` : ''}</option>)}
                 </select>
@@ -976,7 +1001,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         {form.loadType === 'regular_load' && (
           <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
             <div style={labelStyle}>Operating days</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <div role="group" aria-label="Operating days" tabIndex={-1} aria-invalid={showValidation && Boolean(loadTypeError)} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {REGULAR_DAYS.map(([value, label]) => {
                 const selected = form.regularDays.includes(value);
                 return <button key={value} type="button" aria-pressed={selected} onClick={() => setForm((current) => ({ ...current, regularDays: selected ? current.regularDays.filter((day) => day !== value) : [...current.regularDays, value] }))} style={{ ...microButtonStyle, background: selected ? '#0b2f6b' : '#fff', color: selected ? '#fff' : '#334155' }}>{label}</button>;
@@ -1029,7 +1054,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         <Panel title="Customer" description={mode === 'broker' ? 'The customer whose transport request is being managed by the broker.' : 'Optional customer details for work being posted by this operating account.'}>
           <div style={gridStyle}>
             <label style={labelStyle}>Customer name<input style={fieldStyle} value={form.clientName} onChange={(event) => set('clientName', event.target.value)} /></label>
-            <label style={labelStyle}>Customer email<input style={fieldStyle} type="email" value={form.clientEmail} onChange={(event) => set('clientEmail', event.target.value)} /></label>
+            <label style={labelStyle}>Customer email<input style={{ ...fieldStyle, ...(showValidation && emailError ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(emailError)} type="email" value={form.clientEmail} onChange={(event) => set('clientEmail', event.target.value)} /></label>
             <label style={labelStyle}>Customer phone<input style={fieldStyle} value={form.clientPhone} onChange={(event) => set('clientPhone', event.target.value)} /></label>
           </div>
         </Panel>
@@ -1052,7 +1077,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             }))}
             onTime={(value) => set('pickupTime', value)}
             onPostcode={(value) => setForm(current => ({...current,pickupPostcode:value.toUpperCase(),pickupTown:''}))}
-            onAddress={(value) => set('pickupAddress', value)}
+            onAddress={(value) => setForm(current => ({ ...current, pickupAddress: value, pickupTown: townFromPostingAddress(value, current.pickupPostcode) || current.pickupTown }))}
             onTown={(value) => set('pickupTown', value)}
             onContact={(value) => set('collectionContact', value)}
             onPhone={(value) => set('collectionPhone', value)}
@@ -1077,7 +1102,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             }))}
             onTime={(value) => set('deliveryTime', value)}
             onPostcode={(value) => setForm(current => ({...current,deliveryPostcode:value.toUpperCase(),deliveryTown:''}))}
-            onAddress={(value) => set('deliveryAddress', value)}
+            onAddress={(value) => setForm(current => ({ ...current, deliveryAddress: value, deliveryTown: townFromPostingAddress(value, current.deliveryPostcode) || current.deliveryTown }))}
             onTown={(value) => set('deliveryTown', value)}
             onContact={(value) => set('deliveryContact', value)}
             onPhone={(value) => set('deliveryPhone', value)}
@@ -1088,8 +1113,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         </div>
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12,margin:'8px 0 12px'}}>
-          <label style={labelStyle}>Collection town (public) *<input style={fieldStyle} aria-invalid={showValidation && !form.pickupTown.trim()} value={form.pickupTown} onChange={e=>set('pickupTown',e.target.value)} placeholder="e.g. Manchester" required /></label>
-          <label style={labelStyle}>Delivery town (public) *<input style={fieldStyle} aria-invalid={showValidation && !form.deliveryTown.trim()} value={form.deliveryTown} onChange={e=>set('deliveryTown',e.target.value)} placeholder="e.g. Oldham" required /></label>
+          <label style={labelStyle}>Collection town (public) *<input style={{ ...fieldStyle, ...(showValidation && townErrors.pickup ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(townErrors.pickup)} aria-describedby={showValidation && townErrors.pickup ? 'collection-town-error' : undefined} value={form.pickupTown} onChange={e=>set('pickupTown',e.target.value)} placeholder="e.g. Manchester" required />{showValidation && townErrors.pickup ? <span id="collection-town-error" style={validationMessageStyle}>{townErrors.pickup}</span> : null}</label>
+          <label style={labelStyle}>Delivery town (public) *<input style={{ ...fieldStyle, ...(showValidation && townErrors.delivery ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(townErrors.delivery)} aria-describedby={showValidation && townErrors.delivery ? 'delivery-town-error' : undefined} value={form.deliveryTown} onChange={e=>set('deliveryTown',e.target.value)} placeholder="e.g. Oldham" required />{showValidation && townErrors.delivery ? <span id="delivery-town-error" style={validationMessageStyle}>{townErrors.delivery}</span> : null}</label>
         </div>
         <div style={{ display: 'grid', gap: '8px', borderTop: '1px solid #e2e8f0', marginTop: '12px', paddingTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1164,7 +1189,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
           {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['itemCount', 'No. of items'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => {
             const dimensionKey = key === 'length' || key === 'width' || key === 'height';
-            const validationError = dimensionKey && showValidation ? dimensionErrors[key] : undefined;
+            const validationError = showValidation ? (dimensionKey ? dimensionErrors[key] : numericErrors[key]) : undefined;
             return (
               <label key={key} style={labelStyle}>{label}
                 <input
