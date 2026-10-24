@@ -234,7 +234,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
   const [smartReadText, setSmartReadText] = useState('');
   const [smartReadFeedback, setSmartReadFeedback] = useState('');
-  const [targetPriceError, setTargetPriceError] = useState(false);
+  const [fixedPriceError, setFixedPriceError] = useState(false);
   const [form, setForm] = useState({
     loadType: 'on_demand' as CanonicalLoadType,
     regularDays: [] as Array<(typeof REGULAR_DAYS)[number][0]>,
@@ -474,14 +474,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     }
     setShowValidation(true);
 
-    const requiresTargetPrice = publish && !directCarrierId && directTargetMode === 'marketplace';
-    if (requiresTargetPrice && !isValidTargetPriceGbp(Number(form.customerPrice))) {
-      setTargetPriceError(true);
-      setError('A public marketplace post needs a positive GBP target price, up to 2 decimal places, excluding VAT.');
-      document.getElementById('xdrive-target-price')?.focus();
+    const requiresFixedPrice = publish && form.isFixedPrice;
+    if (requiresFixedPrice && !isValidTargetPriceGbp(Number(form.customerPrice))) {
+      setFixedPriceError(true);
+      setError('A fixed-price post needs a positive GBP price, up to 2 decimal places, excluding VAT.');
+      document.getElementById('xdrive-fixed-price')?.focus();
       return;
     }
-    setTargetPriceError(false);
+    setFixedPriceError(false);
 
     if (hasRequiredErrors || hasDimensionErrors || loadTypeError) {
       setError(loadTypeError || 'Load details are incomplete or invalid. Complete the fields highlighted in red.');
@@ -606,7 +606,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           customerReference: form.customerReference || null,
           purchaseOrder: form.purchaseOrder || null,
           bookingReference: form.bookingReference || null,
-          customerPrice: numberOrNull(form.customerPrice),
+          customerPrice: form.isFixedPrice ? numberOrNull(form.customerPrice) : null,
           targetCarrierCost: numberOrNull(form.targetCarrierCost),
           paymentTerms: form.paymentTerms,
           tailLift: form.tailLift,
@@ -765,7 +765,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
           <ActionButton tone="secondary" onClick={() => {
             const parsed = smartReadLoad(smartReadText);
-            if (parsed.targetPriceGbp) setTargetPriceError(false);
+            if (parsed.targetPriceGbp) setFixedPriceError(false);
             const vehicleMap: Record<string, string> = { 'SMALL VAN': 'Small Van', SWB: 'SWB Van', LWB: 'LWB Van', XLWB: 'XLWB Van', LUTON: 'Luton' };
             const pickupIndex = parsed.locations.findIndex((stop) => stop.type === 'collection');
             let deliveryIndex = -1;
@@ -1218,12 +1218,12 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         </div>
       </Panel>
 
-      <Panel title="Commercial references" description={mode === 'broker' ? 'Customer revenue and carrier target cost remain internal commercial fields; customer-owned references remain hidden from the pre-award Marketplace.' : 'Customer-owned references and budget remain part of the job record; private references are not exposed pre-award.'}>
+      <Panel title="Commercial references" description={mode === 'broker' ? 'Carrier target cost remains internal; customer-owned references remain hidden from the pre-award Marketplace.' : 'Customer-owned references remain part of the job record; private references are not exposed pre-award.'}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '8px' }}>
           <label style={labelStyle}>Customer reference<input style={fieldStyle} value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} /></label>
           <label style={labelStyle}>PO number<input style={fieldStyle} value={form.purchaseOrder} onChange={(event) => set('purchaseOrder', event.target.value)} /></label>
           <label style={labelStyle}>Customer booking reference (optional)<input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} /></label>
-          <label style={labelStyle}>{mode === 'broker' ? 'Customer target price (£, ex VAT)' : 'Target price / budget (£, ex VAT)'}<input id="xdrive-target-price" style={{ ...fieldStyle, ...(targetPriceError ? invalidFieldStyle : {}) }} aria-invalid={targetPriceError || undefined} type="number" min="0.01" step="0.01" value={form.customerPrice} onChange={(event) => { set('customerPrice', event.target.value); setTargetPriceError(false); }} /><span style={{ fontSize: 10, color: targetPriceError ? '#b91c1c' : '#64748b' }}>{targetPriceError ? 'Required to publish a public marketplace job.' : 'Required for public posts; optional for drafts and direct bookings.'}</span></label>
+          {form.isFixedPrice && <label style={labelStyle}>Fixed price (GBP, ex VAT)<input id="xdrive-fixed-price" style={{ ...fieldStyle, ...(fixedPriceError ? invalidFieldStyle : {}) }} aria-invalid={fixedPriceError || undefined} type="number" min="0.01" step="0.01" value={form.customerPrice} onChange={(event) => { set('customerPrice', event.target.value); setFixedPriceError(false); }} /><span style={{ fontSize: 10, color: fixedPriceError ? '#b91c1c' : '#64748b' }}>Required only for fixed-price posts.</span></label>}
           <label style={labelStyle}>Payment terms<select style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>{PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
           {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
         </div>
