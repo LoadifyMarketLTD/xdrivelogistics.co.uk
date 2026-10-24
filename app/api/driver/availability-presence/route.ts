@@ -4,6 +4,10 @@ import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverCon
 
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
+// Public Exchange coordinates are approximate (about 1 km), never exact GPS.
+function roundedForExchange(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 async function authenticatedDriver(request: NextRequest) {
   const context = await requireActiveWebDriver(request);
   if (!isWebDriverContext(context)) return { error: context };
