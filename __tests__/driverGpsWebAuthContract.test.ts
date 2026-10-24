@@ -10,7 +10,9 @@ describe('Driver PWA GPS auth boundary', () => {
     expect(route).toContain(".eq('user_id', context.userId)");
     expect(route).not.toContain('requireDriver(request)');
     expect(route).toContain('ensureAvailabilityEligible(auth.driver, true)');
-    expect(route).toContain('hasActiveAssignedJob(driver.id)');
+    expect(route).not.toContain('hasActiveAssignedJob');
+    expect(route).not.toContain('Availability sharing is disabled while you have an active assigned job.');
+    expect(route).toContain('ensureAvailabilityEligible(auth.driver, true)');
   });
 
   it('preserves native device binding on native mobile routes', () => {

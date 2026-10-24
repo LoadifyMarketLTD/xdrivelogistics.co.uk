@@ -4,26 +4,6 @@ import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverCon
 
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
-const ACTIVE_JOB_STATUSES = new Set([
-  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
-  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
-]);
-
-const roundedForExchange = (value: number) => Math.round(value * 100) / 100;
-const statusOf = (job: { current_status?: string | null; status?: string | null }) =>
-  String(job.current_status ?? job.status ?? '').trim().toLowerCase();
-
-async function hasActiveAssignedJob(driverId: string) {
-  const { data, error } = await supabaseAdmin!
-    .from('jobs')
-    .select('current_status, status')
-    .eq('assigned_driver_id', driverId)
-    .order('updated_at', { ascending: false })
-    .limit(20);
-  if (error) throw new Error('Assigned jobs could not be verified.');
-  return (data ?? []).some((job) => ACTIVE_JOB_STATUSES.has(statusOf(job)));
-}
-
 async function authenticatedDriver(request: NextRequest) {
   const context = await requireActiveWebDriver(request);
   if (!isWebDriverContext(context)) return { error: context };
@@ -54,14 +34,6 @@ async function ensureAvailabilityEligible(
   if (String(driver.availability_status ?? '').toLowerCase() !== 'available') {
     if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
     return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
-  }
-  try {
-    if (await hasActiveAssignedJob(driver.id)) {
-      if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
-      return NextResponse.json({ error: 'Availability sharing is disabled while you have an active assigned job.' }, { status: 409 });
-    }
-  } catch {
-    return NextResponse.json({ error: 'Availability eligibility could not be verified.' }, { status: 500 });
   }
   return null;
 }
