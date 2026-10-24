@@ -44,8 +44,14 @@ export const normalizeOperationalPostcode = (value: string) => {
 const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizeOperationalPostcode(value));
 
 export const operationalAddressSuggestionLabel = (address: string, postcode: string) => {
-  const normalized = normalizeOperationalPostcode(postcode);
-  return [address.trim(), normalized, 'GB'].filter(Boolean).join(', ');
+  const parts = [...address.split(',').map(part => part.trim()), normalizeOperationalPostcode(postcode), 'GB'];
+  const seen = new Set<string>();
+  return parts.filter(part => {
+    const key = part.toUpperCase().replace(/\s/g, '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).join(', ');
 };
 
 export default function PostcodeAddressField({
@@ -66,6 +72,7 @@ export default function PostcodeAddressField({
   const onAddressRef = useRef(onAddress);
   const onTownRef = useRef(onTown);
   const addressRef = useRef(address);
+  const addressPostcodeRef = useRef({ address, postcode: normalizeOperationalPostcode(postcode) });
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [towns,setTowns]=useState<Record<string,string>>({});
   const [loading, setLoading] = useState(false);
@@ -83,7 +90,36 @@ export default function PostcodeAddressField({
 
   useEffect(() => {
     addressRef.current = address;
-  }, [address]);
+    if (addressPostcodeRef.current.address !== address) {
+      addressPostcodeRef.current = { address, postcode: normalizeOperationalPostcode(postcode) };
+    }
+  }, [address, postcode]);
+
+  // Town resolution must not depend on finding or selecting a street address.
+  useEffect(() => {
+    const normalized = normalizeOperationalPostcode(postcode);
+    if (!onTownRef.current || !isFullUkPostcode(normalized)) return;
+    const controller = new AbortController();
+    let retryTimer: number | undefined;
+    const resolveTown = async (attempt: number) => {
+      try {
+        const response = await fetch('/api/location/postcode-area?' + new URLSearchParams({ q: normalized, town: '1' }), {
+          cache: 'no-store',
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]),
+        });
+        const payload = await response.json() as { town?: string | null };
+        if (controller.signal.aborted) return;
+        if (response.ok && payload.town && validPostingTown(payload.town)) {
+          onTownRef.current?.(payload.town);
+          return;
+        }
+        if (response.status === 404 || response.status === 400) return;
+      } catch { if (controller.signal.aborted) return; }
+      if (attempt === 0) retryTimer = window.setTimeout(() => void resolveTown(1), 750);
+    };
+    const timer = window.setTimeout(() => void resolveTown(0), 180);
+    return () => { controller.abort(); window.clearTimeout(timer); window.clearTimeout(retryTimer); };
+  }, [postcode]);
 
   useEffect(() => {
     const normalized = normalizeOperationalPostcode(postcode);
@@ -142,7 +178,7 @@ export default function PostcodeAddressField({
           return validPostingTown(candidate) ? candidate : '';
         });
         const resolved = candidates.length > 0 && candidates.every(town => town && town.toLowerCase() === candidates[0].toLowerCase()) ? candidates[0] : '';
-        const sourceTown = townFromPostingAddress(addressRef.current, normalized);
+        const sourceTown = addressPostcodeRef.current.postcode === normalized ? townFromPostingAddress(addressRef.current, normalized) : '';
         if ((sourceTown || resolved) && isFullUkPostcode(normalized)) onTownRef.current?.(sourceTown || resolved);
         if (isFullUkPostcode(normalized) && !addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);

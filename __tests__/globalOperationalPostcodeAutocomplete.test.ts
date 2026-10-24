@@ -82,3 +82,14 @@ describe('global operational postcode autocomplete', () => {
     expect(read('app/components/workspace/TopWorkspaceShell.tsx')).toContain('<OperationalPostcodeAreaResolver />');
   });
 });
+
+describe('non-duplicating address labels', () => {
+  it('does not append postcode and GB when the provider already includes them', () => {
+    expect(operationalAddressSuggestionLabel('13 Sandcliff Road, Erith, DA8 1NY, GB', 'DA81NY'))
+      .toBe('13 Sandcliff Road, Erith, DA8 1NY, GB');
+  });
+  it('deduplicates compact/spaced postcodes and country suffixes case-insensitively', () => {
+    expect(operationalAddressSuggestionLabel('Erith, DA81NY, GB, gb', 'DA8 1NY'))
+      .toBe('Erith, DA81NY, GB');
+  });
+});
