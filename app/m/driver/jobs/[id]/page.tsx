@@ -109,7 +109,7 @@ export default function MobileJobDetailsPage() {
   const pickupPast = Boolean(job?.pickup.collectionFrom && Number.isFinite(Date.parse(job.pickup.collectionFrom)) && Date.parse(job.pickup.collectionFrom) <= Date.now());
   const canSubmit = Boolean(job && job.canQuote !== false && !quoted && !expired && !pickupPast);
 
-  return <section className="xd-mobile-list">
+  return <section className="xd-mobile-list xd-mobile-job-detail">
     <header>
       <Link href="/m/driver/jobs">← Back to Jobs</Link>
       <h1>Job details</h1>
