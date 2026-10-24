@@ -52,7 +52,7 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
  const [note,setNote]=useState('Loading collection and delivery areas...');
  const [error,setError]=useState(false);
  const [locationMessage,setLocationMessage]=useState('');
- const [locating,setLocating]=useState(false);
+ const [locating,setLocating]=useState(false); const [expanded,setExpanded]=useState(false);
  useEffect(()=>{
   let cancelled=false;
   setError(false);
@@ -106,7 +106,7 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
   })().catch(()=>{if(!cancelled){setError(true);setNote('Map is temporarily unavailable.');}});
   return()=>{cancelled=true;mapRef.current?.remove();mapRef.current=null;positionMarker.current=null;};
  },[pickup,delivery]);
- const locate=()=>{
+ useEffect(()=>{if(!expanded)return;const old=document.body.style.overflow;document.body.style.overflow='hidden';const id=window.setTimeout(()=>mapRef.current?.invalidateSize(),80);return()=>{window.clearTimeout(id);document.body.style.overflow=old;};},[expanded]); const locate=()=>{
   if(!navigator.geolocation){setLocationMessage('Location is not supported by this browser.');return;}
   setLocating(true);setLocationMessage('Requesting your location...');
   navigator.geolocation.getCurrentPosition(async position=>{
@@ -125,8 +125,8 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
    setLocationMessage(err.code===1?'Location permission denied. Enable location for this website in your phone settings.':'Unable to locate you. Check GPS and browser location settings.');
   },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
  };
- return <section className="xd-public-map-section">
-  {!error?<div ref={container} className="xd-public-route-map" style={{height:320,minHeight:320,marginTop:10,width:'100%'}} role="img" aria-label="Approximate driving route between collection and delivery postcode areas"/>:null}
+ return <section className={expanded?"xd-public-map-section xd-public-map-expanded":"xd-public-map-section"}>
+  {!error?<div className="xd-map-toolbar"><strong>Route map</strong><button type="button" onClick={()=>setExpanded(value=>!value)}>{expanded?"Close map":"Full screen map"}</button></div>:null} {!error?<div ref={container} className="xd-public-route-map"  role="img" aria-label="Approximate driving route between collection and delivery postcode areas"/>:null}
   {!error?<button type="button" onClick={locate} disabled={locating} style={{minHeight:44,marginTop:10,padding:'8px 14px',border:'1px solid #d9d9d9',borderRadius:4,background:'#fff',fontWeight:700}}>{locating?'Locating...':'Show my location'}</button>:null}
   {locationMessage?<p role="status" className="xd-public-map-note">{locationMessage}</p>:null}
   <p role="status" className="xd-public-map-note">{note}</p>
