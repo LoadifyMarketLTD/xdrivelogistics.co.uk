@@ -113,11 +113,12 @@ export default function MobileQuotesPage() {
     {!loading && !error && quotes.map((quote) => {
       const submitted = quote.status.toLowerCase() === 'submitted';
       return <article className="xd-mobile-card" key={quote.id}>
-        <div className="xd-job-company"><div><strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong><small>Quoted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
+        <div className="xd-job-company"><div><strong>My quote</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
+        <div className="xd-job-type"><strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong><span>Quote amount</span></div>
         <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{quote.pickupLocation}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{quote.deliveryLocation}</strong><small>Delivery location</small></div></div></div>
-        {quote.executionUnlocked
-          ? <Link href={`/m/driver/bookings/${encodeURIComponent(quote.jobId)}`}>View booking</Link>
-          : <Link href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>}
+        <div className="xd-job-footer">{quote.executionUnlocked
+          ? <Link className="xd-job-details" href={`/m/driver/bookings/${encodeURIComponent(quote.jobId)}`}>View booking</Link>
+          : <Link className="xd-job-details" href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>}</div>
         {submitted && !quote.executionUnlocked ? <div className="xd-mobile-actions">
           <button type="button" disabled={Boolean(pending)} onClick={() => editing === quote.id ? setEditing(null) : startEdit(quote)}>
             {editing === quote.id ? 'Cancel edit' : 'Edit quote'}

@@ -224,3 +224,38 @@
 .xd-mobile-unified-list .xd-mobile-actions button{font-size:17px;min-height:46px}
 .xd-mobile-unified-list .xd-mobile-card>form{padding:14px 18px}
 .xd-mobile-unified-list .xd-mobile-card .xd-mobile-success{margin:12px 18px;padding:12px}
+/* Shared card measurements from the approved Jobs layout. */
+.xd-mobile-unified-list .xd-mobile-card{padding:0!important;overflow:hidden}
+.xd-mobile-unified-list .xd-job-company{padding:11px 12px 6px;border-bottom:0}
+.xd-mobile-unified-list .xd-job-company strong{font-size:14px;line-height:19px}
+.xd-mobile-unified-list .xd-job-company small{font-size:10px;line-height:1.35}
+.xd-mobile-unified-list .xd-job-type{padding:0 12px 9px;font-size:12px}
+.xd-mobile-unified-list .xd-job-type strong{font-size:11px}
+.xd-mobile-unified-list .xd-job-stops{padding:12px;gap:13px;border-top:1px solid #e6ecf1;border-bottom:1px solid #e6ecf1}
+.xd-mobile-unified-list .xd-job-places{gap:13px}
+.xd-mobile-unified-list .xd-job-places strong{font-size:14px;line-height:19px;overflow-wrap:anywhere}
+.xd-mobile-unified-list .xd-job-places small{font-size:11px;line-height:1.35;margin-top:3px}
+.xd-mobile-unified-list .xd-job-facts{padding:10px 12px;font-size:11px}
+.xd-mobile-unified-list .xd-job-footer{padding:10px 12px;gap:9px}
+.xd-mobile-unified-list .xd-job-footer .xd-job-details{display:flex;align-items:center;min-height:44px;text-decoration:none;font-size:13px;font-weight:700}
+.xd-mobile-unified-list .xd-mobile-actions{margin:0;padding:10px 12px 12px;gap:9px;border-top:1px solid #e8edf3}
+.xd-mobile-unified-list .xd-mobile-actions button{font-size:13px;min-height:44px}
+.xd-mobile-unified-list .xd-mobile-card>form{padding:12px}
+/* Final parity: use the APPROVED large Jobs typography, not its compact fallback. */
+.xd-mobile-unified-list .xd-mobile-card{border-radius:9px;margin-bottom:12px}
+.xd-mobile-unified-list .xd-job-company{padding:15px 15px 8px;align-items:flex-start}
+.xd-mobile-unified-list .xd-job-company strong{font-size:20px;line-height:1.25;font-weight:800;letter-spacing:-.02em}
+.xd-mobile-unified-list .xd-job-company small{font-size:12px;line-height:1.4;color:#586474}
+.xd-mobile-unified-list .xd-job-type{padding:0 15px 13px;font-size:16px;line-height:1.4}
+.xd-mobile-unified-list .xd-job-type strong{font-size:15px;font-weight:750}
+.xd-mobile-unified-list .xd-job-stops{gap:17px;padding:18px 17px}
+.xd-mobile-unified-list .xd-job-track{width:20px;min-width:20px}
+.xd-mobile-unified-list .xd-job-dot{width:16px;height:16px}
+.xd-mobile-unified-list .xd-job-pin{width:15px;height:15px}
+.xd-mobile-unified-list .xd-job-places{gap:6px}
+.xd-mobile-unified-list .xd-job-places strong{font-size:22px;line-height:1.25;font-weight:800;text-transform:uppercase;letter-spacing:-.015em}
+.xd-mobile-unified-list .xd-job-places small{font-size:18px;line-height:1.4;margin-top:6px;color:#626b77}
+.xd-mobile-unified-list .xd-job-footer{padding:12px 15px}
+.xd-mobile-unified-list .xd-job-footer .xd-job-details{min-height:56px;font-size:19px}
+.xd-mobile-unified-list .xd-mobile-pill{font-size:13px;padding:7px 10px}
+@media(max-width:360px){.xd-mobile-unified-list .xd-job-company strong{font-size:18px}.xd-mobile-unified-list .xd-job-places strong{font-size:20px}.xd-mobile-unified-list .xd-job-places small{font-size:15px}}
