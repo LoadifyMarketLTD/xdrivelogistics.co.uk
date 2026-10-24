@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { isDriverContext, requireDriver } from '../mobile/_lib';
+import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverContext';
 
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
@@ -25,13 +25,14 @@ async function hasActiveAssignedJob(driverId: string) {
 }
 
 async function authenticatedDriver(request: NextRequest) {
-  const context = await requireDriver(request);
-  if (!isDriverContext(context)) return { error: context };
+  const context = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(context)) return { error: context };
 
   const { data: driver, error } = await supabaseAdmin!
     .from('drivers')
     .select('id, company_id, availability_status')
     .eq('id', context.driverId)
+    .eq('user_id', context.userId)
     .maybeSingle();
   if (error || !driver) return { error: NextResponse.json({ error: 'Active driver access is required.' }, { status: 403 }) };
   return { driver };
