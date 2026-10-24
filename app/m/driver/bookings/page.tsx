@@ -56,13 +56,12 @@ export default function MobileBookingsPage() {
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
     {!loading && !error && jobs.length === 0 ? <p>No active bookings assigned to you.</p> : null}
     {!loading && !error && jobs.map(job => <article className="xd-mobile-card xd-cx-booking-card" key={job.id}>
-      <Link href={`/m/driver/bookings/${encodeURIComponent(job.id)}`} className="xd-cx-booking-card-link" aria-label={`Open booking ${job.reference}`}>
-      <div className="xd-job-company"><div><strong>{job.reference}</strong><small>Allocated transport</small></div><span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span></div>
-      <div className="xd-job-type"><strong>Vehicle</strong><span>{job.vehicleRequirement}</span></div>
+
+      <div className="xd-job-company"><div><strong>XDRIVE LOGISTICS LTD</strong><small>{job.reference}</small></div><span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span></div>
+      <div className="xd-job-type"><strong>{job.vehicleRequirement}</strong></div>
       <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{job.pickupLocation} {job.pickupPostcode}</strong><small>Collection · {when(job.pickupTime)}</small></div><div><strong>{job.deliveryLocation} {job.deliveryPostcode}</strong><small>Delivery · {when(job.deliveryTime)}</small></div></div></div>
       <div className="xd-job-facts">{job.paymentTerms ? <span><b>Payment:</b> {job.paymentTerms}</span> : null}{job.podGenerated ? <span><b>POD:</b> Available</span> : null}{Array.isArray(job.stops) && job.stops.length > 2 ? <span><b>Stops:</b> {job.stops.length}</span> : null}</div>
-      <div className="xd-job-footer"><span className="xd-job-details">Open booking and actions</span></div>
-      </Link>
+      <div className="xd-job-footer"><Link href={`/m/driver/bookings/${encodeURIComponent(job.id)}`} className="xd-job-details" aria-label={`Open booking ${job.reference}`}>View booking</Link></div>
     </article>)}
   </section>;
 }
