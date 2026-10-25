@@ -202,6 +202,8 @@ export default function MyQuotesPage() {
   const pageSize = 25;
   const [visibleCount, setVisibleCount] = useState(25);
   const refreshInFlightRef = useRef(false);
+  const pendingWithdrawalsRef = useRef<Set<string>>(new Set());
+  const [pendingWithdrawals, setPendingWithdrawals] = useState<Set<string>>(new Set());
 
   const fetchBids = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
@@ -351,22 +353,33 @@ export default function MyQuotesPage() {
 
   const handleWithdrawBid = async (bidId: string) => {
     if (!isSupabaseConfigured || !userId) return;
+    if (pendingWithdrawalsRef.current.has(bidId)) return;
     setError('');
     const token = readRouteAuthAccessToken();
     if (!token) {
       setError('Your session has expired. Please sign in again.');
       return;
     }
-    const response = await fetch(`/api/driver/bids/${encodeURIComponent(bidId)}/withdraw`, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token },
-    });
-    const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    if (!response.ok) {
-      setError(payload.error ?? 'The quote could not be withdrawn. Please try again.');
-      return;
+    pendingWithdrawalsRef.current.add(bidId);
+    setPendingWithdrawals(new Set(pendingWithdrawalsRef.current));
+    const previousBid = bids.find((bid) => bid.id === bidId);
+    // Confirm the tap immediately; reconcile with the server without blocking the card.
+    setBids((current) => current.map((bid) => bid.id === bidId ? { ...bid, status: 'withdrawn' } : bid));
+    try {
+      const response = await fetch(`/api/driver/bids/${encodeURIComponent(bidId)}/withdraw`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? 'The quote could not be withdrawn. Please try again.');
+      void fetchBids({ background: true });
+    } catch (cause) {
+      if (previousBid) setBids((current) => current.map((bid) => bid.id === bidId ? previousBid : bid));
+      setError(cause instanceof Error ? cause.message : 'The quote could not be withdrawn. Please try again.');
+    } finally {
+      pendingWithdrawalsRef.current.delete(bidId);
+      setPendingWithdrawals(new Set(pendingWithdrawalsRef.current));
     }
-    void fetchBids();
   };
 
   const updateQuoteLifecycle = async (
@@ -390,7 +403,7 @@ export default function MyQuotesPage() {
       setError(payload.error ?? 'The quote lifecycle could not be updated.');
       return;
     }
-    void fetchBids();
+    void fetchBids({ background: true });
   };
 
   const filteredBids = useMemo(() => bids.filter((bid) => {
@@ -514,10 +527,10 @@ export default function MyQuotesPage() {
                     </>}
                     footer={<>
                       <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && bid.direction === 'incoming' && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={expanded ? 'Collapse quote' : 'Expand quote'}>{expanded ? '▴' : '▾'}</button>
-                      {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" onClick={() => void handleWithdrawBid(bid.id)}>Cancel Quote</button> : null}
+                      {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={pendingWithdrawals.has(bid.id)} onClick={() => void handleWithdrawBid(bid.id)}>{pendingWithdrawals.has(bid.id) ? 'Cancelling…' : 'Cancel Quote'}</button> : null}
                       <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${quoteStage}`}>{footerState}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>
-                        <button type="button" className="xdrive-inline-link" onClick={() => view.access === 'assigned' ? router.push(`/driver/jobs/${bid.job_id}`) : router.push(`/driver/loads/${bid.job_id}`)}>View Details</button>
+                        <button type="button" className="xdrive-inline-link" disabled={view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)))} title={view.access === 'protected' ? 'This load is no longer available to this account' : undefined} onClick={() => router.push(view.access === 'assigned' || view.access === 'own' ? `/driver/jobs/${bid.job_id}` : `/driver/loads/${bid.job_id}`)}>{view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage))) ? 'Details unavailable' : 'View Details'}</button>
                         {view.postingMemberId ? <span> ({view.postingMemberId})</span> : null}
                         <strong>{counterpartName}</strong>
                         {view.postingPhone ? <a href={`tel:${view.postingPhone.replace(/\s+/g, '')}`}>{view.postingPhone}</a> : null}

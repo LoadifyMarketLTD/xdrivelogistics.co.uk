@@ -571,7 +571,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
       <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'flex-end', marginBottom: 6 }}>
         <span className="workspace-list-controls__right">
-          <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>← Back</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push(['delivered', 'completed', 'cancelled'].includes(currentStatus) ? '/driver/history' : '/driver/jobs')}>← Back</ActionButton>
           <ActionButton tone="secondary" onClick={() => void loadJob()}>Refresh</ActionButton>
         </span>
       </div>
