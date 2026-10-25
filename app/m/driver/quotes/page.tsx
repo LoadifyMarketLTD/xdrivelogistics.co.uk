@@ -37,6 +37,7 @@ export default function MobileQuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [filter, setFilter] = useState<'active' | 'history'>('active');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<QuoteEdit>({ amount: '', extras: '0', collect: '', message: '' });
@@ -45,6 +46,7 @@ export default function MobileQuotesPage() {
 
   const refresh = useCallback(async () => {
     // Preserve quote cards and edit state during background refresh.
+    setRefreshing(true);
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to view your quotes.');
@@ -57,7 +59,7 @@ export default function MobileQuotesPage() {
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load quotes.');
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => {
@@ -129,7 +131,8 @@ export default function MobileQuotesPage() {
     </nav>
     {notice ? <p role="status" className="xd-mobile-success">{notice}</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p><button type="button" onClick={() => void refresh()}>Retry loading</button></div> : null}
-    {loading && quotes.length === 0 ? <p role="status">Loading quotes...</p> : null}
+    {loading && quotes.length === 0 && !error ? <p role="status">Loading quotes...</p> : null}
+    {refreshing && quotes.length > 0 ? <p role="status" className="xd-mobile-note">Updating quotes...</p> : null}
     {!loading && visibleQuotes.length === 0 && !error ? <p>{filter === 'active' ? 'No active quotes.' : 'No quote history yet.'}</p> : null}
     {!error && visibleQuotes.map((quote) => {
       const submitted = quote.status.toLowerCase() === 'submitted';
