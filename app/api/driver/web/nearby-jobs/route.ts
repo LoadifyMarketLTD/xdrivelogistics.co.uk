@@ -328,6 +328,8 @@ export async function GET(request: NextRequest) {
   }
   const limit = Math.min(Number(searchParams.get('limit') ?? 50) || 50, 100);
   const destinationMode = searchParams.get('mode') === 'destination';
+  // Fast mobile feed: avoid blocking initial cards on external postcode and road-routing services.
+  const fastList = searchParams.get('fast') === '1' && !destinationMode;
 
   let query = supabaseAdmin
     .from('jobs')
@@ -414,7 +416,7 @@ export async function GET(request: NextRequest) {
     ...rows.filter((row) => !validCoordinates(row.pickup_lat, row.pickup_lng)).map((row) => row.pickup_postcode),
     currentLocationFresh ? null : homeCompany?.postcode,
   ];
-  const postcodeFallbacks = await postcodeCoordinates(postcodeInputs);
+  const postcodeFallbacks = fastList ? new Map<string, Coordinates>() : await postcodeCoordinates(postcodeInputs);
   const homePosition = currentLocationFresh ? null : (postcodeFallbacks.get(postcodeKey(homeCompany?.postcode)) ?? null);
   const driverPosition = currentLocationFresh ? liveDriverPosition : homePosition;
   const distanceOrigin = currentLocationFresh ? 'current_location' : homePosition ? 'home_location' : null;
@@ -432,7 +434,7 @@ export async function GET(request: NextRequest) {
     straightLineDistanceByJob.set(row.id, miles === null ? null : Number(miles.toFixed(1)));
   }
 
-  const routedPickupMetrics = driverPosition
+  const routedPickupMetrics = !fastList && driverPosition
     ? await drivingMetricsFromDriver(
         driverPosition,
         rows.flatMap((row) => {
