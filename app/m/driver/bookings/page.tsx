@@ -26,6 +26,7 @@ export default function MobileBookingsPage() {
   const [currentJobs, setCurrentJobs] = useState<Booking[]>([]);
   const [completedJobs, setCompletedJobs] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [completedLoading, setCompletedLoading] = useState(true);
   const [error, setError] = useState('');
   const trackingJob = currentJobs.find((job) => ['allocated', 'accepted', 'on_my_way', 'on_my_way_pickup', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_delivery', 'on_my_way_to_delivery', 'on_site_delivery', 'arrived_delivery'].includes(job.status.toLowerCase())) ?? null;
   useDriverLocationPublisher(trackingJob?.status, Boolean(trackingJob), trackingJob?.id);
@@ -41,14 +42,18 @@ export default function MobileBookingsPage() {
       if (!activeResponse.ok) throw Error(active.error || 'Bookings are unavailable.');
       setCurrentJobs(Array.isArray(active.jobs) ? active.jobs as Booking[] : []);
       // History must never delay the active booking list.
+      setCompletedLoading(true);
       void fetch('/api/driver/web/jobs?scope=completed&historyDays=365&compact=1', { headers, cache: 'no-store', signal: AbortSignal.timeout(15000) }).then(async response => {
-        if (!response.ok) return;
+        if (!response.ok) throw new Error('Unable to load completed bookings.');
         const completed = await response.json().catch(() => ({}));
         setCompletedJobs(Array.isArray(completed.jobs) ? completed.jobs as Booking[] : []);
-      }).catch(() => undefined);
+      }).catch(() => {
+        setCompletedJobs([]);
+      }).finally(() => setCompletedLoading(false));
       setError('');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Unable to load bookings.');
+      setCompletedLoading(false);
     } finally { setLoading(false); }
   }, []);
   useEffect(() => {
@@ -65,10 +70,10 @@ export default function MobileBookingsPage() {
       <button type="button" aria-pressed={view === 'current'} onClick={() => setView('current')}>Current</button>
       <button type="button" aria-pressed={view === 'completed'} onClick={() => setView('completed')}>Completed</button>
     </nav>
-    {loading && jobs.length === 0 ? <p role="status">Loading bookings...</p> : null}
+    {(view === 'current' ? loading : completedLoading) && jobs.length === 0 ? <p role="status">Loading {view === 'current' ? 'bookings' : 'completed bookings'}...</p> : null}
     {error ? <div className="xd-mobile-error" role="alert"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
-    {!loading && !error && jobs.length === 0 ? <p>{view === 'current' ? 'No active bookings assigned to you.' : 'No completed bookings found.'}</p> : null}
+    {!(view === 'current' ? loading : completedLoading) && !error && jobs.length === 0 ? <p>{view === 'current' ? 'No active bookings assigned to you.' : 'No completed bookings found.'}</p> : null}
     {!error && jobs.map(job => <article className="xd-mobile-card xd-cx-booking-card" key={job.id}>
 
       <div className="xd-job-company"><div><strong>{job.companyName || 'Transport customer'}</strong><small>{job.reference}</small></div><span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span></div>
