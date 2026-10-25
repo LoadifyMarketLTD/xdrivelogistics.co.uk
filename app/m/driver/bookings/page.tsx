@@ -35,13 +35,13 @@ export default function MobileBookingsPage() {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to see your bookings.');
       const headers = { Authorization: `Bearer ${token}` };
-      const completedPromise = fetch('/api/driver/web/jobs?scope=completed&historyDays=365&compact=1', { headers, cache: 'no-store', signal: AbortSignal.timeout(20000) });
-      const activeResponse = await fetch('/api/driver/web/jobs?scope=bookings&compact=1', { headers, cache: 'no-store', signal: AbortSignal.timeout(20000) });
+      // Fetch active bookings first: history must not compete for the initial screen.
+      const activeResponse = await fetch('/api/driver/web/jobs?scope=bookings&compact=1', { headers, cache: 'no-store', signal: AbortSignal.timeout(15000) });
       const active = await activeResponse.json().catch(() => ({}));
       if (!activeResponse.ok) throw Error(active.error || 'Bookings are unavailable.');
       setCurrentJobs(Array.isArray(active.jobs) ? active.jobs as Booking[] : []);
       // History must never delay the active booking list.
-      void completedPromise.then(async response => {
+      void fetch('/api/driver/web/jobs?scope=completed&historyDays=365&compact=1', { headers, cache: 'no-store', signal: AbortSignal.timeout(15000) }).then(async response => {
         if (!response.ok) return;
         const completed = await response.json().catch(() => ({}));
         setCompletedJobs(Array.isArray(completed.jobs) ? completed.jobs as Booking[] : []);
@@ -68,7 +68,7 @@ export default function MobileBookingsPage() {
     {loading && jobs.length === 0 ? <p role="status">Loading bookings...</p> : null}
     {error ? <div className="xd-mobile-error" role="alert"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
-    {!loading && !error && jobs.length === 0 ? <p>No active bookings assigned to you.</p> : null}
+    {!loading && !error && jobs.length === 0 ? <p>{view === 'current' ? 'No active bookings assigned to you.' : 'No completed bookings found.'}</p> : null}
     {!error && jobs.map(job => <article className="xd-mobile-card xd-cx-booking-card" key={job.id}>
 
       <div className="xd-job-company"><div><strong>{job.companyName || 'Transport customer'}</strong><small>{job.reference}</small></div><span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span></div>
