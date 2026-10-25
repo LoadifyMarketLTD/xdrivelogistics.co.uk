@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import '../bookings/booking-cx.css';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
+import { driverVehicleLabel } from '../driverVehicleLabel';
 
 type Quote = {
   id: string;
@@ -135,7 +136,7 @@ export default function MobileQuotesPage() {
         <div className="xd-job-type"><strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong><span>Quote amount</span></div>
         <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{quote.pickupLocation}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{quote.deliveryLocation}</strong><small>Delivery location</small></div></div></div>
         <div className="xd-job-facts">
-          {quote.quotedVehicleType ? <span><b>Vehicle:</b> {quote.quotedVehicleType}</span> : null}
+          {quote.quotedVehicleType ? <span><b>Vehicle:</b> {driverVehicleLabel(quote.quotedVehicleType)}</span> : null}
           {quote.collectWithinMinutes ? <span><b>Collect within:</b> {quote.collectWithinMinutes} min</span> : null}
           {quote.additionalExtrasGbp > 0 ? <span><b>Included extras:</b> £{quote.additionalExtrasGbp.toFixed(2)}</span> : null}
           {quote.quotedVehicleMaxPallets != null ? <span><b>Capacity:</b> {quote.quotedVehicleMaxPallets} pallets</span> : null}
@@ -151,7 +152,7 @@ export default function MobileQuotesPage() {
             {editing === quote.id ? 'Cancel edit' : 'Edit quote'}
           </button>
           <button type="button" className="xd-mobile-button--secondary" disabled={Boolean(pending)} onClick={() => void mutate(quote, 'withdraw')}>
-            {pending === quote.id ? 'Please wait...' : 'Withdraw'}
+            {pending === quote.id ? 'Withdrawing...' : 'Withdraw'}
           </button>
         </div> : null}
         {editing === quote.id ? <form onSubmit={(event) => { event.preventDefault(); void mutate(quote, 'edit'); }}>

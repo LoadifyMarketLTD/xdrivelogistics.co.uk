@@ -3,9 +3,10 @@ import {useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {readRouteAuthAccessToken} from '../../../../lib/routeAuthCookie';
+import {driverVehicleLabel} from '../driverVehicleLabel';
 type Place={addressSummary:string;postcode:string;collectionFrom?:string|null;deliveryFrom?:string|null};
 type Job={id:string;publicReference:string;pickup:Place;delivery:Place;vehicleType:string|null;freightType:string|null;pallets:number|null;weightKg:number|null;journeyDistanceMiles:number|null;distanceToPickupMiles:number|null;distanceMethod?:string|null;distanceOrigin?:string|null;notesSummary:string|null;posterCompanyName:string|null;proposedPriceGbp:number|null;paymentTerms:string|null;podRequired:boolean;hardCopyPod:string|null;expiresAt:string|null;postedAt?:string|null;serviceMode?:string|null;estimatedJourneyMinutes?:number|null;canQuote?:boolean;preferenceState?:string|null;quoteWarning?:string|null};
-const vehicleLabel=(v?:string|null)=>v?({luton:"Luton Van",swb:"SWB Van",lwb:"LWB Van",xlwb:"XLWB Van"} as Record<string,string>)[v.trim().toLowerCase()]||v:"Vehicle not specified";
+const vehicleLabel=driverVehicleLabel;
 const postedTime=(v?:string|null)=>v&&!Number.isNaN(Date.parse(v))?new Date(v).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):null;
 const when=(v?:string|null)=>v&&!Number.isNaN(Date.parse(v))?new Date(v).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Europe/London'}).replace(',',''):v||'Time to be confirmed';
 export default function MobileJobsPage(){

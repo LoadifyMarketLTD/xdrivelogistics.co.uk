@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import './booking-cx.css';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
+import { driverVehicleLabel } from '../driverVehicleLabel';
 import { useDriverLocationPublisher } from '../../../hooks/useDriverLocationPublisher';
 
 type Booking = {
@@ -70,7 +71,7 @@ export default function MobileBookingsPage() {
     {!error && jobs.map(job => <article className="xd-mobile-card xd-cx-booking-card" key={job.id}>
 
       <div className="xd-job-company"><div><strong>{job.companyName || 'Transport customer'}</strong><small>{job.reference}</small></div><span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span></div>
-      <div className="xd-job-type"><strong>{job.vehicleRequirement}</strong></div>
+      <div className="xd-job-type"><strong>{driverVehicleLabel(job.vehicleRequirement)}</strong></div>
       <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{job.pickupLocation} {job.pickupPostcode}</strong><small>Collection · {when(job.pickupTime)}</small></div><div><strong>{job.deliveryLocation} {job.deliveryPostcode}</strong><small>Delivery · {when(job.deliveryTime)}</small></div></div></div>
       <div className="xd-job-facts">{job.paymentTerms ? <span><b>Payment:</b> {job.paymentTerms}</span> : null}{job.podGenerated ? <span><b>POD:</b> Available</span> : null}{Array.isArray(job.stops) && job.stops.length > 2 ? <span><b>Stops:</b> {job.stops.length}</span> : null}</div>
       <div className="xd-job-footer"><Link href={`/m/driver/bookings/${encodeURIComponent(job.id)}`} className="xd-job-details" aria-label={`Open booking ${job.reference}`}>View booking</Link></div>
