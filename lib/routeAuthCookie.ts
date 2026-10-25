@@ -51,16 +51,33 @@ export const readRouteAuthAccessToken = (): string | null => {
     .map((part) => part.trim())
     .find((part) => part.startsWith(prefix));
 
-  if (!entry) return null;
-  const encodedToken = entry.slice(prefix.length);
-  if (!encodedToken) return null;
-
-  try {
-    const token = decodeURIComponent(encodedToken).trim();
-    return token || null;
-  } catch {
-    return null;
+  if (entry) {
+    try {
+      const token = decodeURIComponent(entry.slice(prefix.length)).trim();
+      if (token) return token;
+    } catch { /* Fall through to the persisted session. */ }
   }
+
+  // On mobile WebViews/browser restores the route cookie can be absent even
+  // while ProtectedRoute has restored the persisted Supabase session. Read the
+  // already-persisted token without taking another Supabase auth Web Lock.
+  try {
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key || !/^sb-.+-auth-token$/.test(key)) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const stored = JSON.parse(raw) as Record<string, unknown>;
+      const session = (stored.currentSession && typeof stored.currentSession === 'object'
+        ? stored.currentSession : stored) as Record<string, unknown>;
+      const token = session.access_token;
+      const expiry = session.expires_at;
+      if (typeof token !== 'string' || !token.trim()) continue;
+      if (typeof expiry === 'number' && expiry <= Math.floor(Date.now() / 1000)) continue;
+      return token;
+    }
+  } catch { /* Storage may be unavailable in privacy mode. */ }
+  return null;
 };
 
 export const readRouteAuthHeader = (): string | null => {
