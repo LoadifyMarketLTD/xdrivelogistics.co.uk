@@ -26,8 +26,7 @@ export default function MobileBookingsPage() {
   const trackingJob = jobs.find((job) => ['allocated', 'accepted', 'on_my_way', 'on_my_way_pickup', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_delivery', 'on_my_way_to_delivery', 'on_site_delivery', 'arrived_delivery'].includes(job.status.toLowerCase())) ?? null;
   useDriverLocationPublisher(trackingJob?.status, Boolean(trackingJob), trackingJob?.id);
   const refresh = useCallback(async () => {
-    setLoading(true);
-    setJobs([]);
+    // Keep existing bookings visible while synchronizing in the background.
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to see your bookings.');
@@ -55,7 +54,7 @@ export default function MobileBookingsPage() {
     {error ? <div className="xd-mobile-error" role="alert"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
     {!loading && !error && jobs.length === 0 ? <p>No active bookings assigned to you.</p> : null}
-    {!loading && !error && jobs.map(job => <article className="xd-mobile-card xd-cx-booking-card" key={job.id}>
+    {!error && jobs.map(job => <article className="xd-mobile-card xd-cx-booking-card" key={job.id}>
 
       <div className="xd-job-company"><div><strong>XDRIVE LOGISTICS LTD</strong><small>{job.reference}</small></div><span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span></div>
       <div className="xd-job-type"><strong>{job.vehicleRequirement}</strong></div>

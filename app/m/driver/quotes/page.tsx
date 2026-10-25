@@ -35,9 +35,7 @@ export default function MobileQuotesPage() {
   const [notice, setNotice] = useState('');
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    setQuotes([]);
-    setEditing(null);
+    // Preserve quote cards and edit state during background refresh.
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to view your quotes.');
@@ -110,7 +108,7 @@ export default function MobileQuotesPage() {
     {notice ? <p role="status" className="xd-mobile-success">{notice}</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p><button type="button" onClick={() => void refresh()}>Retry loading</button></div> : null}
     {loading ? <p role="status">Loading quotes...</p> : quotes.length === 0 && !error ? <p>No submitted quotes yet.</p> : null}
-    {!loading && !error && quotes.map((quote) => {
+    {!error && quotes.map((quote) => {
       const submitted = quote.status.toLowerCase() === 'submitted';
       return <article className="xd-mobile-card" key={quote.id}>
         <div className="xd-job-company"><div><strong>My quote</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
