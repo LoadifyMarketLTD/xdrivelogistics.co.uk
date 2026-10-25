@@ -63,7 +63,7 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
    if(!start||!end){setError(true);setNote('Map unavailable: collection or delivery area could not be located.');return;}
    const L=await import('leaflet');if(cancelled||!container.current)return;
    // Leaflet must be initialized inside a visible, nonzero-height container.
-   const map=L.map(container.current,{zoomControl:true,scrollWheelZoom:false});
+   const map=L.map(container.current,{zoomControl:true,scrollWheelZoom:false,attributionControl:false});
    mapRef.current=map;
    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors',maxZoom:18}).addTo(map);
    const a=L.latLng(start.latitude,start.longitude),b=L.latLng(end.latitude,end.longitude);
@@ -131,6 +131,6 @@ export default function PublicRouteMap({pickup,delivery}:{pickup:string;delivery
   {expanded&&routeSummary?<div className="xd-map-route-popup"><strong>Collection: {outcode(pickup)}</strong><span>Delivery: {outcode(delivery)}</span><strong>Job distance: {routeSummary.miles} miles</strong><span>Estimated driving: {routeSummary.minutes} min</span><small>Approximate postcode-area route</small></div>:null}
   {!error?<button type="button" onClick={locate} disabled={locating} style={{minHeight:44,marginTop:10,padding:'8px 14px',border:'1px solid #d9d9d9',borderRadius:4,background:'#fff',fontWeight:700}}>{locating?'Locating...':'Show my location'}</button>:null}
   {locationMessage?<p role="status" className="xd-public-map-note">{locationMessage}</p>:null}
-  <p role="status" className="xd-public-map-note">{note}</p>
+  <p role="status" className="xd-public-map-note">{note}</p>`r`n  {!error ? <small className="xd-map-credit">Map data &copy; OpenStreetMap contributors</small> : null}
  </section>;
 }

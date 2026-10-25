@@ -4,6 +4,7 @@ import Link from 'next/link';
 import '../bookings/booking-cx.css';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
 import { driverVehicleLabel } from '../driverVehicleLabel';
+import { driverPlaceLabel } from '../driverPlaceLabel';
 
 type Quote = {
   id: string;
@@ -95,6 +96,7 @@ export default function MobileQuotesPage() {
       if (!token) throw new Error('Please sign in again.');
       const response = await fetch(`/api/driver/web/bids/${encodeURIComponent(quote.id)}`, {
         method: 'POST',
+        signal: AbortSignal.timeout(15000),
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(action === 'withdraw'
           ? { action }
@@ -134,7 +136,7 @@ export default function MobileQuotesPage() {
       return <article className="xd-mobile-card" key={quote.id}>
         <div className="xd-job-company"><div><strong>My quote</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
         <div className="xd-job-type"><strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong><span>Quote amount</span></div>
-        <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{quote.pickupLocation}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{quote.deliveryLocation}</strong><small>Delivery location</small></div></div></div>
+        <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{driverPlaceLabel(quote.pickupLocation, null)}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{driverPlaceLabel(quote.deliveryLocation, null)}</strong><small>Delivery location</small></div></div></div>
         <div className="xd-job-facts">
           {quote.quotedVehicleType ? <span><b>Vehicle:</b> {driverVehicleLabel(quote.quotedVehicleType)}</span> : null}
           {quote.collectWithinMinutes ? <span><b>Collect within:</b> {quote.collectWithinMinutes} min</span> : null}
