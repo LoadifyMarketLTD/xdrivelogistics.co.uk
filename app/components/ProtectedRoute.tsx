@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth, type UserRole } from './AuthContext';
 import { isRoleAllowedForPath, mapAppRole } from '../../lib/authRole';
@@ -13,6 +13,7 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
   const { user, isLoading, hasSupabaseSession, refreshUserContext } = useAuth();
   const recoveryAttempted = useRef(false);
+  const [recoveryFailed, setRecoveryFailed] = useState(false);
   const router = useRouter();
   const pathname = usePathname() || '/';
 
@@ -50,7 +51,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     if (!isLoading && !user && hasSupabaseSession) {
       if (!recoveryAttempted.current) {
         recoveryAttempted.current = true;
-        void refreshUserContext();
+        void refreshUserContext().then((result) => {
+          if (!result.success) setRecoveryFailed(true);
+        }).catch(() => setRecoveryFailed(true));
       }
       return;
     }
@@ -65,6 +68,22 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
       router.replace('/forbidden');
     }
   }, [user, isLoading, hasSupabaseSession, refreshUserContext, router, pathname, routeAccessAllowed]);
+
+  if (!user && hasSupabaseSession && recoveryFailed && !isLoading) {
+    return (
+      <div role="alert" style={{ minHeight: '60vh', display: 'grid', placeContent: 'center', gap: 12, padding: 24, textAlign: 'center' }}>
+        <p>Unable to restore workspace access. Your session has not been changed.</p>
+        <button type="button" onClick={() => {
+          setRecoveryFailed(false);
+          recoveryAttempted.current = true;
+          void refreshUserContext().then((result) => {
+            if (!result.success) setRecoveryFailed(true);
+          }).catch(() => setRecoveryFailed(true));
+        }}>Retry access</button>
+        <a href={`/login?next=${encodeURIComponent(pathname)}`}>Go to sign in</a>
+      </div>
+    );
+  }
 
   if ((isLoading && !user) || (!user && hasSupabaseSession)) {
     return (
