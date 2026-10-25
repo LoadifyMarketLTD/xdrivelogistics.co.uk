@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import '../bookings/booking-cx.css';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
 
 type Quote = {
@@ -18,6 +19,11 @@ type Quote = {
   deliveryLocation: string;
   pickupDatetime: string | null;
   executionUnlocked: boolean;
+  quotedVehicleType?: string | null;
+  quotedVehicleEquipment?: string[];
+  quotedVehicleMaxPallets?: number | null;
+  quotedVehicleMaxWeightKg?: number | null;
+  clientName?: string;
 };
 type QuoteEdit = { amount: string; extras: string; collect: string; message: string };
 const formatTime = (value: string | null) => {
@@ -27,6 +33,7 @@ const formatTime = (value: string | null) => {
 
 export default function MobileQuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [filter, setFilter] = useState<'active' | 'history'>('active');
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -96,27 +103,49 @@ export default function MobileQuotesPage() {
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Your quote could not be updated.');
       setEditing(null);
-      await refresh();
+      setQuotes(previous => previous.map(item => item.id === quote.id
+        ? action === 'withdraw' ? { ...item, status: 'withdrawn' }
+          : { ...item, amount, baseAmount: Number((amount - extras).toFixed(2)), additionalExtrasGbp: extras,
+              collectWithinMinutes: form.collect ? Number(form.collect) : null, message: form.message }
+        : item));
       setNotice(action === 'withdraw' ? 'Quote withdrawn.' : 'Quote updated.');
+      void refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The action failed.');
     } finally { setPending(null); }
   };
 
-  return <section className="xd-mobile-list xd-mobile-unified-list">
+  const visibleQuotes = quotes.filter(quote => filter === 'active'
+    ? ['submitted', 'accepted'].includes(quote.status.toLowerCase())
+    : !['submitted', 'accepted'].includes(quote.status.toLowerCase()));
+  return <section className="xd-mobile-list xd-mobile-unified-list xd-cx-bookings">
     <header><h1>Quotes</h1><p>Your quotes and their outcomes</p></header>
+    <nav aria-label="Quote filters" className="xd-booking-primary-actions">
+      <button type="button" aria-pressed={filter === 'active'} onClick={() => setFilter('active')}>Active</button>
+      <button type="button" aria-pressed={filter === 'history'} onClick={() => setFilter('history')}>History</button>
+    </nav>
     {notice ? <p role="status" className="xd-mobile-success">{notice}</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p><button type="button" onClick={() => void refresh()}>Retry loading</button></div> : null}
-    {loading ? <p role="status">Loading quotes...</p> : quotes.length === 0 && !error ? <p>No submitted quotes yet.</p> : null}
-    {!error && quotes.map((quote) => {
+    {loading && quotes.length === 0 ? <p role="status">Loading quotes...</p> : null}
+    {!loading && visibleQuotes.length === 0 && !error ? <p>{filter === 'active' ? 'No active quotes.' : 'No quote history yet.'}</p> : null}
+    {!error && visibleQuotes.map((quote) => {
       const submitted = quote.status.toLowerCase() === 'submitted';
       return <article className="xd-mobile-card" key={quote.id}>
         <div className="xd-job-company"><div><strong>My quote</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
         <div className="xd-job-type"><strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong><span>Quote amount</span></div>
         <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{quote.pickupLocation}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{quote.deliveryLocation}</strong><small>Delivery location</small></div></div></div>
+        <div className="xd-job-facts">
+          {quote.quotedVehicleType ? <span><b>Vehicle:</b> {quote.quotedVehicleType}</span> : null}
+          {quote.collectWithinMinutes ? <span><b>Collect within:</b> {quote.collectWithinMinutes} min</span> : null}
+          {quote.additionalExtrasGbp > 0 ? <span><b>Included extras:</b> £{quote.additionalExtrasGbp.toFixed(2)}</span> : null}
+          {quote.quotedVehicleMaxPallets != null ? <span><b>Capacity:</b> {quote.quotedVehicleMaxPallets} pallets</span> : null}
+          {quote.quotedVehicleMaxWeightKg != null ? <span><b>Max weight:</b> {quote.quotedVehicleMaxWeightKg} kg</span> : null}
+        </div>
+        {quote.message ? <p className="xd-mobile-note"><strong>Quote notes:</strong> {quote.message}</p> : null}
         <div className="xd-job-footer">{quote.executionUnlocked
           ? <Link className="xd-job-details" href={`/m/driver/bookings/${encodeURIComponent(quote.jobId)}`}>View booking</Link>
-          : <Link className="xd-job-details" href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>}</div>
+          : submitted ? <Link className="xd-job-details" href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>
+            : <span className="xd-job-status">Job details unavailable after closure</span>}</div>
         {submitted && !quote.executionUnlocked ? <div className="xd-mobile-actions">
           <button type="button" disabled={Boolean(pending)} onClick={() => editing === quote.id ? setEditing(null) : startEdit(quote)}>
             {editing === quote.id ? 'Cancel edit' : 'Edit quote'}
@@ -128,7 +157,9 @@ export default function MobileQuotesPage() {
         {editing === quote.id ? <form onSubmit={(event) => { event.preventDefault(); void mutate(quote, 'edit'); }}>
           <label>Total quote (GBP)<input type="number" required min="0.01" max="1000000" step="0.01" value={form.amount} onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}/></label>
           <label>Included extras (GBP)<input type="number" required min="0" step="0.01" value={form.extras} onChange={(event) => setForm((prev) => ({ ...prev, extras: event.target.value }))}/></label>
-          <label>Collection within minutes (optional)<input type="number" min="5" max="240" value={form.collect} onChange={(event) => setForm((prev) => ({ ...prev, collect: event.target.value }))}/></label>
+          <label>Collect within (optional)<select value={form.collect} onChange={(event) => setForm((prev) => ({ ...prev, collect: event.target.value }))}>
+            <option value="">Not specified</option>{[15, 30, 45, 60, 90, 120].map(minutes => <option key={minutes} value={minutes}>{minutes} min</option>)}
+          </select></label>
           <label>Message<textarea maxLength={1000} value={form.message} onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}/></label>
           <button type="submit" disabled={Boolean(pending)}>{pending === quote.id ? 'Saving...' : 'Save quote'}</button>
         </form> : null}
