@@ -97,8 +97,9 @@ export default function MobileBookingDetail() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw Error(result.error || 'The booking update was not accepted.');
-      await refresh();
       setNotice(path === 'undo-status' ? 'Previous status restored.' : 'Booking status updated.');
+      // Release touch feedback immediately after server confirmation; synchronize in background.
+      void refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The action failed.');
     } finally { setBusy(false); }
