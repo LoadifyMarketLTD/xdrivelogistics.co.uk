@@ -17,6 +17,9 @@ type Booking = {
   pickupTime: string; deliveryTime: string;
   vehicleRequirement?: string; cargoType?: string; distanceMiles?: number | null;
   price?: string; paymentTerms?: string;
+  companyName?: string; companyXdId?: string;
+  attachments?: Array<{ id: string; name: string; category?: string; url: string }>;
+  invoice?: { id: string; invoiceNumber?: string; status?: string } | null;
   specialInstructions?: string; requirements?: string;
   contactName?: string; contactPhone?: string;
   pickupPhotos?: string[]; deliveryPhotos?: string[];
@@ -31,12 +34,14 @@ const nextAction: Record<string, DriverAction> = {
   accepted: { api: 'on-my-way-pickup', label: 'On my way to collection' },
   on_my_way: { api: 'arrived-pickup', label: 'On site at collection' },
   on_my_way_pickup: { api: 'arrived-pickup', label: 'On site at collection' },
+  on_my_way_to_pickup: { api: 'arrived-pickup', label: 'On site at collection' },
   arrived_pickup: { api: 'loaded', label: 'Confirm loaded' },
   on_site_pickup: { api: 'loaded', label: 'Confirm loaded' },
   loaded: { api: 'on-my-way-delivery', label: 'On my way to delivery' },
   collected: { api: 'on-my-way-delivery', label: 'On my way to delivery' },
   in_transit: { api: 'arrived-delivery', label: 'On site at delivery' },
   on_my_way_delivery: { api: 'arrived-delivery', label: 'On site at delivery' },
+  on_my_way_to_delivery: { api: 'arrived-delivery', label: 'On site at delivery' },
   arrived_delivery: { api: 'delivered', label: 'Mark delivered' },
   on_site_delivery: { api: 'delivered', label: 'Mark delivered' },
 };
@@ -62,8 +67,7 @@ export default function MobileBookingDetail() {
   const [notice, setNotice] = useState('');
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    setJob(null);
+    // Preserve the visible booking and action controls during background synchronization.
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to view your booking.');
@@ -131,7 +135,7 @@ export default function MobileBookingDetail() {
     {notice ? <p role="status" className="xd-mobile-success">{notice}</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
-    {!loading && job ? <>
+    {job && !error ? <>
       <article className="xd-mobile-card xd-booking-detail-card">
         <div className="xd-mobile-card__top">
           <strong>Status</strong><span className="xd-mobile-pill">{status.replaceAll('_', ' ')}</span>
@@ -139,12 +143,21 @@ export default function MobileBookingDetail() {
         <div className="xd-job-stops"><div className="xd-job-track"><span className="xd-job-dot"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{job.pickupLocation} {job.pickupPostcode}</strong><small>Collection · {displayTime(job.pickupTime)}</small></div><div><strong>{job.deliveryLocation} {job.deliveryPostcode}</strong><small>Delivery · {displayTime(job.deliveryTime)}</small></div></div></div>
         <div className="xd-booking-primary-actions"><a href={mapsDirections(job)} target="_blank" rel="noopener noreferrer">View on map</a>{job.contactPhone ? <a href={`tel:${job.contactPhone}`}>Call {job.contactName || 'contact'}</a> : null}</div>
         <h2 className="xd-booking-detail-heading">Job details</h2>
+        {job.companyName ? <p><strong>Customer / poster:</strong> {job.companyName}</p> : null}
+        {job.companyXdId ? <p><strong>Poster ID:</strong> {job.companyXdId}</p> : null}
         {job.vehicleRequirement ? <p><strong>Vehicle:</strong> {job.vehicleRequirement}</p> : null}
         {job.cargoType ? <p><strong>Cargo:</strong> {job.cargoType}</p> : null}
         {job.distanceMiles != null ? <p><strong>Journey:</strong> {job.distanceMiles} miles</p> : null}
         {job.price ? <p><strong>Agreed rate:</strong> {job.price}</p> : null}
         {job.paymentTerms ? <p><strong>Payment terms:</strong> {job.paymentTerms}</p> : null}
         {job.requirements || job.specialInstructions ? <section className="xd-booking-notes"><h2>Notes and instructions</h2><p>{job.specialInstructions || job.requirements}</p></section> : null}
+        {Array.isArray(job.attachments) && job.attachments.length > 0 ? <section className="xd-booking-notes" aria-label="Job documents">
+          <h2>Job documents</h2>
+          <ul>{job.attachments.filter(file => file.url?.startsWith('https://')).map(file => <li key={file.id}>
+            <a href={file.url} target="_blank" rel="noopener noreferrer">{file.name || file.category || 'Document'}</a>
+          </li>)}</ul>
+        </section> : null}
+        {job.invoice ? <p><strong>Invoice:</strong> {job.invoice.invoiceNumber || 'Issued'} · {job.invoice.status || 'Pending'}</p> : null}
         {needsHandover ? <p>Complete collection handover and attach photos before marking Loaded.</p> : null}
         {stopCompletionBlocked ? <p role="status">Complete the {incompleteStops} remaining stop(s) before marking the booking delivered.</p> : null}
       </article>
