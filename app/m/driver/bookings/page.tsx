@@ -33,8 +33,8 @@ export default function MobileBookingsPage() {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to see your bookings.');
       const headers = { Authorization: `Bearer ${token}` };
-      const completedPromise = fetch('/api/driver/web/jobs?scope=completed&historyDays=365', { headers, cache: 'no-store' });
-      const activeResponse = await fetch('/api/driver/web/jobs?scope=bookings', { headers, cache: 'no-store' });
+      const completedPromise = fetch('/api/driver/web/jobs?scope=completed&historyDays=365', { headers, cache: 'no-store', signal: AbortSignal.timeout(20000) });
+      const activeResponse = await fetch('/api/driver/web/jobs?scope=bookings', { headers, cache: 'no-store', signal: AbortSignal.timeout(20000) });
       const active = await activeResponse.json().catch(() => ({}));
       if (!activeResponse.ok) throw Error(active.error || 'Bookings are unavailable.');
       setCurrentJobs(Array.isArray(active.jobs) ? active.jobs as Booking[] : []);

@@ -25,12 +25,11 @@ export default function MobileMorePage() {
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
     setLoading(true);
-    setData(null);
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to see your driver tools.');
       const response = await fetch('/api/driver/web/resources', {
-        cache: 'no-store', headers: { Authorization: `Bearer ${token}` }
+        cache: 'no-store', headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20000)
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw Error(result.error || 'Your driver tools could not be loaded.');
@@ -50,7 +49,7 @@ export default function MobileMorePage() {
     {loading ? <p role="status">Loading account...</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
-    {data && !loading ? <>
+    {data ? <>
       <article className="xd-mobile-card">
         <strong>{data.name || 'Driver'}</strong>
         <p>{ownerDriver ? 'Owner Driver' : 'Company Driver'}</p>

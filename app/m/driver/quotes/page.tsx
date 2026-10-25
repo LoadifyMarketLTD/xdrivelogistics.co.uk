@@ -47,7 +47,7 @@ export default function MobileQuotesPage() {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to view your quotes.');
       const response = await fetch('/api/driver/web/bids', {
-        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: AbortSignal.timeout(20000)
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || 'Unable to load your quotes.');
