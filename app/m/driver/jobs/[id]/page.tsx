@@ -45,8 +45,7 @@ export default function MobileJobDetailsPage() {
   const [prefPending,setPrefPending]=useState(false);
 
   const refresh = useCallback(async () => {
-    setLoading(true);
-    setJob(null);
+    // Do not blank an already visible job while the server refreshes it.
     setError('');
     try {
       if (!jobId) throw new Error('Invalid job reference.');
@@ -101,7 +100,7 @@ export default function MobileJobDetailsPage() {
       const result=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(response.status===409?'This load is no longer available for quotes.':typeof result.error==='string'?result.error:'Quote could not be submitted.');
       setQuoteOpen(false);setQuoted(true);setFeedback('Quote submitted successfully.');
-      await refresh();
+      void refresh();
     }catch(reason){setFeedback(reason instanceof Error?reason.message:'Quote submission failed.');}
     finally{setSubmitting(false);}
   };
@@ -118,7 +117,7 @@ export default function MobileJobDetailsPage() {
     {loading ? <p role="status">Loading job details...</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
-    {job && !loading && !error ? <article className="xd-mobile-card">
+    {job && !error ? <article className="xd-mobile-card">
       <div className="xd-detail-heading"><div className="xd-detail-identity"><strong>{job.posterCompanyName||'Transport customer'}</strong><small>{job.publicReference}</small></div><span className="xd-mobile-pill">{quoted?'Quoted':'Available'}</span></div>
       <div className="xd-detail-intro"><strong>{job.serviceMode?.replaceAll('_',' ')||'Transport job'}</strong><span>{job.vehicleType?.trim().toLowerCase()==='luton'?'Luton Van':job.vehicleType||'Vehicle not specified'}</span></div>
       <div className="xd-detail-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-detail-places"><div><strong>{job.pickup.addressSummary||job.pickup.postcode}</strong><small>Collection · {timeOnly(job.pickup.collectionFrom)}</small></div><div><strong>{job.delivery.addressSummary||job.delivery.postcode}</strong><small>Delivery · {timeOnly(job.delivery.deliveryFrom)}</small></div></div></div>
