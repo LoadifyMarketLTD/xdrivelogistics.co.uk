@@ -12,3 +12,11 @@
 .xd-cx-quotes .xd-cx-quote-actions{display:flex;flex-direction:column;gap:8px;padding:0 12px 14px}
 .xd-cx-quotes .xd-cx-quote-actions button{width:100%;min-height:48px}
 .xd-cx-quotes .xd-cx-quote-actions button.xd-mobile-button--secondary{background:#f05c55;color:#171717;border:0;font-weight:800}
+
+.xd-cx-quotes .xd-cx-quote-outcome{padding:14px 12px;margin:0;color:#bb2929;font-size:15px;font-weight:800;border-bottom:1px solid #eee}
+.xd-cx-quotes .xd-cx-quote-expand{display:block;width:100%;min-height:48px;padding:12px;text-align:left;border:0;border-bottom:1px solid #e7e7e7;background:#fafafa;color:#252525;font-size:13px;font-weight:750;touch-action:manipulation}
+.xd-cx-quotes .xd-cx-quote-expand:active{background:#e9e9e9}
+.xd-cx-quotes .xd-cx-quote-expanded{padding:10px 12px;border-bottom:1px solid #e7e7e7;background:#fff}
+.xd-cx-quotes .xd-cx-quote-expanded p{display:flex;justify-content:space-between;gap:12px;margin:0;padding:9px 0;border-bottom:1px solid #f2f2f2;font-size:13px}
+.xd-cx-quotes .xd-cx-quote-expanded p:last-child{border:0}
+.xd-cx-quotes .xd-cx-quote-expanded strong{font-weight:750}

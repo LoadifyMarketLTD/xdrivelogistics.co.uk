@@ -21,6 +21,13 @@ type Quote = {
   pickupLocation: string;
   deliveryLocation: string;
   pickupDatetime: string | null;
+  deliveryDatetime?: string | null;
+  paymentTerms?: string | null;
+  vehicleType?: string | null;
+  journeyDistanceMiles?: number | null;
+  journeyDurationMinutes?: number | null;
+  jobNotes?: string;
+  jobReference?: string | null;
   executionUnlocked: boolean;
   quotedVehicleType?: string | null;
   quotedVehicleEquipment?: string[];
@@ -37,6 +44,7 @@ const formatTime = (value: string | null) => {
 export default function MobileQuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [filter, setFilter] = useState<'active' | 'history'>('active');
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
@@ -142,7 +150,7 @@ export default function MobileQuotesPage() {
       const submitted = quote.status.toLowerCase() === 'submitted';
       return <article className="xd-mobile-card" key={quote.id}>
         <div className="xd-job-company"><div><strong>{quote.clientName || 'Customer not provided'}</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
-        <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{driverPlaceLabel(quote.pickupLocation, null)}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{driverPlaceLabel(quote.deliveryLocation, null)}</strong><small>Delivery location</small></div></div></div>
+        <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{driverPlaceLabel(quote.pickupLocation, null)}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{driverPlaceLabel(quote.deliveryLocation, null)}</strong><small>Delivery · {formatTime(quote.deliveryDatetime ?? null)}</small></div></div></div>
         <div className="xd-job-facts">
           {quote.quotedVehicleType ? <span><b>Vehicle:</b> {driverVehicleLabel(quote.quotedVehicleType)}</span> : null}
           {quote.collectWithinMinutes ? <span><b>Collect within:</b> {quote.collectWithinMinutes} min</span> : null}
@@ -150,7 +158,17 @@ export default function MobileQuotesPage() {
           {quote.quotedVehicleMaxPallets != null ? <span><b>Capacity:</b> {quote.quotedVehicleMaxPallets} pallets</span> : null}
           {quote.quotedVehicleMaxWeightKg != null ? <span><b>Max weight:</b> {quote.quotedVehicleMaxWeightKg} kg</span> : null}
         </div>
-        {quote.message ? <p className="xd-mobile-note"><strong>Quote notes:</strong> {quote.message}</p> : null}
+        {quote.jobNotes ? <p className="xd-mobile-note"><strong>Job notes:</strong> {quote.jobNotes}</p> : null}
+        {!submitted ? <p className="xd-cx-quote-outcome" role="status">{quote.status.toLowerCase() === 'withdrawn' ? 'Your quote was cancelled' : `Your Quote (${quote.amount == null ? 'amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}) was Unsuccessful`}</p> : null}
+        <button type="button" className="xd-cx-quote-expand" aria-expanded={expanded === quote.id} onClick={() => setExpanded(previous => previous === quote.id ? null : quote.id)}>{expanded === quote.id ? 'Hide job information −' : 'View job information +'}</button>
+        {expanded === quote.id ? <div className="xd-cx-quote-expanded">
+          {quote.vehicleType ? <p><strong>Required vehicle:</strong> {driverVehicleLabel(quote.vehicleType)}</p> : null}
+          {quote.journeyDistanceMiles != null ? <p><strong>Distance:</strong> {Number(quote.journeyDistanceMiles).toFixed(1)} miles</p> : null}
+          {quote.journeyDurationMinutes != null ? <p><strong>Estimated journey:</strong> {Math.floor(Number(quote.journeyDurationMinutes) / 60)}h {Math.round(Number(quote.journeyDurationMinutes) % 60)}m</p> : null}
+          {quote.paymentTerms ? <p><strong>Payment terms:</strong> {quote.paymentTerms}</p> : null}
+          {quote.jobReference ? <p><strong>Reference:</strong> {quote.jobReference}</p> : null}
+          {quote.message ? <p><strong>Your quote message:</strong> {quote.message}</p> : null}
+        </div> : null}
         <div className="xd-job-footer">{quote.executionUnlocked
           ? <Link className="xd-job-details" href={`/m/driver/bookings/${encodeURIComponent(quote.jobId)}`}>View booking</Link>
           : submitted ? <Link className="xd-job-details" href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Driver mobile is the named driver's personal quote history. Company-wide
+  // Driver mobile exposes only the named driver's personal quote history. Company-wide
   // commercial bid history belongs to Fleet/Company workspace permissions and
   // must not be pulled into a driver's feed merely because company_id matches.
   const identityFilters = [
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   const { data: jobs, error: jobsError } = jobIds.length
     ? await supabaseAdmin
         .from('jobs')
-        .select('id, assigned_driver_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, client_name')
+        .select('id, assigned_driver_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, delivery_datetime, client_name, payment_terms, vehicle_type, requested_vehicle_label, job_distance_miles, job_distance_minutes, load_details, load_notes, customer_reference, load_id')
         .in('id', jobIds)
     : { data: [], error: null };
   if (jobsError) return respond(500, { error: jobsError.message });
@@ -96,7 +96,14 @@ export async function GET(request: NextRequest) {
             : publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area')
           : 'Delivery area',
         pickupDatetime: job?.pickup_datetime ?? null,
-        clientName: executionUnlocked ? (job?.client_name || '') : '',
+        deliveryDatetime: job?.delivery_datetime ?? null,
+        clientName: job?.client_name || '',
+        paymentTerms: job?.payment_terms || null,
+        vehicleType: job?.requested_vehicle_label || job?.vehicle_type || null,
+        journeyDistanceMiles: job?.job_distance_miles ?? null,
+        journeyDurationMinutes: job?.job_distance_minutes ?? null,
+        jobNotes: job?.load_notes || job?.load_details || '',
+        jobReference: job?.load_id || job?.customer_reference || null,
         executionUnlocked,
       };
     }),
