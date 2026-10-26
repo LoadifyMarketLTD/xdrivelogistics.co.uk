@@ -1,0 +1,810 @@
+{
+  "schema_version": 1,
+  "source_blueprint": "XDRIVE_DRIVER_PWA_MANDATORY_BLUEPRINT_2026-10-26.md",
+  "status": "CALIBRATION_PENDING",
+  "cx_reference_count_expected": 19,
+  "require_original_hash": true,
+  "css_pixel_conversion": "REQUIRES_VIEWPORT_DPR_AND_CROP",
+  "recovered_measurements": {
+    "M01": {
+      "value": "690x1536",
+      "unit": "image_px",
+      "certified": false
+    },
+    "M02": {
+      "value": "~96",
+      "unit": "image_px_estimate",
+      "certified": false
+    },
+    "M03": {
+      "value": "14-20",
+      "unit": "image_px_range",
+      "certified": false
+    },
+    "M04": {
+      "value": "76-80",
+      "unit": "image_px_range_axis_unknown",
+      "certified": false
+    },
+    "M05": {
+      "value": "12-16",
+      "unit": "image_px_range",
+      "certified": false
+    },
+    "M06": {
+      "value": "12-16",
+      "unit": "image_px_range",
+      "certified": false
+    },
+    "M07": {
+      "value": "8-10",
+      "unit": "image_px_range",
+      "certified": false
+    },
+    "M08": {
+      "value": "16-24",
+      "unit": "image_px_range",
+      "certified": false
+    },
+    "M09": {
+      "value": "1",
+      "unit": "image_px_unverified",
+      "certified": false
+    },
+    "M10": {
+      "value": "20/700/26",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M11": {
+      "value": "18/700/24",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M12": {
+      "value": "19/800/25",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M13": {
+      "value": "17/600/23",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M14": {
+      "value": "16/600/22",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M15": {
+      "value": "16/700/22",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M16": {
+      "value": "14/500/20",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M17": {
+      "value": "12-13/700/17",
+      "unit": "typography_range_unverified",
+      "certified": false
+    },
+    "M18": {
+      "value": "15/500/22",
+      "unit": "typography_unverified",
+      "certified": false
+    },
+    "M19": {
+      "value": "56",
+      "unit": "css_px_xdrive_proposal",
+      "certified": false
+    },
+    "M20": {
+      "value": "48",
+      "unit": "css_px_xdrive_proposal",
+      "certified": false
+    },
+    "M21": {
+      "value": "12",
+      "unit": "css_px_xdrive_proposal",
+      "certified": false
+    }
+  },
+  "screenshots": {
+    "CX-01": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-02": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-03": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-04": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-05": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-06": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-07": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-08": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-09": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-10": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-11": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-12": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-13": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-14": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-15": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-16": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-17": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-18": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    },
+    "CX-19": {
+      "status": "UNMEASURED",
+      "filename": null,
+      "sha256": null,
+      "viewport": null,
+      "dpr": null,
+      "components": []
+    }
+  },
+  "components": {
+    "SHELL-01": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "SHELL-02": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "SHELL-03": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "SHELL-04": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "SHELL-05": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "SHELL-06": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "SHELL-07": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "SHELL-08": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-01": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-02": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-03": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-04": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-05": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-06": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-07": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-08": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-09": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-10": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-11": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-12": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-13": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-14": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-15": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-16": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-17": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-18": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-19": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "JOB-20": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-01": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-02": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-03": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-04": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-05": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-06": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-07": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-08": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "QUOTE-09": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-01": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-02": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-03": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-04": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-05": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-06": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-07": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-08": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-09": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "BOOK-10": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-01": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-02": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-03": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-04": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-05": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-06": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-07": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-08": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-09": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-10": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-11": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-12": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-13": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-14": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-15": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-16": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-17": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-18": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "DETAIL-19": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-01": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-02": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-03": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-04": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-05": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-06": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-07": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-08": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-09": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    },
+    "MORE-10": {
+      "status": "UNMEASURED",
+      "source_image": null,
+      "css_rect": null,
+      "tolerance_px": null,
+      "selector": null
+    }
+  },
+  "release_gate": {
+    "requires_all_components_measured": true,
+    "requires_approved_screenshots": true,
+    "requires_authenticated_e2e": true,
+    "requires_physical_device": true,
+    "requires_production_validation": true
+  }
+}
