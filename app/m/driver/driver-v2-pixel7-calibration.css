@@ -1,0 +1,6 @@
+﻿/* Pixel 7 nominal CX raster calibration: 1080 physical px / 412 CSS px. */
+.xd-driver-mobile { --xd-cx-pixel7-scale: 0.38148148; --xd-cx-action-height: 49.4px; --xd-cx-touch-min: 44px; }
+.xd-driver-mobile .xd-mobile-list .xd-job-footer :is(a,button),
+.xd-driver-mobile .xd-mobile-list .xd-mobile-actions :is(a,button) { min-height: max(var(--xd-cx-touch-min),var(--xd-cx-action-height)); }
+.xd-driver-mobile .xd-mobile-list :is(button,a,input,select,textarea) { touch-action: manipulation; }
+/* Reference geometry is nominal, not a certified device density reading. */

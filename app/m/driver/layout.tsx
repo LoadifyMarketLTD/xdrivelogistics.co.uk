@@ -9,6 +9,8 @@ import './map-immersive.css';
 import './driver-v2-tokens.css';
 import './driver-v2-components.css';
 import './driver-v2-page-parity.css';
+import './driver-v2-direct-measurements.css';
+import './driver-v2-pixel7-calibration.css';
 
 export const metadata: Metadata = { title: 'XDrive Driver', manifest: '/xdrive-driver.webmanifest', robots: { index: false, follow: false } };
 
