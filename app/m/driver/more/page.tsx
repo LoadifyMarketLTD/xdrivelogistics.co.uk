@@ -24,6 +24,7 @@ export default function MobileMorePage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
+    setData(null);
     setLoading(true);
     try {
       const token = readRouteAuthAccessToken();

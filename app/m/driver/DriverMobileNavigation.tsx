@@ -19,16 +19,22 @@ export default function DriverMobileNavigation() {
   useEffect(() => { for (const tab of tabs) router.prefetch(tab.href); }, [router]);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
-  // Committed route always overrides the temporary touch feedback.
+  // Clear feedback when the route commits, or when navigation fails/stalls.
   useEffect(() => { setPendingHref(null); }, [pathname]);
+  useEffect(() => {
+    if (!pendingHref) return;
+    const timeout = window.setTimeout(() => setPendingHref(null), 8000);
+    return () => window.clearTimeout(timeout);
+  }, [pendingHref]);
 
   const isMoreSubview = moreSubviews.some(path => pathname === path || pathname.startsWith(path + '/'));
   return <nav className="xd-driver-mobile__nav" aria-label="Driver navigation">
     {tabs.map(({ label, href }) => {
       const active = pathname === href || pathname.startsWith(href + '/') || (href === '/m/driver/more' && isMoreSubview);
       const pending = pendingHref === href && !active;
+      const visiblySelected = pendingHref ? pendingHref === href : active;
       return <Link key={href} href={href} prefetch
-        aria-current={active ? 'page' : undefined}
+        aria-current={visiblySelected ? 'page' : undefined}
         data-pending={pending ? 'true' : undefined}
         onPointerDown={() => { if (!active) setPendingHref(href); }}
         onClick={() => { if (!active) setPendingHref(href); }}>

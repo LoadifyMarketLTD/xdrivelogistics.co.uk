@@ -36,6 +36,7 @@ type Quote = {
   clientName?: string;
 };
 type QuoteEdit = { amount: string; extras: string; collect: string; message: string };
+const readableNotes = (raw: string | undefined) => { if (!raw) return ''; try { const data: unknown = JSON.parse(raw); if (data && typeof data === 'object' && !Array.isArray(data)) { const info = data as Record<string, unknown>; return typeof info.publicQuoteNotes === 'string' ? info.publicQuoteNotes : typeof info.notes === 'string' ? info.notes : ''; } } catch { return raw; } return ''; };
 const formatTime = (value: string | null) => {
   if (!value || Number.isNaN(Date.parse(value))) return 'To be confirmed';
   return new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
@@ -56,6 +57,7 @@ export default function MobileQuotesPage() {
   const refresh = useCallback(async () => {
     // Preserve quote cards and edit state during background refresh.
     setRefreshing(true);
+      setQuotes([]);
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to view your quotes.');
@@ -146,7 +148,7 @@ export default function MobileQuotesPage() {
     {loading && quotes.length === 0 && !error ? <p role="status">Loading quotes...</p> : null}
     {refreshing && quotes.length > 0 ? <p role="status" className="xd-mobile-note">Updating quotes...</p> : null}
     {!loading && visibleQuotes.length === 0 && !error ? <p>{filter === 'active' ? 'No active quotes.' : 'No quote history yet.'}</p> : null}
-    {!error && visibleQuotes.map((quote) => {
+    {!loading && !error && visibleQuotes.map((quote) => {
       const submitted = quote.status.toLowerCase() === 'submitted';
       return <article className="xd-mobile-card" key={quote.id}>
         <div className="xd-job-company"><div><strong>{quote.clientName || 'Customer not provided'}</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
@@ -158,7 +160,7 @@ export default function MobileQuotesPage() {
           {quote.quotedVehicleMaxPallets != null && quote.quotedVehicleMaxPallets > 0 ? <span><b>Quoted vehicle capacity:</b> {quote.quotedVehicleMaxPallets} pallets</span> : null}
           {quote.quotedVehicleMaxWeightKg != null ? <span><b>Max weight:</b> {quote.quotedVehicleMaxWeightKg} kg</span> : null}
         </div>
-        {quote.jobNotes ? <p className="xd-mobile-note"><strong>Job notes:</strong> {quote.jobNotes}</p> : null}
+        {readableNotes(quote.jobNotes) ? <p className="xd-mobile-note"><strong>Job notes:</strong> {readableNotes(quote.jobNotes)}</p> : null}
         {!submitted ? <p className="xd-cx-quote-outcome" role="status">{quote.status.toLowerCase() === 'withdrawn' ? 'Your quote was withdrawn' : quote.status.toLowerCase() === 'cancelled' || quote.status.toLowerCase() === 'canceled' ? 'Your quote was cancelled' : `Your Quote (${quote.amount == null ? 'amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}) was Unsuccessful`}</p> : null}
         <button type="button" className="xd-cx-quote-expand" aria-expanded={expanded === quote.id} onClick={() => setExpanded(previous => previous === quote.id ? null : quote.id)}>{expanded === quote.id ? 'Hide job information −' : 'View job information +'}</button>
         {expanded === quote.id ? <div className="xd-cx-quote-expanded">

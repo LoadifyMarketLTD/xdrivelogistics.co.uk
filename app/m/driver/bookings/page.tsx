@@ -31,6 +31,8 @@ export default function MobileBookingsPage() {
   const trackingJob = currentJobs.find((job) => ['allocated', 'accepted', 'on_my_way', 'on_my_way_pickup', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_delivery', 'on_my_way_to_delivery', 'on_site_delivery', 'arrived_delivery'].includes(job.status.toLowerCase())) ?? null;
   useDriverLocationPublisher(trackingJob?.status, Boolean(trackingJob), trackingJob?.id);
   const refresh = useCallback(async () => {
+    setCurrentJobs([]); setCompletedJobs([]); // Clear stale booking data on refresh
+
     // Keep existing bookings visible while synchronizing in the background.
     try {
       const token = readRouteAuthAccessToken();

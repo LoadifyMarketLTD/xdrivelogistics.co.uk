@@ -121,13 +121,13 @@ describe('Driver PWA operational wiring', () => {
     const cases = [
       ['app/m/driver/jobs/page.tsx', 'setJobs([]);setQuoted([])'],
       ['app/m/driver/quotes/page.tsx', 'setQuotes([]);'],
-      ['app/m/driver/bookings/page.tsx', 'setJobs([]);'],
+      ['app/m/driver/bookings/page.tsx', 'setCurrentJobs([]);'],
       ['app/m/driver/bookings/[id]/page.tsx', 'setJob(null);'],
       ['app/m/driver/more/page.tsx', 'setData(null);'],
     ];
     for (const [path, guard] of cases) expect(source(path)).toContain(guard);
-    expect(source('app/m/driver/quotes/page.tsx')).toContain('!loading && !error && quotes.map');
-    expect(source('app/m/driver/bookings/page.tsx')).toContain('!loading && !error && jobs.map');
+    expect(source('app/m/driver/quotes/page.tsx')).toContain('!loading && !error && visibleQuotes.map');
+    expect(source('app/m/driver/bookings/page.tsx')).toContain('!error && jobs.map');
   });
 
   it('keeps compliance document viewing and uploads within the scoped mobile PWA', () => {

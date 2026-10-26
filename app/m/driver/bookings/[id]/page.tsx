@@ -96,7 +96,7 @@ export default function MobileBookingDetail() {
       setJob(result.job ?? null);
       setError('');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Unable to load booking.');
+      setJob(null); setError(reason instanceof Error ? reason.message : 'Unable to load booking.');
     } finally { setLoading(false); }
   }, [id]);
   useEffect(() => { void refresh(); }, [refresh]);
