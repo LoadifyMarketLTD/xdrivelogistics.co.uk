@@ -55,9 +55,10 @@ export default function MobileQuotesPage() {
   const [notice, setNotice] = useState('');
 
   const refresh = useCallback(async () => {
-    // Preserve quote cards and edit state during background refresh.
+    // Refresh safely; keep the list hidden while loading new results.
     setRefreshing(true);
-      setQuotes([]);
+    setQuotes([]);
+    setLoading(true);
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to view your quotes.');
@@ -162,8 +163,8 @@ export default function MobileQuotesPage() {
         </div>
         {readableNotes(quote.jobNotes) ? <p className="xd-mobile-note"><strong>Job notes:</strong> {readableNotes(quote.jobNotes)}</p> : null}
         {!submitted ? <p className="xd-cx-quote-outcome" role="status">{quote.status.toLowerCase() === 'withdrawn' ? 'Your quote was withdrawn' : quote.status.toLowerCase() === 'cancelled' || quote.status.toLowerCase() === 'canceled' ? 'Your quote was cancelled' : `Your Quote (${quote.amount == null ? 'amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}) was Unsuccessful`}</p> : null}
-        <button type="button" className="xd-cx-quote-expand" aria-expanded={expanded === quote.id} onClick={() => setExpanded(previous => previous === quote.id ? null : quote.id)}>{expanded === quote.id ? 'Hide job information −' : 'View job information +'}</button>
-        {expanded === quote.id ? <div className="xd-cx-quote-expanded">
+        {submitted ? <button type="button" className="xd-cx-quote-expand" aria-expanded={expanded === quote.id} onClick={() => setExpanded(previous => previous === quote.id ? null : quote.id)}>{expanded === quote.id ? 'Hide job information −' : 'View job information +'}</button> : null}
+        {submitted && expanded === quote.id ? <div className="xd-cx-quote-expanded">
           {quote.vehicleType ? <p><strong>Required vehicle:</strong> {driverVehicleLabel(quote.vehicleType)}</p> : null}
           {quote.journeyDistanceMiles != null ? <p><strong>Distance:</strong> {Number(quote.journeyDistanceMiles).toFixed(1)} miles</p> : null}
           {quote.journeyDurationMinutes != null ? <p><strong>Estimated journey:</strong> {Math.floor(Number(quote.journeyDurationMinutes) / 60)}h {Math.round(Number(quote.journeyDurationMinutes) % 60)}m</p> : null}
