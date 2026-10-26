@@ -665,9 +665,7 @@ export const getResponsivePostLoginRoute = (
 ): string => {
   const canonical = getPostLoginRoute(user);
   if (!isMobile || user.mustChangePassword) return canonical;
-  if (user.role === 'driver' || user.ownerDriverWorkspace === true || user.ownerDriverExecutionMode === true) {
-    return '/m/driver/jobs';
-  }
+
   return canonical;
 };
 
