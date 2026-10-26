@@ -235,6 +235,10 @@ export function PodCapture({ jobId, existingPhotos, hardCopyPod, onSaved }: {
   const [photos, setPhotos] = useState<string[]>([]);
   const [recipient, setRecipient] = useState('');
   const [deliveryStatus, setDeliveryStatus] = useState('Completed Delivery');
+  const [leftAt, setLeftAt] = useState('Goods Inwards');
+  const [deliveredOn, setDeliveredOn] = useState(() => new Date().toLocaleDateString('en-CA'));
+  const [itemCount, setItemCount] = useState('');
+  const [weightKg, setWeightKg] = useState('');
   const [notes, setNotes] = useState('');
   const [hardCopy, setHardCopy] = useState(false);
   const [signed, setSigned] = useState(false);
@@ -257,9 +261,12 @@ export function PodCapture({ jobId, existingPhotos, hardCopyPod, onSaved }: {
       await callJob(jobId, 'pod', {
         recipientName: recipient.trim(),
         deliveryStatus,
+        leftAt: leftAt.trim(),
+        deliveredOn,
+        itemCount: itemCount === '' ? null : Number(itemCount),
         photoUris: photos,
         signatureData: drawn,
-        notes,
+        notes: [notes.trim(), weightKg ? `Reported weight: ${weightKg} kg` : ''].filter(Boolean).join(' | '),
         hardCopyAcknowledged: hardCopy,
       });
       await onSaved();
@@ -287,7 +294,11 @@ export function PodCapture({ jobId, existingPhotos, hardCopyPod, onSaved }: {
     </div>
     {needsHardCopy ? <label className="xd-mobile-check"><input type="checkbox" checked={hardCopy}
       onChange={event => setHardCopy(event.target.checked)}/> I confirm the hard-copy POD requirement.</label> : null}
-    <label>Delivery notes<textarea maxLength={5000} value={notes} onChange={event => setNotes(event.target.value)}/></label>
+    <label>Left at *<input required maxLength={500} value={leftAt} onChange={event => setLeftAt(event.target.value)}/></label>
+    <label>Delivered on *<input required type="date" value={deliveredOn} onChange={event => setDeliveredOn(event.target.value)}/></label>
+    <label>Number of items *<input required type="number" min="1" max="100000" step="1" value={itemCount} onChange={event => setItemCount(event.target.value)}/></label>
+    <label>Weight (kg, optional)<input type="number" min="0" max="100000" step="0.1" value={weightKg} onChange={event => setWeightKg(event.target.value)}/></label>
+    <label>Driver's notes<textarea maxLength={4500} value={notes} onChange={event => setNotes(event.target.value)}/></label>
     {error ? <p role="alert" className="xd-mobile-error">{error}</p> : null}
     <button type="submit" disabled={busy || !recipient.trim()}>{busy ? 'Sending POD...' : 'Send POD'}</button>
   </form>;
