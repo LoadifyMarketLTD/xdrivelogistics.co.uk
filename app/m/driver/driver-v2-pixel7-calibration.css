@@ -1,6 +1,14 @@
-﻿/* Pixel 7 nominal CX raster calibration: 1080 physical px / 412 CSS px. */
-.xd-driver-mobile { --xd-cx-pixel7-scale: 0.38148148; --xd-cx-action-height: 49.4px; --xd-cx-touch-min: 44px; }
+/* CX raster reference 709px wide; nominal viewport 412px; scale 412/709. */
+.xd-driver-mobile { --xd-cx-reference-width: 709; --xd-cx-viewport-width: 412; --xd-cx-action-height: 49.4px; --xd-cx-touch-min: 44px; }
+/* Screenshot 20391: header 106px, summary 204px, route 245px, notes 121px. */
+.xd-driver-mobile .xd-mobile-unified-list .xd-job-company { min-height: 118.6px; }
+.xd-driver-mobile .xd-mobile-unified-list .xd-job-stops { min-height: 142.4px; }
+.xd-driver-mobile .xd-mobile-unified-list .xd-job-notes { min-height: 70.3px; }
+/* Screenshots 20391/20394/20397: primary action 85px raster => 49.4px CSS. */
 .xd-driver-mobile .xd-mobile-list .xd-job-footer :is(a,button),
-.xd-driver-mobile .xd-mobile-list .xd-mobile-actions :is(a,button) { min-height: max(var(--xd-cx-touch-min),var(--xd-cx-action-height)); }
+.xd-driver-mobile .xd-mobile-list .xd-mobile-actions :is(a,button),
+.xd-driver-mobile .xd-mobile-list .xdv2-button { min-height: max(var(--xd-cx-touch-min),var(--xd-cx-action-height)); }
+/* Bottom app navigation 103px raster => 59.9px CSS, excluding OS nav. */
+.xd-driver-mobile .xd-driver-mobile__nav { min-height: 59.9px; }
 .xd-driver-mobile .xd-mobile-list :is(button,a,input,select,textarea) { touch-action: manipulation; }
-/* Reference geometry is nominal, not a certified device density reading. */
+/* Raster measurements are visual estimates, not certified native density. */
