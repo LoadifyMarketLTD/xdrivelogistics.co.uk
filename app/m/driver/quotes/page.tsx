@@ -120,9 +120,12 @@ export default function MobileQuotesPage() {
     } finally { setPending(null); }
   };
 
-  const visibleQuotes = quotes.filter(quote => filter === 'active'
-    ? ['submitted', 'accepted'].includes(quote.status.toLowerCase())
-    : !['submitted', 'accepted'].includes(quote.status.toLowerCase()));
+  // An awarded quote belongs to Bookings, not the Quotes lifecycle.
+  // Keep unsuccessful/withdrawn quotes in History, never duplicate won jobs here.
+  const visibleQuotes = quotes.filter(quote => !quote.executionUnlocked && quote.status.toLowerCase() !== 'accepted')
+    .filter(quote => filter === 'active'
+      ? quote.status.toLowerCase() === 'submitted'
+      : quote.status.toLowerCase() !== 'submitted');
   return <section className="xd-mobile-list xd-mobile-unified-list xd-cx-bookings">
     <header><h1>Quotes</h1><p>Your quotes and their outcomes</p></header>
     <nav aria-label="Quote filters" className="xd-booking-primary-actions">
