@@ -4,7 +4,6 @@ import './globals.css'
 import { AuthProvider } from './components/AuthContext'
 import OnboardingAccessGuard from './components/OnboardingAccessGuard'
 import { COMPANY_CONFIG } from './config/company'
-import ServiceWorkerRegistration from './components/ServiceWorkerRegistration'
 import { getCanonicalSiteOrigin, getCanonicalSiteUrl } from '../lib/siteUrl'
 
 const canonicalSiteUrl = getCanonicalSiteUrl()
@@ -42,7 +41,6 @@ export const metadata: Metadata = {
   creator: COMPANY_CONFIG.legalName,
   publisher: COMPANY_CONFIG.legalName,
   metadataBase: canonicalSiteUrl,
-  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
@@ -155,7 +153,7 @@ export default async function RootLayout({
           <OnboardingAccessGuard />
           {children}
         </AuthProvider>
-        <ServiceWorkerRegistration />
+
       </body>
     </html>
   )
