@@ -1,14 +1,17 @@
-/* CX raster reference 709px wide; nominal viewport 412px; scale 412/709. */
-.xd-driver-mobile { --xd-cx-reference-width: 709; --xd-cx-viewport-width: 412; --xd-cx-action-height: 49.4px; --xd-cx-touch-min: 44px; }
-/* Screenshot 20391: header 106px, summary 204px, route 245px, notes 121px. */
-.xd-driver-mobile .xd-mobile-unified-list .xd-job-company { min-height: 118.6px; }
-.xd-driver-mobile .xd-mobile-unified-list .xd-job-stops { min-height: 142.4px; }
-.xd-driver-mobile .xd-mobile-unified-list .xd-job-notes { min-height: 70.3px; }
-/* Screenshots 20391/20394/20397: primary action 85px raster => 49.4px CSS. */
-.xd-driver-mobile .xd-mobile-list .xd-job-footer :is(a,button),
-.xd-driver-mobile .xd-mobile-list .xd-mobile-actions :is(a,button),
-.xd-driver-mobile .xd-mobile-list .xdv2-button { min-height: max(var(--xd-cx-touch-min),var(--xd-cx-action-height)); }
-/* Bottom app navigation 103px raster => 59.9px CSS, excluding OS nav. */
-.xd-driver-mobile .xd-driver-mobile__nav { min-height: 59.9px; }
-.xd-driver-mobile .xd-mobile-list :is(button,a,input,select,textarea) { touch-action: manipulation; }
-/* Raster measurements are visual estimates, not certified native density. */
+﻿/* CX mobile reference: 709px screenshot width normalized to 412 CSS px. */
+.xd-driver-mobile { --xd-cx-scale: .58110014; --xd-cx-action-height: 49.4px; --xd-cx-input-height: 44px; --xd-cx-notes-height: 69.7px; --xd-cx-nav-height: 59.9px; }
+/* Shared actions across Jobs, Quotes, Bookings, POD and More. */
+.xd-driver-mobile :is(.xdv2-button,.xd-job-quote,.xd-job-submit) { min-height:49.4px; touch-action:manipulation; }
+.xd-driver-mobile .xd-mobile-list :is(button,a) { min-height:49.4px; touch-action:manipulation; }
+.xd-driver-mobile .xd-mobile-list :is(input,select) { min-height:44px; }
+.xd-driver-mobile .xd-mobile-list textarea { min-height:69.7px; resize:vertical; }
+.xd-driver-mobile .xd-mobile-list :is(input,select,textarea) { width:100%; max-width:100%; box-sizing:border-box; }
+/* 103px reference bottom tab bar, excluding the Android system navigation. */
+.xd-driver-mobile__nav { min-height:59.9px; box-sizing:border-box; }
+.xd-driver-mobile__nav a { min-height:48px; touch-action:manipulation; }
+/* Job-specific reference segments: header 106px, route 245px, notes 121px. */
+.xd-driver-mobile .xd-job-company { min-height:61.6px; }
+.xd-driver-mobile .xd-job-stops { min-height:142.4px; }
+.xd-driver-mobile .xd-job-notes { min-height:70.3px; }
+/* Never force screenshot-derived widths: keep every screen responsive. */
+.xd-driver-mobile .xd-mobile-list :is(button,a,input,select,textarea) { -webkit-tap-highlight-color:transparent; }
