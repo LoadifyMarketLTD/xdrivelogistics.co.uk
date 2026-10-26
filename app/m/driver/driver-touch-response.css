@@ -4,4 +4,8 @@
 .xd-driver-mobile :is(a[href],button,[role="button"],[role="tab"],summary):focus-visible{outline:2px solid #14559b;outline-offset:2px}
 .xd-driver-mobile :is(button,[role="button"],[role="tab"])[disabled],.xd-driver-mobile button[aria-disabled="true"]{opacity:.6;cursor:not-allowed}
 .xd-driver-mobile__nav a[data-pending="true"]{background:#fff0b4!important;color:#173c66!important}
+/* Skeleton retains the existing light XDrive visual language while route data arrives. */
+.xd-driver-route-skeleton{padding:14px 4px;display:grid;gap:12px}
+.xd-driver-route-skeleton__heading{height:28px;width:45%;border-radius:6px;background:#e4ebf3}
+.xd-driver-route-skeleton__card{height:160px;border:1px solid #dce5f0;border-radius:9px;background:#edf2f8}
 @media(prefers-reduced-motion:reduce){.xd-driver-mobile :is(a,button,[role="button"]){transition:none!important}}

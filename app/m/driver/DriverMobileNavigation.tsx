@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 const tabs = [
@@ -14,6 +14,9 @@ const moreSubviews = ['/m/driver/documents', '/m/driver/messages', '/m/driver/se
 
 export default function DriverMobileNavigation() {
   const pathname = usePathname();
+  const router = useRouter();
+  // Preload the four lightweight route payloads before the first tap.
+  useEffect(() => { for (const tab of tabs) router.prefetch(tab.href); }, [router]);
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   // Committed route always overrides the temporary touch feedback.
