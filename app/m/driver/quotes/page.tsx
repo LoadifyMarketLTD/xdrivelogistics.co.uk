@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import '../bookings/booking-cx.css';
+import './quotes-cx.css';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
 import { driverVehicleLabel } from '../driverVehicleLabel';
 import { driverPlaceLabel } from '../driverPlaceLabel';
@@ -126,11 +127,11 @@ export default function MobileQuotesPage() {
     .filter(quote => filter === 'active'
       ? quote.status.toLowerCase() === 'submitted'
       : quote.status.toLowerCase() !== 'submitted');
-  return <section className="xd-mobile-list xd-mobile-unified-list xd-cx-bookings">
-    <header><h1>Quotes</h1><p>Your quotes and their outcomes</p></header>
+  return <section className="xd-mobile-list xd-mobile-unified-list xd-cx-bookings xd-cx-quotes">
+    <header><h1>Sent Quotes</h1><p>Your quotes and their outcomes</p></header>
     <nav aria-label="Quote filters" className="xd-booking-primary-actions">
-      <button type="button" aria-pressed={filter === 'active'} onClick={() => setFilter('active')}>Active</button>
-      <button type="button" aria-pressed={filter === 'history'} onClick={() => setFilter('history')}>History</button>
+      <button type="button" aria-pressed={filter === 'active'} onClick={() => setFilter('active')}>SUBMITTED</button>
+      <button type="button" aria-pressed={filter === 'history'} onClick={() => setFilter('history')}>UNSUCCESSFUL</button>
     </nav>
     {notice ? <p role="status" className="xd-mobile-success">{notice}</p> : null}
     {error ? <div role="alert" className="xd-mobile-error"><p>{error}</p><button type="button" onClick={() => void refresh()}>Retry loading</button></div> : null}
@@ -140,8 +141,7 @@ export default function MobileQuotesPage() {
     {!error && visibleQuotes.map((quote) => {
       const submitted = quote.status.toLowerCase() === 'submitted';
       return <article className="xd-mobile-card" key={quote.id}>
-        <div className="xd-job-company"><div><strong>My quote</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
-        <div className="xd-job-type"><strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong><span>Quote amount</span></div>
+        <div className="xd-job-company"><div><strong>{quote.clientName || 'Customer not provided'}</strong><small>Submitted {formatTime(quote.createdAt)}</small></div><span className="xd-mobile-pill">{quote.status}</span></div>
         <div className="xd-job-stops"><div className="xd-job-track" aria-hidden="true"><span className="xd-job-dot"/><span className="xd-job-line"/><span className="xd-job-pin"/></div><div className="xd-job-places"><div><strong>{driverPlaceLabel(quote.pickupLocation, null)}</strong><small>Collection · {formatTime(quote.pickupDatetime)}</small></div><div><strong>{driverPlaceLabel(quote.deliveryLocation, null)}</strong><small>Delivery location</small></div></div></div>
         <div className="xd-job-facts">
           {quote.quotedVehicleType ? <span><b>Vehicle:</b> {driverVehicleLabel(quote.quotedVehicleType)}</span> : null}
@@ -155,12 +155,13 @@ export default function MobileQuotesPage() {
           ? <Link className="xd-job-details" href={`/m/driver/bookings/${encodeURIComponent(quote.jobId)}`}>View booking</Link>
           : submitted ? <Link className="xd-job-details" href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>
             : <span className="xd-job-status">Job details unavailable after closure</span>}</div>
-        {submitted && !quote.executionUnlocked ? <div className="xd-mobile-actions">
+        <div className="xd-cx-quote-total"><span>You Quoted: <strong>{quote.amount == null ? 'Amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}</strong></span><small>@ {formatTime(quote.createdAt)}</small></div>
+        {submitted && !quote.executionUnlocked ? <div className="xd-mobile-actions xd-cx-quote-actions">
           <button type="button" disabled={Boolean(pending)} onClick={() => editing === quote.id ? setEditing(null) : startEdit(quote)}>
             {editing === quote.id ? 'Cancel edit' : 'Edit quote'}
           </button>
           <button type="button" className="xd-mobile-button--secondary" disabled={Boolean(pending)} onClick={() => void mutate(quote, 'withdraw')}>
-            {pending === quote.id ? 'Withdrawing...' : 'Withdraw'}
+            {pending === quote.id ? 'CANCELLING...' : 'CANCEL QUOTE'}
           </button>
         </div> : null}
         {editing === quote.id ? <form onSubmit={(event) => { event.preventDefault(); void mutate(quote, 'edit'); }}>

@@ -1,0 +1,14 @@
+.xd-cx-quotes nav[aria-label="Quote filters"]{display:grid;grid-template-columns:1fr 1fr;gap:0;background:#ffbf00;margin:0 -12px 12px;padding:0}
+.xd-cx-quotes nav[aria-label="Quote filters"] button{background:transparent;color:#6d5900;border:0;border-radius:0;min-height:48px;font-size:15px;font-weight:700;touch-action:manipulation}
+.xd-cx-quotes nav[aria-label="Quote filters"] button[aria-pressed="true"]{color:#171717;border-bottom:3px solid #252525}
+.xd-cx-quotes .xd-mobile-card{padding:0;overflow:hidden;background:#fff;border-radius:3px;margin-bottom:12px}
+.xd-cx-quotes .xd-job-company{padding:13px 12px 10px;margin:0;border:0}
+.xd-cx-quotes .xd-job-company strong{font-size:18px;line-height:1.25;overflow-wrap:anywhere}
+.xd-cx-quotes .xd-job-stops{padding:14px 12px;border-top:1px solid #eee;border-bottom:1px solid #eee}
+.xd-cx-quotes .xd-job-facts,.xd-cx-quotes .xd-mobile-note,.xd-cx-quotes .xd-job-footer{padding:12px;border-bottom:1px solid #eee;margin:0}
+.xd-cx-quotes .xd-cx-quote-total{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px;font-size:14px;color:#666}
+.xd-cx-quotes .xd-cx-quote-total strong{color:#222;font-size:16px}
+.xd-cx-quotes .xd-cx-quote-total small{font-size:12px;text-align:right}
+.xd-cx-quotes .xd-cx-quote-actions{display:flex;flex-direction:column;gap:8px;padding:0 12px 14px}
+.xd-cx-quotes .xd-cx-quote-actions button{width:100%;min-height:48px}
+.xd-cx-quotes .xd-cx-quote-actions button.xd-mobile-button--secondary{background:#f05c55;color:#171717;border:0;font-weight:800}
