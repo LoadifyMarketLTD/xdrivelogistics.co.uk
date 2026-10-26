@@ -35,3 +35,7 @@ npm run build
 ```
 
 If the invariant gate fails, stop and repair the regression. Do not bypass or delete the guard to make a change pass.
+
+## Mandatory Driver PWA visual contract (calibration gate)
+
+For changes to `app/m/driver/**`, follow `docs/XDRIVE_DRIVER_PWA_MANDATORY_BLUEPRINT.md` and `driver-ui-contract.json`. Existing measured values are explicitly **provisional**, not certified Courier Exchange measurements. Do not claim visual parity or promote a new baseline while any required CX image, viewport/DPR conversion, selector, or metric is `UNMEASURED`. Shared Jobs/Quotes/Bookings geometry must use evidence-backed tokens and named exceptions. Preserve every protected invariant above and role-based operational security. No GitHub Actions. Run the local PowerShell gate, build, authenticated Playwright screenshot/geometry tests, physical device checks, and live production checks before declaring PASS or merging into `main`.
