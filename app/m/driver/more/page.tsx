@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { readRouteAuthAccessToken } from '../../../../lib/routeAuthCookie';
+import { useAuth } from '../../../components/AuthContext';
 
 type Resources = {
   name?: string;
@@ -20,6 +21,8 @@ const essentials: MenuItem[] = [
   { label: 'Help & support', href: '/m/driver/support' },
 ];
 export default function MobileMorePage() {
+  const { logout } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
   const [data, setData] = useState<Resources | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -65,5 +68,6 @@ export default function MobileMorePage() {
         </article>)}
         {ownerDriver ? <article className="xd-mobile-card xd-mobile-link-row"><Link href="/m/driver/finance">My finance</Link></article> : null}
       </nav>    </> : null}
+    <button type="button" className="xd-mobile-card" disabled={signingOut} onClick={async () => { if (signingOut) return; setSigningOut(true); try { await logout(); } catch { setError("Sign out failed. Please retry."); setSigningOut(false); } }} style={{width:"100%",minHeight:48,textAlign:"center",fontWeight:700,color:"#a52620"}}>{signingOut ? "Signing out..." : "Log out"}</button>
   </section>;
 }
