@@ -155,11 +155,11 @@ export default function MobileQuotesPage() {
           {quote.quotedVehicleType ? <span><b>Vehicle:</b> {driverVehicleLabel(quote.quotedVehicleType)}</span> : null}
           {quote.collectWithinMinutes ? <span><b>Collect within:</b> {quote.collectWithinMinutes} min</span> : null}
           {quote.additionalExtrasGbp > 0 ? <span><b>Included extras:</b> £{quote.additionalExtrasGbp.toFixed(2)}</span> : null}
-          {quote.quotedVehicleMaxPallets != null ? <span><b>Capacity:</b> {quote.quotedVehicleMaxPallets} pallets</span> : null}
+          {quote.quotedVehicleMaxPallets != null && quote.quotedVehicleMaxPallets > 0 ? <span><b>Quoted vehicle capacity:</b> {quote.quotedVehicleMaxPallets} pallets</span> : null}
           {quote.quotedVehicleMaxWeightKg != null ? <span><b>Max weight:</b> {quote.quotedVehicleMaxWeightKg} kg</span> : null}
         </div>
         {quote.jobNotes ? <p className="xd-mobile-note"><strong>Job notes:</strong> {quote.jobNotes}</p> : null}
-        {!submitted ? <p className="xd-cx-quote-outcome" role="status">{quote.status.toLowerCase() === 'withdrawn' ? 'Your quote was cancelled' : `Your Quote (${quote.amount == null ? 'amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}) was Unsuccessful`}</p> : null}
+        {!submitted ? <p className="xd-cx-quote-outcome" role="status">{quote.status.toLowerCase() === 'withdrawn' ? 'Your quote was withdrawn' : quote.status.toLowerCase() === 'cancelled' || quote.status.toLowerCase() === 'canceled' ? 'Your quote was cancelled' : `Your Quote (${quote.amount == null ? 'amount unavailable' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: quote.currency || 'GBP' }).format(quote.amount)}) was Unsuccessful`}</p> : null}
         <button type="button" className="xd-cx-quote-expand" aria-expanded={expanded === quote.id} onClick={() => setExpanded(previous => previous === quote.id ? null : quote.id)}>{expanded === quote.id ? 'Hide job information −' : 'View job information +'}</button>
         {expanded === quote.id ? <div className="xd-cx-quote-expanded">
           {quote.vehicleType ? <p><strong>Required vehicle:</strong> {driverVehicleLabel(quote.vehicleType)}</p> : null}

@@ -7,6 +7,24 @@ import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { publicAreaLabel } from '../../_lib/marketplacePublic';
 import { isDriverContext, respond } from '../../mobile/_lib';
 
+function publicBidNotes(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value !== 'string' || !value.trim()) continue;
+    const raw = value.trim();
+    if (!raw.startsWith('{') && !raw.startsWith('[')) return raw;
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const record = parsed as Record<string, unknown>;
+        for (const key of ['publicQuoteNotes', 'publicNotes', 'notes', 'driverNotes']) {
+          if (typeof record[key] === 'string' && (record[key] as string).trim()) return (record[key] as string).trim();
+        }
+      }
+    } catch { /* Malformed internal metadata must not reach the driver UI. */ }
+  }
+  return '';
+}
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
@@ -102,7 +120,7 @@ export async function GET(request: NextRequest) {
         vehicleType: job?.requested_vehicle_label || job?.vehicle_type || null,
         journeyDistanceMiles: job?.job_distance_miles ?? null,
         journeyDurationMinutes: job?.job_distance_minutes ?? null,
-        jobNotes: job?.load_notes || job?.load_details || '',
+        jobNotes: publicBidNotes(job?.load_notes, job?.load_details),
         jobReference: job?.load_id || job?.customer_reference || null,
         executionUnlocked,
       };
