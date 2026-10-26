@@ -4,7 +4,7 @@ import Link from 'next/link';
 import '../booking-cx.css';
 import { useParams } from 'next/navigation';
 import { readRouteAuthAccessToken } from '../../../../../lib/routeAuthCookie';
-import { CollectionHandover, CollectionPass, PodCapture, StopCollectionHandover } from './BookingEvidence';
+import { CollectionHandover, CollectionPass, PhotoUploader, PodCapture, StopCollectionHandover } from './BookingEvidence';
 
 type Stop = {
   id: string; sequence: number; type: string; address: string;
@@ -53,6 +53,22 @@ function displayTime(value?: string) {
   if (!value || !Number.isFinite(Date.parse(value))) return 'To be confirmed';
   return new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
+function readableInstructions(raw?: string): string {
+  if (!raw) return '';
+  const value = raw.trim();
+  if (!value.startsWith('{') && !value.startsWith('[')) return value;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object') return value;
+    const entries = Object.entries(parsed).flatMap(([key, item]) => {
+      if (item == null || item === '') return [];
+      if (typeof item !== 'string' && typeof item !== 'number' && typeof item !== 'boolean') return [];
+      const label = key.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+      return [`${label.charAt(0).toUpperCase()}${label.slice(1)}: ${String(item)}`];
+    });
+    return entries.length ? entries.join('\n') : 'See booking details for requirements.';
+  } catch { return value; }
+}
 function mapsDirections(job: Booking) {
   const origin = [job.pickupLocation, job.pickupPostcode].filter(Boolean).join(', ');
   const destination = [job.deliveryLocation, job.deliveryPostcode].filter(Boolean).join(', ');
@@ -65,6 +81,7 @@ export default function MobileBookingDetail() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [deliveryEvidence, setDeliveryEvidence] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
     // Preserve the visible booking and action controls during background synchronization.
@@ -124,6 +141,8 @@ export default function MobileBookingDetail() {
   const stops = [...(job?.stops || [])].sort((a, b) => a.sequence - b.sequence);
   const multiStop = stops.length > 2;
   const incompleteStops = multiStop ? stops.filter(stop => !['completed', 'skipped'].includes(stop.status)).length : 0;
+  const deliveryPhotoCount = (job?.deliveryPhotos?.length || 0) + deliveryEvidence.length;
+  const deliveryEvidenceBlocked = action?.api === 'delivered' && deliveryPhotoCount === 0;
   const stopCompletionBlocked = action?.api === 'delivered' && incompleteStops > 0;
 
   return <section className="xd-mobile-list xd-cx-bookings">
@@ -151,7 +170,7 @@ export default function MobileBookingDetail() {
         {job.distanceMiles != null ? <p><strong>Journey:</strong> {job.distanceMiles} miles</p> : null}
         {job.price ? <p><strong>Agreed rate:</strong> {job.price}</p> : null}
         {job.paymentTerms ? <p><strong>Payment terms:</strong> {job.paymentTerms}</p> : null}
-        {job.requirements || job.specialInstructions ? <section className="xd-booking-notes"><h2>Notes and instructions</h2><p>{job.specialInstructions || job.requirements}</p></section> : null}
+        {job.requirements || job.specialInstructions ? <section className="xd-booking-notes"><h2>Notes and instructions</h2><p style={{ whiteSpace: 'pre-line' }}>{readableInstructions(job.specialInstructions || job.requirements)}</p></section> : null}
         {Array.isArray(job.attachments) && job.attachments.length > 0 ? <section className="xd-booking-notes" aria-label="Job documents">
           <h2>Job documents</h2>
           <ul>{job.attachments.filter(file => file.url?.startsWith('https://')).map(file => <li key={file.id}>
@@ -163,6 +182,13 @@ export default function MobileBookingDetail() {
         {stopCompletionBlocked ? <p role="status">Complete the {incompleteStops} remaining stop(s) before marking the booking delivered.</p> : null}
       </article>
 
+      {action?.api === 'delivered' ? <section className="xd-mobile-card" aria-label="Delivery evidence before completion">
+        <h3>Delivery evidence</h3>
+        <p>Upload a delivery photo before marking the booking delivered. Recipient signature and POD follow after delivery confirmation.</p>
+        <PhotoUploader jobId={job.id} kind="delivery" paths={deliveryEvidence} setPaths={setDeliveryEvidence} disabled={busy}/>
+        {job.deliveryPhotos?.length ? <p>{job.deliveryPhotos.length} delivery photo(s) already saved.</p> : null}
+        {deliveryEvidenceBlocked ? <p role="status">At least one delivery photo is required before confirming delivery.</p> : null}
+      </section> : null}
       <section className="xd-booking-timeline" aria-label="Booking status progression">
         <details open>
           <summary>Booking progress · {history.filter(step => step.active).length} of {history.length} steps</summary>
@@ -171,7 +197,7 @@ export default function MobileBookingDetail() {
           <span>{step.label}</span>
         </li>)}</ol>
         </details>
-        {action && !needsHandover ? <button type="button" className="xd-cx-next-action" disabled={busy || stopCompletionBlocked} onClick={() => void perform(action.api)}>{busy ? 'Updating...' : action.label}</button> : null}
+        {action && !needsHandover ? <button type="button" className="xd-cx-next-action" disabled={busy || stopCompletionBlocked || deliveryEvidenceBlocked} onClick={() => void perform(action.api)}>{busy ? 'Updating...' : action.label}</button> : null}
         {canUndo ? <button type="button" className="xd-mobile-button--secondary" disabled={busy}
           onClick={() => { if (window.confirm('Undo the most recent status change?')) void perform('undo-status', { expectedCurrentStatus: job.currentStatus || job.status }); }}>
           Undo last status
