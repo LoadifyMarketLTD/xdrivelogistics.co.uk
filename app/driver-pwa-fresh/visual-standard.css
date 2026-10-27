@@ -1,0 +1,17 @@
+
+/* XDrive approved mobile typography, 27 October 2026. */
+.fresh-driver-pwa{--x-title:20px;--x-section:18px;--x-town:19px;--x-body:16px;--x-secondary:14px;--x-badge:12px;font-size:var(--x-body);line-height:22px}
+.fresh-driver-pwa .fresh-content{padding-left:12px;padding-right:12px}
+.fresh-driver-pwa .fresh-header h1{font-size:20px;font-weight:700;line-height:26px}
+.fresh-driver-pwa .fresh-card{margin-bottom:10px}
+.fresh-driver-pwa .fresh-summary,.fresh-driver-pwa .fresh-route,.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-actions{padding:14px}
+.fresh-driver-pwa .fresh-summary strong,.fresh-driver-pwa .fresh-details-customer h2,.fresh-driver-pwa .fresh-quote-job>strong{font-size:18px;font-weight:700;line-height:24px}
+.fresh-driver-pwa .fresh-town,.fresh-driver-pwa .fresh-route-places strong,.fresh-driver-pwa .fresh-preview-pin strong,.fresh-driver-pwa .fresh-quote-route strong{font-size:19px;font-weight:800;line-height:25px}
+.fresh-driver-pwa .fresh-muted,.fresh-driver-pwa .fresh-posted,.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-quick,.fresh-driver-pwa .fresh-route-places p,.fresh-driver-pwa .fresh-preview-pin small,.fresh-driver-pwa .fresh-preview-map-note,.fresh-driver-pwa .fresh-quote-submit p{font-size:14px;font-weight:500;line-height:20px}
+.fresh-driver-pwa .fresh-tag,.fresh-driver-pwa .fresh-available,.fresh-driver-pwa .fresh-service{font-size:12px;font-weight:700;line-height:17px}
+.fresh-driver-pwa .fresh-tabs button,.fresh-driver-pwa .fresh-filters label,.fresh-driver-pwa .fresh-filter-actions button,.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .quote-now,.fresh-driver-pwa .fresh-preview-secondary button,.fresh-driver-pwa .fresh-quote-submit>button,.fresh-driver-pwa .fresh-bottom span,.fresh-driver-pwa .fresh-bottom a{font-size:16px;font-weight:600;line-height:22px}
+.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .quote-now,.fresh-driver-pwa .fresh-preview-secondary button,.fresh-driver-pwa .fresh-quote-submit>button,.fresh-driver-pwa .fresh-filters button,.fresh-driver-pwa .fresh-filter-actions button{min-height:48px}
+.fresh-driver-pwa .fresh-preview-details,.fresh-driver-pwa .fresh-preview-quote{padding-left:12px;padding-right:12px}
+.fresh-driver-pwa .fresh-preview-data,.fresh-driver-pwa .fresh-preview-route-overview,.fresh-driver-pwa .fresh-preview-customer,.fresh-driver-pwa .fresh-preview-notes,.fresh-driver-pwa .fresh-preview-feedback,.fresh-driver-pwa .fresh-quote-job,.fresh-driver-pwa .fresh-quote-panel{padding:14px}
+.fresh-driver-pwa .fresh-preview-data dl,.fresh-driver-pwa .fresh-preview-customer,.fresh-driver-pwa .fresh-preview-notes,.fresh-driver-pwa .fresh-preview-feedback,.fresh-driver-pwa .fresh-quote-panel label{font-size:16px;font-weight:600;line-height:22px}
+.fresh-driver-pwa .fresh-quote-job,.fresh-driver-pwa .fresh-quote-panel{margin-bottom:10px}
