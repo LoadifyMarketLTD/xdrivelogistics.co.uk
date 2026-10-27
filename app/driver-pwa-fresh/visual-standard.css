@@ -60,3 +60,73 @@
 .fresh-driver-pwa .fresh-demo-award{background:#fff;color:#174e80;border:1px solid #d0dbe6}
 .fresh-driver-pwa .fresh-demo-bottom button[aria-current="page"]{background:#e7f1f9;color:#174e80}
 .fresh-driver-pwa .fresh-demo-quote-input{display:block;font-size:15px;font-weight:700}
+
+.fresh-driver-pwa .fresh-preview-view-map{display:block;background:#ffc400;color:#161616;text-align:center;font-weight:800;font-size:18px;line-height:24px;padding:14px 10px;margin:14px 0 4px;border-radius:4px;text-decoration:none;min-height:52px}
+
+.fresh-driver-pwa .fresh-tabs a{display:flex;align-items:center;justify-content:center;min-height:44px;flex:1;text-decoration:none;color:#173c64;background:#f0f2f5;font-weight:700;border-radius:5px}.fresh-driver-pwa .fresh-tabs a.active{background:#fff;border-bottom:2px solid #1876ca}.fresh-driver-pwa .fresh-tabs{display:flex;gap:4px}
+
+/* Keep the original three equal-width Jobs tabs on every subpage. */
+.fresh-driver-pwa .fresh-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px;width:100%;box-sizing:border-box}
+.fresh-driver-pwa .fresh-tabs>a{display:flex;width:100%;min-width:0;box-sizing:border-box;align-items:center;justify-content:center;text-align:center;padding:0 4px;white-space:nowrap;font-size:14px;line-height:20px;min-height:44px}
+
+
+/* Approved top tabs: equal full-width buttons, applies to button and link variants. */
+.fresh-driver-pwa .fresh-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;width:100%!important;padding:4px 6px!important;box-sizing:border-box!important}
+.fresh-driver-pwa .fresh-tabs>button,.fresh-driver-pwa .fresh-tabs>a{display:flex!important;flex:none!important;width:100%!important;min-width:0!important;box-sizing:border-box!important;align-items:center;justify-content:center;text-align:center;padding:0 4px!important;white-space:nowrap;font-size:14px!important;line-height:20px!important;min-height:44px!important}
+
+
+/* XDrive brand palette: visual-only layer. Preserve approved card geometry and tab behavior. */
+.fresh-driver-pwa{
+ --xd-yellow:#ffcf05;--xd-navy:#102b48;--xd-blue:#155d91;
+ --xd-green:#16a34a;--xd-canvas:#f2f4f6;--xd-white:#fff;
+ --xd-border:#d7dfe7;--xd-muted:#697581;--xd-danger:#d93b36;
+ --ink:var(--xd-navy);--muted:var(--xd-muted);--line:var(--xd-border);--accent:var(--xd-blue);
+ color:var(--xd-navy);background:var(--xd-canvas);
+}
+.fresh-driver-pwa .fresh-header{background:var(--xd-yellow);color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-header-icon{color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-card{background:var(--xd-white);border-color:var(--xd-border)}
+.fresh-driver-pwa .fresh-tabs{background:var(--xd-white)}
+.fresh-driver-pwa .fresh-tabs>button,.fresh-driver-pwa .fresh-tabs>a{color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-tabs>button[aria-selected=true],.fresh-driver-pwa .fresh-tabs>a.active{color:var(--xd-navy);border-bottom-color:var(--xd-blue)}
+.fresh-driver-pwa .quote-now{background:var(--xd-green);border-color:#14853d;color:#fff}
+.fresh-driver-pwa .fresh-bottom{background:var(--xd-white);border-top-color:var(--xd-border)}
+.fresh-driver-pwa .fresh-bottom>a,.fresh-driver-pwa .fresh-bottom>button{color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-bottom>a.selected,.fresh-driver-pwa .fresh-bottom>.selected{background:#e8f2fb;color:var(--xd-blue)}
+.fresh-driver-pwa .fresh-menu a{color:var(--xd-navy)}
+.fresh-driver-pwa :is(button,a,input,select,textarea):focus-visible{outline:3px solid var(--xd-blue);outline-offset:2px}
+/* Approved header ink: logo and both icons share the exact navy. */
+.fresh-driver-pwa .fresh-header .fresh-brand,
+.fresh-driver-pwa .fresh-header .fresh-brand-mark,
+.fresh-driver-pwa .fresh-header .fresh-brand-sub,
+.fresh-driver-pwa .fresh-header .fresh-header-icon,
+.fresh-driver-pwa .fresh-header .fresh-header-icon svg{color:#102B48!important;stroke:#102B48}
+/* Official XDrive seven-colour Driver PWA application (approved 2026-10-27).
+   Purely visual: preserve the approved card geometry and three-tab navigation. */
+.fresh-driver-pwa{
+ --xd-primary-blue:#0B2F6B;--xd-secondary-blue:#1D57D8;
+ --xd-orange:#F5A300;--xd-white:#FFFFFF;--xd-charcoal:#1A1F2B;
+ --xd-light-grey:#F4F6F8;--xd-cta-green:#16A34A;
+ --xd-navy:var(--xd-primary-blue);--xd-blue:var(--xd-secondary-blue);
+ --xd-green:var(--xd-cta-green);--xd-canvas:var(--xd-light-grey);
+ --ink:var(--xd-charcoal);--accent:var(--xd-secondary-blue);
+ color:var(--xd-charcoal);background:var(--xd-light-grey);
+}
+.fresh-driver-pwa .fresh-header{background:var(--xd-orange);color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-header .fresh-brand,
+.fresh-driver-pwa .fresh-header .fresh-brand-mark,
+.fresh-driver-pwa .fresh-header .fresh-brand-sub,
+.fresh-driver-pwa .fresh-header .fresh-header-icon,
+.fresh-driver-pwa .fresh-header .fresh-header-icon svg{color:var(--xd-primary-blue)!important;stroke:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-card,.fresh-driver-pwa .fresh-tabs,.fresh-driver-pwa .fresh-bottom{background:var(--xd-white)}
+.fresh-driver-pwa .fresh-town,.fresh-driver-pwa .fresh-summary strong,.fresh-driver-pwa .fresh-facts dd{color:var(--xd-charcoal)}
+.fresh-driver-pwa .fresh-tabs>button,.fresh-driver-pwa .fresh-tabs>a{color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-tabs>button[aria-selected=true],
+.fresh-driver-pwa .fresh-tabs>a.active{color:var(--xd-primary-blue);border-bottom-color:var(--xd-secondary-blue)}
+.fresh-driver-pwa .fresh-bottom .selected,
+.fresh-driver-pwa .fresh-bottom [aria-current=page]{color:var(--xd-secondary-blue);border-top-color:var(--xd-secondary-blue);background:#EDF3FF}
+.fresh-driver-pwa .quote-now,.fresh-driver-pwa .fresh-demo-action+.fresh-demo-action{background:var(--xd-cta-green);border-color:var(--xd-cta-green);color:var(--xd-white)}
+.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .fresh-back,.fresh-driver-pwa .fresh-menu a{color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-tag{background:#FFF2D5;color:#805200}
+.fresh-driver-pwa .fresh-dot{border-color:var(--xd-secondary-blue)}
+.fresh-driver-pwa :is(button,a,input,select,textarea):focus-visible{outline-color:var(--xd-secondary-blue)}
