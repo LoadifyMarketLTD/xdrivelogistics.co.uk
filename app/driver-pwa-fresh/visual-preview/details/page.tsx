@@ -1,3 +1,4 @@
+import DemoActions from './DemoActions';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -23,7 +24,7 @@ export default async function DetailsVisualPreview({ searchParams }: { searchPar
         <section className="fresh-preview-customer"><div><strong>Customer</strong><p>{item.customer}</p></div><div><strong>Terms:</strong><p>{item.terms}</p></div><div><strong>Tel:</strong><p>Not available in sample</p></div></section>
         <section className="fresh-preview-notes"><strong>Notes:</strong><p>{item.notes}</p></section>
         <section className="fresh-preview-feedback"><strong>Feedback (past 90 days)</strong><p>Not available in sample</p></section>
-        <section className="fresh-actions"><Link className="quote-now" href={`/driver-pwa-fresh/visual-preview/quote?load=${encodeURIComponent(load || '')}`}>Quote Now</Link><div className="fresh-preview-secondary"><button disabled type="button">SAVE</button><button disabled type="button">DELETE</button></div><p className="fresh-muted">Visual preview only. SAVE and DELETE are not available for sample loads.</p></section>
+        <section className="fresh-actions"><Link className="quote-now" href={`/driver-pwa-fresh/visual-preview/quote?load=${encodeURIComponent(load || '')}`}>Quote Now</Link><DemoActions/></section>
       </article>
     </main>
     <nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" href="/driver-pwa-fresh/visual-preview">Jobs</Link><span aria-disabled="true">Quotes</span><span aria-disabled="true">Bookings</span><span aria-disabled="true">More</span></nav>

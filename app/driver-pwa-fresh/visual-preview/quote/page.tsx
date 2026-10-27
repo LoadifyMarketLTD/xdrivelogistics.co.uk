@@ -1,3 +1,4 @@
+import DemoQuoteForm from './DemoQuoteForm';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -15,9 +16,9 @@ export default async function QuoteVisualPreview({searchParams}:{searchParams:Pr
  <main className="fresh-content fresh-preview-quote">
  <section className="fresh-quote-job"><strong>XDRIVE LOGISTICS LTD</strong><p><b style={{color:'#ec5a51'}}>HOTSHOT</b> · {item.vehicle}</p><p style={{color:'#388c45',fontWeight:700}}>SmartPay Enabled</p><div className="fresh-quote-route"><strong>{item.from}</strong><small>Collection</small><strong>{item.to}</strong><small>Delivery</small></div><p>Distance: Not available for sample</p></section>
  <section className="fresh-quote-panel"><label>Will Pick Up Within<select defaultValue=""><option value="">Not supplied</option><option>15 minutes</option><option>30 minutes</option><option>45 minutes</option><option>60 minutes</option><option>90 minutes</option><option>120 minutes</option></select></label><label>Vehicle<input readOnly value={item.vehicle}/></label></section>
- <section className="fresh-quote-panel"><label>Choose currency<select defaultValue="GBP"><option>GBP</option></select></label><label>My Quotes (£) *<input type="number" min="0.01" step="0.01" inputMode="decimal" placeholder="price (exc. VAT)"/></label><div className="fresh-quote-extras">Extras <button disabled type="button">+ ADD NEW</button></div></section>
+ <section className="fresh-quote-panel"><label>Choose currency<select defaultValue="GBP"><option>GBP</option></select></label><div className="fresh-quote-extras">Extras <button disabled type="button">+ ADD NEW</button></div></section>
  <section className="fresh-quote-panel"><label>Notes<textarea rows={5} placeholder="Message to customer"/></label></section>
- <div className="fresh-quote-submit"><button disabled type="button">Submit Quote</button><p>Visual preview only. No real quote will be sent.</p><Link href="/driver-pwa-fresh/jobs">Open live Jobs</Link></div>
+ <DemoQuoteForm/><p><Link href="/driver-pwa-fresh/jobs">Open live Jobs</Link></p>
  </main><nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" href="/driver-pwa-fresh/visual-preview">Jobs</Link><span aria-disabled="true">Quotes</span><span aria-disabled="true">Bookings</span><span aria-disabled="true">More</span></nav>
  </>;
 }
