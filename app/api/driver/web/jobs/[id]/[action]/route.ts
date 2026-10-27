@@ -245,9 +245,9 @@ async function savePod(
   const itemCount = itemCountRaw === null ? null : Math.round(itemCountRaw);
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
-  if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
+  // Recipient name is optional.
   if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
-  if (itemCount !== null && (!Number.isFinite(itemCount) || itemCount < 0 || itemCount > 100000)) {
+  if (itemCount === null || !Number.isInteger(itemCount) || itemCount < 1 || itemCount > 100000) {
     return respond(400, { error: 'Enter a valid delivered item count.' });
   }
   const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
@@ -280,14 +280,8 @@ async function savePod(
   const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
   const signatureData = rawSignature || job.delivery_signature_data || null;
-  const effectivePhotoCount = new Set([...existingPhotos, ...photoPaths]).size;
 
-  if (effectivePhotoCount === 0) {
-    return respond(400, { error: 'At least one delivery photo is required for POD.' });
-  }
-  if (!signatureData) {
-    return respond(400, { error: 'Recipient signature is required for POD.' });
-  }
+  // Photo and signature are optional for this POD workflow.
 
   try {
     const existenceChecks = await Promise.all(

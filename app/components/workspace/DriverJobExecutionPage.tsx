@@ -184,7 +184,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   const [hardCopyAcknowledged, setHardCopyAcknowledged] = useState(false);
   const [podDeliveryStatus, setPodDeliveryStatus] = useState('Completed Delivery');
   const [podLeftAt, setPodLeftAt] = useState('');
-  const [podItemCount, setPodItemCount] = useState('');
+  const [podItemCount, setPodItemCount] = useState('1');
+  const [podWeight, setPodWeight] = useState('');
+  const [mobilePodOpen, setMobilePodOpen] = useState(false);
   const [podDeliveredOn, setPodDeliveredOn] = useState('');
   const [showPodDetails, setShowPodDetails] = useState(false);
   const [podPhotoUrls, setPodPhotoUrls] = useState<string[]>([]);
@@ -400,7 +402,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       setMessage('POD is already complete. Invoice creation is now available.');
       return;
     }
-    if (!deliveryPhotos.length) {
+    if (!mobilePwa && !deliveryPhotos.length) {
       setError('At least one delivery photo is required to complete POD.');
       return;
     }
@@ -408,12 +410,13 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       setError('Recipient name is required to complete POD.');
       return;
     }
+    if (mobilePwa && (!Number.isInteger(Number(podItemCount)) || Number(podItemCount) < 1)) { setError('Number of items must be at least 1.'); return; }
     const newSignature = signatureData();
     const storedSignature = job.delivery_signature_data;
     const hasStoredSignature = typeof storedSignature === 'string'
       ? storedSignature.trim().length > 0
       : Boolean(storedSignature && typeof storedSignature === 'object');
-    if (!newSignature && !hasStoredSignature) {
+    if (!mobilePwa && !newSignature && !hasStoredSignature) {
       setError('Recipient signature is required to complete POD.');
       return;
     }
@@ -432,7 +435,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          recipientName: recipientName.trim(),
+          recipientName: recipientName.trim() || 'Not provided',
           signatureData: newSignature ?? '',
           photoUris: pendingPodPhotos,
           damagePhotoUris: [],
@@ -442,7 +445,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
           itemCount: podItemCount.trim() ? Number(podItemCount) : undefined,
           deliveredOn: podDeliveredOn || undefined,
           hardCopyAcknowledged: hardCopyRequired ? hardCopyAcknowledged : false,
-          notes: notes.trim() || undefined,
+          notes: [notes.trim(), podWeight.trim() ? 'Weight: '+podWeight.trim()+' kg' : ''].filter(Boolean).join(' | ') || undefined,
         }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
@@ -599,9 +602,25 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       <section className="fresh-mobile-booking-card"><h2>Job progress</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{nextStatus&&canShowLifecycleAction&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void moveStatus(nextStatus)}>{nextLabel}</button>}</section>
       {stops.map(stop=><section className="fresh-mobile-booking-card" key={stop.name}><h2>{stop.name}</h2><strong>{stop.place??'Not supplied'}</strong><p>{stop.postcode}</p><p>{formatDateTime(stop.at)}</p>{stop.notes&&<p>{stop.notes}</p>}<div className="fresh-mobile-booking-actions">{stop.phone&&<a href={'tel:'+stop.phone}>Call contact</a>}<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a></div></section>)}
       <section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl><dt>Company</dt><dd>{sheet?.bookedBy??'Not supplied'}</dd><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd><dt>Rate</dt><dd>{money(sheet?.agreedRate,sheet?.currency??job.currency)}</dd><dt>Payment terms</dt><dd>{sheet?.paymentTerms??'Not supplied'}</dd></dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>
-      <section className="fresh-mobile-booking-card"><h2>Delivery evidence</h2><p>Delivery photos saved: {deliveryPhotos.length}</p><label>Add delivery photos<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label><label>Add POD document (PDF or image)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label><p>Documents saved: {Array.isArray(job.pod_photos)?job.pod_photos.length:0}</p></section>
-      <section className="fresh-mobile-booking-card"><h2>Proof of delivery</h2>{podComplete?<p>POD recorded</p>:<><label>Recipient name<input value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label><label>Signature<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label><button onClick={clearSignature}>Clear signature</button>{hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}<button className="fresh-mobile-booking-primary" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>Complete POD</button></>}{podComplete&&canGenerateInvoices&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Generate invoice</button>}</section>
-      <section className="fresh-mobile-booking-card"><h2>Activity</h2><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></section>
+
+<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong><button type="button" onClick={()=>setMobilePodOpen(v=>!v)}>{mobilePodOpen?'Close POD':'Open POD'}</button></section>
+{mobilePodOpen&&<section className="fresh-mobile-booking-card fresh-mobile-pod">
+<h2>POD</h2>
+<label>Delivery status<select value={podDeliveryStatus} onChange={e=>setPodDeliveryStatus(e.target.value)}><option>Completed Delivery</option><option>Partial Delivery</option><option>Failed Delivery</option><option>Refused</option><option>Left Safe</option></select></label>
+<label>Number of Items *<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodItemCount(String(Math.max(1,(Number(podItemCount)||1)-1)))}>−</button><input type="number" min="1" required value={podItemCount} onChange={e=>setPodItemCount(e.target.value)}/><button type="button" onClick={()=>setPodItemCount(String((Number(podItemCount)||0)+1))}>+</button></div></label>
+<label>Weight (kg)<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodWeight(String(Math.max(0,(Number(podWeight)||0)-1)))}>−</button><input type="number" min="0" step="0.1" value={podWeight} onChange={e=>setPodWeight(e.target.value)}/><button type="button" onClick={()=>setPodWeight(String((Number(podWeight)||0)+1))}>+</button></div></label>
+<div><strong>Job Details</strong><p>{requestedVehicle}</p></div>
+<label>Driver's Notes<textarea rows={4} maxLength={500} value={notes} onChange={e=>setNotes(e.target.value)}/><small>{notes.length}/500</small></label>
+<label>Photo (optional) — {deliveryPhotos.length}/10<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label>
+<label>Add Document (optional)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label>
+<label>Signature (optional)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
+<button type="button" onClick={clearSignature}>Clear signature</button>
+<label>Received by (optional)<input value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
+{hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}
+{!podComplete?<button type="button" className="fresh-mobile-booking-primary fresh-pod-send" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>{working?'Saving...':'Send POD'}</button>:<p>POD recorded</p>}
+{podComplete&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Generate invoice</button>}
+</section>}
+<section className="fresh-mobile-booking-card"><h2>Activity</h2><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></section>
     </div>;
   }
   return (
