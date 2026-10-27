@@ -1,13 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import FreshJobCard, { type Load } from '../FreshJobCard';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 
 type Bid = { id:string; job_id:string; amount:number|null; bid_price_gbp:number|null; status:string; created_at:string };
-type Load = { id:string; pickup_area:string; pickup_postcode_area:string|null; delivery_area:string; delivery_postcode_area:string|null; member?:{name:string}|null };
 const closed = new Set(['accepted','withdrawn','rejected','unsuccessful','expired','cancelled','archived']);
 export default function FreshQuotes() {
  const {user,isLoading:authLoading}=useAuth();
@@ -51,13 +51,7 @@ export default function FreshQuotes() {
    {error?<div className="fresh-message" role="alert">{error}</div>:null}
    {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No active quotes.</div>:visible.map(bid=>{
     const load=loads[bid.job_id];const status=bid.status.toLowerCase();
-    return <article className="fresh-card" key={bid.id} data-testid="quote-card">
-     <section className="fresh-summary"><div className="fresh-summary-top"><strong>{load?.member?.name||'Submitted quote'}</strong><span className="fresh-tag">{bid.status}</span></div><div className="fresh-muted">Submitted {new Date(bid.created_at).toLocaleString('en-GB')}</div></section>
-     <section className="fresh-route"><div><div className="fresh-town">{load?[load.pickup_area,load.pickup_postcode_area].filter(Boolean).join(' ').toUpperCase():'Route protected'}</div><div className="fresh-muted">Collection</div></div><div><div className="fresh-town">{load?[load.delivery_area,load.delivery_postcode_area].filter(Boolean).join(' ').toUpperCase():'Route unavailable'}</div><div className="fresh-muted">Delivery</div></div></section>
-     <section className="fresh-notes"><strong>£{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</strong></section>
-     <div className="fresh-actions">{load&&!closed.has(status)?<Link className="fresh-detail" href={'/driver-pwa-fresh/jobs/'+encodeURIComponent(bid.job_id)}>View Details</Link>:null}
-     {!closed.has(status)?<button className="fresh-detail" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Withdrawing…':'Cancel Quote'}</button>:null}</div>
-    </article>;
+    return load ? <FreshJobCard key={bid.id} load={load} mode="quotes" actions={<><div className="fresh-quote-amount">{closed.has(status) ? (status === 'withdrawn' || status === 'cancelled' ? 'Cancelled quote' : 'Your Quote was Unsuccessful') : 'You Quoted'}: £{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</div><Link className="fresh-detail" href={'/driver-pwa-fresh/jobs/'+encodeURIComponent(bid.job_id)}>View Details</Link>{!closed.has(status)?<button className="fresh-cancel-quote" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Cancelling...':'Cancel Quote'}</button>:null}</>} /> : <article className="fresh-card" key={bid.id}><section className="fresh-summary"><strong>Job {bid.job_id}</strong></section><div className="fresh-message">Job details temporarily unavailable</div></article>;
    })}
   </main>
   <nav className="fresh-bottom" aria-label="Driver tabs"><Link href="/driver-pwa-fresh/jobs">Jobs</Link><Link className="selected" aria-current="page" href="/driver-pwa-fresh/quotes">Quotes</Link><Link href="/driver/won-work">Bookings</Link><Link href="/driver">More</Link></nav>

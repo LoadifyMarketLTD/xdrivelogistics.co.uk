@@ -21,9 +21,8 @@ export default async function LocalVisualPreview() {
     member: { name: 'XDRIVE LOGISTICS LTD', postedBy: 'XDRIVE LOGISTICS LTD' },
   });
   return <LoadsClient previewLoads={[
-    sample('visual-1','Erith','DA8','Blackburn','BB1','LIVE SYSTEM TEST - DO NOT QUOTE OR BOOK. No transport is required. Reverse route of test load XDL-290239CA.', 60),
-    sample('visual-2','Blackburn','BB1','Erith','DA8','Collection and delivery reference. Handle with care.', 180),
-    sample('visual-3','London','SE1','Luton','LU1','Driver visual reference only. Not a real load.', 240),
+    sample('visual-1','Blackburn','BB1','Manchester','M1','TEST JOB 1 - Visual verification of Jobs to Quotes. No transport required.', 120),
+    sample('visual-2','Darwen','BB3','Leeds','LS14','TEST JOB 2 - Visual verification of quote and booking cards. No transport required.', 240),
   ]} />;
 }
 
