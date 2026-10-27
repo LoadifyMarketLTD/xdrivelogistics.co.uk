@@ -94,17 +94,17 @@ export default function FreshLoadDetail() {
     }
   };
   return <ProtectedRoute allowedRoles={['driver']}>
-    <header className="fresh-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">← LOADS</Link><h1>Load Details</h1></header>
+    <header className="fresh-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">← LOADS</Link><h1>Load ID {id.slice(0, 12)}</h1></header>
     <main className="fresh-content" data-testid="load-details">
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
-      {load ? <article className="fresh-card">
-        <section className="fresh-summary"><div className="fresh-summary-top"><strong>{load.member?.name || 'Marketplace member'}</strong><span className="fresh-tag">{load.requested_vehicle_label || load.vehicle_type || 'Vehicle TBC'}</span></div><p className="fresh-muted">Load reference: {load.id}</p></section>
+      {load ? <article className="fresh-card fresh-details-card">
+        <section className="fresh-details-journey"><strong>{locationLabel(load.pickup_area, load.pickup_postcode_area)}</strong><div className="fresh-details-route-line" aria-hidden="true"/><strong>{locationLabel(load.delivery_area, load.delivery_postcode_area)}</strong>{load.distance_miles != null ? <span>{load.distance_miles} miles</span> : null}</section><section className="fresh-summary"><div className="fresh-summary-top"><strong>{load.member?.name || 'Marketplace member'}</strong><span className="fresh-tag">{load.requested_vehicle_label || load.vehicle_type || 'Vehicle TBC'}</span></div><p className="fresh-muted">Load reference: {load.id}</p></section>
         <section className="fresh-route">
           <div className="fresh-stop"><span className="fresh-dot" /><div><div className="fresh-muted">COLLECT</div><div className="fresh-town">{locationLabel(load.pickup_area, load.pickup_postcode_area)}</div><div>{formatDate(load.pickup_datetime)} · {load.pickup_time_slot || 'Time slot not specified'}</div>{load.collection_window_end ? <div>Window ends: {formatDate(load.collection_window_end)}</div> : null}</div></div>
           <div className="fresh-stop"><span className="fresh-dot" /><div><div className="fresh-muted">DELIVER</div><div className="fresh-town">{locationLabel(load.delivery_area, load.delivery_postcode_area)}</div><div>{formatDate(load.delivery_datetime)} · {load.delivery_time_slot || 'Time slot not specified'}</div></div></div>
         </section>
-        <section className="fresh-notes" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
+        <section className="fresh-notes fresh-details-spec" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
           <dl className="fresh-facts">
             <dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
             <dt>Cargo</dt><dd>{load.requested_cargo_label || load.cargo_type || 'Not specified'}</dd>
@@ -117,8 +117,8 @@ export default function FreshLoadDetail() {
             {load.payment_terms ? <><dt>Payment terms</dt><dd>{load.payment_terms}</dd></> : null}
           </dl>
         </section>
-        {load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
-        <section id="quote" className="fresh-actions" aria-label="Quote Now"><h2>Quote Now</h2>
+        <section className="fresh-notes fresh-details-customer"><h2>Customer</h2><p>{load.member?.name || "Marketplace member"}</p>{load.payment_terms ? <p><strong>Terms:</strong> {load.payment_terms}</p> : null}</section>{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
+        <section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Quote Now</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
            load.myBid ? <p role="status">You already have a quote on this load ({load.myBid.status || 'submitted'}).</p> :
            <><label>Amount (£)<input inputMode="decimal" type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} /></label>
