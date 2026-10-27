@@ -186,6 +186,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   const [podLeftAt, setPodLeftAt] = useState('');
   const [podItemCount, setPodItemCount] = useState('1');
   const [podWeight, setPodWeight] = useState('');
+  const [signatureExceptionReason, setSignatureExceptionReason] = useState('');
   const [mobilePodOpen, setMobilePodOpen] = useState(false);
   const [podDeliveredOn, setPodDeliveredOn] = useState('');
   const [showPodDetails, setShowPodDetails] = useState(false);
@@ -421,6 +422,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       return;
     }
 
+    if (mobilePwa && !podLeftAt.trim()) { setError('Left At is required.'); return; }
+    if (mobilePwa && !newSignature && !hasStoredSignature && signatureExceptionReason.trim().length < 5) { setError('Sign or explain why signature is unavailable.'); return; }
+    if (mobilePwa && podDeliveryStatus !== 'Completed Delivery') { setError('Resolve delivery exception before completed POD.'); return; }
     const hardCopyRequired = requiresHardCopyPod(sheet?.hardCopyPod ?? job.hard_copy_pod);
     if (hardCopyRequired && !hardCopyAcknowledged) {
       setError('Confirm the hard-copy POD requirement before completing POD.');
@@ -435,7 +439,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          recipientName: recipientName.trim() || 'Not provided',
+          recipientName: recipientName.trim(),
+          signatureExceptionReason: signatureExceptionReason.trim(),
           signatureData: newSignature ?? '',
           photoUris: pendingPodPhotos,
           damagePhotoUris: [],
@@ -613,9 +618,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
 <label>Driver's Notes<textarea rows={4} maxLength={500} value={notes} onChange={e=>setNotes(e.target.value)}/><small>{notes.length}/500</small></label>
 <label>Photo (optional) — {deliveryPhotos.length}/10<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label>
 <label>Add Document (optional)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label>
-<label>Signature (optional)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
+<label>Signature (or exception reason)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
 <button type="button" onClick={clearSignature}>Clear signature</button>
-<label>Received by (optional)<input value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
+<label>Reason if signature unavailable<input value={signatureExceptionReason} onChange={e=>setSignatureExceptionReason(e.target.value)}/></label>
+<label>Left At *<input required value={podLeftAt} onChange={e=>setPodLeftAt(e.target.value)}/></label>
+<label>Delivered On<input type="date" value={podDeliveredOn} onChange={e=>setPodDeliveredOn(e.target.value)}/></label>
+<label>Received By (Full Name) *<input required value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
 {hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}
 {!podComplete?<button type="button" className="fresh-mobile-booking-primary fresh-pod-send" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>{working?'Saving...':'Send POD'}</button>:<p>POD recorded</p>}
 {podComplete&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Generate invoice</button>}

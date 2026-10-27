@@ -245,7 +245,9 @@ async function savePod(
   const itemCount = itemCountRaw === null ? null : Math.round(itemCountRaw);
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
-  // Recipient name is optional.
+  if (!recipientName) return respond(400, { error: 'Received By (Full Name) is required for POD.' });
+  if (!leftAt) return respond(400, { error: 'Left At is required for POD.' });
+  if (deliveryStatus !== 'Completed Delivery') return respond(409, { error: 'Delivery exceptions must be resolved before a completed POD can be submitted.' });
   if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
   if (itemCount === null || !Number.isInteger(itemCount) || itemCount < 1 || itemCount > 100000) {
     return respond(400, { error: 'Enter a valid delivered item count.' });
@@ -281,7 +283,8 @@ async function savePod(
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
   const signatureData = rawSignature || job.delivery_signature_data || null;
 
-  // Photo and signature are optional for this POD workflow.
+  const exceptionReason = typeof body.signatureExceptionReason === 'string' ? body.signatureExceptionReason.trim() : '';
+  if (!signatureData && exceptionReason.length < 5) return respond(400, { error: 'Add a signature or explain why it is unavailable.' });
 
   try {
     const existenceChecks = await Promise.all(
@@ -306,6 +309,7 @@ async function savePod(
     : null;
   const podNotes = [
     typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
+    !signatureData ? 'Signature unavailable: ' + exceptionReason.slice(0, 500) : '',
     hardCopyRequired && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
   ].filter(Boolean).join(' | ') || null;
 
