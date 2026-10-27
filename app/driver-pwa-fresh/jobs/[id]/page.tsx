@@ -128,6 +128,6 @@ export default function FreshLoadDetail() {
         </section>
       </article> : null}
     </main>
-    <nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" aria-current="page" href="/driver-pwa-fresh/jobs">Jobs</Link><span aria-disabled="true" title="Not yet built">Quotes</span><span aria-disabled="true" title="Not yet built">Bookings</span><span aria-disabled="true" title="Not yet built">More</span></nav>
+    <nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" aria-current="page" href="/driver-pwa-fresh/jobs">Jobs</Link><Link href="/driver/quotes">Quotes</Link><Link href="/driver/won-work">Bookings</Link><Link href="/driver">More</Link></nav>
   </ProtectedRoute>;
 }
