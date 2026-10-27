@@ -557,6 +557,22 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   const stopInstructions = [sheet?.pickup.notes, sheet?.delivery.notes].filter((value): value is string => Boolean(value?.trim()));
   const paperworkInstructions = sheet?.documentChecklist ?? [];
 
+
+  if (mobilePwa) {
+    const stops = [
+      {name:'Collection',place:sheet?.pickup.address??job.pickup_location,postcode:sheet?.pickup.postcode??job.pickup_postcode,at:sheet?.pickup.dateTime??job.pickup_datetime,phone:sheet?.pickup.contactPhone,notes:sheet?.pickup.notes},
+      {name:'Delivery',place:sheet?.delivery.address??job.delivery_location,postcode:sheet?.delivery.postcode??job.delivery_postcode,at:sheet?.delivery.dateTime??job.delivery_datetime,phone:sheet?.delivery.contactPhone,notes:sheet?.delivery.notes}
+    ];
+    return <div className="fresh-mobile-booking" data-testid="mobile-booking-details">
+      <section className="fresh-mobile-booking-card"><small>BOOKING {sheet?.reference??job.id.slice(0,8)}</small><h1>{stops[0].place} → {stops[1].place}</h1><p>{statusLabel[currentStatus]??currentStatus}</p>{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}<button onClick={()=>void loadJob()} disabled={working}>Refresh</button></section>
+      <section className="fresh-mobile-booking-card"><h2>Job progress</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{nextStatus&&canShowLifecycleAction&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void moveStatus(nextStatus)}>{nextLabel}</button>}</section>
+      {stops.map(stop=><section className="fresh-mobile-booking-card" key={stop.name}><h2>{stop.name}</h2><strong>{stop.place??'Not supplied'}</strong><p>{stop.postcode}</p><p>{formatDateTime(stop.at)}</p>{stop.notes&&<p>{stop.notes}</p>}<div className="fresh-mobile-booking-actions">{stop.phone&&<a href={'tel:'+stop.phone}>Call contact</a>}<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a></div></section>)}
+      <section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl><dt>Company</dt><dd>{sheet?.bookedBy??'Not supplied'}</dd><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd><dt>Rate</dt><dd>{money(sheet?.agreedRate,sheet?.currency??job.currency)}</dd><dt>Payment terms</dt><dd>{sheet?.paymentTerms??'Not supplied'}</dd></dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>
+      <section className="fresh-mobile-booking-card"><h2>Evidence</h2><label>Collection photos ({collectionPhotos.length})<input type="file" accept="image/*" multiple onChange={e=>void selectCollectionPhotos(e)}/></label><label>Delivery photos ({deliveryPhotos.length})<input type="file" accept="image/*" multiple onChange={e=>void selectDeliveryPhotos(e)}/></label><label>Driver notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label></section>
+      <section className="fresh-mobile-booking-card"><h2>Proof of delivery</h2>{podComplete?<p>POD recorded</p>:<><label>Recipient name<input value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label><label>Signature<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label><button onClick={clearSignature}>Clear signature</button>{hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}<button className="fresh-mobile-booking-primary" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>Complete POD</button></>}{podComplete&&canGenerateInvoices&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Generate invoice</button>}</section>
+      <section className="fresh-mobile-booking-card"><h2>Activity</h2><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></section>
+    </div>;
+  }
   return (
     <PageFrame>
       <PageHeader
