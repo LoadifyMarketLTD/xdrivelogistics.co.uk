@@ -164,7 +164,7 @@ const requiresHardCopyPod = (value: string | null | undefined) => {
   return true;
 };
 
-export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
+export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { jobId: string; mobilePwa?: boolean }) {
   const router = useRouter();
   const { user } = useAuth();
   const driverId = user?.driverId?.trim() ?? '';
@@ -571,7 +571,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
       <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'flex-end', marginBottom: 6 }}>
         <span className="workspace-list-controls__right">
-          <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>← Back</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push(mobilePwa ? '/driver-pwa-fresh/bookings' : '/driver/jobs')}>← Back</ActionButton>
           <ActionButton tone="secondary" onClick={() => void loadJob()}>Refresh</ActionButton>
         </span>
       </div>
