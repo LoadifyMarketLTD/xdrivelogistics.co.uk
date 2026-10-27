@@ -18,3 +18,28 @@
 .fresh-driver-pwa .fresh-bottom a{display:flex;flex:1;min-width:0;min-height:58px;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:#203b55;opacity:1;pointer-events:auto;cursor:pointer;font-size:15px;font-weight:700}.fresh-driver-pwa .fresh-bottom a.selected{color:#13508b;background:#eaf3fb}.fresh-driver-pwa .fresh-bottom a:focus-visible{outline:3px solid #155d91;outline-offset:-3px}
 
 .fresh-driver-pwa .fresh-header{overflow:hidden;min-width:0}.fresh-driver-pwa .fresh-header-icon{flex:0 0 44px;display:flex;align-items:center;justify-content:center;width:44px;min-width:44px;padding:0}.fresh-driver-pwa .fresh-bottom{grid-template-columns:repeat(3,minmax(0,1fr))}.fresh-driver-pwa .fresh-quote-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;background:white;padding:5px;margin-bottom:10px;border-radius:6px}.fresh-driver-pwa .fresh-quote-tabs button{min-width:0;min-height:48px;border:0;background:#f0f2f5;border-radius:4px;font-size:14px;font-weight:700}.fresh-driver-pwa .fresh-quote-tabs button[aria-selected=true]{background:white;border-bottom:3px solid #1472c3;color:#0c3564}.fresh-menu-backdrop{position:fixed;inset:58px 0 0;background:#0006;z-index:30}.fresh-menu{margin-left:auto;width:min(340px,90vw);max-height:calc(100dvh - 70px);overflow-y:auto;background:white;padding:14px;box-shadow:-4px 4px 18px #0003}.fresh-menu a{display:block;padding:15px 10px;border-bottom:1px solid #e4e9ee;color:#173451;text-decoration:none;font-size:16px;font-weight:600}.fresh-menu-heading{display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:700}.fresh-menu-heading button{border:0;background:none;font-size:28px;min-width:44px;min-height:44px}
+
+/* Three equal-width, thumb-friendly primary navigation tabs. */
+.fresh-driver-pwa .fresh-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;align-items:stretch;width:100%;padding:4px 8px max(6px,env(safe-area-inset-bottom));min-height:66px;background:#fff;border-top:1px solid #dce4ec;box-shadow:0 -3px 12px #17345112}.fresh-driver-pwa .fresh-bottom a{min-width:0;min-height:54px;margin:0 3px;border:0;border-radius:10px;display:flex;justify-content:center;align-items:center;gap:4px;font-size:15px;font-weight:700;letter-spacing:.1px;color:#203b55;white-space:nowrap;transition:background .15s ease,color .15s ease}.fresh-driver-pwa .fresh-bottom a.selected{background:#e8f2fb;color:#14568d;border:0}.fresh-driver-pwa .fresh-bottom a:active{background:#d9ebf9}.fresh-driver-pwa .fresh-content{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+
+/* APPROVED FINAL MOBILE SPEC 2026-10-27: authoritative override, no screenshot pixel conversion. */
+.fresh-driver-pwa{font-size:16px;line-height:22px}
+.fresh-driver-pwa .fresh-content{padding-left:12px;padding-right:12px}
+.fresh-driver-pwa .fresh-content>h1,.fresh-driver-pwa .fresh-header h1{font-size:20px;font-weight:700;line-height:26px}
+.fresh-driver-pwa .fresh-card{margin-bottom:10px}
+.fresh-driver-pwa .fresh-summary,.fresh-driver-pwa .fresh-route,.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-actions{padding:14px}
+.fresh-driver-pwa .fresh-summary strong,.fresh-driver-pwa .fresh-quote-job>strong{font-size:18px;font-weight:700;line-height:24px}
+.fresh-driver-pwa .fresh-route-places strong,.fresh-driver-pwa .fresh-preview-pin strong,.fresh-driver-pwa .fresh-quote-route strong{font-size:19px;font-weight:800;line-height:25px}
+.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-posted,.fresh-driver-pwa .fresh-quick,.fresh-driver-pwa .fresh-route-places p{font-size:14px;font-weight:500;line-height:20px}
+.fresh-driver-pwa .fresh-available,.fresh-driver-pwa .fresh-service,.fresh-driver-pwa .fresh-tag{font-size:12px;font-weight:700;line-height:17px}
+.fresh-driver-pwa .fresh-bottom a,.fresh-driver-pwa .fresh-bottom button,.fresh-driver-pwa .fresh-quote-tabs button,.fresh-driver-pwa .fresh-tabs button,.fresh-driver-pwa .fresh-actions button,.fresh-driver-pwa .fresh-actions a,.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .quote-now{font-size:16px;font-weight:600;line-height:22px;min-height:48px}
+.fresh-driver-pwa .fresh-bottom{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fresh-driver-pwa .fresh-actions input,.fresh-driver-pwa .fresh-actions select,.fresh-driver-pwa .fresh-actions textarea{font-size:16px;min-height:48px}
+.fresh-driver-pwa .fresh-card,.fresh-driver-pwa .fresh-content{max-width:100%;overflow-wrap:anywhere}
+
+/* Final three-tab driver navigation and hamburger: 27 Oct approved. */
+.fresh-driver-pwa .fresh-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:stretch;padding:6px 12px max(6px,env(safe-area-inset-bottom));min-height:66px}
+.fresh-driver-pwa .fresh-bottom>a,.fresh-driver-pwa .fresh-bottom>button{display:flex;align-items:center;justify-content:center;min-width:0;min-height:54px;width:100%;margin:0;border:0;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;color:#203b55;background:#fff;cursor:pointer}
+.fresh-driver-pwa .fresh-bottom>.selected,.fresh-driver-pwa .fresh-bottom>a.selected{background:#e8f2fb;color:#14568d}
+.fresh-driver-pwa .fresh-menu-backdrop{z-index:40}
+.fresh-driver-pwa .fresh-header-icon{min-height:48px;min-width:44px}
