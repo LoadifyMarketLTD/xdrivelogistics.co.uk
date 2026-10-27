@@ -56,6 +56,7 @@ type ProfileRow = {
 };
 
 type BidRow = {
+  id: string;
   job_id: string;
   status: string | null;
   bid_price_gbp: number | string | null;
@@ -157,6 +158,7 @@ function publicLoad(
       postedBy,
     },
     myBid: bid ? {
+      id: bid.id,
       status: bid.status,
       amount: marketplaceNumber(bid.bid_price_gbp ?? bid.amount),
       message: bid.message,
@@ -275,7 +277,7 @@ export async function GET(request: NextRequest) {
   const bidQuery = jobIds.length
     ? supabaseAdmin
         .from('job_bids')
-        .select('job_id, status, bid_price_gbp, amount, message')
+        .select('id, job_id, status, bid_price_gbp, amount, message')
         .in('job_id', jobIds)
         .order('created_at', { ascending: false })
     : null;
@@ -288,9 +290,7 @@ export async function GET(request: NextRequest) {
       ? supabaseAdmin.from('profiles').select('user_id, full_name, xd_id').in('user_id', createdByIds)
       : Promise.resolve({ data: [], error: null }),
     bidQuery
-      ? driver.companyId
-        ? bidQuery.eq('company_id', driver.companyId)
-        : bidQuery.eq('bidder_user_id', driver.userId)
+      ? bidQuery.eq('bidder_user_id', driver.userId)
       : Promise.resolve({ data: [], error: null }),
   ]);
 

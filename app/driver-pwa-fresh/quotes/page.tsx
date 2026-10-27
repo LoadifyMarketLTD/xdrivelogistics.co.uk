@@ -4,7 +4,6 @@ import Link from 'next/link';
 import FreshJobCard, { type Load } from '../FreshJobCard';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
-import { supabase } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 
 type Bid = { id:string; job_id:string; amount:number|null; bid_price_gbp:number|null; status:string; created_at:string };
@@ -21,14 +20,14 @@ export default function FreshQuotes() {
   if(!user?.id)return;
   setLoading(true);setError('');
   try{
-   const result=await supabase.from('job_bids').select('id,job_id,amount,bid_price_gbp,status,created_at').eq('bidder_user_id',user.id).order('created_at',{ascending:false}).limit(150);
-   if(result.error)throw new Error('Unable to retrieve submitted quotes.');
-   setBids((result.data??[]) as Bid[]);
    const auth=await readRouteAuthHeader();
-   if(auth){const response=await fetch('/api/driver/marketplace/loads?view=quote_history',{headers:{Authorization:auth},cache:'no-store'});
-    if(response.ok){const data=await response.json() as {loads?:Load[]};setLoads(Object.fromEntries((data.loads??[]).map(load=>[load.id,load])));}
-    else setLoads({});
-   }
+   if(!auth)throw new Error('Sign in required.');
+   const response=await fetch('/api/driver/marketplace/loads?view=quote_history',{headers:{Authorization:auth},cache:'no-store'});
+   if(!response.ok)throw new Error('Unable to retrieve submitted quotes.');
+   const data=await response.json() as {loads?:Load[]};
+   const history=data.loads??[];
+   setLoads(Object.fromEntries(history.map(load=>[load.id,load])));
+   setBids(history.flatMap(load=>load.myBid?.id?[{id:load.myBid.id,job_id:load.id,amount:load.myBid.amount,bid_price_gbp:load.myBid.amount,status:load.myBid.status??'submitted',created_at:load.exchange_posted_at??''}]:[]));
   }catch(e){setError(e instanceof Error?e.message:'Unable to load quotes.');}
   finally{setLoading(false);}
  },[user?.id]);
@@ -51,7 +50,7 @@ export default function FreshQuotes() {
    {error?<div className="fresh-message" role="alert">{error}</div>:null}
    {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No active quotes.</div>:visible.map(bid=>{
     const load=loads[bid.job_id];const status=bid.status.toLowerCase();
-    return load ? <FreshJobCard key={bid.id} load={load} mode="quotes" actions={<><div className="fresh-quote-amount">{closed.has(status) ? (status === 'withdrawn' || status === 'cancelled' ? 'Cancelled quote' : 'Your Quote was Unsuccessful') : 'You Quoted'}: £{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</div><Link className="fresh-detail" href={'/driver-pwa-fresh/jobs/'+encodeURIComponent(bid.job_id)}>View Details</Link>{!closed.has(status)?<button className="fresh-cancel-quote" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Cancelling...':'Cancel Quote'}</button>:null}</>} /> : <article className="fresh-card" key={bid.id}><section className="fresh-summary"><strong>Job {bid.job_id}</strong></section><div className="fresh-message">Job details temporarily unavailable</div></article>;
+    return load ? <FreshJobCard key={bid.id} load={load} mode="quotes" actions={<><div className="fresh-quote-amount">{closed.has(status) ? (status === 'withdrawn' || status === 'cancelled' ? 'Cancelled quote' : 'Your Quote was Unsuccessful') : 'You Quoted'}: £{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</div><Link className="fresh-detail" href={'/driver-pwa-fresh/jobs/'+encodeURIComponent(bid.job_id)+'?history=1'}>View Details</Link>{!closed.has(status)?<button className="fresh-cancel-quote" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Cancelling...':'Cancel Quote'}</button>:null}</>} /> : <article className="fresh-card" key={bid.id}><section className="fresh-summary"><strong>Job {bid.job_id}</strong></section><div className="fresh-message">Job details temporarily unavailable</div></article>;
    })}
   </main>
   <nav className="fresh-bottom" aria-label="Driver tabs"><Link href="/driver-pwa-fresh/jobs">Jobs</Link><Link className="selected" aria-current="page" href="/driver-pwa-fresh/quotes">Quotes</Link><Link href="/driver/won-work">Bookings</Link><Link href="/driver">More</Link></nav>

@@ -11,7 +11,7 @@ export type Load = {
   distance_miles: number | null; weight_kg: number | null; pallets: number | null;
   payment_terms: string | null; exchange_posted_at: string | null;
   member: { name: string; postedBy: string | null } | null;
-  myBid?: { status: string | null; amount: number | null } | null;
+  myBid?: { id?: string; status: string | null; amount: number | null } | null;
 };
 const place = (town: string, outcode: string | null) => [town, outcode].filter(Boolean).join(' | ').toUpperCase();
 const time = (value: string | null) => {
