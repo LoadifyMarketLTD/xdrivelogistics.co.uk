@@ -19,6 +19,6 @@ export default async function QuoteVisualPreview({searchParams}:{searchParams:Pr
  <section className="fresh-quote-panel"><label>Choose currency<select defaultValue="GBP"><option>GBP</option></select></label><div className="fresh-quote-extras">Extras <button disabled type="button">+ ADD NEW</button></div></section>
  <section className="fresh-quote-panel"><label>Notes<textarea rows={5} placeholder="Message to customer"/></label></section>
  <DemoQuoteForm/><p><Link href="/driver-pwa-fresh/jobs">Open live Jobs</Link></p>
- </main><nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" href="/driver-pwa-fresh/visual-preview">Jobs</Link><span aria-disabled="true">Quotes</span><span aria-disabled="true">Bookings</span><span aria-disabled="true">More</span></nav>
+ </main><nav className="fresh-bottom" aria-label="Driver tabs"><Link href="/driver-pwa-fresh/visual-preview/workflow?tab=jobs">Jobs</Link><Link href="/driver-pwa-fresh/visual-preview/workflow?tab=quotes">Quotes</Link><Link href="/driver-pwa-fresh/visual-preview/workflow?tab=bookings">Bookings</Link></nav>
  </>;
 }

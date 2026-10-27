@@ -33,6 +33,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
   const [loading, setLoading] = useState(!previewLoads);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<Tab>('available');
+  const [mapSheetOpen,setMapSheetOpen] = useState(true);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [vehicle, setVehicle] = useState('');
@@ -61,7 +62,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
       restore('vehicleFrom',setVehicleFrom);restore('vehicleTo',setVehicleTo);
     } catch { /* Corrupt or unavailable storage: retain default 10-mile radius. */ }
   }, []);
-  useEffect(() => { if (new URLSearchParams(window.location.search).get('view') === 'filter') setTab('filter'); }, []);
+  useEffect(() => { const view=new URLSearchParams(window.location.search).get('view'); if(view==='filter'||view==='map')setTab(view); }, []);
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setClock(Date.now()), 30_000);
@@ -112,7 +113,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
     if (vehicleTo && (sizeIndex < 0 || sizeIndex > sizes.indexOf(vehicleTo))) return false;
     return true;
   }), [results, memberQuery, freightType, dateRange, startDate, endDate, vehicleFrom, vehicleTo, clock]);
-  const filtersCount = [from,to,vehicle,bodyType,collectWithin,pickupRadius,destinationRadius,memberQuery,freightType,vehicleFrom,vehicleTo,dateRange!=='any'?'date':''].filter(Boolean).length;
+  const filtersCount = [from,to,vehicle,bodyType,collectWithin,pickupRadius!=='10'?pickupRadius:'',destinationRadius,memberQuery,freightType,vehicleFrom,vehicleTo,dateRange!=='any'?'date':''].filter(Boolean).length;
   const screen = <>
     <FreshHeader onSearch={() => setTab('filter')} />
     <main className="fresh-content">
@@ -137,11 +138,11 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
         <label>Member Name/ ID<input value={memberQuery} onChange={event => setMemberQuery(event.target.value)} placeholder="Enter Member Name / ID" /></label>
         <details className="fresh-extra-filters"><summary>More filters</summary><label>Destination town / outcode<input value={to} onChange={event => setTo(event.target.value)} placeholder="Town or outcode" /></label><label>Collect within<select value={collectWithin} onChange={event => setCollectWithin(event.target.value)}><option value="">Any time</option>{[15,30,45,60,90,120].map(n => <option key={n} value={n}>{n} minutes</option>)}</select></label><label>Destination radius<select value={destinationRadius} onChange={event => setDestinationRadius(event.target.value)}><option value="">Any distance</option>{[5,10,25,50,100].map(n => <option key={n} value={n}>{n} miles</option>)}</select></label></details>
         <div className="fresh-filter-actions"><button type="button" className="primary" onClick={() => setTab('available')}>SEARCH ({searchedResults.length})</button><button type="button" onClick={() => { const saved={from,to,vehicle,bodyType,collectWithin,pickupRadius,destinationRadius,locationMode,dateRange,startDate,endDate,memberQuery,freightType,vehicleFrom,vehicleTo}; try { localStorage.setItem("xdrive-driver-saved-job-filters",JSON.stringify(saved)); window.alert("Search preferences saved until you press Clear."); } catch { window.alert("Unable to save search preferences."); } }}>SAVE</button><button type="button" onClick={() => { try { localStorage.removeItem("xdrive-driver-saved-job-filters"); } catch { /* Storage can be unavailable in private browsing. */ } setFrom('');setTo('');setVehicle('');setBodyType('');setCollectWithin('');setPickupRadius('10');setDestinationRadius('');setLocationMode('current');setDateRange('any');setStartDate('');setEndDate('');setMemberQuery('');setFreightType('');setVehicleFrom('');setVehicleTo(''); }}>CLEAR</button></div>
-      </section> : tab === 'map' ? <section className="fresh-map-view" aria-label="Available jobs map"><div className="fresh-map-summary">{searchedResults.length} available jobs -  pickup areas shown at outcode level</div><PublicLoadsMap loads={searchedResults.map(load => ({ id: load.id, pickupLabel: place(load.pickup_area, load.pickup_postcode_area), pickupPostcode: load.pickup_postcode_area, deliveryLabel: place(load.delivery_area, load.delivery_postcode_area), deliveryPostcode: load.delivery_postcode_area, vehicleLabel: load.requested_vehicle_label || load.vehicle_type || 'Van', posterName: load.member?.name || 'Company', pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at }))} onDetails={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}`)} onQuote={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}#quote`)} /></section> : <>
+      </section> : tab === 'map' ? <section className="fresh-map-view fresh-map-reference" aria-label="Available jobs map"><div className="fresh-map-summary">{searchedResults.length} available jobs -  pickup areas shown at outcode level</div><PublicLoadsMap loads={searchedResults.map(load => ({ id: load.id, pickupLabel: place(load.pickup_area, load.pickup_postcode_area), pickupPostcode: load.pickup_postcode_area, deliveryLabel: place(load.delivery_area, load.delivery_postcode_area), deliveryPostcode: load.delivery_postcode_area, vehicleLabel: load.requested_vehicle_label || load.vehicle_type || 'Van', posterName: load.member?.name || 'Company', pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at }))} onDetails={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}`)} onQuote={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}#quote`)} /><div className="fresh-map-sheet"><button className="fresh-map-sheet-heading" type="button" onClick={()=>setMapSheetOpen(v=>!v)} aria-expanded={mapSheetOpen}>Loads nearby ({searchedResults.length}) <span>{mapSheetOpen?"×":"⌃"}</span></button>{mapSheetOpen?<div className="fresh-map-sheet-items">{searchedResults.slice(0,12).map(load=><button type="button" className="fresh-map-sheet-row" key={load.id} onClick={()=>router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(load.id)}`)}><span className="fresh-map-van" aria-hidden="true">🚚</span><span className="fresh-map-sheet-places"><strong>{load.pickup_area} {load.pickup_postcode_area}</strong><small>{load.delivery_area} {load.delivery_postcode_area}</small><small>{load.distance_miles != null?`${load.distance_miles} miles`:"View job details"}</small></span><span className="fresh-map-sheet-status">View ›</span></button>)}</div>:null}</div></section> : <>
         {loading ? <div className="fresh-message" role="status">Loading available jobs...</div> : error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchLoads()}>Try again</button></p></div> : searchedResults.length === 0 ? <div className="fresh-message">No available loads match your search.<p><button type="button" onClick={() => setTab('filter')}>Change filters</button></p></div> : searchedResults.map(load => <FreshJobCard key={load.id} load={load} mode={previewLoads ? "preview" : "jobs"} />)}
       </>}
     </main>
-    <FreshBottom active="jobs" />
+    <FreshBottom active="jobs" demo={Boolean(previewLoads)} />
   </>;
   return previewLoads ? screen : <ProtectedRoute allowedRoles={['driver']}>{screen}</ProtectedRoute>;
 }

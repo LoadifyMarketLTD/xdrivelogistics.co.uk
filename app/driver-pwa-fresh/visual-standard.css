@@ -130,3 +130,93 @@
 .fresh-driver-pwa .fresh-tag{background:#FFF2D5;color:#805200}
 .fresh-driver-pwa .fresh-dot{border-color:var(--xd-secondary-blue)}
 .fresh-driver-pwa :is(button,a,input,select,textarea):focus-visible{outline-color:var(--xd-secondary-blue)}
+/* Mobile reference: card actions, quote statuses and real booking milestone overview. */
+.fresh-driver-pwa .fresh-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fresh-driver-pwa .fresh-actions>:only-child{grid-column:1/-1}
+.fresh-driver-pwa .fresh-actions .quote-now,.fresh-driver-pwa .fresh-actions .fresh-detail{min-width:0}
+.fresh-driver-pwa .fresh-available{background:#E9F8EF;color:#126534;border-radius:999px;padding:4px 9px}
+.fresh-driver-pwa .fresh-service{color:#C5412B}
+.fresh-driver-pwa .fresh-cancel-quote{border:1px solid #D94848;background:#fff;color:#B42318;border-radius:6px;min-height:48px;font-weight:700}
+.fresh-driver-pwa .fresh-quote-amount{grid-column:1/-1;color:var(--xd-primary-blue);font-weight:800}
+.fresh-driver-pwa .fresh-quote-tabs{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
+.fresh-driver-pwa .fresh-quote-tabs button[aria-selected=true]{color:var(--xd-primary-blue);border-bottom-color:var(--xd-secondary-blue)}
+.fresh-driver-pwa .fresh-booking-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:12px 10px 6px;gap:2px}
+.fresh-driver-pwa .fresh-booking-timeline>div{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;color:#758394}
+.fresh-driver-pwa .fresh-booking-timeline>div:not(:last-child):before{content:"";position:absolute;left:50%;right:-50%;height:3px;top:7px;background:#CBD5E1}
+.fresh-driver-pwa .fresh-booking-step-dot{width:16px;height:16px;z-index:1;background:#CBD5E1;border:3px solid #fff;box-shadow:0 0 0 1px #CBD5E1;border-radius:50%}
+.fresh-driver-pwa .fresh-booking-timeline>div.done{color:var(--xd-secondary-blue);font-weight:700}
+.fresh-driver-pwa .fresh-booking-timeline>div.done .fresh-booking-step-dot{background:var(--xd-secondary-blue);box-shadow:0 0 0 1px var(--xd-secondary-blue)}
+.fresh-driver-pwa .fresh-booking-timeline small{font-size:10px;line-height:13px}
+/* Reference-accurate compact Jobs screen, scoped to the real Driver PWA. */
+@media(max-width:699px){
+.fresh-driver-pwa .fresh-content{padding:7px 9px 82px}
+.fresh-driver-pwa .fresh-tabs{margin-bottom:8px;padding:4px 5px;gap:4px}
+.fresh-driver-pwa .fresh-tabs button{min-height:40px;font-size:12px;line-height:16px;font-weight:700}
+.fresh-driver-pwa .fresh-card{border-radius:9px;margin-bottom:9px}
+.fresh-driver-pwa .fresh-summary{padding:9px 10px 6px}
+.fresh-driver-pwa .fresh-summary strong{font-size:13px;line-height:18px}
+.fresh-driver-pwa .fresh-posted{font-size:11px;line-height:15px}
+.fresh-driver-pwa .fresh-summary-meta{font-size:11px;margin-top:4px}
+.fresh-driver-pwa .fresh-route{padding:9px 11px;gap:10px}
+.fresh-driver-pwa .fresh-route-places{gap:10px}
+.fresh-driver-pwa .fresh-route-places strong{font-size:13px;line-height:18px}
+.fresh-driver-pwa .fresh-route-places p{font-size:11px;line-height:16px;margin:2px 0 0}
+.fresh-driver-pwa .fresh-connector{height:37px}
+.fresh-driver-pwa .fresh-notes{font-size:11px;line-height:16px;padding:7px 10px}
+.fresh-driver-pwa .fresh-quick{font-size:11px;line-height:17px;padding:7px 10px}
+.fresh-driver-pwa .fresh-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:7px 10px 10px}
+.fresh-driver-pwa .fresh-actions .quote-now,.fresh-driver-pwa .fresh-actions .fresh-detail{font-size:12px;line-height:17px;min-height:38px;font-weight:800}
+.fresh-driver-pwa .fresh-actions>:only-child{grid-column:1/-1}
+.fresh-driver-pwa .fresh-bottom a{font-size:12px;line-height:18px;min-height:52px}
+.fresh-driver-pwa .fresh-available{font-size:10px;line-height:15px;padding:3px 8px}
+}
+/* Details must reuse Jobs top card, without duplicating the route beneath it. */
+.fresh-driver-pwa .fresh-details-card{background:transparent;border:0;box-shadow:none;overflow:visible}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes{background:#fff;border:1px solid #e0e6ec;border-radius:9px;margin:0 0 9px;padding:13px}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes h2{font-size:14px;color:#0B2F6B;margin:0 0 10px}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes .fresh-facts{grid-template-columns:minmax(95px,32%) 1fr;gap:10px}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes .fresh-facts dt{color:#1A1F2B}
+.fresh-driver-pwa .fresh-details-card>.fresh-actions{background:#fff;border:1px solid #e0e6ec;border-radius:9px;grid-template-columns:1fr;padding:13px;margin-bottom:12px}
+.fresh-driver-pwa .fresh-details-card>.fresh-actions>*{grid-column:1/-1}
+/* Approved Load Details actions: full-width Quote Now, equal Save/Delete below. */
+.fresh-driver-pwa .fresh-preview-details .fresh-actions{display:flex;flex-direction:column;gap:10px;padding:12px 14px 16px;background:#F4F6F8}
+.fresh-driver-pwa .fresh-preview-details .fresh-actions>.quote-now{display:flex;width:100%;min-height:58px;height:auto;background:#16A34A;border:1px solid #15803D;color:#fff;font-size:18px;font-weight:800;line-height:24px;border-radius:6px;text-align:center}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;align-items:stretch}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary>button{width:100%;min-height:54px;height:auto;display:flex;justify-content:center;align-items:center;border:0;border-radius:6px;background:#F5A300;color:#1A1F2B;font-size:16px;font-weight:800;line-height:22px;padding:12px}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary>button:nth-of-type(2){background:#EF5A55;color:#1A1F2B}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary>p{grid-column:1/-1;font-size:12px;line-height:17px;margin:0;color:#64748B}
+/* Reference implementation: Quotes four-status tabs and map results sheet. */
+.fresh-driver-pwa .fresh-quote-status-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#fff;border-bottom:1px solid #dfe5ec;gap:0;padding:0 5px;margin-bottom:9px}
+.fresh-driver-pwa .fresh-quote-status-tabs button{min-height:44px;border:0;border-bottom:3px solid transparent;background:transparent;color:#0B2F6B;font-size:12px;font-weight:600}
+.fresh-driver-pwa .fresh-quote-status-tabs button[aria-selected=true]{border-bottom-color:#1D57D8;font-weight:800;color:#0B2F6B}
+.fresh-driver-pwa .fresh-map-reference{position:relative;min-height:calc(100dvh - 190px);overflow:hidden;background:#e8eff1}
+.fresh-driver-pwa .fresh-map-reference .fresh-map-sheet{position:absolute;bottom:0;left:0;right:0;z-index:4;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -5px 22px #0B2F6B22;max-height:53dvh;display:flex;flex-direction:column}
+.fresh-driver-pwa .fresh-map-sheet-heading{flex:none;min-height:48px;display:flex;align-items:center;justify-content:space-between;background:#fff;border:0;border-radius:16px 16px 0 0;padding:10px 14px;color:#0B2F6B;font-weight:800;font-size:14px}
+.fresh-driver-pwa .fresh-map-sheet-items{overflow-y:auto;padding:0 8px 8px}
+.fresh-driver-pwa .fresh-map-sheet-row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:9px;width:100%;min-height:62px;background:#fff;border:1px solid #e3e9ef;border-radius:10px;margin:5px 0;padding:7px 9px;text-align:left;color:#0B2F6B}
+.fresh-driver-pwa .fresh-map-van{font-size:25px}
+.fresh-driver-pwa .fresh-map-sheet-places{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fresh-driver-pwa .fresh-map-sheet-places strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fresh-driver-pwa .fresh-map-sheet-places small{font-size:11px;color:#64748B}
+.fresh-driver-pwa .fresh-map-sheet-status{font-size:11px;color:#1D57D8;font-weight:800}
+.fresh-driver-pwa .fresh-booking-actions{display:flex;flex-direction:column;gap:8px}
+.fresh-driver-pwa .fresh-booking-actions>a{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;text-align:center;border-radius:6px;font-weight:750;font-size:13px;text-decoration:none}
+.fresh-driver-pwa .fresh-booking-actions>.fresh-booking-open{background:#16A34A;color:#fff;border:1px solid #15803D}
+.fresh-driver-pwa .fresh-booking-actions>.fresh-detail{background:#fff;color:#0B2F6B;border:1px solid #D7DFE7}
+/* Search Loads: approved action hierarchy. Search full-width; Save and Clear equal below. */
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%;margin-top:12px}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button{width:100%;min-width:0;min-height:52px;height:52px;border-radius:7px;border:0;font-size:15px;font-weight:800;line-height:20px}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:first-child{grid-column:1/-1;background:#16A34A;color:#fff}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:nth-child(2){grid-column:1;background:#F5A300;color:#1A1F2B}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:nth-child(3){grid-column:2;background:#E2E5E9;color:#1A1F2B}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:focus-visible{outline:3px solid #1D57D8;outline-offset:2px}
+/* Mobile booking execution: preserve the proven action/POD implementation without desktop overflow. */
+.fresh-driver-pwa .fresh-booking-detail-header{height:56px;display:flex;align-items:center;gap:16px;padding:0 14px;background:#F5A300;color:#0B2F6B}
+.fresh-driver-pwa .fresh-booking-detail-header a{color:#0B2F6B;text-decoration:none;font-size:17px;font-weight:800;min-height:44px;display:flex;align-items:center}
+.fresh-driver-pwa .fresh-booking-detail-header strong{font-size:17px}
+.fresh-driver-pwa .fresh-booking-execution{min-width:0;width:100%;max-width:100vw;overflow-x:hidden;padding:8px 8px 110px;background:#F4F6F8}
+.fresh-driver-pwa .fresh-booking-execution *{box-sizing:border-box;max-width:100%}
+.fresh-driver-pwa .fresh-booking-execution :is(input,select,textarea,button){font-size:16px;min-height:44px}
+.fresh-driver-pwa .fresh-booking-execution :is(table){display:block;max-width:100%;overflow-x:auto}
+.fresh-driver-pwa .fresh-booking-execution :is(img,canvas){max-width:100%;height:auto}
+@media(max-width:767px){.fresh-driver-pwa .fresh-booking-execution .driver-detail-grid{grid-template-columns:minmax(0,1fr)!important}.fresh-driver-pwa .fresh-booking-execution .driver-row-actions{flex-wrap:wrap}.fresh-driver-pwa .fresh-booking-execution .driver-row-actions>*{flex:1 1 140px}}

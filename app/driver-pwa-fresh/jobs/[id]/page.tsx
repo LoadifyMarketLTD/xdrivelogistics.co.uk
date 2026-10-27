@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import FreshSectionTabs from '../../FreshSectionTabs';
+import FreshJobCard from '../../FreshJobCard';
+import { FreshBottom } from '../../FreshNavigation';
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 
 type Load = {
@@ -22,12 +25,6 @@ type Load = {
   myBid: { status: string | null; amount: number | null } | null;
   member: { name: string; memberId: string | null } | null;
 };
-const formatDate = (value: string | null) => {
-  if (!value) return 'Not specified';
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not specified';
-};
-const locationLabel = (area: string, outcode: string | null) => [area, outcode].filter(Boolean).join(', ');
 const available = new Set(['posted', 'quoted']);
 export default function FreshLoadDetail() {
   const params = useParams();
@@ -95,15 +92,10 @@ export default function FreshLoadDetail() {
   };
   return <ProtectedRoute allowedRoles={['driver']}>
     <header className="fresh-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">← LOADS</Link><h1>Load ID {id.slice(0, 12)}</h1></header>
-    <main className="fresh-content" data-testid="load-details">
+    <main className="fresh-content" data-testid="load-details"><FreshSectionTabs mapHref={'/driver-pwa-fresh/jobs?view=map&load='+encodeURIComponent(id)}/>
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
-      {load ? <article className="fresh-card fresh-details-card">
-        <section className="fresh-details-journey"><strong>{locationLabel(load.pickup_area, load.pickup_postcode_area)}</strong><div className="fresh-details-route-line" aria-hidden="true"/><strong>{locationLabel(load.delivery_area, load.delivery_postcode_area)}</strong>{load.distance_miles != null ? <span>{load.distance_miles} miles</span> : null}</section><section className="fresh-summary"><div className="fresh-summary-top"><strong>{load.member?.name || 'Marketplace member'}</strong><span className="fresh-tag">{load.requested_vehicle_label || load.vehicle_type || 'Vehicle TBC'}</span></div><p className="fresh-muted">Load reference: {load.id}</p></section>
-        <section className="fresh-route">
-          <div className="fresh-stop"><span className="fresh-dot" /><div><div className="fresh-muted">COLLECT</div><div className="fresh-town">{locationLabel(load.pickup_area, load.pickup_postcode_area)}</div><div>{formatDate(load.pickup_datetime)} · {load.pickup_time_slot || 'Time slot not specified'}</div>{load.collection_window_end ? <div>Window ends: {formatDate(load.collection_window_end)}</div> : null}</div></div>
-          <div className="fresh-stop"><span className="fresh-dot" /><div><div className="fresh-muted">DELIVER</div><div className="fresh-town">{locationLabel(load.delivery_area, load.delivery_postcode_area)}</div><div>{formatDate(load.delivery_datetime)} · {load.delivery_time_slot || 'Time slot not specified'}</div></div></div>
-        </section>
+      {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card">
         <section className="fresh-notes fresh-details-spec" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
           <dl className="fresh-facts">
             <dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
@@ -126,8 +118,8 @@ export default function FreshLoadDetail() {
              <button type="button" className="quote-now" disabled={submitting} onClick={() => void submit()}>{submitting ? 'Submitting…' : 'Submit Quote'}</button></>}
           {error ? <p role="alert" className="fresh-error">{error}</p> : null}
         </section>
-      </article> : null}
+      </article></> : null}
     </main>
-    <nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" aria-current="page" href="/driver-pwa-fresh/jobs">Jobs</Link><Link href="/driver/quotes">Quotes</Link><Link href="/driver/won-work">Bookings</Link><Link href="/driver">More</Link></nav>
+    <FreshBottom active="jobs" />
   </ProtectedRoute>;
 }

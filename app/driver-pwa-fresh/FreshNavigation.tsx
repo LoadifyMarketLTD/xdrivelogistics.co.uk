@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {useRouter} from 'next/navigation';
+import {usePathname,useRouter} from 'next/navigation';
 
 const menuGroups=[
  {label:'My Profile',href:'/driver/profile'},
@@ -23,4 +23,16 @@ export function FreshHeader({onSearch}:{onSearch?:()=>void}){
  <button type="button" className="fresh-header-icon" aria-label="Search and filter jobs" onClick={search}><svg width="29" height="29" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="2.6" fill="none"/><path d="m15.5 15.5 6 6" stroke="currentColor" strokeWidth="2.6"/></svg></button></header>
  {open?<div className="fresh-menu-backdrop" onClick={()=>setOpen(false)}><nav id="fresh-driver-menu" className="fresh-menu" aria-label="Driver menu" onClick={event=>event.stopPropagation()}><div className="fresh-menu-heading">Driver menu <button type="button" onClick={()=>setOpen(false)} aria-label="Close menu">×</button></div>{menuGroups.map(item=><Link key={item.href} href={item.href} onClick={()=>setOpen(false)}>{item.label}</Link>)}</nav></div>:null}</>;
 }
-export function FreshBottom({active}:{active:'jobs'|'quotes'|'bookings'}){return <nav className="fresh-bottom" aria-label="Driver tabs"><Link aria-current={active==='jobs'?'page':undefined} className={active==='jobs'?'selected':''} href="/driver-pwa-fresh/jobs">Jobs</Link><Link aria-current={active==='quotes'?'page':undefined} className={active==='quotes'?'selected':''} href="/driver-pwa-fresh/quotes">Quotes</Link><Link aria-current={active==='bookings'?'page':undefined} className={active==='bookings'?'selected':''} href="/driver-pwa-fresh/bookings">Bookings</Link></nav>}
+export function FreshBottom({active,demo=false}:{active:'jobs'|'quotes'|'bookings';demo?:boolean}){
+ const router=useRouter();
+ const pathname=usePathname();
+ const [selected,setSelected]=useState(active);
+ const base=demo?'/driver-pwa-fresh/visual-preview/workflow?tab=':'/driver-pwa-fresh/';
+ useEffect(()=>setSelected(active),[active,pathname]);
+ useEffect(()=>{
+  if(demo)return;
+  for(const target of ['jobs','quotes','bookings'] as const)router.prefetch('/driver-pwa-fresh/'+target);
+ },[demo,router]);
+ const tabs=(['jobs','quotes','bookings'] as const);
+ return <nav className="fresh-bottom" aria-label="Driver tabs">{tabs.map(tab=><Link key={tab} prefetch href={base+tab} aria-current={selected===tab?'page':undefined} className={selected===tab?'selected':''} onPointerDown={()=>setSelected(tab)} onClick={()=>setSelected(tab)}>{tab[0].toUpperCase()+tab.slice(1)}</Link>)}</nav>;
+}

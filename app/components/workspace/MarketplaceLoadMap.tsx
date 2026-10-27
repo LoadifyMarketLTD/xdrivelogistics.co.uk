@@ -136,7 +136,7 @@ export default function MarketplaceLoadMap({
   }, [clusters, selectedClusterKey]);
 
   useEffect(() => {
-    if (!containerRef.current || clusters.length === 0) return;
+    if (!containerRef.current) return;
     let mounted = true;
 
     const initialise = async () => {
@@ -144,8 +144,8 @@ export default function MarketplaceLoadMap({
       if (!mounted || !containerRef.current) return;
 
       mapRef.current?.remove();
-      const first = clusters[0].coordinates;
-      const map = L.map(containerRef.current, { center: [first.lat, first.lng], zoom: 7, scrollWheelZoom: true });
+      const first = clusters[0]?.coordinates ?? { lat: 52.4862, lng: -1.8904 };
+      const map = L.map(containerRef.current, { center: [first.lat, first.lng], zoom: clusters.length ? 7 : 6, scrollWheelZoom: true });
       mapRef.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -214,16 +214,9 @@ export default function MarketplaceLoadMap({
     };
   }, [clusters, locatedLoads]);
 
-  if (locating && clusters.length === 0) {
-    return <div className="marketplace-radar-empty" role="status">Locating public pickup areas for Freight Radar…</div>;
-  }
-
-  if (clusters.length === 0) {
-    return <div className="marketplace-radar-empty" role="status">{providerWarning || 'No public pickup areas could be mapped for this result set. Switch to List View to review the loads.'}</div>;
-  }
-
   return (
     <div className="marketplace-radar-shell">
+      {clusters.length === 0 && <div className="marketplace-radar-warning" role="status">{locating ? "Locating public pickup areas..." : providerWarning || "No available jobs in this search. The map remains available."}</div>}
       <div className="marketplace-radar-legend" aria-label="Freight Radar legend">
         <span><i data-tone="fresh" /> Posted within ~10 minutes</span>
         <span><i data-tone="older" /> Older load</span>

@@ -39,6 +39,16 @@ export default function LoginPage() {
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
+  // A driver logging in on a phone should enter the mobile PWA, not the desktop workspace.
+  // Explicit safe next destinations and mandatory password changes always take precedence.
+  const resolveLoginDestination = (currentUser: NonNullable<typeof user>, canonicalRoute: string) => {
+    if (canonicalRoute === '/driver/change-password') return canonicalRoute;
+    if (safeNextPath && roleCanAccessPath(currentUser, safeNextPath)) return safeNextPath;
+    const mobileViewport = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px) and (pointer: coarse)').matches;
+    const driverAccess = currentUser.role === 'driver' || currentUser.canAccessDriverMode === true;
+    if (mobileViewport && driverAccess && roleCanAccessPath(currentUser, '/driver')) return '/driver-pwa-fresh/jobs';
+    return canonicalRoute;
+  };
 
   useEffect(() => {
     const signals = getBrowserAuthSignals();
@@ -49,7 +59,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     const canonicalRoute = getPostLoginRoute(user);
-    const destination = safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
+    const destination = resolveLoginDestination(user, canonicalRoute);
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
@@ -63,7 +73,8 @@ export default function LoginPage() {
       if (!result.success) {
         setError(result.error || 'Login failed');
       } else if (result.route) {
-        router.replace(result.route);
+        const mobileDriver = window.matchMedia('(max-width: 767px) and (pointer: coarse)').matches && result.route.startsWith('/driver') && result.route !== '/driver/change-password';
+        router.replace(safeNextPath?.startsWith('/driver-pwa-fresh/') ? safeNextPath : mobileDriver ? '/driver-pwa-fresh/jobs' : result.route);
       }
     } finally {
       setIsLoading(false);

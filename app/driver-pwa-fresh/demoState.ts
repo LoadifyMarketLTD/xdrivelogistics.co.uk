@@ -1,6 +1,6 @@
 import type { Load } from './FreshJobCard';
 export type DemoStage = 'jobs'|'submitted'|'unsuccessful'|'received'|'allocated'|'pickup'|'onsite-pickup'|'loaded'|'delivery'|'onsite-delivery'|'delivered'|'pod'|'invoiced';
-export type DemoEntry = {stage:DemoStage;amount?:number;podPhoto?:string;signature?:string};
+export type DemoEntry = {stage:DemoStage;amount?:number;podPhoto?:string;signature?:string;events?:Array<{stage:DemoStage;at:string}>};
 export type DemoStore = Record<string,DemoEntry>;
 const KEY='xdrive-fresh-driver-demo-v1';
 export const demoJobs:Load[]=[

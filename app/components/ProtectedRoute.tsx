@@ -27,7 +27,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
 
     if (!listedRoleAllowed) return false;
 
-    return isRoleAllowedForPath(pathname, role, {
+    return isRoleAllowedForPath(pathname.startsWith('/driver-pwa-fresh/') && !pathname.startsWith('/driver-pwa-fresh/visual-preview/') ? '/driver' : pathname, role, {
       canAccessDriverMode: user.canAccessDriverMode === true,
       membershipRole: user.membershipRole ?? null,
       financeAccess: user.financeAccess ?? null,
