@@ -187,7 +187,6 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   const [podLeftAt, setPodLeftAt] = useState('');
   const [podItemCount, setPodItemCount] = useState('1');
   const [podWeight, setPodWeight] = useState('');
-  const [signatureExceptionReason, setSignatureExceptionReason] = useState('');
   const [mobilePodOpen, setMobilePodOpen] = useState(false);
   const [podDeliveredOn, setPodDeliveredOn] = useState('');
   const [showPodDetails, setShowPodDetails] = useState(false);
@@ -407,7 +406,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       setMessage('POD is already complete. Invoice creation is now available.');
       return;
     }
-    if (!mobilePwa && !deliveryPhotos.length) {
+    if (!deliveryPhotos.length) {
       setError('At least one delivery photo is required to complete POD.');
       return;
     }
@@ -421,13 +420,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
     const hasStoredSignature = typeof storedSignature === 'string'
       ? storedSignature.trim().length > 0
       : Boolean(storedSignature && typeof storedSignature === 'object');
-    if (!mobilePwa && !newSignature && !hasStoredSignature) {
+    if (!newSignature && !hasStoredSignature) {
       setError('Recipient signature is required to complete POD.');
       return;
     }
 
     if (mobilePwa && !podLeftAt.trim()) { setError('Left At is required.'); return; }
-    if (mobilePwa && !newSignature && !hasStoredSignature && signatureExceptionReason.trim().length < 5) { setError('Sign or explain why signature is unavailable.'); return; }
     if (mobilePwa && podDeliveryStatus !== 'Completed Delivery') { setError('Resolve delivery exception before completed POD.'); return; }
     const hardCopyRequired = requiresHardCopyPod(sheet?.hardCopyPod ?? job.hard_copy_pod);
     if (hardCopyRequired && !hardCopyAcknowledged) {
@@ -444,7 +442,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipientName: recipientName.trim(),
-          signatureExceptionReason: signatureExceptionReason.trim(),
+          signatureExceptionReason: '',
           signatureData: newSignature ?? '',
           photoUris: pendingPodPhotos,
           damagePhotoUris: [],
@@ -618,13 +616,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
 <label>Weight (kg)<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodWeight(String(Math.max(0,(Number(podWeight)||0)-1)))}>−</button><input type="number" min="0" step="0.1" value={podWeight} onChange={e=>setPodWeight(e.target.value)}/><button type="button" onClick={()=>setPodWeight(String((Number(podWeight)||0)+1))}>+</button></div></label>
 <div><strong>Job Details</strong><p>{requestedVehicle}</p></div>
 <label>Driver's Notes<textarea rows={4} maxLength={500} value={notes} onChange={e=>setNotes(e.target.value)}/><small>{notes.length}/500</small></label>
-<label>Photo (optional) — {deliveryPhotos.length}/10<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label>
+<label>Photo * (required) — {deliveryPhotos.length}/10<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label>
 {deliveryPhotos.length>0&&<ul aria-label="Saved POD photos">{deliveryPhotos.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Photo")} — saved</li>)}</ul>}
 <label>Add Document (optional)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label>
 {pendingPodDocuments.length>0&&<ul aria-label="Saved POD documents">{pendingPodDocuments.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Document")} — saved</li>)}</ul>}
-<label>Signature (or exception reason)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
+<label>Signature * (required)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
 <button type="button" onClick={clearSignature}>Clear signature</button>
-<label>Reason if signature unavailable<input value={signatureExceptionReason} onChange={e=>setSignatureExceptionReason(e.target.value)}/></label>
 <label>Left At *<input required value={podLeftAt} onChange={e=>setPodLeftAt(e.target.value)}/></label>
 <label>Delivered On<input type="date" value={podDeliveredOn} onChange={e=>setPodDeliveredOn(e.target.value)}/></label>
 <label>Received By (Full Name) *<input required value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>

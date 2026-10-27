@@ -247,7 +247,7 @@ async function savePod(
   const itemCount = itemCountRaw;
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
-  if (!recipientName) return respond(400, { error: 'Received By (Full Name) is required for POD.' });
+  if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
   if (!leftAt) return respond(400, { error: 'Left At is required for POD.' });
   if (deliveryStatus !== 'Completed Delivery') return respond(409, { error: 'Delivery exceptions must be resolved before a completed POD can be submitted.' });
   if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
@@ -286,7 +286,7 @@ async function savePod(
   const signatureData = rawSignature || job.delivery_signature_data || null;
 
   const exceptionReason = typeof body.signatureExceptionReason === 'string' ? body.signatureExceptionReason.trim() : '';
-  if (!signatureData && exceptionReason.length < 5) return respond(400, { error: 'Add a signature or explain why it is unavailable.' });
+  if (!signatureData) return respond(400, { error: 'Recipient signature is required for POD.' });
 
   try {
     const existenceChecks = await Promise.all(
@@ -306,6 +306,7 @@ async function savePod(
   const deliveryPhotos = Array.from(new Set([...existingPhotos, ...photoPaths]));
   const damagePhotos = Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths]));
   const podDocuments = Array.from(new Set([...existingDocuments, ...documentPaths]));
+  if (!deliveryPhotos.length) return respond(400, { error: 'At least one delivery photo is required for POD.' });
   const driverNotes = typeof body.notes === 'string' && body.notes.trim()
     ? body.notes.trim().slice(0, 5000)
     : null;
