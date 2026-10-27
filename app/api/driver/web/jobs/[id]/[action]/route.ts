@@ -242,7 +242,7 @@ async function savePod(
   const deliveredOnRaw = typeof body.deliveredOn === 'string' ? body.deliveredOn.trim() : '';
   const deliveredOn = /^\d{4}-\d{2}-\d{2}$/.test(deliveredOnRaw) ? deliveredOnRaw : nowDateUtc();
   const itemCountRaw = body.itemCount == null || body.itemCount === '' ? null : Number(body.itemCount);
-  const itemCount = itemCountRaw === null ? null : Math.round(itemCountRaw);
+  const itemCount = itemCountRaw;
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
   if (!recipientName) return respond(400, { error: 'Received By (Full Name) is required for POD.' });

@@ -180,6 +180,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
   const [deliveryPhotos, setDeliveryPhotos] = useState<string[]>([]);
   const [pendingPodPhotos, setPendingPodPhotos] = useState<string[]>([]);
+  const [pendingPodDocuments, setPendingPodDocuments] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
   const [hardCopyAcknowledged, setHardCopyAcknowledged] = useState(false);
   const [podDeliveryStatus, setPodDeliveryStatus] = useState('Completed Delivery');
@@ -307,11 +308,13 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (!files.length) return;
+    if (files.length + pendingPodDocuments.length > 10) {setError('A maximum of 10 POD documents can be attached.'); return;}
     setWorking(true); setError(''); setMessage('');
     try {
       const savedPaths: string[] = [];
       for (const file of files) savedPaths.push(await uploadPodEvidence(file, 'documents'));
       await verifySavedEvidence(savedPaths, 'pod_photos');
+      setPendingPodDocuments(current => [...new Set([...current, ...savedPaths])].slice(0, 10));
       await loadJob();
       setMessage(files.length + ' POD document(s) verified and saved.');
     } catch (reason) {setError(reason instanceof Error ? reason.message : 'Document upload failed.');}
@@ -444,7 +447,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
           signatureData: newSignature ?? '',
           photoUris: pendingPodPhotos,
           damagePhotoUris: [],
-          documentUris: [],
+          documentUris: pendingPodDocuments,
           deliveryStatus: podDeliveryStatus,
           leftAt: podLeftAt.trim() || undefined,
           itemCount: podItemCount.trim() ? Number(podItemCount) : undefined,
@@ -468,7 +471,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   const createInvoice = async () => {
     if (!job || !canGenerateInvoices) return;
     if (!hasCompletePodEvidence(job)) {
-      setError('Complete POD before creating an invoice. POD must include delivery evidence, recipient name and signature.');
+      setError('Complete POD before creating an invoice. POD must be submitted and recorded.');
       return;
     }
 
@@ -525,14 +528,11 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       await loadJob();
       setWorking(false);
       return;
-    }    if (nextStatus === 'delivered') {
-      const signature = signatureData();
-      if (!deliveryPhotos.length) { setError('At least one delivery photo is required.'); setWorking(false); return; }
-      if (!recipientName.trim()) { setError('Recipient name is required.'); setWorking(false); return; }
-      if (!signature) { setError('Recipient signature is required.'); setWorking(false); return; }
+    }
+    // Delivery arrival and POD submission are separate operations.
+    if (nextStatus === 'delivered') {
       fields.p_delivery_photos = deliveryPhotos;
-      fields.p_delivery_signature_data = signature;
-      fields.p_client_signature_name = recipientName.trim();
+      if (recipientName.trim()) fields.p_client_signature_name = recipientName.trim();
     }
     const { error: transitionError } = await supabase.rpc('driver_update_job_status_atomic', {
       p_driver_id: driverId, p_job_id: job.id, p_next_status: nextStatus, p_driver_notes: notes.trim() || null, ...fields,
