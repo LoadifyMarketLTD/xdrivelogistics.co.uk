@@ -62,9 +62,6 @@ const hasCompletePod = (job: Record<string, unknown>) => {
   const deliveryPhotos = Array.isArray(job.delivery_photos)
     ? job.delivery_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
     : [];
-  const podDocuments = Array.isArray(job.pod_photos)
-    ? job.pod_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
-    : [];
   const signature = job.delivery_signature_data;
   const hasSignature = typeof signature === 'string'
     ? signature.trim().length > 0
@@ -73,7 +70,7 @@ const hasCompletePod = (job: Record<string, unknown>) => {
     ? job.client_signature_name.trim()
     : '';
 
-  return job.pod_generated === true && deliveryPhotos.length + podDocuments.length > 0 && hasSignature && recipientName.length > 0;
+  return job.pod_generated === true && deliveryPhotos.length > 0 && hasSignature && recipientName.length > 0;
 };
 
 export async function POST(

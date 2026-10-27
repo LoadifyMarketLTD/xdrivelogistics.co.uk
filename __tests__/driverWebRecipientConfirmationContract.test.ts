@@ -1,31 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-const routePath = path.join(
-  process.cwd(),
-  'app/api/driver/web/jobs/[id]/confirmation/route.ts',
-);
-const route = fs.readFileSync(routePath, 'utf8');
-
-describe('driver web recipient confirmation contract', () => {
-  it('requires an active web driver and assignment-scoped job', () => {
-    expect(route).toContain('requireActiveWebDriver');
-    expect(route).toContain('isWebDriverContext');
-    expect(route).toContain(".eq('assigned_driver_id', driver.driverId)");
-  });
-
-  it('requires recipient identity and persisted delivery evidence', () => {
-    expect(route).toContain("Recipient name is required.");
-    expect(route).toContain("Upload POD evidence first.");
-    expect(route).toContain("POD evidence does not belong to this driver assignment.");
-    expect(route).toContain(".from('pod-photos')");
-  });
-
-  it('persists the recipient attestation before Delivered', () => {
-    expect(route).toContain("client_signature_name: recipientName");
-    expect(route).toContain("delivery_signature_data: confirmation");
-    expect(route).toContain("signature_method: 'typed_name_attestation'");
-    expect(route).toContain("source: 'xdrive_driver_web'");
-  });
+const route = fs.readFileSync(path.join(process.cwd(),'app/api/driver/web/jobs/[id]/confirmation/route.ts'),'utf8');
+describe('driver web recipient confirmation contract',()=>{
+ it('requires an active authenticated web driver',()=>{
+  expect(route).toContain('requireActiveWebDriver');
+  expect(route).toContain('isWebDriverContext');
+ });
+ it('rejects typed-name attestation as a substitute for a handwritten POD signature',()=>{
+  expect(route).toContain('Capture a handwritten recipient signature in the POD form.');
+  expect(route).not.toContain('typed_name_attestation');
+  expect(route).not.toContain('delivery_signature_data: confirmation');
+ });
 });
