@@ -1,8 +1,11 @@
 ﻿import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import LoadsClient from '../jobs/LoadsClient';
 
-export default function LocalVisualPreview() {
-  if (process.env.NODE_ENV !== 'development' && process.env.CONTEXT !== 'deploy-preview') notFound();
+export default async function LocalVisualPreview() {
+  const host = (await headers()).get('host') ?? '';
+  const isReviewHost = /^deploy-preview-706--xdrivelogistics\.netlify\.app$/i.test(host);
+  if (process.env.NODE_ENV !== 'development' && !isReviewHost) notFound();
   const now = Date.now();
   const sample = (id: string, pickup: string, pickupCode: string, delivery: string, deliveryCode: string, notes: string, minutes: number) => ({
     id, status: 'posted', pickup_area: pickup, pickup_postcode_area: pickupCode,
