@@ -291,15 +291,26 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
     if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Upload failed.');
     return payload.storagePath;
   };
+
+  const verifySavedEvidence = async (paths: string[], column: 'delivery_photos' | 'pod_photos') => {
+    const {data, error} = await supabase.from('jobs').select(column).eq('id', jobId).eq('assigned_driver_id', driverId).single();
+    if (error || !data) throw new Error('Upload finished, but saving to the booking could not be verified. Refresh and retry.');
+    const saved = (data as unknown as Record<string, unknown>)[column];
+    if (!Array.isArray(saved) || paths.some(path => !saved.includes(path))) {
+      throw new Error('Files were uploaded but not linked to this booking. Please retry.');
+    }
+  };
   const selectPodDocuments = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (!files.length) return;
     setWorking(true); setError(''); setMessage('');
     try {
-      for (const file of files) await uploadPodEvidence(file, 'documents');
-      setMessage(files.length + ' POD document(s) saved.');
+      const savedPaths: string[] = [];
+      for (const file of files) savedPaths.push(await uploadPodEvidence(file, 'documents'));
+      await verifySavedEvidence(savedPaths, 'pod_photos');
       await loadJob();
+      setMessage(files.length + ' POD document(s) verified and saved.');
     } catch (reason) {setError(reason instanceof Error ? reason.message : 'Document upload failed.');}
     finally {setWorking(false);}
   };
@@ -334,7 +345,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       for (const file of files) paths.push(await uploadPodEvidence(file, 'photos'));
       setDeliveryPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
       setPendingPodPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
-      setMessage(`${paths.length} POD photo${paths.length === 1 ? '' : 's'} added.`);
+      await verifySavedEvidence(paths, 'delivery_photos');
+      await loadJob();
+      setMessage(`${paths.length} POD photo${paths.length === 1 ? '' : 's'} verified and saved.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Delivery photo upload failed.'); }
     finally { setWorking(false); }
   };
