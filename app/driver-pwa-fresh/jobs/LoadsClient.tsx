@@ -141,7 +141,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
         </article>)}
       </>}
     </main>
-    <nav className="fresh-bottom" aria-label="Driver tabs"><span className="selected"><span className="fresh-nav-icon">▣</span>Jobs</span><span aria-disabled="true"><span className="fresh-nav-icon">◉</span>Quotes</span><span aria-disabled="true"><span className="fresh-nav-icon">▦</span>Bookings</span><span aria-disabled="true"><span className="fresh-nav-icon">•••</span>More</span></nav>
+    <nav className="fresh-bottom" aria-label="Driver tabs"><span className="selected"><span className="fresh-nav-icon">▣</span>Jobs</span>{previewLoads ? <><span aria-disabled="true"><span className="fresh-nav-icon">◉</span>Quotes</span><span aria-disabled="true"><span className="fresh-nav-icon">▦</span>Bookings</span><span aria-disabled="true"><span className="fresh-nav-icon">•••</span>More</span></> : <><Link href="/driver/quotes"><span className="fresh-nav-icon">◉</span>Quotes</Link><Link href="/driver/won-work"><span className="fresh-nav-icon">▦</span>Bookings</Link><Link href="/driver"><span className="fresh-nav-icon">•••</span>More</Link></>}</nav>
   </>;
   return previewLoads ? screen : <ProtectedRoute allowedRoles={['driver']}>{screen}</ProtectedRoute>;
 }
