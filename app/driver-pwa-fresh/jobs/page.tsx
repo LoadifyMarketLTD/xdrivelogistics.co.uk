@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { filterMarketplaceLoads } from './loadFilters';
 
@@ -31,6 +32,7 @@ const shortTime = (value: string | null) => {
   return Number.isNaN(date.getTime()) ? 'Not specified' : date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 };
 export default function FreshLoadsPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [loads, setLoads] = useState<Load[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -64,7 +66,9 @@ export default function FreshLoadsPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load jobs.'); setLoads([]); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { void fetchLoads(); }, [fetchLoads]);
+  useEffect(() => {
+    if (!authLoading && user) void fetchLoads();
+  }, [authLoading, user, fetchLoads]);
   const results = useMemo(() => filterMarketplaceLoads(loads, { from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius }, clock), [loads, from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius, clock]);
   const filtersCount = [from,to,vehicle,bodyType,collectWithin,pickupRadius,destinationRadius].filter(Boolean).length;
   return <ProtectedRoute allowedRoles={['driver']}>
