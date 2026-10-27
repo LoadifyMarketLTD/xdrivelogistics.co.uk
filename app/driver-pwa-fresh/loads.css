@@ -53,3 +53,19 @@
 .fresh-driver-pwa .fresh-map-view .marketplace-radar-privacy{font-size:11px}
 .fresh-driver-pwa .fresh-filters{border-radius:8px;box-shadow:0 1px 2px #132c4312}
 @media(max-width:380px){.fresh-driver-pwa .fresh-filters{grid-template-columns:1fr}.fresh-driver-pwa .fresh-filter-actions{grid-template-columns:1fr 1fr}}
+
+/* Approved CX mobile Search Loads reference: single column, large tap targets, scrollable form. */
+.fresh-driver-pwa .fresh-search-loads{display:flex!important;flex-direction:column;gap:12px;background:#fafafa;border:0;box-shadow:none;padding:14px 10px 90px;margin:0;max-width:100%;border-radius:0}
+.fresh-driver-pwa .fresh-search-loads h2{font-size:21px;line-height:1.25;margin:0 0 4px;font-weight:800;color:#222}
+.fresh-driver-pwa .fresh-search-loads label{display:flex;flex-direction:column;gap:8px;font-size:17px;font-weight:750;line-height:1.25;color:#242424;min-width:0}
+.fresh-driver-pwa .fresh-search-loads input,.fresh-driver-pwa .fresh-search-loads select{width:100%;height:56px;min-height:56px;padding:0 12px;border:1px solid #d2d6db;border-radius:6px;background:#fafafa;color:#262626;font-size:16px;font-weight:650;max-width:100%}
+.fresh-driver-pwa .fresh-search-loads .fresh-vehicle-range{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;width:100%}
+.fresh-driver-pwa .fresh-search-loads .fresh-vehicle-range label{font-size:15px}
+.fresh-driver-pwa .fresh-search-loads .fresh-vehicle-range select{font-size:14px;padding:0 5px}
+.fresh-driver-pwa .fresh-search-loads .fresh-extra-filters{width:100%;border-top:1px solid #e1e3e6;padding-top:12px}
+.fresh-driver-pwa .fresh-search-loads .fresh-extra-filters summary{font-size:15px;font-weight:700;min-height:42px;cursor:pointer}
+.fresh-driver-pwa .fresh-search-loads .fresh-extra-filters label{margin:8px 0 14px}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:12px;width:100%;margin-top:6px}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions button{height:52px;min-height:52px;font-size:15px;border:0;border-radius:4px;background:#d9d9d9;color:#222;font-weight:800}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions .primary{background:#8bc34a;color:#152411}
+@media(min-width:700px){.fresh-driver-pwa .fresh-search-loads{max-width:580px;margin:0 auto}}
