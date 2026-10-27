@@ -65,18 +65,26 @@
 /* Legacy CSS variables kept for inline-styled admin/driver pages */
 :root {
   --font-inter: 'Segoe UI', Arial, sans-serif;
-  /* Brand Colors */
-  --color-primary-navy-dark: #0A2239;
-  --color-primary-navy: #1F3A5F;
-  --color-secondary-blue: #2F6FB3;
-  --color-gold-primary: #D4AF37;
-  --color-gold-dark: #B8941F;
-  --color-green-primary: #1F7A3D;
+  /* Approved XDrive brand palette (2026-10-27) */
+  --xd-primary-blue: #0B2F6B;
+  --xd-secondary-blue: #1D57D8;
+  --xd-orange: #F5A300;
+  --xd-white: #FFFFFF;
+  --xd-charcoal: #1A1F2B;
+  --xd-light-grey: #F4F6F8;
+  --xd-cta-green: #16A34A;
+  /* Legacy aliases */
+  --color-primary-navy-dark: #0B2F6B;
+  --color-primary-navy: #0B2F6B;
+  --color-secondary-blue: #1D57D8;
+  --color-gold-primary: #F5A300;
+  --color-gold-dark: #F5A300;
+  --color-green-primary: #16A34A;
   --color-green-whatsapp: #25D366;
-  --color-bg-light: #F4F7FA;
+  --color-bg-light: #F4F6F8;
   --color-text-white: #FFFFFF;
   --color-text-white-transparent: rgba(255,255,255,0.85);
-  --color-text-dark: #0A2239;
+  --color-text-dark: #0B2F6B;
   
   /* Typography (Inter font) */
   --font-family: 'Segoe UI', Arial, sans-serif;

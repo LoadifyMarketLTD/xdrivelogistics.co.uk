@@ -4,25 +4,26 @@
 export const THEME = {
   // Color Palette - XDrive Logistics Brand Colors (EXACT SPEC)
   colors: {
+    brand: { primaryBlue: '#0B2F6B', secondaryBlue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF', charcoal: '#1A1F2B', lightGrey: '#F4F6F8', ctaGreen: '#16A34A' },
     // Primary - Navy
     primary: {
-      dark: '#0A2239',      // Navy dark (EXACT) - Header, Footer, Main background
-      navy: '#1F3A5F',      // Navy Primary (EXACT) - Services, CTA sections
-      slate: '#2D3748',     // Medium dark
+      dark: '#0B2F6B',      // Navy dark (EXACT) - Header, Footer, Main background
+      navy: '#0B2F6B',      // Navy Primary (EXACT) - Services, CTA sections
+      slate: '#1A1F2B',     // Medium dark
     },
     
     // Accent - Premium Gold
     gold: {
-      primary: '#D4AF37',   // Gold accent (EXACT) - Logo X, highlights
-      light: '#E5C158',     // Light gold
-      dark: '#B8941F',      // Dark gold (EXACT) - hover state
+      primary: '#F5A300',   // Gold accent (EXACT) - Logo X, highlights
+      light: '#F5A300',     // Light gold
+      dark: '#F5A300',      // Dark gold (EXACT) - hover state
     },
     
     // CTA Green
     green: {
-      primary: '#1F7A3D',   // Green CTA (EXACT) - Checkmarks
-      dark: '#1B5E20',      // Dark green (hover)
-      light: '#4CAF50',     // Light green
+      primary: '#16A34A',   // Green CTA (EXACT) - Checkmarks
+      dark: '#15803D',      // Dark green (hover)
+      light: '#22C55E',     // Light green
       whatsapp: '#25D366',  // WhatsApp green (EXACT)
       whatsappHover: '#20ba5a', // WhatsApp hover
     },
@@ -32,13 +33,13 @@ export const THEME = {
       primary: '#FFFFFF',   // White text (EXACT)
       secondary: 'rgba(255,255,255,0.85)', // White transparent (EXACT)
       muted: '#94A3B8',     // Muted gray
-      dark: '#0A2239',      // Dark text (EXACT) - for light backgrounds
+      dark: '#0B2F6B',      // Dark text (EXACT) - for light backgrounds
     },
     
     // Background Colors
     background: {
-      light: '#F4F7FA',     // Light Background (EXACT)
-      dark: '#0A2239',      // Dark background (EXACT)
+      light: '#F4F6F8',     // Light Background (EXACT)
+      dark: '#0B2F6B',      // Dark background (EXACT)
     },
     
     // Glass Effects
@@ -55,7 +56,7 @@ export const THEME = {
     },
     
     // Semantic Colors
-    success: '#10B981',
+    success: '#16A34A',
     warning: '#F59E0B',
     error: '#EF4444',
   },
