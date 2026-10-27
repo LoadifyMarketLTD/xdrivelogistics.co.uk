@@ -50,3 +50,13 @@
 .fresh-driver-pwa .fresh-header-icon{flex:0 0 44px;width:44px;min-width:44px;overflow:hidden}
 
 .fresh-driver-pwa .fresh-demo-bottom{grid-template-columns:repeat(3,minmax(0,1fr))}.fresh-driver-pwa .fresh-demo-bottom button{min-width:0;min-height:58px;border:0;background:#fff;font-weight:700;color:#173d64}.fresh-driver-pwa .fresh-demo-action{display:block;width:100%;min-height:48px;margin-top:8px;border:1px solid #c7d4e0;border-radius:6px;background:#f3f7fb;color:#154b78;font-weight:700}.fresh-driver-pwa .fresh-demo-action+.fresh-demo-action{background:#16a34a;color:#fff;border-color:#16a34a}
+
+.fresh-driver-pwa .fresh-demo-quote-summary{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;font-size:16px}
+.fresh-driver-pwa .fresh-demo-detail-toggle{border:1px solid #ccd7e4;background:white;border-radius:5px;padding:9px 12px;font-weight:700;color:#184c79}
+.fresh-driver-pwa .fresh-demo-quote-detail{display:grid;gap:10px;padding:12px;background:#fff;border:1px solid #e1e5ea;border-radius:6px;font-size:15px}
+.fresh-driver-pwa .fresh-demo-map{display:block;text-align:center;background:#ffcb05;color:#182638;font-weight:800;padding:13px;border-radius:5px;text-decoration:none}
+.fresh-driver-pwa .fresh-demo-cancel,.fresh-driver-pwa .fresh-demo-award{display:block;width:100%;min-height:48px;margin-top:8px;border-radius:5px;font-weight:800}
+.fresh-driver-pwa .fresh-demo-cancel{background:#ee6057;color:#fff;border:0}
+.fresh-driver-pwa .fresh-demo-award{background:#fff;color:#174e80;border:1px solid #d0dbe6}
+.fresh-driver-pwa .fresh-demo-bottom button[aria-current="page"]{background:#e7f1f9;color:#174e80}
+.fresh-driver-pwa .fresh-demo-quote-input{display:block;font-size:15px;font-weight:700}
