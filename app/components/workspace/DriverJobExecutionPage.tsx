@@ -250,18 +250,6 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
 
   useEffect(() => { void loadJob(); }, [loadJob]);
 
-  const uploadImage = async (file: File, kind: 'collection' | 'delivery') => {
-    if (!companyId) throw new Error('Company context is missing.');
-    if (!file.type.startsWith('image/')) throw new Error('Only image files can be uploaded here.');
-    if (file.size > 15 * 1024 * 1024) throw new Error('Images must be 15 MB or smaller.');
-    const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
-    const evidenceFolder = kind === 'delivery' ? 'photos' : 'collection';
-    const path = `${companyId}/${jobId}/${evidenceFolder}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from('pod-photos').upload(path, file, { upsert: false, contentType: file.type });
-    if (uploadError) throw new Error(uploadError.message);
-    return path;
-  };
-
   const uploadCollectionEvidence = async (file: File) => {
     if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
     if (file.size > 10 * 1024 * 1024) throw new Error('Each collection photo must be 10 MB or smaller.');
@@ -285,6 +273,36 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
     return payload.storagePath;
   };
 
+
+  const uploadPodEvidence = async (file: File, category: 'photos' | 'documents') => {
+    const allowed = category === 'photos' ? ['image/jpeg', 'image/png'] : ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowed.includes(file.type)) throw new Error('Use JPEG or PNG photos, or PDF documents.');
+    if (file.size > 10 * 1024 * 1024) throw new Error('Maximum file size is 10 MB.');
+    const auth = await authHeader();
+    if (!auth) throw new Error('Session expired. Sign in again.');
+    const ext = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
+    const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId) + '/evidence', {
+      method: 'POST',
+      headers: {Authorization: auth, 'Content-Type': file.type, 'x-xdrive-evidence-kind': 'delivery',
+        'x-xdrive-evidence-category': category, 'x-xdrive-evidence-name': 'pod-' + Date.now() + '-' + crypto.randomUUID() + '.' + ext},
+      body: file,
+    });
+    const payload = await response.json().catch(() => ({})) as {storagePath?: string; error?: string};
+    if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Upload failed.');
+    return payload.storagePath;
+  };
+  const selectPodDocuments = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+    setWorking(true); setError(''); setMessage('');
+    try {
+      for (const file of files) await uploadPodEvidence(file, 'documents');
+      setMessage(files.length + ' POD document(s) saved.');
+      await loadJob();
+    } catch (reason) {setError(reason instanceof Error ? reason.message : 'Document upload failed.');}
+    finally {setWorking(false);}
+  };
   const selectCollectionPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
@@ -313,7 +331,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
     setWorking(true); setError(''); setMessage('');
     try {
       const paths: string[] = [];
-      for (const file of files) paths.push(await uploadImage(file, 'delivery'));
+      for (const file of files) paths.push(await uploadPodEvidence(file, 'photos'));
       setDeliveryPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
       setPendingPodPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
       setMessage(`${paths.length} POD photo${paths.length === 1 ? '' : 's'} added.`);
@@ -568,7 +586,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       <section className="fresh-mobile-booking-card"><h2>Job progress</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{nextStatus&&canShowLifecycleAction&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void moveStatus(nextStatus)}>{nextLabel}</button>}</section>
       {stops.map(stop=><section className="fresh-mobile-booking-card" key={stop.name}><h2>{stop.name}</h2><strong>{stop.place??'Not supplied'}</strong><p>{stop.postcode}</p><p>{formatDateTime(stop.at)}</p>{stop.notes&&<p>{stop.notes}</p>}<div className="fresh-mobile-booking-actions">{stop.phone&&<a href={'tel:'+stop.phone}>Call contact</a>}<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a></div></section>)}
       <section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl><dt>Company</dt><dd>{sheet?.bookedBy??'Not supplied'}</dd><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd><dt>Rate</dt><dd>{money(sheet?.agreedRate,sheet?.currency??job.currency)}</dd><dt>Payment terms</dt><dd>{sheet?.paymentTerms??'Not supplied'}</dd></dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>
-      <section className="fresh-mobile-booking-card"><h2>Evidence</h2><label>Collection photos ({collectionPhotos.length})<input type="file" accept="image/*" multiple onChange={e=>void selectCollectionPhotos(e)}/></label><label>Delivery photos ({deliveryPhotos.length})<input type="file" accept="image/*" multiple onChange={e=>void selectDeliveryPhotos(e)}/></label><label>Driver notes<textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)}/></label></section>
+      <section className="fresh-mobile-booking-card"><h2>Delivery evidence</h2><p>Delivery photos saved: {deliveryPhotos.length}</p><label>Add delivery photos<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label><label>Add POD document (PDF or image)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label><p>Documents saved: {Array.isArray(job.pod_photos)?job.pod_photos.length:0}</p></section>
       <section className="fresh-mobile-booking-card"><h2>Proof of delivery</h2>{podComplete?<p>POD recorded</p>:<><label>Recipient name<input value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label><label>Signature<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label><button onClick={clearSignature}>Clear signature</button>{hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}<button className="fresh-mobile-booking-primary" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>Complete POD</button></>}{podComplete&&canGenerateInvoices&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Generate invoice</button>}</section>
       <section className="fresh-mobile-booking-card"><h2>Activity</h2><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></section>
     </div>;
