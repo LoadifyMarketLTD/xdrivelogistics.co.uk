@@ -506,7 +506,6 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
     }
     const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
-      if (!collectionPhotos.length) { setError('At least one collection photo is required before the job can be marked loaded.'); setWorking(false); return; }
       const auth = await authHeader();
       if (!auth) { setError('Your XDrive session is not available. Please sign in again.'); setWorking(false); return; }
       const handoverResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/handover`, {
