@@ -226,9 +226,10 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
         : [];
     setCollectionPhotos([...new Set(pickupPhotos)].slice(0, 10));
     setDeliveryPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos : []);
-    setPendingPodPhotos([]);
+    setPendingPodPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos.filter((v): v is string => typeof v === 'string') : []);
+    setPendingPodDocuments(Array.isArray(row.pod_photos) ? row.pod_photos.filter((v): v is string => typeof v === 'string') : []);
     setRecipientName(row.client_signature_name ?? '');
-    setHardCopyAcknowledged(false);
+    // Preserve the current hard-copy acknowledgement during evidence refresh.
 
     const auth = await authHeader();
     if (auth) {
@@ -241,7 +242,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
           if (nextSheet?.pod) {
             setPodDeliveryStatus(nextSheet.pod.deliveryStatus ?? 'Completed Delivery');
             setPodLeftAt(nextSheet.pod.leftAt ?? '');
-            setPodItemCount(nextSheet.pod.itemCount == null ? '' : String(nextSheet.pod.itemCount));
+            if (nextSheet.pod.itemCount != null) setPodItemCount(String(nextSheet.pod.itemCount));
             setPodDeliveredOn(nextSheet.pod.deliveredOn ?? '');
           }
         }
@@ -488,7 +489,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
       await sendGeneratedInvoice(payload.invoice.id, auth);
       setMessage('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
-      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+      if (!mobilePwa) router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+      else await loadJob();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
@@ -608,7 +610,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       {stops.map(stop=><section className="fresh-mobile-booking-card" key={stop.name}><h2>{stop.name}</h2><strong>{stop.place??'Not supplied'}</strong><p>{stop.postcode}</p><p>{formatDateTime(stop.at)}</p>{stop.notes&&<p>{stop.notes}</p>}<div className="fresh-mobile-booking-actions">{stop.phone&&<a href={'tel:'+stop.phone}>Call contact</a>}<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a></div></section>)}
       <section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl><dt>Company</dt><dd>{sheet?.bookedBy??'Not supplied'}</dd><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd><dt>Rate</dt><dd>{money(sheet?.agreedRate,sheet?.currency??job.currency)}</dd><dt>Payment terms</dt><dd>{sheet?.paymentTerms??'Not supplied'}</dd></dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>
 
-<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong><button type="button" onClick={()=>setMobilePodOpen(v=>!v)}>{mobilePodOpen?'Close POD':'Open POD'}</button></section>
+<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{['delivered','completed','invoiced'].includes(currentStatus)&&<button type="button" onClick={()=>setMobilePodOpen(v=>!v)}>{mobilePodOpen?'Close POD':'Open POD'}</button>}</section>
 {mobilePodOpen&&<section className="fresh-mobile-booking-card fresh-mobile-pod">
 <h2>POD</h2>
 <label>Delivery status<select value={podDeliveryStatus} onChange={e=>setPodDeliveryStatus(e.target.value)}><option>Completed Delivery</option><option>Partial Delivery</option><option>Failed Delivery</option><option>Refused</option><option>Left Safe</option></select></label>
@@ -617,7 +619,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
 <div><strong>Job Details</strong><p>{requestedVehicle}</p></div>
 <label>Driver's Notes<textarea rows={4} maxLength={500} value={notes} onChange={e=>setNotes(e.target.value)}/><small>{notes.length}/500</small></label>
 <label>Photo (optional) — {deliveryPhotos.length}/10<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label>
+{deliveryPhotos.length>0&&<ul aria-label="Saved POD photos">{deliveryPhotos.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Photo")} — saved</li>)}</ul>}
 <label>Add Document (optional)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label>
+{pendingPodDocuments.length>0&&<ul aria-label="Saved POD documents">{pendingPodDocuments.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Document")} — saved</li>)}</ul>}
 <label>Signature (or exception reason)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
 <button type="button" onClick={clearSignature}>Clear signature</button>
 <label>Reason if signature unavailable<input value={signatureExceptionReason} onChange={e=>setSignatureExceptionReason(e.target.value)}/></label>

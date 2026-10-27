@@ -226,6 +226,8 @@ async function savePod(
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobWithDamageEvidence;
+  // Prevent duplicate final POD submissions from overwriting previously finalized evidence.
+  if (job.pod_generated === true) return respond(200, { ok: true, alreadySubmitted: true, job: mapJob(job) });
   const currentStatus = String(job.current_status ?? job.status ?? '').toLowerCase();
   if (!['delivered', 'completed', 'invoiced'].includes(currentStatus)) {
     return respond(409, { error: 'Mark the job Delivered before completing POD.' });
