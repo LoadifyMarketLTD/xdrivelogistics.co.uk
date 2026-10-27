@@ -10,6 +10,7 @@ import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { filterMarketplaceLoads } from './loadFilters';
 import FreshJobCard from '../FreshJobCard';
+import {FreshHeader,FreshBottom} from '../FreshNavigation';
 
 type Load = {
   id: string; status: string; pickup_area: string; pickup_postcode_area: string | null;
@@ -110,7 +111,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
   }), [results, memberQuery, freightType, dateRange, startDate, endDate, vehicleFrom, vehicleTo, clock]);
   const filtersCount = [from,to,vehicle,bodyType,collectWithin,pickupRadius,destinationRadius,memberQuery,freightType,vehicleFrom,vehicleTo,dateRange!=='any'?'date':''].filter(Boolean).length;
   const screen = <>
-    <header className="fresh-header"><div className="fresh-brand"><span className="fresh-brand-mark">XDRIVE</span><span className="fresh-brand-sub">LOGISTICS</span></div><button className="fresh-header-icon" type="button" aria-label="Open filters" onClick={() => setTab('filter')}>Filter</button><button className="fresh-header-icon" type="button" aria-label="Refresh jobs" onClick={() => void fetchLoads()}>Refresh</button></header>
+    <FreshHeader onSearch={() => setTab('filter')} />
     <main className="fresh-content">
       <div className="fresh-tabs" role="tablist" aria-label="Jobs view">
         <button role="tab" aria-selected={tab==='available'} className={tab==='available'?'active':''} onClick={() => setTab('available')}>Available</button>
@@ -137,7 +138,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
         {loading ? <div className="fresh-message" role="status">Loading available jobs...</div> : error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchLoads()}>Try again</button></p></div> : searchedResults.length === 0 ? <div className="fresh-message">No available loads match your search.<p><button type="button" onClick={() => setTab('filter')}>Change filters</button></p></div> : searchedResults.map(load => <FreshJobCard key={load.id} load={load} mode={previewLoads ? "preview" : "jobs"} />)}
       </>}
     </main>
-    <nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" aria-current="page" href="/driver-pwa-fresh/jobs">Jobs</Link><Link href="/driver-pwa-fresh/quotes">Quotes</Link><Link href="/driver/won-work">Bookings</Link><Link href="/driver">More</Link></nav>
+    <FreshBottom active="jobs" />
   </>;
   return previewLoads ? screen : <ProtectedRoute allowedRoles={['driver']}>{screen}</ProtectedRoute>;
 }
