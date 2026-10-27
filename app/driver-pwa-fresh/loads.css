@@ -79,3 +79,8 @@
   .fresh-driver-pwa .fresh-search-loads input, .fresh-driver-pwa .fresh-search-loads select { font-size: 16px; min-height: 52px; }
   .fresh-driver-pwa .fresh-bottom { width: 100%; }
 }
+/* Preview is a phone-only workspace. Some Android in-app browsers request a desktop-sized CSS viewport; never center a narrow 580px column in that mode. */
+.fresh-driver-pwa .fresh-content { width: 100%; max-width: none; margin-inline: 0; }
+.fresh-driver-pwa .fresh-search-loads { width: 100%; max-width: none; margin-inline: 0; }
+.fresh-driver-pwa .fresh-header, .fresh-driver-pwa .fresh-bottom { width: 100%; max-width: none; }
+.fresh-driver-pwa .fresh-card { width: 100%; max-width: none; }
