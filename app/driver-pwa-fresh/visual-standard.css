@@ -43,3 +43,9 @@
 .fresh-driver-pwa .fresh-bottom>.selected,.fresh-driver-pwa .fresh-bottom>a.selected{background:#e8f2fb;color:#14568d}
 .fresh-driver-pwa .fresh-menu-backdrop{z-index:40}
 .fresh-driver-pwa .fresh-header-icon{min-height:48px;min-width:44px}
+
+/* Fixed brand and two actions: no overlap on narrow devices. */
+.fresh-driver-pwa .fresh-header{display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:4px;overflow:hidden}
+.fresh-driver-pwa .fresh-brand{flex:1 1 auto;min-width:0;margin-right:0;align-items:flex-start}
+.fresh-driver-pwa .fresh-header-icon{flex:0 0 44px;width:44px;min-width:44px;overflow:hidden}
+
