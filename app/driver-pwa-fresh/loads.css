@@ -69,3 +69,13 @@
 .fresh-driver-pwa .fresh-search-loads .fresh-filter-actions button{height:52px;min-height:52px;font-size:15px;border:0;border-radius:4px;background:#d9d9d9;color:#222;font-weight:800}
 .fresh-driver-pwa .fresh-search-loads .fresh-filter-actions .primary{background:#8bc34a;color:#152411}
 @media(min-width:700px){.fresh-driver-pwa .fresh-search-loads{max-width:580px;margin:0 auto}}
+/* Mobile viewport contract: use the full device width, never a desktop-sized narrow column. */
+@media (max-width: 699px) {
+  .fresh-driver-pwa { width: 100%; min-width: 0; overflow-x: clip; font-size: 14px; }
+  .fresh-driver-pwa .fresh-content { width: 100%; max-width: none; margin: 0; padding: 8px 8px 86px; }
+  .fresh-driver-pwa .fresh-card, .fresh-driver-pwa .fresh-map-view { width: 100%; max-width: none; }
+  .fresh-driver-pwa .fresh-search-loads { width: 100%; max-width: none; margin: 0; padding: 14px 8px 90px; }
+  .fresh-driver-pwa .fresh-search-loads label { font-size: 16px; }
+  .fresh-driver-pwa .fresh-search-loads input, .fresh-driver-pwa .fresh-search-loads select { font-size: 16px; min-height: 52px; }
+  .fresh-driver-pwa .fresh-bottom { width: 100%; }
+}
