@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
+const PublicLoadsMap = dynamic(() => import('../../components/workspace/MarketplaceLoadMap'), { ssr: false });
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
@@ -32,6 +35,7 @@ const shortTime = (value: string | null) => {
   return Number.isNaN(date.getTime()) ? 'Not specified' : date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 };
 export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[] } = {}) {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [loads, setLoads] = useState<Load[]>(previewLoads ?? []);
   const [loading, setLoading] = useState(!previewLoads);
@@ -89,7 +93,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
         <label>Destination radius<select value={destinationRadius} onChange={event => setDestinationRadius(event.target.value)}><option value="">Any distance</option>{[5,10,25,50,100].map(n => <option key={n} value={n}>{n} miles</option>)}</select></label>
         <label>Collect within<select value={collectWithin} onChange={event => setCollectWithin(event.target.value)}><option value="">Any time</option>{[15,30,45,60,90,120].map(n => <option key={n} value={n}>{n} minutes</option>)}</select></label>
         <div className="fresh-filter-actions"><button type="button" onClick={() => { setFrom('');setTo('');setVehicle('');setBodyType('');setCollectWithin('');setPickupRadius('');setDestinationRadius(''); }}>Clear</button><button type="button" className="primary" onClick={() => setTab('available')}>Show {results.length} jobs</button></div>
-      </section> : tab === 'map' ? <section className="fresh-message" role="status">Map view is not available until verified public job coordinates are provided. <button type="button" onClick={() => setTab('available')}>View available jobs</button></section> : <>
+      </section> : tab === 'map' ? <section className="fresh-map-view" aria-label="Available jobs map"><div className="fresh-map-summary">{results.length} available jobs · pickup areas shown at outcode level</div><PublicLoadsMap loads={results.map(load => ({ id: load.id, pickupLabel: place(load.pickup_area, load.pickup_postcode_area), pickupPostcode: load.pickup_postcode_area, deliveryLabel: place(load.delivery_area, load.delivery_postcode_area), deliveryPostcode: load.delivery_postcode_area, vehicleLabel: load.requested_vehicle_label || load.vehicle_type || 'Van', posterName: load.member?.name || 'Company', pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at }))} onDetails={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}`)} onQuote={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}#quote`)} /></section> : <>
         {loading ? <div className="fresh-message" role="status">Loading available jobs…</div> : error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchLoads()}>Try again</button></p></div> : results.length === 0 ? <div className="fresh-message">No available loads match your search.<p><button type="button" onClick={() => setTab('filter')}>Change filters</button></p></div> : results.map(load => <article key={load.id} className="fresh-card" data-testid="load-card">
           <section className="fresh-summary" data-testid="load-summary"><div className="fresh-summary-top"><strong>{(load.member?.postedBy || load.member?.name || 'Company not provided').toUpperCase()}</strong><span className="fresh-available">Available</span></div><div className="fresh-posted">Posted {shortTime(load.exchange_posted_at)}</div><div className="fresh-summary-meta"><span className="fresh-service">{load.service_mode || 'DIRECT'}</span><span>{load.requested_vehicle_label || load.vehicle_type || 'Vehicle unspecified'}</span></div></section>
           <section className="fresh-route" data-testid="load-route"><div className="fresh-route-line" aria-hidden="true"><span className="fresh-pickup-dot"/><span className="fresh-connector"/><span className="fresh-delivery-dot">◆</span></div><div className="fresh-route-places"><div><strong>{place(load.pickup_area, load.pickup_postcode_area)}</strong><p>Collection · {time(load.pickup_datetime)}{load.pickup_time_slot ? ` · ${load.pickup_time_slot}` : ''}</p></div><div><strong>{place(load.delivery_area, load.delivery_postcode_area)}</strong><p>Delivery · {time(load.delivery_datetime)}{load.delivery_time_slot ? ` · ${load.delivery_time_slot}` : ''}</p></div></div></section>

@@ -43,3 +43,13 @@
 .fresh-driver-pwa .fresh-bottom .selected{border-top:0;color:#13508b;background:#eaf3fb;border-radius:7px}
 .fresh-driver-pwa .fresh-message{padding:24px 15px;font-size:13px}
 @media(min-width:700px){.fresh-driver-pwa .fresh-filters{grid-template-columns:repeat(3,1fr)}}
+
+/* Mobile map and filter views share the same LOADS navigation and density. */
+.fresh-driver-pwa .fresh-map-view{background:#fff;border:1px solid #d8e1e9;border-radius:8px;padding:8px;min-width:0}
+.fresh-driver-pwa .fresh-map-summary{font-size:12px;font-weight:700;color:#234361;padding:8px 3px 12px}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-shell{width:100%;min-width:0}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-map{height:calc(100dvh - 260px);min-height:300px;max-height:650px;border-radius:6px}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-legend{gap:8px;font-size:11px}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-privacy{font-size:11px}
+.fresh-driver-pwa .fresh-filters{border-radius:8px;box-shadow:0 1px 2px #132c4312}
+@media(max-width:380px){.fresh-driver-pwa .fresh-filters{grid-template-columns:1fr}.fresh-driver-pwa .fresh-filter-actions{grid-template-columns:1fr 1fr}}
