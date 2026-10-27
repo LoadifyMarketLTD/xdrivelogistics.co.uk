@@ -365,6 +365,10 @@ export async function GET(request: NextRequest) {
 
   const loads = await Promise.all(jobs.map(async (job) => {
     const pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
+    const delivery = validCoordinates(job.delivery_lat, job.delivery_lng);
+    const distanceToDeliveryMiles = driverPosition && delivery
+      ? Number(distanceMiles(driverPosition, delivery).toFixed(1))
+      : null;
     let distanceToPickupMiles = driverPosition && pickup
       ? Number(distanceMiles(driverPosition, pickup).toFixed(1))
       : marketplaceNumber(job.distance_to_pickup_miles);
@@ -383,6 +387,7 @@ export async function GET(request: NextRequest) {
     return {
       ...publicLoad(job, companyById, profileByUserId, bidByJobId),
       distance_to_pickup_miles: distanceToPickupMiles,
+      distance_to_delivery_miles: distanceToDeliveryMiles,
       pickup_eta_minutes: pickupEtaMinutes,
     };
   }));
