@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent, useEffect } from 'react';
+import { useState, type FormEvent, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -41,14 +41,14 @@ export default function LoginPage() {
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
   // A driver logging in on a phone should enter the mobile PWA, not the desktop workspace.
   // Explicit safe next destinations and mandatory password changes always take precedence.
-  const resolveLoginDestination = (currentUser: NonNullable<typeof user>, canonicalRoute: string) => {
+  const resolveLoginDestination = useCallback((currentUser: NonNullable<typeof user>, canonicalRoute: string) => {
     if (canonicalRoute === '/driver/change-password') return canonicalRoute;
     if (safeNextPath && roleCanAccessPath(currentUser, safeNextPath)) return safeNextPath;
     const mobileViewport = typeof window !== 'undefined' && window.matchMedia('(max-width: 767px) and (pointer: coarse)').matches;
     const driverAccess = currentUser.role === 'driver' || currentUser.canAccessDriverMode === true;
     if (mobileViewport && driverAccess && roleCanAccessPath(currentUser, '/driver')) return '/driver-pwa-fresh/jobs';
     return canonicalRoute;
-  };
+  }, [safeNextPath]);
 
   useEffect(() => {
     const signals = getBrowserAuthSignals();
@@ -61,7 +61,7 @@ export default function LoginPage() {
     const canonicalRoute = getPostLoginRoute(user);
     const destination = resolveLoginDestination(user, canonicalRoute);
     router.replace(destination);
-  }, [authLoading, user, router, safeNextPath]);
+  }, [authLoading, user, router, resolveLoginDestination]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
