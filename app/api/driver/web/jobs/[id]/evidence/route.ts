@@ -129,7 +129,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (upload.error) {
     const text = upload.error.message.toLowerCase();
     const duplicate = text.includes('already exists') || text.includes('duplicate');
-    if (!duplicate) return respond(500, { error: upload.error.message });
+    if (duplicate) {
+      return respond(409, { error: 'An evidence file with this name already exists. Select a new filename and retry.' });
+    }
+    return respond(500, { error: upload.error.message });
   }
 
   // Job-level evidence gates the next physical lifecycle transition and is
@@ -147,8 +150,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('assigned_driver_id', driver.driverId)
       .select('id')
       .maybeSingle();
-    if (error) return respond(500, { error: error.message });
-    if (!updated) return respond(409, { error: 'Collection evidence could not be linked to this assignment.' });
+    if (error || !updated) {
+      const cleanup = await supabaseAdmin.storage.from('pod-photos').remove([storagePath]);
+      if (cleanup.error) console.error('POD evidence rollback failed:', cleanup.error.message);
+      return respond(error ? 500 : 409, { error: error?.message ?? 'Collection evidence could not be linked to this assignment.' });
+    }
   }
 
   if (kind === 'delivery' && !stopId) {
@@ -164,8 +170,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('assigned_driver_id', driver.driverId)
       .select('id')
       .maybeSingle();
-    if (error) return respond(500, { error: error.message });
-    if (!updated) return respond(409, { error: 'Delivery evidence could not be linked to this assignment.' });
+    if (error || !updated) {
+      const cleanup = await supabaseAdmin.storage.from('pod-photos').remove([storagePath]);
+      if (cleanup.error) console.error('POD evidence rollback failed:', cleanup.error.message);
+      return respond(error ? 500 : 409, { error: error?.message ?? 'Delivery evidence could not be linked to this assignment.' });
+    }
   }
 
   return respond(200, { ok: true, storagePath });
