@@ -344,6 +344,9 @@ async function savePod(
     p_photo_urls: deliveryPhotos,
   });
   if (podWriteError) return respond(500, { error: podWriteError.message });
+  if (updated && typeof updated === 'object' && '_alreadySubmitted' in updated && updated._alreadySubmitted === true) {
+    return respond(200, { ok: true, alreadySubmitted: true, job: mapJob(updated as unknown as MobileJobRow) });
+  }
 
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
   if (hardCopyRequired && hardCopyAcknowledged) {
