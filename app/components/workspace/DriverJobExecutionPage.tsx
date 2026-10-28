@@ -163,7 +163,7 @@ const requiresHardCopyPod = (value: string | null | undefined) => {
   return true;
 };
 
-export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { jobId: string; mobilePwa?: boolean }) {
+export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOnly = false }: { jobId: string; mobilePwa?: boolean; podOnly?: boolean }) {
   const router = useRouter();
   const { user } = useAuth();
   const driverId = user?.driverId?.trim() ?? '';
@@ -186,8 +186,13 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   const [podLeftAt, setPodLeftAt] = useState('');
   const [podItemCount, setPodItemCount] = useState('1');
   const [podWeight, setPodWeight] = useState('');
-  const [mobilePodOpen, setMobilePodOpen] = useState(false);
+  const mobilePodOpen = podOnly;
   const [podDeliveredOn, setPodDeliveredOn] = useState('');
+  const [podDraftLoaded, setPodDraftLoaded] = useState(false);
+  const [podDraftSaving, setPodDraftSaving] = useState(false);
+  const [podDraftError, setPodDraftError] = useState('');
+  const [savedSignatureData, setSavedSignatureData] = useState('');
+  const podDraftSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [showPodDetails, setShowPodDetails] = useState(false);
   const [podPhotoUrls, setPodPhotoUrls] = useState<string[]>([]);
   const [signing, setSigning] = useState(false);
@@ -252,6 +257,85 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
   }, [authHeader, driverId, jobId]);
 
   useEffect(() => { void loadJob(); }, [loadJob]);
+  const podJobId = job?.id ?? '';
+  const podAlreadyComplete = job ? hasCompletePodEvidence(job) : false;
+
+  // Restore the server-owned POD draft only after the job and its sheet are loaded.
+  useEffect(() => {
+    if (!podOnly || loading || !podJobId || podAlreadyComplete) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const auth = await authHeader();
+        if (!auth) throw new Error('Your session is not available.');
+        const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(podJobId) + '/pod-draft', {
+          headers: { Authorization: auth }, cache: 'no-store',
+        });
+        const payload = await response.json() as { draft?: Record<string, unknown>; error?: string };
+        if (!response.ok) throw new Error(payload.error || 'POD draft could not be loaded.');
+        if (cancelled) return;
+        const draft = payload.draft;
+        if (draft) {
+          const field = (key: string) => typeof draft[key] === 'string' ? draft[key] as string : null;
+          setRecipientName(field('recipientName') ?? '');
+          setPodLeftAt(field('leftAt') ?? '');
+          setPodDeliveryStatus(field('deliveryStatus') ?? 'Completed Delivery');
+          setPodItemCount(field('itemCount') ?? '1');
+          setPodWeight(field('weight') ?? '');
+          setPodDeliveredOn(field('deliveredOn') ?? '');
+          setNotes(field('notes') ?? '');
+          setHardCopyAcknowledged(draft.hardCopyAcknowledged === true);
+          const signature = field('signatureData') ?? '';
+          setSavedSignatureData(signature);
+          if (signature) {
+            const img = new Image();
+            img.onload = () => {
+              if (cancelled) return;
+              const canvas = signatureRef.current;
+              const ctx = canvas?.getContext('2d');
+              if (canvas && ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.src = signature;
+          }
+        }
+        setPodDraftLoaded(true);
+      } catch (reason) {
+        if (!cancelled) setPodDraftError(reason instanceof Error ? reason.message : 'POD draft unavailable.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [podOnly, loading, podJobId, podAlreadyComplete, authHeader]);
+
+  // Serialize debounced writes: an older draft must never overwrite a newer one.
+  useEffect(() => {
+    if (!podOnly || !podDraftLoaded || !podJobId || podAlreadyComplete) return;
+    const id = podJobId;
+    const data = {
+      recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
+      itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
+      notes, signatureData: savedSignatureData, hardCopyAcknowledged,
+      photoUris: pendingPodPhotos, documentUris: pendingPodDocuments,
+    };
+    const timer = setTimeout(() => {
+      podDraftSaveQueue.current = podDraftSaveQueue.current.catch(() => undefined).then(async () => {
+        setPodDraftSaving(true);
+        const auth = await authHeader();
+        if (!auth) throw new Error('Sign in again to save the POD draft.');
+        const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(id) + '/pod-draft', {
+          method: 'PUT', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) throw new Error(body.error || 'POD draft was not saved.');
+        setPodDraftError('');
+      }).catch(reason => {
+        setPodDraftError(reason instanceof Error ? reason.message : 'POD draft was not saved.');
+      }).finally(() => setPodDraftSaving(false));
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [podOnly, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,
+      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
+      savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments]);
 
   const uploadCollectionEvidence = async (file: File) => {
     if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
@@ -625,15 +709,19 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       {name:'Collection',place:sheet?.pickup.address??job.pickup_location,postcode:sheet?.pickup.postcode??job.pickup_postcode,at:sheet?.pickup.dateTime??job.pickup_datetime,phone:sheet?.pickup.contactPhone,notes:sheet?.pickup.notes},
       {name:'Delivery',place:sheet?.delivery.address??job.delivery_location,postcode:sheet?.delivery.postcode??job.delivery_postcode,at:sheet?.delivery.dateTime??job.delivery_datetime,phone:sheet?.delivery.contactPhone,notes:sheet?.delivery.notes}
     ];
-    return <div className="fresh-mobile-booking" data-testid="mobile-booking-details">
+    return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>
+      {!podOnly && <>
       <section className="fresh-mobile-booking-card"><small>BOOKING {sheet?.reference??job.id.slice(0,8)}</small><h1>{stops[0].place} → {stops[1].place}</h1><p>{statusLabel[currentStatus]??currentStatus}</p>{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}<button onClick={()=>void loadJob()} disabled={working}>Refresh</button></section>
       <section className="fresh-mobile-booking-card"><h2>Job progress</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{nextStatus&&canShowLifecycleAction&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void moveStatus(nextStatus)}>{nextLabel}</button>}</section>
       {stops.map(stop=><section className="fresh-mobile-booking-card" key={stop.name}><h2>{stop.name}</h2><strong>{stop.place??'Not supplied'}</strong><p>{stop.postcode}</p><p>{formatDateTime(stop.at)}</p>{stop.notes&&<p>{stop.notes}</p>}<div className="fresh-mobile-booking-actions">{stop.phone&&<a href={'tel:'+stop.phone}>Call contact</a>}<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a></div></section>)}
       <section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl><dt>Company</dt><dd>{sheet?.bookedBy??'Not supplied'}</dd><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd><dt>Rate</dt><dd>{money(sheet?.agreedRate,sheet?.currency??job.currency)}</dd><dt>Payment terms</dt><dd>{sheet?.paymentTerms??'Not supplied'}</dd></dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>
 
-<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{['delivered','completed','invoiced'].includes(currentStatus)&&<button type="button" onClick={()=>setMobilePodOpen(v=>!v)}>{mobilePodOpen?'Close POD':'Open POD'}</button>}</section>
-{mobilePodOpen&&<section className="fresh-mobile-booking-card fresh-mobile-pod">
+<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{['delivered','completed','invoiced'].includes(currentStatus)&&<button type="button" onClick={()=>router.push('/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)+'/pod')}>Complete POD / View POD</button>}{podComplete&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Create Invoice</button>}</section>
+      </>}
+      {podOnly && <section className="fresh-mobile-booking-card"><h1>Proof of Delivery</h1><p>{stops[0].place} → {stops[1].place}</p><p>{formatDateTime(stops[0].at)} / {formatDateTime(stops[1].at)}</p>{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}</section>}
+{(mobilePodOpen||podOnly)&&<section className="fresh-mobile-booking-card fresh-mobile-pod">
 <h2>POD</h2>
+{podOnly&&<p role="status">{podDraftError ? 'Draft not saved: '+podDraftError : podDraftSaving ? 'Saving draft to XDrive...' : podDraftLoaded ? 'Draft connected to XDrive' : 'Loading saved draft...'}</p>}
 <label>Delivery status<select value={podDeliveryStatus} onChange={e=>setPodDeliveryStatus(e.target.value)}><option>Completed Delivery</option><option>Partial Delivery</option><option>Failed Delivery</option><option>Refused</option><option>Left Safe</option></select></label>
 <label>Number of Items *<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodItemCount(String(Math.max(1,(Number(podItemCount)||1)-1)))}>−</button><input type="number" min="1" required value={podItemCount} onChange={e=>setPodItemCount(e.target.value)}/><button type="button" onClick={()=>setPodItemCount(String((Number(podItemCount)||0)+1))}>+</button></div></label>
 <label>Weight (kg)<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodWeight(String(Math.max(0,(Number(podWeight)||0)-1)))}>−</button><input type="number" min="0" step="0.1" value={podWeight} onChange={e=>setPodWeight(e.target.value)}/><button type="button" onClick={()=>setPodWeight(String((Number(podWeight)||0)+1))}>+</button></div></label>
@@ -644,16 +732,15 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
 <label>Add Document (optional)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label>
 {pendingPodDocuments.length>0&&<ul aria-label="Saved POD documents">{pendingPodDocuments.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Document")} — saved</li>)}</ul>}
 <label>Signature * (required)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
-<button type="button" onClick={clearSignature}>Clear signature</button>
+<div className="fresh-mobile-booking-actions"><button type="button" onClick={()=>{const next=signatureData();if(next){setSavedSignatureData(next);setPodDraftError('');}else setPodDraftError('Please draw your signature before saving.');}}>Save Signature</button><button type="button" onClick={()=>{clearSignature();setSavedSignatureData('');}}>Clear Signature</button></div>
 <label>Left At *<input required value={podLeftAt} onChange={e=>setPodLeftAt(e.target.value)}/></label>
 <label>Delivered On<input type="date" value={podDeliveredOn} onChange={e=>setPodDeliveredOn(e.target.value)}/></label>
 <label>Received By (Full Name) *<input required value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
 {hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}
 {!podComplete?<button type="button" className="fresh-mobile-booking-primary fresh-pod-send" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>{working?'Saving...':'Send POD'}</button>:<p>POD recorded</p>}
 {podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}
-{podComplete&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Generate invoice</button>}
 </section>}
-<section className="fresh-mobile-booking-card"><details><summary>Event Log ({timelineRows.length})</summary><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></details></section>
+{!podOnly&&<section className="fresh-mobile-booking-card"><details><summary>Event Log ({timelineRows.length})</summary><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></details></section>}
     </div>;
   }
   return (
