@@ -342,6 +342,33 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
       savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments]);
 
+  const savePodDraftNow = async () => {
+    if (!podJobId || !podDraftLoaded || podAlreadyComplete) return;
+    setPodDraftSaving(true);
+    setPodDraftError('');
+    try {
+      const snapshot = {
+        recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
+        itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
+        notes, signatureData: savedSignatureData || signatureData(),
+        hardCopyAcknowledged, photoUris: pendingPodPhotos, documentUris: pendingPodDocuments,
+      };
+      await podDraftSaveQueue.current.catch(() => undefined);
+      const auth = await authHeader();
+      if (!auth) throw new Error('Sign in again to save the POD draft.');
+      const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(podJobId) + '/pod-draft', {
+        method: 'PUT', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify(snapshot),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'POD draft could not be saved.');
+      setMessage('POD draft saved to XDrive.');
+    } catch (reason) {
+      setPodDraftError(reason instanceof Error ? reason.message : 'POD draft could not be saved.');
+    } finally {
+      setPodDraftSaving(false);
+    }
+  };
   const uploadCollectionEvidence = async (file: File) => {
     if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
     if (file.size > 10 * 1024 * 1024) throw new Error('Each collection photo must be 10 MB or smaller.');
@@ -729,7 +756,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       {stops.map(stop=><section className="fresh-mobile-booking-card" key={stop.name}><h2>{stop.name}</h2><strong>{stop.place??'Not supplied'}</strong><p>{stop.postcode}</p><p>{formatDateTime(stop.at)}</p>{stop.notes&&<p>{stop.notes}</p>}<div className="fresh-mobile-booking-actions">{stop.phone&&<a href={'tel:'+stop.phone}>Call contact</a>}<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a></div></section>)}
       <section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl><dt>Company</dt><dd>{sheet?.bookedBy??'Not supplied'}</dd><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd><dt>Rate</dt><dd>{money(sheet?.agreedRate,sheet?.currency??job.currency)}</dd><dt>Payment terms</dt><dd>{sheet?.paymentTerms??'Not supplied'}</dd></dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>
 
-<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{['delivered','completed','invoiced'].includes(currentStatus)&&<button type="button" onClick={()=>router.push('/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)+'/pod')}>Complete POD / View POD</button>}{podComplete&&!sheet?.invoices[0]?.id&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Create Invoice</button>}{sheet?.invoices[0]?.id&&<><p>Invoice recorded: {sheet.invoices[0].number??'Draft invoice'} · {sheet.invoices[0].paymentStatus??sheet.invoices[0].status??'Draft'}</p><button type="button" className="fresh-mobile-booking-primary" onClick={()=>router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View &amp; Review Invoice</button></>}{podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}{podComplete&&<p>Delivery evidence is recorded in the booking. The invoice remains a draft until reviewed and sent by an authorised user.</p>}</section>
+<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{['delivered','completed','invoiced'].includes(currentStatus)&&<button type="button" onClick={()=>router.push('/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)+'/pod')}>Complete POD / View POD</button>}{podComplete&&!sheet?.invoices[0]?.id&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Create Invoice</button>}{sheet?.invoices[0]?.id&&<><p>Invoice recorded: {sheet.invoices[0].number??'Draft invoice'} · {sheet.invoices[0].paymentStatus??sheet.invoices[0].status??'Draft'}</p><button type="button" className="fresh-mobile-booking-primary" onClick={()=>router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View &amp; Review Invoice</button></>}{podOnly && (!podComplete ? <button type="button" className="fresh-mobile-booking-primary" disabled={working||podDraftSaving||!podDraftLoaded} onClick={()=>void savePodDraftNow()}>{podDraftSaving?"Saving POD...":"Save POD Draft"}</button> : <p role="status">POD saved and recorded. This completed POD cannot be overwritten.</p>)}
+{podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}{podComplete&&<p>Delivery evidence is recorded in the booking. The invoice remains a draft until reviewed and sent by an authorised user.</p>}</section>
       </>}
       {podOnly && <section className="fresh-mobile-booking-card"><h1>Proof of Delivery</h1><p>{stops[0].place} → {stops[1].place}</p><p>{formatDateTime(stops[0].at)} / {formatDateTime(stops[1].at)}</p>{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}</section>}
 {(mobilePodOpen||podOnly)&&<section className="fresh-mobile-booking-card fresh-mobile-pod">
@@ -765,6 +793,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 <label>Received By (Full Name) *<input required value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
 {hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}
 {!podComplete&&currentStatus==='on_site_delivery'&&<div role="status"><p>Delivery arrival is recorded, but the job has not yet been marked Delivered. Confirm the handover before sending POD.</p>{deliveryPhotos.length===0&&<p>Take at least one delivery photo before confirming the handover.</p>}<button type="button" className="fresh-mobile-booking-primary" disabled={working||deliveryPhotos.length===0} onClick={()=>void moveStatus('delivered')}>{working?'Saving...':'Confirm Delivered'}</button></div>}{!podComplete&&<div role="status" aria-label="POD submission checklist"><strong>Before sending POD</strong><ul><li>{deliveryPhotos.length>0?'✓':'○'} At least one saved delivery photo</li><li>{recipientName.trim()?'✓':'○'} Recipient full name</li><li>{savedSignatureData||job.delivery_signature_data?'✓':'○'} Saved recipient signature</li><li>{podLeftAt.trim()?'✓':'○'} Left At location</li>{hardCopyRequired&&<li>{hardCopyAcknowledged?'✓':'○'} Hard-copy POD acknowledged</li>}</ul>{error&&<p role="alert">POD not sent: {error}</p>}</div>}{!podComplete?<button type="button" className="fresh-mobile-booking-primary fresh-pod-send" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>{working?'Saving...':'Send POD'}</button>:<p>POD recorded</p>}
+{podOnly && (!podComplete ? <button type="button" className="fresh-mobile-booking-primary" disabled={working||podDraftSaving||!podDraftLoaded} onClick={()=>void savePodDraftNow()}>{podDraftSaving?"Saving POD...":"Save POD Draft"}</button> : <p role="status">POD saved and recorded. This completed POD cannot be overwritten.</p>)}
 {podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}
 </section>}
 {!podOnly&&<section className="fresh-mobile-booking-card" aria-label="Delivery closeout and documents"><h2>Delivery closeout &amp; documents</h2><dl><dt>Delivery</dt><dd>{['delivered','completed','invoiced'].includes(currentStatus)?'Delivered':'In progress'}</dd><dt>Proof of Delivery</dt><dd>{podComplete?'Recorded and available':'Awaiting completed recipient evidence'}</dd><dt>Invoice</dt><dd>{sheet?.invoices[0]?.id?`${sheet.invoices[0].number??'Recorded invoice'} — ${sheet.invoices[0].status??'Draft'}`:podComplete?'Ready for authorised carrier owner/admin':'Available after POD'}</dd></dl>{podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download carrier POD</button>}{sheet?.invoices[0]?.id&&<button type="button" onClick={()=>router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>Open recorded invoice</button>}{podComplete&&!sheet?.invoices[0]?.id&&!canGenerateInvoices&&<p>Invoice generation is managed by the carrier company owner or administrator.</p>}</section>}{!podOnly&&<section className="fresh-mobile-booking-card"><details><summary>Event Log ({timelineRows.length})</summary><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></details></section>}
