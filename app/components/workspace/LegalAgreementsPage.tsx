@@ -244,13 +244,21 @@ export default function LegalAgreementsPage({
     setError('');
     try {
       const token = await getAccessToken();
-      const response = await fetch(`/api/account/legal-agreements/${record.id}/signed-document`, {
+      const response = await fetch(`/api/account/legal-agreements/${record.id}/signed-document?readable=1`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
-      const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
-      if (!response.ok || !payload.url) throw new Error(payload.error || 'Signed agreement could not be downloaded.');
-      window.location.assign(payload.url);
+      const payload = (await response.json().catch(() => ({}))) as { pdfBase64?: string; filename?: string; error?: string };
+      if (!response.ok || !payload.pdfBase64) throw new Error(payload.error || 'Readable agreement could not be downloaded.');
+      const bytes = Uint8Array.from(atob(payload.pdfBase64), char => char.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = payload.filename || 'XDrive-Readable-Legal-Agreement.pdf';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch (downloadError) {
       setError(downloadError instanceof Error ? downloadError.message : 'Signed agreement could not be downloaded.');
     } finally {
