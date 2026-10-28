@@ -41,7 +41,7 @@ export default function DriverLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-carrier-workspace xdrive-driver-workspace xdrive-canonical-workspace">
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
-        <MobileDriverWorkspaceRedirect><MobileDriverWorkspaceRedirect><DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell></MobileDriverWorkspaceRedirect></MobileDriverWorkspaceRedirect>
+        <MobileDriverWorkspaceRedirect><DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell></MobileDriverWorkspaceRedirect>
       </ProtectedRoute>
     </div>
   );
