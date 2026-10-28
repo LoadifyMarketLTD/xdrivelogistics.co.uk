@@ -1,10 +1,7 @@
-import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const isMissingDriverCommercialColumn = (
   error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
@@ -13,80 +10,6 @@ const isMissingDriverCommercialColumn = (
   const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
   return text.includes('driver_type') || text.includes('can_commercial_bid');
 };
-
-function validatedSessionId(token: string): string | null {
-  try {
-    const encoded = token.split('.')[1];
-    if (!encoded) return null;
-    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as { session_id?: unknown };
-    return typeof payload.session_id === 'string' && UUID_RE.test(payload.session_id)
-      ? payload.session_id
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-async function enforceActiveNativeDeviceBinding(
-  request: NextRequest,
-  token: string,
-  userId: string,
-  driverId: string,
-): Promise<NextResponse | null> {
-  if (!supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
-
-  const [{ data: activeBinding, error: bindingError }, { data: nativeHistory, error: historyError }] = await Promise.all([
-    supabaseAdmin
-      .from('driver_mobile_device_sessions')
-      .select('installation_id, auth_session_id')
-      .eq('user_id', userId)
-      .eq('driver_id', driverId)
-      .eq('enabled', true)
-      .is('revoked_at', null)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('driver_mobile_device_sessions')
-      .select('installation_id')
-      .eq('user_id', userId)
-      .eq('driver_id', driverId)
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  if (bindingError || historyError) {
-    return respond(500, { error: 'Mobile device session validation failed.' });
-  }
-
-  // Legacy compatibility ends permanently after this driver completes the first
-  // native-device registration. If that registered session is later logged out or
-  // revoked, an old JWT must not regain access merely because there is no active
-  // row left. Only drivers with no native-session history may use the legacy path.
-  if (!activeBinding) {
-    if (nativeHistory) return respond(401, { error: 'No active native device session is authorised.' });
-    return null;
-  }
-
-  const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
-  const authSessionId = validatedSessionId(token);
-  if (!UUID_RE.test(installationId) || !authSessionId) {
-    return respond(401, { error: 'Active native device identity is required.' });
-  }
-
-  if (
-    String(activeBinding.installation_id) !== installationId ||
-    String(activeBinding.auth_session_id) !== authSessionId
-  ) {
-    return respond(401, { error: 'This mobile session has been revoked or replaced by another device.' });
-  }
-
-  void supabaseAdmin
-    .from('driver_mobile_device_sessions')
-    .update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('installation_id', installationId)
-    .eq('auth_session_id', authSessionId);
-
-  return null;
-}
 
 export type DriverContext = {
   userId: string;
@@ -214,13 +137,8 @@ export async function requireDriver(
   }
 
   const driverId = String(driverRow.id);
-  const deviceGate = await enforceActiveNativeDeviceBinding(
-    request,
-    token,
-    authData.user.id,
-    driverId,
-  );
-  if (deviceGate) return deviceGate;
+  // Authenticated Supabase sessions are allowed on all devices.
+  // Device registration is optional and never gates job access.
 
   const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
     ? driverRow.company_id.trim()
