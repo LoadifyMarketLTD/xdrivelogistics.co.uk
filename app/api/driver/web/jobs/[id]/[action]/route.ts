@@ -230,6 +230,8 @@ async function savePod(
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobWithDamageEvidence;
+  // A repeated Send POD must not rewrite the signed record or emit a second event.
+  if (job.pod_generated === true) return respond(200, { ok: true, alreadySubmitted: true, job: mapJob(job) });
   const currentStatus = String(job.current_status ?? job.status ?? '').toLowerCase();
   if (!['delivered', 'completed', 'invoiced'].includes(currentStatus)) {
     return respond(409, { error: 'Mark the job Delivered before completing POD.' });
@@ -251,6 +253,11 @@ async function savePod(
 
   if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
   if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
+  // The existing atomic RPC sets pod_generated=true. Never call it for a
+  // partial, refused or failed handover: those stay as evidence-backed drafts.
+  if (deliveryStatus !== 'Completed Delivery') return respond(409, {
+    error: 'This delivery has an unresolved exception. Save the POD draft and resolve it before final submission.',
+  });
   if (itemCount !== null && (!Number.isFinite(itemCount) || itemCount < 0 || itemCount > 100000)) {
     return respond(400, { error: 'Enter a valid delivered item count.' });
   }
@@ -337,6 +344,9 @@ async function savePod(
     p_photo_urls: deliveryPhotos,
   });
   if (podWriteError) return respond(500, { error: podWriteError.message });
+  if (updated && typeof updated === 'object' && '_alreadySubmitted' in updated && updated._alreadySubmitted === true) {
+    return respond(200, { ok: true, alreadySubmitted: true, job: mapJob(updated as unknown as MobileJobRow) });
+  }
 
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
   if (hardCopyRequired && hardCopyAcknowledged) {

@@ -1,0 +1,272 @@
+
+/* XDrive approved mobile typography, 27 October 2026. */
+.fresh-driver-pwa{--x-title:20px;--x-section:18px;--x-town:19px;--x-body:16px;--x-secondary:14px;--x-badge:12px;font-size:var(--x-body);line-height:22px}
+.fresh-driver-pwa .fresh-content{padding-left:12px;padding-right:12px}
+.fresh-driver-pwa .fresh-header h1{font-size:20px;font-weight:700;line-height:26px}
+.fresh-driver-pwa .fresh-card{margin-bottom:10px}
+.fresh-driver-pwa .fresh-summary,.fresh-driver-pwa .fresh-route,.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-actions{padding:14px}
+.fresh-driver-pwa .fresh-summary strong,.fresh-driver-pwa .fresh-details-customer h2,.fresh-driver-pwa .fresh-quote-job>strong{font-size:18px;font-weight:700;line-height:24px}
+.fresh-driver-pwa .fresh-town,.fresh-driver-pwa .fresh-route-places strong,.fresh-driver-pwa .fresh-preview-pin strong,.fresh-driver-pwa .fresh-quote-route strong{font-size:19px;font-weight:800;line-height:25px}
+.fresh-driver-pwa .fresh-muted,.fresh-driver-pwa .fresh-posted,.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-quick,.fresh-driver-pwa .fresh-route-places p,.fresh-driver-pwa .fresh-preview-pin small,.fresh-driver-pwa .fresh-preview-map-note,.fresh-driver-pwa .fresh-quote-submit p{font-size:14px;font-weight:500;line-height:20px}
+.fresh-driver-pwa .fresh-tag,.fresh-driver-pwa .fresh-available,.fresh-driver-pwa .fresh-service{font-size:12px;font-weight:700;line-height:17px}
+.fresh-driver-pwa .fresh-tabs button,.fresh-driver-pwa .fresh-filters label,.fresh-driver-pwa .fresh-filter-actions button,.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .quote-now,.fresh-driver-pwa .fresh-preview-secondary button,.fresh-driver-pwa .fresh-quote-submit>button,.fresh-driver-pwa .fresh-bottom span,.fresh-driver-pwa .fresh-bottom a{font-size:16px;font-weight:600;line-height:22px}
+.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .quote-now,.fresh-driver-pwa .fresh-preview-secondary button,.fresh-driver-pwa .fresh-quote-submit>button,.fresh-driver-pwa .fresh-filters button,.fresh-driver-pwa .fresh-filter-actions button{min-height:48px}
+.fresh-driver-pwa .fresh-preview-details,.fresh-driver-pwa .fresh-preview-quote{padding-left:12px;padding-right:12px}
+.fresh-driver-pwa .fresh-preview-data,.fresh-driver-pwa .fresh-preview-route-overview,.fresh-driver-pwa .fresh-preview-customer,.fresh-driver-pwa .fresh-preview-notes,.fresh-driver-pwa .fresh-preview-feedback,.fresh-driver-pwa .fresh-quote-job,.fresh-driver-pwa .fresh-quote-panel{padding:14px}
+.fresh-driver-pwa .fresh-preview-data dl,.fresh-driver-pwa .fresh-preview-customer,.fresh-driver-pwa .fresh-preview-notes,.fresh-driver-pwa .fresh-preview-feedback,.fresh-driver-pwa .fresh-quote-panel label{font-size:16px;font-weight:600;line-height:22px}
+.fresh-driver-pwa .fresh-quote-job,.fresh-driver-pwa .fresh-quote-panel{margin-bottom:10px}
+.fresh-driver-pwa .fresh-bottom a{display:flex;flex:1;min-width:0;min-height:58px;align-items:center;justify-content:center;text-align:center;text-decoration:none;color:#203b55;opacity:1;pointer-events:auto;cursor:pointer;font-size:15px;font-weight:700}.fresh-driver-pwa .fresh-bottom a.selected{color:#13508b;background:#eaf3fb}.fresh-driver-pwa .fresh-bottom a:focus-visible{outline:3px solid #155d91;outline-offset:-3px}
+
+.fresh-driver-pwa .fresh-header{overflow:hidden;min-width:0}.fresh-driver-pwa .fresh-header-icon{flex:0 0 44px;display:flex;align-items:center;justify-content:center;width:44px;min-width:44px;padding:0}.fresh-driver-pwa .fresh-bottom{grid-template-columns:repeat(3,minmax(0,1fr))}.fresh-driver-pwa .fresh-quote-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;background:white;padding:5px;margin-bottom:10px;border-radius:6px}.fresh-driver-pwa .fresh-quote-tabs button{min-width:0;min-height:48px;border:0;background:#f0f2f5;border-radius:4px;font-size:14px;font-weight:700}.fresh-driver-pwa .fresh-quote-tabs button[aria-selected=true]{background:white;border-bottom:3px solid #1472c3;color:#0c3564}.fresh-menu-backdrop{position:fixed;inset:58px 0 0;background:#0006;z-index:30}.fresh-menu{margin-left:auto;width:min(340px,90vw);max-height:calc(100dvh - 70px);overflow-y:auto;background:white;padding:14px;box-shadow:-4px 4px 18px #0003}.fresh-menu a{display:block;padding:15px 10px;border-bottom:1px solid #e4e9ee;color:#173451;text-decoration:none;font-size:16px;font-weight:600}.fresh-menu-heading{display:flex;justify-content:space-between;align-items:center;font-size:20px;font-weight:700}.fresh-menu-heading button{border:0;background:none;font-size:28px;min-width:44px;min-height:44px}
+
+/* Three equal-width, thumb-friendly primary navigation tabs. */
+.fresh-driver-pwa .fresh-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;align-items:stretch;width:100%;padding:4px 8px max(6px,env(safe-area-inset-bottom));min-height:66px;background:#fff;border-top:1px solid #dce4ec;box-shadow:0 -3px 12px #17345112}.fresh-driver-pwa .fresh-bottom a{min-width:0;min-height:54px;margin:0 3px;border:0;border-radius:10px;display:flex;justify-content:center;align-items:center;gap:4px;font-size:15px;font-weight:700;letter-spacing:.1px;color:#203b55;white-space:nowrap;transition:background .15s ease,color .15s ease}.fresh-driver-pwa .fresh-bottom a.selected{background:#e8f2fb;color:#14568d;border:0}.fresh-driver-pwa .fresh-bottom a:active{background:#d9ebf9}.fresh-driver-pwa .fresh-content{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+
+/* APPROVED FINAL MOBILE SPEC 2026-10-27: authoritative override, no screenshot pixel conversion. */
+.fresh-driver-pwa{font-size:16px;line-height:22px}
+.fresh-driver-pwa .fresh-content{padding-left:12px;padding-right:12px}
+.fresh-driver-pwa .fresh-content>h1,.fresh-driver-pwa .fresh-header h1{font-size:20px;font-weight:700;line-height:26px}
+.fresh-driver-pwa .fresh-card{margin-bottom:10px}
+.fresh-driver-pwa .fresh-summary,.fresh-driver-pwa .fresh-route,.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-actions{padding:14px}
+.fresh-driver-pwa .fresh-summary strong,.fresh-driver-pwa .fresh-quote-job>strong{font-size:18px;font-weight:700;line-height:24px}
+.fresh-driver-pwa .fresh-route-places strong,.fresh-driver-pwa .fresh-preview-pin strong,.fresh-driver-pwa .fresh-quote-route strong{font-size:19px;font-weight:800;line-height:25px}
+.fresh-driver-pwa .fresh-notes,.fresh-driver-pwa .fresh-posted,.fresh-driver-pwa .fresh-quick,.fresh-driver-pwa .fresh-route-places p{font-size:14px;font-weight:500;line-height:20px}
+.fresh-driver-pwa .fresh-available,.fresh-driver-pwa .fresh-service,.fresh-driver-pwa .fresh-tag{font-size:12px;font-weight:700;line-height:17px}
+.fresh-driver-pwa .fresh-bottom a,.fresh-driver-pwa .fresh-bottom button,.fresh-driver-pwa .fresh-quote-tabs button,.fresh-driver-pwa .fresh-tabs button,.fresh-driver-pwa .fresh-actions button,.fresh-driver-pwa .fresh-actions a,.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .quote-now{font-size:16px;font-weight:600;line-height:22px;min-height:48px}
+.fresh-driver-pwa .fresh-bottom{grid-template-columns:repeat(3,minmax(0,1fr))}
+.fresh-driver-pwa .fresh-actions input,.fresh-driver-pwa .fresh-actions select,.fresh-driver-pwa .fresh-actions textarea{font-size:16px;min-height:48px}
+.fresh-driver-pwa .fresh-card,.fresh-driver-pwa .fresh-content{max-width:100%;overflow-wrap:anywhere}
+
+/* Final three-tab driver navigation and hamburger: 27 Oct approved. */
+.fresh-driver-pwa .fresh-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:stretch;padding:6px 12px max(6px,env(safe-area-inset-bottom));min-height:66px}
+.fresh-driver-pwa .fresh-bottom>a,.fresh-driver-pwa .fresh-bottom>button{display:flex;align-items:center;justify-content:center;min-width:0;min-height:54px;width:100%;margin:0;border:0;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;color:#203b55;background:#fff;cursor:pointer}
+.fresh-driver-pwa .fresh-bottom>.selected,.fresh-driver-pwa .fresh-bottom>a.selected{background:#e8f2fb;color:#14568d}
+.fresh-driver-pwa .fresh-menu-backdrop{z-index:40}
+.fresh-driver-pwa .fresh-header-icon{min-height:48px;min-width:44px}
+
+/* Fixed brand and two actions: no overlap on narrow devices. */
+.fresh-driver-pwa .fresh-header{display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:4px;overflow:hidden}
+.fresh-driver-pwa .fresh-brand{flex:1 1 auto;min-width:0;margin-right:0;align-items:flex-start}
+.fresh-driver-pwa .fresh-header-icon{flex:0 0 44px;width:44px;min-width:44px;overflow:hidden}
+
+.fresh-driver-pwa .fresh-demo-bottom{grid-template-columns:repeat(3,minmax(0,1fr))}.fresh-driver-pwa .fresh-demo-bottom button{min-width:0;min-height:58px;border:0;background:#fff;font-weight:700;color:#173d64}.fresh-driver-pwa .fresh-demo-action{display:block;width:100%;min-height:48px;margin-top:8px;border:1px solid #c7d4e0;border-radius:6px;background:#f3f7fb;color:#154b78;font-weight:700}.fresh-driver-pwa .fresh-demo-action+.fresh-demo-action{background:#16a34a;color:#fff;border-color:#16a34a}
+
+.fresh-driver-pwa .fresh-demo-quote-summary{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;font-size:16px}
+.fresh-driver-pwa .fresh-demo-detail-toggle{border:1px solid #ccd7e4;background:white;border-radius:5px;padding:9px 12px;font-weight:700;color:#184c79}
+.fresh-driver-pwa .fresh-demo-quote-detail{display:grid;gap:10px;padding:12px;background:#fff;border:1px solid #e1e5ea;border-radius:6px;font-size:15px}
+.fresh-driver-pwa .fresh-demo-map{display:block;text-align:center;background:#ffcb05;color:#182638;font-weight:800;padding:13px;border-radius:5px;text-decoration:none}
+.fresh-driver-pwa .fresh-demo-cancel,.fresh-driver-pwa .fresh-demo-award{display:block;width:100%;min-height:48px;margin-top:8px;border-radius:5px;font-weight:800}
+.fresh-driver-pwa .fresh-demo-cancel{background:#ee6057;color:#fff;border:0}
+.fresh-driver-pwa .fresh-demo-award{background:#fff;color:#174e80;border:1px solid #d0dbe6}
+.fresh-driver-pwa .fresh-demo-bottom button[aria-current="page"]{background:#e7f1f9;color:#174e80}
+.fresh-driver-pwa .fresh-demo-quote-input{display:block;font-size:15px;font-weight:700}
+
+.fresh-driver-pwa .fresh-preview-view-map{display:block;background:#ffc400;color:#161616;text-align:center;font-weight:800;font-size:18px;line-height:24px;padding:14px 10px;margin:14px 0 4px;border-radius:4px;text-decoration:none;min-height:52px}
+
+.fresh-driver-pwa .fresh-tabs a{display:flex;align-items:center;justify-content:center;min-height:44px;flex:1;text-decoration:none;color:#173c64;background:#f0f2f5;font-weight:700;border-radius:5px}.fresh-driver-pwa .fresh-tabs a.active{background:#fff;border-bottom:2px solid #1876ca}.fresh-driver-pwa .fresh-tabs{display:flex;gap:4px}
+
+/* Keep the original three equal-width Jobs tabs on every subpage. */
+.fresh-driver-pwa .fresh-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px;width:100%;box-sizing:border-box}
+.fresh-driver-pwa .fresh-tabs>a{display:flex;width:100%;min-width:0;box-sizing:border-box;align-items:center;justify-content:center;text-align:center;padding:0 4px;white-space:nowrap;font-size:14px;line-height:20px;min-height:44px}
+
+
+/* Approved top tabs: equal full-width buttons, applies to button and link variants. */
+.fresh-driver-pwa .fresh-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important;width:100%!important;padding:4px 6px!important;box-sizing:border-box!important}
+.fresh-driver-pwa .fresh-tabs>button,.fresh-driver-pwa .fresh-tabs>a{display:flex!important;flex:none!important;width:100%!important;min-width:0!important;box-sizing:border-box!important;align-items:center;justify-content:center;text-align:center;padding:0 4px!important;white-space:nowrap;font-size:14px!important;line-height:20px!important;min-height:44px!important}
+
+
+/* XDrive brand palette: visual-only layer. Preserve approved card geometry and tab behavior. */
+.fresh-driver-pwa{
+ --xd-yellow:#ffcf05;--xd-navy:#102b48;--xd-blue:#155d91;
+ --xd-green:#16a34a;--xd-canvas:#f2f4f6;--xd-white:#fff;
+ --xd-border:#d7dfe7;--xd-muted:#697581;--xd-danger:#d93b36;
+ --ink:var(--xd-navy);--muted:var(--xd-muted);--line:var(--xd-border);--accent:var(--xd-blue);
+ color:var(--xd-navy);background:var(--xd-canvas);
+}
+.fresh-driver-pwa .fresh-header{background:var(--xd-yellow);color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-header-icon{color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-card{background:var(--xd-white);border-color:var(--xd-border)}
+.fresh-driver-pwa .fresh-tabs{background:var(--xd-white)}
+.fresh-driver-pwa .fresh-tabs>button,.fresh-driver-pwa .fresh-tabs>a{color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-tabs>button[aria-selected=true],.fresh-driver-pwa .fresh-tabs>a.active{color:var(--xd-navy);border-bottom-color:var(--xd-blue)}
+.fresh-driver-pwa .quote-now{background:var(--xd-green);border-color:#14853d;color:#fff}
+.fresh-driver-pwa .fresh-bottom{background:var(--xd-white);border-top-color:var(--xd-border)}
+.fresh-driver-pwa .fresh-bottom>a,.fresh-driver-pwa .fresh-bottom>button{color:var(--xd-navy)}
+.fresh-driver-pwa .fresh-bottom>a.selected,.fresh-driver-pwa .fresh-bottom>.selected{background:#e8f2fb;color:var(--xd-blue)}
+.fresh-driver-pwa .fresh-menu a{color:var(--xd-navy)}
+.fresh-driver-pwa :is(button,a,input,select,textarea):focus-visible{outline:3px solid var(--xd-blue);outline-offset:2px}
+/* Approved header ink: logo and both icons share the exact navy. */
+.fresh-driver-pwa .fresh-header .fresh-brand,
+.fresh-driver-pwa .fresh-header .fresh-brand-mark,
+.fresh-driver-pwa .fresh-header .fresh-brand-sub,
+.fresh-driver-pwa .fresh-header .fresh-header-icon,
+.fresh-driver-pwa .fresh-header .fresh-header-icon svg{color:#102B48!important;stroke:#102B48}
+/* Official XDrive seven-colour Driver PWA application (approved 2026-10-27).
+   Purely visual: preserve the approved card geometry and three-tab navigation. */
+.fresh-driver-pwa{
+ --xd-primary-blue:#0B2F6B;--xd-secondary-blue:#1D57D8;
+ --xd-orange:#F5A300;--xd-white:#FFFFFF;--xd-charcoal:#1A1F2B;
+ --xd-light-grey:#F4F6F8;--xd-cta-green:#16A34A;
+ --xd-navy:var(--xd-primary-blue);--xd-blue:var(--xd-secondary-blue);
+ --xd-green:var(--xd-cta-green);--xd-canvas:var(--xd-light-grey);
+ --ink:var(--xd-charcoal);--accent:var(--xd-secondary-blue);
+ color:var(--xd-charcoal);background:var(--xd-light-grey);
+}
+.fresh-driver-pwa .fresh-header{background:var(--xd-orange);color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-header .fresh-brand,
+.fresh-driver-pwa .fresh-header .fresh-brand-mark,
+.fresh-driver-pwa .fresh-header .fresh-brand-sub,
+.fresh-driver-pwa .fresh-header .fresh-header-icon,
+.fresh-driver-pwa .fresh-header .fresh-header-icon svg{color:var(--xd-primary-blue)!important;stroke:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-card,.fresh-driver-pwa .fresh-tabs,.fresh-driver-pwa .fresh-bottom{background:var(--xd-white)}
+.fresh-driver-pwa .fresh-town,.fresh-driver-pwa .fresh-summary strong,.fresh-driver-pwa .fresh-facts dd{color:var(--xd-charcoal)}
+.fresh-driver-pwa .fresh-tabs>button,.fresh-driver-pwa .fresh-tabs>a{color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-tabs>button[aria-selected=true],
+.fresh-driver-pwa .fresh-tabs>a.active{color:var(--xd-primary-blue);border-bottom-color:var(--xd-secondary-blue)}
+.fresh-driver-pwa .fresh-bottom .selected,
+.fresh-driver-pwa .fresh-bottom [aria-current=page]{color:var(--xd-secondary-blue);border-top-color:var(--xd-secondary-blue);background:#EDF3FF}
+.fresh-driver-pwa .quote-now,.fresh-driver-pwa .fresh-demo-action+.fresh-demo-action{background:var(--xd-cta-green);border-color:var(--xd-cta-green);color:var(--xd-white)}
+.fresh-driver-pwa .fresh-detail,.fresh-driver-pwa .fresh-back,.fresh-driver-pwa .fresh-menu a{color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-tag{background:#FFF2D5;color:#805200}
+.fresh-driver-pwa .fresh-dot{border-color:var(--xd-secondary-blue)}
+.fresh-driver-pwa :is(button,a,input,select,textarea):focus-visible{outline-color:var(--xd-secondary-blue)}
+/* Mobile reference: card actions, quote statuses and real booking milestone overview. */
+.fresh-driver-pwa .fresh-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.fresh-driver-pwa .fresh-actions>:only-child{grid-column:1/-1}
+.fresh-driver-pwa .fresh-actions .quote-now,.fresh-driver-pwa .fresh-actions .fresh-detail{min-width:0}
+.fresh-driver-pwa .fresh-available{background:#E9F8EF;color:#126534;border-radius:999px;padding:4px 9px}
+.fresh-driver-pwa .fresh-service{color:#C5412B}
+.fresh-driver-pwa .fresh-cancel-quote{border:1px solid #D94848;background:#fff;color:#B42318;border-radius:6px;min-height:48px;font-weight:700}
+.fresh-driver-pwa .fresh-quote-amount{grid-column:1/-1;color:var(--xd-primary-blue);font-weight:800}
+.fresh-driver-pwa .fresh-quote-tabs{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}
+.fresh-driver-pwa .fresh-quote-tabs button[aria-selected=true]{color:var(--xd-primary-blue);border-bottom-color:var(--xd-secondary-blue)}
+.fresh-driver-pwa .fresh-booking-timeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:12px 10px 6px;gap:2px}
+.fresh-driver-pwa .fresh-booking-timeline>div{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;color:#758394}
+.fresh-driver-pwa .fresh-booking-timeline>div:not(:last-child):before{content:"";position:absolute;left:50%;right:-50%;height:3px;top:7px;background:#CBD5E1}
+.fresh-driver-pwa .fresh-booking-step-dot{width:16px;height:16px;z-index:1;background:#CBD5E1;border:3px solid #fff;box-shadow:0 0 0 1px #CBD5E1;border-radius:50%}
+.fresh-driver-pwa .fresh-booking-timeline>div.done{color:var(--xd-secondary-blue);font-weight:700}
+.fresh-driver-pwa .fresh-booking-timeline>div.done .fresh-booking-step-dot{background:var(--xd-secondary-blue);box-shadow:0 0 0 1px var(--xd-secondary-blue)}
+.fresh-driver-pwa .fresh-booking-timeline small{font-size:10px;line-height:13px}
+/* Reference-accurate compact Jobs screen, scoped to the real Driver PWA. */
+@media(max-width:699px){
+.fresh-driver-pwa .fresh-content{padding:7px 9px 82px}
+.fresh-driver-pwa .fresh-tabs{margin-bottom:8px;padding:4px 5px;gap:4px}
+.fresh-driver-pwa .fresh-tabs button{min-height:40px;font-size:12px;line-height:16px;font-weight:700}
+.fresh-driver-pwa .fresh-card{border-radius:9px;margin-bottom:9px}
+.fresh-driver-pwa .fresh-summary{padding:9px 10px 6px}
+.fresh-driver-pwa .fresh-summary strong{font-size:13px;line-height:18px}
+.fresh-driver-pwa .fresh-posted{font-size:11px;line-height:15px}
+.fresh-driver-pwa .fresh-summary-meta{font-size:11px;margin-top:4px}
+.fresh-driver-pwa .fresh-route{padding:9px 11px;gap:10px}
+.fresh-driver-pwa .fresh-route-places{gap:10px}
+.fresh-driver-pwa .fresh-route-places strong{font-size:13px;line-height:18px}
+.fresh-driver-pwa .fresh-route-places p{font-size:11px;line-height:16px;margin:2px 0 0}
+.fresh-driver-pwa .fresh-connector{height:37px}
+.fresh-driver-pwa .fresh-notes{font-size:11px;line-height:16px;padding:7px 10px}
+.fresh-driver-pwa .fresh-quick{font-size:11px;line-height:17px;padding:7px 10px}
+.fresh-driver-pwa .fresh-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:7px 10px 10px}
+.fresh-driver-pwa .fresh-actions .quote-now,.fresh-driver-pwa .fresh-actions .fresh-detail{font-size:12px;line-height:17px;min-height:38px;font-weight:800}
+.fresh-driver-pwa .fresh-actions>:only-child{grid-column:1/-1}
+.fresh-driver-pwa .fresh-bottom a{font-size:12px;line-height:18px;min-height:52px}
+.fresh-driver-pwa .fresh-available{font-size:10px;line-height:15px;padding:3px 8px}
+}
+/* Details must reuse Jobs top card, without duplicating the route beneath it. */
+.fresh-driver-pwa .fresh-details-card{background:transparent;border:0;box-shadow:none;overflow:visible}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes{background:#fff;border:1px solid #e0e6ec;border-radius:9px;margin:0 0 9px;padding:13px}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes h2{font-size:14px;color:#0B2F6B;margin:0 0 10px}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes .fresh-facts{grid-template-columns:minmax(95px,32%) 1fr;gap:10px}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes .fresh-facts dt{color:#1A1F2B}
+.fresh-driver-pwa .fresh-details-card>.fresh-actions{background:#fff;border:1px solid #e0e6ec;border-radius:9px;grid-template-columns:1fr;padding:13px;margin-bottom:12px}
+.fresh-driver-pwa .fresh-details-card>.fresh-actions>*{grid-column:1/-1}
+/* Approved Load Details actions: full-width Quote Now, equal Save/Delete below. */
+.fresh-driver-pwa .fresh-preview-details .fresh-actions{display:flex;flex-direction:column;gap:10px;padding:12px 14px 16px;background:#F4F6F8}
+.fresh-driver-pwa .fresh-preview-details .fresh-actions>.quote-now{display:flex;width:100%;min-height:58px;height:auto;background:#16A34A;border:1px solid #15803D;color:#fff;font-size:18px;font-weight:800;line-height:24px;border-radius:6px;text-align:center}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%;align-items:stretch}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary>button{width:100%;min-height:54px;height:auto;display:flex;justify-content:center;align-items:center;border:0;border-radius:6px;background:#F5A300;color:#1A1F2B;font-size:16px;font-weight:800;line-height:22px;padding:12px}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary>button:nth-of-type(2){background:#EF5A55;color:#1A1F2B}
+.fresh-driver-pwa .fresh-preview-details .fresh-preview-secondary>p{grid-column:1/-1;font-size:12px;line-height:17px;margin:0;color:#64748B}
+/* Reference implementation: Quotes four-status tabs and map results sheet. */
+.fresh-driver-pwa .fresh-quote-status-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#fff;border-bottom:1px solid #dfe5ec;gap:0;padding:0 5px;margin-bottom:9px}
+.fresh-driver-pwa .fresh-quote-status-tabs button{min-height:44px;border:0;border-bottom:3px solid transparent;background:transparent;color:#0B2F6B;font-size:12px;font-weight:600}
+.fresh-driver-pwa .fresh-quote-status-tabs button[aria-selected=true]{border-bottom-color:#1D57D8;font-weight:800;color:#0B2F6B}
+.fresh-driver-pwa .fresh-map-reference{position:relative;min-height:calc(100dvh - 190px);overflow:hidden;background:#e8eff1}
+.fresh-driver-pwa .fresh-map-reference .fresh-map-sheet{position:absolute;bottom:0;left:0;right:0;z-index:4;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -5px 22px #0B2F6B22;max-height:53dvh;display:flex;flex-direction:column}
+.fresh-driver-pwa .fresh-map-sheet-heading{flex:none;min-height:48px;display:flex;align-items:center;justify-content:space-between;background:#fff;border:0;border-radius:16px 16px 0 0;padding:10px 14px;color:#0B2F6B;font-weight:800;font-size:14px}
+.fresh-driver-pwa .fresh-map-sheet-items{overflow-y:auto;padding:0 8px 8px}
+.fresh-driver-pwa .fresh-map-sheet-row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:9px;width:100%;min-height:62px;background:#fff;border:1px solid #e3e9ef;border-radius:10px;margin:5px 0;padding:7px 9px;text-align:left;color:#0B2F6B}
+.fresh-driver-pwa .fresh-map-van{font-size:25px}
+.fresh-driver-pwa .fresh-map-sheet-places{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fresh-driver-pwa .fresh-map-sheet-places strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fresh-driver-pwa .fresh-map-sheet-places small{font-size:11px;color:#64748B}
+.fresh-driver-pwa .fresh-map-sheet-status{font-size:11px;color:#1D57D8;font-weight:800}
+.fresh-driver-pwa .fresh-booking-actions{display:flex;flex-direction:column;gap:8px}
+.fresh-driver-pwa .fresh-booking-actions>a{display:flex;align-items:center;justify-content:center;width:100%;min-height:44px;text-align:center;border-radius:6px;font-weight:750;font-size:13px;text-decoration:none}
+.fresh-driver-pwa .fresh-booking-actions>.fresh-booking-open{background:#16A34A;color:#fff;border:1px solid #15803D}
+.fresh-driver-pwa .fresh-booking-actions>.fresh-detail{background:#fff;color:#0B2F6B;border:1px solid #D7DFE7}
+/* Search Loads: approved action hierarchy. Search full-width; Save and Clear equal below. */
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important;width:100%;margin-top:12px}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button{width:100%;min-width:0;min-height:52px;height:52px;border-radius:7px;border:0;font-size:15px;font-weight:800;line-height:20px}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:first-child{grid-column:1/-1;background:#16A34A;color:#fff}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:nth-child(2){grid-column:1;background:#F5A300;color:#1A1F2B}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:nth-child(3){grid-column:2;background:#E2E5E9;color:#1A1F2B}
+.fresh-driver-pwa .fresh-search-loads .fresh-filter-actions>button:focus-visible{outline:3px solid #1D57D8;outline-offset:2px}
+/* Mobile booking execution: preserve the proven action/POD implementation without desktop overflow. */
+.fresh-driver-pwa .fresh-booking-detail-header{height:56px;display:flex;align-items:center;gap:16px;padding:0 14px;background:#F5A300;color:#0B2F6B}
+.fresh-driver-pwa .fresh-booking-detail-header a{color:#0B2F6B;text-decoration:none;font-size:17px;font-weight:800;min-height:44px;display:flex;align-items:center}
+.fresh-driver-pwa .fresh-booking-detail-header strong{font-size:17px}
+.fresh-driver-pwa .fresh-booking-execution{min-width:0;width:100%;max-width:100vw;overflow-x:hidden;padding:8px 8px 110px;background:#F4F6F8}
+.fresh-driver-pwa .fresh-booking-execution *{box-sizing:border-box;max-width:100%}
+.fresh-driver-pwa .fresh-booking-execution :is(input,select,textarea,button){font-size:16px;min-height:44px}
+.fresh-driver-pwa .fresh-booking-execution :is(table){display:block;max-width:100%;overflow-x:auto}
+.fresh-driver-pwa .fresh-booking-execution :is(img,canvas){max-width:100%;height:auto}
+@media(max-width:767px){.fresh-driver-pwa .fresh-booking-execution .driver-detail-grid{grid-template-columns:minmax(0,1fr)!important}.fresh-driver-pwa .fresh-booking-execution .driver-row-actions{flex-wrap:wrap}.fresh-driver-pwa .fresh-booking-execution .driver-row-actions>*{flex:1 1 140px}}
+\n/* Mobile-only booking execution layout. Desktop workspace remains unchanged. */
+@media (max-width: 767px) {
+ .fresh-driver-pwa .fresh-booking-execution { width:100%; max-width:100%; overflow-x:clip; padding:10px 10px 94px; }
+ .fresh-driver-pwa .fresh-booking-execution .xdrive-page-frame { width:100%; min-width:0; max-width:100%!important; padding:0!important; margin:0!important; }
+ .fresh-driver-pwa .fresh-booking-execution .xdrive-page-header { min-width:0; padding:8px 2px 12px; }
+ .fresh-driver-pwa .fresh-booking-execution .xdrive-page-header__title { font-size:17px!important; line-height:23px!important; overflow-wrap:anywhere; }
+ .fresh-driver-pwa .fresh-booking-execution .xdrive-two-column { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:10px!important; width:100%; }
+ .fresh-driver-pwa .fresh-booking-execution .xdrive-two-column > * { min-width:0; width:100%; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-detail-grid { display:grid!important; grid-template-columns:minmax(0,1fr)!important; gap:0!important; width:100%; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-detail-item { display:flex; flex-direction:column; gap:3px; min-width:0; padding:10px 12px; border-bottom:1px solid #e4eaf0; background:#fff; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-detail-item span { display:block; margin:0; color:#64748b; font-size:12px; line-height:17px; font-weight:600; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-detail-item strong { display:block; color:#1a1f2b; font-size:14px; line-height:20px; font-weight:700; overflow-wrap:anywhere; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-detail-item small { display:block; color:#64748b; font-size:12px; line-height:17px; overflow-wrap:anywhere; }
+ .fresh-driver-pwa .fresh-booking-execution .xdrive-panel { min-width:0; max-width:100%; margin-bottom:10px; }
+ .fresh-driver-pwa .fresh-booking-execution .xdrive-panel__body { min-width:0; overflow-x:auto; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-order-stops { display:grid!important; grid-template-columns:minmax(0,1fr)!important; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-order-stop { min-width:0; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-order-block { display:flex; flex-direction:column; gap:7px; overflow-wrap:anywhere; }
+ .fresh-driver-pwa .fresh-booking-execution .workspace-record-meta.workspace-list-controls { display:none!important; }
+ .fresh-driver-pwa .fresh-booking-execution :is(input,textarea,select) { width:100%; min-width:0; }
+ .fresh-driver-pwa .fresh-booking-execution :is(table) { width:max-content; min-width:100%; max-width:none; font-size:12px; }
+ .fresh-driver-pwa .fresh-booking-execution :is(th,td) { white-space:normal; overflow-wrap:anywhere; min-width:90px; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-row-actions { display:flex; flex-wrap:wrap; }
+ .fresh-driver-pwa .fresh-booking-execution .driver-row-actions > * { flex:1 1 135px; }
+}
+
+.fresh-driver-pwa .fresh-mobile-booking{display:grid;gap:12px;padding:12px 12px 96px;background:#f4f6f8;min-width:0;width:100%;max-width:100%;box-sizing:border-box}
+.fresh-driver-pwa .fresh-mobile-booking-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px;min-width:0;overflow-wrap:anywhere;display:grid;gap:9px}
+.fresh-driver-pwa .fresh-mobile-booking-card h1{font-size:18px;line-height:1.35;color:#0b2f6b;margin:0}
+.fresh-driver-pwa .fresh-mobile-booking-card h2{font-size:16px;line-height:1.3;color:#0b2f6b;margin:0}
+.fresh-driver-pwa .fresh-mobile-booking-card p{margin:0;line-height:1.45;font-size:13px}
+.fresh-driver-pwa .fresh-mobile-booking-card small{font-size:12px;color:#64748b}
+.fresh-driver-pwa .fresh-mobile-booking-card strong{font-size:14px}
+.fresh-driver-pwa .fresh-mobile-booking-card dl{display:grid;grid-template-columns:minmax(0,110px) minmax(0,1fr);gap:10px;margin:0}
+.fresh-driver-pwa .fresh-mobile-booking-card dt{font-size:12px;color:#64748b}
+.fresh-driver-pwa .fresh-mobile-booking-card dd{font-size:13px;margin:0;font-weight:600;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-mobile-booking-card label{display:grid;gap:6px;font-size:13px;font-weight:600}
+.fresh-driver-pwa .fresh-mobile-booking-card :is(input:not([type=checkbox]),textarea){width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:6px;padding:10px;font-size:14px}
+.fresh-driver-pwa .fresh-mobile-booking-card :is(button,a){min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:9px 12px;border-radius:7px;border:1px solid #cbd5e1;background:#fff;color:#0b2f6b;font-size:13px;font-weight:700;text-decoration:none;box-sizing:border-box}
+.fresh-driver-pwa .fresh-mobile-booking-card .fresh-mobile-booking-primary{width:100%;background:#16a34a;color:#fff;border-color:#16a34a;min-height:48px}
+.fresh-driver-pwa .fresh-mobile-booking-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fresh-driver-pwa .fresh-mobile-booking-history{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.fresh-driver-pwa .fresh-mobile-booking-history li{display:grid;gap:3px;border-bottom:1px solid #e2e8f0;padding-bottom:10px}
+
+.fresh-driver-pwa .fresh-mobile-pod{gap:14px}
+.fresh-driver-pwa .fresh-mobile-pod select{width:100%;min-height:46px;border:1px solid #cbd5e1;border-radius:7px;padding:9px;font-size:14px;background:white}
+.fresh-driver-pwa .fresh-pod-stepper{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;gap:5px}
+.fresh-driver-pwa .fresh-pod-stepper input{text-align:center;min-width:0}
+.fresh-driver-pwa .fresh-pod-stepper button{min-width:0;padding:5px;font-size:23px}
+.fresh-driver-pwa .fresh-mobile-pod .fresh-pod-send{background:#f5a300;color:#1a1f2b;border-color:#f5a300;min-height:52px}

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const page = fs.readFileSync(path.join(root, 'app/components/workspace/DriverJobExecutionPage.tsx'), 'utf8');
 const helper = fs.readFileSync(path.join(root, 'lib/jobs/podCompletion.ts'), 'utf8');
-const deliveredGuard = fs.readFileSync(path.join(root, 'supabase/migrations/20261017190500_align_delivered_before_pod_guard.sql'), 'utf8');
+const deliveredGuard = fs.readFileSync(path.join(root, 'supabase/migrations/20261018054340_align_delivered_before_pod_guard.sql'), 'utf8');
 
 describe('Driver Job Execution mandatory POD to invoice contract', () => {
   it('requires complete POD evidence before job completion', () => {

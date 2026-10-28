@@ -68,9 +68,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const notes = cleanString(body.notes, 2000);
   const photoPaths = stringPaths(body.photoPaths, MAX_PHOTOS);
   const documentPaths = stringPaths(body.documentPaths, MAX_DOCUMENTS);
-  if (photoPaths.length === 0) {
-    return respond(400, { error: 'At least one collection photo is required.' });
-  }
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
@@ -119,7 +116,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     : [];
   const update: Record<string, unknown> = {
     collection_handover: handover,
-    collection_photo_url: photoPaths[0],
+    ...(photoPaths.length ? { collection_photo_url: photoPaths[0] } : {}),
     pickup_photos: [...new Set([...existingPhotos, ...photoPaths])],
     updated_at: capturedAt,
   };

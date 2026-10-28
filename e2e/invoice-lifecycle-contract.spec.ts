@@ -123,6 +123,9 @@ async function loginAsAdmin(page: import('@playwright/test').Page) {
 }
 
 test.describe('admin invoice list — authenticated', () => {
+  // A cold Next.js server and auth hydration can exceed Playwright's 30s default.
+  // Preserve real login assertions; allow the full retry budget before failing.
+  test.setTimeout(90_000);
   test.skip(!ADMIN_EMAIL, 'Set E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD to run authenticated invoice tests');
 
   test.beforeEach(async ({ page }) => {
