@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MobileDriverWorkspaceRedirect from './MobileDriverWorkspaceRedirect';
 import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
+import MobileDriverWorkspaceRedirect from './MobileDriverWorkspaceRedirect';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-light-guard.css';
 import './driver-operational.css';
@@ -40,7 +41,7 @@ export default function DriverLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-carrier-workspace xdrive-driver-workspace xdrive-canonical-workspace">
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
-        <MobileDriverWorkspaceRedirect><DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell></MobileDriverWorkspaceRedirect>
+        <MobileDriverWorkspaceRedirect><MobileDriverWorkspaceRedirect><DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell></MobileDriverWorkspaceRedirect></MobileDriverWorkspaceRedirect>
       </ProtectedRoute>
     </div>
   );

@@ -1,24 +1,25 @@
 ﻿'use client';
 
-import { useEffect } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 
-/** Mobile driver deep links must not strand drivers in the desktop workspace. */
-export default function MobileDriverWorkspaceRedirect({ children }: { children: React.ReactNode }) {
+/** Prevent an authenticated phone driver from falling back to the desktop shell. */
+export default function MobileDriverWorkspaceRedirect({ children }: { children: ReactNode }) {
   const { user, isLoading } = useAuth();
-  const pathname = usePathname();
   const router = useRouter();
-
+  const [mobile, setMobile] = useState<boolean | null>(null);
   useEffect(() => {
-    if (isLoading || !user || user.mustChangePassword) return;
-    if (user.role !== 'driver' || !user.canAccessDriverMode) return;
-    if (!window.matchMedia('(max-width: 767px)').matches) return;
-    // The driver PWA is a separate mobile shell; desktop and company roles retain /driver.
-    if (pathname === '/driver' || pathname === '/driver/jobs') {
-      router.replace('/driver-pwa-fresh/bookings');
-    }
-  }, [isLoading, user, pathname, router]);
-
+    const query = window.matchMedia('(max-width: 767px)');
+    const update = () => setMobile(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  const redirect = !isLoading && user?.role === 'driver' && mobile === true && user.canAccessDriverMode === true && !user.mustChangePassword;
+  useEffect(() => {
+    if (redirect) router.replace('/driver-pwa-fresh/bookings');
+  }, [redirect, router]);
+  if (redirect) return <p role="status">Opening XDrive Driver mobile application...</p>;
   return <>{children}</>;
 }
