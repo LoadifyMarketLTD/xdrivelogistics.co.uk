@@ -69,11 +69,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const image = /^data:image\/png/i.test(signature) ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
     const size = image.scaleToFit(400, 150);
     page.drawImage(image, { x: 40, y: 320, width: size.width, height: size.height });
-    page.drawText('Delivery evidence stored securely in XDrive:', { x: 40, y: 288, size: 9, font: bold, color: navy });
-    evidence.deliveryPhotos.slice(0, 9).forEach((path, index) => {
-      page.drawText(safe(path, 115), { x: 40, y: 270 - index * 16, size: 7.5, font: regular, color: navy });
-    });
-    page.drawText('Original delivery photographs and signed evidence remain in secure job storage.', { x: 40, y: 40, size: 8, font: regular, color: navy });
+    const carrierCompany = job.awarded_carrier_company_id ?? job.assigned_company_id ?? job.company_id;
+    for (const [index, storagePath] of evidence.deliveryPhotos.slice(0, 10).entries()) {
+      if (!carrierCompany || !storagePath.startsWith(`${carrierCompany}/${job.id}/photos/`) ||
+          storagePath.includes('..') || storagePath.includes('\\')) {
+        throw new Error('POD photograph has an invalid storage path.');
+      }
+      const { data: stored, error: storageError } = await supabaseAdmin.storage
+        .from('pod-photos').download(storagePath);
+      if (storageError || !stored) throw new Error('POD photograph could not be retrieved.');
+      const photoBytes = new Uint8Array(await stored.arrayBuffer());
+      const photo = storagePath.toLowerCase().endsWith('.png')
+        ? await pdf.embedPng(photoBytes) : await pdf.embedJpg(photoBytes);
+      const photoPage = pdf.addPage([595.28, 841.89]);
+      photoPage.drawText(`DELIVERY PHOTO ${index + 1} OF ${Math.min(evidence.deliveryPhotos.length, 10)}`, {
+        x: 40, y: 790, size: 14, font: bold, color: navy,
+      });
+      const dimensions = photo.scaleToFit(515, 700);
+      photoPage.drawImage(photo, {
+        x: (595.28 - dimensions.width) / 2,
+        y: 745 - dimensions.height,
+        width: dimensions.width, height: dimensions.height,
+      });
+    }
     const data = await pdf.save();
     return new NextResponse(Buffer.from(data), { status: 200, headers: {
       'Content-Type': 'application/pdf',
