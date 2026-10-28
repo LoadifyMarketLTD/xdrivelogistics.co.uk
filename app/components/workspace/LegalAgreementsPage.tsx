@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LegalDocumentChecklist from './LegalDocumentChecklist';
@@ -330,7 +330,7 @@ export default function LegalAgreementsPage({
       {message && <AlertBanner tone="success">{message}</AlertBanner>}
 
       {loading ? (
-        <Panel><EmptyState compact title="Loading Legal & Agreements…" /></Panel>
+        <Panel><EmptyState compact title="Loading Legal & Agreementsâ€¦" /></Panel>
       ) : !model ? (
         <Panel><EmptyState title="Legal history unavailable" description="XDrive could not resolve the contractual record for this account." /></Panel>
       ) : (
@@ -381,7 +381,7 @@ export default function LegalAgreementsPage({
                   <li key={item.code}>{item.label} - v{item.version}</li>)}</ul>
                 {model.reacceptanceReasons.length > 0 && (
                   <div style={{ display: 'grid', gap: 3, color: '#7c2d12', fontSize: 11, lineHeight: '15px' }}>
-                    {model.reacceptanceReasons.map((reason) => <span key={reason}>• {reasonLabel(reason)}</span>)}
+                    {model.reacceptanceReasons.map((reason) => <span key={reason}>â€¢ {reasonLabel(reason)}</span>)}
                   </div>
                 )}
 
@@ -439,7 +439,7 @@ export default function LegalAgreementsPage({
                 <div>
                   <ActionButton tone="primary" disabled={!canAccept || submitting} onClick={() => void submitAcceptance()}>
                     {submitting
-                      ? 'Recording acceptance…'
+                      ? 'Recording acceptanceâ€¦'
                       : isInitialRemediation
                         ? 'Record current acceptance'
                         : 'Accept current agreements'}
@@ -475,7 +475,7 @@ export default function LegalAgreementsPage({
                       {record.agreements.map((agreement) => (
                         <div key={`${record.id}-${agreement.code}`} style={{ fontSize: 10, color: '#475569' }}>
                           <strong style={{ color: '#0f172a' }}>{agreementLabelByCode.get(agreement.code) ?? agreement.code.replace(/_/g, ' ')}</strong>
-                          <span> · v{agreement.version}{agreement.language ? ` · ${agreement.language}` : ''}</span>
+                          <span> Â· v{agreement.version}{agreement.language ? ` Â· ${agreement.language}` : ''}</span>
                         </div>
                       ))}
                     </div>
@@ -486,14 +486,14 @@ export default function LegalAgreementsPage({
                       <span>Privacy: <strong style={{ color: '#334155' }}>{record.privacyVersion}</strong></span>
                       <span>Language: <strong style={{ color: '#334155' }}>{record.acceptanceLanguage}</strong></span>
                       <span>Evidence ID: <code style={{ color: '#334155' }}>{record.id}</code></span>
-                      <span>Evidence hash: <code style={{ color: '#334155' }}>{record.evidenceHash.slice(0, 16)}…</code></span>
+                      <span>Evidence hash: <code style={{ color: '#334155' }}>{record.evidenceHash.slice(0, 16)}â€¦</code></span>
                       {record.signerFullName ? <span>Signed by: <strong style={{ color: '#334155' }}>{record.signerFullName}</strong></span> : null}
-                      {record.signedPdfHash ? <span>PDF hash: <code style={{ color: '#334155' }}>{record.signedPdfHash.slice(0, 16)}…</code></span> : null}
+                      {record.signedPdfHash ? <span>PDF hash: <code style={{ color: '#334155' }}>{record.signedPdfHash.slice(0, 16)}â€¦</code></span> : null}
                     </div>
                     {record.signedPdfAvailable ? (
                       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                         <ActionButton tone="secondary" disabled={downloadingId === record.id} onClick={() => void downloadSignedAgreement(record)}>
-                          {downloadingId === record.id ? 'Preparing PDF…' : 'Download signed PDF'}
+                          {downloadingId === record.id ? 'Preparing PDFâ€¦' : 'Download readable copy'}
                         </ActionButton>
                       </div>
                     ) : null}
@@ -507,3 +507,4 @@ export default function LegalAgreementsPage({
     </Frame>
   );
 }
+
