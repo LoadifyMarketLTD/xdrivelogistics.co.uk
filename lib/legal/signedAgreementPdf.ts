@@ -58,8 +58,8 @@ const loadInterFonts = async (pdf: PDFDocument) => {
     readFile(join(base, 'inter-latin-ext-700-normal.ttf')),
   ]);
   return {
-    regular: await pdf.embedFont(regularBytes, { subset: true }),
-    bold: await pdf.embedFont(boldBytes, { subset: true }),
+    regular: await pdf.embedFont(regularBytes, { subset: false }),
+    bold: await pdf.embedFont(boldBytes, { subset: false }),
   };
 };
 
