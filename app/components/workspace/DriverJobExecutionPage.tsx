@@ -538,11 +538,11 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
           notes: [notes.trim(), podWeight.trim() ? 'Weight: '+podWeight.trim()+' kg' : ''].filter(Boolean).join(' | ') || undefined,
         }),
       });
-      const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'POD could not be completed.');
-      setMessage('POD completed. Invoice creation is now available.');
-      clearSignature();
+      const payload = await response.json().catch(() => ({})) as { error?: string; ok?: boolean; alreadySubmitted?: boolean };
+      if (!response.ok || payload.ok !== true) throw new Error(payload.error || `POD submission was not confirmed by the server (HTTP ${response.status}).`);
       await loadJob();
+      setMessage(payload.alreadySubmitted ? 'POD was already recorded. No duplicate was created.' : 'POD submitted and recorded. Invoice creation is now available.');
+      clearSignature();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'POD could not be completed.');
     } finally {
