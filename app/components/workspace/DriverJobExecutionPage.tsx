@@ -8,7 +8,6 @@ import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../li
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
-import { sendGeneratedInvoice } from '../../../lib/client/invoiceDelivery';
 import { useAuth } from '../AuthContext';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
@@ -512,10 +511,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       });
       const payload = await response.json().catch(() => ({})) as { invoice?: { id?: string }; error?: string };
       if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
-      await sendGeneratedInvoice(payload.invoice.id, auth);
-      setMessage('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
-      if (!mobilePwa) router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
-      else await loadJob();
+      setMessage('Draft invoice created. Review and approve it before sending to the buyer.');
+      router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
