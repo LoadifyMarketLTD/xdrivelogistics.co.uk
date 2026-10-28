@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 
 type Params = { params: Promise<{ id: string }> };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 
 export async function GET(request: NextRequest, { params }: Params) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Server auth is not configured.' });
