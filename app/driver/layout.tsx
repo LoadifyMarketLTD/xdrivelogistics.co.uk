@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute';
 import MobileDriverWorkspaceRedirect from './MobileDriverWorkspaceRedirect';
 import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
-import MobileDriverWorkspaceRedirect from './MobileDriverWorkspaceRedirect';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-light-guard.css';
 import './driver-operational.css';
