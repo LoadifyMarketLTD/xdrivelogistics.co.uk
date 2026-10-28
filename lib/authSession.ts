@@ -666,6 +666,9 @@ export const getResponsivePostLoginRoute = (
   const canonical = getPostLoginRoute(user);
   if (!isMobile || user.mustChangePassword) return canonical;
 
+  // Dedicated driver accounts land in the standalone PWA on mobile.
+  // Preserve the existing desktop workspace for company and broker roles.
+  if (user.role === 'driver' && user.canAccessDriverMode) return '/driver-pwa-fresh/bookings';
   return canonical;
 };
 
