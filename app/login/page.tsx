@@ -1,4 +1,5 @@
 'use client';
+import { isMobileDriverBrowser } from '../../lib/isMobileDriverBrowser';
 
 import { useState, type FormEvent, useEffect } from 'react';
 import Link from 'next/link';
@@ -48,8 +49,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    const canonicalRoute = getResponsivePostLoginRoute(user, window.matchMedia('(max-width: 767px)').matches);
-    const destination = safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
+    const canonicalRoute = getResponsivePostLoginRoute(user, isMobileDriverBrowser());
+    const mobileDriver = isMobileDriverBrowser() && user.canAccessDriverMode === true && Boolean(user.driverId) && !user.mustChangePassword;
+    const destination = mobileDriver ? '/driver-pwa-fresh/bookings' : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
@@ -206,7 +208,7 @@ export default function LoginPage() {
                   Need an account? <Link href="/register">Register</Link>
                 </p>
                 <div className={styles.registerRow} aria-label="Legal documents">
-                  <Link href="/legal">Legal Centre</Link> · <Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/cookies">Cookies</Link>
+                  <Link href="/legal">Legal Centre</Link> Â· <Link href="/terms">Terms</Link> Â· <Link href="/privacy">Privacy</Link> Â· <Link href="/cookies">Cookies</Link>
                 </div>
               </form>
             ) : (

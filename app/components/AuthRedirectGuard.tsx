@@ -4,10 +4,11 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthContext';
 import { getResponsivePostLoginRoute } from '../../lib/authSession';
+import { isMobileDriverBrowser } from '../../lib/isMobileDriverBrowser';
 
 /**
  * Silently redirects authenticated users to their dashboard.
- * Renders nothing — never blocks the server-rendered landing page.
+ * Renders nothing â€” never blocks the server-rendered landing page.
  */
 export function AuthRedirectGuard() {
   const { user, isLoading } = useAuth();
@@ -15,7 +16,7 @@ export function AuthRedirectGuard() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push(getResponsivePostLoginRoute(user, window.matchMedia('(max-width: 767px)').matches));
+      router.push(getResponsivePostLoginRoute(user, isMobileDriverBrowser()));
     }
   }, [user, isLoading, router]);
 
