@@ -4,6 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import FreshSectionTabs from '../../FreshSectionTabs';
+import FreshJobCard from '../../FreshJobCard';
+import { FreshBottom } from '../../FreshNavigation';
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 
 type Load = {
@@ -22,12 +25,6 @@ type Load = {
   myBid: { status: string | null; amount: number | null } | null;
   member: { name: string; memberId: string | null } | null;
 };
-const formatDate = (value: string | null) => {
-  if (!value) return 'Not specified';
-  const date = new Date(value);
-  return Number.isFinite(date.getTime()) ? date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not specified';
-};
-const locationLabel = (area: string, outcode: string | null) => [area, outcode].filter(Boolean).join(', ');
 const available = new Set(['posted', 'quoted']);
 export default function FreshLoadDetail() {
   const params = useParams();
@@ -94,17 +91,12 @@ export default function FreshLoadDetail() {
     }
   };
   return <ProtectedRoute allowedRoles={['driver']}>
-    <header className="fresh-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">← LOADS</Link><h1>Load Details</h1></header>
-    <main className="fresh-content" data-testid="load-details">
+    <header className="fresh-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">← LOADS</Link><h1>Load ID {id.slice(0, 12)}</h1></header>
+    <main className="fresh-content" data-testid="load-details"><FreshSectionTabs mapHref={'/driver-pwa-fresh/jobs?view=map&load='+encodeURIComponent(id)}/>
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
-      {load ? <article className="fresh-card">
-        <section className="fresh-summary"><div className="fresh-summary-top"><strong>{load.member?.name || 'Marketplace member'}</strong><span className="fresh-tag">{load.requested_vehicle_label || load.vehicle_type || 'Vehicle TBC'}</span></div><p className="fresh-muted">Load reference: {load.id}</p></section>
-        <section className="fresh-route">
-          <div className="fresh-stop"><span className="fresh-dot" /><div><div className="fresh-muted">COLLECT</div><div className="fresh-town">{locationLabel(load.pickup_area, load.pickup_postcode_area)}</div><div>{formatDate(load.pickup_datetime)} · {load.pickup_time_slot || 'Time slot not specified'}</div>{load.collection_window_end ? <div>Window ends: {formatDate(load.collection_window_end)}</div> : null}</div></div>
-          <div className="fresh-stop"><span className="fresh-dot" /><div><div className="fresh-muted">DELIVER</div><div className="fresh-town">{locationLabel(load.delivery_area, load.delivery_postcode_area)}</div><div>{formatDate(load.delivery_datetime)} · {load.delivery_time_slot || 'Time slot not specified'}</div></div></div>
-        </section>
-        <section className="fresh-notes" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
+      {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card">
+        <section className="fresh-notes fresh-details-spec" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
           <dl className="fresh-facts">
             <dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
             <dt>Cargo</dt><dd>{load.requested_cargo_label || load.cargo_type || 'Not specified'}</dd>
@@ -117,8 +109,8 @@ export default function FreshLoadDetail() {
             {load.payment_terms ? <><dt>Payment terms</dt><dd>{load.payment_terms}</dd></> : null}
           </dl>
         </section>
-        {load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
-        <section id="quote" className="fresh-actions" aria-label="Quote Now"><h2>Quote Now</h2>
+        <section className="fresh-notes fresh-details-customer"><h2>Customer</h2><p>{load.member?.name || "Marketplace member"}</p>{load.payment_terms ? <p><strong>Terms:</strong> {load.payment_terms}</p> : null}</section>{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
+        <section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Quote Now</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
            load.myBid ? <p role="status">You already have a quote on this load ({load.myBid.status || 'submitted'}).</p> :
            <><label>Amount (£)<input inputMode="decimal" type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} /></label>
@@ -126,8 +118,8 @@ export default function FreshLoadDetail() {
              <button type="button" className="quote-now" disabled={submitting} onClick={() => void submit()}>{submitting ? 'Submitting…' : 'Submit Quote'}</button></>}
           {error ? <p role="alert" className="fresh-error">{error}</p> : null}
         </section>
-      </article> : null}
+      </article></> : null}
     </main>
-    <nav className="fresh-bottom" aria-label="Driver tabs"><Link className="selected" aria-current="page" href="/driver-pwa-fresh/jobs">Jobs</Link><span aria-disabled="true" title="Not yet built">Quotes</span><span aria-disabled="true" title="Not yet built">Bookings</span><span aria-disabled="true" title="Not yet built">More</span></nav>
+    <FreshBottom active="jobs" />
   </ProtectedRoute>;
 }
