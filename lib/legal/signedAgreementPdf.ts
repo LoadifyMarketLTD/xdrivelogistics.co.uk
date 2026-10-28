@@ -49,10 +49,13 @@ export type SignedLegalAgreementPdfResult = {
 
 const loadInterFonts = async (pdf: PDFDocument) => {
   pdf.registerFontkit(fontkit);
-  const base = join(process.cwd(), 'node_modules', '@fontsource', 'inter', 'files');
+  // Embed real TrueType fonts, not browser WOFF webfonts. WOFF subsetting
+  // generated unreadable glyphs in signed PDFs on common PDF viewers.
+  // Keep these fonts in the repository so serverless production can read them.
+  const base = join(process.cwd(), 'public', 'fonts', 'legal');
   const [regularBytes, boldBytes] = await Promise.all([
-    readFile(join(base, 'inter-latin-ext-400-normal.woff')),
-    readFile(join(base, 'inter-latin-ext-700-normal.woff')),
+    readFile(join(base, 'inter-latin-ext-400-normal.ttf')),
+    readFile(join(base, 'inter-latin-ext-700-normal.ttf')),
   ]);
   return {
     regular: await pdf.embedFont(regularBytes, { subset: true }),
