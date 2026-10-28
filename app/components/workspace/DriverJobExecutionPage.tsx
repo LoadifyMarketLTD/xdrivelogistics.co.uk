@@ -207,7 +207,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   }, []);
 
   const loadJob = useCallback(async () => {
-    if (!jobId || !driverId) return;
+    if (!jobId || !driverId) {
+      setError(!jobId ? 'Booking reference is missing.' : 'Driver account is not ready. Refresh your session or sign in again.');
+      setJob(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     const { data, error: loadError } = await supabase.from('jobs').select('*').eq('id', jobId).eq('assigned_driver_id', driverId).maybeSingle();
