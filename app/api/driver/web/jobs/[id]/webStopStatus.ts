@@ -126,9 +126,7 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
       return respond(400, { error: 'Invalid stop handover quantities.' });
     }
-    if (target.stop_type === 'collection' && photoPaths.length === 0) {
-      return respond(400, { error: 'At least one collection photo is required for this stop.' });
-    }
+    // Photos are optional for collection, but the handover record remains mandatory.
     if (photoPaths.length || documentPaths.length) {
       if (!driver.companyId) return respond(403, { error: 'Driver company is required for evidence.' });
       const prefix = `${driver.companyId}/${jobId}/stops/${stopId}/`;
@@ -150,7 +148,7 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
   }
   // Collection handover is mandatory; do not allow skipping it by omitting the JSON object.
   if (next === 'completed' && target.stop_type === 'collection' && !handover) {
-    return respond(400, { error: 'Collection stop photo handover is required.' });
+    return respond(400, { error: 'Collection stop handover is required.' });
   }
 
   const now = new Date().toISOString();

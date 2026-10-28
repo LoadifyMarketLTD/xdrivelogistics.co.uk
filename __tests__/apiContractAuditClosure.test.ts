@@ -21,6 +21,7 @@ const PUBLIC_ROUTE = [
   /^app\/api\/driver\/mobile\/config\/route\.ts$/,
   /^app\/api\/tracking\/share\//,
   /^app\/api\/onboarding\/submit\/route\.ts$/,
+  /^app\/api\/location\/postcode-area\/route\.ts$/, // Public, bounded fixed-host postcode lookup.
 ];
 
 const AUTH_MARKERS = [
@@ -42,6 +43,7 @@ const DELEGATE_MARKERS = [
   /buildSessionHandlers/,
   /buildSubmitHandler/,
   /readiness\/route/,
+  /return submitInvoice\(request, context\)/, // Canonical helper enforces driver finance ownership.
 ];
 
 describe('current API contract audit closure', () => {
@@ -72,6 +74,19 @@ describe('current API contract audit closure', () => {
       return guarded || delegated ? [] : [rel];
     });
     expect(unsafe).toEqual([]);
+  });
+
+  it('audits delegated invoice submission auth and the bounded public postcode resolver', () => {
+    const submit = fs.readFileSync(path.join(apiRoot, 'driver', 'finance', 'invoices', '[id]', 'submit', 'route.ts'), 'utf8');
+    const helper = fs.readFileSync(path.join(root, 'lib', 'server', 'invoiceDelivery.ts'), 'utf8');
+    const postcode = fs.readFileSync(path.join(apiRoot, 'location', 'postcode-area', 'route.ts'), 'utf8');
+    expect(submit).toContain('return submitInvoice(request, context)');
+    expect(helper).toContain('requireDriverFinanceAccess(request)');
+    expect(helper).toContain('requirePod: Boolean(claimedInvoice.job_id)');
+    expect(postcode).toContain('normaliseLocation(raw)');
+    expect(postcode).toContain('https://api.postcodes.io/');
+    expect(postcode).toContain('AbortSignal.timeout(5_000)');
+    expect(postcode).not.toContain('supabaseAdmin');
   });
 
   it('keeps public intake fail-closed, validated and rate-limited', () => {

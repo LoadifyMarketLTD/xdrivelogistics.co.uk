@@ -23,18 +23,16 @@ function optionalNumber(value: unknown, min: number, max: number) {
   return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : NaN;
 }
 
-function pathList(value: unknown, max = 10) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, max);
+function pathList(value: unknown, max = 10): string[] | null {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > max || value.some((item) => typeof item !== 'string')) return null;
+  const paths = value.map((item: string) => item.trim());
+  return paths.every(Boolean) ? paths : null;
 }
 
 async function verifyStopEvidence(paths: string[], prefix: string) {
   for (const path of paths) {
-    if (!path.startsWith(prefix)) return false;
+    if (!path.startsWith(prefix) || path.includes('..') || path.includes('\\') || path.includes('://')) return false;
     const splitAt = path.lastIndexOf('/');
     if (splitAt <= 0 || splitAt === path.length - 1) return false;
     const folder = path.slice(0, splitAt);
@@ -149,9 +147,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const notes = typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 2000) : '';
     const photoPaths = pathList(raw.photoPaths);
     const documentPaths = pathList(raw.documentPaths);
-    if (target.stop_type === 'collection' && photoPaths.length === 0) {
-      return respond(400, { error: 'At least one collection photo is required for this stop.' });
+    if (!photoPaths || !documentPaths) {
+      return respond(400, { error: 'Too many or invalid stop evidence files.' });
     }
+    // Photos are optional for collection, but the handover record remains mandatory.
     if (photoPaths.length > 0 || documentPaths.length > 0) {
       if (!driver.companyId) return respond(403, { error: 'Driver company is required for stop evidence.' });
       const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
@@ -173,6 +172,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       photoPaths,
       documentPaths,
     };
+  }
+  // A collection cannot be completed without its recorded handover, even when no photos are attached.
+  if (nextStatus === 'completed' && target.stop_type === 'collection' && !handover) {
+    return respond(400, { error: 'Collection stop handover is required.' });
   }
 
   const now = new Date().toISOString();

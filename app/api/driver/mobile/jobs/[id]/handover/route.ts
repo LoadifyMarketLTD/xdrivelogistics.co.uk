@@ -16,17 +16,16 @@ function optionalNumber(value: unknown, min: number, max: number) {
   return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : NaN;
 }
 
-function stringPaths(value: unknown, limit: number) {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is string => typeof item === 'string')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, limit);
+function stringPaths(value: unknown, limit: number): string[] | null {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > limit || value.some((item) => typeof item !== 'string')) return null;
+  const paths = value.map((item: string) => item.trim());
+  return paths.every(Boolean) ? paths : null;
 }
 
 async function verifyStoragePaths(paths: string[], prefixes: string[]) {
   for (const path of paths) {
+    if (path.includes('..') || path.includes('\\') || path.includes('://')) return false;
     if (!prefixes.some((prefix) => path.startsWith(prefix))) return false;
     const splitAt = path.lastIndexOf('/');
     if (splitAt <= 0 || splitAt === path.length - 1) return false;
@@ -68,6 +67,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const notes = cleanString(body.notes, 2000);
   const photoPaths = stringPaths(body.photoPaths, MAX_PHOTOS);
   const documentPaths = stringPaths(body.documentPaths, MAX_DOCUMENTS);
+  if (!photoPaths || !documentPaths) {
+    return respond(400, { error: 'Too many or invalid collection evidence files.' });
+  }
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')

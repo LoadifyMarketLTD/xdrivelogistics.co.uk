@@ -189,14 +189,14 @@ BEGIN
   END IF;
 
   v_tracking_event_type := CASE v_next_status
-    WHEN 'accepted' THEN 'note'
+    WHEN 'accepted' THEN 'accepted'
     WHEN 'on_my_way' THEN 'on_my_way_to_pickup'
     WHEN 'on_site_pickup' THEN 'on_site_pickup'
     WHEN 'loaded' THEN 'loaded'
     WHEN 'in_transit' THEN 'on_my_way_to_delivery'
     WHEN 'on_site_delivery' THEN 'on_site_delivery'
     WHEN 'delivered' THEN 'delivered'
-    WHEN 'completed' THEN 'note'
+    WHEN 'completed' THEN 'completed'
     ELSE NULL
   END;
 
