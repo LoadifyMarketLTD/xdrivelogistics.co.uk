@@ -135,7 +135,7 @@ describe('driver mobile requireDriver schema compatibility', () => {
     expect(isDriverContext(result)).toBe(true);
   });
 
-  it('requires the active native installation once a native binding exists', async () => {
+  it('allows valid bearer token with a native device already registered', async () => {
     mocks.driverResults = [{ data: activeDriver(), error: null }];
     mocks.getBearerToken.mockReturnValue(jwtWithSessionId(SESSION_ID));
     mocks.deviceBindingResult = {
@@ -144,9 +144,7 @@ describe('driver mobile requireDriver schema compatibility', () => {
     };
 
     const result = await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs'));
-    expect(isDriverContext(result)).toBe(false);
-    if (isDriverContext(result)) return;
-    expect(result.status).toBe(401);
+    expect(isDriverContext(result)).toBe(true);
   });
 
   it('accepts only the bound installation and auth session', async () => {
@@ -164,7 +162,7 @@ describe('driver mobile requireDriver schema compatibility', () => {
     expect(isDriverContext(result)).toBe(true);
   });
 
-  it('rejects a replaced native device even with a valid user token', async () => {
+  it('allows valid bearer token on a second device', async () => {
     mocks.driverResults = [{ data: activeDriver(), error: null }];
     mocks.getBearerToken.mockReturnValue(jwtWithSessionId(SESSION_ID));
     mocks.deviceBindingResult = {
@@ -176,8 +174,6 @@ describe('driver mobile requireDriver schema compatibility', () => {
       headers: { 'x-xdrive-installation-id': '33333333-3333-4333-8333-333333333333' },
     });
     const result = await requireDriver(request);
-    expect(isDriverContext(result)).toBe(false);
-    if (isDriverContext(result)) return;
-    expect(result.status).toBe(401);
+    expect(isDriverContext(result)).toBe(true);
   });
 });

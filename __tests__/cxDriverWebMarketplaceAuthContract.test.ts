@@ -9,10 +9,10 @@ const eligibility = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/bid
 const mobile = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/_lib.ts'), 'utf8');
 
 describe('CX-close Driver web marketplace authentication', () => {
-  it('keeps native-device binding on the mobile driver contract', () => {
-    expect(mobile).toContain('enforceActiveNativeDeviceBinding');
-    expect(mobile).toContain('Active native device identity is required.');
-    expect(mobile).toContain('driver_mobile_device_sessions');
+  it('uses session authentication without mobile device binding', () => {
+    expect(mobile).toContain('supabaseAdmin.auth.getUser(token)');
+    expect(mobile).not.toContain('enforceActiveNativeDeviceBinding');
+    expect(mobile).not.toContain('driver_mobile_device_sessions');
   });
 
   it('uses approved browser driver authentication for desktop marketplace reads, search and quotes', () => {

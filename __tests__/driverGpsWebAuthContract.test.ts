@@ -15,9 +15,9 @@ describe('Driver PWA GPS auth boundary', () => {
     expect(route).toContain('ensureAvailabilityEligible(auth.driver, true)');
   });
 
-  it('preserves native device binding on native mobile routes', () => {
+  it('does not gate mobile routes by device identity', () => {
     const native = read('app/api/driver/mobile/_lib.ts');
-    expect(native).toContain('enforceActiveNativeDeviceBinding');
-    expect(native).toContain('Active native device identity is required.');
+    expect(native).toContain('supabaseAdmin.auth.getUser(token)');
+    expect(native).not.toContain('enforceActiveNativeDeviceBinding');
   });
 });
