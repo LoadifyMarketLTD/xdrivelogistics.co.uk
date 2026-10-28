@@ -514,7 +514,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
       if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
       await sendGeneratedInvoice(payload.invoice.id, auth);
       setMessage('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
-      if (!mobilePwa) router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+      if (!mobilePwa) router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
       else await loadJob();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
