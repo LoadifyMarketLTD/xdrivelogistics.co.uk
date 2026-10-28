@@ -740,7 +740,21 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 {pendingPodDocuments.length>0&&<ul aria-label="Saved POD documents">{pendingPodDocuments.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Document")} — saved</li>)}</ul>}
 <label>Signature * (required)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
 <div className="fresh-mobile-booking-actions"><button type="button" onClick={()=>{const next=signatureData();if(next){setSavedSignatureData(next);setPodDraftError('');setMessage('Signature captured. Saving to XDrive draft...');}else setPodDraftError('Please draw your signature before saving.');}}>Save Signature</button><button type="button" onClick={()=>{clearSignature();setSavedSignatureData('');setMessage('Signature cleared.');}}>Clear Signature</button></div>{savedSignatureData&&<p role="status">Signature captured — {podDraftSaving?'saving draft...':podDraftError?'draft save failed':'included in saved POD draft'}.</p>}
-<label>Left At *<input required list="pod-left-at-examples" value={podLeftAt} onChange={e=>setPodLeftAt(e.target.value)} placeholder="e.g. Goods In / Reception / Recipient" autoComplete="off"/><datalist id="pod-left-at-examples"><option value="Goods In / Warehouse"/><option value="Reception"/><option value="Handed directly to recipient"/><option value="Loading bay"/><option value="Delivery office"/><option value="Safe place (describe in notes)"/></datalist><small>Choose an example or type the exact location. Use Safe place only when authorised.</small></label>
+<div className="fresh-pod-left-at">
+  <label htmlFor="pod-left-at">Left At *</label>
+  <p>Tap the location where the goods were actually handed over:</p>
+  <div className="fresh-pod-left-at-options" role="group" aria-label="Delivery handover location">
+    {['Goods Inwards', 'Reception', 'Recipient', 'Warehouse', 'Loading Bay', 'Delivery Office', 'Authorised Safe Place'].map(option => (
+      <button key={option} type="button" aria-pressed={podLeftAt === option}
+        className={podLeftAt === option ? 'fresh-pod-left-at-selected' : ''}
+        onClick={() => setPodLeftAt(option)}>{option}</button>
+    ))}
+  </div>
+  <label htmlFor="pod-left-at">Other location / exact details</label>
+  <input id="pod-left-at" required value={podLeftAt} onChange={e => setPodLeftAt(e.target.value)}
+    placeholder="Select above or enter exact location" autoComplete="off" />
+  <small>Only select an authorised safe place when delivery instructions permit it. The selected value is saved in the POD draft.</small>
+</div>
 <label>Delivered On<input type="date" value={podDeliveredOn} onChange={e=>setPodDeliveredOn(e.target.value)}/></label>
 <label>Received By (Full Name) *<input required value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
 {hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}

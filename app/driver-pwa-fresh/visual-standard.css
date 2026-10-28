@@ -269,4 +269,9 @@
 .fresh-driver-pwa .fresh-pod-stepper{display:grid;grid-template-columns:46px minmax(0,1fr) 46px;gap:5px}
 .fresh-driver-pwa .fresh-pod-stepper input{text-align:center;min-width:0}
 .fresh-driver-pwa .fresh-pod-stepper button{min-width:0;padding:5px;font-size:23px}
+.fresh-driver-pwa .fresh-pod-left-at{display:grid;gap:12px}
+.fresh-driver-pwa .fresh-pod-left-at-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fresh-driver-pwa .fresh-pod-left-at-options button{min-height:52px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#f4f6f8;color:#0b2f6b;font-size:14px;font-weight:700;text-align:center;cursor:pointer}
+.fresh-driver-pwa .fresh-pod-left-at-options button.fresh-pod-left-at-selected{background:#dbeafe;border:2px solid #1d57d8;color:#0b2f6b}
+.fresh-driver-pwa .fresh-pod-left-at-options button:focus-visible{outline:3px solid #f5a300;outline-offset:2px}
 .fresh-driver-pwa .fresh-mobile-pod .fresh-pod-send{background:#f5a300;color:#1a1f2b;border-color:#f5a300;min-height:52px}
