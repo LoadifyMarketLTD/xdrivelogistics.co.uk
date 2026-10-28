@@ -446,7 +446,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const source = 'touches' in event ? event.touches[0] : event;
-    return { x: source.clientX - rect.left, y: source.clientY - rect.top };
+    return { x: (source.clientX - rect.left) * (canvas.width / rect.width), y: (source.clientY - rect.top) * (canvas.height / rect.height) };
   };
 
   const startSignature = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -503,7 +503,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     const hasStoredSignature = typeof storedSignature === 'string'
       ? storedSignature.trim().length > 0
       : Boolean(storedSignature && typeof storedSignature === 'object');
-    if (!newSignature && !hasStoredSignature) {
+    if (!newSignature && !savedSignatureData && !hasStoredSignature) {
       setError('Recipient signature is required to complete POD.');
       return;
     }
@@ -526,7 +526,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         body: JSON.stringify({
           recipientName: recipientName.trim(),
           signatureExceptionReason: '',
-          signatureData: newSignature ?? '',
+          signatureData: newSignature ?? savedSignatureData ?? '',
           photoUris: pendingPodPhotos,
           damagePhotoUris: [],
           documentUris: pendingPodDocuments,
@@ -567,11 +567,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `XDrive-POD-${job.id.slice(0, 8)}.pdf`;
+      link.download = `Proof-of-Delivery-${job.id.slice(0, 8)}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setMessage('Your carrier-branded Proof of Delivery PDF is ready to open or share.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'POD PDF could not be downloaded.');
     } finally { setWorking(false); }
@@ -723,7 +724,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       {stops.map(stop=><section className="fresh-mobile-booking-card" key={stop.name}><h2>{stop.name}</h2><strong>{stop.place??'Not supplied'}</strong><p>{stop.postcode}</p><p>{formatDateTime(stop.at)}</p>{stop.notes&&<p>{stop.notes}</p>}<div className="fresh-mobile-booking-actions">{stop.phone&&<a href={'tel:'+stop.phone}>Call contact</a>}<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a></div></section>)}
       <section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl><dt>Company</dt><dd>{sheet?.bookedBy??'Not supplied'}</dd><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd><dt>Rate</dt><dd>{money(sheet?.agreedRate,sheet?.currency??job.currency)}</dd><dt>Payment terms</dt><dd>{sheet?.paymentTerms??'Not supplied'}</dd></dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>
 
-<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{['delivered','completed','invoiced'].includes(currentStatus)&&<button type="button" onClick={()=>router.push('/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)+'/pod')}>Complete POD / View POD</button>}{podComplete&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Create Invoice</button>}</section>
+<section className="fresh-mobile-booking-card"><h2>Booking Status</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{['delivered','completed','invoiced'].includes(currentStatus)&&<button type="button" onClick={()=>router.push('/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)+'/pod')}>Complete POD / View POD</button>}{podComplete&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Create Invoice</button>}{podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}</section>
       </>}
       {podOnly && <section className="fresh-mobile-booking-card"><h1>Proof of Delivery</h1><p>{stops[0].place} → {stops[1].place}</p><p>{formatDateTime(stops[0].at)} / {formatDateTime(stops[1].at)}</p>{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}</section>}
 {(mobilePodOpen||podOnly)&&<section className="fresh-mobile-booking-card fresh-mobile-pod">
