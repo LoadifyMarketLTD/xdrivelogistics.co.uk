@@ -1,7 +1,8 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './loads.css';
 import './visual-standard.css';
+import DriverServiceWorkerRegistration from './DriverServiceWorkerRegistration';
 
 export const metadata: Metadata = {
   title: 'XDrive Driver',
@@ -12,5 +13,5 @@ export const metadata: Metadata = {
 };
 
 export default function FreshDriverLayout({ children }: { children: ReactNode }) {
-  return <div className="fresh-driver-pwa">{children}</div>;
+  return <div className="fresh-driver-pwa"><DriverServiceWorkerRegistration />{children}</div>;
 }
