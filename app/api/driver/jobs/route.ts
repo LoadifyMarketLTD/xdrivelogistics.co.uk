@@ -198,6 +198,7 @@ export async function GET(request: NextRequest) {
         pickupLocation: row.pickup_location,
         deliveryLocation: row.delivery_location,
         pickupTime: row.pickup_datetime,
+        updatedAt: row.updated_at,
         distanceToPickupMiles: pickupMetrics.get(row.id)?.distanceMiles ?? null,
         pickupEtaMinutes: pickupMetrics.get(row.id)?.durationMinutes ?? null,
         jobDistanceMiles: Number(row.job_distance_miles ?? 0) > 0 ? Number(row.job_distance_miles) : null,

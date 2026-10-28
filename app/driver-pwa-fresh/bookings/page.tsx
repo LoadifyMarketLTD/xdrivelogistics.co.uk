@@ -6,7 +6,7 @@ import {useAuth} from '../../components/AuthContext';
 import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
 
-type Booking={id:string;reference:string;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
+type Booking={id:string;reference:string;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
 type Response={jobs?:Booking[];error?:string};
 type Period='current'|'week'|'month';
 const fmt=(date:string|null)=>date?new Date(date).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Time not provided';
@@ -18,7 +18,7 @@ export default function Bookings(){
   setBusy(true);setError('');
   try{
    const token=await readRouteAuthAccessToken();if(!token)throw new Error('Please sign in to view bookings.');
-   const response=await fetch('/api/driver/jobs?scope=all&limit=100',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+   const response=await fetch('/api/driver/jobs?scope=all&limit=250',{headers:{Authorization:'Bearer '+token},cache:'no-store'});
    const body=await response.json() as Response;
    if(!response.ok)throw new Error(body.error||'Bookings could not be loaded.');
    setItems((body.jobs||[]).filter(job=>job.lifecycleGroup!=='other'));
@@ -28,8 +28,9 @@ export default function Bookings(){
  useEffect(()=>{if(!authLoading&&user?.id)void refresh();else if(!authLoading)setBusy(false)},[authLoading,user?.id,refresh]);
  const now=Date.now(),day=86400000;
  const visible=items.filter(job=>{
-  const timestamp=job.pickupTime?new Date(job.pickupTime).getTime():NaN;
-  if(period==='current')return job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming';
+  const timestamp=job.updatedAt?new Date(job.updatedAt).getTime():NaN;
+  if(period==='current')return job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||job.canonicalStatus.toLowerCase()==='delivered';
+  if(job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||job.canonicalStatus.toLowerCase()==='delivered')return false;
   if(!Number.isFinite(timestamp))return false;
   const age=now-timestamp;
   return period==='week'?age>=0&&age<=7*day:age>7*day&&age<=30*day;
