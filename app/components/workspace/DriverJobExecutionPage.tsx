@@ -467,6 +467,33 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
     }
   };
 
+  const downloadPodPdf = async () => {
+    if (!job || !hasCompletePodEvidence(job)) return;
+    setWorking(true); setError('');
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('Please sign in again.');
+      const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(job.id)}/pod/pdf`, {
+        headers: { Authorization: auth }, cache: 'no-store',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || 'POD PDF could not be generated.');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `XDrive-POD-${job.id.slice(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'POD PDF could not be downloaded.');
+    } finally { setWorking(false); }
+  };
+
   const createInvoice = async () => {
     if (!job || !canGenerateInvoices) return;
     if (!hasCompletePodEvidence(job)) {
@@ -626,6 +653,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false }: { j
 <label>Received By (Full Name) *<input required value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
 {hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}
 {!podComplete?<button type="button" className="fresh-mobile-booking-primary fresh-pod-send" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>{working?'Saving...':'Send POD'}</button>:<p>POD recorded</p>}
+{podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}
 {podComplete&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Generate invoice</button>}
 </section>}
 <section className="fresh-mobile-booking-card"><h2>Activity</h2><ol className="fresh-mobile-booking-history">{timelineRows.map(([status,time,detail],i)=><li key={i}><strong>{status}</strong><small>{time}</small><p>{detail}</p></li>)}</ol></section>
