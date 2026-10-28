@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { jobId } = await params;
   const { data: job, error: jobError } = await supabaseAdmin.from('jobs')
-    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime,customer_reference')
+    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime')
     .eq('id', jobId).maybeSingle();
   if (jobError) return jsonError(500, jobError.message);
   if (!job) return jsonError(404, 'Job not found.');
@@ -34,7 +34,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const evidence = canonicalPodEvidence(job);
   if (!evidence.complete) return jsonError(409, 'Complete delivery POD with a photo, handwritten signature and recipient name first.');
-  const signature = typeof job.delivery_signature_data === 'string' ? job.delivery_signature_data : '';
+  const storedSignature = job.delivery_signature_data;
+  const signature = typeof storedSignature === 'string' ? storedSignature
+    : storedSignature && typeof storedSignature === 'object' && !Array.isArray(storedSignature)
+      ? String((storedSignature as Record<string, unknown>).value ?? '')
+      : '';
   if (!/^data:image\/(png|jpeg);base64,/i.test(signature)) {
     return jsonError(409, 'A handwritten recipient signature image is required.');
   }
@@ -52,7 +56,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     };
     page.drawText('XDRIVE LOGISTICS', { x: 40, y: 790, size: 20, font: bold, color: navy });
     page.drawText('PROOF OF DELIVERY', { x: 40, y: 750, size: 15, font: bold, color: navy });
-    field('Job reference', job.customer_reference || job.id, 710);
+    field('Job reference', job.id, 710);
     field('Collection', job.pickup_location, 685);
     field('Delivery', job.delivery_location, 660);
     field('Pickup time', job.pickup_datetime, 635);
