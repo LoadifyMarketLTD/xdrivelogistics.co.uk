@@ -34,5 +34,5 @@ export function FreshBottom({active,demo=false}:{active:'jobs'|'quotes'|'booking
   for(const target of ['jobs','quotes','bookings'] as const)router.prefetch('/driver-pwa-fresh/'+target);
  },[demo,router]);
  const tabs=(['jobs','quotes','bookings'] as const);
- return <nav className="fresh-bottom" aria-label="Driver tabs">{tabs.map(tab=><Link key={tab} prefetch href={base+tab} aria-current={selected===tab?'page':undefined} className={selected===tab?'selected':''} onPointerDown={()=>setSelected(tab)} onClick={()=>setSelected(tab)}>{tab[0].toUpperCase()+tab.slice(1)}</Link>)}</nav>;
+ return <nav className="fresh-bottom" aria-label="Driver tabs">{tabs.map(tab=><Link key={tab} prefetch href={base+tab} aria-current={selected===tab?'page':undefined} className={selected===tab?'selected':''} onPointerDown={()=>setSelected(tab)} onClick={()=>setSelected(tab)}>{tab==='jobs'?'Loads':tab==='quotes'?'My Quotes':'Bookings'}</Link>)}</nav>;
 }
