@@ -107,3 +107,28 @@
 .fresh-driver-pwa .fresh-quote-submit{padding:12px;text-align:center}
 .fresh-driver-pwa .fresh-quote-submit>button{width:100%;min-height:54px;background:#ffc400;color:#111;border:0;border-radius:4px;font-size:18px;font-weight:800}
 .fresh-driver-pwa .fresh-quote-submit p{font-size:12px}
+
+/* Driver PWA booking details: scoped visual parity with approved mobile screen. */
+.fresh-driver-pwa .fresh-booking-detail-header{background:#f5a300;color:#0b2f6b;min-height:52px;padding:10px 15px;display:flex;align-items:center;justify-content:center;position:relative;font-size:16px;font-weight:750}
+.fresh-driver-pwa .fresh-booking-detail-header a{position:absolute;left:14px;color:#0b2f6b;text-decoration:none;font-size:13px;font-weight:700}
+.fresh-driver-pwa .fresh-booking-execution{background:#f4f6f8;min-height:calc(100dvh - 110px);padding-bottom:80px}
+.fresh-driver-pwa .fresh-mobile-booking{display:grid;gap:10px;padding:12px 12px 96px;font-size:13px;color:#1a1f2b}
+.fresh-driver-pwa .fresh-mobile-booking-card{background:#fff;border:1px solid #e1e6ee;border-radius:12px;padding:13px 14px;box-shadow:none;margin:0;min-width:0}
+.fresh-driver-pwa .fresh-mobile-booking-card h2{font-size:14px;font-weight:750;color:#0b2f6b;margin:0 0 10px}
+.fresh-driver-pwa .fresh-mobile-booking-card h1{font-size:16px;line-height:1.35;color:#0b2f6b;font-weight:800;margin:8px 0}
+.fresh-driver-pwa .fresh-booking-hero-top{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.fresh-driver-pwa .fresh-booking-hero-top small{font-size:10.5px;font-weight:650;color:#64748b}
+.fresh-driver-pwa .fresh-booking-status{background:#dcfce7;border-radius:30px;color:#166534;padding:4px 9px;font-size:10px;font-weight:750}
+.fresh-driver-pwa .fresh-booking-financials{display:grid;grid-template-columns:1fr 1fr;margin-top:13px}
+.fresh-driver-pwa .fresh-booking-financials>div{display:grid;gap:3px;padding:0 8px}
+.fresh-driver-pwa .fresh-booking-financials>div:first-child{padding-left:0;border-right:1px solid #e1e6ee}
+.fresh-driver-pwa .fresh-booking-financials small{font-size:11px;color:#64748b}
+.fresh-driver-pwa .fresh-booking-financials strong{font-size:17px;color:#0b2f6b}
+.fresh-driver-pwa .fresh-booking-customer{display:grid;gap:5px}
+.fresh-driver-pwa .fresh-booking-customer strong{color:#0b2f6b;font-size:15px}
+.fresh-driver-pwa .fresh-booking-customer>a{justify-self:start;background:#eaf1ff;border-radius:7px;padding:9px 13px;color:#0b2f6b;font-weight:700;text-decoration:none}
+.fresh-driver-pwa .fresh-mobile-booking-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px}
+.fresh-driver-pwa .fresh-mobile-booking-actions>a{background:#eaf1ff;color:#0b2f6b;text-align:center;padding:10px 5px;border-radius:7px;text-decoration:none;font-weight:700;font-size:12px;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-mobile-booking-primary{background:#16a34a!important;color:#fff!important;border:0;border-radius:8px;min-height:52px;width:100%;font-size:14px;font-weight:800}
+.fresh-driver-pwa .fresh-mobile-booking-card dl{display:grid;grid-template-columns:minmax(95px,40%) 1fr;gap:7px 10px}
+.fresh-driver-pwa .fresh-mobile-booking-card dt{color:#64748b}.fresh-driver-pwa .fresh-mobile-booking-card dd{margin:0;font-weight:600;color:#0b2f6b;overflow-wrap:anywhere}
