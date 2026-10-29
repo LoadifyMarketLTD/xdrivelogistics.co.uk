@@ -184,3 +184,9 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Executed Playwright read-only on exact official PR #714 Netlify preview using authorized company-driver test login (credentials never printed): 1/1 PASS. Auth token HTTP 200. Loads API HTTP 200, Booking Offers API HTTP 200, Driver Jobs API HTTP 200. Routes Loads/My Quotes/Bookings/Booking Offers all visible in authenticated flow. All returned zero data records for this test identity; so no quote/award/POD/invoice lifecycle mutation verified. No production writes.
 - Objective remains full canonical localhost sandbox replacement of old official Driver PWA; no production merge/deploy yet. Scoped TS/booking tests 23/23 PASS from this session. Next action: find truly isolated nonproduction data / test fixture to validate business lifecycle and perform release gate without mutating real loads.
 
+
+## OWNER DRIVER REAL ACCOUNT 2026-10-29 19:48 UTC
+- User explicitly identifies dannyelbill447@gmail.com as their real Owner Driver and authorizes testing. Desktop .env.test.txt E2E_OWNER_DRIVER_EMAIL matches that address (password not displayed). Current E2E_ALLOW_PRODUCTION_MUTATION=false in that test env: preserve this gate for any financial or production mutations until deliberate isolated workflow preparation.
+- Playwright authenticated real Owner Driver on PR preview: Supabase auth HTTP 200; My Quotes remained Loading quotes for 30s, so E2E FAIL (1 failed), not an unavailable account. Read-only company-driver E2E previously 1/1 PASS. Root reason for quote stalled still requires network tracing; server request vs auth cookie not assumed.
+- Mitigated UI infinite spinner by 12-second AbortSignal timeout and visible Retry quotes action in app/driver-pwa-fresh/quotes/page.tsx. 10/10 scoped contracts PASS, scoped ESLint PASS. Production build after this change still pending. NOT DEPLOYED to production; goal unchanged.
+
