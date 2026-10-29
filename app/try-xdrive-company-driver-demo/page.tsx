@@ -1,4 +1,5 @@
 "use client";
+import DemoSharedBookings from "../try-xdrive-demo/components/DemoSharedBookings";
 import {useState} from "react";
 import Link from "next/link";
 import NetworkTools from "../try-xdrive-demo/components/NetworkTools";
@@ -16,6 +17,7 @@ return <main className="demo-shell"><aside className="sidebar"><div className="b
 {tab===1&&<DemoExchangeBoard role="Company Driver"/>}
 {tab===1&&<div className="panel"><h2>Assigned job alerts</h2><p className="notice">New company assignment · XDL-DEMO-1029 · Birmingham B6 → Manchester M1</p><p className="notice">Dispatch update · Collection window 10:00–12:00</p><div className="actions"><button className="primary" onClick={()=>setTab(3)}>View assignment</button><button className="outline" onClick={()=>setSaved(!saved)}>{saved?"Saved for later":"Save alert"}</button></div></div>}
 {tab===2&&<div className="panel"><h2>My Quotes</h2><p className="notice">Company Drivers do not submit carrier quotes independently. Carrier quotes are managed by your company, fleet manager or dispatcher.</p><button className="outline" onClick={()=>setTab(3)}>View assigned bookings</button></div>}
+{tab===3&&<DemoSharedBookings role="Company Driver"/>}
 {tab===3&&<div className="panel"><div className="panel-title"><h2>Booking Details & Actions</h2><span>XDL-DEMO-1029</span></div><div className="route"><div><small>PICKUP</small><strong>Birmingham B6</strong></div><span className="route-arrow">→</span><div><small>DELIVERY</small><strong>Manchester M1</strong></div></div><div className="facts"><span>DX26 VAN</span><span>2 pallets</span><span>450 kg</span><span>Hard copy POD</span></div><div className="notice">Sample booking only. Full addresses, phone numbers and map navigation are withheld from the public demo.</div><h3>Delivery timeline</h3><div className="timeline">{milestones.map((m,i)=><button key={m} className={i<=stage?"complete":""} onClick={()=>setView(!view)}><span className="dot">{i<=stage?"✓":i+1}</span><span><strong>{m}</strong><small>{i<=stage?"Completed in sample":"Pending"}</small></span></button>)}</div>{view&&<p className="notice">This is an illustrative milestone. Only the next step can be completed with the action below.</p>}<div className="actions"><button className="primary" disabled={stage>=6} onClick={()=>{const next=stage+1;setStage(next);if(next===7)setStage(6)}}>{pod?"POD complete":stage>=6?"Delivered · submit POD below":"Complete next milestone →"}</button></div>{stage>=6&&!pod&&<DemoPOD onComplete={()=>{setPod(true);setStage(7)}}/>}{pod&&<p className="notice">Sample POD completed. Booking is ready for company invoice review.</p>}</div>}
 {tab===5&&<NetworkTools role="Company Driver"/>}
 {tab===4&&<DemoDriverTools role="Company Driver"/>}
