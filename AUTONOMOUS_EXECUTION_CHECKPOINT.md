@@ -66,3 +66,9 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Validated targeted ESLint PASS, 4/4 Vitest navigation and booking-offer contracts PASS, TypeScript tsc --noEmit PASS after changes. No live quote or booking mutations.
 - NEXT_ACTION: verify newest PR preview SHA after push, run read-only Playwright auth/role checks, recheck OPPO UI on PREVIEW with separate nonproduction auth only; full persisted journey blocked on lack of dedicated XDrive test database. Do not merge or deploy production.
 
+
+## VISUAL DESIGN BASELINE — 2026-10-29 09:47
+- USER APPROVED original full Booking -> Payment 11-screen visual storyboard (plus preceding Received Booking / Award acceptance), not current simplified demo cards. Copied the original sandbox components/CSS, unmodified visual structure, into isolated nonproduction review route /driver-pwa-fresh/visual-preview/booking-11. Booking demo CTA now opens the original full flow. Three demo-only Booking history filters Current, Last week, Last month populated with fictitious examples. No production API or job mutation.
+- Android emulator verified screen of original Received Booking/Company/Collection page at automation/logs/original-booking-emulator.png. Review route localhost:3270/driver-pwa-fresh/visual-preview/booking-11 returned HTTP 200. Scoped ESLint PASS. This is a demo preview, not real PWA backend integration.
+- Next: preserve approved 11-screen geometry and workflows while connecting each mobile booking stage to real secure API. Test POD, invoicing and role security with isolated fixtures, no main merge/production deploy.
+
