@@ -13,10 +13,12 @@ test.describe('PR714 unauthenticated preview security',()=>{
   const res=await request.get('/api/booking-offers');
   expect(res.status()).toBe(401);
  });
- test('booking offer mutations reject missing bearer token',async({request})=>{
-  const res=await request.post('/api/booking-offers/00000000-0000-4000-8000-000000000000/respond',{data:{action:'accept'}});
-  expect(res.status()).toBe(401);
- });
+ for(const action of ['accept','decline'] as const){
+  test('booking offer '+action+' rejects missing bearer token',async({request})=>{
+   const res=await request.post('/api/booking-offers/00000000-0000-4000-8000-000000000000/respond',{data:{action}});
+   expect(res.status()).toBe(401);
+  });
+ }
  test('driver loads and bids forbid anonymous reads',async({request})=>{
   for(const route of ['/api/driver/jobs?scope=all&limit=1','/api/driver/marketplace/loads?view=quote_history']){
    const res=await request.get(route);

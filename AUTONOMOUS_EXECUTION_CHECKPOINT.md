@@ -194,3 +194,8 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 ## QUOTE HISTORY SERVER FIX 2026-10-29 20:17 UTC
 - Root-route inspection: quote_history used to run two unrelated driver location queries even when loading past bids; now skips these on quotedHistory path, keeping location queries for actual Loads and single Job Detail. Scoped ESLint PASS, TypeScript PASS, Vitest 10/10 PASS, mandatory protected invariant PASS, full npm run build PASS (193 routes, build exit 0). This is a proven unnecessary dependency removed, but real Owner Driver E2E still MUST retest against refreshed Netlify preview to prove the initial stall fixed. Do not claim production release.
 
+
+## BOOKING OFFER SECURITY PREVIEW RETEST 2026-10-29 20:30 UTC
+- Verified PR #714 production-host Netlify preview: unauthenticated Accept Job and Decline Job both HTTP 401, no job modifications; 8/8 Chromium Playwright PASS when executed serially (--workers=1). Parallel 8-worker run 6/8 (two navigation timeouts), recovered by serial run without weakening test assertions. Booking-offer domain contracts remain 14/14 PASS from preceding user request.
+- This verifies only anonymous denial and existing code contracts, NOT positive authenticated acceptance/rejection on a controlled pending job. Do not merge or publish live until real safe lifecycle E2E and OPPO verification; canonical sandbox must replace old official Driver PWA.
+
