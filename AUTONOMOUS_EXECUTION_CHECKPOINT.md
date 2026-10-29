@@ -152,3 +152,18 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Broad Driver/Booking/POD regression: 51/52 PASS, one pre-existing companyDriverCommercialBoundary source-string assertion failed. app/api/jobs/create/route.ts hash matches origin/main exactly; no global permissions were modified to satisfy brittle source test. Separate targeted suite after latest changes 23/23 PASS, ESLint and TS PASS. Protected invariant PowerShell gate PASS. Production build before final entry-route modifications PASS.
 - PR #714 remains Draft; production not changed. Next: final build + preview deploy HEAD, authenticated OPPO real booking/evidence/invoice workflow in authorized safe test environment; do not merge until these gates pass.
 
+
+## FINAL PHYSICAL OPPO CHECK 2026-10-29 19:09 UTC
+- Latest Netlify xdrivelogistics Deploy Preview for 3f0d364 SUCCESS. Production build of exact HEAD PASS, exit 0, 193 static routes; protected invariants PASS.
+- OPPO latest preview Loads > Map finger scroll physically PASS: both map freight cards visible in document flow, BB1 to DA8 and BB10 to WA11 without duplicated outcodes. Screenshot automation/logs/official-3f0d364-scroll-oppo.png.
+- OPPO tap View from map opened actual live Job Details (not demo), showing cargo/vehicle (LWB Van, 850 kg, 4 pallets), payment terms, customer and existing quote status. Screenshot automation/logs/official-3f0d364-detail-oppo.png. No job mutated. Content is long and browser overlay obscured bottom bar; full visual screen-level E2E not claimed.
+- Targeted 23/23 PASS. Broad 51/52, remaining fail in companyDriverCommercialBoundary is pre-existing brittle source assertion; jobs create file byte-identical to origin/main. No cross-workspace changes. No production deployment or PR merge, live installed OPPO WebAPK remains legacy.
+- Unverified blockers: complete authenticated 11-step E2E on assigned nonproduction fixture, real POD/photo/invoice/payment, comprehensive regression/rollback, physical installation of official released PWA. DO NOT CLAIM RELEASED.
+
+
+## RELEASE GATE CHECK 2026-10-29 19:20 UTC
+- User authorized official production replacement; PR #714 marked Ready for Review (previously Draft), NOT merged. HEAD 3f0d364, base main a6020b2, GitHub reports mergeable; last Next production build PASS and protected invariant gate PASS.
+- Ran Playwright guard against actual Netlify preview with PLAYWRIGHT_BASE_URL=https://deploy-preview-714--xdrivelogistics.netlify.app, Chromium: 7/7 PASS including unauthenticated pages and unauthorized mutation endpoints.
+- A local Playwright run without preview base URL incorrectly used 127.0.0.1:3100 and failed on Safari, therefore not counted as production preview evidence.
+- HARD RELEASE GATE: 11-state authenticated award/booking/POD/invoice lifecycle still untested with isolated fixture and physical OPPO; cannot safely assert complete official replacement. Do not merge solely on read-only and static tests. Full rollback baseline is documented in automation/ROLLBACK_PROOF.md. No production deploy completed.
+
