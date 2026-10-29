@@ -118,3 +118,9 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Branch integrate/xdrive-driver-real-20261029, PR #714 Draft. Not yet verified on OPPO or published in preview. No production changes.
 - NEXT: commit/push navigation fix, check preview and physical OPPO for tab/Map flicker, execute E2E with safe test accounts; no production merge.
 
+
+## OPPO MAP SWIPE ROOT CAUSE 2026-10-29 18:17 UTC
+- Opened PR #714 preview in Chrome on OPPO. Screenshot evidence automation/logs/oppo-preview-714-map.png and oppo-preview-edge-scroll.png. Swiping across map pans Leaflet (to France) instead of scrolling page, preventing job cards below map from being reached normally.
+- Scoped opt-in allowTouchDrag=false for Driver PWA; shared MarketplaceLoadMap defaults true for all other usages. Leaflet dragging, touchZoom, scrollWheelZoom disabled only within Driver PWA; markers remain clickable and zoom control remains.
+- ESLint PASS; TypeScript PASS; Vitest 18/18 PASS. Physical verification of newly changed build pending Netlify preview redeploy. Production untouched.
+

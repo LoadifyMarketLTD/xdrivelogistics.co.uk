@@ -58,8 +58,10 @@ export default function MarketplaceLoadMap({
   loads,
   onQuote,
   onDetails,
+  allowTouchDrag = true,
 }: {
   loads: MarketplaceLoadMapItem[];
+  allowTouchDrag?: boolean;
   onQuote?: (loadId: string) => void;
   onDetails?: (loadId: string) => void;
 }) {
@@ -145,7 +147,7 @@ export default function MarketplaceLoadMap({
 
       mapRef.current?.remove();
       const first = clusters[0].coordinates;
-      const map = L.map(containerRef.current, { center: [first.lat, first.lng], zoom: 7, scrollWheelZoom: true });
+      const map = L.map(containerRef.current, { center: [first.lat, first.lng], zoom: 7, scrollWheelZoom: allowTouchDrag, dragging: allowTouchDrag, touchZoom: allowTouchDrag });
       mapRef.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -212,7 +214,7 @@ export default function MarketplaceLoadMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [clusters, locatedLoads]);
+  }, [clusters, locatedLoads, allowTouchDrag]);
 
   if (locating && clusters.length === 0) {
     return <div className="marketplace-radar-empty" role="status">Locating public pickup areas for Freight Radar…</div>;
