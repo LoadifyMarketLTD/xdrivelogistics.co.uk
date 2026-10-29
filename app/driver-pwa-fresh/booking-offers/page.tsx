@@ -7,6 +7,7 @@ import {useAuth} from '../../components/AuthContext';
 import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
 import {getLoadDetailSections} from '../../../lib/loadPostingDetails';
+import {navigationDestination,navigationUrl,isAreaOnlyStop} from '../../../lib/jobs/driverNavigationLinks';
 import './offers.css';
 
 type JobInfo={
@@ -25,7 +26,7 @@ type Response={offers?:Offer[];error?:string};
 const showDate=(value:string|null|undefined)=>{if(!value)return null;const date=new Date(value);return Number.isFinite(date.getTime())?date.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):null};
 const fmtMoney=(amount:number,currency:string|null)=>{try{return new Intl.NumberFormat('en-GB',{style:'currency',currency:currency||'GBP'}).format(amount)}catch{return '£'+amount.toFixed(2)}};
 const place=(location?:string|null,town?:string|null,postcode?:string|null)=>[location,town,postcode].filter((v,i,a)=>Boolean(v)&&a.findIndex(t=>t?.trim().toLowerCase()===v?.trim().toLowerCase())===i).join(', ');
-const mapLink=(address:string,route:boolean)=>route?'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(address):'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address);
+
 export default function BookingOffersPage(){
  const {user,isLoading:authLoading}=useAuth();
  const [offers,setOffers]=useState<Offer[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState('');
@@ -66,8 +67,8 @@ export default function BookingOffersPage(){
   {notice&&<div className="fresh-offer-notice" role="status">{notice}<Link href="/driver-pwa-fresh/bookings">View Bookings</Link></div>}
   {loading?<p className="fresh-message" role="status">Loading awarded jobs...</p>:!error&&offers.length===0?<div className="fresh-message">No jobs currently awaiting acceptance. <Link href="/driver-pwa-fresh/bookings">Return to Bookings</Link></div>:offers.map(offer=>{
    const job=offer.job;
-   const pickup=place(job?.pickup_location,job?.pickup_city,job?.pickup_postcode);
-   const delivery=place(job?.delivery_location,job?.delivery_city,job?.delivery_postcode);
+   const pickup=navigationDestination(place(job?.pickup_location,job?.pickup_city),job?.pickup_postcode);
+   const delivery=navigationDestination(place(job?.delivery_location,job?.delivery_city),job?.delivery_postcode);
    const additional=getLoadDetailSections({load_details:typeof job?.load_details==='string'?job.load_details:job?.load_details?JSON.stringify(job.load_details):null,requested_vehicle_label:job?.requested_vehicle_label??null,vehicle_type:job?.vehicle_type??null,pickup_postcode:job?.pickup_postcode??null,delivery_postcode:job?.delivery_postcode??null}).filter(section=>['Cargo','Contacts','Loading','Requirements','Documents'].includes(section.title)).map(section=>({...section,items:section.items.filter(item=>item.label!=='Vehicle')})).filter(section=>section.items.length>0);
    return <article className="fresh-offer-card" key={offer.id}>
     <div className="fresh-offer-identity"><div><small>JOB AWARDED BY</small><strong>{offer.buyer_name||'Company unavailable'}</strong>{offer.buyer_xd_id&&<span>XD Member ID: {offer.buyer_xd_id}</span>}</div><span className="fresh-offer-pending">ACCEPTANCE REQUIRED</span></div>
@@ -75,8 +76,8 @@ export default function BookingOffersPage(){
     {(job?.load_reference||job?.load_ref)&&<div className="fresh-offer-reference">Job reference: <strong>{job.load_reference||job.load_ref}</strong></div>}
     {showDate(offer.offered_at)&&<div className="fresh-offer-reference">Awarded: {showDate(offer.offered_at)}</div>}
     <div className="fresh-offer-financials"><div><small>Agreed quote</small><strong>{fmtMoney(Number(offer.quoted_amount),offer.currency)}</strong></div>{job?.payment_terms&&<div><small>Payment Terms</small><strong>{job.payment_terms}</strong></div>}</div>
-    <div className="fresh-offer-stop"><h2>Collection</h2><strong>{pickup||'Collection address not provided'}</strong>{showDate(job?.pickup_datetime)&&<span>{showDate(job?.pickup_datetime)}</span>}{pickup&&<div className="fresh-offer-mapactions"><a href={mapLink(pickup,true)} target="_blank" rel="noopener noreferrer">Navigate</a><a href={mapLink(pickup,false)} target="_blank" rel="noopener noreferrer">View Map</a></div>}</div>
-    <div className="fresh-offer-stop"><h2>Delivery</h2><strong>{delivery||'Delivery address not provided'}</strong>{showDate(job?.delivery_datetime)&&<span>{showDate(job?.delivery_datetime)}</span>}{delivery&&<div className="fresh-offer-mapactions"><a href={mapLink(delivery,true)} target="_blank" rel="noopener noreferrer">Navigate</a><a href={mapLink(delivery,false)} target="_blank" rel="noopener noreferrer">View Map</a></div>}</div>
+    <div className="fresh-offer-stop"><h2>Collection</h2><strong>{pickup||'Collection address not provided'}</strong>{isAreaOnlyStop(pickup,null)&&<small className="fresh-booking-area-warning">Approximate postcode area only</small>}{showDate(job?.pickup_datetime)&&<span>{showDate(job?.pickup_datetime)}</span>}{pickup&&<div className="fresh-offer-mapactions"><a href={navigationUrl(pickup,null,'navigate')!} target="_blank" rel="noopener noreferrer">Navigate</a><a href={navigationUrl(pickup,null,'view')!} target="_blank" rel="noopener noreferrer">View Map</a></div>}</div>
+    <div className="fresh-offer-stop"><h2>Delivery</h2><strong>{delivery||'Delivery address not provided'}</strong>{isAreaOnlyStop(delivery,null)&&<small className="fresh-booking-area-warning">Approximate postcode area only</small>}{showDate(job?.delivery_datetime)&&<span>{showDate(job?.delivery_datetime)}</span>}{delivery&&<div className="fresh-offer-mapactions"><a href={navigationUrl(delivery,null,'navigate')!} target="_blank" rel="noopener noreferrer">Navigate</a><a href={navigationUrl(delivery,null,'view')!} target="_blank" rel="noopener noreferrer">View Map</a></div>}</div>
     <div className="fresh-offer-facts">
       {(job?.requested_vehicle_label||job?.vehicle_type)&&<div><small>Vehicle</small><strong>{job.requested_vehicle_label||job.vehicle_type}</strong></div>}
       {job?.job_distance_miles!=null&&<div><small>Route distance</small><strong>{job.job_distance_miles} miles</strong></div>}

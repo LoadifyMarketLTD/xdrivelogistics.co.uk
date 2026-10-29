@@ -59,3 +59,10 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Read-only Supabase discovery confirmed only xdrivelogistics production and loadify-market separate product. No safe nonproduction XDrive DB found. No authenticated mutation E2E attempted against production.
 - Next: validate official preview HEAD, authenticated E2E in distinct safe environment, test updated map from PR preview on OPPO after separate login, full seven-workspace/Super Admin regression, keep Draft and no merge.
 
+
+## CONTINUATION — 2026-10-29 08:44 UTC
+- Desktop Commander Remote came back online (Windows screenshot showed device connected). Git branch initially clean at 33bab03, PR #714 Draft and unmerged; official Netlify xdrivelogistics preview for 33bab03 SUCCESS. OPPO and Pixel ADB detected; no production state changed.
+- Fixed actual missing parity: Job Received / Booking Offers map links still used raw concatenation and duplicated UK outcodes, unlike Booking Details. Now imports same navigationDestination/navigationUrl/isAreaOnlyStop helper for Collection and Delivery; repeated outcodes removed and postcode area warning shown. No fake street destination.
+- Validated targeted ESLint PASS, 4/4 Vitest navigation and booking-offer contracts PASS, TypeScript tsc --noEmit PASS after changes. No live quote or booking mutations.
+- NEXT_ACTION: verify newest PR preview SHA after push, run read-only Playwright auth/role checks, recheck OPPO UI on PREVIEW with separate nonproduction auth only; full persisted journey blocked on lack of dedicated XDrive test database. Do not merge or deploy production.
+
