@@ -173,3 +173,9 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Read-only live XDrive counts: is_test=true jobs exist in posted/quoted/delivered/completed/cancelled statuses. No pending booking offers on test jobs. No records modified. Do NOT mutate live jobs, POD or invoices merely to achieve E2E green.
 - Official Driver PWA branch HEAD 38c722a; PR #714 Ready for Review, no merge. Before release create/verify isolated backend or explicit safe fixture; then exercise quote->award->accept->POD->invoice real persistence, OPPO, seven-workspace regression and rollback. Never treat preview HTTP 200 or read-only tests as lifecycle PASS.
 
+
+## CONTINUATION 2026-10-29 19:34 UTC
+- Revalidated actual canonical sandbox against official integration directory. Nine differing files: FreshJobCard, FreshNavigation, layout, visual-standard.css, bookings/page, bookings/[id]/pod/page, jobs/LoadsClient, jobs/[id]/page, manifest/route. Differences reflect backend integration and approved subsequent bug corrections; no new canonical source content missing. Source D:\XDrive-Booking-11-Sandbox remains untouched.
+- Targeted Vitest 23/23 PASS. Main objective unchanged: sandbox replaces official Driver PWA in production after remaining authenticated real lifecycle and safety gates. NOT DEPLOYED.
+- Current worktree has generated next-env.d.ts and tsconfig.json changes plus unrelated untracked automation scripts. Preserve these until ownership reviewed, avoid accidental staging.
+
