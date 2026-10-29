@@ -179,3 +179,8 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Targeted Vitest 23/23 PASS. Main objective unchanged: sandbox replaces official Driver PWA in production after remaining authenticated real lifecycle and safety gates. NOT DEPLOYED.
 - Current worktree has generated next-env.d.ts and tsconfig.json changes plus unrelated untracked automation scripts. Preserve these until ownership reviewed, avoid accidental staging.
 
+
+## AUTHENTICATED DRIVER PREVIEW TEST 2026-10-29 19:38 UTC
+- Executed Playwright read-only on exact official PR #714 Netlify preview using authorized company-driver test login (credentials never printed): 1/1 PASS. Auth token HTTP 200. Loads API HTTP 200, Booking Offers API HTTP 200, Driver Jobs API HTTP 200. Routes Loads/My Quotes/Bookings/Booking Offers all visible in authenticated flow. All returned zero data records for this test identity; so no quote/award/POD/invoice lifecycle mutation verified. No production writes.
+- Objective remains full canonical localhost sandbox replacement of old official Driver PWA; no production merge/deploy yet. Scoped TS/booking tests 23/23 PASS from this session. Next action: find truly isolated nonproduction data / test fixture to validate business lifecycle and perform release gate without mutating real loads.
+
