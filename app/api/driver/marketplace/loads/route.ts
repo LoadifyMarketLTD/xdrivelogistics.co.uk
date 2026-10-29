@@ -223,7 +223,12 @@ export async function GET(request: NextRequest) {
       : query.in('status', ['posted', 'quoted']).limit(LIST_LIMIT);
   }
 
-  const { data: rawJobs, error: jobsError } = await query;
+  // Run independent database reads concurrently rather than serially.
+  const [jobsResult, blockedResult] = await Promise.all([
+    query,
+    getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId),
+  ]);
+  const { data: rawJobs, error: jobsError } = jobsResult;
   if (jobsError) {
     return operationalError({
       status: 500,
@@ -234,7 +239,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const blockedResult = await getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId);
   if (blockedResult.error) {
     return operationalError({
       status: 503,
