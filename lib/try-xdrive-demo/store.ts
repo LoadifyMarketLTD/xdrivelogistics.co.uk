@@ -1,7 +1,7 @@
 import "server-only";
 import {readFileSync,writeFileSync,mkdirSync,renameSync,existsSync} from "node:fs";
 import {join} from "node:path";
-export type Load={id:string;from:string;to:string;vehicle:string;pallets:string;weight:string;customer:string;sell:string;postedAt:string;status:"Open"|"Awarded"|"Cancelled";quote?:number;driver?:string;awardedQuoteId?:string};
+export type Load={id:string;from:string;to:string;vehicle:string;pallets:string;weight:string;customer:string;sell:string;pickupDate?:string;deliveryDate?:string;pickupStart?:string;pickupEnd?:string;deliveryTime?:string;deliveryMode?:string;service?:string;packaging?:string;dimensions?:string;notes?:string;hardPod?:boolean;paymentTerms?:string;body?:string;postedAt:string;status:"Open"|"Awarded"|"Cancelled";quote?:number;driver?:string;awardedQuoteId?:string;assignedDriver?:string;assignedVehicleId?:string;deliveryStage?:number;podReceived?:boolean;podRecipient?:string;podPhotoCount?:number;podConfirmedAt?:string};
 export type Quote={id:string;loadId:string;role:string;amount:number;createdAt:string;status:"Open"|"Withdrawn"};
 type Data={loads:Load[];quotes:Quote[]};
 const dir=join(process.cwd(),".local-tools","try-xdrive-demo");

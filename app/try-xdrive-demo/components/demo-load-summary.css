@@ -1,0 +1,41 @@
+/* Compact XDrive load rows: retain XDrive palette and typography. */
+.xd-load-grid{display:grid;grid-template-columns:1.12fr 1.12fr 1fr;gap:0;border:1px solid #dbe4ef;border-radius:7px;overflow:hidden;margin:4px 0;background:#fff}
+.xd-load-grid>div{padding:7px 11px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.xd-load-grid>div+div{border-left:1px solid #dbe4ef}
+.xd-load-grid small,.xd-load-facts small,.xd-load-notes small{font-size:9px;letter-spacing:.035em;color:#63758e;font-weight:650;line-height:1.25}
+.xd-load-grid strong{font-size:12px;line-height:1.35;color:#102e60;font-weight:700;overflow-wrap:anywhere}
+.xd-load-route>span{color:#1d57d8;font-weight:700;font-size:11px;line-height:1}
+.xd-load-company>span{font-size:10px;line-height:1.2;overflow-wrap:anywhere}
+.xd-load-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:8px 10px;background:#f4f6f8;border-radius:7px;margin:5px 0}
+.xd-load-facts>div{display:flex;flex-direction:column;gap:3px}
+.xd-load-facts strong{font-size:11px;font-weight:600}
+.xd-load-notes{padding:7px 10px;border-left:3px solid #1d57d8;background:#f4f6f8;margin:6px 0}
+.xd-load-notes p{margin:3px 0 0;font-size:11px}
+@media(max-width:720px){.xd-load-grid{grid-template-columns:1fr}.xd-load-grid>div+div{border-left:0;border-top:1px solid #dbe4ef}.xd-load-facts{grid-template-columns:1fr 1fr}}
+.xd-load-card.panel{padding:9px 11px;margin:7px 0;gap:4px}.xd-load-card>.panel-title{margin:0 0 2px;min-height:0}.xd-load-card>.panel-title h3{font-size:12px;line-height:1.3;margin:0}.xd-load-card>.actions{margin:5px 0 0;gap:6px}.xd-load-card>.actions button{min-height:30px;padding:5px 12px;font-size:11px;border-radius:6px}.xd-load-card .xd-load-grid{margin:3px 0}
+.xd-quote-details{padding:7px 0 0;margin:4px 0 0;border-top:1px solid #dbe4ef;background:transparent}.xd-quote-form{display:flex;align-items:end;gap:10px;flex-wrap:wrap;max-width:470px}.xd-quote-form label{display:flex;flex:1 1 170px;flex-direction:column;gap:4px;font-size:11px;font-weight:600}.xd-quote-form input{height:34px;min-width:120px;padding:5px 8px}.xd-quote-form button{height:34px;min-height:34px;padding:5px 14px;font-size:11px;flex:0 0 auto}.xd-quote-details .fleet-row{margin-top:7px}
+.xd-quote-form label{display:flex!important;flex-direction:column!important;min-width:190px;max-width:260px;visibility:visible!important}.xd-quote-form label input[type=number]{display:block!important;visibility:visible!important;opacity:1!important;appearance:auto!important;background:#fff!important;border:1px solid #aebed0!important;border-radius:6px!important;color:#1a1f2b!important;width:100%!important;height:36px!important;min-height:36px!important;margin:4px 0 0!important;padding:7px 10px!important;box-sizing:border-box!important}.xd-quote-form .primary{align-self:flex-end}
+/* XDrive brand accents: information hierarchy without CX visual imitation. */
+.xd-load-card.panel{border:1px solid #cbdaf0;border-left:3px solid #1d57d8;box-shadow:0 2px 8px #0b2f6b0a}
+.xd-load-card>.panel-title h3{color:#0b2f6b;font-weight:750}
+.xd-load-card>.panel-title>span{background:#e8f0fc;color:#0b2f6b;border:1px solid #cbdaf0;padding:4px 8px}
+.xd-load-grid{border-color:#cbdaf0;background:#fff}
+.xd-load-grid>div+div{border-color:#d7e2f2}
+.xd-load-grid>div:first-child{background:#f5f8ff}
+.xd-load-grid>div:nth-child(2){background:#fff}
+.xd-load-grid>div:nth-child(3){background:#f8faff}
+.xd-load-grid strong{color:#0b2f6b}
+.xd-load-grid small{color:#45618b}
+.xd-load-route>span{color:#f5a300}
+.xd-load-facts{background:#f4f6f8;border:1px solid #e0e7f0}
+.xd-load-facts>div{padding-left:8px;border-left:2px solid #1d57d8}
+.xd-load-facts>div:nth-child(2){border-left-color:#f5a300}
+.xd-load-facts>div:nth-child(3){border-left-color:#0b2f6b}
+.xd-load-facts>div:nth-child(4){border-left-color:#16a34a}
+.xd-load-notes{background:#fffaf0;border-left-color:#f5a300;color:#1a1f2b}
+.xd-load-card>.actions .primary{background:#0b2f6b;border-color:#0b2f6b}
+.xd-load-card>.actions .outline{border:1px solid #1d57d8;color:#0b2f6b;background:#fff}
+.xd-load-card>.actions .outline:hover{background:#e8f0fc}
+.xd-quote-details{border-top-color:#cbdaf0}
+.xd-quote-form input[type=number]:focus{outline:2px solid #1d57d8;outline-offset:1px}
+.xd-find-loads .xd-search-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:10px 0}.xd-find-loads .xd-search-fields label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:650;color:#0b2f6b}.xd-find-loads .xd-search-fields input,.xd-find-loads .xd-search-fields select{display:block!important;width:100%;height:35px;padding:6px 9px;background:#fff;border:1px solid #cbdaf0;border-radius:6px;color:#1a1f2b}.xd-find-loads .xd-search-fields input:focus,.xd-find-loads .xd-search-fields select:focus{outline:2px solid #1d57d8}.xd-find-loads>.actions{margin:9px 0}.xd-find-loads>.muted{font-size:11px}.xd-find-loads .xd-load-card{margin:8px 0}@media(max-width:780px){.xd-find-loads .xd-search-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.xd-find-loads .xd-search-fields{grid-template-columns:1fr}}
