@@ -190,3 +190,7 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Playwright authenticated real Owner Driver on PR preview: Supabase auth HTTP 200; My Quotes remained Loading quotes for 30s, so E2E FAIL (1 failed), not an unavailable account. Read-only company-driver E2E previously 1/1 PASS. Root reason for quote stalled still requires network tracing; server request vs auth cookie not assumed.
 - Mitigated UI infinite spinner by 12-second AbortSignal timeout and visible Retry quotes action in app/driver-pwa-fresh/quotes/page.tsx. 10/10 scoped contracts PASS, scoped ESLint PASS. Production build after this change still pending. NOT DEPLOYED to production; goal unchanged.
 
+
+## QUOTE HISTORY SERVER FIX 2026-10-29 20:17 UTC
+- Root-route inspection: quote_history used to run two unrelated driver location queries even when loading past bids; now skips these on quotedHistory path, keeping location queries for actual Loads and single Job Detail. Scoped ESLint PASS, TypeScript PASS, Vitest 10/10 PASS, mandatory protected invariant PASS, full npm run build PASS (193 routes, build exit 0). This is a proven unnecessary dependency removed, but real Owner Driver E2E still MUST retest against refreshed Netlify preview to prove the initial stall fixed. Do not claim production release.
+

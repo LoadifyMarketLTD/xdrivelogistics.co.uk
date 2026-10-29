@@ -321,7 +321,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const [{ data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
+  // Quote history does not need live location. Avoid two unrelated database
+  // round trips before rendering a driver's previously submitted bids.
+  const [{ data: latestDriverLocation }, { data: availabilityPresence }] = quotedHistory
+    ? [{ data: null }, { data: null }]
+    : await Promise.all([
     supabaseAdmin
       .from('driver_locations')
       .select('lat,lng,recorded_at')
