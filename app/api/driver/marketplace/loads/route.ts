@@ -296,6 +296,18 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
+  // Missing bid rows must never be mistaken for an empty quote history.
+  // A failed bid lookup previously returned jobs without myBid, silently
+  // dropping every quote from My Quotes even though the driver had bid.
+  if (bidsResult.error) {
+    return operationalError({
+      status: 500,
+      message: 'Your submitted quotes could not be verified. Please retry.',
+      context: quotedHistory ? 'driver.marketplace.loads.quote-history-detail-bids' : 'driver.marketplace.loads.bid-lookup',
+      cause: bidsResult.error,
+      retryable: true,
+    });
+  }
   if (companiesResult.error) {
     return operationalError({
       status: 500,
