@@ -167,3 +167,9 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - A local Playwright run without preview base URL incorrectly used 127.0.0.1:3100 and failed on Safari, therefore not counted as production preview evidence.
 - HARD RELEASE GATE: 11-state authenticated award/booking/POD/invoice lifecycle still untested with isolated fixture and physical OPPO; cannot safely assert complete official replacement. Do not merge solely on read-only and static tests. Full rollback baseline is documented in automation/ROLLBACK_PROOF.md. No production deploy completed.
 
+
+## TEST ENVIRONMENT INVESTIGATION 2026-10-29 19:32 UTC
+- Queried connected Supabase projects read-only: only loadify-market (unrelated) and xdrivelogistics jqxlauexhkonixtjvljw (LIVE). No distinct XDrive staging project in connected organization. No Docker or Supabase CLI executable found on Windows host; existing D:\XDrive-Booking-11-Sandbox is frontend sandbox, not an isolated Supabase backend.
+- Read-only live XDrive counts: is_test=true jobs exist in posted/quoted/delivered/completed/cancelled statuses. No pending booking offers on test jobs. No records modified. Do NOT mutate live jobs, POD or invoices merely to achieve E2E green.
+- Official Driver PWA branch HEAD 38c722a; PR #714 Ready for Review, no merge. Before release create/verify isolated backend or explicit safe fixture; then exercise quote->award->accept->POD->invoice real persistence, OPPO, seven-workspace regression and rollback. Never treat preview HTTP 200 or read-only tests as lifecycle PASS.
+
