@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import {useAuth} from '../../components/AuthContext';
 import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
+import FreshSectionTabs from '../FreshSectionTabs';
 import '../booking-offers/offers.css';
 
 type Booking={id:string;reference:string;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
@@ -53,6 +54,7 @@ export default function Bookings(){
   return period==='week'?age>=0&&age<=7*day:age>7*day&&age<=30*day;
  });
  return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content" data-testid="fresh-bookings">
+  <FreshSectionTabs />
   <h1>Bookings</h1>
   <Link className="fresh-booking-offers-link" href="/driver-pwa-fresh/booking-offers">Received Bookings ÔÇö Review &amp; Accept / Decline {pendingOffers?`(${pendingOffers})`:''}</Link>
   <div className="fresh-quote-tabs" role="tablist" aria-label="Booking period">{([['current','Current'],['week','Last week'],['month','Last month']] as const).map(([id,label])=><button key={id} type="button" role="tab" aria-selected={period===id} className={period===id?'active':''} onClick={()=>setPeriod(id)}>{label}</button>)}</div>
