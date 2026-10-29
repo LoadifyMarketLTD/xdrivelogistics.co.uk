@@ -6,6 +6,7 @@ import type { DbJob } from '../../../lib/types/database';
 import { getLoadDetailSections } from '../../../lib/loadPostingDetails';
 import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
+import { navigationDestination, navigationUrl } from '../../../lib/jobs/driverNavigationLinks';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
@@ -138,11 +139,9 @@ const money = (amount: number | null | undefined, currency = 'GBP') => amount ==
   ? 'Not supplied'
   : new Intl.NumberFormat('en-GB', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
 
-const mapsUrl = (address: string, postcode?: string | null) =>
-  `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(postcode ? `${address}, ${postcode}` : address)}`;
+const mapsUrl = (address: string, postcode?: string | null) => navigationUrl(address,postcode,'navigate') ?? 'https://www.google.com/maps';
 
-const wazeUrl = (address: string, postcode?: string | null) =>
-  `https://www.waze.com/ul?q=${encodeURIComponent(postcode ? `${address}, ${postcode}` : address)}&navigate=yes`;
+const wazeUrl = (address: string, postcode?: string | null) => 'https://www.waze.com/ul?q='+encodeURIComponent(navigationDestination(address,postcode))+'&navigate=yes';
 
 const routeMapUrl = (job: DbJob) => {
   const params = new URLSearchParams({ api: '1' });
@@ -770,7 +769,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       <section className="fresh-mobile-booking-card fresh-booking-stops"><h2>Stops</h2><div className="fresh-booking-stops-list">{stops.map(stop=><div className="fresh-booking-stop" key={stop.name}>
         <span className={'fresh-booking-stop-pin '+(stop.name==='Collection'?'collection':'delivery')} aria-hidden="true"/>
         <div className="fresh-booking-stop-body"><h3>{stop.name}</h3>{stop.place&&<strong>{stop.place}</strong>}{stop.postcode&&<p>{stop.postcode}</p>}{stop.at&&<p>{formatDateTime(stop.at)}</p>}{stop.notes&&<p>{stop.notes}</p>}
-        <div className="fresh-mobile-booking-actions"><a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a>{stop.phone&&<a href={'tel:'+stop.phone}>Call</a>}<a target="_blank" rel="noopener noreferrer" href={'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent([stop.place,stop.postcode].filter(Boolean).join(', '))}>View Map</a></div>
+        <div className="fresh-mobile-booking-actions"><a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a>{stop.phone&&<a href={'tel:'+stop.phone}>Call</a>}<a target="_blank" rel="noopener noreferrer" href={navigationUrl(stop.place,stop.postcode,'view') ?? 'https://www.google.com/maps'}>View Map</a></div>
         </div></div>)}</div></section>
       {(sheet?.cargo.pallets!=null||sheet?.cargo.weightKg!=null||sheet?.cargo.type||cargoDimensions!=='Not supplied'||sheet?.cargo.palletType||Boolean(sheet?.requirements?.length))&&<section className="fresh-mobile-booking-card fresh-booking-cargo"><h2>Cargo Summary</h2><div className="fresh-booking-cargo-grid">
         {sheet?.cargo.pallets!=null&&<div><small>Pallets</small><strong>{sheet.cargo.pallets}</strong></div>}
