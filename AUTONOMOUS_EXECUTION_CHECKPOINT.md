@@ -16,3 +16,15 @@ SECURITY: No production writes or deployment; POST accept/decline not executed i
 OUTSTANDING: Authenticated end-to-end preview, production-like build, complete 11-stage backend flow, Android visual validation, RLS/privacy audit, invoice/POD/Stripe readiness testing, rollback rehearsal, production authorization.
 SAFE_RESUME_COMMAND: powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File D:\XDrive-Driver-Real-Integration-20261029\automation\watchdog.ps1
 LAST_CHECKED: 2026-10-29 01:55 UTC
+
+## VALIDATION UPDATE — 29 OCTOBER 2026 02:15 UTC
+- Verified GitHub PR #714 still Draft, unmerged and HEAD 2c907bffc95314c659900c73b8f9aac3416a1c7b at start of this round. Netlify for this SHA reported success. All three preview Driver PWA protected URLs returned HTTP 200 then required sign-in; HTTP 200 is NOT an authenticated workflow pass.
+- Physical OPPO 49W4SOMFK7GAQWUG opened HTTPS PR preview; screenshot automation/logs/oppo-preview2.png shows actual protected Login screen. Cannot inspect logged-in cards, Navigate or View on Map without authorised nonproduction driver account.
+- New read-only unauthenticated preview E2E: 7/7 PASS, including four protected route redirects and 401/403 on booking-offers read/write without bearer and driver APIs. No real data mutated.
+- Existing Playwright role, Driver and Super Admin suites: 34 PASS, 17 SKIPPED. These 17 are NOT evidence of operational validation.
+- Scoped Vitest integration: 47/47 PASS; TypeScript PASS, targeted ESLint PASS.
+- Production-style local npm run build: PASS, exit 0, 191 static pages, total 381.79 seconds. Expected missing local SUPABASE_SERVICE_ROLE_KEY warnings; actual server-only operations disabled in local no-env build, not an authenticated integration test.
+- Five additional workspace regression suites: 31 PASS, 1 FAIL. Failure: __tests__/driverTopWorkspaceRoleBoundaryContract.test.ts expects a hard-coded source literal no longer present in TopWorkspaceShell.tsx. Verified exact TopWorkspaceShell SHA b6ff9d67aa09ae7813e479b612ca052e307fc2e1 identical in origin/main and PR branch. PRE-EXISTING baseline mismatch; integration branch did not change that component. Do not rewrite protected shared shell to appease a brittle string test without a separate semantic audit.
+- No E2E_DRIVER_EMAIL/PASSWORD in process env; no .env.local in isolated project. Must use an explicitly separate nonproduction dataset before any persisted Quote/Award/Accept/Decline/POD/Invoice/Payment tests. Neither production records nor invoices were altered.
+- Rollback proof: automation/ROLLBACK_PROOF.md; no merge, no production migration/deploy, independent branch diff against baseline.
+- NEXT_ACTION: enforce nonproduction isolated credential/fixtures gate, authenticated full journey and seven-workspace/Super Admin functional tests; physically test Android Navigate and View Map after controlled login; resolve pre-existing role contract mismatch separately; re-run all checks before any production approval. Maintain PR Draft.
