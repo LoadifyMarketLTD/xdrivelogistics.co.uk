@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import {useAuth} from '../../components/AuthContext';
 import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
+import {getLoadDetailSections} from '../../../lib/loadPostingDetails';
 import './offers.css';
 
 type JobInfo={
@@ -13,7 +14,7 @@ type JobInfo={
  delivery_location?:string|null;delivery_city?:string|null;delivery_postcode?:string|null;delivery_datetime?:string|null;
  payment_terms?:string|null;booking_reference?:string|null;load_reference?:string|null;load_ref?:string|null;
  vehicle_type?:string|null;requested_vehicle_label?:string|null;job_distance_miles?:number|null;
- load_details?:Record<string,unknown>|null;
+ load_details?:string|Record<string,unknown>|null;
 };
 type Offer={
  id:string;job_id:string;status:string;offered_at:string;quoted_amount:number;currency:string|null;
@@ -67,6 +68,7 @@ export default function BookingOffersPage(){
    const job=offer.job;
    const pickup=place(job?.pickup_location,job?.pickup_city,job?.pickup_postcode);
    const delivery=place(job?.delivery_location,job?.delivery_city,job?.delivery_postcode);
+   const additional=getLoadDetailSections({load_details:typeof job?.load_details==='string'?job.load_details:job?.load_details?JSON.stringify(job.load_details):null,requested_vehicle_label:job?.requested_vehicle_label??null,vehicle_type:job?.vehicle_type??null,pickup_postcode:job?.pickup_postcode??null,delivery_postcode:job?.delivery_postcode??null}).filter(section=>['Cargo','Contacts','Loading','Requirements','Documents'].includes(section.title)).map(section=>({...section,items:section.items.filter(item=>item.label!=='Vehicle')})).filter(section=>section.items.length>0);
    return <article className="fresh-offer-card" key={offer.id}>
     <div className="fresh-offer-identity"><div><small>JOB AWARDED BY</small><strong>{offer.buyer_name||'Company unavailable'}</strong>{offer.buyer_xd_id&&<span>XD Member ID: {offer.buyer_xd_id}</span>}</div><span className="fresh-offer-pending">ACCEPTANCE REQUIRED</span></div>
     {job?.booking_reference&&<div className="fresh-offer-reference">Booking reference: <strong>{job.booking_reference}</strong></div>}
@@ -80,6 +82,7 @@ export default function BookingOffersPage(){
       {job?.job_distance_miles!=null&&<div><small>Route distance</small><strong>{job.job_distance_miles} miles</strong></div>}
     </div>
     {offer.public_quote_notes&&<div className="fresh-offer-notes"><strong>Job Notes</strong><p>{offer.public_quote_notes}</p></div>}
+    {additional.length>0&&<section className="fresh-offer-additional" aria-label="Full job information"><h2>Job information</h2>{additional.map(section=><div key={section.title} className="fresh-offer-extra-section"><h3>{section.title}</h3><dl>{section.items.map(item=><div key={item.label}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}</dl></div>)}</section>}
     <div className="fresh-offer-decision"><button type="button" className="fresh-offer-decline" disabled={busy===offer.id} onClick={()=>void respond(offer,'decline')}>Decline Job</button><button type="button" className="fresh-offer-accept" disabled={busy===offer.id} onClick={()=>void respond(offer,'accept')}>{busy===offer.id?'Saving...':'Accept Job'}</button></div>
    </article>;
   })}

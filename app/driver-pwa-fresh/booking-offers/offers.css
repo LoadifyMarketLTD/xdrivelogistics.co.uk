@@ -36,3 +36,12 @@
 .fresh-driver-pwa .fresh-offer-notice a{display:block;color:#1454b8;font-weight:700;margin-top:8px}
 .fresh-driver-pwa .fresh-booking-offers-link{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:0 0 11px;padding:13px;background:#fff9eb;border:1px solid #f1d99a;border-radius:9px;color:#815400;font-size:12px;font-weight:700;text-decoration:none}
 .fresh-driver-pwa .fresh-booking-offers-link span{font-size:11px;color:#7a5d2b}
+
+.fresh-driver-pwa .fresh-offer-additional{border-top:1px solid #e7edf5;padding-top:11px;margin-top:5px}
+.fresh-driver-pwa .fresh-offer-additional>h2{font-size:13px;line-height:19px;margin:0 0 8px;color:#0b2f6b}
+.fresh-driver-pwa .fresh-offer-extra-section{border-radius:7px;background:#f9fbfd;padding:9px;margin:0 0 7px}
+.fresh-driver-pwa .fresh-offer-extra-section h3{margin:0 0 8px;font-size:11px;font-weight:800;color:#405e7d}
+.fresh-driver-pwa .fresh-offer-extra-section dl{margin:0;display:grid;gap:5px}
+.fresh-driver-pwa .fresh-offer-extra-section dl>div{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:7px;font-size:11px;line-height:17px}
+.fresh-driver-pwa .fresh-offer-extra-section dt{color:#627b93}
+.fresh-driver-pwa .fresh-offer-extra-section dd{margin:0;font-weight:700;color:#0b2f6b;overflow-wrap:anywhere}
