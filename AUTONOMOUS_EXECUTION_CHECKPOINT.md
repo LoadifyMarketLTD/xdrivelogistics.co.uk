@@ -199,3 +199,20 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Verified PR #714 production-host Netlify preview: unauthenticated Accept Job and Decline Job both HTTP 401, no job modifications; 8/8 Chromium Playwright PASS when executed serially (--workers=1). Parallel 8-worker run 6/8 (two navigation timeouts), recovered by serial run without weakening test assertions. Booking-offer domain contracts remain 14/14 PASS from preceding user request.
 - This verifies only anonymous denial and existing code contracts, NOT positive authenticated acceptance/rejection on a controlled pending job. Do not merge or publish live until real safe lifecycle E2E and OPPO verification; canonical sandbox must replace old official Driver PWA.
 
+
+## 2026-10-29 22:52 UTC - Driver PWA live API shell
+- Branch integrate/xdrive-driver-real-20261029, commit 46d241d pushed to PR #714; not merged or released to production.
+- Loads (app/driver-pwa-fresh/jobs/LoadsClient.tsx) fetches /api/driver/marketplace/loads and quote details submit to /api/driver/bids.
+- Quotes (app/driver-pwa-fresh/quotes/page.tsx) uses live quote history and withdraw API. Added shared Available/Map/Filter navigation and My Quotes title.
+- Bookings (app/driver-pwa-fresh/bookings/page.tsx) fetches real /api/driver/jobs, pending /api/booking-offers; details use DriverJobExecutionPage/POD. Added shared top tabs.
+- Scoped eslint PASS and 10/10 Vitest PASS. Full npm run build still in progress at checkpoint; npx tsc directly encountered stale generated .next-playwright-3100/types/validator.ts from a removed visual-preview route. Do not mark full build PASS.
+- Sandbox workflow on OPPO remains demonstration/localStorage. No live end-to-end job progression on OPPO proven; no production deployment. Need positive authenticated E2E + mobile visual verification + deployment gate.
+- Other user dirty files remain untouched (tsconfig.json, e2e/driver-pwa-pr714-auth-read-only.spec.ts, four automation/tests files).
+
+## 2026-10-29 23:12 UTC - Authenticated real-data release gates
+- Commit 46d241d: live Quotes and Bookings render shared Available/Map/Filter navigation, preserving the original API-backed Loads/Quotes/Bookings flows.
+- Real Owner Driver account read-only Playwright E2E PASS on local isolated server port 3281 and on PR #714 Netlify preview: Supabase token HTTP 200, marketplace/loads HTTP 200, booking-offers HTTP 200, driver/jobs HTTP 200. Preview revealed 23 quote-history loads, 15 jobs and 9 offers for authenticated identity, alongside one existing submitted quote. No production writes or client notifications performed.
+- Full isolated production build PASS (npm run build with NEXT_DIST_DIR=.next-driver-release-20261029, exit 0, 195 static pages generated). Targeted ESLint and Vitest 10/10 PASS, and protected seven-workspace invariant PASS.
+- OPPO CPH2125 connected via adb serial 49W4SOMFK7GAQWUG. Installed distinct official XDrive Driver WebAPK org.chromium.webapk.a280a0ad44b76205e_v2 from localhost port 3281, launched standalone with login screen (expected auth gate). OPPO authenticated positive data read-only run NOT verified; CDP-backed read-only script stopped at login/ProtectedRoute and was removed, no claims of pass.
+- Live production was NOT merged, NOT deployed, and sandbox demo data was NOT substituted for real jobs. PR #714 remains draft. Need authenticated OPPO acceptance + transactional safe lifecycle test + release action before production.
+- The old visual-preview/booking-11 route is now a redirect to the isolated booking sandbox to satisfy stale generated TS route validation. No edits to protected workspace source files.
