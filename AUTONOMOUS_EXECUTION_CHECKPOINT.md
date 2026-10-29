@@ -124,3 +124,9 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Scoped opt-in allowTouchDrag=false for Driver PWA; shared MarketplaceLoadMap defaults true for all other usages. Leaflet dragging, touchZoom, scrollWheelZoom disabled only within Driver PWA; markers remain clickable and zoom control remains.
 - ESLint PASS; TypeScript PASS; Vitest 18/18 PASS. Physical verification of newly changed build pending Netlify preview redeploy. Production untouched.
 
+
+## CANONICAL SANDBOX REPLACEMENT 2026-10-29 18:31 UTC
+- User unequivocally ordered D:\XDrive-Booking-11-Sandbox/app/driver-pwa-fresh as authoritative real PWA. Copied EVERY file from that directory into target app/driver-pwa-fresh, overwriting all 8 divergent files. Canonical sandbox pages now byte-for-byte identical, not approximated.
+- TypeScript tsc --noEmit PASS; ESLint app/driver-pwa-fresh PASS; Vitest 16 PASS / 2 FAIL. Failures are real integration contracts: displayed company formatting (UPPERCASE vs original exact case), and absent booking-offers link in canonical sandbox Bookings. Do not suppress failures. Resolve backend acceptance without altering approved visual source; investigate role / offer access before release.
+- No production deployment. Exact copied sandbox UI awaiting integration parity, OPPO E2E and build. Scope ONLY Driver PWA. Other untracked scripts untouched.
+
