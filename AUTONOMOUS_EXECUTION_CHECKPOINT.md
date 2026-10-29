@@ -111,3 +111,10 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Added POD draft restore and autosave on On Site Delivery, and save-before-Confirm Delivered to preserve item/weight before separate POD screen. The backend POD draft endpoint authorizes assigned driver and persists existing draft data; no direct DB writes in testing.
 - PREVIOUS VERIFICATION: 20/20 scoped Vitest PASS; targeted ESLint PASS; full Next production build PASS on earlier HEAD; latest tsc --noEmit PASS after fixes. Newest PR preview and authenticated OPPO journey still must be verified after push.
 - CRITICAL BLOCKER: No distinct XDrive staging database with disposable multi-role jobs; authenticated POST Quote->Award->Accept->Delivery->POD->Invoice->Payment E2E still NOT VERIFIED. Physical OPPO preview has not demonstrated all 11 real stages. DO NOT claim full acceptance or merge production until genuine staged E2E and screenshot comparisons.
+
+## CONTINUATION 2026-10-29 17:38 UTC
+- Restricted scope to Driver PWA routes/components. Corrected FreshBottom tab highlight: removed eager onPointerDown/onClick selected state; derives current selection from pathname to prevent flicker where My Quotes content displayed with Loads highlighted.
+- Targeted ESLint PASS; TypeScript tsc --noEmit PASS; 18/18 Vitest PASS.
+- Branch integrate/xdrive-driver-real-20261029, PR #714 Draft. Not yet verified on OPPO or published in preview. No production changes.
+- NEXT: commit/push navigation fix, check preview and physical OPPO for tab/Map flicker, execute E2E with safe test accounts; no production merge.
+
