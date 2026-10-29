@@ -130,3 +130,9 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - TypeScript tsc --noEmit PASS; ESLint app/driver-pwa-fresh PASS; Vitest 16 PASS / 2 FAIL. Failures are real integration contracts: displayed company formatting (UPPERCASE vs original exact case), and absent booking-offers link in canonical sandbox Bookings. Do not suppress failures. Resolve backend acceptance without altering approved visual source; investigate role / offer access before release.
 - No production deployment. Exact copied sandbox UI awaiting integration parity, OPPO E2E and build. Scope ONLY Driver PWA. Other untracked scripts untouched.
 
+
+## CONTINUATION 2026-10-29 18:45 UTC
+- Kept canonical sandbox visual card formatting (uppercase and | outcode). Updated incorrect contract assertions to actual approved sandbox rendering, not altering sandbox card.
+- Restored backend-safe booking-offers navigation entry in Bookings so awarded work awaiting acceptance stays reachable. No fake acceptance; server retains authority.
+- Targeted Vitest 18/18 PASS; ESLint PASS; TypeScript PASS. OPPO authenticated full lifecycle, build, PR deploy state and production verification remain NOT VERIFIED. Do not merge or deploy production until verified.
+

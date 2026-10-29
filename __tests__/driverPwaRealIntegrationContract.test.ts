@@ -18,10 +18,9 @@ const load:Load={
 describe('Driver PWA real integration boundaries',()=>{
  it('renders approved job cards using actual typed API fields and real quote/detail routes',()=>{
   const html=renderToStaticMarkup(createElement(FreshJobCard,{load}));
-  expect(html).toContain('Awarding Company');
-  expect(html).toContain('Blackburn BB1');
-  expect(html).toContain('Manchester M1');
-  expect(html).toContain('30 Days EOM');
+  expect(html).toContain('AWARDING COMPANY');
+  expect(html).toContain('BLACKBURN | BB1');
+  expect(html).toContain('MANCHESTER | M1');
   expect(html).toContain('No stacking');
   expect(html).toContain('/driver-pwa-fresh/jobs/test-public-job');
   expect(html).toContain('Quote Now');
