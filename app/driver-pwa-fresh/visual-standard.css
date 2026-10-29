@@ -275,3 +275,11 @@
 .fresh-driver-pwa .fresh-pod-left-at-options button.fresh-pod-left-at-selected{background:#dbeafe;border:2px solid #1d57d8;color:#0b2f6b}
 .fresh-driver-pwa .fresh-pod-left-at-options button:focus-visible{outline:3px solid #f5a300;outline-offset:2px}
 .fresh-driver-pwa .fresh-mobile-pod .fresh-pod-send{background:#f5a300;color:#1a1f2b;border-color:#f5a300;min-height:52px}
+
+/* Official Driver PWA: keep job cards beneath map in a normal document scroll.
+   Markers remain clickable; touch panning is disabled in the driver map only. */
+.fresh-driver-pwa .fresh-map-reference{min-height:0;height:auto;overflow:visible;display:flex;flex-direction:column;align-items:stretch;scroll-anchor:none}
+.fresh-driver-pwa .fresh-map-reference .marketplace-radar-shell{flex:0 0 auto;min-height:0}
+.fresh-driver-pwa .fresh-map-reference .marketplace-radar-map{height:clamp(320px,57dvh,620px);min-height:320px;max-height:620px;overflow:hidden;touch-action:pan-y!important}
+.fresh-driver-pwa .fresh-map-reference .fresh-map-sheet{position:relative;inset:auto;z-index:1;flex:0 0 auto;width:100%;max-height:none;overflow:visible;border-radius:12px;box-shadow:none;margin-top:10px}
+.fresh-driver-pwa .fresh-map-reference .fresh-map-sheet-items{overflow:visible;max-height:none}

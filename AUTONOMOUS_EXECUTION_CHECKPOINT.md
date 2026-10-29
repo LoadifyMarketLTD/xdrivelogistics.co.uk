@@ -136,3 +136,11 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - Restored backend-safe booking-offers navigation entry in Bookings so awarded work awaiting acceptance stays reachable. No fake acceptance; server retains authority.
 - Targeted Vitest 18/18 PASS; ESLint PASS; TypeScript PASS. OPPO authenticated full lifecycle, build, PR deploy state and production verification remain NOT VERIFIED. Do not merge or deploy production until verified.
 
+
+## OFFICIAL SANDBOX PARITY / INTEGRATION 2026-10-29 18:56 UTC
+- Audited authoritative sandbox AGENTS.md and AUTONOMOUS_EXECUTION_CHECKPOINT.md: 11-stage original /driver-pwa-sandbox/bookings is a deliberately isolated fictitious demo, NOT a production backend. Official Driver PWA must retain approved 11-screen styling while using real DriverJobExecutionPage and backend API, not demo localStorage or simulated documents.
+- Fixed canonical copy regressions: restored booking-approved.css import, POD bottom nav, deterministic route-based tab highlight, distinct Job Details vs Loads tabs, duplicates in town/outcode, stable map and page scroll. No edits outside scoped Driver PWA UI. The shared Leaflet map already exposes allowTouchDrag default true; set false only on Driver Loads.
+- Bookings now displays Job Received link only when server reports pending offers; server failures allow manual link. Preserves exact approved Bookings appearance when no offer.
+- Protected invariant gate PASS; first production build PASS (192 static routes; run before final UI changes); scoped TS and ESLint PASS; targeted Vitest 22/22 PASS. Customer preview auth check: HTTP 200, customer logged in, auth cookie present, /customer/quotes reached (read only). No claim Driver authenticated E2E PASS.
+- TARGET D:\XDrive-Driver-Real-Integration-20261029; SOURCE D:\XDrive-Booking-11-Sandbox; branch integrate/xdrive-driver-real-20261029; PR #714 Draft; no production merge. Next: push scoped fixes, verify PR preview HEAD, authenticated Driver PWA on OPPO, production build after final UI changes, full booking/POD/invoice E2E; merge/deploy only upon verified release gates.
+

@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import {useAuth} from '../../components/AuthContext';
 import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
+import '../booking-offers/offers.css';
 
 type Booking={id:string;reference:string;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
 type Response={jobs?:Booking[];error?:string};
@@ -13,6 +14,7 @@ const fmt=(date:string|null)=>date?new Date(date).toLocaleString('en-GB',{day:'2
 export default function Bookings(){
  const {user,isLoading:authLoading}=useAuth();
  const [items,setItems]=useState<Booking[]>([]),[period,setPeriod]=useState<Period>('current'),[busy,setBusy]=useState(true),[error,setError]=useState('');
+ const [pendingOffers,setPendingOffers]=useState<number|null|undefined>(undefined);
  const refresh=useCallback(async()=>{
   if(!user?.id)return;
   setBusy(true);setError('');
@@ -26,6 +28,21 @@ export default function Bookings(){
   finally{setBusy(false);}
  },[user?.id]);
  useEffect(()=>{if(!authLoading&&user?.id)void refresh();else if(!authLoading)setBusy(false)},[authLoading,user?.id,refresh]);
+ useEffect(()=>{
+  if(authLoading||!user?.id)return;
+  let active=true;
+  void (async()=>{
+   try{
+    const token=await readRouteAuthAccessToken();
+    if(!token)throw new Error('Authentication unavailable');
+    const response=await fetch('/api/booking-offers',{cache:'no-store',headers:{Authorization:'Bearer '+token}});
+    if(!response.ok)throw new Error('Booking offers unavailable');
+    const data=await response.json() as {offers?:Array<{status?:string}>};
+    if(active)setPendingOffers((data.offers||[]).filter(offer=>offer.status==='pending').length);
+   }catch{if(active)setPendingOffers(null);}
+  })();
+  return ()=>{active=false};
+ },[authLoading,user?.id]);
  const now=Date.now(),day=86400000;
  const visible=items.filter(job=>{
   const timestamp=job.updatedAt?new Date(job.updatedAt).getTime():NaN;
@@ -37,7 +54,7 @@ export default function Bookings(){
  });
  return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content" data-testid="fresh-bookings">
   <h1>Bookings</h1>
-  <Link className="fresh-booking-offers-link" href="/driver-pwa-fresh/booking-offers">Review awarded jobs awaiting acceptance</Link>
+  {pendingOffers!==0&&pendingOffers!==undefined?<Link className="fresh-booking-offers-link" href="/driver-pwa-fresh/booking-offers">Review awarded jobs awaiting acceptance {pendingOffers?`(${pendingOffers})`:''}</Link>:null}
   <div className="fresh-quote-tabs" role="tablist" aria-label="Booking period">{([['current','Current'],['week','Last week'],['month','Last month']] as const).map(([id,label])=><button key={id} type="button" role="tab" aria-selected={period===id} className={period===id?'active':''} onClick={()=>setPeriod(id)}>{label}</button>)}</div>
   {error?<p role="alert" className="fresh-message">{error} <button type="button" onClick={()=>void refresh()}>Retry</button></p>:null}
   {busy?<p role="status" className="fresh-message">Loading bookings...</p>:!error&&visible.length===0?<p className="fresh-message">No bookings for this period.</p>:visible.map(job=><article className="fresh-card" key={job.id}>
