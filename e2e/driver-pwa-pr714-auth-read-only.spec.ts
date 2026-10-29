@@ -18,7 +18,7 @@ test.describe('Driver PWA read-only authenticated journey — never writes jobs'
     (apiResults[p]??=[]).push(response.status()); if(response.ok()){pendingCounts.push((async()=>{const data=await response.json() as {loads?:unknown[];jobs?:unknown[];offers?:unknown[]};const list=data.loads??data.jobs??data.offers;if(Array.isArray(list))(resultCounts[p]??=[]).push(list.length);})().catch(()=>{}));}
    }
   });
-  await page.goto('/login',{waitUntil:'networkidle'});
+  await page.goto('/login',{waitUntil:'domcontentloaded',timeout:30000});
   // Next.js login is client-hydrated; submitting before hydration triggers a plain GET /login? instead of auth.
   await page.waitForTimeout(700);
   await page.locator('input[type="email"]').fill(email);

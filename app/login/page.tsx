@@ -200,8 +200,8 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <button type="submit" disabled={isLoading} className={styles.signinButton}>
-                  {isLoading ? 'Signing in...' : 'Sign In'}
+                <button type="submit" disabled={isLoading || authLoading} className={styles.signinButton}>
+                  {isLoading ? 'Signing in...' : authLoading ? 'Preparing sign in...' : 'Sign In'}
                 </button>
 
                 <p className={styles.registerRow}>
