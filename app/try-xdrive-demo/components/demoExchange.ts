@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
-export type DemoLoad={id:string;from:string;to:string;vehicle:string;pallets:string;weight:string;customer:string;sell:string;postedAt:string;status:"Open"|"Awarded"|"Cancelled";quote?:number;driver?:string};
+export type DemoLoad={id:string;from:string;to:string;vehicle:string;pallets:string;weight:string;customer:string;sell:string;postedAt:string;status:"Open"|"Awarded"|"Cancelled";quote?:number;driver?:string;awardedQuoteId?:string};
 const event="xdrive-demo-loads-changed";
 let cache:DemoLoad[]=[];
 export function getDemoLoads(){return cache}
