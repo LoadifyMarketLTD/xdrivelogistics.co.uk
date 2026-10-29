@@ -1,10 +1,11 @@
 "use client";
 import {useState} from "react";
+import NetworkTools from "../try-xdrive-demo/components/NetworkTools";
 import Link from "next/link";
 import "../try-xdrive-demo/demo.css";
 import "../try-xdrive-demo/wide-layout.css";
 import "./broker.css";
-const nav=["Dashboard","Post Load","My Loads","Carrier Quotes","Awards","Bookings","Diary","POD Review","More"];
+const nav=["Dashboard","Post Load","My Loads","Carrier Quotes","Awards","Bookings","Diary","POD Review","More","Network & Tools"];
 const carriers=[{name:"Northern Freight Solutions",member:"XD-20418",price:195,eta:"30 minutes",vehicle:"Luton Van · Tail-lift"},{name:"Midlands Express Transport",member:"XD-20812",price:185,eta:"60 minutes",vehicle:"Luton Van"},{name:"Swift Cargo UK",member:"XD-20193",price:220,eta:"45 minutes",vehicle:"Luton Van · Tail-lift"}];
 const timeline=["Load published","Carrier quote received","Carrier awarded","Driver allocated","On my way to collection","Goods collected","On my way to delivery","Delivered","POD uploaded"];
 export default function BrokerDemo(){
@@ -22,5 +23,6 @@ return <main className="demo-shell broker-demo"><aside className="sidebar"><div 
 {tab===6&&<div className="panel"><div className="panel-title"><h2>Operations diary</h2><span>{pod?"COMPLETED":"IN PROGRESS"}</span></div><div className="facts"><span>All</span><span>Unallocated</span><span>Allocated</span><span>In Progress</span><span>Completed</span><span>Cancelled</span></div>{route}<div className="broker-customer"><small>CUSTOMER</small><strong>{customer}</strong><span>Carrier: {carrier.name} · {awarded?"Awarded":"Awaiting award"}</span></div><div className="actions"><button className="primary" onClick={()=>setTab(5)}>Open booking timeline →</button><button className="outline" onClick={()=>setTab(7)}>View POD</button></div></div>}
 {tab===7&&<div className="panel"><div className="panel-title"><h2>Proof of Delivery Review</h2><span>{pod?"POD RECEIVED":"SAMPLE DOCUMENT"}</span></div><div className="pod"><div className="pod-head"><strong>XDRIVE LOGISTICS</strong><span>PROOF OF DELIVERY</span></div><div className="pod-grid"><div><small>JOB REFERENCE</small><b>XDL-BRK-1029</b></div><div><small>CARRIER</small><b>{carrier.name}</b></div><div><small>COLLECTION</small><b>{from}</b></div><div><small>DELIVERY</small><b>{to}</b></div><div><small>GOODS</small><b>{pallets} pallets · {weight} kg</b></div><div><small>RECIPIENT</small><b>Alex Morgan (fictional)</b></div></div><div className="signature">Alex Morgan<small>Fictional signature · 14:35 · Not valid evidence</small></div><div className="notice">Sample delivery photo placeholder. POD is mandatory before invoice creation in the real workflow.</div></div><div className="actions"><button className="primary" onClick={()=>{setPod(true);setStage(8)}}>{pod?"✓ Demo POD reviewed":"Approve sample POD"}</button><button className="outline" onClick={()=>setTab(6)}>Back to diary</button></div></div>}
 {tab===8&&<div className="panel"><h2>Broker management tools</h2><div className="steps">{["Customer Accounts","Carrier Network","Messages","Customer Invoices","Carrier Costs","Margins & Reports","Event Log","Help & Support"].map((x,i)=><button key={x} onClick={()=>setTab([0,3,0,4,4,4,6,0][i])}><b>{String(i+1).padStart(2,"0")}</b><span>{x}</span><span>→</span></button>)}</div></div>}
+{tab===9&&<NetworkTools role="Broker"/>}
 <div className="footer-note">XDrive Broker Demo · Fictional data only · No live customers, carriers, payments, messages or database writes</div></div></div></main>;
 }
