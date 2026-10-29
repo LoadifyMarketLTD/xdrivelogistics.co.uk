@@ -2,6 +2,7 @@
 import {useState} from "react";
 import Link from "next/link";
 import "../try-xdrive-demo/demo.css";
+import "../try-xdrive-demo/wide-layout.css";
 const nav=["Dashboard","Alerts","My Quotes","Bookings","More"];
 const jobs=[{id:"XDL-DEMO-1029",from:"Birmingham B6",to:"Manchester M1",cargo:"2 pallets · 450 kg",vehicle:"Luton Van · Tail-lift",company:"Sample Freight Broker Ltd",terms:"30 days EOM",price:195},{id:"XDL-DEMO-1030",from:"Coventry CV1",to:"Leicester LE1",cargo:"1 pallet · 210 kg",vehicle:"Large Van",company:"Demo Distribution Ltd",terms:"45 days EOM",price:145}];
 export default function DriverDemo(){

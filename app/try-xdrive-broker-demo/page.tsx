@@ -2,6 +2,7 @@
 import {useState} from "react";
 import Link from "next/link";
 import "../try-xdrive-demo/demo.css";
+import "../try-xdrive-demo/wide-layout.css";
 import "./broker.css";
 const nav=["Dashboard","Post Load","My Loads","Carrier Quotes","Awards","Bookings","Diary","POD Review","More"];
 const carriers=[{name:"Northern Freight Solutions",member:"XD-20418",price:195,eta:"30 minutes",vehicle:"Luton Van · Tail-lift"},{name:"Midlands Express Transport",member:"XD-20812",price:185,eta:"60 minutes",vehicle:"Luton Van"},{name:"Swift Cargo UK",member:"XD-20193",price:220,eta:"45 minutes",vehicle:"Luton Van · Tail-lift"}];

@@ -2,6 +2,7 @@
 import {useState} from "react";
 import Link from "next/link";
 import "../try-xdrive-demo/demo.css";
+import "../try-xdrive-demo/wide-layout.css";
 import "./fleet.css";
 const nav=["Dashboard","My Fleet","Live Availability","Loads","Quotes","Bookings","Diary","More"];
 const initial=[{id:"XD-V101",reg:"DX26 VAN",vehicle:"Luton Van · Tail-lift",driver:"Alex Carter",status:"Available",location:"Birmingham B6"},{id:"XD-V102",reg:"DX25 LTN",vehicle:"Luton Van",driver:"Jamie Taylor",status:"On Job",location:"Coventry CV1"},{id:"XD-V103",reg:"DX24 LWB",vehicle:"Large Van",driver:"Morgan Lee",status:"Available",location:"Leicester LE1"}];

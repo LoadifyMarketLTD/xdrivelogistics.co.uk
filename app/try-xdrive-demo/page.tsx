@@ -2,6 +2,7 @@
 import {useState} from "react";
 import Link from "next/link";
 import "./demo.css";
+import "../try-xdrive-demo/wide-layout.css";
 const offers=[{name:"Northern Freight Solutions",price:195,collect:"30 minutes",vehicle:"Luton Van · Tail-lift",member:"XD-20418",terms:"30 days EOM"},{name:"Midlands Express Transport",price:185,collect:"60 minutes",vehicle:"Luton Van",member:"XD-20812",terms:"30 days EOM"},{name:"Swift Cargo UK",price:220,collect:"45 minutes",vehicle:"Luton Van · Tail-lift",member:"XD-20193",terms:"30 days EOM"}];
 const tabs=["Dashboard","Post Load","Quotes","Bookings","Tracking","Documents"];
 export default function Demo(){
