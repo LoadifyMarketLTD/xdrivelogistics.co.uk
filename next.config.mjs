@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Hide the Next.js developer N overlay in local mobile visual review.
+  devIndicators: false,
   // Isolate local/E2E Next build artifacts when several workspace verification servers run concurrently.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   // Signed legal PDFs read these two multilingual font files at request time.
