@@ -18,7 +18,7 @@ export default function MobileDriverWorkspaceRedirect({ children }: { children: 
   }, []);
   const redirect = !isLoading && user?.role === 'driver' && mobile === true && user.canAccessDriverMode === true && !user.mustChangePassword;
   useEffect(() => {
-    if (redirect) router.replace('/driver-pwa-fresh/bookings');
+    if (redirect) router.replace('/driver-pwa-fresh/jobs');
   }, [redirect, router]);
   if (redirect) return <p role="status">Opening XDrive Driver mobile application...</p>;
   return <>{children}</>;
