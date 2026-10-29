@@ -182,3 +182,25 @@
 .fresh-driver-pwa .fresh-real-booking-card .fresh-route-places p{font-size:11px;line-height:16px;color:#536c86}
 .fresh-driver-pwa .fresh-real-booking-card .fresh-booking-actions{padding:10px 0 0;border:0}
 .fresh-driver-pwa .fresh-real-booking-card .fresh-booking-open{display:flex;align-items:center;justify-content:center;min-height:52px;border-radius:7px;background:#16a34a;color:white;font-size:14px;font-weight:750;text-decoration:none}
+
+/* Booking details parity: preserve lifecycle actions, collapse supplemental data. */
+.fresh-driver-pwa .fresh-booking-next-action{display:flex;flex-direction:column;gap:6px}
+.fresh-driver-pwa .fresh-booking-next-action>h2{margin-bottom:1px}
+.fresh-driver-pwa .fresh-booking-next-action>.fresh-booking-progress{order:20;margin:0;border-top:1px solid #edf1f6;padding-top:5px}
+.fresh-driver-pwa .fresh-booking-next-action>.fresh-mobile-booking-primary{order:10;min-height:52px;margin-top:5px}
+.fresh-driver-pwa .fresh-booking-next-action .fresh-booking-progress summary,.fresh-driver-pwa .fresh-booking-secondary summary{font-size:12px;line-height:19px;color:#1d57d8;font-weight:750;cursor:pointer;padding:6px 0;list-style:inside}
+.fresh-driver-pwa .fresh-booking-progress ol{margin:7px 0;padding-left:21px;font-size:12px;line-height:20px}
+.fresh-driver-pwa .fresh-booking-secondary{padding-top:7px;padding-bottom:7px}
+.fresh-driver-pwa .fresh-booking-secondary dl{margin-top:10px}
+.fresh-driver-pwa .fresh-mobile-booking-card h2{font-size:13px;line-height:18px;margin:0 0 7px}
+.fresh-driver-pwa .fresh-mobile-booking{gap:6px;padding:8px 10px 94px}
+.fresh-driver-pwa .fresh-mobile-booking-card{padding:10px 11px;border-color:#e8edf3;box-shadow:0 1px 4px #102b4808}
+.fresh-driver-pwa .fresh-booking-hero h1{font-size:16px;line-height:22px;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-booking-financials{margin-top:8px}
+.fresh-driver-pwa .fresh-booking-stops-list{gap:10px;margin-top:8px}
+.fresh-driver-pwa .fresh-booking-stop-body h3{font-size:12px;line-height:17px;margin-bottom:3px}
+.fresh-driver-pwa .fresh-booking-stop-body p{font-size:11px;line-height:16px;margin:3px 0}
+.fresh-driver-pwa .fresh-booking-cargo-grid{gap:8px 5px}
+.fresh-driver-pwa .fresh-booking-cargo-grid strong{font-size:12px}
+.fresh-driver-pwa .fresh-mobile-booking-actions>a{min-height:42px;display:flex;align-items:center;justify-content:center}
+.fresh-driver-pwa .fresh-mobile-booking-primary{min-height:52px}
