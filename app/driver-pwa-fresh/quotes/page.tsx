@@ -48,6 +48,7 @@ export default function FreshQuotes() {
  return <ProtectedRoute allowedRoles={['driver']}>
   <FreshHeader />
   <main className="fresh-content" data-testid="fresh-quotes">
+   <h1>My Quotes</h1>
    <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{(["active","pending","won","lost"] as const).map(value=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
    {error?<div className="fresh-message" role="alert">{error} <button type="button" onClick={()=>void refresh()}>Retry quotes</button></div>:null}
    {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No {tab} quotes.</div>:visible.map(bid=>{
