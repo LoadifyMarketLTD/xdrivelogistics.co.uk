@@ -52,3 +52,10 @@ LAST_CHECKED: 2026-10-29 01:55 UTC
 - No SQL mutations performed; no production data changed. Authenticated end-to-end mutations remain forbidden without separate controlled nonproduction credentials/environment.
 - OPPO Google Maps test: corrected `BB2, United Kingdom` search did locate the BB2 Blackburn outcode on the map, unlike the original duplicated query which led to a wrong continent. This validates the query itself, not the new PR page in authenticated WebAPK. New branch warning distinguishes area-only from street-level delivery address, and hides map actions entirely if address/postcode missing.
 - NEXT_ACTION: verify latest TypeScript and preview build, test PR with controlled nonproduction authenticated sessions when a separate environment exists, then run 7-workspace/Super Admin regression suite, maintain Draft and do not merge/deploy production.
+
+## CONTROLLER AND RELEASE GATE 2026-10-29 02:39 UTC
+- Found Task Scheduler XDrive-Driver-Real-Integration-Watchdog Disabled at 02:37. Re-enabled it using authorised Windows task controls. Verified hourly next run 03:35, manually launched 02:38:04 and exit result 0, log confirms queue already complete and branch clean. Disabling reason unknown; avoid claiming uninterrupted operation.
+- Latest local TypeScript after postcode warning PASS; navigation/POD targeted 9/9 PASS and ESLint PASS. Draft PR #714 HEAD 2cefe7c on remote; latest xdrivelogistics Netlify official deploy status not yet confirmed READY (one ancillary Netlify success). No production changes.
+- Read-only Supabase discovery confirmed only xdrivelogistics production and loadify-market separate product. No safe nonproduction XDrive DB found. No authenticated mutation E2E attempted against production.
+- Next: validate official preview HEAD, authenticated E2E in distinct safe environment, test updated map from PR preview on OPPO after separate login, full seven-workspace/Super Admin regression, keep Draft and no merge.
+
