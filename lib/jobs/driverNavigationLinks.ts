@@ -21,3 +21,9 @@ export function navigationUrl(address:string|null|undefined,postcode:string|null
   ? 'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(query)
   : 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(query);
 }
+
+/** A bare postcode or outcode identifies an area, not a collection or delivery door. */
+export function isAreaOnlyStop(address:string|null|undefined,postcode:string|null|undefined):boolean {
+ const value=navigationDestination(address,postcode);
+ return /^[A-Z]{1,2}\d[A-Z\d]?(?:\s*\d[A-Z]{2})?$/i.test(value);
+}

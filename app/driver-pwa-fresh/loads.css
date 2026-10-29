@@ -205,3 +205,4 @@
 .fresh-driver-pwa .fresh-mobile-booking-actions>a{min-height:42px;display:flex;align-items:center;justify-content:center}
 .fresh-driver-pwa .fresh-mobile-booking-primary{min-height:52px}
 .fresh-driver-pwa .fresh-booking-no-address{color:#7a8694;background:#f1f4f7;border-radius:7px;padding:11px 8px;text-align:center;font-weight:650;font-size:12px}
+.fresh-driver-pwa .fresh-booking-area-warning{display:block;color:#946000;font-size:11px;line-height:16px;background:#fff5db;padding:6px 8px;border-radius:6px;margin:5px 0;}
