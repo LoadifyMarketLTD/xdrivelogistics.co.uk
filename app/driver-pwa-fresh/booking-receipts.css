@@ -1,6 +1,0 @@
-.fresh-driver-pwa .fresh-booking-pod-receipt{background:#f0fff6;border:1px solid #cfeede}
-.fresh-driver-pwa .fresh-booking-pod-receipt h2{color:#087443}
-.fresh-driver-pwa .fresh-booking-pod-receipt p{font-size:11px;color:#4c6679}
-.fresh-driver-pwa .fresh-booking-invoice-review dl,.fresh-driver-pwa .fresh-booking-pod-receipt dl{display:grid;grid-template-columns:minmax(92px,41%) 1fr;gap:7px 9px}
-.fresh-driver-pwa .fresh-booking-invoice-review dt,.fresh-driver-pwa .fresh-booking-pod-receipt dt{font-size:11px;color:#526d90}
-.fresh-driver-pwa .fresh-booking-invoice-review dd,.fresh-driver-pwa .fresh-booking-pod-receipt dd{font-size:11px;font-weight:750;color:#0b2f6b}
