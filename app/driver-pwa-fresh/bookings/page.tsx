@@ -54,7 +54,7 @@ export default function Bookings(){
  });
  return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content" data-testid="fresh-bookings">
   <h1>Bookings</h1>
-  {pendingOffers!==0&&pendingOffers!==undefined?<Link className="fresh-booking-offers-link" href="/driver-pwa-fresh/booking-offers">Review awarded jobs awaiting acceptance {pendingOffers?`(${pendingOffers})`:''}</Link>:null}
+  <Link className="fresh-booking-offers-link" href="/driver-pwa-fresh/booking-offers">Received Bookings — Review &amp; Accept / Decline {pendingOffers?`(${pendingOffers})`:''}</Link>
   <div className="fresh-quote-tabs" role="tablist" aria-label="Booking period">{([['current','Current'],['week','Last week'],['month','Last month']] as const).map(([id,label])=><button key={id} type="button" role="tab" aria-selected={period===id} className={period===id?'active':''} onClick={()=>setPeriod(id)}>{label}</button>)}</div>
   {error?<p role="alert" className="fresh-message">{error} <button type="button" onClick={()=>void refresh()}>Retry</button></p>:null}
   {busy?<p role="status" className="fresh-message">Loading bookings...</p>:!error&&visible.length===0?<p className="fresh-message">No bookings for this period.</p>:visible.map(job=><article className="fresh-card" key={job.id}>
