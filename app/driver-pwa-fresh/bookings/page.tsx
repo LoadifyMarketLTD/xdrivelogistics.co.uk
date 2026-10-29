@@ -13,6 +13,7 @@ const fmt=(date:string|null)=>date?new Date(date).toLocaleString('en-GB',{day:'2
 export default function Bookings(){
  const {user,isLoading:authLoading}=useAuth();
  const [items,setItems]=useState<Booking[]>([]),[period,setPeriod]=useState<Period>('current'),[busy,setBusy]=useState(true),[error,setError]=useState('');
+ const [pendingOffers,setPendingOffers]=useState(0);
  const refresh=useCallback(async()=>{
   if(!user?.id)return;
   setBusy(true);setError('');
@@ -22,6 +23,8 @@ export default function Bookings(){
    const body=await response.json() as Response;
    if(!response.ok)throw new Error(body.error||'Bookings could not be loaded.');
    setItems((body.jobs||[]).filter(job=>job.lifecycleGroup!=='other'));
+   const pendingResponse=await fetch('/api/booking-offers',{headers:{Authorization:'Bearer '+token},cache:'no-store'}).catch(()=>null);
+   if(pendingResponse?.ok){const payload=await pendingResponse.json().catch(()=>({})) as {offers?:Array<{status:string}>};setPendingOffers((payload.offers||[]).filter(o=>o.status==='pending').length);}else{setPendingOffers(0);}
   }catch(e){setError(e instanceof Error?e.message:'Unable to load bookings.');}
   finally{setBusy(false);}
  },[user?.id]);
@@ -35,11 +38,11 @@ export default function Bookings(){
   const age=now-timestamp;
   return period==='week'?age>=0&&age<=7*day:age>7*day&&age<=30*day;
  });
- return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content" data-testid="fresh-bookings">
-  <h1>Bookings</h1>
+ return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content fresh-real-bookings" data-testid="fresh-bookings">
   <div className="fresh-quote-tabs" role="tablist" aria-label="Booking period">{([['current','Current'],['week','Last week'],['month','Last month']] as const).map(([id,label])=><button key={id} type="button" role="tab" aria-selected={period===id} className={period===id?'active':''} onClick={()=>setPeriod(id)}>{label}</button>)}</div>
+  {pendingOffers>0&&<Link className="fresh-booking-offers-link" href="/driver-pwa-fresh/booking-offers"><strong>{pendingOffers} awarded {pendingOffers===1?'job':'jobs'} awaiting your acceptance</strong><span>Review &amp; respond</span></Link>}
   {error?<p role="alert" className="fresh-message">{error} <button type="button" onClick={()=>void refresh()}>Retry</button></p>:null}
-  {busy?<p role="status" className="fresh-message">Loading bookings...</p>:!error&&visible.length===0?<p className="fresh-message">No bookings for this period.</p>:visible.map(job=><article className="fresh-card" key={job.id}>
+  {busy?<p role="status" className="fresh-message">Loading bookings...</p>:!error&&visible.length===0?<p className="fresh-message">No bookings for this period.</p>:visible.map(job=><article className="fresh-card fresh-real-booking-card" key={job.id}>
    <section className="fresh-summary"><div className="fresh-summary-top"><strong>{job.postingCompanyName||'Booking'}</strong><span className="fresh-available">{job.canonicalStatus||job.lifecycleGroup}</span></div><div className="fresh-posted">Job ID: {job.reference||job.id}</div><div className="fresh-summary-meta"><span>{job.vehicleType||'Vehicle not specified'}</span>{job.agreedRateAmount!=null?<strong>£{job.agreedRateAmount.toFixed(2)}</strong>:null}</div></section>
    <section className="fresh-route"><div className="fresh-route-line" aria-hidden="true"><span className="fresh-pickup-dot"/><span className="fresh-connector"/><span className="fresh-delivery-dot"/></div><div className="fresh-route-places"><div><strong>{job.pickupLocation||'Collection'}</strong><p>{fmt(job.pickupTime)}</p></div><div><strong>{job.deliveryLocation||'Delivery'}</strong><p>{job.jobDistanceMiles!=null?job.jobDistanceMiles+' miles':'Distance not available'}</p></div></div></section>
    <div className="fresh-booking-timeline" aria-label="Booking progress">{(["On my way", "On site", "Loaded", "Delivered", "POD"] as const).map((step,index)=>{const state=job.canonicalStatus.toLowerCase();const progress=state.includes("pod")||state==="completed"||state==="invoiced"?4:state==="delivered"?3:state==="on_site_delivery"?2:state.includes("load")||state==="in_transit"?2:state.includes("site")?1:state.includes("way")?0:-1;return <div key={step} className={index<=progress?"done":""}><span className="fresh-booking-step-dot"/><small>{step}</small></div>})}</div>
