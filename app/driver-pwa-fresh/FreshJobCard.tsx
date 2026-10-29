@@ -13,7 +13,7 @@ export type Load = {
   member: { name: string; postedBy: string | null } | null;
   myBid?: { id?: string; status: string | null; amount: number | null } | null;
 };
-const place = (town: string, outcode: string | null) => [town, outcode].filter((part, index, values) => Boolean(part) && (index === 0 || String(part).trim().toUpperCase() !== String(values[0]).trim().toUpperCase())).join(' | ').toUpperCase();
+const place = (town: string, outcode: string | null) => [town, outcode].filter(Boolean).join(' | ').toUpperCase();
 const time = (value: string | null) => {
   if (!value) return 'Time not confirmed';
   const date = new Date(value);

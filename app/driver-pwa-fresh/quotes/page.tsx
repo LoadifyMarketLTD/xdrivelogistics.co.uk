@@ -23,8 +23,7 @@ export default function FreshQuotes() {
   try{
    const auth=await readRouteAuthHeader();
    if(!auth)throw new Error('Sign in required.');
-   // A stalled browser request must not trap My Quotes on a loading screen.
-   const response=await fetch('/api/driver/marketplace/loads?view=quote_history',{headers:{Authorization:auth},cache:'no-store',signal:AbortSignal.timeout(12000)});
+   const response=await fetch('/api/driver/marketplace/loads?view=quote_history',{headers:{Authorization:auth},cache:'no-store'});
    if(!response.ok)throw new Error('Unable to retrieve submitted quotes.');
    const data=await response.json() as {loads?:Load[]};
    const history=data.loads??[];
@@ -48,9 +47,8 @@ export default function FreshQuotes() {
  return <ProtectedRoute allowedRoles={['driver']}>
   <FreshHeader />
   <main className="fresh-content" data-testid="fresh-quotes">
-   <h1>My Quotes</h1>
    <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{(["active","pending","won","lost"] as const).map(value=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
-   {error?<div className="fresh-message" role="alert">{error} <button type="button" onClick={()=>void refresh()}>Retry quotes</button></div>:null}
+   {error?<div className="fresh-message" role="alert">{error}</div>:null}
    {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No {tab} quotes.</div>:visible.map(bid=>{
     const load=loads[bid.job_id];const status=bid.status.toLowerCase();
     return load ? <FreshJobCard key={bid.id} load={load} mode="quotes" actions={<><div className="fresh-quote-amount">{closed.has(status) ? (status === 'accepted' ? 'Accepted quote' : status === 'withdrawn' || status === 'cancelled' ? 'Cancelled quote' : 'Your Quote was Unsuccessful') : 'My Quote'}: £{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</div><Link className="fresh-detail" href={'/driver-pwa-fresh/jobs/'+encodeURIComponent(bid.job_id)+'?history=1'}>View Details</Link>{!closed.has(status)?<button className="fresh-cancel-quote" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Cancelling...':'Cancel Quote'}</button>:null}</>} /> : <article className="fresh-card" key={bid.id}><section className="fresh-summary"><strong>Job {bid.job_id}</strong></section><div className="fresh-message">Job details temporarily unavailable</div></article>;

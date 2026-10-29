@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {useEffect,useRef,useState} from 'react';
 import 'leaflet/dist/leaflet.css';
@@ -32,7 +32,7 @@ export default function BookingRouteMap({pickup,delivery,focus}:{pickup:string|n
     const target=(focus==='pickup'?from:to)||from||to;
     if(!target){setFailure(true);return;}
     map=L.map(node.current,{zoomControl:false,scrollWheelZoom:false}).setView([target.lat,target.lng],11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'┬® OpenStreetMap contributors'}).addTo(map);
     if(from)L.circleMarker([from.lat,from.lng],{radius:9,color:'#16a34a',fillColor:'#16a34a',fillOpacity:1}).bindPopup('Collection area').addTo(map);
     if(to)L.circleMarker([to.lat,to.lng],{radius:9,color:'#f5a300',fillColor:'#f5a300',fillOpacity:1}).bindPopup('Delivery area').addTo(map);
     if(from&&to&&focus==='delivery')map.fitBounds([[from.lat,from.lng],[to.lat,to.lng]],{padding:[26,26],maxZoom:12});

@@ -3,7 +3,6 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import DriverJobExecutionPage from '../../../../components/workspace/DriverJobExecutionPage';
-import {FreshBottom} from '../../../FreshNavigation';
 
 // Mobile-only POD route; authoritative status and evidence remain on existing APIs.
 export default function FreshPodPage() {
@@ -17,6 +16,5 @@ export default function FreshPodPage() {
     <main className="fresh-booking-execution">
       {id ? <DriverJobExecutionPage jobId={id} mobilePwa podOnly /> : <p>Booking reference missing.</p>}
     </main>
-    <FreshBottom active="bookings"/>
   </ProtectedRoute>;
 }

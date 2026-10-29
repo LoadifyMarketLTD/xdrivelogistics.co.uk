@@ -6,7 +6,7 @@ export function GET() {
     name: 'XDrive Driver',
     short_name: 'XDrive Driver',
     description: 'Loads, quotes, bookings and proof of delivery',
-    start_url: '/driver-pwa-fresh/jobs',
+    start_url: '/driver-pwa-fresh/bookings',
     scope: '/driver-pwa-fresh/',
     display: 'standalone',
     background_color: '#FFFFFF',

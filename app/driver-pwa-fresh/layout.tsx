@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './loads.css';
 import './visual-standard.css';
-// Live Booking/POD stages use the approved sandbox styling with authoritative backend state.
-import './booking-approved.css';
 import DriverServiceWorkerRegistration from './DriverServiceWorkerRegistration';
 
 export const metadata: Metadata = {
