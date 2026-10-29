@@ -45,3 +45,10 @@
 .fresh-driver-pwa .fresh-offer-extra-section dl>div{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:7px;font-size:11px;line-height:17px}
 .fresh-driver-pwa .fresh-offer-extra-section dt{color:#627b93}
 .fresh-driver-pwa .fresh-offer-extra-section dd{margin:0;font-weight:700;color:#0b2f6b;overflow-wrap:anywhere}
+
+/* Live version of the approved eleven-screen sandbox invitation. */
+.fresh-offer-invitation-hero{background:#fff;border:1px solid #e9eef4;border-radius:11px;padding:14px;margin-bottom:10px}
+.fresh-offer-invitation-hero h2{font-size:18px;font-weight:700;color:#0b2f6b;margin:12px 0 6px}
+.fresh-offer-invitation-hero p{font-size:14px;line-height:20px;color:#1a1f2b;margin:0}
+.fresh-offer-invitation-hero .fresh-offer-pending{display:inline-flex}
+

@@ -62,7 +62,7 @@ export default function BookingOffersPage(){
   finally{setBusy('');}
  };
  return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content fresh-offer-page" data-testid="driver-booking-offers">
-  <div className="fresh-offer-top"><Link href="/driver-pwa-fresh/bookings">‹ Back to Bookings</Link><h1>Job Received</h1><p>Review the complete awarded job before you accept or decline. An award is not an accepted booking.</p></div>
+  <div className="fresh-offer-top"><Link href="/driver-pwa-fresh/bookings">‹ Back to Bookings</Link><h1>Received Booking</h1><p>New job awarded to you. Review the complete booking before accepting responsibility for the transport.</p></div>
   {error&&<div className="fresh-message" role="alert">{error}<button type="button" onClick={()=>void refresh()}>Retry</button></div>}
   {notice&&<div className="fresh-offer-notice" role="status">{notice}<Link href="/driver-pwa-fresh/bookings">View Bookings</Link></div>}
   {loading?<p className="fresh-message" role="status">Loading awarded jobs...</p>:!error&&offers.length===0?<div className="fresh-message">No jobs currently awaiting acceptance. <Link href="/driver-pwa-fresh/bookings">Return to Bookings</Link></div>:offers.map(offer=>{
@@ -71,7 +71,8 @@ export default function BookingOffersPage(){
    const delivery=navigationDestination(place(job?.delivery_location,job?.delivery_city),job?.delivery_postcode);
    const additional=getLoadDetailSections({load_details:typeof job?.load_details==='string'?job.load_details:job?.load_details?JSON.stringify(job.load_details):null,requested_vehicle_label:job?.requested_vehicle_label??null,vehicle_type:job?.vehicle_type??null,pickup_postcode:job?.pickup_postcode??null,delivery_postcode:job?.delivery_postcode??null}).filter(section=>['Cargo','Contacts','Loading','Requirements','Documents'].includes(section.title)).map(section=>({...section,items:section.items.filter(item=>item.label!=='Vehicle')})).filter(section=>section.items.length>0);
    return <article className="fresh-offer-card" key={offer.id}>
-    <div className="fresh-offer-identity"><div><small>JOB AWARDED BY</small><strong>{offer.buyer_name||'Company unavailable'}</strong>{offer.buyer_xd_id&&<span>XD Member ID: {offer.buyer_xd_id}</span>}</div><span className="fresh-offer-pending">ACCEPTANCE REQUIRED</span></div>
+    <div className="fresh-offer-invitation-hero"><span className="fresh-offer-pending">ACCEPTANCE REQUIRED</span><h2>New job awarded to you</h2><p>Review the complete booking before accepting responsibility for the transport.</p></div>
+    <div className="fresh-offer-identity"><div><small>Company &amp; Booking</small><strong>{offer.buyer_name||'Company unavailable'}</strong>{offer.buyer_xd_id&&<span>XD Member ID: {offer.buyer_xd_id}</span>}</div></div>
     {job?.booking_reference&&<div className="fresh-offer-reference">Booking reference: <strong>{job.booking_reference}</strong></div>}
     {(job?.load_reference||job?.load_ref)&&<div className="fresh-offer-reference">Job reference: <strong>{job.load_reference||job.load_ref}</strong></div>}
     {showDate(offer.offered_at)&&<div className="fresh-offer-reference">Awarded: {showDate(offer.offered_at)}</div>}
