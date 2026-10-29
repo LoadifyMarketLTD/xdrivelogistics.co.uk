@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './loads.css';
-import './booking-approved.css';
 import './visual-standard.css';
+import './booking-approved.css';
+import './booking-approved-extra.css';
+import './booking-approved-actions.css';
 import DriverServiceWorkerRegistration from './DriverServiceWorkerRegistration';
 
 export const metadata: Metadata = {
