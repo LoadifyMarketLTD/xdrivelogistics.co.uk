@@ -6,10 +6,9 @@ import {FreshHeader,FreshBottom} from '../FreshNavigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
-import { driverQuoteSection } from '../../../lib/jobs/driverQuoteSections';
 
 type Bid = { id:string; job_id:string; amount:number|null; bid_price_gbp:number|null; status:string; created_at:string };
-const closed = new Set(['accepted','withdrawn','rejected','unsuccessful','expired','cancelled','archived','lost','declined']);
+const closed = new Set(['accepted','withdrawn','rejected','unsuccessful','expired','cancelled','archived']);
 export default function FreshQuotes() {
  const {user,isLoading:authLoading}=useAuth();
  const [bids,setBids]=useState<Bid[]>([]);
@@ -17,7 +16,7 @@ export default function FreshQuotes() {
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState('');
- const [tab,setTab]=useState<'submitted'|'unsuccessful'>('submitted');
+ const [tab,setTab]=useState<'active'|'pending'|'won'|'lost'>('active');
  const refresh=useCallback(async()=>{
   if(!user?.id)return;
   setLoading(true);setError('');
@@ -44,11 +43,11 @@ export default function FreshQuotes() {
   }catch(e){setError(e instanceof Error?e.message:'Withdrawal failed.');}
   finally{setBusy('');}
  };
- const visible=bids.filter(bid=>driverQuoteSection(bid.status)===tab);
+ const visible=bids.filter(bid=>{const s=bid.status.toLowerCase();if(tab==='won')return s==='accepted';if(tab==='lost')return closed.has(s)&&s!=='accepted';if(tab==='pending')return ['pending','awaiting','under_review'].some(v=>s.includes(v));return !closed.has(s)&&!['pending','awaiting','under_review'].some(v=>s.includes(v));});
  return <ProtectedRoute allowedRoles={['driver']}>
   <FreshHeader />
   <main className="fresh-content" data-testid="fresh-quotes">
-   <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{(["submitted","unsuccessful"] as const).map(value=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{value.toUpperCase()}</button>)}</div>
+   <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{(["active","pending","won","lost"] as const).map(value=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
    {error?<div className="fresh-message" role="alert">{error}</div>:null}
    {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No {tab} quotes.</div>:visible.map(bid=>{
     const load=loads[bid.job_id];const status=bid.status.toLowerCase();
