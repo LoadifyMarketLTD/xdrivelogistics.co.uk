@@ -4,13 +4,14 @@ const companyAccount=process.env.E2E_AUTH_DRIVER_VARIANT==='company';
 const email=companyAccount?process.env.E2E_COMPANY_DRIVER_EMAIL||'':process.env.E2E_LIFECYCLE_DRIVER_EMAIL||'';
 const password=companyAccount?process.env.E2E_COMPANY_DRIVER_PASSWORD||'':process.env.E2E_LIFECYCLE_DRIVER_PASSWORD||'';
 
-test.describe('Driver PWA read-only authenticated journey — never writes jobs',()=>{
+test.describe('Driver PWA read-only authenticated journey - never writes jobs',()=>{
  test.skip(!email||!password,'No authorized test account configured');
  test('authenticated driver can inspect Loads, My Quotes, Bookings, award inbox',async({page})=>{
   test.setTimeout(120000);
   await page.setViewportSize({width:390,height:844});
   const apiResults:Record<string,number[]>={}; const resultCounts:Record<string,number[]>={}; const pendingCounts:Promise<void>[]=[];
   page.on('request',request=>{if(request.url().includes('/auth/v1/token'))console.log('AUTH_TOKEN_REQUEST',request.method());});
+  page.on('requestfailed',request=>{if(request.url().includes('/api/driver/'))console.log('DRIVER_REQUEST_FAILED',new URL(request.url()).pathname,request.failure()?.errorText);});
   page.on('response',response=>{
    if(response.url().includes('/auth/v1/token'))console.log('AUTH_TOKEN_HTTP',response.status());
    const p=new URL(response.url()).pathname;
@@ -33,7 +34,7 @@ test.describe('Driver PWA read-only authenticated journey — never writes jobs'
    await expect(page.locator('body')).not.toContainText('Login service unavailable');
    await expect(page.locator('body')).not.toContainText('The driver marketplace is temporarily unavailable.');
    if(route==='/driver-pwa-fresh/bookings')await expect(page.getByText('Loading bookings...')).toBeHidden({timeout:30000});
-   if(route==='/driver-pwa-fresh/quotes')await expect(page.getByText(/Loading quotes/i)).toBeHidden({timeout:30000});
+   if(route==='/driver-pwa-fresh/quotes'){await expect(page.getByText(/Loading quotes/i)).toBeHidden({timeout:30000}).catch(async err=>{console.log('QUOTES_API_DIAGNOSTICS',JSON.stringify(apiResults));console.log('QUOTES_UI_DIAGNOSTICS',(await page.locator('main').innerText()).slice(0,180));throw err;});}
    if(route==='/driver-pwa-fresh/booking-offers')await expect(page.getByText('Loading awarded jobs...')).toBeHidden({timeout:30000});
    await page.waitForTimeout(700);
    await page.screenshot({path:'automation/logs/driver-pwa-auth-'+route.split('/').pop()+'.png'});
