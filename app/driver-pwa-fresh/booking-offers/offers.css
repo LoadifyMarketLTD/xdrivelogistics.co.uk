@@ -1,0 +1,54 @@
+﻿/* Real award acceptance; scoped to driver PWA only. */
+.fresh-driver-pwa .fresh-offer-page{padding-top:8px;padding-bottom:calc(95px + env(safe-area-inset-bottom))}
+.fresh-driver-pwa .fresh-offer-top{padding:0 1px 11px;color:#0b2f6b}
+.fresh-driver-pwa .fresh-offer-top>a{font-size:12px;font-weight:700;color:#1d57d8;text-decoration:none}
+.fresh-driver-pwa .fresh-offer-top h1{font-size:18px;line-height:24px;margin:9px 0 3px}
+.fresh-driver-pwa .fresh-offer-top p{margin:0;font-size:12px;line-height:18px;color:#64748b}
+.fresh-driver-pwa .fresh-offer-card{border:1px solid #e3eaf2;border-radius:12px;padding:13px;background:white;color:#0b2f6b;margin:0 0 12px;box-shadow:0 2px 7px #0b2f6b0c}
+.fresh-driver-pwa .fresh-offer-identity{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding-bottom:11px}
+.fresh-driver-pwa .fresh-offer-identity>div{display:grid;gap:4px;min-width:0}
+.fresh-driver-pwa .fresh-offer-identity small,.fresh-driver-pwa .fresh-offer-financials small,.fresh-driver-pwa .fresh-offer-facts small{font-size:10px;line-height:15px;color:#69819d}
+.fresh-driver-pwa .fresh-offer-identity strong{font-size:15px;line-height:20px;font-weight:800;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-offer-identity>div span{font-size:11px;color:#627992}
+.fresh-driver-pwa .fresh-offer-pending{border-radius:16px;padding:6px 9px;color:#8d5200;background:#fff2d6;font-size:10px;font-weight:800;line-height:16px;text-align:center;max-width:47%}
+.fresh-driver-pwa .fresh-offer-reference{font-size:11px;line-height:17px;padding:3px 0;color:#566f87}
+.fresh-driver-pwa .fresh-offer-reference strong{color:#0b2f6b}
+.fresh-driver-pwa .fresh-offer-financials{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:11px 0;margin:9px 0;background:#f4f8fc;border-radius:8px}
+.fresh-driver-pwa .fresh-offer-financials>div{padding:1px 9px;display:grid;gap:4px}
+.fresh-driver-pwa .fresh-offer-financials strong{font-size:16px;line-height:21px;font-weight:800}
+.fresh-driver-pwa .fresh-offer-stop{padding:11px 0;border-top:1px solid #edf1f6;display:grid;gap:5px}
+.fresh-driver-pwa .fresh-offer-stop h2{font-size:13px;line-height:18px;font-weight:800;margin:0}
+.fresh-driver-pwa .fresh-offer-stop strong{font-size:12px;line-height:18px;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-offer-stop>span{font-size:11px;color:#617b97}
+.fresh-driver-pwa .fresh-offer-mapactions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:5px 0 0}
+.fresh-driver-pwa .fresh-offer-mapactions a{border-radius:6px;background:#eaf4ff;color:#1556ad;min-height:42px;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:12px;font-weight:750}
+.fresh-driver-pwa .fresh-offer-facts{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 0}
+.fresh-driver-pwa .fresh-offer-facts>div{display:grid;gap:3px}
+.fresh-driver-pwa .fresh-offer-facts strong{font-size:12px;line-height:18px}
+.fresh-driver-pwa .fresh-offer-notes{background:#f9fbfd;padding:9px;border-radius:7px;font-size:11px}
+.fresh-driver-pwa .fresh-offer-notes p{margin:5px 0 0;white-space:pre-wrap}
+.fresh-driver-pwa .fresh-offer-decision{display:grid;grid-template-columns:1fr 1.3fr;gap:8px;margin-top:13px}
+.fresh-driver-pwa .fresh-offer-decision button{min-height:52px;border-radius:7px;font-size:13px;font-weight:800;cursor:pointer}
+.fresh-driver-pwa .fresh-offer-decision button:disabled{opacity:.5;cursor:wait}
+.fresh-driver-pwa .fresh-offer-decline{border:1px solid #ebc1c1;background:#fff5f5;color:#a02b36}
+.fresh-driver-pwa .fresh-offer-accept{border:1px solid #148944;background:#16a34a;color:#fff}
+.fresh-driver-pwa .fresh-offer-notice{padding:12px;margin:0 0 11px;border-radius:8px;background:#eaf9ed;color:#176139;font-size:12px}
+.fresh-driver-pwa .fresh-offer-notice a{display:block;color:#1454b8;font-weight:700;margin-top:8px}
+.fresh-driver-pwa .fresh-booking-offers-link{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:0 0 11px;padding:13px;background:#fff9eb;border:1px solid #f1d99a;border-radius:9px;color:#815400;font-size:12px;font-weight:700;text-decoration:none}
+.fresh-driver-pwa .fresh-booking-offers-link span{font-size:11px;color:#7a5d2b}
+
+.fresh-driver-pwa .fresh-offer-additional{border-top:1px solid #e7edf5;padding-top:11px;margin-top:5px}
+.fresh-driver-pwa .fresh-offer-additional>h2{font-size:13px;line-height:19px;margin:0 0 8px;color:#0b2f6b}
+.fresh-driver-pwa .fresh-offer-extra-section{border-radius:7px;background:#f9fbfd;padding:9px;margin:0 0 7px}
+.fresh-driver-pwa .fresh-offer-extra-section h3{margin:0 0 8px;font-size:11px;font-weight:800;color:#405e7d}
+.fresh-driver-pwa .fresh-offer-extra-section dl{margin:0;display:grid;gap:5px}
+.fresh-driver-pwa .fresh-offer-extra-section dl>div{display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);gap:7px;font-size:11px;line-height:17px}
+.fresh-driver-pwa .fresh-offer-extra-section dt{color:#627b93}
+.fresh-driver-pwa .fresh-offer-extra-section dd{margin:0;font-weight:700;color:#0b2f6b;overflow-wrap:anywhere}
+
+/* Live version of the approved eleven-screen sandbox invitation. */
+.fresh-offer-invitation-hero{background:#fff;border:1px solid #e9eef4;border-radius:11px;padding:14px;margin-bottom:10px}
+.fresh-offer-invitation-hero h2{font-size:18px;font-weight:700;color:#0b2f6b;margin:12px 0 6px}
+.fresh-offer-invitation-hero p{font-size:14px;line-height:20px;color:#1a1f2b;margin:0}
+.fresh-offer-invitation-hero .fresh-offer-pending{display:inline-flex}
+

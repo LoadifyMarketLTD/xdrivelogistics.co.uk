@@ -275,3 +275,4 @@
 .fresh-driver-pwa .fresh-pod-left-at-options button.fresh-pod-left-at-selected{background:#dbeafe;border:2px solid #1d57d8;color:#0b2f6b}
 .fresh-driver-pwa .fresh-pod-left-at-options button:focus-visible{outline:3px solid #f5a300;outline-offset:2px}
 .fresh-driver-pwa .fresh-mobile-pod .fresh-pod-send{background:#f5a300;color:#1a1f2b;border-color:#f5a300;min-height:52px}
+.fresh-driver-pwa .fresh-map-reference .marketplace-radar-map{touch-action:pan-y!important}
