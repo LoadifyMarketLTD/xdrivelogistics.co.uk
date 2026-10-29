@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import './loads.css';
+import './booking-approved.css';
 import './visual-standard.css';
 import DriverServiceWorkerRegistration from './DriverServiceWorkerRegistration';
 

@@ -1,0 +1,23 @@
+/* Approved booking 11-screen mobile layout — use the existing authenticated execution controller. */
+.fresh-driver-pwa .fresh-booking-execution{background:#f5f7f9;padding:5px 9px 90px;max-width:430px;margin:auto}
+.fresh-driver-pwa .fresh-mobile-booking{gap:5px;color:#0b2f6b;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+.fresh-driver-pwa .fresh-booking-approved-stage{display:flex;justify-content:center;align-items:center;gap:8px;background:#f5a300;border-radius:0;padding:8px 11px;font-size:15px;line-height:23px;margin:-5px -9px 5px}
+.fresh-driver-pwa .fresh-booking-approved-stage span{font-size:10px;opacity:.8}
+.fresh-driver-pwa .fresh-booking-approved-stage strong{font-weight:800}
+.fresh-driver-pwa .fresh-mobile-booking-card{background:#fff;border:1px solid #e9eef4;border-radius:11px;padding:10px 11px;margin-bottom:5px;box-shadow:0 2px 8px #0b2f6b09}
+.fresh-driver-pwa .fresh-mobile-booking-card h2{font-size:13px;line-height:18px;font-weight:800;margin:0 0 8px;color:#0b2f6b}
+.fresh-driver-pwa .fresh-booking-hero h1{font-size:17px;line-height:23px;font-weight:800;margin:8px 0 10px}
+.fresh-driver-pwa .fresh-booking-hero-top small{font-size:10px;color:#537096}
+.fresh-driver-pwa .fresh-booking-status{border-radius:20px;background:#cef2df;color:#14613d;padding:4px 8px;font-size:10px;font-weight:800}
+.fresh-driver-pwa .fresh-booking-financials{display:grid;grid-template-columns:1fr 1fr}
+.fresh-driver-pwa .fresh-booking-financials>div+div{border-left:1px solid #d8e4ef;padding-left:12px}
+.fresh-driver-pwa .fresh-booking-financials small{font-size:11px;color:#526d90}
+.fresh-driver-pwa .fresh-booking-financials strong{font-size:17px;color:#0b2f6b}
+.fresh-driver-pwa .fresh-booking-stop{padding:6px 0}
+.fresh-driver-pwa .fresh-booking-cargo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fresh-driver-pwa .fresh-booking-cargo-grid>div{min-width:0;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-booking-cargo-grid small{font-size:10px;color:#5d7593}
+.fresh-driver-pwa .fresh-booking-cargo-grid strong{font-size:12px;color:#0b2f6b}
+.fresh-driver-pwa .fresh-mobile-booking-primary{width:100%;min-height:48px;border-radius:6px;background:#16a34a;color:#fff;font-size:15px;font-weight:800}
+.fresh-driver-pwa .fresh-booking-detail-header{height:49px;min-height:49px;background:#f5a300;color:#0b2f6b;font-size:15px}
+.fresh-driver-pwa .fresh-mobile-booking-card button:focus-visible,.fresh-driver-pwa .fresh-mobile-booking-card a:focus-visible{outline:3px solid #1d57d8;outline-offset:2px}
