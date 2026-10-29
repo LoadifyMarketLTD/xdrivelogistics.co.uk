@@ -25,6 +25,9 @@ describe('fresh LOADS marketplace filtering', () => {
   it.each([15, 30, 45, 60, 90, 120])('applies collect within %i minutes', minutes => {
     expect(run([base], { collectWithin: String(minutes) })).toHaveLength(minutes >= 30 ? 1 : 0);
   });
+  it('shows jobs with unavailable GPS distance when no pickup-radius filter is selected', () => {
+    expect(run([{ ...base, distance_to_pickup_miles: null }])).toHaveLength(1);
+  });
   it('does not guess pickup distance when GPS location is missing', () => {
     expect(run([{ ...base, distance_to_pickup_miles: null }], { pickupRadius: '10' })).toHaveLength(0);
   });

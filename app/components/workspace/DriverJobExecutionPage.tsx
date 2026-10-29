@@ -762,8 +762,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       {!podOnly && <>
       <div className="fresh-booking-approved-stage" aria-label="Approved booking workflow screen">{approvedScreen.number}. {approvedScreen.title}</div>
       <section className="fresh-mobile-booking-card fresh-booking-hero">
-        <div className="fresh-booking-hero-top"><small>BOOKING {sheet?.bookingReference??sheet?.reference??'Reference pending'}</small><span className="fresh-booking-status">{statusLabel[currentStatus]??currentStatus}</span></div>
-        <h1>{[job.pickup_location||sheet?.pickup.postcode||job.pickup_postcode,job.delivery_location||sheet?.delivery.postcode||job.delivery_postcode].filter(Boolean).join(' → ') || 'Booking details'}</h1>
+        <div className="fresh-booking-hero-top"><small>BOOKING {sheet?.bookingReference??sheet?.reference??'Reference pending'}</small><span className="fresh-booking-status">{approvedScreen.number>=9?(sheet?.invoices[0]?.status??statusLabel[currentStatus]??currentStatus):approvedScreen.number===8?'POD Completed':statusLabel[currentStatus]??currentStatus}</span></div>
+        <h1>{[navigationDestination(job.pickup_location||sheet?.pickup.postcode||job.pickup_postcode,job.pickup_postcode),navigationDestination(job.delivery_location||sheet?.delivery.postcode||job.delivery_postcode,job.delivery_postcode)].filter(Boolean).join(' → ') || 'Booking details'}</h1>
         <div className="fresh-booking-financials">{sheet?.agreedRate!=null&&<div><small>Agreed Rate</small><strong>{money(sheet.agreedRate,sheet.currency??job.currency)}</strong></div>}{sheet?.paymentTerms&&<div><small>Payment Terms</small><strong>{sheet.paymentTerms}</strong></div>}</div>
         {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
       </section>

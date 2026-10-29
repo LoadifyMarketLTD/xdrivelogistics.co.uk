@@ -9,13 +9,13 @@ test.describe('Driver PWA read-only authenticated journey — never writes jobs'
  test('authenticated driver can inspect Loads, My Quotes, Bookings, award inbox',async({page})=>{
   test.setTimeout(120000);
   await page.setViewportSize({width:390,height:844});
-  const apiResults:Record<string,number[]>={};
+  const apiResults:Record<string,number[]>={}; const resultCounts:Record<string,number[]>={}; const pendingCounts:Promise<void>[]=[];
   page.on('request',request=>{if(request.url().includes('/auth/v1/token'))console.log('AUTH_TOKEN_REQUEST',request.method());});
   page.on('response',response=>{
    if(response.url().includes('/auth/v1/token'))console.log('AUTH_TOKEN_HTTP',response.status());
    const p=new URL(response.url()).pathname;
    if(p.startsWith('/api/driver/')||p==='/api/booking-offers'){
-    (apiResults[p]??=[]).push(response.status());
+    (apiResults[p]??=[]).push(response.status()); if(response.ok()){pendingCounts.push((async()=>{const data=await response.json() as {loads?:unknown[];jobs?:unknown[];offers?:unknown[]};const list=data.loads??data.jobs??data.offers;if(Array.isArray(list))(resultCounts[p]??=[]).push(list.length);})().catch(()=>{}));}
    }
   });
   await page.goto('/login',{waitUntil:'networkidle'});
@@ -38,7 +38,7 @@ test.describe('Driver PWA read-only authenticated journey — never writes jobs'
    await page.waitForTimeout(700);
    await page.screenshot({path:'automation/logs/driver-pwa-auth-'+route.split('/').pop()+'.png'});
   }
-  console.log('READ_ONLY_DRIVER_API_STATUSES',JSON.stringify(apiResults));
+  await Promise.all(pendingCounts);console.log('READ_ONLY_DRIVER_API_STATUSES',JSON.stringify(apiResults)); console.log('READ_ONLY_DRIVER_RECORD_COUNTS',JSON.stringify(resultCounts));
   // Never click Quote Now, Accept, Decline, Cancel, POD, Invoice or Payment actions.
  });
 });
