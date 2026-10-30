@@ -57,3 +57,39 @@ Production safety
 
 Mobile source boundary
 - Current main does not contain historical apps/driver-mobile or android-native source trees. This task integrates the shared web/PWA brand assets that exist in current main and will not fabricate a native-app source integration.
+
+
+## 2026-10-30 follow-up: dynamic Open Graph + native source audit
+
+Base main before follow-up: d555ee890fa2f5336001cb4bf7d6a04d2c88defe
+
+Additional intended files
+- app/social-page/[page]/opengraph-image.tsx - use Master Pack logo and official palette
+- app/social/[visual]/opengraph-image.tsx - use Master Pack logo/mark and official palette
+- app/api/social-card/route.tsx - use Master Pack mark and official palette
+
+Native source audit evidence
+- GitHub repositories visible for XDrive: xdrivelogistics.co.uk, xdrivelogistics, app.xdrivelogistics.co.uk.
+- Current main of xdrivelogistics.co.uk has no apps/driver-mobile or android-native source trees.
+- D:\XDrive-Native-Reconstruction-20261024 is not a git repository and its audit explicitly states it is an offline reconstruction prototype, not the authoritative native source.
+- Installed OPPO package evidence: co.uk.xdrivelogistics.driver.nativepreview.testlab; APK backup at D:\XDrive-OPPO-Installed-Apk-Audit\base.apk.
+- Decompiled Java is reference-only, not buildable original Kotlin source.
+- No authoritative iOS source was identified in connected GitHub repositories or targeted local searches.
+- Therefore native Android/iOS branding must not be claimed integrated until authoritative buildable source is recovered.
+
+Follow-up checks required
+- protected invariant gate
+- lint
+- typecheck
+- production build
+- deploy to main
+- live fetch/visual verification of dynamic Open Graph image
+
+
+Follow-up verification results
+- protected invariant gate: PASS
+- npm run lint: PASS
+- npm run typecheck: PASS
+- npm run build: PASS (BUILD_EXIT=0)
+- dynamic OG routes compile as edge routes
+- full unit suite is known to contain unrelated baseline failures from the preceding brand integration run; no OG-specific unit suite exists, so live runtime rendering is the acceptance test for this follow-up.
