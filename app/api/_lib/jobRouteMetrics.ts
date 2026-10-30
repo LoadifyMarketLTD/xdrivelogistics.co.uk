@@ -3,6 +3,7 @@ type RouteCoordinates = { lat: number; lng: number };
 type ProviderRoute = {
   distanceMiles: number;
   durationMinutes: number;
+  geometry?: RouteCoordinates[];
 };
 
 export type JobRouteMetrics = {
@@ -87,7 +88,8 @@ function roundedRoute(metres: number, seconds: number): ProviderRoute | null {
 async function routeWithMapbox(points: RouteCoordinates[], token: string): Promise<ProviderRoute | null> {
   const coordinatePath = points.map((point) => String(point.lng) + ',' + String(point.lat)).join(';');
   const url = new URL('https://api.mapbox.com/directions/v5/mapbox/driving/' + coordinatePath);
-  url.searchParams.set('overview', 'false');
+  url.searchParams.set('overview', 'full');
+  url.searchParams.set('geometries', 'geojson');
   url.searchParams.set('steps', 'false');
   url.searchParams.set('access_token', token);
 
@@ -98,10 +100,15 @@ async function routeWithMapbox(points: RouteCoordinates[], token: string): Promi
     });
     if (!response.ok) return null;
     const payload = await response.json() as {
-      routes?: Array<{ distance?: number; duration?: number }>;
+      routes?: Array<{ distance?: number; duration?: number; geometry?: { coordinates?: number[][] } }>;
     };
     const route = payload.routes?.[0];
-    return roundedRoute(Number(route?.distance), Number(route?.duration));
+    const rounded=roundedRoute(Number(route?.distance), Number(route?.duration));
+    if(!rounded)return null;
+    const geometry=(route?.geometry?.coordinates??[])
+      .map(([lng,lat])=>validCoordinates(lat,lng))
+      .filter((point):point is RouteCoordinates=>Boolean(point));
+    return geometry.length>=2?{...rounded,geometry}:rounded;
   } catch {
     return null;
   }
@@ -156,7 +163,8 @@ async function routeWithGoogle(points: RouteCoordinates[], token: string): Promi
 async function routeWithOsrm(points: RouteCoordinates[]): Promise<ProviderRoute | null> {
   const coordinatePath = points.map((point) => String(point.lng) + ',' + String(point.lat)).join(';');
   const url = new URL('https://router.project-osrm.org/route/v1/driving/' + coordinatePath);
-  url.searchParams.set('overview', 'false');
+  url.searchParams.set('overview', 'full');
+  url.searchParams.set('geometries', 'geojson');
   url.searchParams.set('steps', 'false');
 
   try {
@@ -168,11 +176,16 @@ async function routeWithOsrm(points: RouteCoordinates[]): Promise<ProviderRoute 
     if (!response.ok) return null;
     const payload = await response.json() as {
       code?: string;
-      routes?: Array<{ distance?: number; duration?: number }>;
+      routes?: Array<{ distance?: number; duration?: number; geometry?: { coordinates?: number[][] } }>;
     };
     if (payload.code !== 'Ok') return null;
     const route = payload.routes?.[0];
-    return roundedRoute(Number(route?.distance), Number(route?.duration));
+    const rounded=roundedRoute(Number(route?.distance), Number(route?.duration));
+    if(!rounded)return null;
+    const geometry=(route?.geometry?.coordinates??[])
+      .map(([lng,lat])=>validCoordinates(lat,lng))
+      .filter((point):point is RouteCoordinates=>Boolean(point));
+    return geometry.length>=2?{...rounded,geometry}:rounded;
   } catch {
     return null;
   }

@@ -9,12 +9,14 @@ import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
+import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
 import BookingDetailsStep from '../../driver-pwa-fresh/bookings/[id]/workflow/BookingDetailsStep';
 import OnMyWayToPickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnMyWayToPickupStep';
 import OnSitePickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSitePickupStep';
 import LoadedCollectedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/LoadedCollectedStep';
+import InTransitDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InTransitDeliveryStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
 
 const statusLabel: Record<string, string> = {
@@ -32,6 +34,15 @@ const nextActionLabel: Record<string, string> = {
   on_site_delivery: 'On Site (Delivery)',
   delivered: 'Confirm Delivered',
   completed: 'Complete Job',
+};
+
+type DeliveryRouteMetrics = {
+  distanceMiles: number;
+  durationMinutes: number;
+  recordedAt: string | null;
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number };
+  geometry?: Array<{lat:number;lng:number}> | null;
 };
 
 type JobSheet = {
@@ -180,6 +191,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [deliveryRoute, setDeliveryRoute] = useState<DeliveryRouteMetrics | null>(null);
+  const [deliveryRouteLoading, setDeliveryRouteLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
   const [collectionDocuments, setCollectionDocuments] = useState<string[]>([]);
@@ -210,6 +223,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const collectionCameraInput = useRef<HTMLInputElement>(null);
   const collectionGalleryInput = useRef<HTMLInputElement>(null);
   const deliveryInput = useRef<HTMLInputElement>(null);
+
+  useDriverLocationPublisher(job?.current_status ?? job?.status, mobilePwa && !podOnly, job?.id ?? jobId);
+  const liveExecutionStatus=job ? canonicalExecutionStatus(job.current_status ?? job.status) : null;
 
   const authHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -273,6 +289,36 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   }, [authHeader, driverId, jobId]);
 
   useEffect(() => { void loadJob(); }, [loadJob]);
+  useEffect(() => {
+    if(!mobilePwa || podOnly || liveExecutionStatus!=='in_transit'){
+      setDeliveryRoute(null);
+      setDeliveryRouteLoading(false);
+      return;
+    }
+    let cancelled=false;
+    let timer:ReturnType<typeof setInterval>|null=null;
+    const refresh=async()=>{
+      setDeliveryRouteLoading(true);
+      try{
+        const auth=await authHeader();
+        if(!auth)throw new Error('Session unavailable.');
+        const response=await fetch('/api/driver/web/jobs/'+encodeURIComponent(jobId)+'/delivery-route',{
+          headers:{Authorization:auth},
+          cache:'no-store',
+        });
+        const payload=await response.json().catch(()=>({})) as {route?:DeliveryRouteMetrics|null};
+        if(cancelled)return;
+        setDeliveryRoute(response.ok ? (payload.route??null) : null);
+      }catch{
+        if(!cancelled)setDeliveryRoute(null);
+      }finally{
+        if(!cancelled)setDeliveryRouteLoading(false);
+      }
+    };
+    void refresh();
+    timer=setInterval(()=>{void refresh();},60_000);
+    return ()=>{cancelled=true;if(timer)clearInterval(timer);};
+  }, [authHeader, jobId, liveExecutionStatus, mobilePwa, podOnly]);
   useEffect(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(`xdrive-collection-documents-${jobId}`) || '[]');
@@ -943,6 +989,30 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         message={message}
         onBack={()=>router.push('/driver-pwa-fresh/bookings')}
         onNext={()=>void moveStatus('in_transit')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===5 && currentStatus==='in_transit') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <InTransitDeliveryStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        map={<BookingRouteMap pickup={stops[0].postcode} delivery={stops[1].postcode} focus="delivery"/>}
+        routeMetrics={deliveryRoute}
+        routeLoading={deliveryRouteLoading}
+        address={navigationDestination(stops[1].place,stops[1].postcode) || 'Delivery address unavailable'}
+        schedule={stops[1].at?formatDateTime(stops[1].at):(sheet?.delivery.slot??'Delivery time not supplied')}
+        contactName={stops[1].contactName}
+        phone={stops[1].phone}
+        instructions={stops[1].notes??sheet?.executionInstructions??null}
+        navigateHref={navigationUrl(stops[1].place,stops[1].postcode,'navigate')}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onNext={()=>void moveStatus('on_site_delivery')}
       />;
     }
     return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>
