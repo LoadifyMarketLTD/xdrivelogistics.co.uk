@@ -89,7 +89,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
   useEffect(() => {
     if (!previewLoads && !authLoading && user) void fetchLoads();
   }, [previewLoads, authLoading, user, fetchLoads]);
-  const results = useMemo(() => filterMarketplaceLoads(loads.filter(load => !load.myBid || ['withdrawn', 'cancelled', 'rejected', 'unsuccessful', 'expired'].includes(String(load.myBid.status).toLowerCase())), { from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius }, clock), [loads, from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius, clock]);
+  const results = useMemo(() => filterMarketplaceLoads(loads.filter(load => !load.myBid), { from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius }, clock), [loads, from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius, clock]);
   const searchedResults = useMemo(() => results.filter(load => {
     const name = [load.member?.name, load.member?.postedBy, load.id].filter(Boolean).join(' | ').toLowerCase();
     if (memberQuery && !name.includes(memberQuery.trim().toLowerCase())) return false;
