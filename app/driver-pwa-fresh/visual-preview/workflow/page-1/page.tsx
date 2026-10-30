@@ -1,0 +1,27 @@
+'use client';
+
+import BookingDetailsStep from '../../../bookings/[id]/workflow/BookingDetailsStep';
+import { FreshBottom } from '../../../FreshNavigation';
+
+export default function BookingDetailsPreviewPage(){
+  return <main className="fresh-driver-pwa">
+    <BookingDetailsStep
+      bookingReference="XDL-2026-00128"
+      routeLabel="Blackburn BB1 → Manchester M2"
+      statusLabel="Accepted"
+      agreedRate="£240.00"
+      paymentTerms="30 Days EOM"
+      customerName="E2E Collection"
+      memberCode="XD12345"
+      memberPhone="+44 7700 900123"
+      stops={[
+        {key:'collection',label:'Collection',address:'Unit 4, Logistics Park, Blackburn BB1 2BB',schedule:'28 Oct · 09:00–10:00',contactName:'John Smith',phone:'+44 7700 900123',navigateHref:'#'},
+        {key:'delivery',label:'Delivery',address:'Industrial Estate, Manchester M2 2AB',schedule:'28 Oct · ASAP',contactName:'Sarah Brown',phone:'+44 7700 112233',navigateHref:'#'},
+      ]}
+      onBack={()=>history.back()}
+      onMessage={()=>undefined}
+      onNext={()=>undefined}
+    />
+    <FreshBottom active="bookings" demo />
+  </main>;
+}
