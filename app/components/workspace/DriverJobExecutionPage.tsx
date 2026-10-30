@@ -19,6 +19,7 @@ import LoadedCollectedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/L
 import InTransitDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InTransitDeliveryStep';
 import OnSiteDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSiteDeliveryStep';
 import ProofOfDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/ProofOfDeliveryStep';
+import PodRecordedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/PodRecordedStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
 
 const statusLabel: Record<string, string> = {
@@ -719,6 +720,42 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
   };
 
+  const viewPodPdf = async () => {
+    if (!job || !hasCompletePodEvidence(job)) return;
+    const viewer=window.open('about:blank','_blank');
+    if(viewer) viewer.opener=null;
+    setWorking(true); setError('');
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('Please sign in again.');
+      const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(job.id)}/pod/pdf`, {
+        headers: { Authorization: auth }, cache: 'no-store',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || 'POD PDF could not be generated.');
+      }
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      if(viewer){
+        viewer.location.href=url;
+        window.setTimeout(()=>URL.revokeObjectURL(url),120000);
+      }else{
+        const link=document.createElement('a');
+        link.href=url;
+        link.download='Proof-of-Delivery.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(url),30000);
+      }
+      setMessage('Proof of Delivery PDF opened.');
+    } catch (reason) {
+      viewer?.close();
+      setError(reason instanceof Error ? reason.message : 'POD PDF could not be opened.');
+    } finally { setWorking(false); }
+  };
+
   const downloadPodPdf = async () => {
     if (!job || !hasCompletePodEvidence(job)) return;
     setWorking(true); setError('');
@@ -1144,6 +1181,39 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         onHardCopyAcknowledged={setHardCopyAcknowledged}
         onSaveDraft={()=>void savePodDraftNow()}
         onSubmit={()=>void completePod()}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===8 && podComplete && sheet?.pod) {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const rawPodNotes=sheet.pod.notes?.trim()??'';
+      const podNoteSegments=rawPodNotes?rawPodNotes.split(/\s*\|\s*/).map(value=>value.trim()).filter(Boolean):[];
+      const weightSegment=podNoteSegments.find(value=>/^Weight:\s*[0-9.]+\s*kg$/i.test(value));
+      const recordedWeight=weightSegment?.replace(/^Weight:\s*/i,'')??null;
+      const cleanedPodNotes=podNoteSegments
+        .filter(value=>!/^Weight:\s*[0-9.]+\s*kg$/i.test(value))
+        .filter(value=>!/^Hard-copy POD requirement acknowledged/i.test(value))
+        .join(' | ');
+      return <PodRecordedStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        generatedAt={sheet.pod.generatedAt?formatDateTime(sheet.pod.generatedAt):null}
+        receiverName={sheet.pod.receiverName}
+        leftAt={sheet.pod.leftAt}
+        itemCount={sheet.pod.itemCount}
+        weight={recordedWeight}
+        photoCount={sheet.pod.photoCount}
+        signatureRecorded={sheet.pod.signatureRecorded}
+        notes={cleanedPodNotes||null}
+        canCreateInvoice={canGenerateInvoices}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onViewPdf={()=>void viewPodPdf()}
+        onCreateInvoice={()=>void createInvoice()}
       />;
     }
     return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>
