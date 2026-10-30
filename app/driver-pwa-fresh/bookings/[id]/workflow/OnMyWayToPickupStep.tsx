@@ -5,7 +5,7 @@ import { PrimaryAction, SecondaryLink, WorkflowCard, WorkflowFrame } from './Wor
 import styles from './OnMyWayToPickupStep.module.css';
 
 type Props={
-  bookingReference:string; routeLabel:string; agreedRate?:string|null; paymentTerms?:string|null;
+  bookingReference?:string|null; routeLabel:string; agreedRate?:string|null; paymentTerms?:string|null;
   map:ReactNode; address:string; schedule:string; contactName?:string|null; phone?:string|null; instructions?:string|null; navigateHref?:string|null;
   working?:boolean; error?:string; message?:string; onBack:()=>void; onNext:()=>void;
 };

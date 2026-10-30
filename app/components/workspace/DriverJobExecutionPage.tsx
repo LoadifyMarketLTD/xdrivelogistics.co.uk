@@ -14,6 +14,7 @@ import WorkspaceJobReplay from './WorkspaceJobReplay';
 import BookingDetailsStep from '../../driver-pwa-fresh/bookings/[id]/workflow/BookingDetailsStep';
 import OnMyWayToPickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnMyWayToPickupStep';
 import OnSitePickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSitePickupStep';
+import LoadedCollectedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/LoadedCollectedStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
 
 const statusLabel: Record<string, string> = {
@@ -822,8 +823,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const pickupAddress=bookingAreaLabel(stops[0].place,stops[0].postcode);
       const deliveryAddress=bookingAreaLabel(stops[1].place,stops[1].postcode);
       return <BookingDetailsStep
-        bookingReference={sheet?.bookingReference??sheet?.reference??job.id.slice(0,8).toUpperCase()}
-        routeLabel={`${pickupAddress} â†’ ${deliveryAddress}`}
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={${pickupAddress} → ${deliveryAddress}}
         statusLabel={statusLabel[currentStatus]??currentStatus}
         agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
         paymentTerms={sheet?.paymentTerms??null}
@@ -851,7 +852,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
       const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
       return <OnMyWayToPickupStep
-        bookingReference={sheet?.bookingReference??sheet?.reference??job.id.slice(0,8).toUpperCase()}
+        bookingReference={sheet?.bookingReference??null}
         routeLabel={`${pickupArea} → ${deliveryArea}`}
         agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
         paymentTerms={sheet?.paymentTerms??null}
@@ -884,7 +885,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         ...(sheet?.requirements?.length?[{label:'Handling / Requirements',value:sheet.requirements.join(', ')}]:[]),
       ];
       return <OnSitePickupStep
-        bookingReference={sheet?.bookingReference??sheet?.reference??job.id.slice(0,8).toUpperCase()}
+        bookingReference={sheet?.bookingReference??null}
         routeLabel={`${pickupArea} → ${deliveryArea}`}
         agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
         paymentTerms={sheet?.paymentTerms??null}
@@ -906,6 +907,42 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         onPhotos={e=>void selectCollectionPhotos(e)}
         onDocuments={e=>void selectCollectionDocuments(e)}
         onConfirmLoaded={()=>void moveStatus('loaded')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===4 && currentStatus==='loaded') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const handover=job.collection_handover;
+      const collectionEvent=sheet?.timeline.find(entry=>entry.eventType==='collection_handover')
+        ?? sheet?.timeline.find(entry=>entry.eventType.toLowerCase().includes('loaded'));
+      const collectedRows=[
+        ...(handover?.itemCount!=null?[{label:'Items',value:String(handover.itemCount)}]:[]),
+        ...(handover?.packaging?[{label:'Packaging',value:handover.packaging}]:[]),
+        ...(handover?.weightKg!=null?[{label:'Weight',value:handover.weightKg+' kg'}]:[]),
+      ];
+      const photoCount=handover?.photoPaths?.length ?? (Array.isArray(job.pickup_photos)?job.pickup_photos.length:0);
+      const documentCount=handover?.documentPaths?.length ?? 0;
+      const rawCollectionNotes=handover?.notes?.trim() ?? '';
+      const cleanCollectionNotes=rawCollectionNotes
+        .replace(/^Cargo condition:\s*Good\s*\|\s*/i,'')
+        .replace(/^Cargo condition:\s*Good\s*$/i,'')
+        .trim();
+      return <LoadedCollectedStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        confirmedAt={(handover?.capturedAt??collectionEvent?.createdAt)?formatDateTime(handover?.capturedAt??collectionEvent?.createdAt):null}
+        driverName={sheet?.driverName??null}
+        collectedRows={collectedRows}
+        photoCount={photoCount}
+        documentCount={documentCount}
+        notes={cleanCollectionNotes||null}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onNext={()=>void moveStatus('in_transit')}
       />;
     }
     return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>
@@ -1199,3 +1236,4 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 4, padding: '7px 8px', background: '#fff', color: '#0f172a', fontSize: 12 };
 const linkButtonStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', color: '#0b2f6b', fontSize: 12, fontWeight: 700, textDecoration: 'none' };
+

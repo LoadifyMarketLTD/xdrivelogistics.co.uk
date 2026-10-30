@@ -5,7 +5,7 @@ import styles from './WorkflowFrame.module.css';
 
 type FrameProps = {
   title: string;
-  bookingReference: string;
+  bookingReference?: string | null;
   routeLabel: string;
   badge: string;
   agreedRate?: string | null;
@@ -22,7 +22,7 @@ export function WorkflowFrame({title,bookingReference,routeLabel,badge,agreedRat
     <header className={styles.header}><button type="button" aria-label="Back to Bookings" onClick={onBack}>‹</button><h1>{title}</h1><span aria-hidden="true" /></header>
     <div className={styles.content}>
       <section className={`${styles.card} ${styles.hero}`}>
-        <div className={styles.heroTop}><small>BOOKING {bookingReference}</small><span>{badge}</span></div>
+        <div className={styles.heroTop}>{bookingReference?<small>BOOKING {bookingReference}</small>:<span aria-hidden="true"/>}<span>{badge}</span></div>
         <h2>{routeLabel}</h2>
         {(agreedRate||paymentTerms)&&<div className={styles.financials}>
           {agreedRate&&<div><small>Agreed Rate</small><strong>{agreedRate}</strong></div>}

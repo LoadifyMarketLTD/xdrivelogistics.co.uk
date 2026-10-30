@@ -13,7 +13,7 @@ type StopView = {
 };
 
 type Props = {
-  bookingReference: string;
+  bookingReference?: string | null;
   routeLabel: string;
   statusLabel: string;
   agreedRate?: string | null;
@@ -45,7 +45,7 @@ export default function BookingDetailsStep({
       <div className={styles.content}>
         <section className={`${styles.card} ${styles.summary}`} aria-label="Booking summary">
           <div className={styles.summaryTop}>
-            <span className={styles.bookingRef}>BOOKING {bookingReference}</span>
+            {bookingReference&&<span className={styles.bookingRef}>BOOKING {bookingReference}</span>}
             <span className={styles.status}>{statusLabel}</span>
           </div>
           <h2 className={styles.route}>{routeLabel}</h2>

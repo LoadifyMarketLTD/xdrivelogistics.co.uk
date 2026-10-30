@@ -6,7 +6,7 @@ import styles from './OnSitePickupStep.module.css';
 
 type CargoRow={label:string;value:string};
 type Props={
- bookingReference:string;routeLabel:string;agreedRate?:string|null;paymentTerms?:string|null;
+ bookingReference?:string|null;routeLabel:string;agreedRate?:string|null;paymentTerms?:string|null;
  cargoRows:CargoRow[];collectionPhotoCount:number;collectionDocumentCount:number;
  actualItems:string;condition:string;discrepancy:string;notes:string;
  working?:boolean;error?:string;message?:string;onBack:()=>void;
