@@ -14,10 +14,11 @@ type FrameProps = {
   message?: string;
   children: ReactNode;
   onBack: () => void;
+  compact?: boolean;
 };
 
-export function WorkflowFrame({title,bookingReference,routeLabel,badge,agreedRate,paymentTerms,error,message,children,onBack}:FrameProps){
-  return <div className={styles.page}>
+export function WorkflowFrame({title,bookingReference,routeLabel,badge,agreedRate,paymentTerms,error,message,children,onBack,compact=false}:FrameProps){
+  return <div className={`${styles.page} ${compact?styles.compact:''}`}>
     <header className={styles.header}><button type="button" aria-label="Back to Bookings" onClick={onBack}>‹</button><h1>{title}</h1><span aria-hidden="true" /></header>
     <div className={styles.content}>
       <section className={`${styles.card} ${styles.hero}`}>

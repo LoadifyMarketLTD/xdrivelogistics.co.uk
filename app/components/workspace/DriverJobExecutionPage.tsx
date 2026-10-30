@@ -13,6 +13,7 @@ import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader
 import WorkspaceJobReplay from './WorkspaceJobReplay';
 import BookingDetailsStep from '../../driver-pwa-fresh/bookings/[id]/workflow/BookingDetailsStep';
 import OnMyWayToPickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnMyWayToPickupStep';
+import OnSitePickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSitePickupStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
 
 const statusLabel: Record<string, string> = {
@@ -180,6 +181,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const [message, setMessage] = useState('');
   const [notes, setNotes] = useState('');
   const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
+  const [collectionDocuments, setCollectionDocuments] = useState<string[]>([]);
+  const [collectionDocumentsLoaded, setCollectionDocumentsLoaded] = useState(false);
   const [collectedItemCount, setCollectedItemCount] = useState('');
   const [collectionCondition, setCollectionCondition] = useState('Good');
   const [collectionDiscrepancy, setCollectionDiscrepancy] = useState('');
@@ -230,7 +233,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       return;
     }
 
-    const row = data as DbJob;
+    const row = data as DbJob & { no_of_items?: number | null };
     setJob(row);
     setNotes(row.driver_notes ?? '');
     const pickupPhotos = Array.isArray(row.pickup_photos)
@@ -239,6 +242,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         ? [row.collection_photo_url]
         : [];
     setCollectionPhotos([...new Set(pickupPhotos)].slice(0, 10));
+    if (row.no_of_items != null) setCollectedItemCount(String(row.no_of_items));
     setDeliveryPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos : []);
     setPendingPodPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos.filter((v): v is string => typeof v === 'string') : []);
     setPendingPodDocuments(Array.isArray(row.pod_photos) ? row.pod_photos.filter((v): v is string => typeof v === 'string') : []);
@@ -268,6 +272,17 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   }, [authHeader, driverId, jobId]);
 
   useEffect(() => { void loadJob(); }, [loadJob]);
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(`xdrive-collection-documents-${jobId}`) || '[]');
+      setCollectionDocuments(Array.isArray(stored) ? stored.filter((value): value is string => typeof value === 'string').slice(0, 10) : []);
+    } catch { setCollectionDocuments([]); }
+    finally { setCollectionDocumentsLoaded(true); }
+  }, [jobId]);
+  useEffect(() => {
+    if (!collectionDocumentsLoaded) return;
+    try { localStorage.setItem(`xdrive-collection-documents-${jobId}`, JSON.stringify(collectionDocuments)); } catch { /* local draft persistence unavailable */ }
+  }, [collectionDocuments, collectionDocumentsLoaded, jobId]);
   const podJobId = job?.id ?? '';
   const podAlreadyComplete = job ? hasCompletePodEvidence(job) : false;
 
@@ -397,7 +412,28 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Collection photo upload failed.');
     return payload.storagePath;
   };
-
+  const uploadCollectionDocument = async (file: File) => {
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection documents must be PDF, JPEG or PNG files.');
+    if (file.size > 10 * 1024 * 1024) throw new Error('Each collection document must be 10 MB or smaller.');
+    const auth = await authHeader();
+    if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
+    const extension = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
+    const objectName = `collection-document-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
+      method: 'POST',
+      headers: {
+        Authorization: auth,
+        'Content-Type': file.type,
+        'x-xdrive-evidence-kind': 'collection',
+        'x-xdrive-evidence-category': 'documents',
+        'x-xdrive-evidence-name': objectName,
+      },
+      body: file,
+    });
+    const payload = await response.json().catch(() => ({})) as { storagePath?: string; error?: string };
+    if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Collection document upload failed.');
+    return payload.storagePath;
+  };
 
   const uploadPodEvidence = async (file: File, category: 'photos' | 'documents') => {
     const allowed = category === 'photos' ? ['image/jpeg', 'image/png'] : ['application/pdf', 'image/jpeg', 'image/png'];
@@ -457,6 +493,23 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Collection photo upload failed.');
       await loadJob();
+    } finally { setWorking(false); }
+  };
+  const selectCollectionDocuments = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+    const remaining = Math.max(0, 10 - collectionDocuments.length);
+    if (remaining === 0) { setError('A maximum of 10 collection documents can be attached.'); return; }
+    if (files.length > remaining) { setError(`You can add up to ${remaining} more collection document${remaining === 1 ? '' : 's'}.`); return; }
+    setWorking(true); setError(''); setMessage('');
+    try {
+      const uploaded: string[] = [];
+      for (const file of files) uploaded.push(await uploadCollectionDocument(file));
+      setCollectionDocuments((current) => [...new Set([...current, ...uploaded])].slice(0, 10));
+      setMessage(`${uploaded.length} collection document${uploaded.length === 1 ? '' : 's'} added.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Collection document upload failed.');
     } finally { setWorking(false); }
   };
   const selectDeliveryPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -660,7 +713,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const handoverResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/handover`, {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoPaths: collectionPhotos, itemCount: collectedItemCount.trim() ? Number(collectedItemCount) : null, packaging: sheet?.cargo.palletType ?? undefined, weightKg: sheet?.cargo.weightKg ?? undefined, notes: [`Cargo condition: ${collectionCondition}`, collectionDiscrepancy.trim(), notes.trim()].filter(Boolean).join(' | ') }),
+        body: JSON.stringify({ photoPaths: collectionPhotos, documentPaths: collectionDocuments, itemCount: collectedItemCount.trim() ? Number(collectedItemCount) : null, packaging: sheet?.cargo.palletType ?? undefined, weightKg: sheet?.cargo.weightKg ?? undefined, notes: [`Cargo condition: ${collectionCondition}`, collectionDiscrepancy.trim(), notes.trim()].filter(Boolean).join(' | ') }),
       });
       const handoverPayload = await handoverResponse.json().catch(() => ({})) as { error?: string };
       if (!handoverResponse.ok) { setError(handoverPayload.error || 'Collection handover could not be saved.'); setWorking(false); return; }
@@ -673,6 +726,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const loadedPayload = await loadedResponse.json().catch(() => ({})) as { error?: string };
       if (!loadedResponse.ok) { setError(loadedPayload.error || 'Job could not be marked loaded.'); setWorking(false); return; }
       setMessage('Job updated: Loaded.');
+      try { localStorage.removeItem(`xdrive-collection-documents-${jobId}`); } catch { /* local draft cleanup unavailable */ }
+      setCollectionDocuments([]);
       await loadJob();
       setWorking(false);
       return;
@@ -812,6 +867,45 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         message={message}
         onBack={()=>router.push('/driver-pwa-fresh/bookings')}
         onNext={()=>void moveStatus('on_site_pickup')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===3 && currentStatus==='on_site_pickup') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const persistedItemCount=(job as DbJob & { no_of_items?: number | null }).no_of_items;
+      const cargoRows=[
+        ...(persistedItemCount!=null?[{label:'Items',value:String(persistedItemCount)}]:[]),
+        ...(sheet?.cargo.pallets!=null?[{label:'Pallets',value:String(sheet.cargo.pallets)}]:[]),
+        ...(sheet?.cargo.weightKg!=null?[{label:'Weight',value:`${sheet.cargo.weightKg} kg`}]:[]),
+        ...(cargoDimensions!=='Not supplied'?[{label:'Dimensions',value:cargoDimensions}]:[]),
+        ...(sheet?.cargo.type?[{label:'Cargo type',value:sheet.cargo.type}]:[]),
+        ...(sheet?.cargo.cargoValueGbp!=null?[{label:'Value',value:money(sheet.cargo.cargoValueGbp,sheet.currency??job.currency)}]:[]),
+        ...(sheet?.cargo.palletType?[{label:'Packaging',value:sheet.cargo.palletType}]:[]),
+        ...(sheet?.requirements?.length?[{label:'Handling / Requirements',value:sheet.requirements.join(', ')}]:[]),
+      ];
+      return <OnSitePickupStep
+        bookingReference={sheet?.bookingReference??sheet?.reference??job.id.slice(0,8).toUpperCase()}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        cargoRows={cargoRows}
+        collectionPhotoCount={collectionPhotos.length}
+        collectionDocumentCount={collectionDocuments.length}
+        actualItems={collectedItemCount}
+        condition={collectionCondition}
+        discrepancy={collectionDiscrepancy}
+        notes={notes}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onActualItems={setCollectedItemCount}
+        onCondition={setCollectionCondition}
+        onDiscrepancy={setCollectionDiscrepancy}
+        onNotes={setNotes}
+        onPhotos={e=>void selectCollectionPhotos(e)}
+        onDocuments={e=>void selectCollectionDocuments(e)}
+        onConfirmLoaded={()=>void moveStatus('loaded')}
       />;
     }
     return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>

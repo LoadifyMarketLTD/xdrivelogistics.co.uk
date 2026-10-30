@@ -21,3 +21,19 @@
 .error,.success{margin:10px 0 0;padding:8px 10px;border-radius:9px;font-size:13px;line-height:18px}
 .error{background:#fff0ef;color:#a61b1b}
 .success{background:#eef9f1;color:#176b37}
+
+.compact{padding-bottom:82px}
+.compact .header{min-height:50px}
+.compact .header button,.compact .header>span{width:40px;height:40px}
+.compact .header{grid-template-columns:40px 1fr 40px;padding:0 8px}
+.compact .header h1{font-size:17px;line-height:22px}
+.compact .content{gap:8px;padding:8px 10px}
+.compact .hero{padding:9px 12px}
+.compact .heroTop small{font-size:10px}
+.compact .heroTop span{padding:3px 6px;font-size:9px}
+.compact .hero h2{margin:5px 0 6px;font-size:17px;line-height:22px}
+.compact .financials{gap:8px;padding-top:6px}
+.compact .financials small{font-size:10px}
+.compact .financials strong{font-size:14px;line-height:18px}
+.compact .cardTitle{padding:9px 12px 5px;font-size:13px;line-height:18px}
+.compact .primary{width:calc(100% - 24px);min-height:46px;margin:0 12px 12px;font-size:15px}
