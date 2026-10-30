@@ -282,3 +282,26 @@
 .fresh-driver-pwa .fresh-details-feedback p{color:#64748b;font-size:12px}
 .fresh-driver-pwa .fresh-details-card .fresh-details-quote .quote-now{background:#16A34A;color:#fff;min-height:52px;border-radius:8px;font-weight:800}
 @media(max-width:699px){.fresh-driver-pwa .fresh-summary strong{font-size:14px}.fresh-driver-pwa .fresh-route-places strong{font-size:15px}.fresh-driver-pwa .fresh-actions .quote-now,.fresh-driver-pwa .fresh-actions .fresh-detail{min-height:48px;font-size:14px}.fresh-driver-pwa .fresh-details-card>.fresh-notes h2{font-size:16px}.fresh-driver-pwa .fresh-details-card>.fresh-notes{padding:14px}}
+
+/* Distinct XDrive Load card, visible structural redesign -- 30 Oct 2026 */
+.fresh-driver-pwa .xd-load-card{border:1px solid #dae5f0;border-radius:16px!important;background:#fff;overflow:hidden;box-shadow:0 5px 20px rgba(11,47,107,.09)!important}
+.fresh-driver-pwa .xd-load-summary{padding:15px 16px!important;background:linear-gradient(100deg,#f0f5ff,#fff 75%);border-bottom:1px solid #dce6f3}
+.fresh-driver-pwa .xd-load-summary .fresh-summary-top{align-items:start;gap:12px}
+.fresh-driver-pwa .xd-load-summary .fresh-summary-top>strong{font-size:17px!important;line-height:22px!important;color:#0b2f6b;letter-spacing:-.015em}
+.fresh-driver-pwa .xd-load-summary .fresh-available{color:#126f35;background:#e1f8e9;border:1px solid #c4e9cf;font-size:11px}
+.fresh-driver-pwa .xd-load-summary .fresh-posted{color:#64748b;font-size:12px!important;margin-top:5px}
+.fresh-driver-pwa .xd-load-summary .fresh-summary-meta{display:flex;gap:8px;align-items:center;margin-top:11px}
+.fresh-driver-pwa .xd-load-summary .fresh-service{display:inline-block;background:#0b2f6b;color:#fff!important;font-size:11px!important;border-radius:18px;padding:5px 11px;font-weight:800;text-transform:none}
+.fresh-driver-pwa .xd-load-route{margin:11px 12px 2px;padding:14px!important;border-radius:12px;background:#f4f6f8;border:1px solid #e7ebf2}
+.fresh-driver-pwa .xd-load-route .fresh-route-places strong{color:#0b2f6b;font-size:19px!important;line-height:25px!important;letter-spacing:-.01em}
+.fresh-driver-pwa .xd-load-route .fresh-route-places p{color:#576b86;font-size:13px!important;line-height:19px!important}
+.fresh-driver-pwa .xd-load-card .fresh-notes{margin:9px 12px 0;border-radius:9px;background:#f8fafc;border-left:3px solid #1d57d8;padding:10px 12px!important;line-height:20px!important}
+.fresh-driver-pwa .xd-load-card .fresh-quick{border:0;padding:12px 16px 7px!important;color:#455b78;font-size:12px!important}
+.fresh-driver-pwa .xd-load-actions{padding:11px 14px 14px!important;gap:9px!important}
+.fresh-driver-pwa .xd-load-actions .quote-now{background:#16a34a;color:#fff;border-radius:10px;min-height:50px!important;font-size:15px!important}
+.fresh-driver-pwa .xd-load-actions .fresh-detail{background:#eef3fb;color:#0b2f6b;border:1px solid #cad9ed;border-radius:10px;min-height:50px!important;font-size:15px!important}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes{border-radius:14px!important;box-shadow:0 3px 12px rgba(11,47,107,.04);border-color:#dce6f3!important;padding:17px!important}
+.fresh-driver-pwa .fresh-details-card>.fresh-notes h2{font-size:18px!important;font-weight:800!important;margin-bottom:14px!important}
+.fresh-driver-pwa .fresh-details-card .fresh-facts{row-gap:16px!important}
+.fresh-driver-pwa .fresh-details-card .fresh-facts dt{color:#667a94!important}
+.fresh-driver-pwa .fresh-details-card>.fresh-actions{border-radius:14px!important;padding:17px!important;border-color:#dce6f3!important}
