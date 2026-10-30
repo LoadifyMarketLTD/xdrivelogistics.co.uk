@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import {useRouter} from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import FreshJobCard from '../../FreshJobCard';
 import { FreshBottom } from '../../FreshNavigation';
@@ -26,6 +27,7 @@ type Load = {
 };
 const available = new Set(['posted', 'quoted']);
 export default function FreshLoadDetail() {
+  const router = useRouter();
   const params = useParams();
   const id = String(params.id ?? '');
   const [load, setLoad] = useState<Load | null>(null);
@@ -36,6 +38,7 @@ export default function FreshLoadDetail() {
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);
   const [success, setSuccess] = useState(false);
+  const [saved, setSaved] = useState(false);
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -90,16 +93,16 @@ export default function FreshLoadDetail() {
     }
   };
   return <ProtectedRoute allowedRoles={['driver']}>
-    <header className="fresh-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">← LOADS</Link><h1>Load ID {id.slice(0, 12)}</h1></header>
+    <header className="fresh-header fresh-detail-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">←</Link><h1>Job Details</h1><button type="button" aria-label={saved?"Remove saved job":"Save job"} onClick={()=>setSaved(value=>!value)}>{saved?"★":"☆"}</button></header>
     <main className="fresh-content" data-testid="load-details">
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
-      {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card">
-        <section className="fresh-notes fresh-details-spec" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
+      {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card xdr-real-detail">
+        <section className="fresh-notes fresh-details-spec" data-testid="cargo-details"><h2>Journey and cargo</h2>
           <dl className="fresh-facts">
-            <dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
+            <dt>🚚 Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
             <dt>Cargo</dt><dd>{load.requested_cargo_label || load.cargo_type || 'Not specified'}</dd>
-            {load.distance_miles != null ? <><dt>Journey</dt><dd>{load.distance_miles} miles</dd></> : null}
+            {load.distance_miles != null ? <><dt>▰ Distance</dt><dd>{load.distance_miles} miles</dd></> : null}
             {load.weight_kg != null ? <><dt>Weight</dt><dd>{load.weight_kg} kg</dd></> : null}
             {load.pallets != null ? <><dt>Pallets</dt><dd>{load.pallets}</dd></> : null}
             {load.length_cm != null && load.width_cm != null && load.height_cm != null ? <><dt>Dimensions</dt><dd>{load.length_cm} × {load.width_cm} × {load.height_cm} cm</dd></> : null}
@@ -109,6 +112,7 @@ export default function FreshLoadDetail() {
           </dl>
         </section>
         <section className="fresh-notes fresh-details-customer"><h2>Customer</h2><p>{load.member?.name || "Marketplace member"}</p>{load.payment_terms ? <p><strong>Terms:</strong> {load.payment_terms}</p> : null}</section>{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
+        <section className="xdr-real-details-actions"><button type="button" onClick={()=>router.push(`/driver-pwa-fresh/jobs?view=map`)}>⌖ View on Map</button></section>
         <section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Quote Now</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
            load.myBid ? <p role="status">You already have a quote on this load ({load.myBid.status || 'submitted'}).</p> :
