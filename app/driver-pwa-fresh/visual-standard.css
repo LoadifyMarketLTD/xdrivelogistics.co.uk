@@ -275,3 +275,10 @@
 .fresh-driver-pwa .fresh-pod-left-at-options button.fresh-pod-left-at-selected{background:#dbeafe;border:2px solid #1d57d8;color:#0b2f6b}
 .fresh-driver-pwa .fresh-pod-left-at-options button:focus-visible{outline:3px solid #f5a300;outline-offset:2px}
 .fresh-driver-pwa .fresh-mobile-pod .fresh-pod-send{background:#f5a300;color:#1a1f2b;border-color:#f5a300;min-height:52px}
+
+/* XDrive original mobile Load and Details cards */
+.fresh-driver-pwa .fresh-summary-meta .fresh-service{color:#1D57D8;font-weight:800;text-transform:capitalize}
+.fresh-driver-pwa .fresh-details-customer a{display:flex;align-items:center;justify-content:center;text-decoration:none;background:#eef3fb;color:#0B2F6B;border-radius:8px;min-height:48px;font-weight:750}
+.fresh-driver-pwa .fresh-details-feedback p{color:#64748b;font-size:12px}
+.fresh-driver-pwa .fresh-details-card .fresh-details-quote .quote-now{background:#16A34A;color:#fff;min-height:52px;border-radius:8px;font-weight:800}
+@media(max-width:699px){.fresh-driver-pwa .fresh-summary strong{font-size:14px}.fresh-driver-pwa .fresh-route-places strong{font-size:15px}.fresh-driver-pwa .fresh-actions .quote-now,.fresh-driver-pwa .fresh-actions .fresh-detail{min-height:48px;font-size:14px}.fresh-driver-pwa .fresh-details-card>.fresh-notes h2{font-size:16px}.fresh-driver-pwa .fresh-details-card>.fresh-notes{padding:14px}}

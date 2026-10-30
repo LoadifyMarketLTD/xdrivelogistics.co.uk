@@ -109,8 +109,8 @@ export default function FreshLoadDetail() {
             {load.payment_terms ? <><dt>Payment terms</dt><dd>{load.payment_terms}</dd></> : null}
           </dl>
         </section>
-        <section className="fresh-notes fresh-details-customer"><h2>Customer</h2><p>{load.member?.name || "Marketplace member"}</p>{load.payment_terms ? <p><strong>Terms:</strong> {load.payment_terms}</p> : null}</section>{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
-        <section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Quote Now</h2>
+        <section className="fresh-notes fresh-details-customer"><h2>Customer / Broker</h2><p><strong>{load.member?.name || "Marketplace member"}</strong></p>{load.member?.memberId ? <p>Member: {load.member.memberId}</p> : null}{load.payment_terms ? <p><strong>Payment terms:</strong> {load.payment_terms}</p> : null}<p><Link href="/driver-pwa-fresh/jobs?view=map">View on XDrive Map</Link></p></section>{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
+        <section className="fresh-notes fresh-details-feedback"><h2>Company feedback</h2><p>Verified payment and delivery feedback will appear here when available for this member.</p></section><section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Your Quote</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
            load.myBid ? <p role="status">You already have a quote on this load ({load.myBid.status || 'submitted'}).</p> :
            <><label>Amount (£)<input inputMode="decimal" type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} /></label>
