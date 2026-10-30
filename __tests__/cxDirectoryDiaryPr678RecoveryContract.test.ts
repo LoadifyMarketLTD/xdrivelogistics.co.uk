@@ -21,7 +21,7 @@ describe('CX Directory sorting and Diary safety recovery from PR 678', () => {
 
   it('resets Directory sorting to Distance when filters are cleared', () => {
     expect(directory).toContain("setDirectorySort('Distance')");
-    expect(directory).toContain('setDirectoryVisibleCount(directoryPageSize)');
+    expect(directory).toContain('setDirectoryPage(1)');
   });
 
   it('warns when the Diary query hits its hard 300-record limit', () => {

@@ -155,7 +155,7 @@ export function MemberDirectoryPage(_props: {
   const [reputationNote, setReputationNote] = useState('');
   const [directorySort, setDirectorySort] = useState<DirectorySort>('Distance');
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
-  const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
+  const [directoryPage, setDirectoryPage] = useState(1);
   const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
   const [savedOnly, setSavedOnly] = useState(false);
   const [savedNetworkLoading, setSavedNetworkLoading] = useState(false);
@@ -489,11 +489,15 @@ export function MemberDirectoryPage(_props: {
     () => sortDirectoryRecords(visibleDrivers, directorySort),
     [directorySort, visibleDrivers],
   );
-  const displayedCompanies = sortedCompanies.slice(0, directoryVisibleCount);
-  const displayedDrivers = sortedDrivers.slice(0, directoryVisibleCount);
+  const directoryLastPage = Math.max(1, Math.ceil(Math.max(sortedCompanies.length, sortedDrivers.length) / directoryPageSize));
+  const safeDirectoryPage = Math.min(directoryPage, directoryLastPage);
+  const pageStart = (safeDirectoryPage - 1) * directoryPageSize;
+  const displayedCompanies = sortedCompanies.slice(pageStart, pageStart + directoryPageSize);
+  const displayedDrivers = sortedDrivers.slice(pageStart, pageStart + directoryPageSize);
   const totalRecords = sortedCompanies.length + sortedDrivers.length;
   const shownCount = displayedCompanies.length + displayedDrivers.length;
-  const canShowMore = directoryVisibleCount < sortedCompanies.length || directoryVisibleCount < sortedDrivers.length;
+  const previousDirectoryPage = () => setDirectoryPage((current) => Math.max(1, current - 1));
+  const nextDirectoryPage = () => setDirectoryPage((current) => Math.min(directoryLastPage, current + 1));
 
   const clear = () => {
     setMember('');
@@ -512,7 +516,7 @@ export function MemberDirectoryPage(_props: {
     setNearestQuery({ near: '', radius: '50' });
     setSavedOnly(false);
     setDirectorySort('Distance');
-    setDirectoryVisibleCount(directoryPageSize);
+    setDirectoryPage(1);
   };
 
   const selectedPrivateGroup = privateGroups.groups.find((group) => group.id === selectedPrivateGroupId) ?? null;
@@ -580,11 +584,12 @@ export function MemberDirectoryPage(_props: {
         <main style={{ minWidth: 0 }}>
           <div className="workspace-record-meta xdrive-directory-toolbar">
             <span><strong>{totalRecords}</strong> matching loaded record(s)</span>
-            <label>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value as DirectorySort); setDirectoryVisibleCount(directoryPageSize); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label>
+            <label>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value as DirectorySort); setDirectoryPage(1); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label>
             <span className="xdrive-directory-toolbar__note">Companies and drivers are separated below.</span>
-            <label className="xdrive-directory-page-size">Items per Page <select value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryVisibleCount(next); }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
-            <span>{totalRecords ? `1-${shownCount} of ${totalRecords}` : '0 results'}</span>
-            {canShowMore ? <ActionButton tone="secondary" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Next</ActionButton> : null}
+            <label className="xdrive-directory-page-size">Items per Page <select value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryPage(1); }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
+            <span>{totalRecords ? `Page ${safeDirectoryPage} of ${directoryLastPage} / ${shownCount} shown / ${totalRecords} matching` : '0 results'}</span>
+            <ActionButton tone="secondary" onClick={previousDirectoryPage} disabled={safeDirectoryPage <= 1}>Previous</ActionButton>
+            <ActionButton tone="secondary" onClick={nextDirectoryPage} disabled={safeDirectoryPage >= directoryLastPage}>Next</ActionButton>
           </div>
 
           {loading ? (
@@ -622,8 +627,9 @@ export function MemberDirectoryPage(_props: {
               {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState compact title="No drivers match these loaded records" /></div>}
               </div>
               <div className="workspace-record-meta xdrive-directory-pagination">
-                <span>{totalRecords ? `Showing ${shownCount} of ${totalRecords}` : '0 results'}</span>
-                {canShowMore ? <ActionButton tone="secondary" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Show more</ActionButton> : null}
+                <span>{totalRecords ? `Page ${safeDirectoryPage} of ${directoryLastPage} / ${shownCount} shown` : '0 results'}</span>
+                <ActionButton tone="secondary" onClick={previousDirectoryPage} disabled={safeDirectoryPage <= 1}>Previous</ActionButton>
+                <ActionButton tone="secondary" onClick={nextDirectoryPage} disabled={safeDirectoryPage >= directoryLastPage}>Next</ActionButton>
               </div>
             </div>
           )}

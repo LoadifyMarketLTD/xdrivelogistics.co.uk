@@ -61,7 +61,11 @@ describe('Directory CX parity contract', () => {
     expect(directory).toContain('<strong>COMPANIES</strong>');
     expect(directory).toContain('<strong>DRIVERS</strong>');
     expect(directory).toContain('Items per Page');
-    expect(directory).toContain('Show more');
+    expect(directory).toContain('Previous');
+    expect(directory).toContain('Next');
+    expect(directory).toContain('safeDirectoryPage');
+    expect(directory).toContain('sortedCompanies.slice(pageStart, pageStart + directoryPageSize)');
+    expect(directory).toContain('sortedDrivers.slice(pageStart, pageStart + directoryPageSize)');
     expect(directory).toContain('displayedCompanies.map');
     expect(directory).toContain('displayedDrivers.map');
   });
