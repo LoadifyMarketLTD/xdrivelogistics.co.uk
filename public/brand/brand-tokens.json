@@ -1,0 +1,14 @@
+{
+  "brand": "XDrive Logistics",
+  "colors": {
+    "primary": "#0B2F6B",
+    "secondary": "#1D57D8",
+    "orange": "#F5A300",
+    "white": "#FFFFFF",
+    "charcoal": "#1A1F2B",
+    "lightGrey": "#F4F6F8",
+    "ctaGreen": "#16A34A"
+  },
+  "tagline": "Move Freight. Manage Operations. Grow Your Network.",
+  "fontFamily": "Inter, Arial, Helvetica, sans-serif"
+}
