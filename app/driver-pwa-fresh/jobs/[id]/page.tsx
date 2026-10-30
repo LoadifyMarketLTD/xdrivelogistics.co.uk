@@ -23,7 +23,11 @@ type Load = {
   pallet_type: string | null; pallet_stackable: boolean | null;
   handling_requirements: unknown;
   myBid: { status: string | null; amount: number | null } | null;
-  member: { name: string; memberId: string | null } | null;
+  member: { companyId?: string | null; name: string; memberId: string | null; phone?: string | null } | null;
+};
+type MemberProfile={
+  name:string;memberId:string|null;businessPhone:string|null;paymentTerms:string|null;
+  feedbackLast90Days:{count:number;averageRating:number|null;wouldUseAgainPercent:number|null;deliveredPromptlyPercent:number|null;courteousPercent:number|null}|null;
 };
 const available = new Set(['posted', 'quoted']);
 export default function FreshLoadDetail() {
@@ -39,6 +43,8 @@ export default function FreshLoadDetail() {
   const submitLock = useRef(false);
   const [success, setSuccess] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [deleted,setDeleted]=useState(false);
+  const [memberProfile,setMemberProfile]=useState<MemberProfile|null>(null);
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -55,12 +61,20 @@ export default function FreshLoadDetail() {
       if (!found || !available.has(found.status.toLowerCase())) throw new Error('This load is no longer available.');
       if (found.pickup_datetime && Date.parse(found.pickup_datetime) < Date.now()) throw new Error('Collection time has passed.');
       setLoad(found);
+      const companyId=found.member?.companyId?.trim();
+      if(companyId){
+        const profileResponse=await fetch(`/api/member-profile/${encodeURIComponent(companyId)}`,{headers:{Authorization:authorization},cache:'no-store'});
+        const profilePayload=await profileResponse.json().catch(()=>({})) as {member?:MemberProfile};
+        if(profileResponse.ok&&profilePayload.member)setMemberProfile(profilePayload.member);
+      } else setMemberProfile(null);
     } catch (cause) {
       setLoad(null);
       setError(cause instanceof Error ? cause.message : 'Load unavailable.');
     } finally { setLoading(false); }
   }, [id]);
   useEffect(() => { void fetchDetail(); }, [fetchDetail]);
+  useEffect(()=>{try{const savedIds=JSON.parse(localStorage.getItem('xdrive-driver-saved-load-ids')||'[]');const deletedIds=JSON.parse(localStorage.getItem('xdrive-driver-deleted-load-ids')||'[]');setSaved(Array.isArray(savedIds)&&savedIds.includes(id));setDeleted(Array.isArray(deletedIds)&&deletedIds.includes(id));const seen=JSON.parse(localStorage.getItem('xdrive-driver-seen-load-ids')||'[]');const next=Array.isArray(seen)?[...new Set([...seen,id])]:[id];localStorage.setItem('xdrive-driver-seen-load-ids',JSON.stringify(next.slice(-500)));}catch{/* storage unavailable */}},[id]);
+  const updateFolder=(key:string,active:boolean,setter:(value:boolean)=>void)=>{try{const current=JSON.parse(localStorage.getItem(key)||'[]');const list=Array.isArray(current)?current.filter((value):value is string=>typeof value==='string'):[];const next=active?[...new Set([...list,id])]:list.filter(value=>value!==id);localStorage.setItem(key,JSON.stringify(next));setter(active);}catch{setter(active)}};
   const submit = async () => {
     if (submitLock.current || success || load?.myBid || !load || !available.has(load.status.toLowerCase())) return;
     if (load.pickup_datetime && Number.isFinite(Date.parse(load.pickup_datetime)) && Date.parse(load.pickup_datetime) < Date.now()) { setError('Collection time has passed. Refresh the load before quoting.'); return; }
@@ -93,7 +107,7 @@ export default function FreshLoadDetail() {
     }
   };
   return <ProtectedRoute allowedRoles={['driver']}>
-    <header className="fresh-header fresh-detail-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">←</Link><h1>Job Details</h1><button type="button" aria-label={saved?"Remove saved job":"Save job"} onClick={()=>setSaved(value=>!value)}>{saved?"★":"☆"}</button></header>
+    <header className="fresh-header fresh-detail-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">←</Link><h1>Job Details</h1><button type="button" aria-label={saved?"Remove saved job":"Save job"} onClick={()=>updateFolder('xdrive-driver-saved-load-ids',!saved,setSaved)}>{saved?"★":"☆"}</button></header>
     <main className="fresh-content" data-testid="load-details">
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
@@ -111,8 +125,8 @@ export default function FreshLoadDetail() {
             {load.payment_terms ? <><dt>Payment terms</dt><dd>{load.payment_terms}</dd></> : null}
           </dl>
         </section>
-        <section className="fresh-notes fresh-details-customer"><h2>Customer</h2><p>{load.member?.name || "Marketplace member"}</p>{load.payment_terms ? <p><strong>Terms:</strong> {load.payment_terms}</p> : null}</section>{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
-        <section className="xdr-real-details-actions"><button type="button" onClick={()=>router.push(`/driver-pwa-fresh/jobs?view=map`)}>⌖ View on Map</button></section>
+        <section className="fresh-notes fresh-details-customer"><h2>Customer</h2><p><strong>{memberProfile?.name||load.member?.name||'Marketplace member'}</strong>{(memberProfile?.memberId||load.member?.memberId)?<><br/>XD Member ID: {memberProfile?.memberId||load.member?.memberId}</>:null}</p>{(memberProfile?.paymentTerms||load.payment_terms)?<p><strong>Payment Terms:</strong> {memberProfile?.paymentTerms||load.payment_terms}</p>:null}{(memberProfile?.businessPhone||load.member?.phone)?<p><strong>Telephone:</strong> <a href={`tel:${memberProfile?.businessPhone||load.member?.phone}`}>{memberProfile?.businessPhone||load.member?.phone}</a> <a className="fresh-call-button" href={`tel:${memberProfile?.businessPhone||load.member?.phone}`}>Call</a></p>:null}</section>{memberProfile?.feedbackLast90Days?<section className="fresh-notes fresh-feedback"><h2>Feedback (Last 90 days)</h2><dl className="fresh-facts"><dt>Reviews</dt><dd>{memberProfile.feedbackLast90Days.count}</dd><dt>Average</dt><dd>{memberProfile.feedbackLast90Days.averageRating==null?'No rating':memberProfile.feedbackLast90Days.averageRating.toFixed(1)+' / 5'}</dd><dt>Would use again</dt><dd>{memberProfile.feedbackLast90Days.wouldUseAgainPercent==null?'—':memberProfile.feedbackLast90Days.wouldUseAgainPercent+'%'}</dd><dt>Delivered promptly</dt><dd>{memberProfile.feedbackLast90Days.deliveredPromptlyPercent==null?'—':memberProfile.feedbackLast90Days.deliveredPromptlyPercent+'%'}</dd></dl></section>:null}{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
+        <section className="xdr-real-details-actions"><button type="button" onClick={()=>router.push(`/driver-pwa-fresh/jobs?view=map`)}>⌖ View on Map</button><button type="button" onClick={()=>updateFolder('xdrive-driver-saved-load-ids',!saved,setSaved)}>{saved?'★ Saved':'☆ Save'}</button><button type="button" className="fresh-delete-load" onClick={()=>{updateFolder('xdrive-driver-deleted-load-ids',!deleted,setDeleted);if(!deleted)router.push('/driver-pwa-fresh/jobs')}}>{deleted?'Restore':'Delete'}</button></section>
         <section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Quote Now</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
            load.myBid ? <p role="status">You already have a quote on this load ({load.myBid.status || 'submitted'}).</p> :

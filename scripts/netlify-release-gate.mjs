@@ -226,6 +226,12 @@ if (isSuperAdminControlPlanePreview) {
   run(npmCommand, ['run', 'test:unit', '--', ...superAdminControlPlaneUnitTests]);
 }
 
+console.log('NETLIFY_DRIVER_PWA_CANONICAL_GUARD=START');
+run(process.execPath, ['automation/tests/guard-driver-pwa-publication.cjs']);
+run(process.execPath, ['automation/tests/guard-canonical-driver-pwa.cjs']);
+run(npmCommand, ['exec', '--', 'vitest', 'run', '__tests__/canonicalDriverPwaGuard.test.ts', '__tests__/driverPwaOfficialSandboxIntegration.test.ts', '__tests__/driverPwaRealIntegrationContract.test.ts']);
+console.log('NETLIFY_DRIVER_PWA_CANONICAL_GUARD=PASS');
+
 run(npmCommand, ['run', 'typecheck']);
 run(npmCommand, ['run', 'build']);
 assertNextStaticAssets();

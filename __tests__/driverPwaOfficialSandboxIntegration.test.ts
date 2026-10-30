@@ -22,12 +22,12 @@ describe('Official XDrive Driver PWA - approved sandbox integration',()=>{
   expect(details).not.toContain('FreshSectionTabs');
   expect(details).toContain('data-testid="load-details"');
  });
- it('scrolls the Driver Loads page instead of dragging Leaflet across the world',()=>{
+ it('allows deliberate touch drag on the Loads Map while keeping mobile viewport bounded',()=>{
   const loads=source('app/driver-pwa-fresh/jobs/LoadsClient.tsx');
-  expect(loads).toContain('allowTouchDrag={false}');
+  expect(loads).toContain('allowTouchDrag={true}');
   expect(loads).toContain('place(load.pickup_area,load.pickup_postcode_area)');
   expect(loads).toContain('place(load.delivery_area,load.delivery_postcode_area)');
-  expect(source('app/driver-pwa-fresh/visual-standard.css')).toContain('touch-action:pan-y!important');
+  expect(source('app/driver-pwa-fresh/visual-standard.css')).toContain('touch-action:none!important');
   expect(source('app/components/workspace/MarketplaceLoadMap.tsx')).toContain('allowTouchDrag = true');
  });
  it('uses route-based bottom tab selection rather than early pointer state',()=>{

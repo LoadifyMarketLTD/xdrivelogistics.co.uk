@@ -275,4 +275,65 @@
 .fresh-driver-pwa .fresh-pod-left-at-options button.fresh-pod-left-at-selected{background:#dbeafe;border:2px solid #1d57d8;color:#0b2f6b}
 .fresh-driver-pwa .fresh-pod-left-at-options button:focus-visible{outline:3px solid #f5a300;outline-offset:2px}
 .fresh-driver-pwa .fresh-mobile-pod .fresh-pod-send{background:#f5a300;color:#1a1f2b;border-color:#f5a300;min-height:52px}
-.fresh-driver-pwa .fresh-map-reference .marketplace-radar-map{touch-action:pan-y!important}
+.fresh-driver-pwa .fresh-map-reference .marketplace-radar-map{touch-action:none!important}
+
+/* Approved Quotes: two status tabs only; Loads section tabs remain on Loads. */
+.fresh-driver-pwa .fresh-quote-status-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;padding:5px;margin:0 0 10px;background:#fff;border:0;border-radius:9px}
+.fresh-driver-pwa .fresh-quote-status-tabs button{min-height:48px;background:#f0f2f5;border:0;border-radius:6px;color:#1a1f2b;font-size:16px;font-weight:600}
+.fresh-driver-pwa .fresh-quote-status-tabs button[aria-selected=true]{background:#eef0f3;border:0;color:#1a1f2b;font-weight:700}
+
+/* Loads Map: mobile-only viewport bounds, interactive gestures and no horizontal overflow. */
+.fresh-driver-pwa .fresh-map-view{min-width:0;max-width:100%;overflow-x:hidden}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-shell{min-width:0;max-width:100%}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-map{width:100%;max-width:100%;height:min(56dvh,510px);min-height:300px;touch-action:none}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-cluster{max-width:100%;overflow-x:hidden}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-cluster__row{min-width:0}
+.fresh-driver-pwa .fresh-map-view .marketplace-radar-cluster__actions{display:flex;flex-wrap:wrap}
+
+/* Reference parity: unread marketplace alert badge and grouped summary badges. */
+.fresh-driver-pwa .fresh-summary-badges{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.fresh-driver-pwa .fresh-new-badge{display:inline-flex;align-items:center;justify-content:center;min-height:22px;padding:2px 7px;border-radius:999px;background:#f5a300;color:#1a1f2b;font-size:12px;font-weight:800;line-height:16px}
+
+/* Reference-flow parity: multi-stop execution, delivery-departure details and post-POD availability. */
+.fresh-driver-pwa .fresh-booking-multistop-list{display:grid;gap:10px}
+.fresh-driver-pwa .fresh-booking-multistop-stop{border:1px solid #d7dde5;border-radius:14px;padding:12px;background:#fff;display:grid;gap:8px}
+.fresh-driver-pwa .fresh-booking-multistop-stop.completed{background:#f7fbf7}
+.fresh-driver-pwa .fresh-booking-multistop-head{display:flex;align-items:center;gap:10px}
+.fresh-driver-pwa .fresh-booking-multistop-head>span{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#0b2f6b;color:#fff;font-weight:800}
+.fresh-driver-pwa .fresh-booking-multistop-head>div{display:grid;gap:2px;flex:1}
+.fresh-driver-pwa .fresh-booking-multistop-head small{text-transform:capitalize;color:#6b7280}
+.fresh-driver-pwa .fresh-booking-multistop-head>b{font-size:22px;color:#16a34a}
+.fresh-driver-pwa .fresh-booking-stop-handover,.fresh-driver-pwa .fresh-booking-departure-form{display:grid;gap:10px}
+.fresh-driver-pwa .fresh-booking-stop-handover label,.fresh-driver-pwa .fresh-booking-departure-form label{display:grid;gap:5px;font-weight:700}
+.fresh-driver-pwa .fresh-booking-stop-handover input,.fresh-driver-pwa .fresh-booking-stop-handover textarea,.fresh-driver-pwa .fresh-booking-departure-form input,.fresh-driver-pwa .fresh-booking-departure-form textarea{width:100%;min-height:48px;border:1px solid #cbd5e1;border-radius:10px;padding:10px;font:inherit;background:#fff}
+.fresh-driver-pwa .fresh-booking-departure-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fresh-driver-pwa .fresh-booking-eta{border:1px solid #d7dde5;border-radius:12px;padding:10px}
+.fresh-driver-pwa .fresh-booking-eta legend{font-weight:800;padding:0 5px}
+.fresh-driver-pwa .fresh-booking-stop-blocked{font-size:13px;color:#6b7280}
+.fresh-driver-pwa .fresh-availability-prompt-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.fresh-driver-pwa .fresh-availability-prompt{width:min(100%,420px);background:#fff;border-radius:14px;padding:22px;text-align:center;box-shadow:0 18px 45px rgba(0,0,0,.25)}
+.fresh-driver-pwa .fresh-availability-prompt h2{margin:0 0 10px;font-size:20px}
+.fresh-driver-pwa .fresh-availability-prompt>div{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
+.fresh-driver-pwa .fresh-availability-prompt button{min-height:48px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;font-weight:800}
+.fresh-driver-pwa .fresh-availability-prompt button.primary{background:#16a34a;color:#fff;border-color:#16a34a}
+.fresh-driver-pwa .fresh-call-button{display:inline-flex;margin-left:8px;padding:5px 10px;border-radius:8px;background:#f5a300;color:#1a1f2b;font-weight:800;text-decoration:none}
+.fresh-driver-pwa .fresh-delete-load{border-color:#ef4444!important;color:#b91c1c!important}
+@media(max-width:390px){.fresh-driver-pwa .fresh-booking-departure-grid{grid-template-columns:1fr}}
+
+.fresh-driver-pwa .fresh-document-scanner{position:fixed;inset:0;z-index:1100;background:#fff;display:flex;flex-direction:column;padding:0 14px 18px;overflow:auto}
+.fresh-driver-pwa .fresh-document-scanner>header{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:48px 1fr 48px;align-items:center;min-height:64px;background:#f5a300;border-bottom:1px solid #e5e7eb;margin:0 -14px 14px;padding:0 14px}
+.fresh-driver-pwa .fresh-document-scanner>header h2{margin:0;text-align:center;font-size:20px}
+.fresh-driver-pwa .fresh-document-scanner>header button{border:0;background:transparent;font-size:30px;line-height:1}
+.fresh-driver-pwa .fresh-document-scan-pages{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:start}
+.fresh-driver-pwa .fresh-document-scan-pages figure{position:relative;margin:0;border:1px solid #9ca3af;min-height:180px;background:#f4f6f8;overflow:hidden}
+.fresh-driver-pwa .fresh-document-scan-pages figure img{width:100%;height:180px;object-fit:cover;display:block}
+.fresh-driver-pwa .fresh-document-scan-pages figure figcaption{position:absolute;left:0;right:0;bottom:0;padding:4px;text-align:center;background:rgba(0,0,0,.65);color:#fff;font-weight:800}
+.fresh-driver-pwa .fresh-document-scan-pages figure button{position:absolute;top:6px;right:6px;width:34px;height:34px;border-radius:50%;border:0;background:rgba(255,255,255,.92);font-size:22px}
+.fresh-driver-pwa .fresh-document-add-page{min-height:180px;border:1px solid #9ca3af;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-weight:800;font-size:16px}
+.fresh-driver-pwa .fresh-document-add-page b{font-size:34px}
+.fresh-driver-pwa .fresh-document-scan-complete{margin-top:auto!important;min-height:56px!important;position:sticky;bottom:0}
+
+.fresh-driver-pwa .fresh-quote-outcome{display:inline-flex;width:max-content;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:800;text-transform:uppercase;background:#e5e7eb;color:#374151}
+.fresh-driver-pwa .fresh-quote-outcome.unsuccessful,.fresh-driver-pwa .fresh-quote-outcome.cancelled{background:#fee2e2;color:#b91c1c}
+.fresh-driver-pwa .fresh-quote-outcome.sold{background:#ffe4e6;color:#be123c}
+.fresh-driver-pwa .fresh-quote-outcome.submitted{background:#dbeafe;color:#1d4ed8}

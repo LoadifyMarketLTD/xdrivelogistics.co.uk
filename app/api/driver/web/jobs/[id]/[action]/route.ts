@@ -46,6 +46,51 @@ const isMissingJobStopsRelation = (
   return (error.code === '42P01' || error.code === 'PGRST205') && text.includes('job_stops');
 };
 
+async function loadOrderedStops(jobId: string) {
+  const { data, error } = await supabaseAdmin!
+    .from('job_stops')
+    .select('id,sequence,stop_type,status')
+    .eq('job_id', jobId)
+    .order('sequence', { ascending: true });
+  if (error) {
+    if (isMissingJobStopsRelation(error)) return { stops: [] as Array<{id:string;sequence:number;stop_type:string;status:string|null}>, error: null };
+    return { stops: [], error: respond(503, { error: 'Multi-drop stop state could not be verified. Please retry.' }) };
+  }
+  return { stops: (data ?? []) as Array<{id:string;sequence:number;stop_type:string;status:string|null}>, error: null };
+}
+
+async function requirePrimaryCollectionComplete(jobId: string) {
+  const result=await loadOrderedStops(jobId);
+  if(result.error)return result.error;
+  const firstCollection=result.stops.find(stop=>stop.stop_type==='collection');
+  if(firstCollection&&!terminalStopStatuses.has(String(firstCollection.status??'pending').toLowerCase())){
+    return respond(409,{error:'Complete the first collection stop before confirming Loaded.'});
+  }
+  return null;
+}
+
+async function requireCollectionsComplete(jobId: string) {
+  const result=await loadOrderedStops(jobId);
+  if(result.error)return result.error;
+  const incomplete=result.stops.filter(stop=>stop.stop_type==='collection'&&!terminalStopStatuses.has(String(stop.status??'pending').toLowerCase()));
+  if(incomplete.length){
+    return respond(409,{error:'Complete all collection stops before starting the delivery journey.',remainingCollectionStops:incomplete.length});
+  }
+  return null;
+}
+
+async function requireFinalDeliveryArrivalReady(jobId: string) {
+  const result=await loadOrderedStops(jobId);
+  if(result.error)return result.error;
+  const finalDelivery=[...result.stops].reverse().find(stop=>stop.stop_type==='delivery');
+  if(!finalDelivery)return null;
+  const blocked=result.stops.filter(stop=>stop.sequence<finalDelivery.sequence&&!terminalStopStatuses.has(String(stop.status??'pending').toLowerCase()));
+  if(blocked.length){
+    return respond(409,{error:'Complete the earlier stops before arriving at the final delivery.',remainingStops:blocked.length});
+  }
+  return null;
+}
+
 async function requireMultiDropFinalizationReady(jobId: string) {
   const { data, error } = await supabaseAdmin!
     .from('job_stops')
@@ -101,6 +146,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const existingJob = existing as unknown as MobileJobRow;
+  if (action === 'loaded') {
+    const stopGate=await requirePrimaryCollectionComplete(id);
+    if(stopGate)return stopGate;
+  }
+  if (action === 'on-my-way-delivery') {
+    const stopGate=await requireCollectionsComplete(id);
+    if(stopGate)return stopGate;
+  }
+  if (action === 'arrived-delivery') {
+    const stopGate=await requireFinalDeliveryArrivalReady(id);
+    if(stopGate)return stopGate;
+  }
   if (action === 'loaded' && (!existingJob.collection_handover || typeof existingJob.collection_handover !== 'object')) {
     return respond(409, { error: 'Complete the collection handover before marking the job loaded.' });
   }

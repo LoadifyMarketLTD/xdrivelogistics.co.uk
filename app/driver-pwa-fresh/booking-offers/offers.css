@@ -52,3 +52,8 @@
 .fresh-offer-invitation-hero p{font-size:14px;line-height:20px;color:#1a1f2b;margin:0}
 .fresh-offer-invitation-hero .fresh-offer-pending{display:inline-flex}
 
+
+/* Compact, readable booking-offer errors on physical mobile screens. */
+.fresh-driver-pwa .fresh-offer-error{padding:12px 14px;margin:0 0 10px;text-align:left;border:1px solid #f3c4c4;background:#fff7f7;color:#8c2530;display:grid;gap:10px}
+.fresh-driver-pwa .fresh-offer-error p{font-size:13px;line-height:19px;margin:0;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-offer-error button{min-height:42px;justify-self:start;padding:0 14px;border:1px solid #bd5661;border-radius:7px;color:#8c2530;background:white;font-weight:700}

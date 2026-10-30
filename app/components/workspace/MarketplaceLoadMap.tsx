@@ -119,7 +119,7 @@ export default function MarketplaceLoadMap({
   const clusters = useMemo<RadarCluster[]>(() => {
     const grouped = new Map<string, RadarCluster>();
     for (const load of locatedLoads) {
-      const key = `${load.coordinates.lat.toFixed(3)}:${load.coordinates.lng.toFixed(3)}`;
+      const key = `${load.coordinates.lat.toFixed(2)}:${load.coordinates.lng.toFixed(2)}`;
       const current = grouped.get(key);
       if (current) current.loads.push(load);
       else grouped.set(key, { key, coordinates: load.coordinates, loads: [load] });
@@ -147,7 +147,7 @@ export default function MarketplaceLoadMap({
 
       mapRef.current?.remove();
       const first = clusters[0].coordinates;
-      const map = L.map(containerRef.current, { center: [first.lat, first.lng], zoom: 7, scrollWheelZoom: allowTouchDrag, dragging: allowTouchDrag, touchZoom: allowTouchDrag });
+      const map = L.map(containerRef.current, { center: [first.lat, first.lng], zoom: 7, scrollWheelZoom: allowTouchDrag, dragging: allowTouchDrag, touchZoom: allowTouchDrag, doubleClickZoom: true, zoomControl: true });
       mapRef.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

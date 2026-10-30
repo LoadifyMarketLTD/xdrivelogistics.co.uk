@@ -59,6 +59,49 @@ export async function undoWebDriverStatus(request: NextRequest, id: string, driv
   const previous = previousStatus[current];
   if (!previous) return respond(409, { error: 'This booking status cannot be undone.' });
 
+  type StopRollback={id:string;status:string;arrived_at:string|null;completed_at:string|null};
+  let stopRollback:StopRollback|null=null;
+  if(['on_site_pickup','loaded','on_site_delivery'].includes(current)){
+    const {data:stops,error:stopsError}=await supabaseAdmin!
+      .from('job_stops')
+      .select('id,stop_type,sequence,status,arrived_at,completed_at')
+      .eq('job_id',id)
+      .order('sequence',{ascending:true});
+    const missingRelation=Boolean(stopsError)&&['42P01','PGRST205'].includes(String(stopsError?.code??''));
+    if(stopsError&&!missingRelation)return respond(503,{error:'Booking stop state could not be verified before undo.'});
+    if(!stopsError){
+      const rows=(stops??[]) as Array<{id:string;stop_type:string;sequence:number;status:string|null;arrived_at:string|null;completed_at:string|null}>;
+      const candidate=current==='on_site_delivery'
+        ? [...rows].reverse().find(stop=>stop.stop_type==='delivery'&&String(stop.status).toLowerCase()==='arrived')
+        : rows.find(stop=>stop.stop_type==='collection'&&String(stop.status).toLowerCase()===(current==='loaded'?'completed':'arrived'));
+      if(candidate){
+        const targetStatus=current==='loaded'?'arrived':'pending';
+        const update:Record<string,unknown>={status:targetStatus,updated_at:new Date().toISOString()};
+        if(current==='loaded')update.completed_at=null;
+        else update.arrived_at=null;
+        const {data:rolled,error:rollbackError}=await supabaseAdmin!
+          .from('job_stops')
+          .update(update)
+          .eq('id',candidate.id)
+          .eq('status',candidate.status)
+          .select('id')
+          .maybeSingle();
+        if(rollbackError)return respond(500,{error:'Booking stop could not be rolled back.'});
+        if(!rolled)return respond(409,{error:'Booking stop changed while undoing. Reload and retry.'});
+        stopRollback={id:candidate.id,status:String(candidate.status),arrived_at:candidate.arrived_at,completed_at:candidate.completed_at};
+      }
+    }
+  }
+  const restoreStopRollback=async()=>{
+    if(!stopRollback)return;
+    await supabaseAdmin!.from('job_stops').update({
+      status:stopRollback.status,
+      arrived_at:stopRollback.arrived_at,
+      completed_at:stopRollback.completed_at,
+      updated_at:new Date().toISOString(),
+    }).eq('id',stopRollback.id);
+  };
+
   const now = new Date().toISOString();
   const update: Record<string, unknown> = {
     status: previous,
@@ -87,8 +130,8 @@ export async function undoWebDriverStatus(request: NextRequest, id: string, driv
     ? mutation.is('current_status', null)
     : mutation.eq('current_status', rawCurrent);
   const { data: updated, error: updateError } = await mutation.select(jobSelect).maybeSingle();
-  if (updateError) return respond(500, { error: 'Booking undo could not be saved.' });
-  if (!updated) return respond(409, { error: 'Booking changed while undoing. Reload and check its status.' });
+  if (updateError) { await restoreStopRollback(); return respond(500, { error: 'Booking undo could not be saved.' }); }
+  if (!updated) { await restoreStopRollback(); return respond(409, { error: 'Booking changed while undoing. Reload and check its status.' }); }
 
   await insertTrackingEvent(id, driver.userId, 'note', `Driver undid status ${current} to ${previous}.`)
     .catch(() => undefined);

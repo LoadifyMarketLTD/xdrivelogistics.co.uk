@@ -1,5 +1,14 @@
 import {test,expect} from '@playwright/test';
 
+import {readFileSync} from 'node:fs';
+const credentialsSource=process.env.E2E_OWNER_TEST_ENV_FILE;
+if(credentialsSource){
+ const contents=readFileSync(credentialsSource,'utf8');
+ for(const rawLine of contents.split(/\r?\n/)){
+  const match=rawLine.match(/^\s*(E2E_OWNER_DRIVER_EMAIL|E2E_OWNER_DRIVER_PASSWORD)=(.*)$/);
+  if(match)process.env[match[1].replace('E2E_OWNER_DRIVER_','E2E_LIFECYCLE_DRIVER_')]=match[2].trim().replace(/^['\"]|['\"]$/g,'');
+ }
+}
 const companyAccount=process.env.E2E_AUTH_DRIVER_VARIANT==='company';
 const email=companyAccount?process.env.E2E_COMPANY_DRIVER_EMAIL||'':process.env.E2E_LIFECYCLE_DRIVER_EMAIL||'';
 const password=companyAccount?process.env.E2E_COMPANY_DRIVER_PASSWORD||'':process.env.E2E_LIFECYCLE_DRIVER_PASSWORD||'';
@@ -34,7 +43,12 @@ test.describe('Driver PWA read-only authenticated journey - never writes jobs',(
    await expect(page.locator('body')).not.toContainText('Login service unavailable');
    await expect(page.locator('body')).not.toContainText('The driver marketplace is temporarily unavailable.');
    if(route==='/driver-pwa-fresh/bookings')await expect(page.getByText('Loading bookings...')).toBeHidden({timeout:30000});
-   if(route==='/driver-pwa-fresh/quotes'){await expect(page.getByText(/Loading quotes/i)).toBeHidden({timeout:30000}).catch(async err=>{console.log('QUOTES_API_DIAGNOSTICS',JSON.stringify(apiResults));console.log('QUOTES_UI_DIAGNOSTICS',(await page.locator('main').innerText()).slice(0,180));throw err;});}
+   if(route==='/driver-pwa-fresh/quotes'){
+    await expect(page.getByText(/Loading quotes/i)).toBeHidden({timeout:30000});
+    console.log('QUOTES_UI_AFTER_LOADING',(await page.locator('main').innerText()).slice(0,350));
+    expect(apiResults['/api/driver/marketplace/loads']||[],'Quote-history API must return HTTP 200, not merely stop spinning').toContain(200);
+    await expect(page.locator('main [role="alert"]')).toHaveCount(0);
+   }
    if(route==='/driver-pwa-fresh/booking-offers')await expect(page.getByText('Loading awarded jobs...')).toBeHidden({timeout:30000});
    await page.waitForTimeout(700);
    await page.screenshot({path:'automation/logs/driver-pwa-auth-'+route.split('/').pop()+'.png'});

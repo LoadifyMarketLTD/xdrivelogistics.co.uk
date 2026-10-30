@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import {useAuth} from '../../components/AuthContext';
 import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
+import FreshSectionTabs from '../FreshSectionTabs';
 import {getLoadDetailSections} from '../../../lib/loadPostingDetails';
 import {navigationDestination,navigationUrl,isAreaOnlyStop} from '../../../lib/jobs/driverNavigationLinks';
 import './offers.css';
@@ -24,7 +25,7 @@ type Offer={
 };
 type Response={offers?:Offer[];error?:string};
 const showDate=(value:string|null|undefined)=>{if(!value)return null;const date=new Date(value);return Number.isFinite(date.getTime())?date.toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):null};
-const fmtMoney=(amount:number,currency:string|null)=>{try{return new Intl.NumberFormat('en-GB',{style:'currency',currency:currency||'GBP'}).format(amount)}catch{return '┬ú'+amount.toFixed(2)}};
+const fmtMoney=(amount:number,currency:string|null)=>{try{return new Intl.NumberFormat('en-GB',{style:'currency',currency:currency||'GBP'}).format(amount)}catch{return '£'+amount.toFixed(2)}};
 const place=(location?:string|null,town?:string|null,postcode?:string|null)=>[location,town,postcode].filter((v,i,a)=>Boolean(v)&&a.findIndex(t=>t?.trim().toLowerCase()===v?.trim().toLowerCase())===i).join(', ');
 
 export default function BookingOffersPage(){
@@ -62,8 +63,9 @@ export default function BookingOffersPage(){
   finally{setBusy('');}
  };
  return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content fresh-offer-page" data-testid="driver-booking-offers">
-  <div className="fresh-offer-top"><Link href="/driver-pwa-fresh/bookings">ÔÇ╣ Back to Bookings</Link><h1>Received Booking</h1><p>New job awarded to you. Review the complete booking before accepting responsibility for the transport.</p></div>
-  {error&&<div className="fresh-message" role="alert">{error}<button type="button" onClick={()=>void refresh()}>Retry</button></div>}
+  <FreshSectionTabs />
+  <div className="fresh-offer-top"><Link href="/driver-pwa-fresh/bookings">← Back to Bookings</Link><h1>Received Booking</h1><p>New job awarded to you. Review the complete booking before accepting responsibility for the transport.</p></div>
+  {error&&<div className="fresh-message fresh-offer-error" role="alert"><p>{error}</p><button type="button" onClick={()=>void refresh()}>Retry loading bookings</button></div>}
   {notice&&<div className="fresh-offer-notice" role="status">{notice}<Link href="/driver-pwa-fresh/bookings">View Bookings</Link></div>}
   {loading?<p className="fresh-message" role="status">Loading awarded jobs...</p>:!error&&offers.length===0?<div className="fresh-message">No jobs currently awaiting acceptance. <Link href="/driver-pwa-fresh/bookings">Return to Bookings</Link></div>:offers.map(offer=>{
    const job=offer.job;
