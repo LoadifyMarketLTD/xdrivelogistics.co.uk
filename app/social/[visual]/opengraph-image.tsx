@@ -53,7 +53,7 @@ function PricingPreview() {
               <div style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '0.11em', color: '#F5A300' }}>XDRIVE MEMBERSHIP</div>
               <div style={{ marginTop: '10px', fontSize: '20px', fontWeight: 900 }}>{name}</div>
               <div style={{ marginTop: '18px', fontSize: '31px', fontWeight: 900 }}>{price}<span style={{ marginLeft: '6px', fontSize: '11px', color: '#F4F6F8' }}>/ month + VAT</span></div>
-              <div style={{ marginTop: '14px', display: 'flex', width: 'fit-content', borderRadius: '999px', border: '1px solid rgba(245,163,0,.45)', background: 'rgba(245,163,0,.10)', padding: '6px 9px', fontSize: '10px', fontWeight: 900, color: '#F5A300' }}>FIRST 3 MONTHS FREE</div>
+              <div style={{ marginTop: '14px', display: 'flex', alignSelf: 'flex-start', borderRadius: '999px', border: '1px solid rgba(245,163,0,.45)', background: 'rgba(245,163,0,.10)', padding: '6px 9px', fontSize: '10px', fontWeight: 900, color: '#F5A300' }}>FIRST 3 MONTHS FREE</div>
             </div>
           ))}
         </div>

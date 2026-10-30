@@ -80,11 +80,11 @@ export async function GET(request: NextRequest) {
             <div style={{ fontSize: '18px', fontWeight: 900, color: visual.accent, letterSpacing: '0.12em', textTransform: 'uppercase' }}>{kicker}</div>
           </div>
           <div style={{ marginTop: '20px', fontSize: title.length > 74 ? '49px' : '58px', lineHeight: 1.04, fontWeight: 900, letterSpacing: '-0.035em' }}>{title}</div>
-          <div style={{ marginTop: '20px', display: 'flex', width: 'fit-content', borderRadius: '999px', border: `1px solid ${visual.accent}`, padding: '9px 15px', fontSize: '14px', fontWeight: 900, color: visual.accent }}>{visual.label.toUpperCase()}</div>
+          <div style={{ marginTop: '20px', display: 'flex', alignSelf: 'flex-start', borderRadius: '999px', border: `1px solid ${visual.accent}`, padding: '9px 15px', fontSize: '14px', fontWeight: 900, color: visual.accent }}>{visual.label.toUpperCase()}</div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.16)', paddingTop: '22px', position: 'relative' }}>
-          <div style={{ fontSize: '19px', fontWeight: 800, color: '#F4F6F8' }}>Move Freight. Manage Operations. <span style={{ color: '#F5A300' }}>Grow Your Network.</span></div>
+          <div style={{ display: 'flex', fontSize: '19px', fontWeight: 800, color: '#F4F6F8' }}>Move Freight. Manage Operations. <span style={{ color: '#F5A300' }}>Grow Your Network.</span></div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#F4F6F8' }}>XDrive Logistics Ltd · UK</div>
         </div>
       </div>

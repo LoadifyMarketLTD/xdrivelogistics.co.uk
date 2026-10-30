@@ -93,3 +93,16 @@ Follow-up verification results
 - npm run build: PASS (BUILD_EXIT=0)
 - dynamic OG routes compile as edge routes
 - full unit suite is known to contain unrelated baseline failures from the preceding brand integration run; no OG-specific unit suite exists, so live runtime rendering is the acceptance test for this follow-up.
+
+Final social-card renderer remediation
+- Root cause of /api/social-card 500: Satori/ImageResponse rejected width: fit-content and a mixed text/span div without explicit flex display.
+- Remediation: replaced fit-content with alignSelf:flex-start and added explicit display:flex to mixed text/span footer.
+- Local runtime verification:
+  - /social-page/home/opengraph-image: HTTP 200
+  - /social/platform/opengraph-image: HTTP 200
+  - /api/social-card?...: HTTP 200
+- Visual inspection: canonical XD mark, XDrive Logistics branding, official navy/blue/orange palette rendered correctly.
+- Post-remediation protected gate: PASS
+- Post-remediation lint: PASS
+- Post-remediation typecheck: PASS
+- Post-remediation production build: PASS (BUILD_EXIT=0)
