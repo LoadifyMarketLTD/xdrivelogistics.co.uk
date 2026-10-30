@@ -97,38 +97,63 @@ function AwardConfirmation({
         </>
       }
     >
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid #e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
-        {[
-          ['Carrier', candidate.displayName],
-          ['Named driver', candidate.identity?.personName ?? 'Name not available — review member profile'],
-          ['Member ID', candidate.identity?.memberId ?? 'Not supplied'],
-          ['Business contact', candidate.identity?.businessPhone ?? 'Not supplied'],
-          ['Quote scope', candidate.identity?.quoteLevel === 'driver' ? 'Named driver / owner driver' : 'Company / fleet'],
-          ['Availability', candidate.identity?.driverAvailability?.replaceAll('_', ' ') ?? (candidate.identity?.quoteLevel === 'driver' ? 'Not supplied' : 'Company quote')],
-          ['Driver vehicle', candidate.identity?.driverVehicleType ? `${candidate.identity.driverVehicleType.replaceAll('_', ' ')}${candidate.identity.driverVehicleTailLift ? ' · Tail lift' : ''}${candidate.identity.driverVehiclePallets != null ? ` · ${candidate.identity.driverVehiclePallets} pallets` : ''}` : 'Not linked'],
-          ['Fleet capability', candidate.identity?.fleetVehicleTypes.length ? candidate.identity.fleetVehicleTypes.map((type) => type.replaceAll('_', ' ')).join(', ') : 'Not listed'],
-          ['Specialist services', candidate.identity?.specialistServices.length ? candidate.identity.specialistServices.join(', ') : 'Not listed'],
-          ['Agreed quote', money(Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0), candidate.bid.currency ?? 'GBP')],
-          ['Route', routeLabel(candidate.job)],
-          ['Pickup', when(candidate.job.pickup_datetime)],
-          ['Delivery', when(candidate.job.delivery_datetime)],
-          ['Vehicle', (candidate.job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')],
-          ['Load ref', `XDL-${candidate.job.id.slice(0, 8).toUpperCase()}`],
-        ].map(([label, value]) => (
-          <div key={label} style={{ minHeight: 54, padding: '8px 9px', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-            <span style={{ display: 'block', color: '#64748b', fontSize: 11, lineHeight: '14px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
-            <strong style={{ display: 'block', marginTop: 3, color: '#0f172a', fontSize: 12, lineHeight: '16px' }}>{value}</strong>
+      <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'grid', gap: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '.06em' }}>BOOKING OFFER Â· XDL-{candidate.job.id.slice(0, 8).toUpperCase()}</span>
+            <strong style={{ fontSize: 17, lineHeight: '22px', color: '#0b2f6b' }}>Review &amp; Confirm</strong>
           </div>
-        ))}
-      </div>
-      <section aria-label="Carrier trust and verification" style={{ padding: 12, border: '1px solid #bfdbfe', borderRadius: 5, background: '#eff6ff', display: 'grid', gap: 7 }}>
-        <strong style={{ fontSize: 13, color: '#0b2f6b' }}>Carrier trust &amp; verification</strong>
-        <span style={{ fontSize: 12, color: '#334155', lineHeight: '18px' }}>Review the carrier identity, member since date, feedback, and available business documents before entrusting your load. A vehicle or membership listing is not proof that all documents are verified.</span>
-        <div style={{ fontSize: 12, fontWeight: 700 }}>
-          <MemberIdentityLink companyId={candidate.isOwnerDriverBid ? null : candidate.identity?.companyId ?? null} driverId={candidate.isOwnerDriverBid ? candidate.identity?.driverId ?? null : null} title="View carrier profile, feedback and documents">View carrier profile · Feedback · Documents</MemberIdentityLink>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#64748b' }}>AGREED QUOTE</span>
+            <strong style={{ fontSize: 23, color: '#16a34a' }}>{money(Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0), candidate.bid.currency ?? 'GBP')}</strong>
+          </div>
         </div>
-        <span style={{ color: '#64748b', fontSize: 11 }}>No rating, completed-job count or verification badge is displayed without verified records.</span>
-      </section>
+        <section aria-label="Transport route and schedule" style={{ background: '#f4f6f8', borderRadius: 8, padding: 13, display: 'grid', gap: 11 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'start' }}>
+            <span aria-hidden="true" style={{ color: '#1d57d8', fontSize: 18 }}>â—</span>
+            <div style={{ display: 'grid', gap: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>COLLECTION Â· {when(candidate.job.pickup_datetime)}</span>
+              <strong style={{ color: '#1a1f2b', fontSize: 14 }}>{candidate.job.pickup_postcode ?? candidate.job.pickup_location ?? 'Collection not supplied'}</strong>
+            </div>
+          </div>
+          <div style={{ borderLeft: '2px solid #cbd5e1', marginLeft: 8, paddingLeft: 18, fontSize: 11, color: '#64748b' }}>
+            {(candidate.identity?.driverVehicleType ?? candidate.job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' ')}
+            {candidate.identity?.driverVehicleTailLift ? ' Â· Tail lift' : ''}
+            {candidate.identity?.driverVehiclePallets != null ? ` Â· ${candidate.identity.driverVehiclePallets} pallets` : ''}
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'start' }}>
+            <span aria-hidden="true" style={{ color: '#f5a300', fontSize: 18 }}>â—</span>
+            <div style={{ display: 'grid', gap: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>DELIVERY Â· {when(candidate.job.delivery_datetime)}</span>
+              <strong style={{ color: '#1a1f2b', fontSize: 14 }}>{candidate.job.delivery_postcode ?? candidate.job.delivery_location ?? 'Delivery not supplied'}</strong>
+            </div>
+          </div>
+        </section>
+        <section aria-label="Selected carrier" style={{ display: 'grid', gap: 9 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+            <strong style={{ fontSize: 13, color: '#0b2f6b' }}>Selected carrier</strong>
+            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>{candidate.identity?.quoteLevel === 'driver' ? 'OWNER DRIVER' : 'COMPANY / FLEET'}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div aria-hidden="true" style={{ width: 43, height: 43, flexShrink: 0, borderRadius: 9, background: '#e8effb', color: '#0b2f6b', display: 'grid', placeItems: 'center', fontSize: 21 }}>â™™</div>
+            <div style={{ display: 'grid', gap: 3, minWidth: 0 }}>
+              <strong style={{ color: '#1a1f2b', fontSize: 14 }}>{candidate.identity?.personName || candidate.displayName}</strong>
+              <span style={{ color: '#64748b', fontSize: 11 }}>{candidate.identity?.companyName || 'Carrier name not supplied'} Â· {candidate.identity?.memberId ?? 'Member ID not supplied'}</span>
+              <span style={{ color: '#64748b', fontSize: 11 }}>{candidate.identity?.businessPhone ?? 'Business contact not supplied'} Â· {candidate.identity?.driverAvailability?.replaceAll('_', ' ') ?? 'Availability not supplied'}</span>
+            </div>
+          </div>
+        </section>
+        <section aria-label="Carrier credentials" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+          <span aria-hidden="true" style={{ color: '#1d57d8', fontSize: 19 }}>â—‡</span>
+          <div style={{ flex: 1, display: 'grid', gap: 2 }}>
+            <strong style={{ color: '#1a1f2b', fontSize: 12 }}>Carrier credentials</strong>
+            <span style={{ color: '#64748b', fontSize: 11 }}>Member history Â· Feedback Â· Documents</span>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 700 }}>
+            <MemberIdentityLink companyId={candidate.isOwnerDriverBid ? null : candidate.identity?.companyId ?? null} driverId={candidate.isOwnerDriverBid ? candidate.identity?.driverId ?? null : null} title="View carrier credentials and feedback">View profile</MemberIdentityLink>
+          </div>
+        </section>
+      </div>
       {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 11, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
       <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
         <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
