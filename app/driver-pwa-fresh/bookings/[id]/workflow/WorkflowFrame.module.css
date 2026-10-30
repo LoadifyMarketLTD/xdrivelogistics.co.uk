@@ -1,0 +1,23 @@
+.page{min-height:100%;background:#f4f6f8;color:#1a1f2b;padding-bottom:86px}
+.header{min-height:56px;display:grid;grid-template-columns:44px 1fr 44px;align-items:center;padding:0 10px;background:#f5a300;border-bottom:1px solid rgba(26,31,43,.12)}
+.header button{width:44px;height:44px;border:0;background:transparent;color:#1a1f2b;font-size:34px;line-height:1;cursor:pointer}
+.header h1{margin:0;text-align:center;font-size:18px;line-height:24px;font-weight:800}
+.header>span{width:44px;height:44px}
+.content{display:grid;gap:10px;padding:12px}
+.card{background:#fff;border:1px solid #e2e7ec;border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.04);overflow:hidden}
+.hero{padding:13px 14px}
+.heroTop{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.heroTop small{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#526d90;font-size:11px;font-weight:750}
+.heroTop span{flex:0 0 auto;padding:4px 7px;border-radius:999px;background:#fff2d5;color:#7c5200;font-size:10px;font-weight:800;text-transform:uppercase}
+.hero h2{margin:8px 0 10px;color:#0b2f6b;font-size:19px;line-height:25px;font-weight:800}
+.financials{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding-top:10px;border-top:1px solid #edf0f3}
+.financials div{display:grid;gap:2px}
+.financials small{color:#6b7280;font-size:11px;font-weight:650}
+.financials strong{color:#0b2f6b;font-size:15px;line-height:20px}
+.cardTitle{margin:0;padding:12px 14px 8px;color:#0b2f6b;font-size:14px;line-height:20px;font-weight:800}
+.primary{width:calc(100% - 28px);min-height:50px;margin:0 14px 14px;border:0;border-radius:10px;background:#16a34a;color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+.primary:disabled{opacity:.6;cursor:default}
+.secondaryLink{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 14px;border:1px solid #c9dced;border-radius:9px;background:#eef6fd;color:#0b57a5;text-decoration:none;font-size:13px;font-weight:750}
+.error,.success{margin:10px 0 0;padding:8px 10px;border-radius:9px;font-size:13px;line-height:18px}
+.error{background:#fff0ef;color:#a61b1b}
+.success{background:#eef9f1;color:#176b37}

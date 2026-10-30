@@ -12,6 +12,7 @@ import { useAuth } from '../AuthContext';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
 import BookingDetailsStep from '../../driver-pwa-fresh/bookings/[id]/workflow/BookingDetailsStep';
+import OnMyWayToPickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnMyWayToPickupStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
 
 const statusLabel: Record<string, string> = {
@@ -789,6 +790,28 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         onBack={()=>router.push('/driver-pwa-fresh/bookings')}
         onMessage={()=>router.push('/driver/messages?jobId='+encodeURIComponent(job.id))}
         onNext={()=>void moveStatus('on_my_way')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===2 && currentStatus==='on_my_way') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <OnMyWayToPickupStep
+        bookingReference={sheet?.bookingReference??sheet?.reference??job.id.slice(0,8).toUpperCase()}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        map={<BookingRouteMap pickup={stops[0].postcode} delivery={stops[1].postcode} focus="pickup"/>}
+        address={navigationDestination(stops[0].place,stops[0].postcode) || 'Collection address unavailable'}
+        schedule={stops[0].at?formatDateTime(stops[0].at):'Collection time not supplied'}
+        contactName={stops[0].contactName}
+        phone={stops[0].phone}
+        instructions={stops[0].notes??sheet?.executionInstructions??null}
+        navigateHref={navigationUrl(stops[0].place,stops[0].postcode,'navigate')}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onNext={()=>void moveStatus('on_site_pickup')}
       />;
     }
     return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>
