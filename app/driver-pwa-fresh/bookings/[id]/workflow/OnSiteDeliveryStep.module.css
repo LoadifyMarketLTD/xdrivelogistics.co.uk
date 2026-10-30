@@ -1,0 +1,26 @@
+.delivery{display:grid;grid-template-columns:24px minmax(0,1fr);gap:9px;padding:0 12px 12px}
+.pin{width:15px;height:15px;margin:3px auto 0;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#f5a300}
+.delivery>div{display:grid;gap:3px}
+.delivery strong{font-size:14px;line-height:20px;color:#1a1f2b}
+.delivery span,.delivery a{font-size:12px;line-height:17px;font-weight:650;color:#526d90}
+.delivery a{color:#0b57a5;text-decoration:none}
+.steppers{display:grid;gap:10px;padding:0 12px 12px}
+.steppers label{display:grid;gap:5px}
+.steppers label>span{color:#526d90;font-size:11px;font-weight:800}
+.steppers label>div{display:grid;grid-template-columns:42px minmax(0,1fr) 42px;gap:7px}
+.steppers button,.steppers input{min-height:42px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#1a1f2b;font:inherit;font-size:14px;font-weight:750;text-align:center}
+.steppers button{cursor:pointer;color:#0b57a5;background:#eef6fd;font-size:20px}
+.gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:0 12px 8px}
+.photo,.addPhoto{position:relative;aspect-ratio:1/1;min-height:58px;overflow:hidden;border:1px solid #d7dde5;border-radius:9px;background:#eef2f6;display:grid;place-items:center;color:#526d90;font-size:10px;font-weight:750;text-align:center}
+.photo img{width:100%;height:100%;object-fit:cover}
+.photo b{position:absolute;inset:0;display:grid;place-items:center;background:rgba(11,47,107,.66);color:#fff;font-size:18px}
+.addPhoto{cursor:pointer;background:#eef6fd;color:#0b57a5}
+.addPhoto span{font-size:23px;line-height:1}
+.addPhoto small{font-size:9px;font-weight:750}
+.addPhoto input{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}
+.photoHint{margin:0;padding:0 12px 10px;color:#7b8492;font-size:10px;line-height:14px}
+.notes{display:grid;gap:4px;padding:0 12px 8px}
+.notes textarea{width:100%;box-sizing:border-box;min-height:66px;resize:vertical;border:1px solid #cbd5e1;border-radius:9px;padding:8px 9px;color:#1a1f2b;font:inherit;font-size:12px;line-height:17px}
+.notes small{text-align:right;color:#7b8492;font-size:10px}
+.draftState{padding:0 12px 8px;color:#526d90;font-size:10px;line-height:14px}
+@media(max-width:340px){.gallery{grid-template-columns:repeat(3,minmax(0,1fr))}}
