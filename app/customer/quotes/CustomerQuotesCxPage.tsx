@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
-import { BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT } from '../../../lib/legal/paymentObligation';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
+import BookingConfirmationFullPage from './BookingConfirmationFullPage';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxQuoteCard from '../../components/workspace/CxQuoteCard';
@@ -84,86 +84,34 @@ function AwardConfirmation({
   onConfirm: () => void;
 }) {
   return (
-    <WorkspaceDialog
-      ariaLabel="Confirm booking offer"
-      title="Confirm booking offer"
-      description="Review the selected carrier, price and load before sending the booking offer for carrier acceptance."
-      onDismiss={onCancel}
-      dismissDisabled={working}
-      actions={
-        <>
-          <ActionButton tone="secondary" disabled={working} onClick={onCancel}>Cancel</ActionButton>
-          <ActionButton tone="success" disabled={working} onClick={onConfirm}>{working ? 'Sending…' : 'Send Booking Offer'}</ActionButton>
-        </>
-      }
-    >
-      <div style={{ display: 'grid', gap: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'grid', gap: 4 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '.06em' }}>BOOKING OFFER Â· XDL-{candidate.job.id.slice(0, 8).toUpperCase()}</span>
-            <strong style={{ fontSize: 17, lineHeight: '22px', color: '#0b2f6b' }}>Review &amp; Confirm</strong>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#64748b' }}>AGREED QUOTE</span>
-            <strong style={{ fontSize: 23, color: '#16a34a' }}>{money(Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0), candidate.bid.currency ?? 'GBP')}</strong>
-          </div>
-        </div>
-        <section aria-label="Transport route and schedule" style={{ background: '#f4f6f8', borderRadius: 8, padding: 13, display: 'grid', gap: 11 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'start' }}>
-            <span aria-hidden="true" style={{ color: '#1d57d8', fontSize: 18 }}>â—</span>
-            <div style={{ display: 'grid', gap: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>COLLECTION Â· {when(candidate.job.pickup_datetime)}</span>
-              <strong style={{ color: '#1a1f2b', fontSize: 14 }}>{candidate.job.pickup_postcode ?? candidate.job.pickup_location ?? 'Collection not supplied'}</strong>
-            </div>
-          </div>
-          <div style={{ borderLeft: '2px solid #cbd5e1', marginLeft: 8, paddingLeft: 18, fontSize: 11, color: '#64748b' }}>
-            {(candidate.identity?.driverVehicleType ?? candidate.job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' ')}
-            {candidate.identity?.driverVehicleTailLift ? ' Â· Tail lift' : ''}
-            {candidate.identity?.driverVehiclePallets != null ? ` Â· ${candidate.identity.driverVehiclePallets} pallets` : ''}
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'start' }}>
-            <span aria-hidden="true" style={{ color: '#f5a300', fontSize: 18 }}>â—</span>
-            <div style={{ display: 'grid', gap: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#64748b' }}>DELIVERY Â· {when(candidate.job.delivery_datetime)}</span>
-              <strong style={{ color: '#1a1f2b', fontSize: 14 }}>{candidate.job.delivery_postcode ?? candidate.job.delivery_location ?? 'Delivery not supplied'}</strong>
-            </div>
-          </div>
-        </section>
-        <section aria-label="Selected carrier" style={{ display: 'grid', gap: 9 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-            <strong style={{ fontSize: 13, color: '#0b2f6b' }}>Selected carrier</strong>
-            <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>{candidate.identity?.quoteLevel === 'driver' ? 'OWNER DRIVER' : 'COMPANY / FLEET'}</span>
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div aria-hidden="true" style={{ width: 43, height: 43, flexShrink: 0, borderRadius: 9, background: '#e8effb', color: '#0b2f6b', display: 'grid', placeItems: 'center', fontSize: 21 }}>â™™</div>
-            <div style={{ display: 'grid', gap: 3, minWidth: 0 }}>
-              <strong style={{ color: '#1a1f2b', fontSize: 14 }}>{candidate.identity?.personName || candidate.displayName}</strong>
-              <span style={{ color: '#64748b', fontSize: 11 }}>{candidate.identity?.companyName || 'Carrier name not supplied'} Â· {candidate.identity?.memberId ?? 'Member ID not supplied'}</span>
-              <span style={{ color: '#64748b', fontSize: 11 }}>{candidate.identity?.businessPhone ?? 'Business contact not supplied'} Â· {candidate.identity?.driverAvailability?.replaceAll('_', ' ') ?? 'Availability not supplied'}</span>
-            </div>
-          </div>
-        </section>
-        <section aria-label="Carrier credentials" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-          <span aria-hidden="true" style={{ color: '#1d57d8', fontSize: 19 }}>â—‡</span>
-          <div style={{ flex: 1, display: 'grid', gap: 2 }}>
-            <strong style={{ color: '#1a1f2b', fontSize: 12 }}>Carrier credentials</strong>
-            <span style={{ color: '#64748b', fontSize: 11 }}>Member history Â· Feedback Â· Documents</span>
-          </div>
-          <div style={{ fontSize: 12, fontWeight: 700 }}>
-            <MemberIdentityLink companyId={candidate.isOwnerDriverBid ? null : candidate.identity?.companyId ?? null} driverId={candidate.isOwnerDriverBid ? candidate.identity?.driverId ?? null : null} title="View carrier credentials and feedback">View profile</MemberIdentityLink>
-          </div>
-        </section>
-      </div>
-      {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 11, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
-      <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
-        <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
-        <span>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</span>
-        <span style={{ display: 'block', marginTop: 5 }}>Selecting Send Booking Offer records this acknowledgement and creates a pending carrier acceptance request. No transport agreement is formed until the carrier accepts. On acceptance, the selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.</span>
-      </div>
-    </WorkspaceDialog>
+    <BookingConfirmationFullPage
+      key={candidate.bid.id}
+      working={working}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+      details={{
+        jobId: candidate.job.id,
+        amount: Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0),
+        currency: candidate.bid.currency ?? 'GBP',
+        pickup: candidate.job.pickup_postcode ?? candidate.job.pickup_location ?? 'Collection',
+        delivery: candidate.job.delivery_postcode ?? candidate.job.delivery_location ?? 'Delivery',
+        pickupDate: candidate.job.pickup_datetime ?? null,
+        deliveryDate: candidate.job.delivery_datetime ?? null,
+        vehicle: (candidate.identity?.driverVehicleType ?? candidate.job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' '),
+        pallets: candidate.identity?.driverVehiclePallets ?? null,
+        tailLift: candidate.identity?.driverVehicleTailLift ?? false,
+        paymentTerms: null,
+        carrierName: candidate.identity?.personName || candidate.displayName,
+        companyName: candidate.identity?.companyName ?? null,
+        memberId: candidate.identity?.memberId ?? null,
+        phone: candidate.identity?.businessPhone ?? null,
+        availability: candidate.identity?.driverAvailability ?? null,
+        ownerDriver: candidate.isOwnerDriverBid,
+        message: candidate.bid.message ?? null,
+      }}
+    />
   );
 }
-
 function MessageParticipantDialog({
   candidate,
   body,
