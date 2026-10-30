@@ -100,6 +100,7 @@ function AwardConfirmation({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid #e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
         {[
           ['Carrier', candidate.displayName],
+          ['Named driver', candidate.identity?.personName ?? 'Name not available — review member profile'],
           ['Member ID', candidate.identity?.memberId ?? 'Not supplied'],
           ['Business contact', candidate.identity?.businessPhone ?? 'Not supplied'],
           ['Quote scope', candidate.identity?.quoteLevel === 'driver' ? 'Named driver / owner driver' : 'Company / fleet'],
@@ -110,6 +111,7 @@ function AwardConfirmation({
           ['Agreed quote', money(Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0), candidate.bid.currency ?? 'GBP')],
           ['Route', routeLabel(candidate.job)],
           ['Pickup', when(candidate.job.pickup_datetime)],
+          ['Delivery', when(candidate.job.delivery_datetime)],
           ['Vehicle', (candidate.job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')],
           ['Load ref', `XDL-${candidate.job.id.slice(0, 8).toUpperCase()}`],
         ].map(([label, value]) => (
@@ -119,6 +121,14 @@ function AwardConfirmation({
           </div>
         ))}
       </div>
+      <section aria-label="Carrier trust and verification" style={{ padding: 12, border: '1px solid #bfdbfe', borderRadius: 5, background: '#eff6ff', display: 'grid', gap: 7 }}>
+        <strong style={{ fontSize: 13, color: '#0b2f6b' }}>Carrier trust &amp; verification</strong>
+        <span style={{ fontSize: 12, color: '#334155', lineHeight: '18px' }}>Review the carrier identity, member since date, feedback, and available business documents before entrusting your load. A vehicle or membership listing is not proof that all documents are verified.</span>
+        <div style={{ fontSize: 12, fontWeight: 700 }}>
+          <MemberIdentityLink companyId={candidate.isOwnerDriverBid ? null : candidate.identity?.companyId ?? null} driverId={candidate.isOwnerDriverBid ? candidate.identity?.driverId ?? null : null} title="View carrier profile, feedback and documents">View carrier profile · Feedback · Documents</MemberIdentityLink>
+        </div>
+        <span style={{ color: '#64748b', fontSize: 11 }}>No rating, completed-job count or verification badge is displayed without verified records.</span>
+      </section>
       {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 11, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
       <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
         <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
