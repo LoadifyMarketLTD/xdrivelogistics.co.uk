@@ -18,6 +18,7 @@ import OnSitePickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSi
 import LoadedCollectedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/LoadedCollectedStep';
 import InTransitDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InTransitDeliveryStep';
 import OnSiteDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSiteDeliveryStep';
+import ProofOfDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/ProofOfDeliveryStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
 
 const statusLabel: Record<string, string> = {
@@ -282,7 +283,15 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
             setPodDeliveryStatus(nextSheet.pod.deliveryStatus ?? 'Completed Delivery');
             setPodLeftAt(nextSheet.pod.leftAt ?? '');
             if (nextSheet.pod.itemCount != null) setPodItemCount(String(nextSheet.pod.itemCount));
-            setPodDeliveredOn(nextSheet.pod.deliveredOn ?? '');
+            if (nextSheet.pod.deliveredOn) {
+              setPodDeliveredOn(nextSheet.pod.deliveredOn);
+            } else {
+              const deliveredEvent=nextSheet.timeline.find(entry=>entry.eventType==='delivered'&&entry.createdAt);
+              if(deliveredEvent?.createdAt){
+                const deliveredDate=new Date(deliveredEvent.createdAt);
+                if(!Number.isNaN(deliveredDate.getTime()))setPodDeliveredOn(deliveredDate.toISOString().slice(0,10));
+              }
+            }
           }
         }
       } catch {
@@ -359,11 +368,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   }, [collectionDocuments, collectionDocumentsLoaded, jobId]);
   const podJobId = job?.id ?? '';
   const podAlreadyComplete = job ? hasCompletePodEvidence(job) : false;
+  const podDraftStatus = job ? canonicalExecutionStatus(job.current_status ?? job.status) : null;
+  const podDraftActive = podOnly || Boolean(podDraftStatus && ['on_site_delivery','delivered','completed'].includes(podDraftStatus));
 
   // Restore the server-owned POD draft only after the job and its sheet are loaded.
   useEffect(() => {
-    if (!podOnly || loading || !podJobId || podAlreadyComplete) return;
-    let cancelled = false;
+    if (!podDraftActive || loading || !podJobId || podAlreadyComplete) return;`r`n    let cancelled = false;
     void (async () => {
       try {
         const auth = await authHeader();
@@ -404,12 +414,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       }
     })();
     return () => { cancelled = true; };
-  }, [podOnly, loading, podJobId, podAlreadyComplete, authHeader]);
-
-  // Serialize debounced writes: an older draft must never overwrite a newer one.
-  useEffect(() => {
-    if (!podOnly || !podDraftLoaded || !podJobId || podAlreadyComplete) return;
-    const id = podJobId;
+  }, [podDraftActive, loading, podJobId, podAlreadyComplete, authHeader]);`r`n`r`n  // Serialize debounced writes: an older draft must never overwrite a newer one.`r`n  useEffect(() => {`r`n    if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete) return;`r`n    const id = podJobId;
     const data = {
       recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
       itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
@@ -433,8 +438,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       }).finally(() => setPodDraftSaving(false));
     }, 700);
     return () => clearTimeout(timer);
-  }, [podOnly, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,
-      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
+  }, [podDraftActive, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,`r`n      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
       savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments]);
 
   const savePodDraftNow = async () => {
@@ -1091,6 +1095,57 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         onConfirm={()=>void confirmDeliveredFromPage6()}
       />;
     }
+    if (!podComplete && (podOnly || (approvedScreen.number===7 && ['delivered','completed'].includes(currentStatus)))) {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const storedSignature=job.delivery_signature_data;
+      const signatureReady=Boolean(savedSignatureData || (typeof storedSignature==='string'?storedSignature.trim():storedSignature));
+      return <ProofOfDeliveryStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        deliveryConfirmed={['delivered','completed','invoiced'].includes(currentStatus)}
+        deliveryStatus={podDeliveryStatus}
+        itemCount={podItemCount}
+        weight={podWeight}
+        photoPaths={deliveryPhotos}
+        photoUrls={deliveryPhotoUrls}
+        documentPaths={pendingPodDocuments}
+        recipientName={recipientName}
+        leftAt={podLeftAt}
+        deliveredOn={podDeliveredOn}
+        notes={notes}
+        signatureRef={signatureRef}
+        signatureReady={signatureReady}
+        hardCopyRequired={hardCopyRequired}
+        hardCopyAcknowledged={hardCopyAcknowledged}
+        draftLoaded={podDraftLoaded}
+        draftSaving={podDraftSaving}
+        draftError={podDraftError}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id))}
+        onDeliveryStatus={setPodDeliveryStatus}
+        onItemCount={setPodItemCount}
+        onWeight={setPodWeight}
+        onRecipientName={setRecipientName}
+        onLeftAt={setPodLeftAt}
+        onDeliveredOn={setPodDeliveredOn}
+        onNotes={setNotes}
+        onPhotos={e=>void selectDeliveryPhotos(e)}
+        onDocuments={e=>void selectPodDocuments(e)}
+        onSignatureStart={startSignature}
+        onSignatureMove={drawSignature}
+        onSignatureEnd={()=>setSigning(false)}
+        onSaveSignature={()=>{const next=signatureData();if(next){setSavedSignatureData(next);setPodDraftError('');setMessage('Signature captured. Saving to XDrive draft...');}else setPodDraftError('Please draw the recipient signature before saving.');}}
+        onClearSignature={()=>{clearSignature();setSavedSignatureData('');setMessage('Signature cleared.');}}
+        onHardCopyAcknowledged={setHardCopyAcknowledged}
+        onSaveDraft={()=>void savePodDraftNow()}
+        onSubmit={()=>void completePod()}
+      />;
+    }
     return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>
       {!podOnly && <>
       <section className="fresh-mobile-booking-card fresh-booking-hero">
@@ -1382,5 +1437,6 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 4, padding: '7px 8px', background: '#fff', color: '#0f172a', fontSize: 12 };
 const linkButtonStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', color: '#0b2f6b', fontSize: 12, fontWeight: 700, textDecoration: 'none' };
+
 
 
