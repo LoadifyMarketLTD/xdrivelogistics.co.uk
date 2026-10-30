@@ -1,0 +1,11 @@
+const fs=require('fs');const p='app/components/workspace/DriverJobExecutionPage.tsx';let s=fs.readFileSync(p,'utf8');if(s.includes('fresh-booking-progress')&&s.includes('More booking information')){console.log('Booking visual polish already applied');process.exit(0)}const start=s.indexOf('  if (mobilePwa) {');if(start<0)throw Error('Mobile branch unavailable');let before=s.slice(0,start),mobile=s.slice(start);let n=0;
+mobile=mobile.replace(/<h1>\{\[sheet\?\.pickup\.postcode.*?<\/h1>/s,()=>{n++;return '<h1>{[job.pickup_location||sheet?.pickup.postcode||job.pickup_postcode,job.delivery_location||sheet?.delivery.postcode||job.delivery_postcode].filter(Boolean).join(\' → \') || \'Booking details\'}</h1>'});if(n!==1)throw Error('Hero route did not match exactly once '+n);
+const a='<section className="fresh-mobile-booking-card"><h2>Status &amp; Next Action</h2>';
+if(!mobile.includes(a))throw Error('Status card missing');mobile=mobile.replace(a,'<section className="fresh-mobile-booking-card fresh-booking-next-action"><h2>Status &amp; Next Action</h2>');
+const progress='<ol aria-label="Booking journey stages">';if(!mobile.includes(progress))throw Error('Progress missing');
+mobile=mobile.replace(progress,'<details className="fresh-booking-progress"><summary>View booking progress</summary><ol aria-label="Booking journey stages">');
+const close='</ol>{currentStatus';if(!mobile.includes(close))throw Error('Progress close missing');mobile=mobile.replace(close,'</ol></details>{currentStatus');
+const info='<section className="fresh-mobile-booking-card"><h2>Booking information</h2><dl>';if(!mobile.includes(info))throw Error('Booking information missing');mobile=mobile.replace(info,'<section className="fresh-mobile-booking-card fresh-booking-secondary"><details><summary>More booking information</summary><dl>');
+const infoClose='</dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</section>';if(!mobile.includes(infoClose))throw Error('Booking info close missing');mobile=mobile.replace(infoClose,'</dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</details></section>');
+mobile=mobile.replace('<h2>Booking Status</h2>','<h2>POD &amp; Documents</h2>');
+s=before+mobile;fs.writeFileSync(p,s);console.log('Mobile-only hero/localities, compact progress and details; preserved all backend actions');

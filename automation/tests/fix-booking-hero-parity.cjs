@@ -1,0 +1,13 @@
+const fs=require('fs');
+const p='app/components/workspace/DriverJobExecutionPage.tsx';
+let s=fs.readFileSync(p,'utf8');
+const oldRoute='[job.pickup_location||sheet?.pickup.postcode||job.pickup_postcode,job.delivery_location||sheet?.delivery.postcode||job.delivery_postcode]';
+const newRoute='[navigationDestination(job.pickup_location||sheet?.pickup.postcode||job.pickup_postcode,job.pickup_postcode),navigationDestination(job.delivery_location||sheet?.delivery.postcode||job.delivery_postcode,job.delivery_postcode)]';
+if(!s.includes(oldRoute))throw Error('Hero route anchor changed');
+s=s.replace(oldRoute,newRoute);
+const oldBadge='<span className="fresh-booking-status">{statusLabel[currentStatus]??currentStatus}</span>';
+const newBadge="<span className=\"fresh-booking-status\">{approvedScreen.number>=9?(sheet?.invoices[0]?.status??statusLabel[currentStatus]??currentStatus):approvedScreen.number===8?'POD Completed':statusLabel[currentStatus]??currentStatus}</span>";
+if(!s.includes(oldBadge))throw Error('Hero badge anchor changed');
+s=s.replace(oldBadge,newBadge);
+fs.writeFileSync(p,s);
+console.log('Real booking hero now deduplicates route and shows recorded invoice status for invoice stages');

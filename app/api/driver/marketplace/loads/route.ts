@@ -223,7 +223,12 @@ export async function GET(request: NextRequest) {
       : query.in('status', ['posted', 'quoted']).limit(LIST_LIMIT);
   }
 
-  const { data: rawJobs, error: jobsError } = await query;
+  // Run independent database reads concurrently rather than serially.
+  const [jobsResult, blockedResult] = await Promise.all([
+    query,
+    getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId),
+  ]);
+  const { data: rawJobs, error: jobsError } = jobsResult;
   if (jobsError) {
     return operationalError({
       status: 500,
@@ -234,7 +239,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const blockedResult = await getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId);
   if (blockedResult.error) {
     return operationalError({
       status: 503,
@@ -296,6 +300,18 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
+  // Missing bid rows must never be mistaken for an empty quote history.
+  // A failed bid lookup previously returned jobs without myBid, silently
+  // dropping every quote from My Quotes even though the driver had bid.
+  if (bidsResult.error) {
+    return operationalError({
+      status: 500,
+      message: 'Your submitted quotes could not be verified. Please retry.',
+      context: quotedHistory ? 'driver.marketplace.loads.quote-history-detail-bids' : 'driver.marketplace.loads.bid-lookup',
+      cause: bidsResult.error,
+      retryable: true,
+    });
+  }
   if (companiesResult.error) {
     return operationalError({
       status: 500,
@@ -321,7 +337,11 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const [{ data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
+  // Quote history does not need live location. Avoid two unrelated database
+  // round trips before rendering a driver's previously submitted bids.
+  const [{ data: latestDriverLocation }, { data: availabilityPresence }] = quotedHistory
+    ? [{ data: null }, { data: null }]
+    : await Promise.all([
     supabaseAdmin
       .from('driver_locations')
       .select('lat,lng,recorded_at')

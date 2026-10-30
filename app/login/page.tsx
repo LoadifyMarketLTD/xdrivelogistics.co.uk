@@ -51,7 +51,8 @@ export default function LoginPage() {
     if (authLoading || !user) return;
     const canonicalRoute = getResponsivePostLoginRoute(user, isMobileDriverBrowser());
     const mobileDriver = isMobileDriverBrowser() && user.canAccessDriverMode === true && Boolean(user.driverId) && !user.mustChangePassword;
-    const destination = mobileDriver ? '/driver-pwa-fresh/bookings' : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
+    const driverDestination = safeNextPath?.startsWith('/driver-pwa-fresh/') ? safeNextPath : '/driver-pwa-fresh/jobs';
+    const destination = mobileDriver ? driverDestination : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
@@ -200,8 +201,8 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <button type="submit" disabled={isLoading} className={styles.signinButton}>
-                  {isLoading ? 'Signing in...' : 'Sign In'}
+                <button type="submit" disabled={isLoading || authLoading} className={styles.signinButton}>
+                  {isLoading ? 'Signing in...' : authLoading ? 'Preparing sign in...' : 'Sign In'}
                 </button>
 
                 <p className={styles.registerRow}>

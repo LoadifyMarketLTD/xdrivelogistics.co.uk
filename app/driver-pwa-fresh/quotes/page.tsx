@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import FreshJobCard, { type Load } from '../FreshJobCard';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
+import FreshSectionTabs from '../FreshSectionTabs';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
@@ -47,6 +48,8 @@ export default function FreshQuotes() {
  return <ProtectedRoute allowedRoles={['driver']}>
   <FreshHeader />
   <main className="fresh-content" data-testid="fresh-quotes">
+   <FreshSectionTabs />
+   <h1>My Quotes</h1>
    <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{(["active","pending","won","lost"] as const).map(value=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
    {error?<div className="fresh-message" role="alert">{error}</div>:null}
    {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No {tab} quotes.</div>:visible.map(bid=>{

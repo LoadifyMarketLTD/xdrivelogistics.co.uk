@@ -51,3 +51,7 @@ apk_output.txt
 .local-tools/
 .sast/
 .xdrive-safety/
+
+# Runtime state for XDrive local watchdog
+automation/logs/
+automation/state/
