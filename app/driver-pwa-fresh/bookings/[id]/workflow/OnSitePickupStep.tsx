@@ -21,10 +21,12 @@ export default function OnSitePickupStep(props:Props){
  return <WorkflowFrame title="On Site at Pickup" bookingReference={bookingReference} routeLabel={routeLabel} badge="At pickup" agreedRate={agreedRate} paymentTerms={paymentTerms} error={error} message={message} onBack={onBack} compact>
   {cargoRows.length>0&&<WorkflowCard title="Cargo Details">
    <dl className={styles.cargo}>{cargoRows.map(row=><div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
+   <div className={styles.differenceFields}>
+    <label>Items actually collected (required)<input required type="number" min="0" step="1" inputMode="numeric" value={actualItems} onChange={e=>onActualItems(e.target.value)} placeholder={declaredItems||'Enter actual count'}/></label>
+   </div>
    <details className={styles.difference} open={hasDifference}>
     <summary>Report a collection difference</summary>
     <div className={styles.differenceFields}>
-     <label>Items actually collected<input type="number" min="0" step="1" inputMode="numeric" value={actualItems} onChange={e=>onActualItems(e.target.value)} placeholder={declaredItems||'Enter actual count'}/></label>
      <label>Cargo condition<select value={condition} onChange={e=>onCondition(e.target.value)}><option>Good</option><option>Damaged</option><option>Incomplete</option><option>Not ready</option></select></label>
      <label className={styles.full}>Difference / issue<textarea value={discrepancy} onChange={e=>onDiscrepancy(e.target.value)} placeholder="Record shortages, damage or loading issues"/></label>
     </div>
