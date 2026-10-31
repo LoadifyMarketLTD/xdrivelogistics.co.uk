@@ -16,7 +16,7 @@ export default function FreshQuotes() {
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState('');
- const [tab,setTab]=useState<'active'|'pending'|'won'|'lost'>('active');
+ const [tab,setTab]=useState<'submitted'|'unsuccessful'>('submitted');
  const refresh=useCallback(async()=>{
   if(!user?.id)return;
   setLoading(true);setError('');
@@ -44,13 +44,13 @@ export default function FreshQuotes() {
   }catch(e){setError(e instanceof Error?e.message:'Withdrawal failed.');}
   finally{setBusy('');}
  };
- const visible=bids.filter(bid=>{const s=bid.status.toLowerCase();if(tab==='won')return s==='accepted';if(tab==='lost')return closed.has(s)&&s!=='accepted';if(tab==='pending')return ['pending','awaiting','under_review'].some(v=>s.includes(v));return !closed.has(s)&&!['pending','awaiting','under_review'].some(v=>s.includes(v));});
+ const visible=bids.filter(bid=>tab==='unsuccessful'?['rejected','unsuccessful','expired','withdrawn','cancelled','archived'].includes(bid.status.toLowerCase()):!closed.has(bid.status.toLowerCase()));
  return <ProtectedRoute allowedRoles={['driver']}>
-  <FreshHeader title="Sent Quotes" />
+  <FreshHeader title="My Quotes" />
   <main className="fresh-content" data-testid="fresh-quotes">
-   <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{(["active","pending","won","lost"] as const).map(value=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
+   <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{([["submitted","SUBMITTED"],["unsuccessful","UNSUCCESSFUL"]] as const).map(([value,label])=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{label}</button>)}</div>
    {error?<div className="fresh-message" role="alert">{error}</div>:null}
-   {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No {tab} quotes.</div>:visible.map(bid=>{
+   {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No {tab === 'submitted' ? 'submitted quotes' : 'unsuccessful quotes'}.</div>:visible.map(bid=>{
     const load=loads[bid.job_id];const status=bid.status.toLowerCase();
     return load ? <FreshJobCard key={bid.id} load={load} mode="quotes" actions={<><div className="fresh-quote-amount">{closed.has(status) ? (status === 'accepted' ? 'Accepted quote' : status === 'withdrawn' || status === 'cancelled' ? 'Cancelled quote' : 'Your Quote was Unsuccessful') : 'My Quote'}: £{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</div><Link className="fresh-detail" href={'/driver-pwa-fresh/jobs/'+encodeURIComponent(bid.job_id)+'?history=1'}>View Details</Link>{!closed.has(status)?<button className="fresh-cancel-quote" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Cancelling...':'Cancel Quote'}</button>:null}</>} /> : <article className="fresh-card" key={bid.id}><section className="fresh-summary"><strong>Job {bid.job_id}</strong></section><div className="fresh-message">Job details temporarily unavailable</div></article>;
    })}
