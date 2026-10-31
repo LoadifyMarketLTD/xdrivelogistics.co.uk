@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import type { DbJob } from '../../../lib/types/database';
 import { getLoadDetailSections } from '../../../lib/loadPostingDetails';
 import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
+import { navigationDestination, navigationUrl } from '../../../lib/jobs/driverNavigationLinks';
+import { driverBookingScreen } from '../../../lib/jobs/driverBookingScreens';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
@@ -21,6 +24,8 @@ import OnSiteDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/On
 import ProofOfDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/ProofOfDeliveryStep';
 import PodRecordedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/PodRecordedStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
+
+const BookingRouteMap = dynamic(() => import('../../driver-pwa-fresh/BookingRouteMap'), { ssr: false });
 
 const statusLabel: Record<string, string> = {
   awarded: 'Awarded', allocated: 'Allocated', accepted: 'Accepted', on_my_way: 'On my way to pickup',
@@ -1514,6 +1519,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 4, padding: '7px 8px', background: '#fff', color: '#0f172a', fontSize: 12 };
 const linkButtonStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', color: '#0b2f6b', fontSize: 12, fontWeight: 700, textDecoration: 'none' };
+
 
 
 
