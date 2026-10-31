@@ -449,8 +449,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
       savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments]);
 
-  const savePodDraftNow = async () => {
-    if (!podJobId || !podDraftLoaded || podAlreadyComplete) return;
+  const savePodDraftNow = async (): Promise<boolean> => {
+    if (!podJobId || !podDraftLoaded || podAlreadyComplete) return false;
     setPodDraftSaving(true);
     setPodDraftError('');
     try {
@@ -470,8 +470,10 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'POD draft could not be saved.');
       setMessage('POD draft saved to XDrive.');
+      return true;
     } catch (reason) {
       setPodDraftError(reason instanceof Error ? reason.message : 'POD draft could not be saved.');
+      return false;
     } finally {
       setPodDraftSaving(false);
     }
