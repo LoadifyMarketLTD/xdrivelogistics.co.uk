@@ -957,7 +957,6 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     const activeStep = executionSteps.findIndex(([key]) => key === currentStatus);
     const approvedScreen=driverBookingScreen(currentStatus,podComplete,invoiceRecorded?sheet?.invoices[0]?.status:null,invoiceRecorded?sheet?.invoices[0]?.paymentStatus:null);
     const paymentRecordedState=(sheet?.invoices[0]?.paymentStatus??"").toLowerCase();
-    const paymentFlowCurrent=(["paid","partially_paid","overdue"].includes(paymentRecordedState)?paymentRecordedState:sheet?.invoices[0]?.status??"").toLowerCase().replace(/_/g," ");
     if (!podOnly && approvedScreen.number===1 && currentStatus==='accepted') {
       const pickupAddress=bookingAreaLabel(stops[0].place,stops[0].postcode);
       const deliveryAddress=bookingAreaLabel(stops[1].place,stops[1].postcode);
