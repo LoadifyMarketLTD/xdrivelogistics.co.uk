@@ -16,6 +16,7 @@ export default function FreshQuotes() {
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState('');
+ const [expanded,setExpanded]=useState<Record<string,boolean>>({});
  const [tab,setTab]=useState<'submitted'|'unsuccessful'>('submitted');
  const refresh=useCallback(async()=>{
   if(!user?.id)return;
@@ -52,7 +53,7 @@ export default function FreshQuotes() {
    {error?<div className="fresh-message" role="alert">{error}</div>:null}
    {loading?<div className="fresh-message" role="status">Loading quotes…</div>:visible.length===0?<div className="fresh-message">No {tab === 'submitted' ? 'submitted quotes' : 'unsuccessful quotes'}.</div>:visible.map(bid=>{
     const load=loads[bid.job_id];const status=bid.status.toLowerCase();
-    return load ? <FreshJobCard key={bid.id} load={load} mode="quotes" actions={<><div className="fresh-quote-amount">{closed.has(status) ? (status === 'accepted' ? 'Accepted quote' : status === 'withdrawn' || status === 'cancelled' ? 'Cancelled quote' : 'Your Quote was Unsuccessful') : 'My Quote'}: £{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</div><Link className="fresh-detail" href={'/driver-pwa-fresh/jobs/'+encodeURIComponent(bid.job_id)+'?history=1'}>View Details</Link>{!closed.has(status)?<button className="fresh-cancel-quote" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Cancelling...':'Cancel Quote'}</button>:null}</>} /> : <article className="fresh-card" key={bid.id}><section className="fresh-summary"><strong>Job {bid.job_id}</strong></section><div className="fresh-message">Job details temporarily unavailable</div></article>;
+    return load ? <FreshJobCard key={bid.id} load={load} mode="quotes" actions={<><div className="fresh-quote-amount">{closed.has(status) ? (status === 'accepted' ? 'Accepted quote' : status === 'withdrawn' || status === 'cancelled' ? 'Cancelled quote' : 'Your Quote was Unsuccessful') : 'My Quote'}: £{Number(bid.bid_price_gbp??bid.amount??0).toFixed(2)}</div><button type="button" className="fresh-demo-detail-toggle" aria-expanded={Boolean(expanded[bid.id])} onClick={()=>setExpanded(previous=>({...previous,[bid.id]:!previous[bid.id]}))}>{expanded[bid.id]?"Hide Details":"View Details"}</button>{expanded[bid.id]?<div className="fresh-demo-quote-detail"><div><b>Veh:</b> {load.requested_vehicle_label||load.vehicle_type||"Not specified"}</div><div><b>Dist:</b> {load.distance_miles!=null?`${load.distance_miles} miles`:"Not specified"}</div><div><b>Cust:</b> {load.member?.name||"Marketplace member"}</div><div><b>Terms:</b> {load.payment_terms||"Not provided"}</div><div><b>Notes:</b> {load.public_quote_notes||"None"}</div><Link className="fresh-detail" href={"/driver-pwa-fresh/jobs/"+encodeURIComponent(bid.job_id)+"?history=1"}>Full Quote Details</Link></div>:null}{!closed.has(status)?<button className="fresh-cancel-quote" type="button" disabled={busy===bid.id} onClick={()=>void withdraw(bid)}>{busy===bid.id?'Cancelling...':'Cancel Quote'}</button>:null}</>} /> : <article className="fresh-card" key={bid.id}><section className="fresh-summary"><strong>Job {bid.job_id}</strong></section><div className="fresh-message">Job details temporarily unavailable</div></article>;
    })}
   </main>
   <FreshBottom active="quotes" />

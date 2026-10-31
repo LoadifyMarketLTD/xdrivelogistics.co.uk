@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import FreshSectionTabs from '../../FreshSectionTabs';
 import FreshJobCard from '../../FreshJobCard';
 import { FreshBottom, FreshHeader } from '../../FreshNavigation';
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
@@ -93,11 +92,11 @@ export default function FreshLoadDetail() {
   };
   return <ProtectedRoute allowedRoles={['driver']}>
     <FreshHeader title={searchParams.get('history')==='1'?'Quote Details':'Load Details'} />
-    <main className="fresh-content" data-testid="load-details"><FreshSectionTabs mapHref={'/driver-pwa-fresh/jobs?view=map&load='+encodeURIComponent(id)}/>
+    <main className="fresh-content fresh-preview-details" data-testid="load-details">
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
       {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card">
-        <section className="fresh-notes fresh-details-spec" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
+        <section className="fresh-preview-data fresh-details-spec" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
           <dl className="fresh-facts">
             <dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
             <dt>Cargo</dt><dd>{load.requested_cargo_label || load.cargo_type || 'Not specified'}</dd>
@@ -110,8 +109,8 @@ export default function FreshLoadDetail() {
             {load.payment_terms ? <><dt>Payment terms</dt><dd>{load.payment_terms}</dd></> : null}
           </dl>
         </section>
-        <section className="fresh-notes fresh-details-customer"><h2>Customer / Broker</h2><p><strong>{load.member?.name || "Marketplace member"}</strong></p>{load.member?.memberId ? <p>Member: {load.member.memberId}</p> : null}{load.payment_terms ? <p><strong>Payment terms:</strong> {load.payment_terms}</p> : null}<p><Link href="/driver-pwa-fresh/jobs?view=map">View on XDrive Map</Link></p><p><Link href={"/driver/messages?jobId="+encodeURIComponent(load.id)}>Message company</Link></p></section>{load.public_quote_notes ? <section className="fresh-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
-        <section className="fresh-notes fresh-details-feedback"><h2>Company feedback</h2><p>Verified payment and delivery feedback will appear here when available for this member.</p></section><section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Your Quote</h2>
+        <section className="fresh-preview-customer fresh-details-customer"><h2>Customer / Broker</h2><p><strong>{load.member?.name || "Marketplace member"}</strong></p>{load.member?.memberId ? <p>Member: {load.member.memberId}</p> : null}{load.payment_terms ? <p><strong>Payment terms:</strong> {load.payment_terms}</p> : null}<p><Link href="/driver-pwa-fresh/jobs?view=map">View on XDrive Map</Link></p><p><Link href={"/driver/messages?jobId="+encodeURIComponent(load.id)}>Message company</Link></p></section>{load.public_quote_notes ? <section className="fresh-preview-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
+        <section className="fresh-preview-feedback fresh-details-feedback"><h2>Company feedback</h2><p>Verified payment and delivery feedback will appear here when available for this member.</p></section><section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Your Quote</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
            load.myBid ? <p role="status">You already have a quote on this load ({load.myBid.status || 'submitted'}).</p> :
            <><label>Amount (£)<input inputMode="decimal" type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} /></label>
