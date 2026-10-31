@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import {useRouter} from 'next/navigation';
-import {useRouter} from 'next/navigation';
 import ProofOfDeliveryStep from '../../../bookings/[id]/workflow/ProofOfDeliveryStep';
 import { FreshBottom } from '../../../FreshNavigation';
 

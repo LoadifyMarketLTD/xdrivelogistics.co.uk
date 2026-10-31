@@ -13,7 +13,8 @@ describe('driver workflow preview page zero',()=>{
   });
   it('links all four required actions',()=>{
     expect(page).toContain('/driver-pwa-fresh/visual-preview/map?load=visual-1');
-    expect(page).toContain("details?'Hide Details':'View Details'");
+    expect(page).toContain('fresh-accept-details-button');
+    expect(page).toContain('View Details');
     expect(page).toContain('/driver-pwa-fresh/visual-preview/workflow?tab=bookings');
     expect(page).toContain('/driver-pwa-fresh/visual-preview/workflow/page-1');
   });
