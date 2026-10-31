@@ -222,6 +222,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
   const [collectionDocuments, setCollectionDocuments] = useState<string[]>([]);
   const [collectionDocumentsLoaded, setCollectionDocumentsLoaded] = useState(false);
+  const [collectionDocumentsRecoveryFailed, setCollectionDocumentsRecoveryFailed] = useState(false);
   const [collectedItemCount, setCollectedItemCount] = useState('');
   const [collectionCondition, setCollectionCondition] = useState('Good');
   const [collectionDiscrepancy, setCollectionDiscrepancy] = useState('');
@@ -379,16 +380,32 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   },[authHeader,deliveryPhotos,job?.id,mobilePwa]);
 
   useEffect(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(`xdrive-collection-documents-${jobId}`) || '[]');
-      setCollectionDocuments(Array.isArray(stored) ? stored.filter((value): value is string => typeof value === 'string').slice(0, 10) : []);
-    } catch { setCollectionDocuments([]); }
-    finally { setCollectionDocumentsLoaded(true); }
-  }, [jobId]);
-  useEffect(() => {
-    if (!collectionDocumentsLoaded) return;
-    try { localStorage.setItem(`xdrive-collection-documents-${jobId}`, JSON.stringify(collectionDocuments)); } catch { /* local draft persistence unavailable */ }
-  }, [collectionDocuments, collectionDocumentsLoaded, jobId]);
+    if (!jobId || !driverId) return;
+    let cancelled = false;
+    setCollectionDocumentsLoaded(false);
+    setCollectionDocumentsRecoveryFailed(false);
+    void (async () => {
+      try {
+        const auth = await authHeader();
+        if (!auth) throw new Error('Driver session unavailable.');
+        const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
+          headers: { Authorization: auth }, cache: 'no-store',
+        });
+        if (!response.ok) throw new Error('Collection documents could not be recovered.');
+        const payload = await response.json() as { paths?: string[] };
+        if (!cancelled) setCollectionDocuments((current) => [...new Set([...(Array.isArray(payload.paths) ? payload.paths : []), ...current])].slice(0, 10));
+      } catch {
+        // A temporary recovery failure must not erase documents already uploaded in this session.
+        if (!cancelled) {
+          setCollectionDocumentsRecoveryFailed(true);
+          setError('Collection documents could not be recovered. Check your connection before confirming collection.');
+        }
+      } finally {
+        if (!cancelled) setCollectionDocumentsLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authHeader, driverId, jobId]);
   const podJobId = job?.id ?? '';
   const podAlreadyComplete = job ? hasCompletePodEvidence(job) : false;
   const podDraftStatus = job ? canonicalExecutionStatus(job.current_status ?? job.status) : null;
@@ -869,6 +886,11 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
     const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
+      if (mobilePwa && (!collectionDocumentsLoaded || collectionDocumentsRecoveryFailed)) {
+        setError('Collection documents have not been verified. Reopen this booking with a working connection before confirming Loaded.');
+        setWorking(false);
+        return;
+      }
       if (mobilePwa && (!collectedItemCount.trim() || !Number.isInteger(Number(collectedItemCount)) || Number(collectedItemCount) < 0)) { setError('Enter the actual number of items collected before confirming Loaded.'); setWorking(false); return; }
       if (mobilePwa && collectionCondition !== 'Good' && !collectionDiscrepancy.trim()) { setError('Describe the collection issue before confirming Loaded.'); setWorking(false); return; }
       const auth = await authHeader();
@@ -889,8 +911,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const loadedPayload = await loadedResponse.json().catch(() => ({})) as { error?: string };
       if (!loadedResponse.ok) { setError(loadedPayload.error || 'Job could not be marked loaded.'); setWorking(false); return; }
       setMessage('Job updated: Loaded.');
-      try { localStorage.removeItem(`xdrive-collection-documents-${jobId}`); } catch { /* local draft cleanup unavailable */ }
-      setCollectionDocuments([]);
+      // Persisted collection documents remain available from private Storage for later verification.
+      setCollectionDocumentsLoaded(true);
       await loadJob();
       setWorking(false);
       return;

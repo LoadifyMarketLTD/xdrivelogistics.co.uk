@@ -22,16 +22,16 @@ export function WorkflowFrame({title,bookingReference,routeLabel,badge,agreedRat
   return <div className={`${styles.page} ${compact?styles.compact:''}`}>
     <FreshHeader title={title} onBack={onBack}/>
     <div className={styles.content}>
-      <section className={`${styles.card} ${styles.hero}`}>
+      {['Booking Details','Invoice Draft','Invoice Issued','Invoice Sent / Payment Tracking'].includes(title) && <section className={`${styles.card} ${styles.hero}`}>
         <div className={styles.heroTop}>{bookingReference?<small>BOOKING {bookingReference}</small>:<span aria-hidden="true"/>}<span>{badge}</span></div>
         <h2>{routeLabel}</h2>
         {(agreedRate||paymentTerms)&&<div className={styles.financials}>
           {agreedRate&&<div><small>Agreed Rate</small><strong>{agreedRate}</strong></div>}
           {paymentTerms&&<div><small>Payment Terms</small><strong>{paymentTerms}</strong></div>}
         </div>}
-        {error&&<p className={styles.error} role="alert">{error}</p>}
-        {message&&<p className={styles.success} role="status">{message}</p>}
-      </section>
+      </section>}
+      {error&&<p className={styles.error} role="alert">{error}</p>}
+      {message&&<p className={styles.success} role="status">{message}</p>}
       {children}
     </div>
   </div>;

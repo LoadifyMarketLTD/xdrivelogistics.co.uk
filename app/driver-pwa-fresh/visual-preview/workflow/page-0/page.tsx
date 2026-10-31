@@ -1,13 +1,11 @@
 'use client';
 
-import {useState} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {readDemo,updateDemo} from '../../../demoState';
 import {FreshBottom,FreshHeader} from '../../../FreshNavigation';
 
 export default function BookingAcceptancePreviewPage(){
-  const [details,setDetails]=useState(false);
   const router=useRouter();
   const accept=()=>{const previous=readDemo()['visual-1'];updateDemo('visual-1',{...previous,stage:'received',events:[...(previous?.events||[]),{stage:'received',at:new Date().toISOString()}]});router.push('/driver-pwa-fresh/visual-preview/workflow/page-1');};
   return <main className="fresh-driver-pwa">
@@ -34,16 +32,17 @@ export default function BookingAcceptancePreviewPage(){
           <div><b>Notes:</b><span>Handle with care. Direct delivery.</span></div>
         </section>
 
-        {details?<section className="fresh-accept-details" data-testid="page-zero-preview-details">
+        <input type="checkbox" id="fresh-accept-details-toggle" className="fresh-accept-details-toggle" aria-label="Show booking details" />
+        <section className="fresh-accept-details" data-testid="page-zero-preview-details">
           <div><b>Vehicle</b><span>LWB Van</span></div>
           <div><b>Payment terms</b><span>30 Days EOM</span></div>
           <div><b>Booking ref</b><span>XDL-2026-00128</span></div>
           <div><b>Agreed quote</b><span>£240.00</span></div>
-        </section>:null}
+        </section>
 
         <div className="fresh-accept-actions">
           <Link className="fresh-accept-map" href="/driver-pwa-fresh/visual-preview/map?load=visual-1">Map</Link>
-          <button type="button" className="fresh-accept-details-button" aria-expanded={details} onClick={()=>setDetails(value=>!value)}>{details?'Hide Details':'View Details'}</button>
+          <label htmlFor="fresh-accept-details-toggle" className="fresh-accept-details-button"><span className="fresh-details-show">View Details</span><span className="fresh-details-hide">Hide Details</span></label>
           <Link className="fresh-accept-decline" href="/driver-pwa-fresh/visual-preview/workflow?tab=bookings">Decline</Link>
           <button type="button" className="fresh-accept-confirm" onClick={accept}>Accept</button>
         </div>

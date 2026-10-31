@@ -332,6 +332,12 @@
 .fresh-driver-pwa .fresh-accept-facts span{color:#5f6872}
 .fresh-driver-pwa .fresh-accept-details{margin:0 14px 12px;padding:12px;background:#f7f8fa;border:1px solid #dde3e8;border-radius:8px;display:grid;gap:8px}
 .fresh-driver-pwa .fresh-accept-details>div{display:grid;grid-template-columns:110px 1fr;gap:8px;font-size:14px}
+.fresh-driver-pwa .fresh-accept-details-toggle{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.fresh-driver-pwa .fresh-accept-details-toggle:not(:checked)~.fresh-accept-details{display:none}
+.fresh-driver-pwa .fresh-accept-details-toggle:checked~.fresh-accept-actions .fresh-details-show{display:none}
+.fresh-driver-pwa .fresh-accept-details-toggle:not(:checked)~.fresh-accept-actions .fresh-details-hide{display:none}
+.fresh-driver-pwa .fresh-accept-details-button{min-height:50px;border-radius:4px;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.fresh-driver-pwa .fresh-accept-details-toggle:focus-visible~.fresh-accept-actions .fresh-accept-details-button{outline:3px solid #1D57D8;outline-offset:2px}
 .fresh-driver-pwa .fresh-accept-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 10px 12px}
 .fresh-driver-pwa .fresh-accept-actions button,.fresh-driver-pwa .fresh-accept-actions a{min-height:50px;border-radius:4px;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;text-decoration:none}
 .fresh-driver-pwa .fresh-accept-map,.fresh-driver-pwa .fresh-accept-details-button{background:var(--xd-orange);border:1px solid #e79b00;color:var(--xd-primary-blue)}

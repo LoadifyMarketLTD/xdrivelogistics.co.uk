@@ -31,6 +31,26 @@ function evidenceCategory(request: NextRequest, kind: 'collection' | 'delivery')
   return category === 'photos' || category === 'damage' || category === 'documents' ? category : null;
 }
 
+// Recover private, previously uploaded collection documents after refresh or device change.
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!(await getFeatureFlag(supabaseAdmin, 'pod_capture'))) return respond(503, { error: 'POD capture is currently disabled.' });
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
+  if (!driver.companyId) return respond(403, { error: 'Driver company is required for collection evidence.' });
+  const { id } = await params;
+  const { data: job, error: jobError } = await supabaseAdmin.from('jobs').select('id')
+    .eq('id', id).eq('assigned_driver_id', driver.driverId).maybeSingle();
+  if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
+  if (!job) return respond(404, { error: 'Job not found.' });
+  const folder = `${driver.companyId}/${id}/collection-documents`;
+  const { data, error } = await supabaseAdmin.storage.from('pod-photos').list(folder, { limit: 100 });
+  if (error) return respond(500, { error: 'Collection documents could not be recovered.' });
+  const paths = (data ?? []).filter(entry => SAFE_NAME.test(entry.name) && Boolean(entry.id))
+    .map(entry => `${folder}/${entry.name}`);
+  return respond(200, { ok: true, paths });
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
