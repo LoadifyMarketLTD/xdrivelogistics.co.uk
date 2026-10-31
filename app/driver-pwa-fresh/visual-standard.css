@@ -333,7 +333,7 @@
 .fresh-driver-pwa .fresh-accept-details{margin:0 14px 12px;padding:12px;background:#f7f8fa;border:1px solid #dde3e8;border-radius:8px;display:grid;gap:8px}
 .fresh-driver-pwa .fresh-accept-details>div{display:grid;grid-template-columns:110px 1fr;gap:8px;font-size:14px}
 .fresh-driver-pwa .fresh-accept-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 10px 12px}
-.fresh-driver-pwa .fresh-accept-actions button{min-height:50px;border-radius:4px;font-size:16px;font-weight:800}
+.fresh-driver-pwa .fresh-accept-actions button,.fresh-driver-pwa .fresh-accept-actions a{min-height:50px;border-radius:4px;font-size:16px;font-weight:800;display:flex;align-items:center;justify-content:center;text-decoration:none}
 .fresh-driver-pwa .fresh-accept-map,.fresh-driver-pwa .fresh-accept-details-button{background:var(--xd-orange);border:1px solid #e79b00;color:var(--xd-primary-blue)}
 .fresh-driver-pwa .fresh-accept-decline{background:#ef5b57;border:1px solid #df4d49;color:#102b48}
 .fresh-driver-pwa .fresh-accept-confirm{background:#71cf66;border:1px solid #60bf56;color:#102b48}
