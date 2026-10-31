@@ -1,16 +1,28 @@
 'use client';
-
-import { useSearchParams } from 'next/navigation';
-import LoadsClient from '../../jobs/LoadsClient';
-import FreshQuotes from '../../quotes/page';
-import Bookings from '../../bookings/page';
-
-/** The approved workflow URL now uses the actual authenticated driver data and lifecycle.
- * Quotes, awards, collection and POD must never be simulated in this entry point.
- */
-export default function Workflow() {
-  const tab = useSearchParams().get('tab');
-  if (tab === 'quotes') return <FreshQuotes />;
-  if (tab === 'bookings') return <Bookings />;
-  return <LoadsClient />;
+import {useEffect,useState} from 'react';
+import {useRouter} from 'next/navigation';
+import FreshJobCard from '../../FreshJobCard';
+import {demoJobs,readDemo,updateDemo,bookingStages,type DemoStore,type DemoStage} from '../../demoState';
+import {FreshHeader} from '../../FreshNavigation';
+import FreshSectionTabs from '../../FreshSectionTabs';
+type Tab='jobs'|'quotes'|'bookings';
+const next:Partial<Record<DemoStage,DemoStage>>={received:'allocated',allocated:'pickup',pickup:'onsite-pickup','onsite-pickup':'loaded',loaded:'delivery',delivery:'onsite-delivery','onsite-delivery':'delivered',delivered:'pod',pod:'invoiced'};
+const labels:Partial<Record<DemoStage,string>>={received:'Accept Booking',allocated:'On My Way to Pickup',pickup:'On Site Pickup','onsite-pickup':'Loaded',loaded:'On My Way to Delivery',delivery:'On Site Delivery','onsite-delivery':'Delivered',delivered:'Submit POD',pod:'Create Invoice'};
+export default function Workflow(){
+ const router=useRouter();
+ const [tab,setTab]=useState<Tab>('jobs'),[quoteTab,setQuoteTab]=useState<'submitted'|'unsuccessful'>('submitted'),[data,setData]=useState<DemoStore>({}),[expanded,setExpanded]=useState<Record<string,boolean>>({}),[photos,setPhotos]=useState<Record<string,string>>({}),[signatures,setSignatures]=useState<Record<string,string>>({}),[error,setError]=useState('');
+ useEffect(()=>{setData(readDemo());const initial=new URLSearchParams(location.search).get('tab');if(initial==='quotes'||initial==='bookings')setTab(initial)},[]);
+ const move=(id:string,stage:DemoStage)=>{const old=data[id];updateDemo(id,{...old,stage,events:[...(old?.events||[]),{stage,at:new Date().toISOString()}]});setData(readDemo());setError('')};
+ const undo=(id:string)=>{const old=data[id];if(!old?.events?.length)return;const events=old.events.slice(0,-1);const stage=events.at(-1)?.stage||'received';updateDemo(id,{...old,stage,events});setData(readDemo())};
+ const visible=demoJobs.filter(job=>{const stage=data[job.id]?.stage||'jobs';return tab==='jobs'?stage==='jobs':tab==='quotes'?stage===quoteTab:bookingStages.includes(stage)});
+ return <><FreshHeader title={tab==='jobs'?'Loads':tab==='quotes'?'My Quotes':'Bookings'} onSearch={tab==='jobs'?()=>router.push('/driver-pwa-fresh/visual-preview?view=filter'):undefined}/><main className="fresh-content">
+ {tab==='jobs'?<FreshSectionTabs mapHref="/driver-pwa-fresh/visual-preview/map?load=visual-1" filterHref="/driver-pwa-fresh/visual-preview?view=filter"/>:null}
+ {tab==='quotes'?<div className="fresh-quote-tabs"><button className={quoteTab==='submitted'?'active':''} onClick={()=>setQuoteTab('submitted')}>SUBMITTED</button><button className={quoteTab==='unsuccessful'?'active':''} onClick={()=>setQuoteTab('unsuccessful')}>UNSUCCESSFUL</button></div>:null}
+ {visible.length===0?<p className="fresh-message">No jobs in this section.</p>:visible.map(job=>{const entry=data[job.id]||{stage:'jobs' as DemoStage};return <FreshJobCard key={job.id} load={job} mode={tab} actions={<>
+ {tab==='jobs'?<><a className="quote-now" href={`/driver-pwa-fresh/visual-preview/quote?load=${encodeURIComponent(job.id)}`}>Quote Now</a><a className="fresh-detail" href={`/driver-pwa-fresh/visual-preview/details?load=${encodeURIComponent(job.id)}`}>View Details</a></>:null}
+ {tab==='quotes'?<><div className="fresh-demo-quote-summary"><span>You Quoted: <strong>&#163;{Number(entry.amount||0).toFixed(2)}</strong></span><button type="button" className="fresh-demo-detail-toggle" onClick={()=>setExpanded(v=>({...v,[job.id]:!v[job.id]}))}>{expanded[job.id]?'Hide Details':'View Details'}</button></div>
+ {expanded[job.id]?<div className="fresh-demo-quote-detail"><div><b>Veh:</b> {job.requested_vehicle_label||job.vehicle_type}</div><div><b>Dist:</b> {job.distance_miles} miles</div><a className="fresh-demo-map" target="_blank" rel="noopener noreferrer" href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(job.pickup_area+' '+(job.pickup_postcode_area||''))}&destination=${encodeURIComponent(job.delivery_area+' '+(job.delivery_postcode_area||''))}`}>View on Map</a><div><b>Cust:</b> {job.member?.name}</div><div><b>Terms:</b> {job.payment_terms||'Not provided'}</div><div><b>Notes:</b> {job.public_quote_notes||'None'}</div></div>:null}
+ {entry.stage==='submitted'?<><button className="fresh-demo-cancel" onClick={()=>move(job.id,'unsuccessful')}>CANCEL QUOTE</button><button className="fresh-demo-award" onClick={()=>{move(job.id,'received');setTab('bookings')}}>Simulate Award</button></>:null}</>:null}
+ {tab==='bookings'?<><section className="fresh-booking-timeline"><h2>Booking Status</h2><strong>{entry.stage==='onsite-pickup'?'On Site (Pickup)':entry.stage==='onsite-delivery'?'On Site (Delivery)':entry.stage.replaceAll('-',' ')}</strong><ol>{[...(entry.events||[])].reverse().map((event,i)=><li key={i}><span className="fresh-timeline-check">✓</span><div><b>{event.stage==='onsite-pickup'?'On Site (Pickup)':event.stage==='onsite-delivery'?'On Site (Delivery)':event.stage.replaceAll('-',' ')}</b><small> at {new Date(event.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} · {new Date(event.at).toLocaleDateString('en-GB')}</small></div></li>)}</ol>{entry.events?.length&&entry.stage!=='invoiced'?<button className="fresh-booking-undo" onClick={()=>undo(job.id)}>Undo last status</button>:null}</section><div className="fresh-booking-actions"><a className="fresh-demo-map" target="_blank" rel="noopener noreferrer" href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(job.pickup_area+' '+(job.pickup_postcode_area||''))}&destination=${encodeURIComponent(job.delivery_area+' '+(job.delivery_postcode_area||''))}`}>View on Map</a><button type="button" className="fresh-demo-detail-toggle" onClick={()=>setExpanded(v=>({...v,[job.id]:!v[job.id]}))}>View Booking Details</button>{expanded[job.id]?<div><b>Collection:</b> {job.pickup_area} {job.pickup_postcode_area}<p><b>Delivery:</b> {job.delivery_area} {job.delivery_postcode_area}</p><p><b>Vehicle:</b> {job.vehicle_type}</p><p><b>Weight:</b> {job.weight_kg} kg</p><p><b>Notes:</b> {job.public_quote_notes}</p></div>:null}</div>{entry.stage==='received'?<><a className="quote-now" href="/driver-pwa-fresh/visual-preview/workflow/page-0">Review &amp; Accept Job</a><button onClick={()=>move(job.id,'unsuccessful')}>Decline Booking</button></>:null}{entry.stage==='pod'?<><label>POD photo<input type="file" accept="image/*" onChange={e=>setPhotos(v=>({...v,[job.id]:e.target.files?.[0]?.name||''}))}/></label><label>Recipient signature<input value={signatures[job.id]||''} onChange={e=>setSignatures(v=>({...v,[job.id]:e.target.value}))}/></label></>:null}{entry.stage!=='received'&&next[entry.stage]?<button className="quote-now" onClick={()=>{if(entry.stage==='pod'&&(!photos[job.id]||!signatures[job.id]?.trim())){setError('Photo and signature required before invoice');return}move(job.id,next[entry.stage]!)}}>{labels[entry.stage]}</button>:<p>Demo invoice complete</p>}</>:null}
+ </>}/>})}{error?<p role="alert">{error}</p>:null}</main><nav className="fresh-bottom fresh-demo-bottom">{(['jobs','quotes','bookings'] as const).map(t=><button key={t} aria-current={tab===t?'page':undefined} onClick={()=>{setTab(t);setError('')}}>{{jobs:'Loads',quotes:'My Quotes',bookings:'Bookings'}[t]}</button>)}</nav></>;
 }
