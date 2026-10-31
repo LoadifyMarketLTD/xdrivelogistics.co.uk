@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import styles from './WorkflowFrame.module.css';
+import {FreshHeader} from '../../../FreshNavigation';
 
 type FrameProps = {
   title: string;
@@ -19,7 +20,7 @@ type FrameProps = {
 
 export function WorkflowFrame({title,bookingReference,routeLabel,badge,agreedRate,paymentTerms,error,message,children,onBack,compact=false}:FrameProps){
   return <div className={`${styles.page} ${compact?styles.compact:''}`}>
-    <header className={styles.header}><button type="button" aria-label="Back to Bookings" onClick={onBack}>‹</button><h1>{title}</h1><span aria-hidden="true" /></header>
+    <FreshHeader title={title} onBack={onBack}/>
     <div className={styles.content}>
       <section className={`${styles.card} ${styles.hero}`}>
         <div className={styles.heroTop}>{bookingReference?<small>BOOKING {bookingReference}</small>:<span aria-hidden="true"/>}<span>{badge}</span></div>

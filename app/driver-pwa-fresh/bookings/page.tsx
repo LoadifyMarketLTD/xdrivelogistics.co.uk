@@ -35,8 +35,7 @@ export default function Bookings(){
   const age=now-timestamp;
   return period==='week'?age>=0&&age<=7*day:age>7*day&&age<=30*day;
  });
- return <ProtectedRoute allowedRoles={['driver']}><FreshHeader/><main className="fresh-content" data-testid="fresh-bookings">
-  <h1>Bookings</h1>
+ return <ProtectedRoute allowedRoles={['driver']}><FreshHeader title="Bookings"/><main className="fresh-content" data-testid="fresh-bookings">
   <div className="fresh-quote-tabs" role="tablist" aria-label="Booking period">{([['current','Current'],['week','Last week'],['month','Last month']] as const).map(([id,label])=><button key={id} type="button" role="tab" aria-selected={period===id} className={period===id?'active':''} onClick={()=>setPeriod(id)}>{label}</button>)}</div>
   {error?<p role="alert" className="fresh-message">{error} <button type="button" onClick={()=>void refresh()}>Retry</button></p>:null}
   {busy?<p role="status" className="fresh-message">Loading bookings...</p>:!error&&visible.length===0?<p className="fresh-message">No bookings for this period.</p>:visible.map(job=><article className="fresh-card" key={job.id}>

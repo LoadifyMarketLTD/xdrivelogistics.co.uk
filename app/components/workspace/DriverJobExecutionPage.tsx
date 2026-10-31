@@ -23,6 +23,9 @@ import InTransitDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow
 import OnSiteDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSiteDeliveryStep';
 import ProofOfDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/ProofOfDeliveryStep';
 import PodRecordedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/PodRecordedStep';
+import InvoiceDraftStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InvoiceDraftStep';
+import InvoiceIssuedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InvoiceIssuedStep';
+import InvoicePaymentTrackingStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InvoicePaymentTrackingStep';
 import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
 
 const BookingRouteMap = dynamic(() => import('../../driver-pwa-fresh/BookingRouteMap'), { ssr: false });
@@ -143,7 +146,17 @@ type JobSheet = {
   documentChecklist: string[];
   timeline: Array<{ id: string | null; eventType: string; message: string | null; meta: unknown; createdAt: string | null }>;
   documents: Array<{ id: string | null; type: string; fileName: string | null; filePath: string | null; createdAt: string | null }>;
-  invoices: Array<{ id: string | null; number: string | null; status: string | null; paymentStatus: string | null; amount: number | null; currency: string; dueDate: string | null }>;
+  invoices: Array<{
+    id: string | null; number: string | null; status: string | null; paymentStatus: string | null;
+    amount: number | null; netAmount: number | null; vatRate: number | null; vatAmount: number | null; currency: string;
+    dueDate: string | null; invoiceDate: string | null; paymentTerms: string | null;
+    clientName: string | null; clientEmail: string | null; clientAddress: string | null;
+    serviceDescription: string | null; jobRef: string | null; issuerName: string | null; issuerXdId: string | null; customerXdId: string | null;
+    submittedAt: string | null; approvedAt: string | null; paidAt: string | null;
+    deliveryState: string | null; deliveryProvider: string | null; deliveryMessageId: string | null;
+    deliveryRecipientEmail: string | null; deliveryAttemptedAt: string | null; deliveryError: string | null;
+    createdAt: string | null; updatedAt: string | null;
+  }>;
   partial: boolean;
   unavailable: {
     bodyType: string;
@@ -161,6 +174,12 @@ const formatDateTime = (value: string | null | undefined) => {
 const money = (amount: number | null | undefined, currency = 'GBP') => amount == null
   ? 'Not supplied'
   : new Intl.NumberFormat('en-GB', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
+
+const formatDateOnly = (value: string | null | undefined) => {
+  if (!value) return null;
+  const date=new Date(value.length===10?`${value}T00:00:00.000Z`:value);
+  return Number.isNaN(date.getTime())?null:date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+};
 
 const mapsUrl = (address: string, postcode?: string | null) => navigationUrl(address,postcode,'navigate') ?? 'https://www.google.com/maps';
 
@@ -796,7 +815,24 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     } finally { setWorking(false); }
   };
 
-  const createInvoice = async () => {
+  const openInvoicePreview = async (invoiceId:string) => {
+    const viewer=window.open('about:blank','_blank');
+    if(viewer)viewer.opener=null;
+    setWorking(true);setError('');
+    try{
+      const auth=await authHeader();
+      if(!auth)throw new Error('Please sign in again.');
+      const response=await fetch(`/api/driver/finance/invoices/${encodeURIComponent(invoiceId)}/preview`,{headers:{Authorization:auth},cache:'no-store'});
+      if(!response.ok){const payload=await response.json().catch(()=>({})) as {error?:string};throw new Error(payload.error||'Invoice preview could not be generated.');}
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      if(viewer){viewer.location.href=url;window.setTimeout(()=>URL.revokeObjectURL(url),120000);}else{const link=document.createElement('a');link.href=url;link.download='invoice-preview.pdf';document.body.appendChild(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),30000);}
+      setMessage('Invoice preview opened.');
+    }catch(reason){viewer?.close();setError(reason instanceof Error?reason.message:'Invoice preview could not be opened.');}
+    finally{setWorking(false);}
+  };
+
+  const createInvoice = async (stayInWorkflow=false) => {
     if (!job || !canGenerateInvoices) return;
     if (!hasCompletePodEvidence(job)) {
       setError('Complete POD before creating an invoice. POD must be submitted and recorded.');
@@ -814,8 +850,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       });
       const payload = await response.json().catch(() => ({})) as { invoice?: { id?: string }; error?: string };
       if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
-      setMessage('Draft invoice created. Review and approve it before sending to the buyer.');
-      router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
+      setMessage('Draft invoice created. Review it before sending to the buyer.');
+      if(stayInWorkflow) await loadJob(); else router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
@@ -1225,7 +1261,75 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         message={message}
         onBack={()=>router.push('/driver-pwa-fresh/bookings')}
         onViewPdf={()=>void viewPodPdf()}
-        onCreateInvoice={()=>void createInvoice()}
+        onCreateInvoice={()=>void createInvoice(true)}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===9 && sheet?.invoices[0]?.id) {
+      const invoice=sheet.invoices[0];
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <InvoiceDraftStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        invoiceNumber={invoice.number}
+        clientName={invoice.clientName}
+        customerXdId={invoice.customerXdId}
+        issuerName={invoice.issuerName}
+        issuerXdId={invoice.issuerXdId}
+        jobRef={invoice.jobRef}
+        netAmount={invoice.netAmount!=null?money(invoice.netAmount,invoice.currency):null}
+        vatRate={invoice.vatRate}
+        vatAmount={invoice.vatAmount!=null?money(invoice.vatAmount,invoice.currency):null}
+        totalAmount={invoice.amount!=null?money(invoice.amount,invoice.currency):null}
+        paymentTerms={invoice.paymentTerms}
+        invoiceDate={formatDateOnly(invoice.invoiceDate)}
+        dueDate={formatDateOnly(invoice.dueDate)}
+        serviceDescription={invoice.serviceDescription}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onPreview={()=>void openInvoicePreview(invoice.id!)}
+        onEdit={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!)+'/edit')}
+        onReview={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!))}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===10 && sheet?.invoices[0]?.id) {
+      const invoice=sheet.invoices[0];
+      return <InvoiceIssuedStep
+        bookingReference={sheet.bookingReference??null}
+        routeLabel={`${bookingAreaLabel(stops[0].place,stops[0].postcode)} → ${bookingAreaLabel(stops[1].place,stops[1].postcode)}`}
+        invoiceNumber={invoice.number}
+        clientName={invoice.clientName}
+        issuerName={invoice.issuerName}
+        totalAmount={invoice.amount!=null?money(invoice.amount,invoice.currency):null}
+        invoiceDate={formatDateOnly(invoice.invoiceDate)}
+        dueDate={formatDateOnly(invoice.dueDate)}
+        paymentTerms={invoice.paymentTerms}
+        invoiceStatus={invoice.status??'Issued'}
+        paymentStatus={invoice.paymentStatus}
+        working={working} error={error} message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onPreview={()=>void openInvoicePreview(invoice.id!)}
+        onReviewAndSend={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!))}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===11 && sheet?.invoices[0]?.id) {
+      const invoice=sheet.invoices[0];
+      return <InvoicePaymentTrackingStep
+        bookingReference={sheet.bookingReference??null}
+        routeLabel={`${bookingAreaLabel(stops[0].place,stops[0].postcode)} → ${bookingAreaLabel(stops[1].place,stops[1].postcode)}`}
+        invoiceNumber={invoice.number}
+        clientName={invoice.clientName}
+        totalAmount={invoice.amount!=null?money(invoice.amount,invoice.currency):null}
+        dueDate={formatDateOnly(invoice.dueDate)}
+        paymentTerms={invoice.paymentTerms}
+        invoiceStatus={invoice.status??'Recorded'}
+        paymentStatus={invoice.paymentStatus}
+        working={working} error={error} message={message}
+        onBack={()=>router.push('/driver-pwa-fresh/bookings')}
+        onPreview={()=>void openInvoicePreview(invoice.id!)}
+        onViewInvoice={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!))}
       />;
     }
     return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>

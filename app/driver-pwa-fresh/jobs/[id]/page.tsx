@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import FreshSectionTabs from '../../FreshSectionTabs';
 import FreshJobCard from '../../FreshJobCard';
-import { FreshBottom } from '../../FreshNavigation';
+import { FreshBottom, FreshHeader } from '../../FreshNavigation';
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 
 type Load = {
@@ -28,6 +28,7 @@ type Load = {
 const available = new Set(['posted', 'quoted']);
 export default function FreshLoadDetail() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = String(params.id ?? '');
   const [load, setLoad] = useState<Load | null>(null);
   const [error, setError] = useState('');
@@ -91,7 +92,7 @@ export default function FreshLoadDetail() {
     }
   };
   return <ProtectedRoute allowedRoles={['driver']}>
-    <header className="fresh-header"><Link className="fresh-back" href="/driver-pwa-fresh/jobs">← LOADS</Link><h1>Load ID {id.slice(0, 12)}</h1></header>
+    <FreshHeader title={searchParams.get('history')==='1'?'Quote Details':'Load Details'} />
     <main className="fresh-content" data-testid="load-details"><FreshSectionTabs mapHref={'/driver-pwa-fresh/jobs?view=map&load='+encodeURIComponent(id)}/>
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}

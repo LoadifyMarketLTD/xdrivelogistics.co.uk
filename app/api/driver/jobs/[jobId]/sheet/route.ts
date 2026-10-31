@@ -4,6 +4,7 @@ import { operationalError } from '../../../../_lib/operationalError';
 import { respond } from '../../../mobile/_lib';
 import { buildSignedPodPresentations } from '../../../mobile/podPresentation';
 import { isWebDriverContext, requireActiveWebDriver } from '../../../_lib/webDriverContext';
+import { toCanonicalInvoiceStatus, toCanonicalPaymentStatus } from '../../../../../../lib/invoiceStatus';
 
 function text(value: unknown) {
   return typeof value === 'string' ? value : value == null ? null : String(value);
@@ -102,12 +103,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const canViewFinance = ['owner', 'admin', 'finance'].includes(financeRole);
   const invoicePromise = canViewFinance && driver.companyId
     ? supabaseAdmin.from('invoices')
-        .select('id,invoice_number,status,payment_status,amount,currency,due_date')
+        .select('id,invoice_number,status,payment_status,amount,net_amount,vat_rate,vat_amount,currency,due_date,invoice_date,payment_terms,client_name,client_email,client_address,service_description,job_ref,issuer_xd_id_snapshot,customer_xd_id_snapshot,submitted_at,approved_at,paid_at,delivery_state,delivery_provider,delivery_message_id,delivery_recipient_email,delivery_attempted_at,delivery_error,created_at,updated_at')
         .eq('job_id', jobId)
         .eq('company_id', driver.companyId)
         .order('created_at', { ascending: false })
         .limit(1)
     : Promise.resolve({ data: [], error: null });
+  const financeCompanyPromise = canViewFinance && driver.companyId
+    ? supabaseAdmin.from('companies').select('name,xd_id').eq('id',driver.companyId).maybeSingle()
+    : Promise.resolve({data:null,error:null});
   const podPromise = supabaseAdmin.from('proof_of_delivery')
     .select('id,delivered_on,received_by,left_at,no_of_items,delivery_status,delivery_notes,photo_urls,created_at,updated_at')
     .eq('job_id', jobId)
@@ -115,13 +119,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .limit(1)
     .maybeSingle();
 
-  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult, extrasResult, podResult] = await Promise.all([
+  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, financeCompanyResult, documentsResult, vehicleResult, driverResult, extrasResult, podResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     postedByUserId ? supabaseAdmin.from('profiles').select('xd_id').eq('user_id', postedByUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     acceptedBidPromise,
     supabaseAdmin.from('job_commercial_agreements_effective').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
     invoicePromise,
+    financeCompanyPromise,
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
     vehicleId
       ? supabaseAdmin.from('vehicles').select('*').eq('id', vehicleId).maybeSingle()
@@ -132,6 +137,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ]);
 
   const company = (companyResult.data ?? {}) as Record<string, unknown>;
+  const financeCompany = (financeCompanyResult.data ?? {}) as Record<string, unknown>;
   const posterProfile = (posterProfileResult.data ?? {}) as Record<string, unknown>;
   const acceptedBid = (bidResult.data ?? {}) as Record<string, unknown>;
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
@@ -200,11 +206,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const invoices = invoiceResult.error ? [] : (invoiceResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
     number: text(entry.invoice_number),
-    status: text(entry.status),
-    paymentStatus: text(entry.payment_status),
+    status: toCanonicalInvoiceStatus(text(entry.status)),
+    paymentStatus: toCanonicalPaymentStatus(text(entry.payment_status)),
     amount: numberValue(entry.amount) ?? numberValue(entry.total),
+    netAmount: numberValue(entry.net_amount),
+    vatRate: numberValue(entry.vat_rate),
+    vatAmount: numberValue(entry.vat_amount),
     currency: text(entry.currency) ?? 'GBP',
     dueDate: text(entry.due_date),
+    invoiceDate: text(entry.invoice_date),
+    paymentTerms: text(entry.payment_terms),
+    clientName: text(entry.client_name),
+    clientEmail: text(entry.client_email),
+    clientAddress: text(entry.client_address),
+    serviceDescription: text(entry.service_description),
+    jobRef: text(entry.job_ref),
+    issuerName: text(financeCompany.name),
+    issuerXdId: text(entry.issuer_xd_id_snapshot) ?? text(financeCompany.xd_id),
+    customerXdId: text(entry.customer_xd_id_snapshot),
+    submittedAt: text(entry.submitted_at),
+    approvedAt: text(entry.approved_at),
+    paidAt: text(entry.paid_at),
+    deliveryState: text(entry.delivery_state),
+    deliveryProvider: text(entry.delivery_provider),
+    deliveryMessageId: text(entry.delivery_message_id),
+    deliveryRecipientEmail: text(entry.delivery_recipient_email),
+    deliveryAttemptedAt: text(entry.delivery_attempted_at),
+    deliveryError: text(entry.delivery_error),
+    createdAt: text(entry.created_at),
+    updatedAt: text(entry.updated_at),
   }));
 
   const allocatedVehicleRef = vehicleId ? (text(vehicle.reg_plate) ?? text(job.vehicle_ref)) : null;
@@ -338,6 +368,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || agreementResult.error
         || trackingResult.error
         || invoiceResult.error
+        || financeCompanyResult.error
         || documentsResult.error
         || vehicleResult.error
         || driverResult.error

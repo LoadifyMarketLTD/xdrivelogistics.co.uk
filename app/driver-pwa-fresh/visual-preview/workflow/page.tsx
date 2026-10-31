@@ -13,7 +13,8 @@ export default function Workflow(){
  const move=(id:string,stage:DemoStage)=>{const old=data[id];updateDemo(id,{...old,stage,events:[...(old?.events||[]),{stage,at:new Date().toISOString()}]});setData(readDemo());setError('')};
  const undo=(id:string)=>{const old=data[id];if(!old?.events?.length)return;const events=old.events.slice(0,-1);const stage=events.at(-1)?.stage||'received';updateDemo(id,{...old,stage,events});setData(readDemo())};
  const visible=demoJobs.filter(job=>{const stage=data[job.id]?.stage||'jobs';return tab==='jobs'?stage==='jobs':tab==='quotes'?stage===quoteTab:bookingStages.includes(stage)});
- return <><FreshHeader/><main className="fresh-content"><FreshSectionTabs mapHref="/driver-pwa-fresh/visual-preview/map?load=visual-1" filterHref="/driver-pwa-fresh/visual-preview?view=filter"/><h1>{tab==='jobs'?'Jobs':tab==='quotes'?'Sent Quotes':'Bookings'}</h1>
+ return <><FreshHeader title={tab==='jobs'?'Jobs':tab==='quotes'?'Sent Quotes':'Bookings'}/><main className="fresh-content">
+ {tab==='jobs'?<FreshSectionTabs mapHref="/driver-pwa-fresh/visual-preview/map?load=visual-1" filterHref="/driver-pwa-fresh/visual-preview?view=filter"/>:null}
  {tab==='quotes'?<div className="fresh-quote-tabs"><button className={quoteTab==='submitted'?'active':''} onClick={()=>setQuoteTab('submitted')}>SUBMITTED</button><button className={quoteTab==='unsuccessful'?'active':''} onClick={()=>setQuoteTab('unsuccessful')}>UNSUCCESSFUL</button></div>:null}
  {visible.length===0?<p className="fresh-message">No jobs in this section.</p>:visible.map(job=>{const entry=data[job.id]||{stage:'jobs' as DemoStage};return <FreshJobCard key={job.id} load={job} mode={tab} actions={<>
  {tab==='jobs'?<><a className="quote-now" href={`/driver-pwa-fresh/visual-preview/quote?load=${encodeURIComponent(job.id)}`}>Quote Now</a><a className="fresh-detail" href={`/driver-pwa-fresh/visual-preview/details?load=${encodeURIComponent(job.id)}`}>View Details</a></>:null}

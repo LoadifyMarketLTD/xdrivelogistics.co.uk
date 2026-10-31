@@ -45,7 +45,7 @@ export default function FreshQuotes() {
  };
  const visible=bids.filter(bid=>{const s=bid.status.toLowerCase();if(tab==='won')return s==='accepted';if(tab==='lost')return closed.has(s)&&s!=='accepted';if(tab==='pending')return ['pending','awaiting','under_review'].some(v=>s.includes(v));return !closed.has(s)&&!['pending','awaiting','under_review'].some(v=>s.includes(v));});
  return <ProtectedRoute allowedRoles={['driver']}>
-  <FreshHeader />
+  <FreshHeader title="Sent Quotes" />
   <main className="fresh-content" data-testid="fresh-quotes">
    <div className="fresh-quote-tabs fresh-quote-status-tabs" role="tablist" aria-label="Quote status">{(["active","pending","won","lost"] as const).map(value=><button key={value} type="button" role="tab" aria-selected={tab===value} onClick={()=>setTab(value)}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
    {error?<div className="fresh-message" role="alert">{error}</div>:null}

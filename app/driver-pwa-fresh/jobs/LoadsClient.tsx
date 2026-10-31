@@ -115,8 +115,8 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
   }), [results, memberQuery, freightType, dateRange, startDate, endDate, vehicleFrom, vehicleTo, clock]);
   const filtersCount = [from,to,vehicle,bodyType,collectWithin,pickupRadius!=='10'?pickupRadius:'',destinationRadius,memberQuery,freightType,vehicleFrom,vehicleTo,dateRange!=='any'?'date':''].filter(Boolean).length;
   const screen = <>
-    <FreshHeader onSearch={() => setTab('filter')} />
-    <main className="fresh-content">
+    <FreshHeader title="Loads" onSearch={() => setTab('filter')} />
+    <main className="fresh-content" data-testid="official-driver-loads">
       <div className="fresh-tabs" role="tablist" aria-label="Jobs view">
         <button role="tab" aria-selected={tab==='available'} className={tab==='available'?'active':''} onClick={() => setTab('available')}>Available</button>
         <button role="tab" aria-selected={tab==='map'} className={tab==='map'?'active':''} onClick={() => setTab('map')}>Map</button>

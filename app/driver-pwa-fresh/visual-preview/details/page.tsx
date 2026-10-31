@@ -1,6 +1,6 @@
 import DemoActions from './DemoActions';
 import FreshJobCard from '../../FreshJobCard';
-import FreshSectionTabs from '../../FreshSectionTabs';
+import { FreshHeader } from '../../FreshNavigation';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
@@ -18,8 +18,8 @@ export default async function DetailsVisualPreview({ searchParams }: { searchPar
   const item = samples[load || ''];
   if (!item) notFound();
   return <>
-    <header className="fresh-header fresh-preview-details-header"><Link className="fresh-back" href="/driver-pwa-fresh/visual-preview" aria-label="Back to Jobs">‹</Link><h1>Load Details</h1><span aria-hidden="true">☏</span></header>
-    <main className="fresh-content fresh-preview-details"><FreshSectionTabs mapHref={'/driver-pwa-fresh/visual-preview/map?load='+encodeURIComponent(load || '')} filterHref="/driver-pwa-fresh/visual-preview?view=filter"/>
+    <FreshHeader title="Load Details" />
+    <main className="fresh-content fresh-preview-details">
       <FreshJobCard headerOnly mode="preview" load={{id:load || 'visual-1',status:'posted',pickup_area:item.from.split(' ')[0],pickup_postcode_area:item.from.split(' ').at(-1) || null,delivery_area:item.to.split(' ')[0],delivery_postcode_area:item.to.split(' ').at(-1) || null,pickup_datetime:'2026-10-27T20:55:00Z',delivery_datetime:'2026-10-28T11:55:00Z',pickup_time_slot:'At',delivery_time_slot:'By',vehicle_type:item.vehicle,requested_vehicle_label:item.vehicle,requested_vehicle_type:item.vehicle,service_mode:'TIMED_DIRECT',public_quote_notes:null,distance_to_pickup_miles:null,distance_to_delivery_miles:null,distance_miles:null,weight_kg:null,pallets:null,payment_terms:item.terms,exchange_posted_at:'2026-10-27T18:40:00Z',member:{name:item.customer,postedBy:item.customer}}}/>
       <article className="fresh-card">
         <section className="fresh-preview-data"><dl><dt>Veh:</dt><dd>{item.vehicle}</dd><dt>Dist:</dt><dd>{item.distance}</dd><dt>Load:</dt><dd>{item.cargo}</dd><dt>Weight:</dt><dd>{item.weight}</dd><dt>Packaging:</dt><dd>{item.packaging}</dd><dt>Dims:</dt><dd>{item.dimensions}</dd></dl></section>
