@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "npm run validate:supabase-env && next build",
+    "build": "npm run validate:supabase-env && npm run validate:driver-public-towns && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -17,6 +17,7 @@
     "audit:interactive": "node ./scripts/audit-interactive-elements.mjs",
     "preview": "next start",
     "validate:supabase-env": "node ./scripts/validate-supabase-env.mjs",
+    "validate:driver-public-towns": "node ./scripts/verify-driver-public-towns.mjs",
     "validate:vehicle-advertising-contract": "bash ./scripts/validate_vehicle_advertising_contract.sh",
     "audit:auto": "node ./scripts/run-automated-audit.mjs",
     "audit:auto:fast": "node ./scripts/run-automated-audit.mjs --skip-tests --skip-lint",
