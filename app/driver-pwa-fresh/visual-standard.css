@@ -339,3 +339,6 @@
 .fresh-driver-pwa .fresh-accept-confirm{background:#71cf66;border:1px solid #60bf56;color:#102b48}
 .fresh-driver-pwa .fresh-pending-badge{color:#d92f2f;font-weight:800;font-size:12px}
 .fresh-driver-pwa .fresh-pending-offer .fresh-booking-open{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;background:#16A34A;color:#fff;border-radius:6px;text-decoration:none;font-weight:800}
+
+.fresh-driver-pwa .fresh-header .fresh-inline-title{flex:0 0 auto;align-self:center;margin:0 6px 0 2px;font-size:18px;line-height:22px;font-weight:800;white-space:nowrap;color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-header:has(.fresh-inline-title) .fresh-brand{flex:0 0 auto;margin-right:4px}

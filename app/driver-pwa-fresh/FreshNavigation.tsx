@@ -13,15 +13,15 @@ const menuGroups=[
  {label:'Event Log',href:'/driver/event-log'},
  {label:'Settings & Support',href:'/driver/settings'},
 ];
-export function FreshHeader({onSearch,title,onBack}:{onSearch?:()=>void;title?:string;onBack?:()=>void}){
+export function FreshHeader({onSearch,title,onBack,inlineTitle=false}:{onSearch?:()=>void;title?:string;onBack?:()=>void;inlineTitle?:boolean}){
  const [open,setOpen]=useState(false);
  const router=useRouter();
  useEffect(()=>{if(!open)return;const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')setOpen(false)};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[open]);
  const search=()=>{if(onSearch){onSearch();return;}router.push('/driver-pwa-fresh/jobs?view=filter')};
- return <><header className="fresh-header" style={title?{background:'#F5A300',color:'#0B2F6B'}:undefined}><div className="fresh-brand"><span className="fresh-brand-mark">XDRIVE</span><span className="fresh-brand-sub">LOGISTICS</span></div>
+ return <><header className="fresh-header" style={title?{background:'#F5A300',color:'#0B2F6B'}:undefined}><div className="fresh-brand"><span className="fresh-brand-mark">XDRIVE</span><span className="fresh-brand-sub">LOGISTICS</span></div>{inlineTitle&&title?<strong className="fresh-inline-title">{title}</strong>:null}
  <button type="button" className="fresh-header-icon" aria-label="Open driver menu" aria-expanded={open} aria-controls="fresh-driver-menu" onClick={()=>setOpen(value=>!value)}><svg width="29" height="29" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg></button>
  <button type="button" className="fresh-header-icon" aria-label="Search and filter jobs" onClick={search}><svg width="29" height="29" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="2.6" fill="none"/><path d="m15.5 15.5 6 6" stroke="currentColor" strokeWidth="2.6"/></svg></button></header>
- {title&&title!=='Jobs'?<div style={{display:'flex',alignItems:'center',gap:8,background:'#F5A300',color:'#0B2F6B',fontSize:20,fontWeight:700,padding:'2px 12px 10px'}}>{onBack?<button type="button" onClick={onBack} aria-label="Back to Bookings" style={{border:0,background:'transparent',color:'inherit',fontSize:26,lineHeight:1,cursor:'pointer'}}>‹</button>:null}<span>{title}</span></div>:null}
+ {title&&title!=='Jobs'&&!inlineTitle?<div style={{display:'flex',alignItems:'center',gap:8,background:'#F5A300',color:'#0B2F6B',fontSize:20,fontWeight:700,padding:'2px 12px 10px'}}>{onBack?<button type="button" onClick={onBack} aria-label="Back to Bookings" style={{border:0,background:'transparent',color:'inherit',fontSize:26,lineHeight:1,cursor:'pointer'}}>‹</button>:null}<span>{title}</span></div>:null}
  {open?<div className="fresh-menu-backdrop" onClick={()=>setOpen(false)}><nav id="fresh-driver-menu" className="fresh-menu" aria-label="Driver menu" onClick={event=>event.stopPropagation()}><div className="fresh-menu-heading">Driver menu <button type="button" onClick={()=>setOpen(false)} aria-label="Close menu">×</button></div>{menuGroups.map(item=><Link key={item.href} href={item.href} onClick={()=>setOpen(false)}>{item.label}</Link>)}</nav></div>:null}</>;
 }
 export function FreshBottom({active,demo=false}:{active:'jobs'|'quotes'|'bookings';demo?:boolean}){

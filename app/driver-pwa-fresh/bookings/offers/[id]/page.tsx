@@ -3,7 +3,7 @@ import {useCallback,useEffect,useMemo,useState} from 'react';
 import {useParams,useRouter} from 'next/navigation';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import {readRouteAuthAccessToken} from '../../../../../lib/routeAuthCookie';
-import {FreshBottom} from '../../../FreshNavigation';
+import {FreshBottom,FreshHeader} from '../../../FreshNavigation';
 
 type Offer={
  id:string; job_id:string; status:string; buyer_name:string; buyer_xd_id:string|null; public_reference:string|null;
@@ -23,7 +23,7 @@ export default function AcceptJobPage(){
  const pickup=useMemo(()=>offer?.job?place(offer.job.pickup_city,offer.job.pickup_postcode,offer.job.pickup_location):'',[offer]); const delivery=useMemo(()=>offer?.job?place(offer.job.delivery_city,offer.job.delivery_postcode,offer.job.delivery_location):'',[offer]);
  const distance=offer?.job?.job_distance_miles,minutes=offer?.job?.job_distance_minutes;
  return <ProtectedRoute allowedRoles={['driver']}>
-  <header className="fresh-header fresh-accept-header"><div className="fresh-brand"><span className="fresh-brand-mark">XDRIVE</span><span className="fresh-brand-sub">LOGISTICS</span></div><strong className="fresh-accept-title">Accept Job</strong><div className="fresh-accept-spacer"/><button type="button" className="fresh-header-icon" aria-label="Open driver menu" onClick={()=>router.push('/driver-pwa-fresh/bookings')}>☰</button><button type="button" className="fresh-header-icon" aria-label="Search and filter jobs" onClick={()=>router.push('/driver-pwa-fresh/jobs?view=filter')}>⌕</button></header>
+  <FreshHeader title="Accept Job" inlineTitle/>
   <main className="fresh-content fresh-accept-page" data-testid="accept-job-page">
    {loading?<p className="fresh-message" role="status">Loading booking offer...</p>:null}{error?<p className="fresh-message fresh-error" role="alert">{error}</p>:null}
    {offer?<article className="fresh-card fresh-accept-card">

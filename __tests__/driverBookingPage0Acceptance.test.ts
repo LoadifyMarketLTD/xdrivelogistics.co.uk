@@ -6,7 +6,7 @@ const bookings=readFileSync('app/driver-pwa-fresh/bookings/page.tsx','utf8');
 
 describe('driver booking Page 0 acceptance',()=>{
  it('uses the approved four-action layout and excludes SmartPay',()=>{
-  expect(page).toContain('fresh-accept-title">Accept Job');
+  expect(page).toContain('<FreshHeader title="Accept Job" inlineTitle/>');
   expect(page).toContain('>Map</button>');
   expect(page).toContain("Hide Details':'View Details");
   expect(page).toContain("respond('decline')");
