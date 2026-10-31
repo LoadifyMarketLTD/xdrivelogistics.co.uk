@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
+import { readRouteAuthHeader } from '../../lib/routeAuthCookie';
 import 'leaflet/dist/leaflet.css';
 
 type Point = { lat: number; lng: number };
