@@ -96,21 +96,18 @@ export default function FreshLoadDetail() {
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
       {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card">
-        <section className="fresh-preview-data fresh-details-spec" data-testid="cargo-details"><h2>Cargo and vehicle</h2>
-          <dl className="fresh-facts">
-            <dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
-            <dt>Cargo</dt><dd>{load.requested_cargo_label || load.cargo_type || 'Not specified'}</dd>
-            {load.distance_miles != null ? <><dt>Journey</dt><dd>{load.distance_miles} miles</dd></> : null}
-            {load.weight_kg != null ? <><dt>Weight</dt><dd>{load.weight_kg} kg</dd></> : null}
-            {load.pallets != null ? <><dt>Pallets</dt><dd>{load.pallets}</dd></> : null}
-            {load.length_cm != null && load.width_cm != null && load.height_cm != null ? <><dt>Dimensions</dt><dd>{load.length_cm} × {load.width_cm} × {load.height_cm} cm</dd></> : null}
-            {load.pallet_type ? <><dt>Pallet type</dt><dd>{load.pallet_type}</dd></> : null}
-            {load.pallet_stackable != null ? <><dt>Stackable</dt><dd>{load.pallet_stackable ? 'Yes' : 'No'}</dd></> : null}
-            {load.payment_terms ? <><dt>Payment terms</dt><dd>{load.payment_terms}</dd></> : null}
-          </dl>
-        </section>
-        <section className="fresh-preview-customer fresh-details-customer"><h2>Customer / Broker</h2><p><strong>{load.member?.name || "Marketplace member"}</strong></p>{load.member?.memberId ? <p>Member: {load.member.memberId}</p> : null}{load.payment_terms ? <p><strong>Payment terms:</strong> {load.payment_terms}</p> : null}<p><Link href="/driver-pwa-fresh/jobs?view=map">View on XDrive Map</Link></p><p><Link href={"/driver/messages?jobId="+encodeURIComponent(load.id)}>Message company</Link></p></section>{load.public_quote_notes ? <section className="fresh-preview-notes"><h2>Notes</h2><p>{load.public_quote_notes}</p></section> : null}
-        <section className="fresh-preview-feedback fresh-details-feedback"><h2>Company feedback</h2><p>Verified payment and delivery feedback will appear here when available for this member.</p></section><section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Your Quote</h2>
+        <section className="fresh-preview-data fresh-details-spec xd-compact-detail" data-testid="cargo-details"><h2>Transport &amp; Cargo</h2><dl className="fresh-facts">
+<dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
+{load.distance_miles != null ? <><dt>Distance</dt><dd>{load.distance_miles} miles</dd></> : null}
+{load.weight_kg != null ? <><dt>Weight</dt><dd>{load.weight_kg} kg</dd></> : null}
+{load.pallets != null ? <><dt>Pallets</dt><dd>{load.pallets}</dd></> : null}
+{load.length_cm != null && load.width_cm != null && load.height_cm != null ? <><dt>Dimensions</dt><dd>{load.length_cm} × {load.width_cm} × {load.height_cm} cm</dd></> : null}
+{load.pallet_stackable != null ? <><dt>Stackable</dt><dd>{load.pallet_stackable ? 'Yes' : 'No'}</dd></> : null}
+</dl></section>
+<section className="fresh-preview-customer fresh-details-customer xd-compact-detail"><h2>Customer / Broker</h2><p><strong>{load.member?.name || 'Marketplace member'}</strong>{load.member?.memberId ? <span className="xd-member-id"> · {load.member.memberId}</span> : null}</p>{load.payment_terms ? <p>Payment terms: <strong>{load.payment_terms}</strong></p> : null}<div className="xd-detail-links"><Link href={'/driver-pwa-fresh/jobs?view=map&load='+encodeURIComponent(load.id)}>View on XDrive Map</Link><Link href={'/driver/messages?jobId='+encodeURIComponent(load.id)}>Message company</Link></div></section>
+{load.public_quote_notes ? <section className="fresh-preview-notes xd-compact-detail"><h2>Instructions</h2><p>{load.public_quote_notes}</p></section> : null}
+<section className="fresh-preview-feedback fresh-details-feedback xd-compact-detail"><h2>Company feedback</h2><p>No verified feedback available yet.</p></section>
+<section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Your Quote</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
            load.myBid ? <p role="status">You already have a quote on this load ({load.myBid.status || 'submitted'}).</p> :
            <><label>Amount (£)<input inputMode="decimal" type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} aria-invalid={Boolean(error)} /></label>
