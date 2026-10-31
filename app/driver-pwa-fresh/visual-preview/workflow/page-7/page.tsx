@@ -1,10 +1,13 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import {useRouter} from 'next/navigation';
+import {useRouter} from 'next/navigation';
 import ProofOfDeliveryStep from '../../../bookings/[id]/workflow/ProofOfDeliveryStep';
 import { FreshBottom } from '../../../FreshNavigation';
 
 export default function ProofOfDeliveryPreviewPage(){
+ const router=useRouter();
  const signatureRef=useRef<HTMLCanvasElement>(null);
  const [status,setStatus]=useState('Completed Delivery');
  const [items,setItems]=useState('2');
@@ -23,7 +26,7 @@ export default function ProofOfDeliveryPreviewPage(){
    onBack={()=>history.back()} onDeliveryStatus={setStatus} onItemCount={setItems} onWeight={setWeight}
    onRecipientName={setRecipient} onLeftAt={setLeftAt} onDeliveredOn={setDate} onNotes={setNotes}
    onPhotos={()=>undefined} onDocuments={()=>undefined} onSignatureStart={()=>undefined} onSignatureMove={()=>undefined} onSignatureEnd={()=>undefined}
-   onSaveSignature={()=>undefined} onClearSignature={()=>undefined} onHardCopyAcknowledged={()=>undefined} onSaveDraft={()=>undefined} onSubmit={()=>undefined}
+   onSaveSignature={()=>undefined} onClearSignature={()=>undefined} onHardCopyAcknowledged={()=>undefined} onSaveDraft={()=>undefined} onSubmit={()=>router.push('/driver-pwa-fresh/visual-preview/workflow/page-8')}
   />
   <FreshBottom active="bookings" demo />
  </main>;

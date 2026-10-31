@@ -1,12 +1,14 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import {useRouter} from 'next/navigation';
 import OnMyWayToPickupStep from '../../../bookings/[id]/workflow/OnMyWayToPickupStep';
 import { FreshBottom } from '../../../FreshNavigation';
 
 const BookingRouteMap=dynamic(()=>import('../../../BookingRouteMap'),{ssr:false});
 
 export default function OnMyWayToPickupPreviewPage(){
+  const router=useRouter();
   return <main className="fresh-driver-pwa">
     <OnMyWayToPickupStep
       bookingReference="XDL-2026-00128"
@@ -21,7 +23,7 @@ export default function OnMyWayToPickupPreviewPage(){
       instructions="Report to gate 1. Forklift available."
       navigateHref="#"
       onBack={()=>history.back()}
-      onNext={()=>undefined}
+      onNext={()=>router.push('/driver-pwa-fresh/visual-preview/workflow/page-3')}
     />
     <FreshBottom active="bookings" demo />
   </main>;

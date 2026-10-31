@@ -1,11 +1,15 @@
 'use client';
 
 import {useState} from 'react';
+import {useRouter} from 'next/navigation';
 import Link from 'next/link';
+import {readDemo,updateDemo} from '../../../demoState';
 import {FreshBottom,FreshHeader} from '../../../FreshNavigation';
 
 export default function BookingAcceptancePreviewPage(){
   const [details,setDetails]=useState(false);
+  const router=useRouter();
+  const accept=()=>{const previous=readDemo()['visual-1'];updateDemo('visual-1',{...previous,stage:'received',events:[...(previous?.events||[]),{stage:'received',at:new Date().toISOString()}]});router.push('/driver-pwa-fresh/visual-preview/workflow/page-1');};
   return <main className="fresh-driver-pwa">
     <FreshHeader title="Accept Job" inlineTitle/>
     <section className="fresh-content fresh-accept-page">
@@ -41,7 +45,7 @@ export default function BookingAcceptancePreviewPage(){
           <Link className="fresh-accept-map" href="/driver-pwa-fresh/visual-preview/map?load=visual-1">Map</Link>
           <button type="button" className="fresh-accept-details-button" aria-expanded={details} onClick={()=>setDetails(value=>!value)}>{details?'Hide Details':'View Details'}</button>
           <Link className="fresh-accept-decline" href="/driver-pwa-fresh/visual-preview/workflow?tab=bookings">Decline</Link>
-          <Link className="fresh-accept-confirm" href="/driver-pwa-fresh/visual-preview/workflow/page-1">Accept</Link>
+          <button type="button" className="fresh-accept-confirm" onClick={accept}>Accept</button>
         </div>
       </article>
     </section>

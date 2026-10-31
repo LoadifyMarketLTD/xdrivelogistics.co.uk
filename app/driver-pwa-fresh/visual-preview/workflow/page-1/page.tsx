@@ -1,9 +1,11 @@
 'use client';
 
+import {useRouter} from 'next/navigation';
 import BookingDetailsStep from '../../../bookings/[id]/workflow/BookingDetailsStep';
 import { FreshBottom } from '../../../FreshNavigation';
 
 export default function BookingDetailsPreviewPage(){
+  const router=useRouter();
   return <main className="fresh-driver-pwa">
     <BookingDetailsStep
       bookingReference="XDL-2026-00128"
@@ -20,7 +22,7 @@ export default function BookingDetailsPreviewPage(){
       ]}
       onBack={()=>history.back()}
       onMessage={()=>undefined}
-      onNext={()=>undefined}
+      onNext={()=>router.push('/driver-pwa-fresh/visual-preview/workflow/page-2')}
     />
     <FreshBottom active="bookings" demo />
   </main>;
