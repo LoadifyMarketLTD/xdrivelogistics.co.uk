@@ -33,6 +33,7 @@ export default function FreshQuotes() {
   finally{setLoading(false);}
  },[user?.id]);
  useEffect(()=>{if(!authLoading&&user?.id)void refresh();else if(!authLoading)setLoading(false);},[authLoading,user?.id,refresh]);
+ useEffect(()=>{if(authLoading||!user?.id)return;const onResume=()=>{if(document.visibilityState==='visible')void refresh();};window.addEventListener('focus',onResume);document.addEventListener('visibilitychange',onResume);return()=>{window.removeEventListener('focus',onResume);document.removeEventListener('visibilitychange',onResume);};},[authLoading,user?.id,refresh]);
  const withdraw=async(bid:Bid)=>{
   if(busy||closed.has(bid.status.toLowerCase())||!window.confirm('Withdraw this quote?'))return;
   setBusy(bid.id);setError('');

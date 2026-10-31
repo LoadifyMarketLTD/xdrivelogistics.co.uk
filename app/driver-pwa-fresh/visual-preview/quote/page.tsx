@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 const samples: Record<string,{from:string;to:string;vehicle:string}> = {
- 'visual-1':{from:'BLACKBURN BB1',to:'BLACKBURN BB1',vehicle:'LWB Van'},
+ 'visual-1':{from:'BLACKBURN BB1',to:'MANCHESTER M1',vehicle:'LWB Van'},
  'visual-2':{from:'DARWEN BB3',to:'LEEDS LS14',vehicle:'LWB Van'},
  'visual-3':{from:'LONDON SE1',to:'LUTON LU1',vehicle:'LWB Van'}
 };

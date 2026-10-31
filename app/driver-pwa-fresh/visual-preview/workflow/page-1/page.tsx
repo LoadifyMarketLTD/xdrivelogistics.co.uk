@@ -17,8 +17,8 @@ export default function BookingDetailsPreviewPage(){
       memberCode="XD12345"
       memberPhone="+44 7700 900123"
       stops={[
-        {key:'collection',label:'Collection',address:'Unit 4, Logistics Park, Blackburn BB1 2BB',schedule:'28 Oct · 09:00–10:00',contactName:'John Smith',phone:'+44 7700 900123',navigateHref:'#'},
-        {key:'delivery',label:'Delivery',address:'Industrial Estate, Manchester M2 2AB',schedule:'28 Oct · ASAP',contactName:'Sarah Brown',phone:'+44 7700 112233',navigateHref:'#'},
+        {key:'collection',label:'Collection',address:'Unit 4, Logistics Park, Blackburn BB1 2BB',schedule:'28 Oct · 09:00–10:00',contactName:'John Smith',phone:'+44 7700 900123',navigateHref:'https://www.google.com/maps/dir/?api=1&destination=Unit%204%20Logistics%20Park%20Blackburn%20BB1%202BB&travelmode=driving'},
+        {key:'delivery',label:'Delivery',address:'Industrial Estate, Manchester M2 2AB',schedule:'28 Oct · ASAP',contactName:'Sarah Brown',phone:'+44 7700 112233',navigateHref:'https://www.google.com/maps/dir/?api=1&destination=Industrial%20Estate%20Manchester%20M2%202AB&travelmode=driving'},
       ]}
       onBack={()=>history.back()}
       onMessage={()=>undefined}
