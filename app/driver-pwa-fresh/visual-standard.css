@@ -363,3 +363,7 @@
 /* Approved two-option My Quotes navigation on narrow phones. */
 .fresh-driver-pwa .fresh-quote-status-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
 .fresh-driver-pwa .fresh-quote-status-tabs button{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:clamp(11px,3.3vw,16px)}
+
+/* Approved card detail and booking timeline must span full mobile card width. */
+.fresh-driver-pwa .fresh-actions>.fresh-demo-quote-detail,.fresh-driver-pwa .fresh-actions>.fresh-booking-timeline{grid-column:1/-1;width:100%}
+.fresh-driver-pwa .fresh-actions>.fresh-booking-timeline+.fresh-booking-open{grid-column:1/-1;width:100%}
