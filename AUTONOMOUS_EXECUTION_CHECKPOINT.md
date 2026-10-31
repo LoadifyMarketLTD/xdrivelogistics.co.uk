@@ -106,3 +106,15 @@ Final social-card renderer remediation
 - Post-remediation lint: PASS
 - Post-remediation typecheck: PASS
 - Post-remediation production build: PASS (BUILD_EXIT=0)
+
+
+## 2026-10-31 Page 0 booking acceptance
+- Added driver PWA route: /driver-pwa-fresh/bookings/offers/[id]
+- Added internal map route: /driver-pwa-fresh/bookings/offers/[id]/map
+- Bookings Current now surfaces pending job_booking_offers as Acceptance Required.
+- Page 0 approved action layout: Map | View Details, Decline | Accept.
+- SmartPay is not present.
+- Accept POSTs action=accept to /api/booking-offers/[id]/respond then routes to active booking workflow.
+- Decline POSTs action=decline then returns to Bookings.
+- Map opens the internal XDrive map route for the awarded load.
+- Verification: Page0 + reference tests 5/5 PASS; targeted ESLint PASS; npm run typecheck PASS; production npm run build PASS, 201/201 pages generated.

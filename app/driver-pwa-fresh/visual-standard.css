@@ -305,3 +305,37 @@
 .fresh-driver-pwa .fresh-details-card .fresh-facts{row-gap:16px!important}
 .fresh-driver-pwa .fresh-details-card .fresh-facts dt{color:#667a94!important}
 .fresh-driver-pwa .fresh-details-card>.fresh-actions{border-radius:14px!important;padding:17px!important;border-color:#dce6f3!important}
+
+
+/* Page 0 - booking acceptance */
+.fresh-driver-pwa .fresh-accept-header{display:flex;align-items:center;gap:10px;background:var(--xd-orange);color:var(--xd-primary-blue);height:58px;padding:0 10px}
+.fresh-driver-pwa .fresh-accept-header .fresh-brand{flex:0 0 auto}
+.fresh-driver-pwa .fresh-accept-title{font-size:18px;line-height:1;font-weight:800;white-space:nowrap;align-self:center;margin-top:1px}
+.fresh-driver-pwa .fresh-accept-spacer{flex:1 1 auto}
+.fresh-driver-pwa .fresh-accept-page{padding-top:10px}
+.fresh-driver-pwa .fresh-accept-card{overflow:hidden;border-radius:9px}
+.fresh-driver-pwa .fresh-accept-summary{padding:14px;border-bottom:1px solid var(--xd-border);display:grid;gap:4px}
+.fresh-driver-pwa .fresh-accept-summary>strong{font-size:18px;line-height:23px;color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-accept-summary>span{font-size:15px;color:#66717d;font-weight:700}
+.fresh-driver-pwa .fresh-accept-summary>b{font-size:17px;color:#ef4444}
+.fresh-driver-pwa .fresh-accept-route{display:grid;grid-template-columns:34px 1fr;gap:10px;padding:14px;border-bottom:1px solid var(--xd-border)}
+.fresh-driver-pwa .fresh-accept-route-icons{display:flex;flex-direction:column;align-items:center;justify-content:space-between;color:#a9b1b8;min-height:132px}
+.fresh-driver-pwa .fresh-accept-route-icons span{font-size:20px}
+.fresh-driver-pwa .fresh-accept-route-icons i{font-style:normal;font-size:18px;line-height:15px;color:#aeb6be}
+.fresh-driver-pwa .fresh-accept-route-places{display:grid;gap:20px}
+.fresh-driver-pwa .fresh-accept-route-places>div{display:grid;gap:3px}
+.fresh-driver-pwa .fresh-accept-route-places strong{font-size:19px;line-height:24px;color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-accept-route-places span{font-size:16px;line-height:21px;color:#66717d;font-weight:700}
+.fresh-driver-pwa .fresh-accept-facts{padding:14px;display:grid;gap:7px}
+.fresh-driver-pwa .fresh-accept-facts>div{display:grid;grid-template-columns:92px 1fr;gap:8px;font-size:16px;line-height:21px}
+.fresh-driver-pwa .fresh-accept-facts b{color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-accept-facts span{color:#5f6872}
+.fresh-driver-pwa .fresh-accept-details{margin:0 14px 12px;padding:12px;background:#f7f8fa;border:1px solid #dde3e8;border-radius:8px;display:grid;gap:8px}
+.fresh-driver-pwa .fresh-accept-details>div{display:grid;grid-template-columns:110px 1fr;gap:8px;font-size:14px}
+.fresh-driver-pwa .fresh-accept-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 10px 12px}
+.fresh-driver-pwa .fresh-accept-actions button{min-height:50px;border-radius:4px;font-size:16px;font-weight:800}
+.fresh-driver-pwa .fresh-accept-map,.fresh-driver-pwa .fresh-accept-details-button{background:var(--xd-orange);border:1px solid #e79b00;color:var(--xd-primary-blue)}
+.fresh-driver-pwa .fresh-accept-decline{background:#ef5b57;border:1px solid #df4d49;color:#102b48}
+.fresh-driver-pwa .fresh-accept-confirm{background:#71cf66;border:1px solid #60bf56;color:#102b48}
+.fresh-driver-pwa .fresh-pending-badge{color:#d92f2f;font-weight:800;font-size:12px}
+.fresh-driver-pwa .fresh-pending-offer .fresh-booking-open{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;background:#16A34A;color:#fff;border-radius:6px;text-decoration:none;font-weight:800}
