@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import FreshJobCard from '../../FreshJobCard';
+import LoadRoutePreview from '../../LoadRoutePreview';
 import { FreshBottom, FreshHeader } from '../../FreshNavigation';
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 
@@ -95,7 +96,7 @@ export default function FreshLoadDetail() {
     <main className="fresh-content fresh-preview-details" data-testid="load-details">
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
-      {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card">
+      {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card"><LoadRoutePreview pickup={load.pickup_postcode_area || load.pickup_area} delivery={load.delivery_postcode_area || load.delivery_area} loadId={load.id} />
         <section className="fresh-preview-data fresh-details-spec xd-compact-detail" data-testid="cargo-details"><h2>Transport &amp; Cargo</h2><dl className="fresh-facts">
 <dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
 {load.distance_miles != null ? <><dt>Distance</dt><dd>{load.distance_miles} miles</dd></> : null}
