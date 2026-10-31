@@ -367,3 +367,18 @@
 /* Approved card detail and booking timeline must span full mobile card width. */
 .fresh-driver-pwa .fresh-actions>.fresh-demo-quote-detail,.fresh-driver-pwa .fresh-actions>.fresh-booking-timeline{grid-column:1/-1;width:100%}
 .fresh-driver-pwa .fresh-actions>.fresh-booking-timeline+.fresh-booking-open{grid-column:1/-1;width:100%}
+
+/* Compact driver Load Details, keeping the approved XDrive shell. */
+.fresh-driver-pwa .fresh-details-card .xd-compact-detail{margin:8px 12px!important;padding:13px 14px!important;border:1px solid #dfe6ed;border-radius:10px!important;background:#fff}
+.fresh-driver-pwa .fresh-details-card .xd-compact-detail h2{margin:0 0 10px!important;font-size:16px!important;line-height:22px!important;color:#0b2f6b;font-weight:800}
+.fresh-driver-pwa .fresh-details-card .xd-compact-detail .fresh-facts{display:grid;grid-template-columns:minmax(90px,36%) minmax(0,1fr);gap:8px 12px!important;font-size:14px;line-height:21px}
+.fresh-driver-pwa .fresh-details-card .xd-compact-detail .fresh-facts dt{font-weight:650;color:#64748b}
+.fresh-driver-pwa .fresh-details-card .xd-compact-detail .fresh-facts dd{margin:0;overflow-wrap:anywhere;font-weight:700;color:#1a1f2b}
+.fresh-driver-pwa .fresh-details-card .xd-compact-detail p{margin:5px 0;line-height:1.4;font-size:14px}
+.fresh-driver-pwa .fresh-details-card .xd-member-id{font-size:12px;color:#64748b;font-weight:600}
+.fresh-driver-pwa .fresh-details-card .xd-detail-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.fresh-driver-pwa .fresh-details-card .xd-detail-links a{min-width:0;min-height:48px;box-sizing:border-box;padding:8px 9px;text-align:center;font-size:13px;line-height:17px;border-radius:8px;border:1px solid #cad9ed;background:#eef3fb;color:#0b2f6b;text-decoration:none;font-weight:800;display:flex;align-items:center;justify-content:center}
+.fresh-driver-pwa .fresh-details-card .xd-detail-links a:first-child{background:#f5a300;border-color:#f5a300;color:#0b2f6b}
+.fresh-driver-pwa .fresh-details-card .fresh-details-feedback.xd-compact-detail{padding:11px 14px!important}
+.fresh-driver-pwa .fresh-details-card .fresh-details-feedback.xd-compact-detail h2{margin-bottom:3px!important}
+.fresh-driver-pwa .fresh-details-card .fresh-details-feedback.xd-compact-detail p{font-size:12px;color:#64748b}
