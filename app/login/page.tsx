@@ -51,7 +51,7 @@ export default function LoginPage() {
     if (authLoading || !user) return;
     const canonicalRoute = getResponsivePostLoginRoute(user, isMobileDriverBrowser());
     const mobileDriver = isMobileDriverBrowser() && user.canAccessDriverMode === true && Boolean(user.driverId) && !user.mustChangePassword;
-    const destination = mobileDriver ? '/driver-pwa-fresh/bookings' : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
+    const destination = mobileDriver ? (safeNextPath?.startsWith('/driver-pwa-fresh/') && roleCanAccessPath(user, safeNextPath) ? safeNextPath : '/driver-pwa-fresh/jobs') : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
