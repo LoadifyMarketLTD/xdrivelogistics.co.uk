@@ -359,3 +359,7 @@
 .fresh-driver-pwa .fresh-header .fresh-inline-title{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;margin:0 4px;font-size:clamp(12px,3.5vw,17px);line-height:20px}
 .fresh-driver-pwa .fresh-header:has(.fresh-inline-title) .fresh-brand{flex:0 0 auto;max-width:92px;margin-right:0}
 .fresh-driver-pwa .fresh-header .fresh-header-back{flex:0 0 30px;width:30px;height:44px;padding:0;border:0;background:transparent;color:#0B2F6B;font-size:30px;line-height:1}
+
+/* Approved two-option My Quotes navigation on narrow phones. */
+.fresh-driver-pwa .fresh-quote-status-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fresh-driver-pwa .fresh-quote-status-tabs button{white-space:nowrap;overflow:hidden;text-overflow:clip;font-size:clamp(11px,3.3vw,16px)}
