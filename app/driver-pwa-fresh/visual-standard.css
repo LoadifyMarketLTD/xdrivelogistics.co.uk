@@ -342,3 +342,10 @@
 
 .fresh-driver-pwa .fresh-header .fresh-inline-title{flex:0 0 auto;align-self:center;margin:0 6px 0 2px;font-size:18px;line-height:22px;font-weight:800;white-space:nowrap;color:var(--xd-primary-blue)}
 .fresh-driver-pwa .fresh-header:has(.fresh-inline-title) .fresh-brand{flex:0 0 auto;margin-right:4px}
+
+/* Mobile storyboard shell: keep Page 0-11 at the same PWA viewport on desktop preview. */
+.fresh-storyboard-shell{width:min(100%,430px);min-height:100dvh;margin:0 auto;background:#F4F6F8;overflow-x:hidden}
+@media(min-width:431px){.fresh-storyboard-shell{box-shadow:0 0 0 1px #D9E0E7,0 8px 28px rgba(11,47,107,.10)}}
+.fresh-storyboard-shell>.fresh-driver-pwa{min-height:100dvh}
+
+.fresh-storyboard-shell .fresh-bottom{left:50%;right:auto;width:min(100%,430px);transform:translateX(-50%)}
