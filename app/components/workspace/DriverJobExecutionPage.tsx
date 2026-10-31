@@ -963,7 +963,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const deliveryAddress=bookingAreaLabel(stops[1].place,stops[1].postcode);
       return <BookingDetailsStep
         bookingReference={sheet?.bookingReference??null}
-        routeLabel={${pickupAddress} → ${deliveryAddress}}
+        routeLabel={`${pickupAddress} → ${deliveryAddress}`}
         statusLabel={statusLabel[currentStatus]??currentStatus}
         agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
         paymentTerms={sheet?.paymentTerms??null}
