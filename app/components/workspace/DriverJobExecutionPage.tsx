@@ -374,7 +374,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 
   // Restore the server-owned POD draft only after the job and its sheet are loaded.
   useEffect(() => {
-    if (!podDraftActive || loading || !podJobId || podAlreadyComplete) return;`r`n    let cancelled = false;
+    if (!podDraftActive || loading || !podJobId || podAlreadyComplete) return;
+    let cancelled = false;
     void (async () => {
       try {
         const auth = await authHeader();
@@ -415,7 +416,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       }
     })();
     return () => { cancelled = true; };
-  }, [podDraftActive, loading, podJobId, podAlreadyComplete, authHeader]);`r`n`r`n  // Serialize debounced writes: an older draft must never overwrite a newer one.`r`n  useEffect(() => {`r`n    if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete) return;`r`n    const id = podJobId;
+  }, [podDraftActive, loading, podJobId, podAlreadyComplete, authHeader]);
+
+  // Serialize debounced writes: an older draft must never overwrite a newer one.
+  useEffect(() => {
+    if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete) return;
+    const id = podJobId;
     const data = {
       recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
       itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
@@ -439,7 +445,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       }).finally(() => setPodDraftSaving(false));
     }, 700);
     return () => clearTimeout(timer);
-  }, [podDraftActive, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,`r`n      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
+  }, [podDraftActive, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,
+      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
       savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments]);
 
   const savePodDraftNow = async () => {
@@ -1507,6 +1514,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 
 const inputStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 4, padding: '7px 8px', background: '#fff', color: '#0f172a', fontSize: 12 };
 const linkButtonStyle: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 10px', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', color: '#0b2f6b', fontSize: 12, fontWeight: 700, textDecoration: 'none' };
+
 
 
 
