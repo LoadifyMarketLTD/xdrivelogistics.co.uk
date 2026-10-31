@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {useRouter} from 'next/navigation';
 import FreshJobCard from '../../FreshJobCard';
 import {demoJobs,readDemo,updateDemo,bookingStages,type DemoStore,type DemoStage} from '../../demoState';
 import {FreshHeader} from '../../FreshNavigation';
@@ -8,12 +9,13 @@ type Tab='jobs'|'quotes'|'bookings';
 const next:Partial<Record<DemoStage,DemoStage>>={received:'allocated',allocated:'pickup',pickup:'onsite-pickup','onsite-pickup':'loaded',loaded:'delivery',delivery:'onsite-delivery','onsite-delivery':'delivered',delivered:'pod',pod:'invoiced'};
 const labels:Partial<Record<DemoStage,string>>={received:'Accept Booking',allocated:'On My Way to Pickup',pickup:'On Site Pickup','onsite-pickup':'Loaded',loaded:'On My Way to Delivery',delivery:'On Site Delivery','onsite-delivery':'Delivered',delivered:'Submit POD',pod:'Create Invoice'};
 export default function Workflow(){
+ const router=useRouter();
  const [tab,setTab]=useState<Tab>('jobs'),[quoteTab,setQuoteTab]=useState<'submitted'|'unsuccessful'>('submitted'),[data,setData]=useState<DemoStore>({}),[expanded,setExpanded]=useState<Record<string,boolean>>({}),[photos,setPhotos]=useState<Record<string,string>>({}),[signatures,setSignatures]=useState<Record<string,string>>({}),[error,setError]=useState('');
  useEffect(()=>{setData(readDemo());const initial=new URLSearchParams(location.search).get('tab');if(initial==='quotes'||initial==='bookings')setTab(initial)},[]);
  const move=(id:string,stage:DemoStage)=>{const old=data[id];updateDemo(id,{...old,stage,events:[...(old?.events||[]),{stage,at:new Date().toISOString()}]});setData(readDemo());setError('')};
  const undo=(id:string)=>{const old=data[id];if(!old?.events?.length)return;const events=old.events.slice(0,-1);const stage=events.at(-1)?.stage||'received';updateDemo(id,{...old,stage,events});setData(readDemo())};
  const visible=demoJobs.filter(job=>{const stage=data[job.id]?.stage||'jobs';return tab==='jobs'?stage==='jobs':tab==='quotes'?stage===quoteTab:bookingStages.includes(stage)});
- return <><FreshHeader title={tab==='jobs'?'Jobs':tab==='quotes'?'Sent Quotes':'Bookings'}/><main className="fresh-content">
+ return <><FreshHeader title={tab==='jobs'?'Loads':tab==='quotes'?'My Quotes':'Bookings'} onSearch={tab==='jobs'?()=>router.push('/driver-pwa-fresh/visual-preview?view=filter'):undefined}/><main className="fresh-content">
  {tab==='jobs'?<FreshSectionTabs mapHref="/driver-pwa-fresh/visual-preview/map?load=visual-1" filterHref="/driver-pwa-fresh/visual-preview?view=filter"/>:null}
  {tab==='quotes'?<div className="fresh-quote-tabs"><button className={quoteTab==='submitted'?'active':''} onClick={()=>setQuoteTab('submitted')}>SUBMITTED</button><button className={quoteTab==='unsuccessful'?'active':''} onClick={()=>setQuoteTab('unsuccessful')}>UNSUCCESSFUL</button></div>:null}
  {visible.length===0?<p className="fresh-message">No jobs in this section.</p>:visible.map(job=>{const entry=data[job.id]||{stage:'jobs' as DemoStage};return <FreshJobCard key={job.id} load={job} mode={tab} actions={<>
