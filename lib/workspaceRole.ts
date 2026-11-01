@@ -235,6 +235,8 @@ export const getWorkspaceCapabilities = (role: WorkspaceRole): readonly Workspac
 
 const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin', icon: '⌂' }] },
+  { id: 'carrier-operations-centre', label: 'Network & Tools', items: [{ id: 'operations-centre', label: 'Network & Tools', href: '/admin/operations-centre', icon: '▦', capability: 'jobs.view' }] },
+  { id: 'carrier-reports', label: 'Reports', items: [{ id: 'reports', label: 'Reports', href: '/admin/finance/reports', icon: '▤', capability: 'invoices.carrier.manage' }] },
   { id: 'carrier-post-load', label: 'Post Load', items: [{ id: 'post-load', label: 'Post Load', href: '/admin/post-load', icon: '+', capability: 'loads.create' }] },
   { id: 'carrier-notifications', label: 'Notifications', items: [{ id: 'notifications', label: 'Notifications', href: '/admin/notifications', icon: '!', capability: 'jobs.view' }] },
   { id: 'carrier-marketplace', label: 'Marketplace', items: [{ id: 'marketplace', label: 'Marketplace', href: '/admin/marketplace', icon: '▦', capability: 'loads.view.marketplace' }] },
