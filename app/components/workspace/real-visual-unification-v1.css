@@ -30,3 +30,80 @@
 @media (max-width: 767px) {
   .xdrive-real-visual-v1 { min-width: 0; }
 }
+
+/* Phase 2 — visible company-reference layout on real Customer/Broker.
+   Nav data and links stay driven by the existing role/capability engine. */
+@media (min-width: 1024px) {
+  .xdrive-real-visual-v1 .top-workspace-shell {
+    padding-left: 224px !important;
+    background: #f4f6f8 !important;
+    font-family: Inter, Arial, sans-serif !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-nav--primary {
+    position: fixed !important;
+    inset: 0 auto 0 0 !important;
+    width: 224px !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    padding: 80px 14px 16px !important;
+    overflow-y: auto !important;
+    overflow-x: visible !important;
+    background: #0b2f6b !important;
+    border: 0 !important;
+    z-index: 85 !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-nav__track {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    width: 100% !important;
+    height: auto !important;
+    gap: 0 !important;
+    overflow: visible !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-nav__group,
+  .xdrive-real-visual-v1 .top-workspace-nav__item {
+    width: 100% !important;
+    max-width: 196px !important;
+    flex: none !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-nav__item {
+    min-height: 34px !important;
+    height: auto !important;
+    padding: 7px 12px !important;
+    border: 0 !important;
+    border-radius: 7px !important;
+    color: #c9d8ed !important;
+    background: transparent !important;
+    font: 650 14px/20px Inter, Arial, sans-serif !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-nav__item[data-active="true"] {
+    color: white !important;
+    background: #1d57d8 !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-nav__item:hover {
+    color: white !important;
+    background: #1d57d8 !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-nav__menu {
+    position: static !important;
+    width: 100% !important;
+    max-height: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+    margin: 4px 0 !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-shell__header {
+    position: sticky !important;
+    top: 0 !important;
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-shell__content {
+    width: 100% !important;
+    min-width: 0 !important;
+    background: #f4f6f8 !important;
+  }
+}
