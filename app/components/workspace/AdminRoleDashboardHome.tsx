@@ -7,6 +7,7 @@ import { resolveAdminDashboard } from './AdminDashboardResolver';
 import { ActionButton, PermissionDeniedState } from './WorkspaceUI';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import CarrierOperationsDashboardHome from './CarrierOperationsDashboardHome';
+import CompanyApprovedDashboard from './CompanyApprovedDashboard';
 import DispatcherControlDashboardHome from './DispatcherControlDashboardHome';
 import FinanceControlDashboardHome from './FinanceControlDashboardHome';
 import ComplianceControlDashboardHome from './ComplianceControlDashboardHome';
@@ -43,7 +44,7 @@ export default function AdminRoleDashboardHome() {
 
   switch (resolution.target) {
     case 'carrier':
-      return <CarrierOperationsDashboardHome />;
+      return <CompanyApprovedDashboard />;
     case 'fleet':
       // Fleet managers share the canonical carrier/company Dashboard surface.
       // Fleet-specific control remains under My Fleet (/admin/fleet), avoiding
