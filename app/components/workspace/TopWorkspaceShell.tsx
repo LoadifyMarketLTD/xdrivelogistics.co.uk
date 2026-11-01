@@ -97,16 +97,22 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   const items = uniqueNavItems(groups);
   const direct: Array<[string, string, string]> = [
     ['carrier-dashboard', 'Dashboard', '/admin'],
-    ['carrier-directory', 'Directory', '/admin/marketplace/directory'],
-    ['carrier-live-availability', 'Live Availability', '/admin/live-availability'],
-    ['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
-    ['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
+    ['carrier-post-load', 'Post Load', '/admin/post-load'],
     ['carrier-loads', 'Loads', '/admin/marketplace'],
     ['carrier-quotes', 'Quotes', '/admin/exchange'],
+    ['carrier-bookings', 'Bookings', '/admin/won-work'],
+    ['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
+    ['carrier-drivers', 'Drivers', '/admin/drivers'],
     ['carrier-diary', 'Diary', '/admin/diary'],
+    ['carrier-invoices', 'Invoices', '/admin/invoices'],
+    ['carrier-network-tools', 'Network & Tools', '/admin/operations-centre'],
+    ['carrier-directory', 'Directory', '/admin/marketplace/directory'],
+    ['carrier-live-availability', 'Live Availability', '/admin/live-availability'],
+    ['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
     ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
-    ['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
-    ['carrier-settings', 'Settings', '/admin/settings'],
+    ['carrier-messages', 'Messages', '/admin/messages'],
+    ['carrier-notifications', 'Notifications', '/admin/notifications'],
+    ['carrier-reports', 'Reports', '/admin/finance/reports'],
   ];
 
   const directHrefs = new Set(direct.map(([, , href]) => href));
@@ -975,14 +981,18 @@ export default function TopWorkspaceShell({
             onClick={() => router.push(definition.homeHref)}
             aria-label={`Open ${definition.label}`}
           >
-            <Image
-              src="/xdrive-logo-primary.png"
-              alt="XDrive Logistics"
-              width={150}
-              height={41}
-              priority
-              className="top-workspace-shell__logo"
-            />
+            {CARRIER_NAV_ROLES.has(role) ? (
+              <span className="xdrive-company-demo-brand" aria-label="XDrive Logistics">XDRIVE <em>LOGISTICS</em></span>
+            ) : (
+              <Image
+                src="/xdrive-logo-primary.png"
+                alt="XDrive Logistics"
+                width={150}
+                height={41}
+                priority
+                className="top-workspace-shell__logo"
+              />
+            )}
           </button>
           <div className="top-workspace-shell__identity">
             <span>{definition.label}</span>

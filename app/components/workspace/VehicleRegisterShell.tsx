@@ -1,6 +1,7 @@
 'use client';
 
 import type { CSSProperties, ReactNode } from 'react';
+import './approved-demo-fleet-shell.css';
 
 type VehicleRegisterShellProps = {
   title: string;
@@ -12,7 +13,7 @@ type VehicleRegisterShellProps = {
 
 export function VehicleRegisterShell({ title, subtitle, actions, children, ariaLabel }: VehicleRegisterShellProps) {
   return (
-    <div className="carrier-register-page carrier-register-page--vehicles" aria-label={ariaLabel}>
+    <div className="carrier-register-page carrier-register-page--vehicles xd-approved-demo-fleet" aria-label={ariaLabel}>
       <div style={{ width: '100%' }}>
         <div className="carrier-register-toolbar">
           <div>

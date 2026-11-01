@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
+import './approved-demo-load-card.css';
 
 export type CxDateParts = { primary: ReactNode; meta?: ReactNode };
 
@@ -54,7 +55,8 @@ export default function CxLoadCard({
   dataState?: string;
 }) {
   return (
-    <article className={`xdrive-cx-load-card${className ? ` ${className}` : ''}`} data-state={dataState}>
+    <article className={`xdrive-cx-load-card xd-approved-load-card${className ? ` ${className}` : ''}`} data-state={dataState}>
+      <header className="xd-approved-load-card__heading"><span>{posted}</span><span>{band}</span></header>
       <div className="xdrive-cx-load-card__main">
         <section className="xdrive-cx-load-card__route">
           <div><span>From:</span><strong>{from}</strong></div>
