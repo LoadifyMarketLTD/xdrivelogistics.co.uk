@@ -562,7 +562,7 @@ export default function CompanyMarketplaceExchange({
         </div>
       </>}
 
-      {tab === 'bids' && <div className="xdrive-exchange-workspace-layout xdrive-admin-marketplace-identity" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      {tab === 'bids' && <div className="xd-approved-demo-section"><div className="xd-approved-demo-loads-heading"><div><h1>Quotes</h1><p>Live quotations, submissions and responses</p></div><button type="button" onClick={() => void loadListTab('bids')} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh Quotes'}</button></div><div className="xdrive-exchange-workspace-layout xdrive-admin-marketplace-identity" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 196px)', width: 'var(--ws-filter-rail-w, 196px)', minWidth: 0, alignSelf: 'flex-start' }}>
           <Panel title="Search Panel">
             <div style={{ display: 'grid', gap: 6 }}>
@@ -638,9 +638,9 @@ export default function CompanyMarketplaceExchange({
             {!loading && visibleBids.length === 0 && <div className="carrier-exchange-empty" style={{ minHeight: 52, padding: 10, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748b', border: '1px solid #dbe2ea', background: '#fff' }}>{bids.length === 0 ? 'No marketplace quotes have been submitted by this company.' : 'No quotes match the current state and search filters.'}</div>}
           </div>
         </main>
-      </div>}
+      </div></div>}
 
-      {tab === 'won' && <div className="xdrive-exchange-workspace-layout" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+      {tab === 'won' && <div className="xd-approved-demo-section"><div className="xd-approved-demo-loads-heading"><div><h1>Bookings</h1><p>Marketplace loads awarded to your company</p></div><button type="button" onClick={() => void loadListTab('won')} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh Bookings'}</button></div><div className="xdrive-exchange-workspace-layout" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
         <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 196px)', width: 'var(--ws-filter-rail-w, 196px)', minWidth: 0, alignSelf: 'flex-start' }}>
           <Panel title="Search Loads">
             <div style={{ display: 'grid', gap: 8 }}>
@@ -669,7 +669,7 @@ export default function CompanyMarketplaceExchange({
         />
         </Panel>
         </main>
-      </div>}
+      </div></div>}
 
       {memberTarget?.company_id && <MemberProfileOverlay companyId={memberTarget.company_id} onClose={() => setMemberTarget(null)} />}
 
