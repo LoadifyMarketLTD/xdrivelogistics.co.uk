@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import '../../components/workspace/approved-multirole-bookings.css';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
@@ -97,7 +98,7 @@ const card: CSSProperties = {
   padding: '0.75rem',
 };
 
-export default function WonWorkPage() {
+function WonWorkPageInner() {
   const router = useRouter();
   const [jobs, setJobs] = useState<WonJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -288,3 +289,5 @@ export default function WonWorkPage() {
     </ProtectedRoute>
   );
 }
+
+export default function WonWorkPage(){return <div className="xd-demo-bookings-surface"><WonWorkPageInner /></div>;}

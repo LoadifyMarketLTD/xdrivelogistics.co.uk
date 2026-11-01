@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import '../../components/workspace/approved-multirole-bookings.css';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
@@ -41,7 +42,7 @@ function matchesTab(job: WorkspaceJob, tab: JobsTab) {
   return stage === 'completed';
 }
 
-export default function BrokerJobsPage() {
+function BrokerJobsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -180,3 +181,5 @@ export default function BrokerJobsPage() {
     </PageFrame>
   );
 }
+
+export default function BrokerJobsPage(){return <div className="xd-demo-bookings-surface"><BrokerJobsPageInner /></div>;}
