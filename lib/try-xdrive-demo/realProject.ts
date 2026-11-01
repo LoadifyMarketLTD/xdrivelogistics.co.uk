@@ -1,7 +1,7 @@
 /** Restrict operational workspace access to the verified XDrive production Supabase project. */
 export const XDRIVE_REAL_PROJECT_REF = 'jqxlauexhkonixtjvljw';
 
-export function isAuthorizedDemoStagingUrl(value: string | undefined): boolean {
+export function isAuthorizedRealXDriveUrl(value: string | undefined): boolean {
   if (!value) return false;
   try {
     const url = new URL(value);

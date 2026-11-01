@@ -1,7 +1,7 @@
 import {createClient,type SupabaseClient} from "@supabase/supabase-js";
 import {NextRequest,NextResponse} from "next/server";
 import {getBearerToken} from "../_lib/supabaseAdmin";
-import {isAuthorizedDemoStagingUrl} from "../../../lib/try-xdrive-demo/stagingProject";
+import {isAuthorizedRealXDriveUrl} from "../../../lib/try-xdrive-demo/realProject";
 
 const deny=(status:number,error:string)=>NextResponse.json({error},{status,headers:{"Cache-Control":"no-store"}});
 export type DemoMember={userId:string;memberId:string;role:string;db:SupabaseClient};
@@ -9,7 +9,7 @@ export type DemoMember={userId:string;memberId:string;role:string;db:SupabaseCli
 export async function requireDemoMember(request:NextRequest):Promise<DemoMember|NextResponse>{
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()||process.env.SUPABASE_URL?.trim();
  const anonKey=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()||process.env.SUPABASE_ANON_KEY?.trim();
- if(!isAuthorizedDemoStagingUrl(url)||!anonKey)return deny(503,"Dedicated staging configuration unavailable");
+ if(!isAuthorizedRealXDriveUrl(url)||!anonKey)return deny(503,"Real XDrive Supabase configuration unavailable");
  const token=getBearerToken(request);
  if(!token)return deny(401,"Authentication required");
  const db=createClient(url!,anonKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${token}`}}});

@@ -1,5 +1,5 @@
 import { getSupabase } from '../supabaseClient';
-import { isAuthorizedDemoStagingUrl } from './stagingProject';
+import { isAuthorizedRealXDriveUrl } from './realProject';
 
 let sessionEpoch=0;
 export function markAutonomousLocalActor(_ready:boolean){sessionEpoch++}
@@ -8,7 +8,7 @@ export function getAutonomousSessionEpoch(){return sessionEpoch}
 /** Only the verified real XDrive Supabase JWT may access these workspace APIs. */
 export async function authenticatedDemoFetch(input:string,init:RequestInit={}):Promise<Response>{
   if(!input.startsWith('/api/try-xdrive-demo/'))throw new Error('Workspace API path not permitted');
-  if(!isAuthorizedDemoStagingUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)){
+  if(!isAuthorizedRealXDriveUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)){
     throw new Error('Real XDrive Supabase URL is required; staging is not permitted');
   }
   const client=getSupabase();
