@@ -981,14 +981,18 @@ export default function TopWorkspaceShell({
             onClick={() => router.push(definition.homeHref)}
             aria-label={`Open ${definition.label}`}
           >
-            <Image
-              src="/xdrive-logo-primary.png"
-              alt="XDrive Logistics"
-              width={150}
-              height={41}
-              priority
-              className="top-workspace-shell__logo"
-            />
+            {CARRIER_NAV_ROLES.has(role) ? (
+              <span className="xdrive-company-demo-brand" aria-label="XDrive Logistics">XDRIVE <em>LOGISTICS</em></span>
+            ) : (
+              <Image
+                src="/xdrive-logo-primary.png"
+                alt="XDrive Logistics"
+                width={150}
+                height={41}
+                priority
+                className="top-workspace-shell__logo"
+              />
+            )}
           </button>
           <div className="top-workspace-shell__identity">
             <span>{definition.label}</span>

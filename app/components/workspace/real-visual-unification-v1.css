@@ -205,3 +205,20 @@
     grid-template-columns: minmax(0,1fr) !important;
   }
 }
+
+/* Approved Company DEMO wordmark in the official authenticated carrier header. */
+.xdrive-real-visual-v1 .xdrive-company-demo-brand {
+  display: block;
+  white-space: nowrap;
+  color: #0b2f6b;
+  font-family: Inter, Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 850;
+  letter-spacing: -.025em;
+}
+.xdrive-real-visual-v1 .xdrive-company-demo-brand em {
+  color: #f5a300;
+  font-style: normal;
+  font-size: .67em;
+  letter-spacing: .035em;
+}
