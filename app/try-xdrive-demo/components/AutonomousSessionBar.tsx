@@ -40,8 +40,8 @@ export default function AutonomousSessionBar({preferredPersona="buyer-a"}:{prefe
   }catch(e){setError(e instanceof Error?e.message:"Session unavailable")}
   finally{setBusy(false)}
  };
- return <div className="xd-autonomous-session" role="region" aria-label="Isolated XDrive local test environment">
-  <span className="xd-autonomous-label">NEW XDRIVE · ISOLATED LOCAL TEST</span>
+ return <div className="xd-autonomous-session" role="region" aria-label="XDrive workspace session">
+  <span className="xd-autonomous-label">XDRIVE LOGISTICS</span>
   <label>Workspace
    <select aria-label="Autonomous local workspace" value={choice} onChange={e=>setChoice(e.target.value)}>
     {(session.personas.length?session.personas:[{id:preferredPersona,name:"LOCAL TEST ACCOUNT",companyName:"Local",role:"company"}]).filter(a=>!permitted[preferredPersona]||permitted[preferredPersona].includes(a.id)).map(a=>

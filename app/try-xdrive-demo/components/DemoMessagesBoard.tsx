@@ -231,7 +231,7 @@ function LegacyDemoMessagesBoard({jobs,onBooking,targetRecipient,storageScope="c
           </div>
         </div>
         <div className="xd-message-chat-scroll">
-          <div className="xd-message-day">Today · DEMO</div>
+          <div className="xd-message-day">Today ·</div>
           {current.messages.map(m=><div key={m.id} className={"xd-message-message "+(m.from==="me"?"mine":"theirs")}>
             {m.from==="them"&&<span className="xd-message-avatar tiny" style={{background:colors[current.id]||"#1464e8"}}>{current.initials}</span>}
             <div className="xd-message-bubble"><span>{m.text}</span><small>{m.time}{m.from==="me"&&<CheckCheck size={15}/>}</small></div>
@@ -256,7 +256,7 @@ function LegacyDemoMessagesBoard({jobs,onBooking,targetRecipient,storageScope="c
           <Building2 size={29}/><div><strong>{current.name}</strong><small>{current.memberId?"Member ID: "+current.memberId+" (sample)":current.kind+" · DEMO profile"}</small></div>
           <span className="xd-message-active">Sample</span>
         </div>
-        <div className="xd-message-contact-lines"><p><Phone size={17}/> Contact number not verified</p><p><Mail size={17}/> Messaging via local DEMO</p></div>
+        <div className="xd-message-contact-lines"><p><Phone size={17}/> Contact number not verified</p><p><Mail size={17}/> Messaging via local</p></div>
         <h3 className="xd-message-details-section"><Truck size={19}/> Related Booking <ChevronRight size={19}/></h3>
         {booking?<div className="xd-message-booking">
           <div><strong>{booking.id}</strong><span>{linked?booking.status:"Sample"}</span></div>
