@@ -9,12 +9,12 @@ import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
 import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../lib/vehicleSizeRange';
-import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import './approved-demo-exchange-heading.css';
 import CxQuoteCard from './CxQuoteCard';
+import ApprovedWonWorkCards from './ApprovedWonWorkCards';
 import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
 import { MemberProfileOverlay } from './MemberProfile';
@@ -23,7 +23,6 @@ import {
   AlertBanner,
   PageFrame,
   Panel,
-  OperationalTable,
 } from './WorkspaceUI';
 
 type LoadRow = {
@@ -76,7 +75,6 @@ const radiusOptions = ['10', '20', '30', '50', '100', '200', '300'];
 const fieldStyle = { height: 28, border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 7px', background: '#fff', color: '#0f172a', fontSize: '11px', minWidth: 0 } as const;
 const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 500, lineHeight: '14px', marginBottom: 3 } as const;
 const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return 'â€”'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `Â£${amount.toFixed(2)}`; } };
-const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not set';
 const cxWhen = (value: string | null | undefined) => {
   if (!value) return 'Not set';
   const date = new Date(value);
@@ -651,22 +649,7 @@ export default function CompanyMarketplaceExchange({
         </aside>
         <main style={{ flex: '1 1 760px', minWidth: 0 }}>
         <Panel title="Won Work" description="Marketplace loads awarded to your company." flush>
-        <OperationalTable<WonRow>
-          columns={[
-            { id: 'load', header: 'Load', cell: (job) => <strong>{job.id.slice(0, 8).toUpperCase()}</strong> },
-            { id: 'route', header: 'Route', cell: (job) => <strong>{routeLabel(job.pickup_location, job.pickup_postcode)} â†’ {routeLabel(job.delivery_location, job.delivery_postcode)}</strong> },
-            { id: 'member', header: 'Member', cell: (job) => <>{job.posterName || 'Marketplace member'}{job.posterMemberCode ? <div className="workspace-record-meta">ID {job.posterMemberCode}</div> : null}</> },
-            { id: 'pickup', header: 'Pickup', cell: (job) => when(job.pickup_datetime) },
-            { id: 'vehicle', header: 'Vehicle', cell: (job) => job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || 'â€”' },
-            { id: 'status', header: 'Status', semanticStatus: true, cell: (job) => workspaceJobOperationalLabel(job) },
-            { id: 'budget', header: 'Budget', align: 'right', cell: (job) => money(job.budget_amount, job.currency || 'GBP') },
-            { id: 'action', header: 'Action', isAction: true, align: 'right', cell: (job) => <ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton> },
-          ]}
-          rows={won.filter((job) => !wonSearch.trim() || [job.id, job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode, job.posterName, job.posterMemberCode].some((value) => String(value ?? '').toLowerCase().includes(wonSearch.trim().toLowerCase())))}
-          getRowKey={(job) => job.id}
-          loading={loading}
-          empty={<div className="carrier-exchange-empty">No marketplace work has been awarded to this company yet.</div>}
-        />
+        <ApprovedWonWorkCards jobs={won.filter((job) => !wonSearch.trim() || [job.id,job.pickup_postcode,job.delivery_postcode,job.posterName,job.posterMemberCode].some((v)=>String(v??'').toLowerCase().includes(wonSearch.trim().toLowerCase())))} loading={loading} />
         </Panel>
         </main>
       </div></div>}
