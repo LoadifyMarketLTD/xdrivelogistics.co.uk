@@ -235,6 +235,8 @@ export const getWorkspaceCapabilities = (role: WorkspaceRole): readonly Workspac
 
 const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin', icon: '⌂' }] },
+  { id: 'carrier-post-load', label: 'Post Load', items: [{ id: 'post-load', label: 'Post Load', href: '/admin/post-load', icon: '+', capability: 'loads.create' }] },
+  { id: 'carrier-notifications', label: 'Notifications', items: [{ id: 'notifications', label: 'Notifications', href: '/admin/notifications', icon: '!', capability: 'jobs.view' }] },
   { id: 'carrier-marketplace', label: 'Marketplace', items: [{ id: 'marketplace', label: 'Marketplace', href: '/admin/marketplace', icon: '▦', capability: 'loads.view.marketplace' }] },
   { id: 'carrier-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/admin/marketplace/directory', icon: '⊕', capability: 'loads.view.marketplace' }] },
   { id: 'carrier-live', label: 'Live Availability', items: [{ id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◉', capability: 'fleet.positions.view' }] },
