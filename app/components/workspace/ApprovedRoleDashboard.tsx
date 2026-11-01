@@ -6,12 +6,12 @@ import './xdrive-approved-demo-dashboard.css';
 type Surface='customer'|'broker'|'fleet'|'dispatcher'|'driver'|'company-driver'|'owner-driver';
 const links:Record<Surface,{jobs:string;quotes:string;bookings:string;fleet:string;drivers:string;diary:string;invoices:string}>={
  customer:{jobs:'/customer/loads',quotes:'/customer/quotes',bookings:'/customer/bookings',fleet:'/customer',drivers:'/customer',diary:'/customer/diary',invoices:'/customer/invoices'},
- broker:{jobs:'/broker/loads',quotes:'/broker/quotes',bookings:'/broker/bookings',fleet:'/broker',drivers:'/broker',diary:'/broker/diary',invoices:'/broker/invoices'},
+ broker:{jobs:'/broker/loads',quotes:'/broker/bids',bookings:'/broker/awards',fleet:'/broker/carrier-network',drivers:'/broker/team',diary:'/broker/diary',invoices:'/broker/finance'},
  fleet:{jobs:'/admin/fleet/jobs',quotes:'/admin/exchange',bookings:'/admin/won-work',fleet:'/admin/fleet/vehicles',drivers:'/admin/fleet/resources',diary:'/admin/diary',invoices:'/admin/invoices'},
  dispatcher:{jobs:'/admin/marketplace',quotes:'/admin/exchange',bookings:'/admin/won-work',fleet:'/admin/fleet/vehicles',drivers:'/admin/drivers',diary:'/admin/diary',invoices:'/admin/invoices'},
- driver:{jobs:'/driver/loads',quotes:'/driver/quotes',bookings:'/driver/bookings',fleet:'/driver',drivers:'/driver',diary:'/driver/diary',invoices:'/driver/invoices'},
- 'company-driver':{jobs:'/driver/loads',quotes:'/driver/quotes',bookings:'/driver/bookings',fleet:'/driver',drivers:'/driver',diary:'/driver/diary',invoices:'/driver/invoices'},
- 'owner-driver':{jobs:'/driver/loads',quotes:'/driver/quotes',bookings:'/driver/bookings',fleet:'/driver',drivers:'/driver',diary:'/driver/diary',invoices:'/driver/invoices'}
+ driver:{jobs:'/driver/loads',quotes:'/driver/quotes',bookings:'/driver/won-work',fleet:'/driver/fleet',drivers:'/driver/drivers',diary:'/driver/history',invoices:'/driver/finance'},
+ 'company-driver':{jobs:'/driver/loads',quotes:'/driver/quotes',bookings:'/driver/won-work',fleet:'/driver/fleet',drivers:'/driver/drivers',diary:'/driver/history',invoices:'/driver/finance'},
+ 'owner-driver':{jobs:'/driver/loads',quotes:'/driver/quotes',bookings:'/driver/won-work',fleet:'/driver/fleet',drivers:'/driver/drivers',diary:'/driver/history',invoices:'/driver/finance'}
 };
 export default function ApprovedRoleDashboard({surface}:{surface:Surface}){
  const router=useRouter();
