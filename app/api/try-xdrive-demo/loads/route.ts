@@ -15,23 +15,13 @@ export async function GET(req:NextRequest){
  const member=await requireDemoMember(req);
  if(member instanceof NextResponse)return member;
  if(req.nextUrl.searchParams.get("view")==="bookings"){
-  const {data:demoAwards,error:demoAwardError}=await member.db.from("xdrive_demo_awards").select("id,job_id,bid_id,buyer_company_id,carrier_company_id,stage,created_at,assigned_driver_name,assigned_vehicle_label").order("created_at",{ascending:false}).limit(100);
-  if(demoAwardError)return deny(503,"DEMO award storage unavailable");
-  const awardIds=(demoAwards||[]).filter(a=>a.buyer_company_id===member.memberId||a.carrier_company_id===member.memberId).map(a=>a.job_id);
-  const {data:awardJobs,error:awardJobError}=awardIds.length?await member.db.from("jobs").select("id,pickup_location,delivery_location,requested_vehicle_label,pallets,weight_kg,created_at,payment_terms").in("id",awardIds):{data:[],error:null};
-  if(awardJobError)return deny(503,"DEMO booking route storage unavailable");
-  const awardJobMap=new Map((awardJobs||[]).map(j=>[j.id,j]));
-  const awardedDemoBookings=(demoAwards||[]).filter(a=>a.buyer_company_id===member.memberId||a.carrier_company_id===member.memberId).map(a=>{
-   const j=awardJobMap.get(a.job_id);
-   return {id:a.job_id,from:j?.pickup_location||"",to:j?.delivery_location||"",vehicle:j?.requested_vehicle_label||"",pallets:String(j?.pallets??""),weight:String(j?.weight_kg??""),customer:a.buyer_company_id===member.memberId?"My company":"Awarded transport buyer",sell:"",postedAt:a.created_at,status:"Awarded",paymentTerms:j?.payment_terms||"",readOnly:true,operationalStatus:a.stage,assignedDriver:a.assigned_driver_name||undefined,assignedVehicleId:a.assigned_vehicle_label||undefined,awardedQuoteId:a.bid_id,acceptanceStatus:a.stage==="pending_acceptance"?"Pending":a.stage==="rejected"?"Rejected":"Accepted"};
-  });
   const {data,error}=await member.db.from("jobs")
    .select("id,company_id,awarded_carrier_company_id,pickup_location,delivery_location,requested_vehicle_label,pallets,weight_kg,created_at,status,payment_terms,assigned_driver_id")
    .in("status",["awarded","allocated","in_transit","completed"])
    .or(`company_id.eq.${member.memberId},awarded_carrier_company_id.eq.${member.memberId}`)
    .order("created_at",{ascending:false}).limit(100);
   if(error)return deny(503,"Booking storage unavailable");
-  return NextResponse.json([...awardedDemoBookings,...(data||[]).filter(j=>j.company_id===member.memberId||j.awarded_carrier_company_id===member.memberId).filter(j=>!awardIds.includes(j.id)).map(j=>({
+  return NextResponse.json((data||[]).filter(j=>j.company_id===member.memberId||j.awarded_carrier_company_id===member.memberId).map(j=>({
    id:j.id,from:j.pickup_location||"",to:j.delivery_location||"",
    vehicle:j.requested_vehicle_label||"",pallets:String(j.pallets??""),
    weight:String(j.weight_kg??""),customer:j.company_id===member.memberId?"My company":"Awarded transport buyer",
