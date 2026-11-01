@@ -20,12 +20,13 @@ export default function ApprovedDemoWorkspaceFrame({children,surface}:{children:
  const {user,logout}=useAuth();
  const role=resolveWorkspaceRole(user);
  const entries=surface==='customer'?customer:surface==='broker'?broker:surface==='driver'?(role==='owner_driver'?ownerDriver:driver):role==='fleet_manager'?fleet:role==='dispatcher'?dispatcher:company;
+ const canPostLoad=surface==='customer'||surface==='broker'||(surface==='driver'&&role==='owner_driver')||(surface==='admin'&&['company_owner','company_admin','carrier_admin'].includes(role));
  return <div className="xdrive-approved-demo-frame">
    <aside className="xdrive-approved-demo-sidebar" aria-label="XDrive workspace navigation">
     <Link className="xdrive-approved-demo-brand" href={entries[0][1]}>XDRIVE <em>LOGISTICS</em></Link>
     <nav>{entries.map(([title,href])=><Link key={title} href={href} aria-current={isSelected(pathname,href)?'page':undefined} className={isSelected(pathname,href)?'active':undefined}>{title}</Link>)}</nav>
    </aside>
-   <div className="xdrive-approved-demo-main"><header className="xdrive-approved-demo-header"><span>XDRIVE <em>LOGISTICS</em></span><div className="xdrive-approved-demo-actions"><Link href={surface==='admin'?'/admin/post-load':surface==='driver'?'/driver/post-load':surface==='customer'?'/customer/post-load':'/broker/post-load'}>Post Load</Link><Link href={surface==='admin'?'/admin/notifications':surface==='driver'?'/driver/notifications':surface==='customer'?'/customer/notifications':'/broker/notifications'}>Notifications</Link><button type="button" onClick={()=>void logout()}>Sign out</button></div></header>
+   <div className="xdrive-approved-demo-main"><header className="xdrive-approved-demo-header"><span>XDRIVE <em>LOGISTICS</em></span><div className="xdrive-approved-demo-actions">{canPostLoad&&<Link className="xdrive-approved-demo-post-load" href={surface==='admin'?'/admin/post-load':surface==='driver'?'/driver/post-load':surface==='customer'?'/customer/post-load':'/broker/post-load'}>Post Load</Link>}<Link href={surface==='admin'?'/admin/notifications':surface==='driver'?'/driver/notifications':surface==='customer'?'/customer/notifications':'/broker/notifications'}>Notifications</Link><button type="button" onClick={()=>void logout()}>Sign out</button></div></header>
    <nav className="xdrive-approved-demo-mobile" aria-label="Mobile workspace navigation">{entries.map(([title,href])=><Link key={title} href={href} aria-current={isSelected(pathname,href)?'page':undefined}>{title}</Link>)}</nav>
    <div className="xdrive-approved-demo-content">{children}</div></div>
  </div>;
