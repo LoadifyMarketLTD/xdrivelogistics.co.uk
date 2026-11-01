@@ -22,7 +22,5 @@ export async function POST(req:NextRequest){
  if(!bid||bid.job_id!==job.id||!canAwardDemoQuote({role:member.role,buyerCompanyId:job.company_id,actorCompanyId:member.memberId,carrierCompanyId:bid.company_id||"",jobStatus:job.status,visibility:job.exchange_visibility,bidStatus:bid.status,priorAwardedCarrierId:job.awarded_carrier_company_id}))return deny(409,"Quote not awardable");
  // The unique(job_id) constraint makes the dedicated DEMO award insert atomic.
  // No commercial job status or notification trigger is modified here.
- const {data:award,error:awardError}=await member.db.from("xdrive_demo_awards").insert({job_id:job.id,bid_id:bid.id,buyer_company_id:job.company_id,carrier_company_id:bid.company_id,awarded_by:member.userId,stage:"pending_acceptance"}).select("id,job_id,bid_id,stage").single();
- if(awardError)return deny(409,"Award was rejected by the database: check concurrent award, permissions or changed quote");
- return NextResponse.json({ok:true,awardId:award.id,jobId:award.job_id,quoteId:award.bid_id,stage:award.stage},{status:201,headers:{"Cache-Control":"no-store"}});
+ return deny(503,"Operational transaction unavailable: requires an approved atomic production workflow and authorization tests");
 }

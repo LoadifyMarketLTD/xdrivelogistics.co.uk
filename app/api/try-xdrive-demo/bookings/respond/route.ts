@@ -10,12 +10,5 @@ export async function POST(req:NextRequest){
  let body:{jobId?:string;decision?:string};
  try{body=await req.json()}catch{return deny(400,"Invalid JSON")}
  if(!uuid.test(body?.jobId||"")||!["accepted","rejected"].includes(body?.decision||""))return deny(400,"Valid job and decision required");
- const {data:award,error:lookupError}=await member.db.from("xdrive_demo_awards").select("id,job_id,carrier_company_id,stage").eq("job_id",body.jobId!).maybeSingle();
- if(lookupError)return deny(503,"Booking lookup failed");
- if(!award||award.carrier_company_id!==member.memberId)return deny(403,"Not your carrier booking");
- if(award.stage!=="pending_acceptance")return deny(409,"Booking already decided");
- const {data,error}=await member.db.from("xdrive_demo_awards").update({stage:body.decision,responded_at:new Date().toISOString()}).eq("id",award.id).eq("carrier_company_id",member.memberId).eq("stage","pending_acceptance").select("id,stage").maybeSingle();
- if(error)return deny(403,"Booking decision not permitted");
- if(!data)return deny(409,"Booking decision changed concurrently");
- return NextResponse.json({ok:true,bookingId:data.id,stage:data.stage},{headers:{"Cache-Control":"no-store"}});
+ return deny(503,"Operational transaction unavailable: requires an approved atomic production workflow and authorization tests");
 }

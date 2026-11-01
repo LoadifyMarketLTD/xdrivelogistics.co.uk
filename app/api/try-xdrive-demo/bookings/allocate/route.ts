@@ -12,12 +12,5 @@ export async function POST(req:NextRequest){
  const driver=typeof input.driver==="string"?input.driver.trim():"";
  const vehicle=typeof input.vehicle==="string"?input.vehicle.trim():"";
  if(!uuid.test(input.jobId||"")||!driver||driver.length>120||!vehicle||vehicle.length>80)return deny(400,"Valid job, driver and vehicle required");
- const {data:award,error:lookupError}=await member.db.from("xdrive_demo_awards").select("id,carrier_company_id,stage").eq("job_id",input.jobId!).maybeSingle();
- if(lookupError)return deny(503,"Booking unavailable");
- if(!award||award.carrier_company_id!==member.memberId)return deny(403,"Not your carrier booking");
- if(award.stage!=="accepted")return deny(409,"Booking is not ready for allocation");
- const {data,error}=await member.db.from("xdrive_demo_awards").update({assigned_driver_name:driver,assigned_vehicle_label:vehicle,allocated_at:new Date().toISOString(),stage:"allocated"}).eq("id",award.id).eq("carrier_company_id",member.memberId).eq("stage","accepted").select("id,stage").maybeSingle();
- if(error)return deny(403,"Assignment rejected");
- if(!data)return deny(409,"Booking changed concurrently");
- return NextResponse.json({ok:true,bookingId:data.id,stage:data.stage},{headers:{"Cache-Control":"no-store"}});
+ return deny(503,"Operational transaction unavailable: requires an approved atomic production workflow and authorization tests");
 }
