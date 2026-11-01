@@ -18,6 +18,7 @@ import './driver-dashboard-cx-close.css';
 import './driver-dashboard-prototype-exact.css';
 // Shared seven-workspace visual contract must load last so legacy role CSS cannot change canonical geometry.
 import '../components/workspace/workspace-measured-cx-baseline.css';
+import '../components/workspace/real-visual-unification-v1.css';
 // Admin is the canonical white-workspace shell baseline for every operational role.
 import '../admin/carrier-workspace-canonical.css';
 import '../components/workspace/dashboard-compact-global.css';
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
 
 export default function DriverLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-carrier-workspace xdrive-driver-workspace xdrive-canonical-workspace">
+    <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-real-visual-v1 xdrive-operational-top-workspace xdrive-carrier-workspace xdrive-driver-workspace xdrive-canonical-workspace">
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
         <MobileDriverWorkspaceRedirect><DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell></MobileDriverWorkspaceRedirect>
       </ProtectedRoute>

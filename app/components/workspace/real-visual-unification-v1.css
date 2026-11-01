@@ -107,3 +107,62 @@
     background: #f4f6f8 !important;
   }
 }
+
+/* Approved image references: orange selected nav, white operational canvas,
+   compact orange calls to action and consistent dense cards. */
+@media (min-width: 1024px) {
+  .xdrive-real-visual-v1.xdrive-operational-top-workspace .top-workspace-nav--primary {
+    top: 0 !important;
+    min-width: 224px !important;
+    max-width: 224px !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    padding: 75px 14px 16px !important;
+    background: #0b2f6b !important;
+    overflow-y: auto !important;
+  }
+  .xdrive-real-visual-v1.xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
+    min-width: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    overflow: visible !important;
+  }
+  .xdrive-real-visual-v1.xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__item[data-active="true"] {
+    background: #f5a300 !important;
+    color: #101c30 !important;
+  }
+  .xdrive-real-visual-v1.xdrive-operational-top-workspace .top-workspace-shell__header {
+    z-index: 86 !important;
+    padding-left: 16px !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-shell__brand {
+    position: relative;
+    min-width: 140px;
+  }
+  .xdrive-real-visual-v1 .top-workspace-shell__content {
+    padding: 16px 20px 24px !important;
+  }
+  .xdrive-real-visual-v1 .top-workspace-shell__content :is(h1, .page-title) {
+    font-family: Inter, Arial, sans-serif;
+    letter-spacing: -.015em;
+  }
+  .xdrive-real-visual-v1 .top-workspace-shell__content :is(table, [role="table"]) {
+    border-collapse: collapse;
+    background: #fff;
+  }
+  .xdrive-real-visual-v1 .top-workspace-shell__content :is(.xdrive-kpi-card, [data-workspace-kpi-card]) {
+    border-radius: 9px !important;
+    border: 1px solid #dce5ef !important;
+    background: #fff !important;
+  }
+  .xdrive-real-visual-v1.xdrive-operational-top-workspace .top-workspace-action--primary {
+    background: #f5a300 !important;
+    border-color: #f5a300 !important;
+    color: #0b2f6b !important;
+    font-weight: 750 !important;
+  }
+}
