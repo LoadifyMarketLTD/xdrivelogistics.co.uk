@@ -1,0 +1,72 @@
+/* Company visual reference lower Dashboard panels for six non-Company roles. */
+.demo-shell.xd-reference-chrome .xd-role-dashboard{display:grid;grid-template-columns:minmax(0,7fr) minmax(300px,3fr);gap:14px;align-items:start}
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.xd-role-subtitle,
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.xd-dashboard-kpis,
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.notice,
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.xd-ref-dash-extras{grid-column:1/-1}
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.panel{min-width:0;height:100%;margin:0}
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.panel>.steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.panel>.steps button{min-height:82px}
+.demo-shell.xd-reference-chrome .xd-ref-dash-extras{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(240px,.75fr);gap:14px;min-width:0}
+.demo-shell.xd-reference-chrome .xd-ref-dash-extras .xd-dash-panel{min-width:0;border:1px solid #dce5f0;border-radius:12px;background:#fff;box-shadow:0 2px 5px #0b2f6b12;overflow:hidden}
+.demo-shell.xd-reference-chrome .xd-ref-dash-extras .xd-dash-panel-head{min-height:52px;padding:12px 15px;border-bottom:1px solid #e4eaf2;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.demo-shell.xd-reference-chrome .xd-ref-dash-extras .xd-dash-panel-head h2{font-size:16px;font-weight:850;display:flex;gap:7px;align-items:center;white-space:normal;margin:0}
+.demo-shell.xd-reference-chrome .xd-ref-dash-extras .xd-dash-panel-head button{font-size:11px;color:#1266e7;font-weight:750;border:0;background:transparent;cursor:pointer;white-space:nowrap}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats>button{display:flex;gap:12px;align-items:center;text-align:left;padding:12px;border:0;border-right:1px solid #e4eaf2;border-bottom:1px solid #e4eaf2;background:white;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats>button:hover,.demo-shell.xd-reference-chrome .xd-ref-activity-row:hover{background:#f4f8ff}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats>button svg{color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats>button span{display:grid;gap:2px}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats small{font-size:11px}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats strong{font-size:25px;color:#0b1736;line-height:1.1}
+.demo-shell.xd-reference-chrome .xd-ref-overview-stats b{font-size:10px;color:#16a34a}
+.demo-shell.xd-reference-chrome .xd-ref-activity-row{display:flex;align-items:center;gap:8px;width:100%;padding:11px;border:0;border-bottom:1px solid #e4eaf2;background:white;text-align:left;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-ref-activity-row>span{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;background:#ff7900;color:white;flex:none}
+.demo-shell.xd-reference-chrome .xd-ref-activity-row>span.blue{background:#1d57d8}
+.demo-shell.xd-reference-chrome .xd-ref-activity-row small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:11px}
+.demo-shell.xd-reference-chrome .xd-ref-activity-row time{font-size:10px;color:#63748b}
+.demo-shell.xd-reference-chrome .xd-ref-empty{font-size:12px;color:#52647b;padding:18px}
+.demo-shell.xd-reference-chrome .xd-ref-performance-content{display:flex;align-items:center;gap:14px;padding:18px}
+.demo-shell.xd-reference-chrome .xd-ref-performance-circle{display:grid;place-items:center;flex:none;width:110px;height:110px;border-radius:50%;border:12px solid #16a34a;font-size:21px;font-weight:850;color:#0b1736}
+.demo-shell.xd-reference-chrome .xd-ref-performance-content strong,.demo-shell.xd-reference-chrome .xd-ref-performance-content small{display:block}
+.demo-shell.xd-reference-chrome .xd-ref-performance-content p{font-size:11px;margin:5px 0}
+.demo-shell.xd-reference-chrome .xd-ref-overview{grid-column:1/-1}
+.demo-shell.xd-reference-chrome .xd-ref-overview-counters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;padding:14px}
+.demo-shell.xd-reference-chrome .xd-ref-overview-counters>div{text-align:center;border-right:1px solid #e4eaf2;padding:8px}
+.demo-shell.xd-reference-chrome .xd-ref-overview-counters small,.demo-shell.xd-reference-chrome .xd-ref-overview-counters strong{display:block}
+.demo-shell.xd-reference-chrome .xd-ref-overview-counters strong{font-size:22px;color:#0b1736}
+.demo-shell.xd-reference-chrome .xd-ref-overview-counters small{font-size:11px}
+@media(max-width:1190px){.demo-shell.xd-reference-chrome .xd-ref-dash-extras{grid-template-columns:repeat(2,minmax(0,1fr))}.demo-shell.xd-reference-chrome .xd-role-dashboard{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:850px){.demo-shell.xd-reference-chrome .xd-ref-dash-extras{grid-template-columns:minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-role-dashboard{grid-template-columns:minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-role-dashboard>.panel{grid-column:1/-1}.demo-shell.xd-reference-chrome .xd-ref-performance-content{justify-content:flex-start}.demo-shell.xd-reference-chrome .xd-ref-overview-counters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.demo-shell.xd-reference-chrome .xd-ref-primary{display:grid;grid-column:1/-1;grid-template-columns:minmax(0,7fr) minmax(280px,3fr);gap:14px;align-items:stretch}
+.demo-shell.xd-reference-chrome .xd-ref-primary>.xd-dash-panel{min-width:0;overflow:hidden;border:1px solid #dce5f0;border-radius:12px;box-shadow:0 2px 5px #0b2f6b12;background:#fff}
+.demo-shell.xd-reference-chrome .xd-ref-primary .xd-dash-panel-head{min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:9px;padding:11px 15px;border-bottom:1px solid #e4eaf2}
+.demo-shell.xd-reference-chrome .xd-ref-primary .xd-dash-panel-head h2{font-size:17px;font-weight:850;margin:0;display:flex;align-items:center;gap:8px}
+.demo-shell.xd-reference-chrome .xd-ref-primary .xd-dash-panel-head>button{border:0;background:transparent;color:#1266e7;font-size:12px;font-weight:750;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-ref-today-empty{min-height:235px;display:grid;justify-items:start;align-content:center;gap:10px;padding:18px;font-size:12px;color:#556580}
+.demo-shell.xd-reference-chrome .xd-ref-today-empty strong{font-size:15px;color:#0b1736}
+.demo-shell.xd-reference-chrome .xd-ref-today-empty svg{color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-ref-today-empty p{margin:0}
+.demo-shell.xd-reference-chrome .xd-ref-today-empty button{border:1px solid #1266e7;background:white;color:#1266e7;padding:8px 11px;border-radius:6px;font-size:11px;font-weight:750;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-ref-job-row{min-height:100px;display:grid;grid-template-columns:108px minmax(160px,1fr) 132px 105px;align-items:center;gap:12px;padding:10px;border-bottom:1px solid #e4eaf2}
+.demo-shell.xd-reference-chrome .xd-ref-job-date{display:grid;justify-items:center;gap:5px;background:#f2f6fa;border-left:5px solid #ff7900;padding:10px;border-radius:7px}
+.demo-shell.xd-reference-chrome .xd-ref-job-date strong{font-size:12px}
+.demo-shell.xd-reference-chrome .xd-ref-job-date small{font-size:10px;color:#16a34a}
+.demo-shell.xd-reference-chrome .xd-ref-job-route{min-width:0;display:grid;gap:6px}
+.demo-shell.xd-reference-chrome .xd-ref-job-route b{font-size:14px;line-height:1.3}
+.demo-shell.xd-reference-chrome .xd-ref-job-route small{font-size:10px;color:#66778d;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.demo-shell.xd-reference-chrome .xd-ref-job-driver{min-width:0;display:grid;gap:4px;border-left:1px solid #dce5f0;padding-left:8px}
+.demo-shell.xd-reference-chrome .xd-ref-job-driver b{font-size:11px}
+.demo-shell.xd-reference-chrome .xd-ref-job-driver small{font-size:10px;color:#63748b}
+.demo-shell.xd-reference-chrome .xd-ref-job-row>button{font-size:11px;border:1px solid #1266e7;color:#1266e7;background:white;border-radius:6px;padding:10px;cursor:pointer;font-weight:750}
+.demo-shell.xd-reference-chrome .xd-ref-action-row{display:flex;width:100%;gap:11px;align-items:center;min-height:59px;padding:10px 16px;border:0;border-bottom:1px solid #e4eaf2;background:#fff;text-align:left;cursor:pointer;font-weight:750}
+.demo-shell.xd-reference-chrome .xd-ref-action-row:hover{background:#f3f7ff}
+.demo-shell.xd-reference-chrome .xd-ref-action-row>span{flex:1;font-size:12px}
+.demo-shell.xd-reference-chrome .xd-ref-action-row>b{display:grid;place-items:center;min-width:38px;height:38px;border-radius:50%;background:#dbeafe;color:#1d57d8;font-size:15px}
+.demo-shell.xd-reference-chrome .xd-ref-action-row>b.amber{background:#ffedb5;color:#946000}
+.demo-shell.xd-reference-chrome .xd-ref-action-row>b.orange{background:#ffdfcf;color:#ab4008}
+.demo-shell.xd-reference-chrome .xd-ref-action-row>b.green{background:#d1fae5;color:#15803d}
+.demo-shell.xd-reference-chrome .xd-ref-action-row>strong{font-size:21px}
+@media(max-width:1120px){.demo-shell.xd-reference-chrome .xd-ref-primary{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:850px){.demo-shell.xd-reference-chrome .xd-ref-primary{grid-template-columns:minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-ref-job-row{grid-template-columns:85px minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-ref-job-driver{grid-column:2}.demo-shell.xd-reference-chrome .xd-ref-job-row>button{grid-column:2;max-width:125px}}

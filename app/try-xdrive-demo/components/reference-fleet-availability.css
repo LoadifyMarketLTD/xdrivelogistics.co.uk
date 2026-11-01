@@ -1,0 +1,14 @@
+.demo-shell.xd-reference-chrome .xd-ra-head h1{font-size:30px;font-weight:850;color:#0b1736;line-height:1.2;margin:0}
+.demo-shell.xd-reference-chrome .xd-ra-head p{font-size:13px;color:#53657e;margin:4px 0 10px}
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-layout{min-width:0}
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-filters{min-width:0}
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-driver-info small{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-driver-status span.xd-ra-busy{background:#1d57d8}
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-clear,
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-search{display:flex;align-items:center;justify-content:center;gap:7px}
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-map-detail button{display:flex;align-items:center;gap:7px}
+.demo-shell.xd-reference-chrome .xd-reference-availability .la-center>svg{color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-ra-disclaimer{font-size:11px;color:#64748b;margin:0}
+@media(max-width:1150px){.demo-shell.xd-reference-chrome .xd-reference-availability .la-layout{grid-template-columns:205px minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-reference-availability .la-map{grid-column:2}}
+@media(max-width:850px){.demo-shell.xd-reference-chrome .xd-reference-availability .la-layout{grid-template-columns:minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-reference-availability .la-map{grid-column:auto}.demo-shell.xd-reference-chrome .xd-reference-availability .la-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.demo-shell.xd-reference-chrome .xd-reference-availability .la-kpi{min-width:0;padding:10px 8px}.demo-shell.xd-reference-chrome .xd-reference-availability .la-kpi strong{font-size:23px}.demo-shell.xd-reference-chrome .xd-reference-availability .la-kpi>span{font-size:20px}.demo-shell.xd-reference-chrome .xd-reference-availability .la-driver-status{width:100%;text-align:left}}

@@ -1,0 +1,19 @@
+/* Consistent desktop layout for Company / Dispatcher panels without changing brand. */
+@media(min-width:851px){
+ .demo-shell.ops-demo .content{min-width:0;width:calc(100% - 224px)}
+ .demo-shell.ops-demo .page{min-width:0;width:100%;max-width:none;overflow-x:clip}
+ .demo-shell.ops-demo .page>.panel,.demo-shell.ops-demo .page>.network,.demo-shell.ops-demo .page>section{min-width:0;max-width:100%}
+ .demo-shell.ops-demo .panel{min-width:0}
+ .demo-shell.ops-demo .form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .demo-shell.ops-demo .form-grid>*{min-width:0}
+ .demo-shell.ops-demo input,.demo-shell.ops-demo select,.demo-shell.ops-demo textarea{max-width:100%}
+ .demo-shell.ops-demo .actions{align-items:center;gap:8px}
+ .demo-shell.ops-demo .actions>button{min-height:38px;white-space:normal;overflow-wrap:anywhere}
+ .demo-shell.ops-demo .network{min-width:0;max-width:100%}
+ .demo-shell.ops-demo .network-directory,.demo-shell.ops-demo .network-table,.demo-shell.ops-demo .network-profile{min-width:0;max-width:100%}
+ .demo-shell.ops-demo .network-job,.demo-shell.ops-demo .ops-job{min-width:0;overflow-wrap:anywhere}
+}
+@media(min-width:851px) and (max-width:1150px){
+ .demo-shell.ops-demo .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .demo-shell.ops-demo .ops-job-list{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+}

@@ -1,0 +1,116 @@
+/* XDrive DEMO 2026-11-01: Company-approved visual identity for all role workspaces.
+   Specific scope prevents changes to the Company/Dispatcher baseline or production app.
+   Import this stylesheet after demo.css/wide-layout.css in the five legacy role pages. */
+.demo-shell.xd-visual-parity{
+ --xd-primary:#0b2f6b;--xd-secondary:#1d57d8;--xd-orange:#f5a300;
+ --xd-green:#16a34a;--xd-bg:#f4f6f8;--xd-border:#dce5f0;
+ --xd-text:#1a1f2b;--xd-muted:#64748b;--xd-radius:9px;
+ background:var(--xd-bg);color:var(--xd-text);font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;
+}
+.demo-shell.xd-visual-parity .page{min-width:0;max-width:none;width:100%;overflow-x:clip}
+.demo-shell.xd-visual-parity .page-head{margin-bottom:10px;min-height:0}
+.demo-shell.xd-visual-parity .page-head h1{color:#0b2f6b;font-size:26px;font-weight:800;line-height:1.25;margin:0}
+.demo-shell.xd-visual-parity .page:has(> .xd-role-dashboard)>.page-head h1{color:#0b1736;font-size:32px;font-weight:850;line-height:1.6}
+.demo-shell.xd-visual-parity .page-head p{color:#344563;font-size:13px;line-height:1.4;margin:3px 0 0}
+.demo-shell.xd-visual-parity .xd-role-dashboard{display:grid;gap:16px;min-width:0;color:#0b1736}
+.demo-shell.xd-visual-parity .xd-role-subtitle{color:#344563;font-size:13px;margin:-7px 0 0;line-height:1.4}
+.demo-shell.xd-visual-parity .xd-role-dashboard .xd-dashboard-kpis{margin:0}
+.demo-shell.xd-visual-parity .xd-role-dashboard .xd-kpi{width:100%;min-width:0}
+.demo-shell.xd-visual-parity .xd-role-dashboard .xd-kpi:focus-visible,
+.demo-shell.xd-visual-parity .sidebar>button:focus-visible,
+.demo-shell.xd-visual-parity .mobile-tabs>button:focus-visible{outline:3px solid var(--xd-orange);outline-offset:2px}
+.demo-shell.xd-visual-parity .xd-role-dashboard>.panel{
+ min-width:0;margin:0;padding:14px 16px;
+ border:1px solid var(--xd-border);border-radius:12px;background:#fff;
+ box-shadow:0 2px 6px #0b2f6b10;
+}
+.demo-shell.xd-visual-parity .xd-role-dashboard>.panel>.panel-title{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:12px;margin:-14px -16px 12px;padding:12px 16px;
+ border-bottom:1px solid #e0e7f0;
+}
+.demo-shell.xd-visual-parity .xd-role-dashboard>.panel>.panel-title h2,
+.demo-shell.xd-visual-parity .xd-role-dashboard>.panel>h2:first-child{
+ color:#0b1736;font-size:17px;font-weight:850;line-height:1.6;
+}
+.demo-shell.xd-visual-parity .xd-role-dashboard>.panel>h2:first-child{
+ margin:-14px -16px 12px;padding:12px 16px;border-bottom:1px solid #e0e7f0;
+}
+.demo-shell.xd-visual-parity .xd-role-dashboard .route{background:#f4f6f8;border:1px solid var(--xd-border);border-radius:9px;min-width:0}
+.demo-shell.xd-visual-parity .xd-role-dashboard .route strong{color:#0b1736;font-size:16px}
+.demo-shell.xd-visual-parity .xd-role-dashboard .facts span{font-size:11px;padding:6px 9px;border-radius:5px}
+.demo-shell.xd-visual-parity .xd-role-dashboard .steps{gap:10px;grid-template-columns:repeat(5,minmax(0,1fr))}
+.demo-shell.xd-visual-parity .xd-role-dashboard .steps button{
+ border:1px solid var(--xd-border);background:#f4f6f8;border-radius:8px;
+ padding:12px;gap:10px;min-width:0;min-height:104px;
+}
+.demo-shell.xd-visual-parity .xd-role-dashboard .steps b{color:#1266e7;font-size:22px}
+.demo-shell.xd-visual-parity .xd-role-dashboard .steps span{font-size:12px}
+.demo-shell.xd-visual-parity .xd-role-dashboard .steps button:focus-visible{outline:3px solid var(--xd-orange)}
+.demo-shell.xd-visual-parity .panel{border-color:var(--xd-border);box-shadow:0 2px 6px #0b2f6b10}
+.demo-shell.xd-visual-parity .panel-title h2{color:var(--xd-primary)}
+.demo-shell.xd-visual-parity .primary,
+.demo-shell.xd-visual-parity .outline{font-size:12px;font-weight:800;border-radius:7px;min-height:38px}
+.demo-shell.xd-visual-parity .mobile-tabs>button.active{border-bottom-color:var(--xd-orange);color:var(--xd-primary)}
+@media(min-width:851px){
+ .demo-shell.xd-visual-parity .xd-role-dashboard>.panel>.panel-title{height:52.2px;box-sizing:border-box;padding-top:0;padding-bottom:0}
+ .demo-shell.xd-visual-parity>.sidebar{
+  padding:18px 14px 10px;display:flex;flex-direction:column;
+  max-height:100vh;overflow-y:auto;scrollbar-width:thin;
+ }
+ .demo-shell.xd-visual-parity>.sidebar .brand{margin:0 9px 17px;font-size:19px}
+ .demo-shell.xd-visual-parity>.sidebar .side-caption{display:none}
+ .demo-shell.xd-visual-parity>.sidebar>button:not(.sidebar-find-loads){
+  display:flex;align-items:center;gap:0;width:100%;
+  padding:7px 12px;min-height:34px;line-height:20px;
+  font-size:14px;font-weight:650;color:#c9d8ed;border-radius:7px;
+ }
+ .demo-shell.xd-visual-parity>.sidebar>button.active:not(.sidebar-find-loads){
+  background:var(--xd-secondary);color:#fff;
+ }
+ .demo-shell.xd-visual-parity>.sidebar>button:not(.sidebar-find-loads)>span{display:none}
+ .demo-shell.xd-visual-parity>.sidebar>.sidebar-find-loads{
+  margin:12px 0 4px!important;width:100%!important;min-height:34px!important;
+  padding:7px 12px!important;font-size:14px!important;font-weight:650!important;
+  text-align:left!important;
+ }
+ .demo-shell.xd-visual-parity>.content,
+ .demo-shell.xd-visual-parity>.page{min-width:0}
+}
+@media(min-width:851px) and (max-width:1150px){
+ .demo-shell.xd-visual-parity .xd-role-dashboard .xd-dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:850px){
+ .demo-shell.xd-visual-parity .xd-role-dashboard>.panel>.panel-title h2{line-height:1.35}
+ .demo-shell.xd-visual-parity .page-head h1{font-size:26px}
+ .demo-shell.xd-visual-parity .page:has(> .xd-role-dashboard)>.page-head h1{font-size:32px}
+ .demo-shell.xd-visual-parity .xd-role-dashboard{gap:16px}
+ .demo-shell.xd-visual-parity .xd-role-dashboard .steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .demo-shell.xd-visual-parity .xd-role-dashboard .steps button{min-height:94px}
+ .demo-shell.xd-visual-parity .xd-role-dashboard>.panel{padding:14px 12px}
+ .demo-shell.xd-visual-parity .xd-role-dashboard>.panel>.panel-title,
+ .demo-shell.xd-visual-parity .xd-role-dashboard>.panel>h2:first-child{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}
+}
+@media(max-width:650px){
+ .demo-shell.xd-visual-parity .xd-role-dashboard .xd-dashboard-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+ .demo-shell.xd-visual-parity .xd-role-dashboard .xd-kpi{min-height:106px;padding:15px 12px}
+ .demo-shell.xd-visual-parity .xd-role-dashboard .xd-kpi-content b{font-size:24px}
+}
+
+/* Original Company 3118 Diary: status tabs remain compact pill controls, not underline tabs. */
+.demo-shell.xd-visual-parity .xd-diary-v2 .xd-diary-tabs{
+  gap:0; margin:10px 0 12px; padding:0 0 8px;
+  border-bottom:1px solid #d8e1ed;
+}
+.demo-shell.xd-visual-parity .xd-diary-v2 .xd-diary-tabs button{
+  border:1px solid #d6e0eb; border-radius:4px;
+  background:#f4f7fa; color:#17365e;
+  font-size:12px; font-weight:600;
+  padding:9px 10px 11px; min-height:30px;
+}
+.demo-shell.xd-visual-parity .xd-diary-v2 .xd-diary-tabs button.active{
+  background:#1d57d8; border-color:#1d57d8; color:#fff;
+}
+.demo-shell.xd-visual-parity .page-head:empty{
+  display:none; margin:0; padding:0;
+}

@@ -1,0 +1,26 @@
+.demo-shell.xd-reference-chrome .xd-driver-preview-notice{font-size:12px;color:#725c24;background:#fff9e7;padding:11px 13px;margin:0 0 13px;border-left:4px solid #f5a300;border-radius:5px}
+.demo-shell.xd-reference-chrome .xd-driver-find .xd-board-head h1{font-size:30px}
+.demo-shell.xd-reference-chrome .xd-driver-bookings .xd-bookings-note{background:#fff9e7;border-left:4px solid #f5a300;padding:11px;border-radius:5px;color:#705b2c;font-size:11px}
+.demo-shell.xd-reference-chrome .xd-driver-bookings .xd-bookings-mode-note{font-size:12px;color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-quotes-empty .xd-quotes-find{width:auto;margin:15px auto 0;display:inline-block;min-width:145px}
+.demo-shell.xd-reference-chrome .xd-owner-more .form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.demo-shell.xd-reference-chrome .xd-owner-more .form-grid label{min-width:0}
+@media(max-width:600px){.demo-shell.xd-reference-chrome .xd-owner-more .form-grid{grid-template-columns:minmax(0,1fr)}}
+
+.demo-shell.xd-reference-chrome .xd-driver-bookings .xd-driver-booking-preview{font-size:11px;color:#735b22;background:#fff9e7;border-left:4px solid #f5a300;padding:10px 12px;margin:8px 0 12px;border-radius:5px}
+.demo-shell.xd-reference-chrome .xd-owner-bookings-filter-toggle{display:none}
+@media(max-width:850px){
+.demo-shell.xd-reference-chrome .xd-owner-more-menu{display:flex;flex-direction:column;gap:9px}
+.demo-shell.xd-reference-chrome .xd-owner-more-group{display:flex;align-items:center;gap:6px;max-width:100%;overflow-x:auto;padding:4px 0;scrollbar-width:thin}
+.demo-shell.xd-reference-chrome .xd-owner-more-group h3{flex:0 0 70px;margin:0;font-size:9px}
+.demo-shell.xd-reference-chrome .xd-owner-more-group button{width:auto;min-height:42px;flex:none;font-size:11px;border:1px solid #dae4f0;padding:7px}
+.demo-shell.xd-reference-chrome .xd-owner-more-group button span{flex:none}
+.demo-shell.xd-reference-chrome .xd-owner-more-group button b{display:none}
+.demo-shell.xd-reference-chrome .xd-driver-bookings .xd-bookings-filters:not(.xd-owner-filter-open){display:none!important}
+.demo-shell.xd-reference-chrome .xd-owner-bookings-filter-toggle{display:block;border:1px solid #0b2f6b;background:#fff;color:#0b2f6b;border-radius:6px;font-weight:800;font-size:12px;padding:10px 13px;margin:6px 0 10px;cursor:pointer}
+}
+
+/* Driver booking example mode is opt-in; real assignments are displayed separately. */
+.demo-shell.xd-reference-chrome .xd-driver-booking-preview{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;background:#eff6ff;color:#173b63;border:1px solid #bfdbfe;border-left:4px solid #1d57d8;border-radius:8px;padding:12px 14px;margin:9px 0;font-size:12px;line-height:1.5}
+.demo-shell.xd-reference-chrome .xd-driver-booking-preview button{flex:none;background:#0b2f6b;color:#fff;border:0;border-radius:6px;padding:9px 12px;font-size:12px;font-weight:750;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-driver-booking-preview button:hover{background:#1d57d8}

@@ -1,0 +1,45 @@
+/* Company-reference visual system for Tracking, Documents, Awards, POD Review. */
+.demo-shell.xd-reference-chrome .xd-reference-records{display:grid;gap:13px;min-width:0;color:#0b1736}
+.demo-shell.xd-reference-chrome .xd-rr-heading h1{color:#0b1736;margin:0;font-size:30px;font-weight:850;line-height:1.2}
+.demo-shell.xd-reference-chrome .xd-rr-heading p{font-size:13px;color:#455775;margin:3px 0}
+.demo-shell.xd-reference-chrome .xd-rr-tabs{display:flex;gap:0;overflow-x:auto;border-bottom:1px solid #dce5f0}
+.demo-shell.xd-reference-chrome .xd-rr-tabs button{white-space:nowrap;flex:none;border:0;border-bottom:3px solid transparent;background:#fff;font-size:12px;font-weight:750;color:#0b1736;padding:10px 13px;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-rr-tabs button.active{border-bottom-color:#ff7900}
+.demo-shell.xd-reference-chrome .xd-rr-tabs button>span{background:#e3eaf4;color:#52647e;border-radius:14px;padding:2px 7px;margin-left:4px}
+.demo-shell.xd-reference-chrome .xd-rr-tabs button.active>span{background:#1d57d8;color:#fff}
+.demo-shell.xd-reference-chrome .xd-rr-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.demo-shell.xd-reference-chrome .xd-rr-kpi{min-width:0;display:flex;align-items:center;gap:10px;min-height:100px;border:1px solid #dce5f0;border-left:5px solid #ff7900;border-radius:12px;background:#fff;padding:12px;box-shadow:0 2px 5px #0b2f6b13}
+.demo-shell.xd-reference-chrome .xd-rr-kpi svg{color:#ff7900;flex:none}
+.demo-shell.xd-reference-chrome .xd-rr-kpi>div{display:grid;gap:3px}
+.demo-shell.xd-reference-chrome .xd-rr-kpi strong{font-size:11px;line-height:1.3}
+.demo-shell.xd-reference-chrome .xd-rr-kpi b{font-size:28px;line-height:1}
+.demo-shell.xd-reference-chrome .xd-rr-kpi small{font-size:10px;color:#52647d;line-height:1.25}
+.demo-shell.xd-reference-chrome .xd-rr-kpi.blue{border-left-color:#1d57d8}.demo-shell.xd-reference-chrome .xd-rr-kpi.blue svg{color:#1d57d8}
+.demo-shell.xd-reference-chrome .xd-rr-kpi.green{border-left-color:#16a34a}.demo-shell.xd-reference-chrome .xd-rr-kpi.green svg{color:#16a34a}
+.demo-shell.xd-reference-chrome .xd-rr-kpi.amber{border-left-color:#f5a300}.demo-shell.xd-reference-chrome .xd-rr-kpi.amber svg{color:#f5a300}
+.demo-shell.xd-reference-chrome .xd-rr-kpi.sky{border-left-color:#60a5fa}.demo-shell.xd-reference-chrome .xd-rr-kpi.sky svg{color:#1d57d8}
+.demo-shell.xd-reference-chrome .xd-rr-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:14px;align-items:start}
+.demo-shell.xd-reference-chrome .xd-rr-filters{display:grid;gap:12px;min-width:0;border:1px solid #dce5f0;border-radius:10px;background:#fff;padding:13px;box-shadow:0 2px 5px #0b2f6b10}
+.demo-shell.xd-reference-chrome .xd-rr-filters h2{display:flex;align-items:center;gap:6px;font-size:16px;margin:0;font-weight:850}
+.demo-shell.xd-reference-chrome .xd-rr-filters>label{display:grid;gap:5px;font-size:12px;font-weight:650;min-width:0}
+.demo-shell.xd-reference-chrome .xd-rr-filters input:not([type=checkbox]),.demo-shell.xd-reference-chrome .xd-rr-filters select{height:35px;width:100%;min-width:0;border:1px solid #bacade;border-radius:5px;padding:6px 7px;background:#fff;font-size:12px}
+.demo-shell.xd-reference-chrome .xd-rr-filters .xd-rr-check{display:flex;align-items:center;gap:7px}
+.demo-shell.xd-reference-chrome .xd-rr-filters .xd-rr-check input{margin:0}
+.demo-shell.xd-reference-chrome .xd-rr-filters button{display:flex;gap:6px;align-items:center;justify-content:center;border:0;border-radius:6px;padding:9px;font-size:12px;font-weight:750;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-rr-search{background:#ff7900;color:white}
+.demo-shell.xd-reference-chrome .xd-rr-clear{background:#f1f5fa;color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-rr-results{display:grid;gap:11px;min-width:0}
+.demo-shell.xd-reference-chrome .xd-rr-results-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.demo-shell.xd-reference-chrome .xd-rr-results-head strong{font-size:17px;font-weight:850}
+.demo-shell.xd-reference-chrome .xd-rr-results-head small{font-size:12px;color:#607088}
+.demo-shell.xd-reference-chrome .xd-rr-results-head label{display:flex;align-items:center;gap:6px;font-size:12px}
+.demo-shell.xd-reference-chrome .xd-rr-results-head select{background:#fff;border:1px solid #bacade;border-radius:5px;padding:7px}
+.demo-shell.xd-reference-chrome .xd-rr-empty{display:grid;justify-items:start;gap:7px;background:#fff;border:1px solid #dce5f0;border-radius:10px;padding:24px;color:#30445f}
+.demo-shell.xd-reference-chrome .xd-rr-empty svg{color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-rr-empty h3{font-size:17px;color:#0b1736;margin:0}
+.demo-shell.xd-reference-chrome .xd-rr-empty p{margin:0;font-size:12px}
+.demo-shell.xd-reference-chrome .xd-rr-empty button{background:#0b2f6b;color:#fff;border:0;padding:10px 14px;border-radius:6px;font-size:12px;font-weight:750;cursor:pointer;margin-top:5px}
+.demo-shell.xd-reference-chrome .xd-rr-warning{margin:0;background:#fff8e4;border-left:3px solid #f5a300;padding:10px;font-size:12px}
+@media(max-width:1190px){.demo-shell.xd-reference-chrome .xd-rr-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:850px){.demo-shell.xd-reference-chrome .xd-rr-layout{grid-template-columns:minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-rr-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.demo-shell.xd-reference-chrome .xd-rr-filters h2{grid-column:1/-1}}
+@media(max-width:600px){.demo-shell.xd-reference-chrome .xd-rr-kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.demo-shell.xd-reference-chrome .xd-rr-kpi{gap:6px;padding:10px 8px;min-height:93px}.demo-shell.xd-reference-chrome .xd-rr-kpi svg{width:19px;height:19px}.demo-shell.xd-reference-chrome .xd-rr-kpi b{font-size:24px}.demo-shell.xd-reference-chrome .xd-rr-filters{grid-template-columns:minmax(0,1fr)}.demo-shell.xd-reference-chrome .xd-rr-tabs{scrollbar-width:thin}}

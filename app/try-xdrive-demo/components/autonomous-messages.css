@@ -1,0 +1,17 @@
+/* Isolated booking messaging. Never modifies the approved Company shell. */
+.xd-autonomous-messages-grid{
+ display:grid;
+ grid-template-columns:minmax(190px,280px) minmax(0,1fr);
+ gap:14px;
+ align-items:start;
+}
+.xd-autonomous-messages-grid>aside,
+.xd-autonomous-messages-grid>section,
+.xd-autonomous-messages-grid>div{min-width:0}
+.xd-autonomous-messages-grid button{max-width:100%;overflow-wrap:anywhere}
+.xd-autonomous-messages-grid textarea{display:block;width:100%;min-width:0;box-sizing:border-box}
+.xd-autonomous-messages-grid input{width:100%;max-width:100%;box-sizing:border-box}
+@media(max-width:850px){
+ .xd-autonomous-messages-grid{grid-template-columns:minmax(0,1fr);gap:10px}
+ .xd-autonomous-messages-grid aside{max-height:280px;overflow-y:auto}
+}

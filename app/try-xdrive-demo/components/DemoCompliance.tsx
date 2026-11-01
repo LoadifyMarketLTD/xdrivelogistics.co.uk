@@ -1,0 +1,15 @@
+"use client";
+import {useState} from "react";
+type Document={id:string;owner:string;kind:string;reference:string;expires:string;filename:string};
+const vehicleTypes=["Hire & Reward Insurance","Goods in Transit Insurance","MOT","Vehicle Tax","V5C / Registration","Operator Licence","Vehicle Photo"];
+const driverTypes=["Driving Licence","Right to Work","Driver CPC","Digital Tachograph Card","Identity Document","Training Certificate"];
+export default function DemoCompliance({vehicles=[],drivers=[],scope="Fleet"}:{vehicles?:{id:string;reg:string}[];drivers?:string[];scope?:string}){
+const [documents,setDocuments]=useState<Document[]>([]),[owner,setOwner]=useState(""),[kind,setKind]=useState(""),[reference,setReference]=useState(""),[expires,setExpires]=useState(""),[filename,setFilename]=useState(""),[message,setMessage]=useState("");
+const options=[...vehicles.map(v=>({value:"vehicle:"+v.id,label:"Vehicle · "+v.reg})),...drivers.map(n=>({value:"driver:"+n,label:"Driver · "+n}))];
+const isVehicle=owner.startsWith("vehicle:"),kinds=isVehicle?vehicleTypes:driverTypes;
+const selectedKind=kinds.includes(kind)?kind:kinds[0];
+return <div className="panel"><div className="panel-title"><h2>Documents & Compliance</h2><span>{scope} · DEMO</span></div><p className="notice">Add fictional document records, expiry dates and file names. No documents are uploaded to a server or shared with real accounts.</p>
+<div className="form-grid"><label>Record owner<select aria-label="Document owner" value={owner} onChange={e=>{setOwner(e.target.value);setKind("")}}><option value="">Select driver or vehicle</option>{options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select></label><label>Document type<select aria-label="Document type" value={selectedKind} onChange={e=>setKind(e.target.value)}>{kinds.map(k=><option key={k}>{k}</option>)}</select></label><label>Policy / document reference<input value={reference} onChange={e=>setReference(e.target.value)} placeholder="Fictional reference"/></label><label>Expiry date<input type="date" value={expires} onChange={e=>setExpires(e.target.value)}/></label><label>Demo document (local file name only)<input aria-label="Demo document file" type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={e=>setFilename(e.target.files?.[0]?.name||"")}/></label></div>
+<button className="primary" disabled={!owner||!reference.trim()||!expires||!filename} onClick={()=>{setDocuments(v=>[{id:String(Date.now()),owner,kind:selectedKind,reference,expires,filename},...v]);setReference("");setExpires("");setFilename("");setMessage("Demo document record saved")}}>Add document record</button>
+{documents.map(doc=><div className="fleet-row" key={doc.id}><div><strong>{doc.kind}</strong><small>{options.find(o=>o.value===doc.owner)?.label||doc.owner} · {doc.reference}</small><small>{doc.filename} · Expires {doc.expires} {doc.expires<new Date().toISOString().slice(0,10)?"· EXPIRED":""}</small></div><button className="outline" onClick={()=>setDocuments(v=>v.filter(x=>x.id!==doc.id))}>Remove</button></div>)}{message&&<p role="status" className="notice">{message}</p>}</div>
+}

@@ -1,0 +1,40 @@
+.demo-shell.xd-reference-chrome .xd-owner-network{display:grid;gap:15px;color:#0b1736}
+.demo-shell.xd-reference-chrome .xd-owner-network>header h2{margin:0;font-size:21px;font-weight:850}
+.demo-shell.xd-reference-chrome .xd-owner-network>header p{font-size:12px;color:#52647b;margin:4px 0 0}
+.demo-shell.xd-reference-chrome .xd-owner-network-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi{border:1px solid #dce5f0;border-left:5px solid #ff7900;border-radius:10px;background:#fff;display:flex;align-items:center;gap:10px;padding:13px;text-align:left;box-shadow:0 2px 5px #0b2f6b10;cursor:pointer;min-height:101px}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi svg{color:#ff7900;flex:none}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi span{display:grid;gap:4px;min-width:0}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi strong{font-size:12px}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi b{font-size:25px;line-height:1}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi small{font-size:10px;color:#52647b;line-height:1.3}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi.blue{border-left-color:#1d57d8}.demo-shell.xd-reference-chrome .xd-owner-network-kpi.blue svg{color:#1d57d8}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi.green{border-left-color:#16a34a}.demo-shell.xd-reference-chrome .xd-owner-network-kpi.green svg{color:#16a34a}
+.demo-shell.xd-reference-chrome .xd-owner-network-kpi.amber{border-left-color:#f5a300}.demo-shell.xd-reference-chrome .xd-owner-network-kpi.amber svg{color:#f5a300}
+.demo-shell.xd-reference-chrome .xd-owner-network-auth{background:#fffae8;border-left:3px solid #f5a300;font-size:12px;color:#705a27;padding:12px;margin:0}
+.demo-shell.xd-reference-chrome .xd-owner-network-columns{display:grid;grid-template-columns:minmax(0,3fr) minmax(260px,2fr);gap:14px}
+.demo-shell.xd-reference-chrome .xd-owner-network-panel{min-width:0;border:1px solid #dce5f0;border-radius:11px;background:#fff;box-shadow:0 2px 5px #0b2f6b12;overflow:hidden}
+.demo-shell.xd-reference-chrome .xd-owner-network-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid #e4eaf2}
+.demo-shell.xd-reference-chrome .xd-owner-network-panel-head h3{font-size:16px;display:flex;align-items:center;gap:8px;margin:0;font-weight:850}
+.demo-shell.xd-reference-chrome .xd-owner-network-panel-head button{border:0;background:transparent;color:#1266e7;font-size:12px;font-weight:750;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts button{min-width:0;text-align:left;display:flex;align-items:center;gap:8px;background:white;border:0;border-right:1px solid #e6edf6;border-bottom:1px solid #e6edf6;padding:15px 12px;min-height:78px;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts button:hover{background:#f4f8ff}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts button svg{color:#1266e7;flex:none}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts button span{display:grid;gap:3px;flex:1;min-width:0}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts strong{font-size:12px}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts small{font-size:10px;color:#52647b}
+.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts b{font-size:20px;color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-owner-network-booking{padding:12px;border-bottom:1px solid #e6edf6;display:grid;gap:5px}
+.demo-shell.xd-reference-chrome .xd-owner-network-booking b{font-size:12px}
+.demo-shell.xd-reference-chrome .xd-owner-network-booking small{font-size:11px;color:#60738b}
+.demo-shell.xd-reference-chrome .xd-owner-network-empty{padding:24px;display:grid;justify-items:start;gap:10px;font-size:12px}
+.demo-shell.xd-reference-chrome .xd-owner-network-empty svg{color:#1266e7}
+.demo-shell.xd-reference-chrome .xd-owner-network-empty strong{font-size:14px}
+.demo-shell.xd-reference-chrome .xd-owner-network-empty p{font-size:12px;color:#64748b;margin:0}
+.demo-shell.xd-reference-chrome .xd-owner-network-empty button{display:flex;align-items:center;gap:7px;background:#0b2f6b;border:0;border-radius:6px;color:white;padding:10px 12px;cursor:pointer}
+.demo-shell.xd-reference-chrome .xd-owner-network-notes{padding:12px 16px;border-top:1px solid #e6edf6}
+.demo-shell.xd-reference-chrome .xd-owner-network-notes h4{font-size:12px;margin:0 0 4px}
+.demo-shell.xd-reference-chrome .xd-owner-network-notes p{font-size:11px;color:#667890;margin:0}
+@media(max-width:1100px){.demo-shell.xd-reference-chrome .xd-owner-network-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.demo-shell.xd-reference-chrome .xd-owner-network-columns{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:540px){.demo-shell.xd-reference-chrome .xd-owner-network-metrics{gap:8px}.demo-shell.xd-reference-chrome .xd-owner-network-kpi{padding:10px;min-height:92px;gap:6px}.demo-shell.xd-reference-chrome .xd-owner-network-kpi svg{width:18px}.demo-shell.xd-reference-chrome .xd-owner-network-shortcuts{grid-template-columns:minmax(0,1fr)}}

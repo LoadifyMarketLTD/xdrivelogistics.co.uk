@@ -1,0 +1,274 @@
+/* 1 NOV 2026 - XDrive sidebar-image design system.
+   Scope ONLY .xd-reference-chrome; Post Load never receives this class.
+   Original Company port 3118 and its files remain untouched. */
+.demo-shell.xd-reference-chrome{
+  --ref-navy:#071d43;--ref-blue:#0b2f6b;--ref-orange:#ff7900;
+  --ref-border:#dce5f0;--ref-shadow:0 2px 5px #0b2f6b10;
+  display:block;min-height:100vh;background:#fff;color:#0a1733;
+  font-family:Inter,Arial,sans-serif;font-size:13px;line-height:1.5;
+}
+/* Force the full, static left sidebar from the reference images. */
+@media(min-width:851px){
+.demo-shell.xd-reference-chrome>.sidebar,
+.demo-shell.ops-demo.xd-reference-chrome>.sidebar{
+  position:fixed!important;left:0!important;top:0!important;bottom:0!important;
+  display:flex!important;flex-direction:column;z-index:100!important;
+  transform:none!important;transition:width .18s ease!important;
+  width:224px!important;min-width:224px!important;max-width:224px!important;
+  height:100vh!important;min-height:100vh!important;max-height:100vh!important;
+  padding:10px 8px 8px!important;overflow-x:hidden!important;overflow-y:auto!important;
+  scrollbar-width:thin;background:var(--ref-navy)!important;color:#fff!important;
+  box-shadow:none!important;
+}
+.demo-shell.xd-reference-chrome>.sidebar::after{display:none!important;content:none!important}
+.demo-shell.xd-reference-chrome>.content,
+.demo-shell.ops-demo.xd-reference-chrome>.content{
+  margin:0 0 0 224px!important;width:calc(100% - 224px)!important;
+  min-width:0!important;max-width:none!important;display:block;flex:none;
+}
+.demo-shell.xd-reference-chrome>.content>.topbar,
+.demo-shell.ops-demo.xd-reference-chrome>.content>.topbar{
+  display:flex!important;height:60px!important;min-height:60px!important;
+  justify-content:stretch!important;align-items:center!important;
+  position:sticky;top:0;z-index:70;
+  padding:0 18px!important;background:#f9fbff!important;
+  border-bottom:1px solid #e4e8ef!important;
+}
+.demo-shell.xd-reference-chrome .page{
+  max-width:none!important;width:100%!important;min-width:0!important;
+  margin:0!important;padding:14px 20px 26px!important;
+  background:#fff;min-height:calc(100vh - 60px);
+}
+.demo-shell.xd-reference-chrome.xd-reference-collapsed>.sidebar{
+  width:68px!important;min-width:68px!important;max-width:68px!important;
+}
+.demo-shell.xd-reference-chrome.xd-reference-collapsed>.content{
+  margin-left:68px!important;width:calc(100% - 68px)!important;
+}
+.demo-shell.xd-reference-chrome.xd-reference-collapsed>.sidebar .brand{
+  width:50px!important;height:42px!important;background-position:center!important;
+  background-size:cover!important;
+}
+.demo-shell.xd-reference-chrome.xd-reference-collapsed>.sidebar>button{
+  font-size:0!important;justify-content:center!important;padding:7px!important;
+}
+.demo-shell.xd-reference-chrome.xd-reference-collapsed .xd-ref-sidebar-footer{
+  justify-content:center!important;
+}
+}
+/* Shared typography and sidebar density on desktop. */
+.demo-shell.xd-reference-chrome>.sidebar .brand{
+  display:block!important;flex:none;width:196px;height:64px;min-height:64px;
+  padding:0!important;margin:5px auto 13px!important;font-size:0!important;
+  color:transparent!important;line-height:0!important;letter-spacing:0!important;
+  background:url("/xdrive-logo-primary.png") center center/contain no-repeat!important;
+}
+.demo-shell.xd-reference-chrome>.sidebar .brand em{display:none!important}
+.demo-shell.xd-reference-chrome>.sidebar .side-caption,
+.demo-shell.xd-reference-chrome>.sidebar .side-foot{display:none!important}
+.demo-shell.xd-reference-chrome>.sidebar>button:not(.sidebar-find-loads){
+  width:100%!important;min-height:39px!important;height:39px!important;flex:none;
+  margin:0 0 1px!important;padding:8px 10px!important;
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:11px!important;
+  border:0!important;border-radius:8px!important;background:transparent!important;
+  box-shadow:none!important;color:#e5edf9!important;
+  font-family:Inter,Arial,sans-serif!important;font-size:14px!important;font-weight:600!important;
+  line-height:21px!important;white-space:nowrap!important;text-align:left!important;
+  cursor:pointer!important;
+}
+.demo-shell.xd-reference-chrome>.sidebar>button:not(.sidebar-find-loads):hover{
+  background:#17365f!important;color:#fff!important;
+}
+.demo-shell.xd-reference-chrome>.sidebar>button.active:not(.sidebar-find-loads),
+.demo-shell.xd-reference-chrome>.sidebar>button.active:not(.sidebar-find-loads):hover{
+  background:var(--ref-orange)!important;color:#fff!important;
+}
+.demo-shell.xd-reference-chrome>.sidebar>button:not(.sidebar-find-loads)>span{display:none!important}
+.demo-shell.xd-reference-chrome .xd-ref-nav-icon{
+  width:19px;min-width:19px;max-width:19px;height:19px;min-height:19px;
+  display:block;flex:none;color:currentColor;stroke:currentColor;
+}
+.demo-shell.xd-reference-chrome>.sidebar>.sidebar-find-loads{
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  margin:7px 0!important;border-radius:8px!important;font-size:12px!important;line-height:18px!important;
+  background:#16a34a!important;color:#fff!important;padding:7px 8px!important;min-height:34px!important;
+}
+.demo-shell.xd-reference-chrome .xd-ref-sidebar-footer{
+  margin-top:auto;min-height:40px;padding:3px 10px 0;
+  position:sticky;bottom:0;display:flex;justify-content:flex-end;
+  background:var(--ref-navy);flex:none;z-index:3;
+}
+.demo-shell.xd-reference-chrome .xd-ref-collapse{
+  border:0!important;background:transparent!important;color:#fff!important;
+  display:flex;justify-content:center;align-items:center;
+  width:34px!important;height:34px!important;min-height:34px!important;padding:4px!important;
+  border-radius:6px;cursor:pointer;
+}
+.demo-shell.xd-reference-chrome .xd-ref-collapse:hover{background:#163b73!important}
+/* Company-design header, shared by all seven roles. */
+.demo-shell.xd-reference-chrome .content>.topbar>.mobile-brand,
+.demo-shell.xd-reference-chrome .content>.topbar>.top-actions{display:none!important}
+.demo-shell.xd-reference-chrome .xd-ref-header{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;min-width:0;
+  height:60px;color:#0a1733;white-space:nowrap;
+}
+.demo-shell.xd-reference-chrome .xd-ref-header-title{
+  display:flex;align-items:center;gap:11px;min-width:0;color:#07182c;font-size:17px;font-weight:850;
+}
+.demo-shell.xd-reference-chrome .xd-ref-header-title strong{
+  font-size:17px;font-weight:850;line-height:1.2;overflow:hidden;text-overflow:ellipsis;
+}
+.demo-shell.xd-reference-chrome .xd-ref-header-truck{color:var(--ref-orange);flex:none}
+.demo-shell.xd-reference-chrome .xd-ref-header-actions{
+  display:flex;justify-content:flex-end;align-items:center;gap:13px;flex:none;
+}
+.demo-shell.xd-reference-chrome .xd-ref-post-load{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  border:0;background:var(--ref-orange);color:#fff;border-radius:8px;
+  min-height:42px;padding:8px 15px;line-height:24px;font-size:14px;font-weight:750;
+  cursor:pointer;box-shadow:0 1px 3px #a94b0022;
+}
+.demo-shell.xd-reference-chrome .xd-ref-post-load:hover{background:#ec6800}
+.demo-shell.xd-reference-chrome .xd-ref-alert-button{
+  display:flex;align-items:center;justify-content:center;
+  position:relative;width:42px;height:42px;min-height:42px;
+  border:0;background:transparent;color:#08162d;border-radius:50%;cursor:pointer;padding:5px;
+}
+.demo-shell.xd-reference-chrome .xd-ref-alert-button:hover,
+.demo-shell.xd-reference-chrome .xd-ref-account:hover{background:#edf3fc}
+.demo-shell.xd-reference-chrome .xd-ref-header-action-wrap,
+.demo-shell.xd-reference-chrome .xd-ref-account-wrap{position:relative}
+.demo-shell.xd-reference-chrome .xd-ref-alert-count{
+  position:absolute;top:2px;right:1px;background:#dc1927;color:#fff;
+  border-radius:50%;font-size:10px;font-weight:800;display:grid;place-items:center;
+  width:18px;height:18px;border:2px solid #fff;
+}
+.demo-shell.xd-reference-chrome .xd-ref-divider{height:27px;width:1px;background:#dfe5ee}
+.demo-shell.xd-reference-chrome .xd-ref-account{
+  display:flex;align-items:center;gap:10px;border:0;background:transparent;
+  padding:5px 7px;border-radius:9px;font-size:14px;cursor:pointer;color:#0a1733;
+}
+.demo-shell.xd-reference-chrome .xd-ref-avatar{
+  display:grid;place-items:center;min-width:37px;height:37px;border-radius:50%;
+  background:#0b2f6b;color:white;font-size:14px;font-weight:850;
+}
+.demo-shell.xd-reference-chrome .xd-ref-account-name{font-size:13px;font-weight:750}
+.demo-shell.xd-reference-chrome .xd-ref-header-popup{
+  position:absolute;right:0;top:48px;z-index:150;min-width:230px;max-width:300px;
+  background:white;color:#122541;border:1px solid #dce5f0;
+  box-shadow:0 9px 24px #0b2f6b20;border-radius:9px;padding:13px;
+  white-space:normal;font-size:12px;
+}
+.demo-shell.xd-reference-chrome .xd-ref-account-menu{display:grid;gap:8px}
+.demo-shell.xd-reference-chrome .xd-ref-account-menu strong{font-size:13px;border-bottom:1px solid #dce5f0;padding-bottom:8px}
+.demo-shell.xd-reference-chrome .xd-ref-account-menu button,
+.demo-shell.xd-reference-chrome .xd-ref-account-menu a{
+  display:block;text-decoration:none;text-align:left;width:100%;border:0;background:#f4f7fa;
+  border-radius:5px;padding:9px;color:#0b2f6b;font-weight:650;cursor:pointer;
+}
+.demo-shell.xd-reference-chrome .xd-ref-account-menu button:hover,
+.demo-shell.xd-reference-chrome .xd-ref-account-menu a:hover{background:#e8eef8}
+/* Reference page header and panels. Existing working modules retain their functionality. */
+.demo-shell.xd-reference-chrome .page>.page-head:empty{display:none!important}
+.demo-shell.xd-reference-chrome .page>.page-head{margin:0 0 10px!important;min-height:0!important}
+.demo-shell.xd-reference-chrome .page>.page-head h1{
+  color:#0a1733!important;font-size:31px!important;line-height:1.15!important;
+  font-weight:850!important;margin:0!important;letter-spacing:-.35px!important;
+}
+.demo-shell.xd-reference-chrome .page>.page-head p{color:#33425a;font-size:13px}
+.demo-shell.xd-reference-chrome .xd-role-dashboard{gap:14px}
+.demo-shell.xd-reference-chrome .xd-role-dashboard>.panel{
+  background:#fff;border-color:var(--ref-border);border-radius:11px;
+  box-shadow:var(--ref-shadow);
+}
+.demo-shell.xd-reference-chrome .xd-dashboard-heading h1{color:#0a1733!important}
+.demo-shell.xd-reference-chrome button:focus-visible,
+.demo-shell.xd-reference-chrome a:focus-visible{
+  outline:3px solid #f5a300!important;outline-offset:2px;
+}
+/* Responsive shell: keep existing role navigation scrollable, never modify frozen Post Load. */
+@media(max-width:850px){
+.demo-shell.xd-reference-chrome>.sidebar{display:none!important}
+.demo-shell.xd-reference-chrome>.content{margin:0!important;width:100%!important;max-width:none!important}
+.demo-shell.xd-reference-chrome>.content>.topbar{
+ display:flex!important;position:sticky;top:0;z-index:70;height:58px!important;min-height:58px!important;
+ padding:0 12px!important;background:#f9fbff!important;border-bottom:1px solid #e4e8ef!important;
+}
+.demo-shell.xd-reference-chrome .xd-ref-header{height:58px;gap:8px}
+.demo-shell.xd-reference-chrome .xd-ref-header-title{gap:6px}
+.demo-shell.xd-reference-chrome .xd-ref-header-title strong{font-size:15px}
+.demo-shell.xd-reference-chrome .xd-ref-header-truck{width:20px;height:20px}
+.demo-shell.xd-reference-chrome .xd-ref-header-actions{gap:5px}
+.demo-shell.xd-reference-chrome .xd-ref-post-load{min-height:34px;height:34px;padding:5px 8px;font-size:11px}
+.demo-shell.xd-reference-chrome .xd-ref-post-load svg{width:15px;height:15px}
+.demo-shell.xd-reference-chrome .xd-ref-account-name,.demo-shell.xd-reference-chrome .xd-ref-divider{display:none}
+.demo-shell.xd-reference-chrome .xd-ref-avatar{width:32px;height:32px;min-width:32px}
+.demo-shell.xd-reference-chrome .xd-ref-account{padding:2px;gap:2px}
+.demo-shell.xd-reference-chrome .xd-ref-account>svg{width:12px}
+.demo-shell.xd-reference-chrome .xd-ref-alert-button{width:32px;height:32px}
+.demo-shell.xd-reference-chrome .mobile-tabs{display:flex!important;overflow-x:auto;scrollbar-width:thin}
+.demo-shell.xd-reference-chrome .mobile-tabs button.active{border-bottom:3px solid var(--ref-orange)!important;color:var(--ref-blue)!important}
+.demo-shell.xd-reference-chrome .page{padding:12px 12px 20px!important;min-width:0;width:100%!important;background:#fff}
+.demo-shell.xd-reference-chrome .page>.page-head h1{font-size:25px!important}
+}
+@media(max-width:440px){
+.demo-shell.xd-reference-chrome .xd-ref-header-title strong{max-width:118px;font-size:12px}
+.demo-shell.xd-reference-chrome .xd-ref-post-load span{display:none}
+.demo-shell.xd-reference-chrome .xd-ref-post-load{width:34px;padding:3px}
+.demo-shell.xd-reference-chrome .xd-ref-header-actions{gap:2px}
+}
+@media(prefers-reduced-motion:reduce){
+.demo-shell.xd-reference-chrome>.sidebar{transition:none!important}
+}
+
+/* Match the Company booking overview without suppressing role-specific operations. */
+.demo-shell.xd-reference-chrome .xd-ref-booking-actions{
+ border:1px solid #dce5f0;border-radius:9px;background:#fff;
+ box-shadow:0 2px 6px #0b2f6b10;margin-top:14px;min-width:0;
+}
+.demo-shell.xd-reference-chrome .xd-ref-booking-actions>summary{
+ cursor:pointer;font-size:13px;font-weight:750;color:#0b2f6b;
+ background:#f4f7fa;padding:12px 16px;border-radius:9px;
+}
+.demo-shell.xd-reference-chrome .xd-ref-booking-actions[open]>summary{
+ border-bottom:1px solid #dce5f0;border-radius:9px 9px 0 0;
+}
+.demo-shell.xd-reference-chrome .xd-ref-booking-actions>.panel{
+ margin:10px 12px 12px;box-shadow:none;
+}
+.demo-shell.xd-reference-chrome .xd-ref-booking-actions:focus-visible{outline:3px solid #f5a300}
+
+/* Company-reference bookings: five KPI indicators fit on one desktop row. */
+@media(min-width:1201px){
+.demo-shell.xd-reference-chrome .xd-bookings-kpis{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px!important}
+.demo-shell.xd-reference-chrome .xd-bookings-kpi{min-width:0!important;padding:13px 10px!important}
+}
+
+/* Reproduce the orange-underlined Diary status tabs in IMAGINI SIDEBAR.
+   Protected Post Load never receives xd-reference-chrome. */
+.demo-shell.xd-reference-chrome .xd-diary-v2 .xd-diary-tabs{
+ display:flex;align-items:flex-end;flex-wrap:wrap;gap:0!important;
+ margin:10px 0 12px;padding:0!important;border-bottom:1px solid #dce5f0;
+}
+.demo-shell.xd-reference-chrome .xd-diary-v2 .xd-diary-tabs button{
+ background:transparent!important;border:0!important;
+ border-bottom:3px solid transparent!important;
+ padding:10px 12px!important;min-height:43px!important;
+ border-radius:0!important;color:#0b1736!important;
+ font-size:12px!important;font-weight:750!important;white-space:nowrap;
+}
+.demo-shell.xd-reference-chrome .xd-diary-v2 .xd-diary-tabs button.active{
+ background:white!important;color:#0b1736!important;
+ border-bottom-color:#ff7900!important;
+}
+.demo-shell.xd-reference-chrome .xd-diary-v2 .xd-tab-count{
+ background:#e1e8f3!important;color:#3c4e69!important;
+ border-radius:12px;padding:2px 7px;margin-left:4px;
+}
+.demo-shell.xd-reference-chrome .xd-diary-v2 .xd-diary-tabs button.active .xd-tab-count{
+ background:#1266e7!important;color:white!important;
+}
+@media(max-width:850px){
+.demo-shell.xd-reference-chrome .xd-diary-v2 .xd-diary-tabs{flex-wrap:nowrap;overflow-x:auto}
+.demo-shell.xd-reference-chrome .xd-diary-v2 .xd-diary-tabs button{flex:none}
+}
