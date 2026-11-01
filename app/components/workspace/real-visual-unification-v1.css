@@ -166,3 +166,42 @@
     font-weight: 750 !important;
   }
 }
+
+/* Company DEMO -> live Company/Carrier operational dashboard visual layer.
+   Uses existing authenticated useCompanyWorkspaceData, no fixture imports. */
+@media (min-width: 1024px) {
+  .xdrive-real-visual-v1 .carrier-cx-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+    gap: 14px !important;
+    align-items: start !important;
+  }
+  .xdrive-real-visual-v1 .carrier-cx-dashboard-column,
+  .xdrive-real-visual-v1 .carrier-cx-dashboard-subgrid {
+    min-width: 0 !important;
+    gap: 14px !important;
+  }
+}
+.xdrive-real-visual-v1 .carrier-cx-reporting-card,
+.xdrive-real-visual-v1 .carrier-cx-activity-card,
+.xdrive-real-visual-v1 .carrier-cx-feedback-card,
+.xdrive-real-visual-v1 .carrier-cx-compliance-card,
+.xdrive-real-visual-v1 .carrier-cx-stat-card {
+  background: #fff !important;
+  border: 1px solid #dce5ef !important;
+  border-radius: 10px !important;
+  box-shadow: 0 1px 3px rgba(11,47,107,.06) !important;
+}
+.xdrive-real-visual-v1 .carrier-cx-booking-card {
+  border: 1px solid #dce5ef !important;
+  border-radius: 9px !important;
+  background: #fff !important;
+}
+.xdrive-real-visual-v1 .carrier-cx-booking-actions button,
+.xdrive-real-visual-v1 .carrier-cx-card-link {
+  border-radius: 7px !important;
+}
+@media (max-width: 1023px) {
+  .xdrive-real-visual-v1 .carrier-cx-dashboard-grid {
+    grid-template-columns: minmax(0,1fr) !important;
+  }
+}
