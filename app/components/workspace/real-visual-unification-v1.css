@@ -1,0 +1,32 @@
+/* Real XDrive visual-unification adapter, phase 1.
+   Reference: Company DEMO DOM audit 2026-11-01, 1440x900.
+   Explicit opt-in: does not change unrelated applications or Super Admin. */
+.xdrive-real-visual-v1 {
+  --xrv-canvas: #f4f6f8;
+  --xrv-sidebar: #0b2f6b;
+  --xrv-navigation-active: #1d57d8;
+  --xrv-sidebar-inactive: #c9d8ed;
+  --xrv-text: #1a1f2b;
+  --xrv-surface: #ffffff;
+  --xrv-sidebar-expanded-width: 224px;
+  --xrv-sidebar-item-height: 34px;
+  --xrv-sidebar-item-radius: 7px;
+  --xrv-dashboard-kpi-height: 106px;
+  --xrv-dashboard-kpi-radius: 12px;
+  --xrv-dashboard-kpi-gap: 14px;
+  --xrv-font-family: Inter, Arial, sans-serif;
+  --xrv-body-size: 14px;
+  background-color: var(--xrv-canvas);
+  color: var(--xrv-text);
+  font-family: var(--xrv-font-family);
+}
+/* Start with semantic page text; form controls and compact operational
+   components retain their existing dimensions until per-page visual QA. */
+.xdrive-real-visual-v1 .xdrive-page-frame > h1,
+.xdrive-real-visual-v1 .xdrive-operational-page-layout > h1 {
+  font-family: var(--xrv-font-family);
+  color: var(--xrv-sidebar);
+}
+@media (max-width: 767px) {
+  .xdrive-real-visual-v1 { min-width: 0; }
+}
