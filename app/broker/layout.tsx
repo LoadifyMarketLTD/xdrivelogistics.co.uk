@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
+import ApprovedDemoWorkspaceFrame from '../components/workspace/ApprovedDemoWorkspaceFrame';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import './broker-dashboard-convergence.css';
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-real-visual-v1 xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace xdrive-broker-workspace">
-      <TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell>
+      <ApprovedDemoWorkspaceFrame surface="broker"><TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell></ApprovedDemoWorkspaceFrame>
     </div>
   );
 }

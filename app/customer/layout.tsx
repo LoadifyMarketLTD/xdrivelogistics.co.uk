@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute';
 import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
+import ApprovedDemoWorkspaceFrame from '../components/workspace/ApprovedDemoWorkspaceFrame';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import './customer-dashboard.css';
@@ -26,7 +27,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-real-visual-v1 xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace xdrive-customer-workspace">
       <ProtectedRoute allowedRoles={['customer']}>
-        <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
+        <ApprovedDemoWorkspaceFrame surface="customer"><TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell></ApprovedDemoWorkspaceFrame>
       </ProtectedRoute>
     </div>
   );
