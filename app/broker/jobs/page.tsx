@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import '../../components/workspace/approved-multirole-bookings.css';
+import '../../components/workspace/approved-broker-booking-card.css';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
@@ -134,7 +135,8 @@ function BrokerJobsPageInner() {
                 const stage = classifyWorkspaceJobStage(job);
 
                 return (
-                  <article className="workspace-operational-row" key={job.id} data-state={statusOf(job)}>
+                  <article className="workspace-operational-row xd-approved-booking-card" key={job.id} data-state={statusOf(job)}>
+                    <header className="xd-approved-booking-card__header"><strong>{job.client_name || 'Broker booking'}</strong><StatusBadge value={workspaceJobOperationalLabel(job)} /></header>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
