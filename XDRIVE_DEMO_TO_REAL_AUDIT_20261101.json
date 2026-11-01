@@ -1,0 +1,785 @@
+{
+  "filesScanned": 117,
+  "filesWithIndicators": 68,
+  "totals": {
+    "api": 52,
+    "placeholders": 77,
+    "demoLabel": 132,
+    "fixture": 85,
+    "testSessions": 32,
+    "autonomousSwitch": 36,
+    "localStorage": 16
+  },
+  "evidence": [
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousBookingActions.tsx",
+      "hits": {
+        "api": 3,
+        "placeholders": 1
+      },
+      "examples": [
+        "18:    const r=await fetch(\"/api/autonomous/v1/session\",{credentials:\"same-origin\",cache:\"no-store\"});",
+        "22:     const f=await fetch(\"/api/autonomous/v1/fleet\",{credentials:\"same-origin\",cache:\"no-store\"});",
+        "31:    const response=await fetch(\"/api/autonomous/v1/\"+endpoint,{method:\"POST\",credentials:\"same-origin\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify(body)});"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousBookingEvents.tsx",
+      "hits": {
+        "api": 1,
+        "placeholders": 1
+      },
+      "examples": [
+        "13:     const r=await fetch(\"/api/autonomous/v1/loads/\"+encodeURIComponent(jobId),{cache:\"no-store\",credentials:\"same-origin\"});"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousBookingEvidence.tsx",
+      "hits": {
+        "api": 3,
+        "placeholders": 1
+      },
+      "examples": [
+        "14:    const r=await fetch(\"/api/autonomous/v1/bookings/evidence?jobId=\"+encodeURIComponent(jobId),{credentials:\"same-origin\",cache:\"no-store\"});",
+        "39:     const r=await fetch(\"/api/autonomous/v1/bookings/evidence\",{method:\"POST\",body,credentials:\"same-origin\"});",
+        "59:   <a style={{marginLeft:12}} href={\"/api/autonomous/v1/bookings/evidence/\"+encodeURIComponent(item.id)} target=\"_blank\" rel=\"noreferrer\">View / Download</a>"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousBookingMessages.tsx",
+      "hits": {
+        "api": 2,
+        "placeholders": 2
+      },
+      "examples": [
+        "13:    const r=await fetch(\"/api/autonomous/v1/bookings/messages?jobId=\"+encodeURIComponent(jobId),{credentials:\"same-origin\",cache:\"no-store\"});",
+        "33:    const r=await fetch(\"/api/autonomous/v1/bookings/messages\",{method:\"POST\",credentials:\"same-origin\","
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousInvoicesBoard.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "api": 3,
+        "placeholders": 3
+      },
+      "examples": [
+        "22:     const r=await fetch(\"/api/autonomous/v1/invoices\",{credentials:\"same-origin\",cache:\"no-store\"});",
+        "31:     const response=await fetch(\"/api/autonomous/v1/session\",{cache:\"no-store\",credentials:\"same-origin\"});",
+        "62:    const r=await fetch(\"/api/autonomous/v1/invoices\",{method:\"PATCH\",credentials:\"same-origin\","
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousMessagesHub.tsx",
+      "hits": {
+        "fixture": 1
+      },
+      "examples": [
+        "35:     {!records.length&&<p>No awarded booking conversations are accessible. No sample chats are displayed.</p>}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousNetworkAvailability.tsx",
+      "hits": {
+        "api": 4,
+        "placeholders": 3
+      },
+      "examples": [
+        "20:    const [a,b,s]=await Promise.all([fetch(\"/api/autonomous/v1/availability\",{credentials:\"same-origin\",cache:\"no-store\"}),",
+        "21:     fetch(\"/api/autonomous/v1/fleet?view=workspace\",{credentials:\"same-origin\",cache:\"no-store\"}),",
+        "22:     fetch(\"/api/autonomous/v1/session\",{credentials:\"same-origin\",cache:\"no-store\"})]);",
+        "54:   try{const r=await fetch(\"/api/autonomous/v1/availability\",{method,credentials:\"same-origin\",",
+        "65:    {[[\"Advertised Vehicles\",rows.length,\"Manual member postings\"],[\"Matching\",visible.length,\"Current filters\"],[\"Nearby\",\"—\",\"GPS not collected\"],[\"Available Carriers\",new Set(rows.map(r=>r.company)).size,\"Opt-in companies\"],[\"Verified GPS\",\"—\",\"Not connected"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousNotificationsBoard.tsx",
+      "hits": {
+        "fixture": 1,
+        "api": 2,
+        "placeholders": 2
+      },
+      "examples": [
+        "19:    const response=await fetch(\"/api/autonomous/v1/notifications\",{cache:\"no-store\",credentials:\"same-origin\"});",
+        "51:    const r=await fetch(\"/api/autonomous/v1/notifications\",{method:\"PATCH\",credentials:\"same-origin\","
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousReportsBoard.tsx",
+      "hits": {
+        "fixture": 1,
+        "api": 1,
+        "placeholders": 1
+      },
+      "examples": [
+        "21:    const requests=[\"loads\",\"loads?view=bookings\",\"quotes\",\"quotes?view=received\",\"invoices\",\"fleet\"].map(path=>fetch(\"/api/autonomous/v1/\"+path,{credentials:\"same-origin\",cache:\"no-store\"}));",
+        "80:   <p className=\"notice\">All metrics are derived from this account's ledger records, not sample figures. Historical SLA, overdue invoices and live GPS performance are not inferred.</p>"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\AutonomousSessionBar.tsx",
+      "hits": {
+        "api": 2,
+        "testSessions": 7,
+        "placeholders": 2
+      },
+      "examples": [
+        "18: export default function AutonomousSessionBar({preferredPersona=\"buyer-a\"}:{preferredPersona?:string}){",
+        "25:   fetch(\"/api/autonomous/v1/session\",{cache:\"no-store\",credentials:\"same-origin\"}).then(r=>r.json())",
+        "33:    const r=await fetch(\"/api/autonomous/v1/session\",{method:\"POST\",credentials:\"same-origin\","
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\demo-load-summary.css",
+      "hits": {
+        "demoLabel": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoBookingOverview.tsx",
+      "hits": {
+        "fixture": 1,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "12: const samples:Row[]=[",
+        "21:  const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "25:  const rows=useMemo<Row[]>(()=>loads.length?loads.map((l,i)=>({id:l.id,from:l.from,to:l.to,time:[\"08:30\",\"10:00\",\"12:45\"][i%3],date:l.pickupDate?.slice(0,10)||\"2026-10-31\",vehicle:l.vehicle||\"Luton Van\",cargo:(l.pallets||\"0\")+\" Pallets\",weight:(l.weight||\"0\")+",
+        "47:  ]} footer={selected.source?<DemoLoadSummary load={selected.source} expanded/>:<p className=\"xd-bookings-note\">Illustrative booking — no operational changes will be made.</p>}/>} {!loads.length&&!autonomous&&<p className=\"xd-diary-sample-note\">Illustrative dia"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoCompanyBookings.tsx",
+      "hits": {
+        "demoLabel": 4,
+        "fixture": 4,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "19:  const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "36:   {driverRole&&!loads.length&&<div className=\"xd-driver-booking-preview\" role=\"note\"><span>{autonomous?\"No bookings have been allocated to this authenticated local driver.\":showExamples?\"Viewing illustrative transport examples only. No job is assigned to your ",
+        "45:   {!loads.length&&!autonomous&&<p className=\"xd-bookings-note\">{driverRole?(showExamples?\"Five illustrative bookings are shown. They are not assigned to this driver; accepting, advancing or attaching a POD is not possible for these samples.\":\"Only authenticate",
+        "54:   ]} footer={loads.length?<DemoSharedBookings role={role} bookingId={selected.id}/>:<p className=\"xd-bookings-note\">Illustrative record: no authenticated operational actions are available for this sample.</p>}/>} </section>;"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoCompanyDashboard.tsx",
+      "hits": {
+        "fixture": 15,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "13:  const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "15:  const sample=!autonomous&&!hasData;",
+        "20:  const rows=useMemo(()=>hasData?jobs.slice(0,5).map(j=>({id:j.id,from:j.from,to:j.to,vehicle:j.vehicle,cargo:j.cargo,status:j.pod?\"Completed\":!j.driver?\"Awaiting Driver\":j.status,driver:j.driver||\"Unallocated\",vehicleId:j.vehicleId||\"—\",eta:j.pod?\"Delivered\":j",
+        "21:  const kpis=[{label:\"Active Loads\",value:hasData?autonomous?activeLoads:jobs.length:sample?24:0,sub:hasData?\"Active transport records\":sample?\"8 awaiting quotes\":\"No local loads\",icon:\"▣\",color:\"orange\",go:2},{label:\"In Progress\",value:hasData?active:sample?12",
+        "22:  const actions=[{name:\"Quotes to Review\",n:autonomous?receivedQuoteCount:hasData?0:sample?2:0,go:3,color:\"blue\"},{name:\"Unallocated Bookings\",n:hasData?pending:sample?1:0,go:4,color:\"amber\"},{name:\"Awaiting POD\",n:hasData?awaiting:sample?1:0,go:7,color:\"orange"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoCompanyQuotes.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "autonomousSwitch": 2,
+        "api": 1,
+        "placeholders": 1
+      },
+      "examples": [
+        "26:  const award=async(q:typeof entries[number])=>{setBusy(q.id);setError(\"\");try{const r=await authenticatedDemoFetch(\"/api/try-xdrive-demo/quotes/award\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify({jobId:q.loadId,quoteId:q.id})",
+        "31:  <div className=\"xd-cq-results\"><div className=\"xd-cq-toolbar\"><strong>{filtered.length} quotes found</strong><label>Sort by: <select value={sort} onChange={e=>setSort(e.target.value)}><option value=\"Newest\">Date Received (Newest)</option><option value=\"Amount"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoCompliance.tsx",
+      "hits": {
+        "demoLabel": 4,
+        "fixture": 2
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoDriverLoadsMap.tsx",
+      "hits": {
+        "placeholders": 1
+      },
+      "examples": [
+        "29:      <span className=\"xd-owner-map-legend\">Schematic view · GPS, driving route and distances not connected</span>"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoDriverProfile.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "localStorage": 2,
+        "placeholders": 1
+      },
+      "examples": [
+        "16:  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem(storageKey)||\"null\");if(saved){setName(saved.name||driver.name);setPhone(saved.phone||\"\");setEmail(saved.email||\"\");setNotes(saved.notes||\"\");setOwner(!!saved.owner);setDocs(Array.isArray(saved.do",
+        "17:  useEffect(()=>{if(!loaded)return;try{localStorage.setItem(storageKey,JSON.stringify({name,phone,email,notes,owner,docs,history,fields,shifts,incidents}))}catch{console.warn(\"Profile storage unavailable\")}},[storageKey,loaded,name,phone,email,notes,owner,docs,"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoDriversBoard.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 6,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "13: const preview=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"0\"&&drivers.length<5;",
+        "14: const rows=preview?demo.map((d,i)=>({name:d[0],reg:d[1],vehicle:d[2],status:d[3],compliance:d[4],id:\"SAMPLE-\"+(i+1)})):drivers.map((name,i)=>({name,reg:vehicles.find(v=>v.driver===name)?.reg||\"Unassigned\",vehicle:vehicles.find(v=>v.driver===name)?.vehicle||\"No",
+        "18: const metrics=[{title:\"Total Drivers\",value:rows.length,sub:rows.filter(d=>d.status===\"Available\").length+\" Available\",icon:\"♧\",tone:\"#f97316\"},{title:\"On Job\",value:rows.filter(d=>d.status===\"On Job\").length,sub:\"Currently working\",icon:\"▷\",tone:\"#176de5\"},{t",
+        "24: <div className={\"xd-drivers-layout\"+(embedded?\" xd-drivers-layout-full\":\"\")}>{!embedded&&<aside className=\"xd-drivers-filter\"><h3>Find Driver</h3><label>Driver Name / ID<input value={query} onChange={e=>setQuery(e.target.value)} placeholder=\"e.g. John P. or DX"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoDriverTools.tsx",
+      "hits": {
+        "demoLabel": 2,
+        "fixture": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\demoExchange.ts",
+      "hits": {
+        "demoLabel": 1,
+        "api": 6,
+        "placeholders": 4
+      },
+      "examples": [
+        "17:     const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/loads?view=exchange\",{cache:\"no-store\"});",
+        "39:     const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/loads?view=bookings\",{cache:\"no-store\"});",
+        "53:  const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/loads\",{cache:\"no-store\"});",
+        "60: export async function publishDemoLoad(data:Omit<DemoLoad,\"id\"|\"postedAt\"|\"status\">){const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/loads\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify(data)});if(!response.ok)",
+        "63:  const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/loads\",{method:\"PATCH\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify({id,status:\"cancelled\"})});"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoExchangeBoard.tsx",
+      "hits": {
+        "demoLabel": 3,
+        "autonomousSwitch": 1,
+        "api": 1,
+        "placeholders": 1
+      },
+      "examples": [
+        "35:  const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "77:    const response=await fetch(\"/api/autonomous/v1/saved-search\",{method:\"PUT\",credentials:\"same-origin\","
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoFleetBoard.tsx",
+      "hits": {
+        "fixture": 1,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "9: const samples=[[\"DX26 LTN\",\"Luton (Tail Lift)\",\"John P.\",\"Available\",\"4 Pallets\",\"1,200 kg\",\"4.0 × 2.0 × 1.85 m\",\"Compliant\"],[\"DX24 FHD\",\"7.5 Tonne\",\"Mark R.\",\"In Use\",\"10 Pallets\",\"2,400 kg\",\"6.0 × 2.45 × 2.40 m\",\"Compliant\"],[\"DX23 VBY\",\"LWB Van\",\"Unassigne",
+        "13: const preview=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"0\"&&vehicles.length<5;",
+        "14: const rows=preview?samples.map((s,i)=>({id:\"sample\"+i,reg:s[0],vehicle:s[1],driver:s[2],status:s[3],capacity:s[4],weight:s[5],dimensions:s[6],compliance:\"Not verified\"})):vehicles.map(v=>({...v,capacity:\"Not recorded\",weight:\"Not recorded\",dimensions:\"Not reco"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoFreightVision.tsx",
+      "hits": {
+        "demoLabel": 5,
+        "placeholders": 4
+      },
+      "examples": [
+        "12: return <section className=\"xd-fv\"><div className=\"xd-fv-kpis\">{[[\"Market Loads\",loads.length,\"Visible DEMO loads\"],[\"New Today\",\"—\",\"Posting date unavailable\"],[\"Avg. Rate (Luton)\",\"—\",\"Market rates not connected\"],[\"Return Opportunities\",\"—\",\"Matching not con"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoInvoicePreview.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 2
+      },
+      "examples": [
+        "15:   <p className=\"notice\">Sample preview only. No VAT invoice is issued, no PDF is stored and no email is sent.</p>",
+        "18:    {open&&<div className=\"panel\" style={{background:\"#fff\",color:\"#1A1F2B\",padding:20,maxWidth:760}} role=\"region\" aria-label=\"Sample A4 invoice\">"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoInvoicesBoard.tsx",
+      "hits": {
+        "demoLabel": 4,
+        "fixture": 1,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "8: export default function DemoInvoicesBoard({jobs}:{jobs:Job[]}){return process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\"?<AutonomousInvoicesBoard/>:<LegacyInvoicesBoard jobs={jobs}/>;}",
+        "18:  return <section className=\"xd-invoices\"><p className=\"xd-invoices-sub\">Create, manage and track your invoices and payments</p><div className=\"xd-invoices-kpis\">{[[\"Total Invoices\",String(invoices.length),\"Completed jobs with POD\"],[\"Invoiced Value\",money(tota"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoLiveAvailability.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 16,
+        "autonomousSwitch": 1,
+        "placeholders": 5
+      },
+      "examples": [
+        "5: const sample=[{name:\"John P.\",reg:\"DX26 LTN\",vehicle:\"Luton (Tail Lift)\",pallets:4,status:\"Available Now\",location:\"Blackburn\",initials:\"JP\"},{name:\"Mark R.\",reg:\"DX24 FHD\",vehicle:\"7.5 Tonne\",pallets:10,status:\"Available Now\",location:\"Blackburn\",initials:\"MR",
+        "7: const filtered=useMemo(()=>sample.filter(d=>(vehicle===\"Any Vehicle\"||d.vehicle===vehicle)&&(availability===\"Any Availability\"||d.status===availability)).sort((a,b)=>sort===\"Name (Z-A)\"?b.name.localeCompare(a.name):a.name.localeCompare(b.name)),[vehicle,availa",
+        "8: const active=sample[selected];if(process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\")return <AutonomousNetworkAvailability/>;return <section className=\"la-page\"><div className=\"la-kpis\">{[{icon:\"♟\",title:\"Available Now\",value:sample.filter(d=>d.status===\"Avai"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoLoadSummary.tsx",
+      "hits": {
+        "fixture": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoMemberDirectory.tsx",
+      "hits": {
+        "demoLabel": 5,
+        "localStorage": 2,
+        "api": 1,
+        "placeholders": 5
+      },
+      "examples": [
+        "60:     try{const value=localStorage.getItem(STORE);if(value){const data=JSON.parse(value);if(Array.isArray(data))setSavedIds(data.filter(x=>typeof x===\"string\").slice(0,500));}}",
+        "71:       const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/directory?\"+params.toString(),{signal,cache:\"no-store\"});",
+        "122:     try{localStorage.setItem(STORE,JSON.stringify(values))}catch{setNotice(\"Saved for this browser session only; local storage is unavailable.\")}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoMessagesBoard.tsx",
+      "hits": {
+        "demoLabel": 14,
+        "fixture": 3,
+        "localStorage": 3,
+        "autonomousSwitch": 1,
+        "placeholders": 5
+      },
+      "examples": [
+        "16:   messages:ChatMessage[];jobId?:string;memberId?:string;sampleBooking?:boolean;",
+        "25:     memberId:\"273844\",jobId:\"XDR-10457\",sampleBooking:true,messages:[",
+        "53: function sampleBooking(c:Conversation){",
+        "82:       const raw=localStorage.getItem(storageKey);",
+        "93:     try{localStorage.setItem(storageKey,JSON.stringify({conversations,selected}));}catch{setNotice(\"Local browser storage is unavailable for this DEMO session.\")}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoNetworkToolsBoard.tsx",
+      "hits": {
+        "demoLabel": 19,
+        "localStorage": 2,
+        "api": 8,
+        "placeholders": 7
+      },
+      "examples": [
+        "95:         const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/directory\",{cache:\"no-store\"});",
+        "109:       authenticatedDemoFetch(\"/api/try-xdrive-demo/loads\",{cache:\"no-store\"}),",
+        "110:       authenticatedDemoFetch(\"/api/try-xdrive-demo/quotes\",{cache:\"no-store\"}),",
+        "117:       const raw=localStorage.getItem(localKey);",
+        "127:     try{localStorage.setItem(localKey,JSON.stringify({radius,showWarnings}));}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoNotifications.tsx",
+      "hits": {
+        "fixture": 1,
+        "autonomousSwitch": 2,
+        "placeholders": 3
+      },
+      "examples": [
+        "21: const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "41:  if(process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\")"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoOperationalTools.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 1,
+        "localStorage": 2
+      },
+      "examples": [
+        "23: useEffect(()=>{try{const parsed=JSON.parse(localStorage.getItem(key)||\"[]\");setRecords(Array.isArray(parsed)?parsed:[])}catch{setRecords([])}setForm({});setEdit(null);setReady(true)},[key]);",
+        "24: function persist(next:RecordData[]){setRecords(next);localStorage.setItem(key,JSON.stringify(next))}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoOwnerDriverMore.tsx",
+      "hits": {
+        "demoLabel": 4
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoOwnerDriverNetworkOverview.tsx",
+      "hits": {
+        "demoLabel": 3,
+        "fixture": 1,
+        "placeholders": 1
+      },
+      "examples": [
+        "37:     <div className=\"xd-owner-network-notes\"><h4>Location & availability</h4><p>GPS positions, driving distance and ETA are not connected to this DEMO. Any sample availability map is clearly labelled as illustrative.</p></div>"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoPOD.tsx",
+      "hits": {
+        "fixture": 3
+      },
+      "examples": [
+        "1: \"use client\";import {useState} from \"react\";export default function DemoPOD({onComplete}:{onComplete:(evidence:{recipient:string;photoCount:number})=>void|Promise<void>}){const [files,setFiles]=useState<{name:string;size:number}[]>([]),[recipient,setRecipient]"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoPostcodeField.tsx",
+      "hits": {
+        "api": 1
+      },
+      "examples": [
+        "21:     const response=await fetch(\"/api/try-xdrive-demo/postcode?postcode=\"+encodeURIComponent(postcode),{signal:controller.signal});"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoQuotePanel.tsx",
+      "hits": {
+        "localStorage": 3,
+        "placeholders": 1
+      },
+      "examples": [
+        "9: const save=()=>{try{localStorage.setItem(draftKey,JSON.stringify({amount,service,vehicle,eta,validity,notes}));setMessage(\"Draft saved on this device. Not submitted.\")}catch{setMessage(\"Unable to save draft on this device.\")}};",
+        "10: const restore=()=>{try{const d=JSON.parse(localStorage.getItem(draftKey)||\"null\");if(d){setAmount(d.amount||\"\");setService(d.service||\"Standard\");setVehicle(d.vehicle||load.vehicle);setEta(d.eta||\"\");setValidity(d.validity||\"24\");setNotes(d.notes||\"\");setMessa",
+        "11: const submit=async()=>{if(!(Number(amount)>0)){setMessage(\"Enter a valid quote price.\");return}if(!eta){setMessage(\"Select ETA to Collection.\");return}if(preview){setMessage(\"This is an illustrative load. A quote can only be submitted for a real load.\");return"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoQuotes.tsx",
+      "hits": {
+        "api": 3,
+        "placeholders": 1
+      },
+      "examples": [
+        "16:     const r=await authenticatedDemoFetch(\"/api/try-xdrive-demo/quotes\"+(view===\"received\"?\"?view=received\":\"\"),{cache:\"no-store\"});",
+        "33: export async function submitDemoQuote(loadId:string,role:string,amount:number,details?:{vehicle?:string;etaMinutes?:number;etaLabel?:string;notes?:string}){const r=await authenticatedDemoFetch(\"/api/try-xdrive-demo/quotes\",{method:\"POST\",headers:{\"Content-Type",
+        "34: export async function withdrawDemoQuote(id:string){const r=await authenticatedDemoFetch(\"/api/try-xdrive-demo/quotes\",{method:\"PATCH\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify({id,status:\"Withdrawn\"})});if(!r.ok)throw Error(\"Could not wit"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReceivedQuotes.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "api": 1,
+        "placeholders": 2
+      },
+      "examples": [
+        "12:  const award=async(id:string,quoteId:string)=>{setBusy(quoteId);setError(\"\");try{const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/quotes/award\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify({jobId:id,quoteId})}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReferenceBookingRecords.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "84:   ]} footer={<><DemoLoadSummary load={selected} expanded/>{process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\"&&<><AutonomousBookingEvents jobId={selected.id}/><AutonomousBookingEvidence jobId={selected.id}/><AutonomousBookingMessages jobId={selected.id}/></>"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReferenceDashboardExtras.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 1
+      },
+      "examples": [
+        "25:     </article>)}</div>:<div className=\"xd-ref-today-empty\"><Truck size={25}/><strong>No active transport in this session</strong><p>Posted and awarded jobs will appear here when available. No sample transactions have been invented.</p><button type=\"button\" onC"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReferenceFleet.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "placeholders": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReferenceFleetAvailability.tsx",
+      "hits": {
+        "demoLabel": 2,
+        "autonomousSwitch": 1,
+        "placeholders": 3
+      },
+      "examples": [
+        "13:  const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "29:  [\"Who’s Nearby\",\"—\",\"GPS not connected\",\"◎\"],"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReferenceLiveJobs.tsx",
+      "hits": {
+        "demoLabel": 2
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReportsBoard.tsx",
+      "hits": {
+        "demoLabel": 4,
+        "autonomousSwitch": 1
+      },
+      "examples": [
+        "11: const independent=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoReturnJourneys.tsx",
+      "hits": {
+        "demoLabel": 2,
+        "autonomousSwitch": 1,
+        "placeholders": 2
+      },
+      "examples": [
+        "9: const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "53:  <p className=\"rj-notice\" role=\"note\">{autonomous?\"Only explicit Return Journey postings appear. Matching uses confirmed delivery towns; GPS and precise route deviation remain unavailable.\":\"Return matching is not connected. The rows below are existing DEMO lo"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoSharedBookings.tsx",
+      "hits": {
+        "fixture": 1,
+        "autonomousSwitch": 1,
+        "api": 2
+      },
+      "examples": [
+        "18:  if(process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\")return <AutonomousBookingActions bookingId={bookingId}/>;",
+        "26:   const respond=async(decision:\"accepted\"|\"rejected\")=>{setBusy(l.id);setError(\"\");try{const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/bookings/respond\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify({jobId:l.i",
+        "27:   const allocate=async()=>{setBusy(l.id);setError(\"\");try{const response=await authenticatedDemoFetch(\"/api/try-xdrive-demo/bookings/allocate\",{method:\"POST\",headers:{\"Content-Type\":\"application/json\"},body:JSON.stringify({jobId:l.id,driver:draft.driver,vehicl",
+        "44:    {l.podReceived&&<p className=\"notice\">Sample POD recorded for {l.podRecipient} · {l.podPhotoCount} photo(s) confirmed · {l.podConfirmedAt?new Date(l.podConfirmedAt).toLocaleString(\"en-GB\"):\"\"}. Images are not uploaded or retained.</p>}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoStagingSignIn.tsx",
+      "hits": {
+        "demoLabel": 3,
+        "testSessions": 1,
+        "placeholders": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoVehicleDossier.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 1,
+        "localStorage": 2
+      },
+      "examples": [
+        "9:  useEffect(()=>{try{const raw=localStorage.getItem(key);setItems(raw?JSON.parse(raw):[])}catch{setItems([])}setReady(true)},[key]);",
+        "10:  useEffect(()=>{if(ready)localStorage.setItem(key,JSON.stringify(items))},[items,key,ready]);",
+        "12:  return <div className=\"xvd-overlay\" onClick={onClose}><section className=\"xvd-panel\" role=\"dialog\" aria-modal=\"true\" aria-label={\"Vehicle dossier \"+vehicle.reg} onClick={e=>e.stopPropagation()}><header><div><small>XDRIVE LOGISTICS / FLEET</small><h2>{vehicle."
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\DemoWorkspaceKpis.tsx",
+      "hits": {
+        "demoLabel": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\FindLoads.tsx",
+      "hits": {
+        "fixture": 1
+      },
+      "examples": [
+        "12:  return <section className=\"panel xd-find-loads\"><div className=\"panel-title\"><h2>Find Loads</h2><span>{matches.length} AVAILABLE LOADS</span></div><div className=\"xd-search-fields\"><label>Collection town / postcode<input value={from} onChange={e=>setFrom(e.ta"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\NetworkTools.tsx",
+      "hits": {
+        "demoLabel": 3,
+        "placeholders": 1
+      },
+      "examples": [
+        "22: {view===\"Overview\"&&role!==\"Driver\"&&<><div className=\"metrics\"><div><small>DEMO JOBS</small><b>{sharedLoads.length}</b><span>Shared demo Exchange</span></div><div><small>NEW OFFERS</small><b>{sharedQuotes.filter(q=>q.status===\"Open\").length}</b><span>Open sha"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\OperationsDemo.tsx",
+      "hits": {
+        "demoLabel": 9,
+        "fixture": 5,
+        "autonomousSwitch": 4,
+        "api": 1,
+        "testSessions": 4,
+        "placeholders": 1
+      },
+      "examples": [
+        "20: import AutonomousSessionBar from \"./AutonomousSessionBar\";",
+        "37: {id:\"XDL-DEMO-1029\",from:\"Birmingham B6\",to:\"Manchester M1\",vehicle:\"Luton Van\",cargo:\"2 pallets  -  450 kg\",company:\"Demo Retail Distribution Ltd\",status:\"In Progress\",price:195,driver:\"Alex Carter\",vehicleId:\"XD-V101\",stage:4,pod:false},",
+        "38: {id:\"XDL-DEMO-1030\",from:\"Coventry CV1\",to:\"Leicester LE1\",vehicle:\"Large Van\",cargo:\"1 pallet  -  180 kg\",company:\"Sample Freight Broker Ltd\",status:\"Open\",price:145,driver:\"\",vehicleId:\"\",stage:0,pod:false},",
+        "39: {id:\"XDL-DEMO-1028\",from:\"Derby DE1\",to:\"Nottingham NG1\",vehicle:\"Luton Van\",cargo:\"3 pallets  -  600 kg\",company:\"Demo Warehouse Ltd\",status:\"Completed\",price:240,driver:\"Morgan Lee\",vehicleId:\"XD-V103\",stage:8,pod:true}];",
+        "51: const [companyDrivers,setCompanyDrivers]=useState<string[]>(()=>process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\"?[]:[\"Alex Carter\",\"Jamie Taylor\",\"Morgan Lee\"]),[companyFleet,setCompanyFleet]=useState<({id:string;reg:string;vehicle:string;driver:string;sta"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\OwnerDriverAlerts.tsx",
+      "hits": {
+        "api": 3,
+        "placeholders": 2
+      },
+      "examples": [
+        "16:    const session=await fetch(\"/api/autonomous/v1/session\",{credentials:\"same-origin\",cache:\"no-store\"});",
+        "22:    const r=await fetch(\"/api/autonomous/v1/saved-search?context=owner-alert\",{credentials:\"same-origin\",cache:\"no-store\"});",
+        "66:    const r=await fetch(\"/api/autonomous/v1/saved-search?context=owner-alert\",{method:\"DELETE\",credentials:\"same-origin\"});"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\PostLoadDemo.tsx",
+      "hits": {
+        "demoLabel": 3,
+        "fixture": 4
+      },
+      "examples": [
+        "29: <div className=\"post-footer\"><span><em>*</em> Required fields · Fictional demonstration</span><div><button className=\"post-secondary\" onClick={()=>{setSaved(true);setErrors(false)}}>{saved?\"✓ Sample defaults saved\":\"Save as demo default\"}</button><button class"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\reference-fleet.css",
+      "hits": {
+        "demoLabel": 1,
+        "placeholders": 5
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\useOutcodePositions.ts",
+      "hits": {
+        "autonomousSwitch": 1,
+        "api": 1
+      },
+      "examples": [
+        "19:   if(process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO!==\"1\"||!keys.length)return;",
+        "23:     const r=await fetch(\"/api/autonomous/v1/geocode?area=\"+encodeURIComponent(key),{credentials:\"same-origin\",cache:\"no-store\"});"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\components\\xdrive-unified-board.css",
+      "hits": {
+        "demoLabel": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\page.tsx",
+      "hits": {
+        "demoLabel": 2,
+        "autonomousSwitch": 1,
+        "testSessions": 4
+      },
+      "examples": [
+        "20: import AutonomousSessionBar from \"./components/AutonomousSessionBar\";",
+        "26: return <main className={\"demo-shell xd-visual-parity\"+(tab!==1?\" xd-reference-chrome\":\"\")+(sidebarCollapsed&&tab!==1?\" xd-reference-collapsed\":\"\")}><aside className=\"sidebar\"><div className=\"brand\">XDRIVE <em>LOGISTICS</em></div><div className=\"side-caption\">C"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-demo\\workspace-visual-parity.css",
+      "hits": {
+        "demoLabel": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-demo\\xdrive-design-system.css",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 1
+      },
+      "examples": [
+        "133: .demo-shell .xd-diary-sample-note{font-size:10px;color:#64748b;margin:10px 0}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-company-demo\\page.tsx",
+      "hits": {
+        "demoLabel": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-broker-demo\\page.tsx",
+      "hits": {
+        "demoLabel": 3,
+        "autonomousSwitch": 1,
+        "testSessions": 4,
+        "placeholders": 1
+      },
+      "examples": [
+        "22: import AutonomousSessionBar from \"../try-xdrive-demo/components/AutonomousSessionBar\";",
+        "32: return <main className={\"demo-shell xd-visual-parity broker-demo\"+(tab!==1?\" xd-reference-chrome\":\"\")+(sidebarCollapsed&&tab!==1?\" xd-reference-collapsed\":\"\")}><aside className=\"sidebar\"><div className=\"brand\">XDRIVE <em>LOGISTICS</em></div><div className=\"sid",
+        "41: {tab===8&&<div className=\"panel\"><h2>Broker management tools</h2>{moreNotice&&<p className=\"notice\" role=\"status\">{moreNotice}</p>}<div className=\"steps\">{[\"Customer Accounts\",\"Carrier Network\",\"Messages\",\"Customer Invoices\",\"Carrier Costs\",\"Margins & Reports\""
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-fleet-demo\\page.tsx",
+      "hits": {
+        "demoLabel": 7,
+        "fixture": 6,
+        "autonomousSwitch": 6,
+        "api": 2,
+        "testSessions": 4,
+        "placeholders": 2
+      },
+      "examples": [
+        "25: import AutonomousSessionBar from \"../try-xdrive-demo/components/AutonomousSessionBar\";",
+        "28: const loads=[{id:\"XDL-DEMO-1029\",from:\"Birmingham B6\",to:\"Manchester M1\",cargo:\"2 pallets · 450 kg\",vehicle:\"Luton Van · Tail-lift\",company:\"Sample Freight Broker Ltd\",price:195},{id:\"XDL-DEMO-1030\",from:\"Coventry CV1\",to:\"Nottingham NG1\",cargo:\"1 pallet · 180",
+        "31: const [demoPosted,setDemoPosted]=useState(false),[postedRoute,setPostedRoute]=useState(\"\"),[tab,setTab]=useState(0),[vehicles,setVehicles]=useState(()=>process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\"?[]:initial),[job,setJob]=useState(0),[selected,setSelec",
+        "33: const [fleetAuthNotice,setFleetAuthNotice]=useState(\"\");const [drivers,setDrivers]=useState<string[]>(()=>process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\"?[]:[\"Alex Carter\",\"Jamie Taylor\",\"Morgan Lee\"]);const fleetLoaded=useRef(false);",
+        "38:   if(process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\"&&mounted){setVehicles([]);setDrivers([])}"
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-dispatcher-demo\\page.tsx",
+      "hits": {
+        "demoLabel": 1
+      },
+      "examples": []
+    },
+    {
+      "file": "app\\try-xdrive-driver-demo\\page.tsx",
+      "hits": {
+        "demoLabel": 1,
+        "fixture": 1,
+        "autonomousSwitch": 3,
+        "testSessions": 4
+      },
+      "examples": [
+        "22: import AutonomousSessionBar from \"../try-xdrive-demo/components/AutonomousSessionBar\";",
+        "29: const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "32: return <main className={\"demo-shell xd-visual-parity\"+(tab!==7?\" xd-reference-chrome\":\"\")+(sidebarCollapsed&&tab!==7?\" xd-reference-collapsed\":\"\")}><aside className=\"sidebar\"><div className=\"brand\">XDRIVE <em>LOGISTICS</em></div><div className=\"side-caption\">D",
+        "34: {tab===0&&<section className=\"xd-role-dashboard\">{demoPosted&&<div className=\"notice\">{autonomous?\"Local independent Exchange load published: \":\"Sample load created: \"}{postedRoute}{autonomous?\". Saved in the isolated ledger.\":\". No live job was published.\"}</",
+        "35: {tab===1&&(process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\"?<OwnerDriverAlerts onFindLoads={()=>setTab(6)} onFocusLoad={(ref,action)=>{setFindFocus(s=>({ref,action,seq:(s?.seq||0)+1}));setTab(6)}}/>:<DemoExchangeBoard role=\"Driver\"/>)} "
+      ]
+    },
+    {
+      "file": "app\\try-xdrive-company-driver-demo\\page.tsx",
+      "hits": {
+        "demoLabel": 3,
+        "fixture": 2,
+        "autonomousSwitch": 2,
+        "testSessions": 4
+      },
+      "examples": [
+        "19: import AutonomousSessionBar from \"../try-xdrive-demo/components/AutonomousSessionBar\";",
+        "27: const autonomous=process.env.NEXT_PUBLIC_XDRIVE_AUTONOMOUS_DEMO===\"1\";",
+        "29: return <main className={\"demo-shell xd-visual-parity xd-reference-chrome\"+(sidebarCollapsed?\" xd-reference-collapsed\":\"\")}><aside className=\"sidebar\"><div className=\"brand\">XDRIVE <em>LOGISTICS</em></div><div className=\"side-caption\">COMPANY DRIVER</div>{nav.m",
+        "30: {tab===0&&<section className=\"xd-role-dashboard\"><DemoWorkspaceKpis items={[{label:\"Assigned Bookings\",value:autonomous?assignedBookings.length:1,sub:\"From your company\",icon:\"▣\",color:\"orange\",onClick:()=>setTab(3)},{label:\"Alerts\",value:autonomous?pendingPOD",
+        "32: {tab===1&&!autonomous&&<div className=\"panel\"><h2>Assigned job alerts</h2><p className=\"notice\">New company assignment · XDL-DEMO-1029 · Birmingham B6 → Manchester M1</p><p className=\"notice\">Dispatch update · Collection window 10:00–12:00</p><div className=\"a"
+      ]
+    }
+  ]
+}
