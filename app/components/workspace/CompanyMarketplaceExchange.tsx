@@ -13,6 +13,7 @@ import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStag
 import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
+import './approved-demo-exchange-heading.css';
 import CxQuoteCard from './CxQuoteCard';
 import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
@@ -449,6 +450,7 @@ export default function CompanyMarketplaceExchange({
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspaceâ€¦</AlertBanner>}
 
       {tab === 'loads' && <>
+        <div className="xd-approved-demo-loads-heading"><div><h1>Loads</h1><p>Live Exchange · Search, review and quote</p></div><button type="button" onClick={() => void loadLoads(1, false)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh Loads'}</button></div>
         <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout xdrive-admin-marketplace-identity" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 196px)', width: 'var(--ws-filter-rail-w, 196px)', minWidth: 0, alignSelf: 'flex-start' }}>
             <Panel title="Search Loads">
