@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import type { CxDateParts } from './CxLoadCard';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
+import './approved-demo-quote-card.css';
 
 export default function CxQuoteCard({
   routeFrom,
@@ -36,7 +37,8 @@ export default function CxQuoteCard({
   footer: ReactNode;
 }) {
   return (
-    <article className="xdrive-cx-quote-card" data-quote-stage={stage}>
+    <article className="xdrive-cx-quote-card xd-approved-quote-card" data-quote-stage={stage}>
+      <header className="xd-approved-quote-card__heading"><span>Quote · {loadId}</span><span>{sold ? 'SOLD' : stage || band}</span></header>
       <div className="xdrive-cx-quote-card__main">
         <section className="xdrive-cx-quote-card__route">
           <div><span>From:</span><strong>{routeFrom}</strong></div>

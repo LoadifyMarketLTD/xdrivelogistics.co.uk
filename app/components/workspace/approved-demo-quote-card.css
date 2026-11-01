@@ -1,0 +1,9 @@
+/* Approved DEMO Quotes presentation with existing live actions unchanged. */
+.xd-approved-quote-card{border:1px solid #dce5f0!important;background:#fff!important;border-radius:9px!important;box-shadow:0 2px 6px rgba(11,47,107,.07)!important;overflow:hidden!important;padding:0!important;font-family:Inter,Arial,sans-serif!important}
+.xd-approved-quote-card__heading{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#f7f9fc;border-bottom:1px solid #dce5f0;padding:10px 14px;color:#0b2f6b;font-size:12px;font-weight:750}
+.xd-approved-quote-card__heading>span:last-child{color:#16a34a}
+.xd-approved-quote-card .xdrive-cx-quote-card__main{padding:12px 14px!important;gap:12px!important}
+.xd-approved-quote-card .xdrive-cx-quote-card__route strong{font-size:17px!important;color:#0b2f6b!important;font-weight:850!important}
+.xd-approved-quote-card .xdrive-cx-quote-card__footer{border-top:1px solid #e8edf5!important;padding:10px 14px!important;background:#fff!important}
+.xd-approved-quote-card .xdrive-cx-quote-card__service{color:#0b2f6b!important}
+@media(max-width:850px){.xd-approved-quote-card .xdrive-cx-quote-card__main{padding:12px!important}.xd-approved-quote-card__heading{padding:9px 12px}}
