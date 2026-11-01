@@ -15,20 +15,29 @@ export async function GET(req:NextRequest){
  const member=await requireDemoMember(req);
  if(member instanceof NextResponse)return member;
  if(req.nextUrl.searchParams.get("view")==="bookings"){
+  // Company drivers must see only their own allocated transport, never every company booking.
+  const isDriver=["driver","company_driver","company driver","employee_driver"].includes(member.role.trim().toLowerCase());
+  let assignedDriverId:string|undefined;
+  if(isDriver){
+   const {data:driver,error:driverError}=await member.db.from("drivers").select("id").eq("user_id",member.userId).eq("company_id",member.memberId).maybeSingle();
+   if(driverError)return deny(503,"Driver assignment lookup unavailable");
+   if(!driver)return NextResponse.json([],{headers:{"Cache-Control":"no-store"}});
+   assignedDriverId=driver.id;
+  }
   const {data,error}=await member.db.from("jobs")
    .select("id,company_id,awarded_carrier_company_id,pickup_location,delivery_location,requested_vehicle_label,pallets,weight_kg,created_at,status,payment_terms,assigned_driver_id")
    .in("status",["awarded","allocated","in_transit","completed"])
    .or(`company_id.eq.${member.memberId},awarded_carrier_company_id.eq.${member.memberId}`)
    .order("created_at",{ascending:false}).limit(100);
   if(error)return deny(503,"Booking storage unavailable");
-  return NextResponse.json((data||[]).filter(j=>j.company_id===member.memberId||j.awarded_carrier_company_id===member.memberId).map(j=>({
+  return NextResponse.json((data||[]).filter(j=>(j.company_id===member.memberId||j.awarded_carrier_company_id===member.memberId)&&(!isDriver||j.assigned_driver_id===assignedDriverId)).map(j=>({
    id:j.id,from:j.pickup_location||"",to:j.delivery_location||"",
    vehicle:j.requested_vehicle_label||"",pallets:String(j.pallets??""),
    weight:String(j.weight_kg??""),customer:j.company_id===member.memberId?"My company":"Awarded transport buyer",
    sell:"",postedAt:j.created_at||"",status:"Awarded",
    paymentTerms:j.payment_terms||"",assignedDriver:j.assigned_driver_id||undefined,
    readOnly:true,operationalStatus:j.status
-  }))],{headers:{"Cache-Control":"no-store"}});
+  })),{headers:{"Cache-Control":"no-store"}});
  }
  if(req.nextUrl.searchParams.get("view")==="exchange"){
   const {data,error}=await member.db.from("jobs")
