@@ -1,7 +1,3 @@
 'use client';
-
-import CustomerDashboardHome from './CustomerDashboardHome';
-
-export default function Page() {
-  return <CustomerDashboardHome />;
-}
+import ApprovedRoleDashboard from '../components/workspace/ApprovedRoleDashboard';
+export default function Page(){return <ApprovedRoleDashboard surface="customer"/>;}
