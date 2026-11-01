@@ -51,17 +51,17 @@ export function useDemoBookings(){
 export async function refreshDemoLoads(){
  const epoch=getAutonomousSessionEpoch(),request=++currentLoadRequest;
  const response=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{cache:"no-store"});
- if(!response.ok)throw Error("Demo exchange unavailable");
+ if(!response.ok)throw Error("Transport requests unavailable");
  const result=await response.json() as DemoLoad[];
  if(epoch!==getAutonomousSessionEpoch()||request!==currentLoadRequest)throw Error("Stale local account response discarded");
  cache=Array.isArray(result)?result:[];
  window.dispatchEvent(new Event(event));return cache;
 }
-export async function publishDemoLoad(data:Omit<DemoLoad,"id"|"postedAt"|"status">){const response=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});if(!response.ok)throw Error("Could not save demo load");const load:DemoLoad=await response.json();const published=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:load.id,status:"posted"})});if(!published.ok){const details=await published.json().catch(()=>({})) as {error?:string};throw Error("Draft saved but publishing failed: "+(details.error||"Unknown error")+". Do not resubmit; review the draft first.")}await refreshDemoLoads();return {...load,status:"Open" as const}}
+export async function publishDemoLoad(data:Omit<DemoLoad,"id"|"postedAt"|"status">){const response=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});if(!response.ok)throw Error("Could not save transport request");const load:DemoLoad=await response.json();const published=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:load.id,status:"posted"})});if(!published.ok){const details=await published.json().catch(()=>({})) as {error?:string};throw Error("Draft saved but publishing failed: "+(details.error||"Unknown error")+". Do not resubmit; review the draft first.")}await refreshDemoLoads();return {...load,status:"Open" as const}}
 export async function updateDemoLoad(id:string,patch:Partial<DemoLoad>){
- if(patch.status!=="Cancelled"||Object.keys(patch).length!==1)throw Error("Booking action unavailable until the staging transition is verified. No change was saved.");
+ if(patch.status!=="Cancelled"||Object.keys(patch).length!==1)throw Error("This booking action is not yet supported. No change was saved.");
  const response=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status:"cancelled"})});
- if(!response.ok){const payload=await response.json().catch(()=>({})) as {error?:string};throw Error(payload.error||"Could not cancel demo load")}
+ if(!response.ok){const payload=await response.json().catch(()=>({})) as {error?:string};throw Error(payload.error||"Could not cancel transport request")}
  await refreshDemoLoads();
 }
 export function useDemoLoads(){const [loads,setLoads]=useState<DemoLoad[]>(cache);useEffect(()=>{let active=true;const sync=()=>{if(active)setLoads([...cache])};const refresh=()=>{refreshDemoLoads().catch(()=>{})};const onPersonaChange=()=>{cache=[];sync();refresh()};refresh();window.addEventListener(event,sync);window.addEventListener("xdrive-demo-session-change",onPersonaChange);const timer=setInterval(refresh,4000);return()=>{active=false;window.removeEventListener(event,sync);window.removeEventListener("xdrive-demo-session-change",onPersonaChange);clearInterval(timer)}},[]);return loads}

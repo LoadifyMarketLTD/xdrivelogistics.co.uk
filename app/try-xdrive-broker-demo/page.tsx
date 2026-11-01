@@ -24,7 +24,7 @@ const nav=["Dashboard","Post Load","My Loads","Carrier Quotes","Awards","Booking
 export default function BrokerDemo(){
 
 const [sidebarCollapsed,setSidebarCollapsed]=useState(false);
-const [tab,setTab]=useState(0),[from,setFrom]=useState("Birmingham B6"),[to,setTo]=useState("Manchester M1"),[pallets,setPallets]=useState("2"),[weight,setWeight]=useState("450"),[vehicle,setVehicle]=useState("Luton Van"),[customer,setCustomer]=useState("Demo Retail Distribution Ltd"),[sell,setSell]=useState("260"),[,setPublished]=useState(false);
+const [tab,setTab]=useState(0),[from,setFrom]=useState(""),[to,setTo]=useState(""),[pallets,setPallets]=useState(""),[weight,setWeight]=useState(""),[vehicle,setVehicle]=useState(""),[customer,setCustomer]=useState(""),[sell,setSell]=useState(""),[,setPublished]=useState(false);
 const sharedLoads=useDemoLoads(),sharedQuotes=useDemoQuotes("received");
 const [networkView,setNetworkView]=useState("Overview"),[moreNotice,setMoreNotice]=useState("");
 const openNetwork=(view:string)=>{setNetworkView(view);setMoreNotice("");setTab(9)};
@@ -38,7 +38,7 @@ return <main className={"demo-shell xd-visual-parity broker-demo"+(tab!==1?" xd-
 {tab===5&&<DemoReferenceBookings role="Broker"/>}
 {tab===6&&<DemoBookingOverview view="diary"/>}
 {tab===7&&<DemoReferenceBookingRecords view="pod" onBookings={()=>setTab(5)}/>}
-{tab===8&&<div className="panel"><h2>Broker management tools</h2>{moreNotice&&<p className="notice" role="status">{moreNotice}</p>}<div className="steps">{["Customer Accounts","Carrier Network","Messages","Customer Invoices","Carrier Costs","Margins & Reports","Event Log","Help & Support"].map((x,i)=><button key={x} onClick={()=>{if(i===6){setTab(6);return}if(i===7){setMoreNotice("Help and Support are not connected in this DEMO yet.");return}openNetwork(["Directory","Directory","Messages","Finance","Finance","Reports"][i])}}><b>{String(i+1).padStart(2,"0")}</b><span>{x}</span><span>→</span></button>)}</div></div>}
+{tab===8&&<div className="panel"><h2>Broker management tools</h2>{moreNotice&&<p className="notice" role="status">{moreNotice}</p>}<div className="steps">{["Customer Accounts","Carrier Network","Messages","Customer Invoices","Carrier Costs","Margins & Reports","Event Log","Help & Support"].map((x,i)=><button key={x} onClick={()=>{if(i===6){setTab(6);return}if(i===7){setMoreNotice("Help and Support are not connected yet.");return}openNetwork(["Directory","Directory","Messages","Finance","Finance","Reports"][i])}}><b>{String(i+1).padStart(2,"0")}</b><span>{x}</span><span>→</span></button>)}</div></div>}
 {tab===9&&<NetworkTools key={networkView} role="Broker" initialView={networkView} onDirectoryPostLoad={()=>setTab(1)} onOpenLoad={()=>setTab(2)}/>}
 </div></div></main>;
 }

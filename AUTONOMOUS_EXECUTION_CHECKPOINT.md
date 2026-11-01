@@ -1,120 +1,23 @@
-# XDrive Brand Master Pack Integration - 2026-10-30
+# Autonomous Execution Checkpoint — 2026-11-01
+Repository: D:\XDrive-Main-Workspace-Removal-20261101
+Branch: integrate/new-xdrive-desktop-demo-20261101
+Restrictions: no main merge, no production deploy, no real Supabase data mutations, no Super Admin changes. Preserve design and existing working functions.
 
-AGENT PREFLIGHT
-Target product: WEB
-Scope document: docs/agent-scopes/web.md
-Base branch: main
-HEAD SHA: 3aae85baf8b7f01d834e91834c8ff4a21e82beb2
-
-Intended file list
-- public/xdrive-logo-primary.svg - canonical scalable website logo
-- public/xdrive-mark.svg - canonical XD logomark
-- public/favicon.svg - vector favicon
-- public/favicon.ico - generated multi-size favicon if tooling supports it; otherwise existing ICO retained
-- public/apple-touch-icon.png - Apple touch icon generated from canonical mark
-- public/icon-192.png - PWA icon
-- public/icon-512.png - PWA icon
-- public/icons/* - PWA any/maskable icon set
-- public/manifest.webmanifest - PWA manifest
-- public/safari-pinned-tab.svg - Safari pinned tab
-- public/browserconfig.xml - Windows tile metadata
-- public/brand/* - canonical brand vectors and tokens
-- public/og-xdrive-1200x630.png - Open Graph image
-- app/layout.tsx - metadata / manifest / icon references only
-
-Allowlist
-- public/**
-- app/layout.tsx
-- AUTONOMOUS_EXECUTION_CHECKPOINT.md
-
-Denylist
-- supabase/**
-- database/**
-- middleware.ts
-- package.json
-- package-lock.json
-- .github/workflows/**
-
-Shared-contract impact
-- Root package.json: no
-- Root lockfile: no
-- middleware.ts: no
-- Supabase migrations: no
-- Shared lib helpers: no
-- GitHub Actions workflows: no
-
-Required checks
-- protected workspace invariant PowerShell gate
-- npm run lint
-- npm run typecheck
-- npm run test:unit
-- npm run build
-- direct inspection of generated assets and manifest
-
-Production safety
-- Supabase migration applied to production: NO
-- Production data operation: NO
-
-Mobile source boundary
-- Current main does not contain historical apps/driver-mobile or android-native source trees. This task integrates the shared web/PWA brand assets that exist in current main and will not fabricate a native-app source integration.
-
-
-## 2026-10-30 follow-up: dynamic Open Graph + native source audit
-
-Base main before follow-up: d555ee890fa2f5336001cb4bf7d6a04d2c88defe
-
-Additional intended files
-- app/social-page/[page]/opengraph-image.tsx - use Master Pack logo and official palette
-- app/social/[visual]/opengraph-image.tsx - use Master Pack logo/mark and official palette
-- app/api/social-card/route.tsx - use Master Pack mark and official palette
-
-Native source audit evidence
-- GitHub repositories visible for XDrive: xdrivelogistics.co.uk, xdrivelogistics, app.xdrivelogistics.co.uk.
-- Current main of xdrivelogistics.co.uk has no apps/driver-mobile or android-native source trees.
-- D:\XDrive-Native-Reconstruction-20261024 is not a git repository and its audit explicitly states it is an offline reconstruction prototype, not the authoritative native source.
-- Installed OPPO package evidence: co.uk.xdrivelogistics.driver.nativepreview.testlab; APK backup at D:\XDrive-OPPO-Installed-Apk-Audit\base.apk.
-- Decompiled Java is reference-only, not buildable original Kotlin source.
-- No authoritative iOS source was identified in connected GitHub repositories or targeted local searches.
-- Therefore native Android/iOS branding must not be claimed integrated until authoritative buildable source is recovered.
-
-Follow-up checks required
-- protected invariant gate
-- lint
-- typecheck
-- production build
-- deploy to main
-- live fetch/visual verification of dynamic Open Graph image
-
-
-Follow-up verification results
-- protected invariant gate: PASS
-- npm run lint: PASS
-- npm run typecheck: PASS
-- npm run build: PASS (BUILD_EXIT=0)
-- dynamic OG routes compile as edge routes
-- full unit suite is known to contain unrelated baseline failures from the preceding brand integration run; no OG-specific unit suite exists, so live runtime rendering is the acceptance test for this follow-up.
-
-Final social-card renderer remediation
-- Root cause of /api/social-card 500: Satori/ImageResponse rejected width: fit-content and a mixed text/span div without explicit flex display.
-- Remediation: replaced fit-content with alignSelf:flex-start and added explicit display:flex to mixed text/span footer.
-- Local runtime verification:
-  - /social-page/home/opengraph-image: HTTP 200
-  - /social/platform/opengraph-image: HTTP 200
-  - /api/social-card?...: HTTP 200
-- Visual inspection: canonical XD mark, XDrive Logistics branding, official navy/blue/orange palette rendered correctly.
-- Post-remediation protected gate: PASS
-- Post-remediation lint: PASS
-- Post-remediation typecheck: PASS
-- Post-remediation production build: PASS (BUILD_EXIT=0)
-
-
-## 2026-10-31 Page 0 booking acceptance
-- Added driver PWA route: /driver-pwa-fresh/bookings/offers/[id]
-- Added internal map route: /driver-pwa-fresh/bookings/offers/[id]/map
-- Bookings Current now surfaces pending job_booking_offers as Acceptance Required.
-- Page 0 approved action layout: Map | View Details, Decline | Accept.
-- SmartPay is not present.
-- Accept POSTs action=accept to /api/booking-offers/[id]/respond then routes to active booking workflow.
-- Decline POSTs action=decline then returns to Bookings.
-- Map opens the internal XDrive map route for the awarded load.
-- Verification: Page0 + reference tests 5/5 PASS; targeted ESLint PASS; npm run typecheck PASS; production npm run build PASS, 201/201 pages generated.
+Verified so far:
+- Real Supabase target project jqxlauexhkonixtjvljw; schema read only.
+- Booking GET no longer depends on nonexistent xdrive_demo_awards; assigned company-driver filtering checked by source-level security test (not authenticated E2E).
+- Real project URL allowlist source test PASS.
+- Removed several DEMO UI labels; many remain inside nested components.
+- Broker hardcoded sample load form values eliminated in isolated branch (zero-length inputs).
+- Demo-related load error messages corrected in isolated branch.
+- Local Desktop copy already had some broker values changed independently; do not overwrite any further without review.
+- HTTP GET http://127.0.0.1:3119/try-xdrive-broker-demo returned 200.
+- git diff --check and two Node source tests PASS.
+Outstanding:
+- End-to-end workflows Quotes → Award → Booking → Driver allocation → Delivery → POD → Invoice NOT verified.
+- Three API write routes had temporary 503 responses; must be implemented with verified real-schema transitions without silently failing.
+- UI fixtures/simulation across seven workspaces remain; remove through full real-data integration, preserving functions.
+- Need authenticated cross-tenant tests, TypeScript, ESLint, complete build, browser and mobile visual comparison.
+- Worktree dependencies not available for full build as previously observed.
+- Keep main, Supabase production data and Super Admin unchanged.
+Next action: inspect real schema and RLS for job_bids/job award operations, implement authorized atomic state transitions in branch with regression tests before enabling live actions.
