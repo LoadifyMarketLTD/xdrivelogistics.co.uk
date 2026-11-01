@@ -97,6 +97,9 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   const items = uniqueNavItems(groups);
   const direct: Array<[string, string, string]> = [
     ['carrier-dashboard', 'Dashboard', '/admin'],
+    ['carrier-invoices', 'Invoices', '/admin/invoices'],
+    ['carrier-messages', 'Messages', '/admin/messages'],
+    ['carrier-notifications', 'Notifications', '/admin/notifications'],
     ['carrier-directory', 'Directory', '/admin/marketplace/directory'],
     ['carrier-live-availability', 'Live Availability', '/admin/live-availability'],
     ['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
