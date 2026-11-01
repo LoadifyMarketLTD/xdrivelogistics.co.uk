@@ -1,7 +1,7 @@
 "use client";
 import {useState} from "react";
 import {getSupabase} from "../../../lib/supabaseClient";
-import {isAuthorizedDemoStagingUrl} from "../../../lib/try-xdrive-demo/stagingProject";
+import {isAuthorizedRealXDriveUrl} from "../../../lib/try-xdrive-demo/realProject";
 export default function DemoStagingSignIn(){
  const [email,setEmail]=useState("");
  const [password,setPassword]=useState("");
@@ -10,9 +10,9 @@ export default function DemoStagingSignIn(){
  const signIn=async()=>{
   setBusy(true);setMessage("");
   try{
-   if(!isAuthorizedDemoStagingUrl(process.env.NEXT_PUBLIC_SUPABASE_URL))throw new Error("DEMO staging is not configured");
+   if(!isAuthorizedRealXDriveUrl(process.env.NEXT_PUBLIC_SUPABASE_URL))throw new Error("XDrive authentication is not configured");
    const db=getSupabase();
-   if(!db)throw new Error("Staging authentication unavailable");
+   if(!db)throw new Error("XDrive authentication unavailable");
    const {error}=await db.auth.signInWithPassword({email:email.trim(),password});
    if(error)throw new Error(error.message);
    setPassword("");
@@ -21,9 +21,9 @@ export default function DemoStagingSignIn(){
   finally{setBusy(false)}
  };
  return <form className="form-grid" onSubmit={e=>{e.preventDefault();void signIn()}}>
-  <label>DEMO staging email<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)}/></label>
+  <label>Email<input type="email" autoComplete="username" required value={email} onChange={e=>setEmail(e.target.value)}/></label>
   <label>Password<input type="password" autoComplete="current-password" required value={password} onChange={e=>setPassword(e.target.value)}/></label>
-  <button className="primary" type="submit" disabled={busy}>{busy?"Signing in...":"Sign in to DEMO"}</button>
+  <button className="primary" type="submit" disabled={busy}>{busy?"Signing in...":"Sign in"}</button>
   {message&&<p role="alert">{message}</p>}
  </form>;
 }
