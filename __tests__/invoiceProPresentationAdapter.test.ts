@@ -6,3 +6,4 @@ describe('Invoice Pro read-only presentation mapping',()=>{
  it('uses stored monetary and due date fields',()=>{const x=toInvoiceProPresentation({...invoice,net_amount:80,vat_amount:0,due_date:'2026-11-30',vat_rate:0});expect(x.total).toBe(80);expect(x.dueDate).toBe('2026-11-30')});
  it('rejects corrupt monetary fields',()=>{expect(()=>toInvoiceProPresentation({...invoice,amount:NaN})).toThrow()});
 });
+it('shows a missing client as absent, not a fictional customer',()=>{const record={...invoice,client_name:''};expect(toInvoiceProPresentation(record).clientName).toBe('Client not recorded')});

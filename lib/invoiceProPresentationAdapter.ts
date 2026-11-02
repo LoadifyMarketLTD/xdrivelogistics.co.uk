@@ -18,10 +18,10 @@ export function toInvoiceProPresentation(record: XDriveInvoiceRecord): InvoicePr
  if (!Number.isFinite(net) || net < 0 || !Number.isFinite(record.vat_rate)) throw new Error('Invalid invoice monetary fields.');
  const vat = record.vat_amount ?? Math.round(net * record.vat_rate) / 100;
  if (!Number.isFinite(vat) || vat < 0) throw new Error('Invalid invoice VAT.');
- if (!record.invoice_number || !record.client_name) throw new Error('Invoice number and client are required.');
+ if (!record.invoice_number) throw new Error('Invoice number is required.');
  return {
   invoiceNo: record.invoice_number, jobRef: record.job_ref, invoiceDate: record.invoice_date,
-  dueDate: record.due_date ?? '', clientName: record.client_name,
+  dueDate: record.due_date ?? '', clientName: record.client_name?.trim() || 'Client not recorded',
   clientEmail: record.client_email ?? '', amount: net, vatRate: record.vat_rate,
   vat, total: Math.round((net + vat) * 100) / 100, status: record.status,
   pickup: record.pickup_location ?? '', delivery: record.delivery_location ?? '',
