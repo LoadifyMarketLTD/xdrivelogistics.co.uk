@@ -57,12 +57,12 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
         if(Array.isArray(saved.conversations))setConversations(saved.conversations.filter(c=>!["skyhaul","john","baron","alex","fr","customer"].includes(c.id)));
         if(typeof saved.selected==="string"&&!["skyhaul","john","baron","alex","fr","customer"].includes(saved.selected))setSelected(saved.selected);
       }
-    }catch{setNotice("Local browser storage is unavailable for this DEMO session.")}
+    }catch{setNotice("Local browser storage is unavailable for this session.")}
     setHydrated(true);
   },[]);
   useEffect(()=>{
     if(!hydrated)return;
-    try{localStorage.setItem(STORE,JSON.stringify({conversations,selected}));}catch{setNotice("Local browser storage is unavailable for this DEMO session.")}
+    try{localStorage.setItem(STORE,JSON.stringify({conversations,selected}));}catch{setNotice("Local browser storage is unavailable for this session.")}
   },[hydrated,conversations,selected]);
   useEffect(()=>{
     if(!hydrated||!targetRecipient)return;
@@ -97,7 +97,7 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
     setConversations(xs=>xs.map(c=>c.id===current.id?
       {...c,lastTime:msg.time,messages:[...c.messages,msg]}:c));
     setDraft("");setEmojiOpen(false);
-    setNotice("Mesaj salvat local în DEMO. Nu a fost trimis unui destinatar real.");
+    setNotice("Mesaj salvat local. Nu a fost trimis unui destinatar real.");
   };
   const startConversation=()=>{
     const name=recipient.trim();if(!name)return;
@@ -119,7 +119,7 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
       const files:Upload[]=accepted.map(f=>({id:"file-"+Date.now()+"-"+f.name,name:f.name,
         size:(f.size/1024).toFixed(0)+" KB",type:f.type,url:URL.createObjectURL(f)}));
       setUploads(u=>({...u,[current.id]:[...(u[current.id]||[]),...files]}));
-      setNotice("Fișiere atașate local în sesiunea DEMO; nu au fost trimise.");
+      setNotice("Fișiere atașate local în sesiunea locală; nu au fost trimise.");
     }
     if(fileInput.current)fileInput.current.value="";
   };
@@ -129,10 +129,10 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
   };
   const resetDemo=()=>{
     setConversations([]);setSelected("");setDraft("");setKind("All");setQuery("");
-    setMoreOpen(false);setNotice("Conversațiile demonstrative au fost resetate.");
+    setMoreOpen(false);setNotice("Conversațiile locale au fost resetate.");
   };
   const alertUnavailable=(type:string)=>{
-    setNotice(type+" nu este conectat la un serviciu real în acest DEMO.");
+    setNotice(type+" nu este conectat la un serviciu real în acest spațiu de lucru.");
   };
   const attachments=uploads[current?.id]||[];
   if(!current)return <section className="xd-messages"><p>No conversations available.</p></section>;
@@ -187,7 +187,7 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
       <div className="xd-message-chat">
         <div className="xd-message-chat-head">
           <span className="xd-message-avatar" style={{background:colors[current.id]||"#1464e8"}}>{current.initials}</span>
-          <div className="xd-message-chat-title"><strong>{current.name}</strong><small><span className="xd-message-online-dot"/>DEMO · {current.kind.slice(0,-1)}</small></div>
+          <div className="xd-message-chat-title"><strong>{current.name}</strong><small><span className="xd-message-online-dot"/>Local · {current.kind.slice(0,-1)}</small></div>
           <div className="xd-message-head-actions">
             <button aria-label="Call contact" title="Call" onClick={()=>alertUnavailable("Apelul telefonic")}><Phone size={19}/></button>
             <button aria-label="Video call" title="Video call" onClick={()=>alertUnavailable("Apelul video")}><Video size={20}/></button>
@@ -197,18 +197,18 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
               {moreOpen&&<div className="xd-message-more-menu">
                 <button onClick={markUnread}>Mark as unread</button>
                 <button onClick={()=>{setDetailOpen(true);setMoreOpen(false)}}>View details</button>
-                <button onClick={resetDemo}>Reset DEMO messages</button>
+                <button onClick={resetDemo}>Clear local conversations</button>
               </div>}
             </div>
           </div>
         </div>
         <div className="xd-message-chat-scroll">
-          <div className="xd-message-day">Today · DEMO</div>
+          <div className="xd-message-day">Today</div>
           {current.messages.map(m=><div key={m.id} className={"xd-message-message "+(m.from==="me"?"mine":"theirs")}>
             {m.from==="them"&&<span className="xd-message-avatar tiny" style={{background:colors[current.id]||"#1464e8"}}>{current.initials}</span>}
             <div className="xd-message-bubble"><span>{m.text}</span><small>{m.time}{m.from==="me"&&<CheckCheck size={15}/>}</small></div>
           </div>)}
-          {!current.messages.length&&<p className="xd-message-no-messages">Start a new local DEMO conversation.</p>}
+          {!current.messages.length&&<p className="xd-message-no-messages">Start a local conversation.</p>}
           <div ref={chatBottom}/>
         </div>
         <div className="xd-message-composer-area">
@@ -218,17 +218,17 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
             <button type="button" className="xd-message-attach" aria-label="Attach file" onClick={()=>fileInput.current?.click()}><Paperclip size={21}/></button>
             <div className="xd-message-compose-input"><input aria-label="Type a message" placeholder="Type a message..." value={draft}
               onChange={e=>setDraft(e.target.value)}/><button type="button" aria-label="Insert emoji" onClick={()=>setEmojiOpen(v=>!v)}><Smile size={21}/></button></div>
-            <button type="submit" className="xd-message-send" aria-label="Send DEMO message" disabled={!draft.trim()}><Send size={20}/></button>
+            <button type="submit" className="xd-message-send" aria-label="Save message" disabled={!draft.trim()}><Send size={20}/></button>
           </form>
         </div>
       </div>
       {detailOpen&&<aside className="xd-message-details">
         <div className="xd-message-details-title"><h2><Info size={22}/> Conversation Details</h2><button aria-label="Close conversation details" onClick={()=>setDetailOpen(false)}><X size={18}/></button></div>
         <div className="xd-message-contact-info">
-          <Building2 size={29}/><div><strong>{current.name}</strong><small>{current.memberId?"Member ID: "+current.memberId+"":current.kind+" · DEMO profile"}</small></div>
+          <Building2 size={29}/><div><strong>{current.name}</strong><small>{current.memberId?"Member ID: "+current.memberId+"":current.kind+" · Local profile"}</small></div>
           <span className="xd-message-active">Local</span>
         </div>
-        <div className="xd-message-contact-lines"><p><Phone size={17}/> Contact number not verified</p><p><Mail size={17}/> Messaging via local DEMO</p></div>
+        <div className="xd-message-contact-lines"><p><Phone size={17}/> Contact number not verified</p><p><Mail size={17}/> Messaging stored locally</p></div>
         <h3 className="xd-message-details-section"><Truck size={19}/> Related Booking <ChevronRight size={19}/></h3>
         {booking?<div className="xd-message-booking">
           <div><strong>{booking.id}</strong><span>{linked?booking.status:"Local"}</span></div>
@@ -249,7 +249,7 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
           <a href={f.url} download={f.name} aria-label={"Download "+f.name}><Download size={19}/></a>
         </div>)}
         {attachments.length===0&&current.id!=="skyhaul"&&<p className="xd-message-muted">No files attached.</p>}
-        <p className="xd-message-disclaimer">DEMO: example conversations and booking details. Messages are saved in this browser only and are not sent externally.</p>
+        <p className="xd-message-disclaimer">Messages are stored in this browser and are not sent externally.</p>
       </aside>}
     </div>
     {notice&&<div className="xd-message-notice" role="status">{notice}<button aria-label="Dismiss message" onClick={()=>setNotice("")}><X size={15}/></button></div>}

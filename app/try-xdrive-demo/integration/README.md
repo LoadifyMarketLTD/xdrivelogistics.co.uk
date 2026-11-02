@@ -50,13 +50,13 @@ Machine evidence: _audit/XDRIVE_BACKUP_PARITY_MATRIX_20261031.json; _audit/XDRIV
 - Verified scoped tsc PASS and targeted lint PASS: _audit/demo-quote-route-tsc-20261031.log, _audit/demo-quote-route-lint-20261031.log. Authenticated two-company E2E still outstanding. No DEMO CSS or layout changed.
 
 
-## 2026-10-31 13:46 ï¿½ read-only booking status correction
+## 2026-10-31 13:46 — read-only booking status correction
 - Backend returns authoritative jobs.status in operationalStatus for awarded / allocated / in_transit / completed bookings. In read-only cards, DEMO no longer renders the fictional step-0 Accepted timeline, mock quote price, or unverified acceptance/assignment. It shows source status explicitly. No visual CSS change.
 - A JSX parser error was caught by ESLint, fixed immediately and verified with lint PASS, scoped tsc PASS; all 22 core regression tests PASS (_audit/demo-regression-20261031-1345.log).
 - Still missing operational write paths (Award, acceptance, assignment, POD), two-tenant auth E2E and validated failover. Work not declared done.
 
 
-## 2026-10-31 13:54 ï¿½ sequential module remediation: postcode
+## 2026-10-31 13:54 — sequential module remediation: postcode
 - Fixed stale postcode lookup options and pending state when the user clears input below two characters, without DEMO style changes: app/try-xdrive-demo/components/DemoPostcodeField.tsx.
 - Targeted lint PASS, scoped TypeScript PASS, existing postcode/tenant tests 4/4 PASS. This is a UI correctness repair, not complete postcode provider coverage or persisted private addresses. Still requires authenticated address/stop persistence and postal API fallback E2E.
 
@@ -100,3 +100,4 @@ Machine evidence: _audit/XDRIVE_BACKUP_PARITY_MATRIX_20261031.json; _audit/XDRIV
 
 ## 31 Oct 2026 - received/submitted quote route correction
 - Corrected escaped whitespace bug in canonical UK full postcode to public outcode reduction in GET /api/try-xdrive-demo/quotes. This previously hid valid job origin/destination as Area unavailable. ESLint PASS and scoped TypeScript PASS. No CSS edits, production writes or OPPO interaction. Authenticated two-company E2E and persistent POD/invoice integrations remain NOT VERIFIED.
+

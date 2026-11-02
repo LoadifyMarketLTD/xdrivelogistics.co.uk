@@ -11,7 +11,7 @@ type Role="Driver"|"Company Driver"|"Fleet"|"Broker"|"Customer"|"Carrier"|"Dispa
 export default function DemoExchangeBoard({role}:{role:Role}){
  const canQuote=["Driver","Fleet","Carrier","Broker"].includes(role);
  const live=useDemoLoads(),exchange=useExchangeLoads();
-
+ 
  const [tab,setTab]=useState("All Loads"),[from,setFrom]=useState(""),[to,setTo]=useState(""),[radius,setRadius]=useState("10"),[vehicle,setVehicle]=useState(""),[service,setService]=useState(""),[date,setDate]=useState(""),[same,setSame]=useState(false),[next,setNext]=useState(false),[sort,setSort]=useState("new"),[page,setPage]=useState(1),[map,setMap]=useState(false),[selected,_setSelected]=useState<string|null>(null),[details,setDetails]=useState<string|null>(null),[quoteLoad,setQuoteLoad]=useState<string|null>(null),[amount,setAmount]=useState(""),[_notice,setNotice]=useState("");
  const actual=canQuote?exchange.loads:live;
  const preview=actual.length===0;
@@ -43,8 +43,8 @@ export default function DemoExchangeBoard({role}:{role:Role}){
   <label className="xd-check"><input type="checkbox" checked={same} onChange={e=>setSame(e.target.checked)}/> Same Day</label><label className="xd-check"><input type="checkbox" checked={next} onChange={e=>setNext(e.target.checked)}/> Next Day</label>
   <button className="xd-clear" onClick={reset}>↻ Clear Filters</button><button className="xd-search-button" onClick={()=>setNotice(shown.length+" loads match your filters")}>⌕ Search Loads</button></div></aside>
   <main className="xd-board-results">
-
-
+  
+  
   {canQuote&&quoteLoad&&(()=>{const x=loads.find(l=>l.id===quoteLoad);return x?<DemoQuotePanel load={x} role={role} preview={preview} onClose={()=>setQuoteLoad(null)}/>:null})()}
   {details&&(()=>{const x=loads.find(l=>l.id===details);return x?<DemoTransportDetails title={x.id} subtitle={x.from+" → "+x.to} status={x.status} onClose={()=>setDetails(null)} sections={[
   {title:"Load & Posting Company",fields:[{label:"Load Reference",value:x.id},{label:"Posted By",value:x.customer},{label:"Member ID",value:preview?"Demo account":x.customer},{label:"Service",value:x.service}]},
