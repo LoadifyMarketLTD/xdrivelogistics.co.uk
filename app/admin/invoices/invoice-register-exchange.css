@@ -1,0 +1,117 @@
+.invoice-register-tabs {
+  min-height: var(--ws-tab-h, 28px);
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  margin-bottom: var(--ws-gap-internal, 8px);
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  background: #fff;
+}
+
+.invoice-register-tabs button {
+  min-height: var(--ws-tab-h, 28px);
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.invoice-register-tabs button[data-active='true'] {
+  border-bottom-color: var(--ws-blue, #1d57d8);
+  color: var(--ws-blue, #1d57d8);
+  font-weight: 800;
+}
+
+.invoice-register-tabs button span {
+  margin-left: 3px;
+  font-size: var(--ws-font-micro, 10px);
+}
+
+.invoice-register-search {
+  min-width: min(420px, 45vw);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.invoice-register-search input {
+  width: 100%;
+  min-width: 180px;
+  height: var(--ws-control-h, 32px);
+  min-height: var(--ws-control-h, 32px);
+  padding: 0 8px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  background: #fff;
+  color: var(--ws-text, #172033);
+  font-size: 12px;
+}
+
+.invoice-register-actions {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.invoice-register-pagination {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-top: 0;
+  background: #fff;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+}
+
+.invoice-register-pagination > span:last-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.invoice-register-contract-note {
+  display: grid;
+  gap: 2px;
+  margin-top: var(--ws-gap-grid, 12px);
+  padding: 7px 8px;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--ws-radius, 4px);
+  background: #eff6ff;
+}
+
+.invoice-register-contract-note strong {
+  color: #1e3a8a;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.invoice-register-contract-note span {
+  color: #1e40af;
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 15px;
+}
+
+@media (max-width: 768px) {
+  .invoice-register-search {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .invoice-register-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invoice-register-pagination > span:last-child {
+    justify-content: space-between;
+  }
+}
