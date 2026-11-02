@@ -9,7 +9,7 @@ import DemoNotifications from "./DemoNotifications";
 import DemoMessagesBoard from "./DemoMessagesBoard";
 import DemoFreightVision from "./DemoFreightVision";
 import DemoReportsBoard from "./DemoReportsBoard";
-import DemoInvoicesBoard from "./DemoInvoicesBoard";
+import InvoiceProRealDashboard from "./InvoiceProRealDashboard";
 import Link from "next/link";
 import PostLoadDemo from "./PostLoadDemo";
 import NetworkTools from "./NetworkTools";
@@ -55,7 +55,7 @@ return <main className="demo-shell ops-demo"><aside className="sidebar"><div cla
 {!isDispatch&&tab===6&&<DemoDriversBoard drivers={companyDrivers} vehicles={companyFleet} onFleet={()=>show(5)} onAddDriver={name=>setCompanyDrivers(prev=>prev.includes(name)?prev:[...prev,name])}/>}
 {isDispatch&&tab===5&&<div className="panel"><h2>Dispatcher Messages</h2><p className="muted">Record a dispatch note linked to the selected job.</p><label className="ops-field">Booking<select value={selected} onChange={e=>setSelected(e.target.value)}>{sharedJobs.map(j=><option key={j.id} value={j.id}>{j.id}</option>)}</select></label><label className="ops-field">Message<textarea value={notes} onChange={e=>setNotes(e.target.value)}/></label><button className="primary" disabled={!notes.trim()||!job} onClick={()=>{if(!job)return;setIncidents(x=>[...x,"Message  -  "+job.id+": "+notes]);setNotes("")}}>Save message</button>{incidents.map((x,i)=><p className="notice" key={i}>{x}</p>)}</div>}
 {((!isDispatch&&tab===7)||(isDispatch&&tab===4))&&<DemoBookingOverview view="diary"/>}
-{!isDispatch&&tab===8&&<DemoInvoicesBoard jobs={sharedJobs}/>}
+{!isDispatch&&tab===8&&<InvoiceProRealDashboard/>}
 {isDispatch&&tab===6&&<div className="panel"><h2>Dispatch Reports</h2><div className="metrics"><div><small>JOBS</small><b>{sharedJobs.length}</b><span>Shared loads</span></div><div><small>ALLOCATED</small><b>{sharedJobs.filter(j=>j.driver).length}</b><span>With drivers</span></div><div><small>POD</small><b>{sharedJobs.filter(j=>j.pod).length}</b><span>Received</span></div><div><small>INCIDENTS</small><b>{incidents.length}</b><span>Local notes</span></div></div></div>}
 {isDispatch&&tab===7&&<NetworkTools role="Dispatcher"/>}
 {!isDispatch&&tab===9&&<DemoNetworkToolsBoard onNavigate={show}/>}
