@@ -1,0 +1,102 @@
+/* Sidebar-only visual parity with the approved 3119 Fleet design (224px, 100vh, orange active).
+ * Scoped to the Fleet sidebar: no changes to tabs, forms, cards, APIs,
+ * business state, topbar, or the global Company workspace.
+ */
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity{
+  --fleet-sidebar-navy:#071d43;
+  --fleet-sidebar-orange:#ff7900;
+}
+@media (min-width:851px){
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar{
+    position:fixed!important;left:0!important;top:0!important;bottom:0!important;
+    z-index:100!important;display:flex!important;flex-direction:column!important;
+    transform:none!important;transition:width .18s ease!important;
+    width:224px!important;min-width:224px!important;max-width:224px!important;
+    height:100vh!important;min-height:100vh!important;max-height:100vh!important;
+    padding:10px 8px 8px!important;overflow-x:hidden!important;overflow-y:auto!important;
+    scrollbar-width:thin;background:var(--fleet-sidebar-navy)!important;color:#fff!important;
+    box-shadow:none!important;
+  }
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar::after{
+    display:none!important;content:none!important;
+  }
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity>.content{
+    margin:0 0 0 224px!important;width:calc(100% - 224px)!important;
+    max-width:none!important;min-width:0!important;display:block;flex:none!important;
+  }
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity.xd-fleet-sidebar-collapsed>.sidebar{
+    width:68px!important;min-width:68px!important;max-width:68px!important;
+  }
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity.xd-fleet-sidebar-collapsed>.content{
+    margin-left:68px!important;width:calc(100% - 68px)!important;
+  }
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity.xd-fleet-sidebar-collapsed>.sidebar .brand{
+    width:50px!important;height:42px!important;min-height:42px!important;
+    background-position:center!important;background-size:cover!important;
+  }
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity.xd-fleet-sidebar-collapsed>.sidebar>button{
+    font-size:0!important;justify-content:center!important;padding:7px!important;
+  }
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity.xd-fleet-sidebar-collapsed .xd-fleet-sidebar-footer{
+    justify-content:center!important;
+  }
+  /* Next's development error badge overlaps the bottom-left expand control.
+     In local dev only, raise that control; production retains the 3119 footer layout. */
+  body:has(nextjs-portal) .demo-shell.fleet-demo.xd-fleet-sidebar-parity.xd-fleet-sidebar-collapsed .xd-fleet-sidebar-footer{
+    margin-bottom:50px;
+  }
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar .brand{
+  display:block!important;flex:none;width:196px;height:64px;min-height:64px;
+  padding:0!important;margin:5px auto 13px!important;font-size:0!important;
+  color:transparent!important;line-height:0!important;letter-spacing:0!important;
+  background:url("/xdrive-logo-primary.png") center center/contain no-repeat!important;
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar .brand em{display:none!important}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar .side-caption{display:none!important}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar>button{
+  width:100%!important;min-height:39px!important;height:39px!important;flex:none;
+  margin:0 0 1px!important;padding:8px 10px!important;
+  display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:11px!important;
+  border:0!important;border-radius:8px!important;background:transparent!important;
+  box-shadow:none!important;color:#e5edf9!important;
+  font-family:Inter,Arial,sans-serif!important;font-size:14px!important;font-weight:600!important;
+  line-height:21px!important;white-space:nowrap!important;text-align:left!important;
+  cursor:pointer!important;
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar>button:hover{
+  background:#17365f!important;color:#fff!important;
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar>button.active,
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar>button.active:hover{
+  background:var(--fleet-sidebar-orange)!important;color:#fff!important;
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity .xd-fleet-nav-icon{
+  width:19px!important;min-width:19px!important;max-width:19px!important;
+  height:19px!important;min-height:19px!important;display:block;flex:none;
+  color:currentColor;stroke:currentColor;
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity .xd-fleet-sidebar-footer{
+  margin-top:auto;min-height:40px;padding:3px 10px 0;
+  position:sticky;bottom:0;display:flex;justify-content:flex-end;
+  background:var(--fleet-sidebar-navy);flex:none;z-index:3;
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity .xd-fleet-collapse{
+  border:0!important;background:transparent!important;color:#fff!important;
+  display:flex;justify-content:center;align-items:center;
+  width:34px!important;height:34px!important;min-height:34px!important;padding:4px!important;
+  border-radius:6px;cursor:pointer;
+}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity .xd-fleet-collapse:hover{background:#163b73!important}
+.demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar button:focus-visible{
+  outline:3px solid #f5a300!important;outline-offset:2px;
+}
+@media(max-width:850px){
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar{display:none!important}
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity>.content{
+    margin:0!important;width:100%!important;min-width:0!important;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .demo-shell.fleet-demo.xd-fleet-sidebar-parity>.sidebar{transition:none!important}
+}
