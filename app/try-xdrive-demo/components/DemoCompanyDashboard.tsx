@@ -3,7 +3,7 @@ import {useMemo} from "react";
 
 
 type Job={id:string;from:string;to:string;vehicle:string;cargo:string;company:string;status:string;price:number;driver:string;vehicleId:string;stage:number;pod:boolean};
-type Fleet={id:string;reg:string;type:string;driver:string;area:string;status:string};
+type Fleet={id:string;reg:string;vehicle:string;driver:string;location:string;status:string};
 export default function DemoCompanyDashboard({jobs,fleet,drivers,go}:{jobs:Job[];fleet:Fleet[];drivers:string[];go:(index:number)=>void}){
  const hasData=jobs.length>0;
  const active=jobs.filter(j=>j.status==="In Progress"||j.status==="Allocated").length;
