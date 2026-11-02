@@ -16,7 +16,7 @@ import "./broker.css";
 const nav=["Dashboard","Post Load","My Loads","Carrier Quotes","Awards","Bookings","Diary","POD Review","More","Network & Tools"];
 export default function BrokerDemo(){
 
-const [tab,setTab]=useState(0),[from,setFrom]=useState(""),[to,setTo]=useState(""),[pallets,setPallets]=useState(""),[weight,setWeight]=useState(""),[vehicle,setVehicle]=useState("Luton Van"),[customer,setCustomer]=useState(""),[sell,setSell]=useState(""),[published,setPublished]=useState(false);
+const [tab,setTab]=useState(0),[from,setFrom]=useState(""),[to,setTo]=useState(""),[pallets,setPallets]=useState(""),[weight,setWeight]=useState(""),[vehicle,setVehicle]=useState(""),[customer,setCustomer]=useState(""),[sell,setSell]=useState(""),[published,setPublished]=useState(false);
 const sharedLoads=useDemoLoads(),sharedQuotes=useDemoQuotes("received");
 
 const route=<div className="route"><div><small>COLLECTION · TODAY 10:00–12:00</small><strong>{from}</strong></div><span className="route-arrow">→</span><div><small>DELIVERY · SAME DAY ASAP</small><strong>{to}</strong></div></div>;

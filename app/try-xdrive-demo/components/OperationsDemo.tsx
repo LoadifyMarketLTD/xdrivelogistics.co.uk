@@ -4,7 +4,6 @@ import "../xdrive-design-system.css";
 import {useState} from "react";
 import {publishDemoLoad,useDemoLoads} from "./demoExchange";
 import DemoExchangeBoard from "./DemoExchangeBoard";
-import DemoMyQuotes from "./DemoQuotes";
 import DemoCompanyQuotes from "./DemoCompanyQuotes";
 import DemoNotifications from "./DemoNotifications";
 import DemoMessagesBoard from "./DemoMessagesBoard";
@@ -31,9 +30,9 @@ type Job={id:string;from:string;to:string;vehicle:string;cargo:string;company:st
 export default function OperationsDemo({role}:{role:Role}){
 const isDispatch=role==="Dispatcher";
 const sharedLoads=useDemoLoads();
-const sharedJobs:Job[]=sharedLoads.map(l=>({id:l.id,from:l.from,to:l.to,vehicle:l.vehicle,cargo:`${l.pallets||"0"} pallets  -  ${l.weight||"0"} kg`,company:l.customer||"Demo customer",status:l.podReceived?"Completed":l.status==="Awarded"?"In Progress":l.status,price:l.quote||0,driver:l.assignedDriver||"",vehicleId:l.assignedVehicleId||"",stage:l.deliveryStage||0,pod:Boolean(l.podReceived)}));
+const sharedJobs:Job[]=sharedLoads.map(l=>({id:l.id,from:l.from,to:l.to,vehicle:l.vehicle,cargo:`${l.pallets||"0"} pallets  -  ${l.weight||"0"} kg`,company:l.customer||"Customer not recorded",status:l.podReceived?"Completed":l.status==="Awarded"?"In Progress":l.status,price:l.quote||0,driver:l.assignedDriver||"",vehicleId:l.assignedVehicleId||"",stage:l.deliveryStage||0,pod:Boolean(l.podReceived)}));
 const nav=isDispatch?["Dashboard","Dispatch Board","Allocations","Live Jobs","Diary","Messages","Reports","Network & Tools"]:["Dashboard","Post Load","Loads","Quotes","Bookings","My Fleet","Drivers","Diary","Invoices","Network & Tools","Directory","Live Availability","Return Journeys","Freight Vision","Messages","Notifications","Reports"];
-const [companyDrivers,setCompanyDrivers]=useState<string[]>([]),[companyFleet,setCompanyFleet]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>([]),[tab,setTab]=useState(0),[jobs,setJobs]=useState<Job[]>([]),[selected,setSelected]=useState(""),[filter,setFilter]=useState("All"),[notes,setNotes]=useState(""),[incidents,setIncidents]=useState<string[]>([]),[paid,setPaid]=useState<string[]>([]),[search,setSearch]=useState("");
+const [companyDrivers,setCompanyDrivers]=useState<string[]>([]),[companyFleet,setCompanyFleet]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>([]),[tab,setTab]=useState(0),[jobs,setJobs]=useState<Job[]>([]),[selected,setSelected]=useState(""),[filter,setFilter]=useState("All"),[notes,setNotes]=useState(""),[incidents,setIncidents]=useState<string[]>([]),[_paid,_setPaid]=useState<string[]>([]),[search,setSearch]=useState("");
 const [directoryTarget,setDirectoryTarget]=useState<{id:string;name:string;kind:"Companies"|"Drivers";requestId:number}|null>(null);
 const job=sharedJobs.find(j=>j.id===selected)||jobs.find(j=>j.id===selected)||jobs[0];
 const show=(i:number)=>setTab(i);
