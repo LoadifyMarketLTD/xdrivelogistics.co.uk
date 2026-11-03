@@ -31,7 +31,8 @@ for(const role of ["customer","driver"]){
  const page=read("app/"+role+"/page.tsx");
  assert.ok(page.includes("MasterWorkspace"),role+" authenticated route must use the canonical Master");
  assert.ok(page.includes("authenticated dashboard="),role+" root must preserve its live operational dashboard");
- assert.ok(!page.includes("Company3150LiveProvider"),role+" must use only its native tenant-scoped dashboard");
+ if(role==="customer") assert.ok(!page.includes("Company3150LiveProvider"),"customer must not mount a carrier provider");
+ if(role==="driver") assert.ok(page.includes("role === 'Owner Driver' ? <Company3150LiveProvider>"),"carrier data provider must only mount for authorized Owner Driver");
  const layout=read("app/"+role+"/layout.tsx");
  assert.ok(layout.includes("ProtectedRoute"),role+" must retain ProtectedRoute");
  assert.ok(layout.includes("MasterLayoutGate"),role+" must avoid a duplicate sidebar while protecting child pages");

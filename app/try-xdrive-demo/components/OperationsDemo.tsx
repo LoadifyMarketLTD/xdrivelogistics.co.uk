@@ -38,7 +38,7 @@ type Role=MasterWorkspaceRole;
 type Job={id:string;from:string;to:string;vehicle:string;cargo:string;company:string;status:string;price:number;driver:string;vehicleId:string;stage:number;pod:boolean};
 const initial:Job[]=[];
 const fleet:{id:string;reg:string;type:string;driver:string;area:string}[]=[];
-export default function OperationsDemo({role,authenticated=false,dashboard}:{role:Role;authenticated?:boolean;dashboard?:ReactNode}){
+export default function OperationsDemo({role,authenticated=false,dashboard,initialTab=0}:{role:Role;authenticated?:boolean;dashboard?:ReactNode;initialTab?:number}){
 const live=useCompany3150Live();
 const preview=useMasterPreviewIsolation();
 const isDispatch=false;
@@ -47,14 +47,14 @@ const can=(action:Parameters<typeof masterWorkspaceCan>[1])=>masterWorkspaceCan(
 const sharedLoads=useDemoLoads();
 const sharedJobs:Job[]=sharedLoads.map(l=>({id:l.id,from:l.from,to:l.to,vehicle:l.vehicle,cargo:`${l.pallets||"0"} pallets Ã‚Â· ${l.weight||"0"} kg`,company:l.customer||"Demo customer",status:l.podReceived?"Completed":l.status==="Awarded"?"In Progress":l.status,price:l.quote||0,driver:l.assignedDriver||"",vehicleId:l.assignedVehicleId||"",stage:l.deliveryStage||0,pod:Boolean(l.podReceived)}));
 const nav=[...MASTER_WORKSPACE_TABS];
-const [companyDrivers,setCompanyDrivers]=useState<string[]>([]),[companyFleet,setCompanyFleet]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>(role==="Company / Carrier"?fleet.map(v=>({id:v.id,reg:v.reg,vehicle:v.type,driver:v.driver,status:"Available",location:v.area})):[]),[tab,setTab]=useState(0),[,setJobs]=useState<Job[]>(initial),[,setSelected]=useState(""),[filter,setFilter]=useState("All"),[search,setSearch]=useState("");
+const [companyDrivers,setCompanyDrivers]=useState<string[]>([]),[companyFleet,setCompanyFleet]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>(role==="Company / Carrier"?fleet.map(v=>({id:v.id,reg:v.reg,vehicle:v.type,driver:v.driver,status:"Available",location:v.area})):[]),[tab,setTab]=useState(initialTab),[,setJobs]=useState<Job[]>(initial),[,setSelected]=useState(""),[filter,setFilter]=useState("All"),[search,setSearch]=useState("");
 const realDrivers=live?live.data.drivers.map(d=>d.display_name||"Unnamed driver"):companyDrivers;
 const realFleet=live?live.data.vehicles.map(v=>({id:v.id,reg:v.reg_plate||"Not recorded",vehicle:v.type||"Not recorded",driver:live.data.drivers.find(d=>d.id===v.assigned_driver_id)?.display_name||"Unassigned",status:"Not verified",location:"Not recorded"})):companyFleet;
 const show=(i:number)=>setTab(i);
 const list=(items:Job[],actions=true)=><div className="ops-job-list">{items.map(j=><article className="ops-job" key={j.id}><div className="ops-job-top"><strong>{j.company}</strong><small>{j.id} Ã‚Â· {j.status}</small></div><div className="ops-route"><div><small>COLLECTION</small><b>{j.from}</b></div><span>Ã¢â€ â€™</span><div><small>DELIVERY</small><b>{j.to}</b></div></div><div className="facts"><span>{j.vehicle}</span><span>{j.cargo}</span><span>30 days EOM</span><span>POD {j.pod?"received":"required"}</span></div><div className="ops-job-bottom"><small>{j.driver?j.driver+" Ã‚Â· "+j.vehicleId:"Unallocated"} Ã‚Â· Ã‚Â£{j.price}</small>{actions&&<button className="outline" onClick={()=>{setSelected(j.id);show(isDispatch?2:4)}}>View & manage Ã¢â€ â€™</button>}</div></article>)}</div>;
 return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><ApprovedSidebar items={nav} activeIndex={tab} onSelect={show} /><div className="content"><header className="topbar"><div className="mobile-brand">XDRIVE <em>LOGISTICS</em></div><div className="top-actions">{!live&&<><Link href="/try-xdrive">All workspaces</Link><Link href={isDispatch?"/try-xdrive-company-demo":"/try-xdrive-dispatcher-demo"}>{isDispatch?"Company Demo":"Dispatcher Demo"}</Link></>}</div></header><nav className="mobile-tabs">{nav.map((n,i)=><button key={n} className={tab===i?"active":""} onClick={()=>show(i)}>{n}</button>)}</nav><div className="page"><div className="page-head">{!((tab===0)||(!isDispatch&&(tab===2||tab===4||tab===5||tab===6||tab===7||tab===10||tab===15))||(isDispatch&&(tab===1||tab===2||tab===4)))&&<h1>{nav[tab]}</h1>}</div>
-{realOperational&&tab===0&&dashboard}
-{realOperational&&tab!==0&&<MasterOperationalSection role={role} tab={nav[tab]}/>}
+{realOperational&&tab===initialTab&&dashboard}
+{realOperational&&tab!==initialTab&&<MasterOperationalSection role={role} tab={nav[tab]}/>}
 {!realOperational&&<>
 {!isDispatch&&tab===10&&(preview?<MasterOperationalSection role={role} tab="Directory" preview/>:live?<MemberDirectoryPage/>:<NetworkTools role="Company" initialView="Directory" showTabs={false}/>)}
 {!isDispatch&&tab===11&&(<DemoLiveAvailability/>)}
