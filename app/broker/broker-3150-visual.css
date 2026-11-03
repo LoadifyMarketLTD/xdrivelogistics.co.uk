@@ -1,0 +1,259 @@
+/* Company 3150 visual contract adapted to authenticated Broker routes.
+ * Visual shell only; the real TopWorkspaceShell, API and permissions remain intact.
+ */
+@media (min-width: 851px) {
+  .xdrive-broker-workspace .broker3118-app.broker3150-visual {
+    display: block !important;
+    background: #f4f6f8 !important;
+    min-height: calc(100vh - 50px) !important;
+    font-family: Inter, Arial, sans-serif !important;
+    font-size: 14px !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual > .broker3118-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 224px !important;
+    min-width: 224px !important;
+    max-width: 224px !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    z-index: 100 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-self: auto !important;
+    gap: 0 !important;
+    padding: 10px 8px 8px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+    background: #071d43 !important;
+    box-shadow: none !important;
+    transition: width .18s ease !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual > .broker3118-main {
+    display: block !important;
+    margin-left: 224px !important;
+    width: calc(100% - 224px) !important;
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual.broker3150-collapsed > .broker3118-sidebar {
+    width: 68px !important;
+    min-width: 68px !important;
+    max-width: 68px !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual.broker3150-collapsed > .broker3118-main {
+    margin-left: 68px !important;
+    width: calc(100% - 68px) !important;
+  }
+}
+.xdrive-broker-workspace .broker3150-visual > .broker3118-sidebar .broker3118-brand {
+  display: block !important;
+  flex: none !important;
+  width: 196px !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  padding: 0 !important;
+  margin: 5px auto 13px !important;
+  font-size: 0 !important;
+  background: url("/xdrive-logo-primary.png") center center / contain no-repeat !important;
+  color: transparent !important;
+  text-decoration: none !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-brand-text {
+  display: inline-block !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-links {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-link {
+  width: 100% !important;
+  height: 39px !important;
+  min-height: 39px !important;
+  flex: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 11px !important;
+  padding: 8px 10px !important;
+  margin: 0 0 1px !important;
+  border: 0 !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  font-family: Inter, Arial, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  line-height: 21px !important;
+  white-space: nowrap !important;
+  text-align: left !important;
+  text-decoration: none !important;
+  color: #e5edf9 !important;
+  background: transparent !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-link:hover {
+  color: #fff !important;
+  background: #17365f !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-link.active,
+.xdrive-broker-workspace .broker3150-visual .broker3118-link.active:hover {
+  color: #fff !important;
+  background: #ff7900 !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-icon {
+  display: block !important;
+  width: 19px !important;
+  min-width: 19px !important;
+  height: 19px !important;
+  flex: none !important;
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3150-sidebar-footer {
+  display: flex !important;
+  justify-content: flex-end !important;
+  flex: none !important;
+  min-height: 40px !important;
+  margin-top: auto !important;
+  padding: 3px 10px 0 !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  background: #071d43 !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3150-sidebar-footer > button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 4px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: #fff !important;
+  cursor: pointer !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3150-sidebar-footer > button:hover {
+  background: #163b73 !important;
+}
+.xdrive-broker-workspace .broker3150-visual :is(.broker3118-link, .broker3150-sidebar-footer button):focus-visible {
+  outline: 3px solid #f5a300 !important;
+  outline-offset: 2px !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-content {
+  padding: 12px 30px 22px !important;
+  min-width: 0 !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-dashboard h1 {
+  font-size: 32px !important;
+  line-height: 1.25 !important;
+  font-weight: 850 !important;
+  color: #0b1736 !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-dashboard {
+  font-size: 14px !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-dashboard :is(.broker3118-metrics, .broker3118-panel) {
+  border-radius: 11px;
+}
+@media (min-width: 851px) {
+  .xdrive-broker-workspace .broker3150-visual.broker3150-collapsed .broker3118-brand {
+    width: 50px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    background-position: center !important;
+    background-size: cover !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual.broker3150-collapsed .broker3118-link {
+    justify-content: center !important;
+    padding: 7px !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual.broker3150-collapsed .broker3118-label {
+    display: none !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual.broker3150-collapsed .broker3150-sidebar-footer {
+    justify-content: center !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+@media (max-width: 850px) {
+  .xdrive-broker-workspace .broker3150-visual {
+    display: block !important;
+    min-width: 0 !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual > .broker3118-sidebar {
+    display: none !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual > .broker3118-main {
+    margin: 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual .broker3118-mobile {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 5px !important;
+    background: #fff !important;
+    border-bottom: 1px solid #e0e6ee !important;
+    padding: 8px 12px !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual .broker3118-mobile a {
+    white-space: nowrap !important;
+    background: transparent !important;
+    color: #64748b !important;
+    border-radius: 0 !important;
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+    font-weight: 750 !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual .broker3118-mobile a.active {
+    color: #0b2f6b !important;
+    border-bottom: 3px solid #1d57d8 !important;
+  }
+  .xdrive-broker-workspace .broker3150-visual .broker3118-content {
+    padding: 18px 12px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .xdrive-broker-workspace .broker3150-visual > .broker3118-sidebar {
+    transition: none !important;
+  }
+}
+
+/* Cross-page 3150 spacing and typographic rhythm; retains functional page contents. */
+.xdrive-broker-workspace .broker3150-visual .broker3118-content :is(.xdrive-page-header__title, .ws-page-frame h1, .xdrive-page-frame h1) {
+  color: #0b1736 !important;
+  font-family: Inter, Arial, sans-serif !important;
+  font-size: 32px !important;
+  line-height: 1.3 !important;
+  font-weight: 850 !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-content :is(.xdrive-page-header, .ws-page-frame, .xdrive-page-frame) {
+  min-width: 0 !important;
+  max-width: none !important;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-content :is(.broker3118-panel, .xdrive-page-frame section, .xdrive-page-frame article) {
+  border-radius: 11px;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-content :is(button, input, select, textarea, a) {
+  font-family: Inter, Arial, sans-serif;
+}
+.xdrive-broker-workspace .broker3150-visual .broker3118-content :is(.xdrive-page-header__description, .ws-page-frame p) {
+  line-height: 1.5;
+}
+@media(max-width:850px){
+  .xdrive-broker-workspace .broker3150-visual .broker3118-content :is(.xdrive-page-header__title, .ws-page-frame h1, .xdrive-page-frame h1) {
+    font-size: 24px !important;
+  }
+}

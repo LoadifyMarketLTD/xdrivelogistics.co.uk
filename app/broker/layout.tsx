@@ -6,6 +6,7 @@ import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import './broker-dashboard-convergence.css';
 import './broker-3118.css';
+import './broker-3150-visual.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
 import '../admin/carrier-workspace-canonical.css';
 import '../components/workspace/dashboard-compact-global.css';
