@@ -1,3 +1,4 @@
-import OperationsDemo from "../try-xdrive-demo/components/OperationsDemo";
-export const metadata={title:"XDrive Dispatcher Demo",robots:{index:false,follow:false}};
-export default function Page(){return <OperationsDemo role="Dispatcher"/>}
+import MasterWorkspace from "../try-xdrive-demo/components/MasterWorkspace";
+export const dynamic = "force-dynamic";
+export const metadata={title:"XDrive Dispatcher Workspace",robots:{index:false,follow:false}};
+export default function Page(){return <MasterWorkspace role="Dispatcher"/>;}

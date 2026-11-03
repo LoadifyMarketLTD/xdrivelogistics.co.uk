@@ -5,12 +5,12 @@ import "./demo-drivers-board.css";
 import DemoDriverProfile from "./DemoDriverProfile";
 type Vehicle={id:string;reg:string;vehicle:string;driver:string;status:string;location:string};
 const demo=[["John P.","DX26 LTN","Luton (Tail Lift)","Available","Compliant"],["Mark R.","DX24 FHD","7.5 Tonne","On Job","Compliant"],["Alex M.","DX23 VBY","LWB Van","Available","Compliant"],["David S.","DX72 KTU","Luton (Tail Lift)","Off Duty","Expiring Soon"],["Paul T.","DX18 YZP","7.5 Tonne","On Job","Compliant"]];
-export default function DemoDriversBoard({drivers,vehicles,onFleet}:{drivers:string[];vehicles:Vehicle[];onFleet:()=>void}){
+export default function DemoDriversBoard({drivers,vehicles,onFleet,suppressPreview=false}:{drivers:string[];vehicles:Vehicle[];onFleet:()=>void;suppressPreview?:boolean}){
 const real=useCompany3150Live();
 const [tab,setTab]=useState("All Drivers"),[query,setQuery]=useState(""),[status,setStatus]=useState("Any Status"),[compliance,setCompliance]=useState("Any Compliance"),[selected,setSelected]=useState(""),[sort,setSort]=useState("Name (A-Z)");
-const preview=!real&&drivers.length<5;
-const availableCount=real?real.data.drivers.filter(d=>(d.availability_status||"").toLowerCase()==="available").length:8;
-const onJobCount=real?real.data.drivers.filter(d=>["on_job","on job","busy"].includes((d.availability_status||"").toLowerCase())).length:4;
+const preview=!real&&!suppressPreview&&drivers.length<5;
+const availableCount=real?real.data.drivers.filter(d=>(d.availability_status||"").toLowerCase()==="available").length:suppressPreview?0:8;
+const onJobCount=real?real.data.drivers.filter(d=>["on_job","on job","busy"].includes((d.availability_status||"").toLowerCase())).length:suppressPreview?0:4;
 const rows=preview?demo.map((d,i)=>({name:d[0],reg:d[1],vehicle:d[2],status:d[3],compliance:d[4],id:"SAMPLE-"+(i+1)})):drivers.map((name,i)=>({name,reg:vehicles.find(v=>v.driver===name)?.reg||"Unassigned",vehicle:vehicles.find(v=>v.driver===name)?.vehicle||"No vehicle",status:real?((real.data.drivers[i]?.availability_status||"Not recorded").toLowerCase()==="available"?"Available":["on_job","on job","busy"].includes((real.data.drivers[i]?.availability_status||"").toLowerCase())?"On Job":"Off Duty"):vehicles.find(v=>v.driver===name)?.status==="Available"?"Available":"Off Duty",compliance:"Not verified",id:real?.data.drivers[i]?.id||"DR-"+(i+1)}));
 const filtered=rows.filter(d=>(tab==="All Drivers"||tab==="Available"&&d.status==="Available"||tab==="On Job"&&d.status==="On Job"||tab==="Off Duty"&&d.status==="Off Duty"||tab==="Expiring Docs"&&d.compliance==="Expiring Soon")&&(status==="Any Status"||d.status===status)&&(compliance==="Any Compliance"||d.compliance===compliance)&&[d.name,d.reg].join(" ").toLowerCase().includes(query.toLowerCase())).sort((a,b)=>sort==="Name (Z-A)"?b.name.localeCompare(a.name):a.name.localeCompare(b.name));
 const detail=rows.find(d=>d.name===selected);
