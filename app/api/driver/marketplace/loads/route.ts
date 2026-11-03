@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { operationalError } from '../../../_lib/operationalError';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
+  marketplaceCoordinates,
   marketplaceNumber,
   marketplaceText,
   proposedPriceAmount,
@@ -138,8 +139,9 @@ function publicLoad(
     direct_delivery_required: job.direct_delivery_required === true,
     distance_miles: marketplaceNumber(job.job_distance_miles ?? job.distance_miles),
     distance_minutes: marketplaceNumber(job.job_distance_minutes),
-    distance_to_pickup_miles: marketplaceNumber(job.distance_to_pickup_miles),
-    pickup_eta_minutes: marketplaceNumber(job.pickup_eta_minutes),
+    // Driver-specific pickup proximity is added only after verified GPS lookup.
+    distance_to_pickup_miles: null,
+    pickup_eta_minutes: null,
     is_fixed_price: job.is_fixed_price === true,
     budget_amount: proposedPriceAmount(job.budget_amount),
     currency: marketplaceText(job.currency) ?? 'GBP',
@@ -336,11 +338,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
   ]);
 
-  const validCoordinates = (lat: unknown, lng: unknown) => {
-    const parsedLat = Number(lat);
-    const parsedLng = Number(lng);
-    return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
-  };
+  const validCoordinates = marketplaceCoordinates;
   const latestPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
   const recordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
   const jobLocationFresh = latestPosition !== null
@@ -371,10 +369,12 @@ export async function GET(request: NextRequest) {
     const distanceToDeliveryMiles = driverPosition && delivery
       ? Number(distanceMiles(driverPosition, delivery).toFixed(1))
       : null;
+    // These are driver-specific metrics. Never re-use a generic job distance or ETA
+    // as if it had been measured from a driver whose GPS position is unknown.
     let distanceToPickupMiles = driverPosition && pickup
       ? Number(distanceMiles(driverPosition, pickup).toFixed(1))
-      : marketplaceNumber(job.distance_to_pickup_miles);
-    let pickupEtaMinutes = marketplaceNumber(job.pickup_eta_minutes);
+      : null;
+    let pickupEtaMinutes: number | null = null;
 
     // The list endpoint must not wait on external routing/geocoding per job.
     // A single Load Detail request may enrich exact road distance/ETA on demand.
