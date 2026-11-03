@@ -14,6 +14,9 @@ import PostLoadDemo from "../try-xdrive-demo/components/PostLoadDemo";
 import DemoBookingOverview from "../try-xdrive-demo/components/DemoBookingOverview";
 import DemoNotifications from "../try-xdrive-demo/components/DemoNotifications";
 import DemoDriverTools from "../try-xdrive-demo/components/DemoDriverTools";
+import DemoReturnJourneys from "../try-xdrive-demo/components/DemoReturnJourneys";
+import DemoFreightVision from "../try-xdrive-demo/components/DemoFreightVision";
+import DemoLiveAvailability from "../try-xdrive-demo/components/DemoLiveAvailability";
 import "../try-xdrive-demo/demo.css";
 import "../try-xdrive-demo/wide-layout.css";
 const nav=["Dashboard","Loads","My Quotes","Bookings","More","Network & Tools","Diary","Invoices","Directory","Live Availability","Return Journeys","Freight Vision","Messages","Notifications","Reports","My Fleet","Drivers & Vehicles"];
@@ -31,10 +34,12 @@ return <main className="demo-shell xd-approved-sidebar-shell"><ApprovedSidebar i
 {tab===17&&<FindLoads/>}
 {tab===6&&<DemoBookingOverview view="diary"/>}
 {tab===7&&<div className="panel"><h2>Invoices & Earnings</h2><p>Invoices become available after completed delivery and POD. Settlement is directly between parties; no escrow.</p><button className="outline" onClick={()=>setTab(3)}>View completed bookings and invoices</button></div>}
-{[8,9,10,11,12,14].includes(tab)&&<NetworkTools role="Owner Driver" initialView={nav[tab]} showTabs={false}/>}
+{[8,12,14].includes(tab)&&<NetworkTools role="Owner Driver" initialView={nav[tab]} showTabs={false}/>}
+{tab===9&&<DemoLiveAvailability/>}{tab===10&&<DemoReturnJourneys/>}{tab===11&&<DemoFreightVision onLoads={()=>setTab(1)}/>}
 {tab===13&&<DemoNotifications onNavigate={setTab}/>}
 {tab===15&&<div className="panel"><h2>My Fleet</h2><p>Manage your own vehicle, availability and transport documents.</p><DemoDriverTools role="Owner Driver"/></div>}
 {tab===16&&<div className="panel"><h2>Driver & Vehicle Documents</h2><p>Owner Driver compliance and vehicle records.</p><DemoDriverTools role="Owner Driver"/></div>}
 {tab===18&&<><div className="actions"><button className="outline" onClick={()=>setTab(4)}> Back to More</button></div><PostLoadDemo role="Customer" from="Birmingham B6" to="Manchester M1" vehicle="Luton Van" pallets="2" weight="450" onPublish={async(data)=>{await publishDemoLoad(data);setPostedRoute(data.from+"  "+data.to);setDemoPosted(true);setTab(0)}}/></>}
 </div></div></main>;
 }
+
