@@ -4,6 +4,11 @@ import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverCon
 
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
+const ACTIVE_JOB_STATUSES = new Set([
+  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
+  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery',
+  'on_site_delivery', 'arrived_delivery',
+]);
 // Public Exchange coordinates are approximate (about 1 km), never exact GPS.
 function roundedForExchange(value: number): number {
   return Math.round(value * 100) / 100;
@@ -39,6 +44,26 @@ async function ensureAvailabilityEligible(
     if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
     return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
   }
+
+  // A driver with an active assigned job must not advertise live availability.
+  // Check both canonical and historical status fields at the database boundary.
+  const driverId = driver.id;
+  const activeStatuses = [...ACTIVE_JOB_STATUSES].join(',');
+  const { data: activeAssignments, error: assignmentsError } = await supabaseAdmin!
+    .from('jobs')
+    .select('id')
+    .eq('assigned_driver_id', driverId)
+    .or(`current_status.in.(${activeStatuses}),status.in.(${activeStatuses})`)
+    .limit(1);
+  if (assignmentsError) {
+    return NextResponse.json({ error: 'Assigned jobs could not be verified safely.' }, { status: 503 });
+  }
+  if (activeAssignments?.length) {
+    if (!(await clearPresence())) {
+      return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
+    }
+    return NextResponse.json({ error: 'Availability sharing is disabled while you have an active assigned job.' }, { status: 409 });
+  }
   return null;
 }
 
@@ -52,8 +77,11 @@ function parseCoordinates(body: { lat?: number; lng?: number }) {
 export async function GET(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
-  const eligibilityError = await ensureAvailabilityEligible(auth.driver);
-  if (eligibilityError) return NextResponse.json({ active: false, presence: null });
+  const eligibilityError = await ensureAvailabilityEligible(auth.driver, true);
+  if (eligibilityError) {
+    if (eligibilityError.status === 409) return NextResponse.json({ active: false, presence: null });
+    return eligibilityError;
+  }
 
   const { data, error } = await supabaseAdmin!
     .from('driver_availability_presence')
