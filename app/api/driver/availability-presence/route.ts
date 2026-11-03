@@ -13,7 +13,11 @@ const ACTIVE_JOB_STATUSES = new Set([
 function roundedForExchange(value: number): number {
   return Math.round(value * 100) / 100;
 }
-async function authenticatedDriver(request: NextRequest) {
+type AvailabilityDriver = { id: string; company_id?: string | null; availability_status?: string | null };
+
+async function authenticatedDriver(
+  request: NextRequest,
+): Promise<{ error: NextResponse } | { driver: AvailabilityDriver }> {
   const context = await requireActiveWebDriver(request);
   if (!isWebDriverContext(context)) return { error: context };
 
