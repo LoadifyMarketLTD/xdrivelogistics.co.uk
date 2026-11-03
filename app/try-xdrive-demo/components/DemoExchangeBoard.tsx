@@ -8,7 +8,7 @@ import DemoQuotePanel from "./DemoQuotePanel";
 import XDriveLoadCard from "./XDriveLoadCard";
 import "./xdrive-unified-board.css";
 
-type Role="Driver"|"Company Driver"|"Fleet"|"Broker"|"Customer"|"Carrier"|"Dispatcher";
+type Role="Owner Driver"|"Driver"|"Company Driver"|"Fleet"|"Broker"|"Customer"|"Carrier"|"Dispatcher";
 const routes=[
 ["Blackburn, BB1","Erith, DA8","Luton (Tail Lift)","4","1200","General Freight","14 Days (From Invoice)","Skyhaul Logistics Ltd","Same Day"],
 ["Preston, PR1","St Helens, WA11","7.5 Tonne","6","2400","Palletised","End of Calendar Month","Baron Logistics Ltd","Next Day"],
@@ -20,7 +20,7 @@ const routes=[
 const fixtures:DemoLoad[]=Array.from({length:56},(_,i)=>{const r=routes[i%routes.length];return {id:"XDR-"+String(10457+i),from:r[0],to:r[1],vehicle:r[2],pallets:r[3],weight:r[4],packaging:r[5],paymentTerms:r[6],customer:r[7],service:r[8],pickupDate:new Date(Date.UTC(2026,9,31+i%12)).toISOString().slice(0,10),deliveryMode:"ASAP",postedAt:new Date(Date.UTC(2026,9,30)).toISOString(),status:"Open",sell:"",readOnly:true}});
 
 export default function DemoExchangeBoard({role}:{role:Role}){
- const canQuote=["Driver","Fleet","Carrier","Broker"].includes(role);
+ const canQuote=["Owner Driver","Driver","Fleet","Carrier","Broker"].includes(role);
  const live=useDemoLoads(),exchange=useExchangeLoads();
  
  const [tab,setTab]=useState("All Loads"),[from,setFrom]=useState(""),[to,setTo]=useState(""),[radius,setRadius]=useState("10"),[vehicle,setVehicle]=useState(""),[service,setService]=useState(""),[date,setDate]=useState(""),[same,setSame]=useState(false),[next,setNext]=useState(false),[sort,setSort]=useState("new"),[page,setPage]=useState(1),[map,setMap]=useState(false),[selected,_setSelected]=useState<string|null>(null),[details,setDetails]=useState<string|null>(null),[quoteLoad,setQuoteLoad]=useState<string|null>(null),[amount,setAmount]=useState(""),[_notice,setNotice]=useState("");
@@ -66,4 +66,5 @@ export default function DemoExchangeBoard({role}:{role:Role}){
   ]}/>:null})()}  {map?<div className="xd-map-placeholder"><strong>Map view</strong><p>Map data is not available in this visual preview. Switch to list view to browse loads.</p></div>:visible.map(x=>{const active=selected===x.id;return <XDriveLoadCard key={x.id} data={{id:x.id,from:x.from,to:x.to,date:x.pickupDate||"2026-10-31",status:x.service||"On Demand",vehicle:x.vehicle,cargo:String(x.pallets||"-")+" "+(x.packaging==="Boxes"?"Boxes":"Pallets"),weight:String(x.weight||"-")+" kg",packaging:x.packaging||"General Freight",paymentTerms:x.paymentTerms,collection:x.pickupDate,delivery:x.deliveryDate||x.deliveryMode||"ASAP",company:x.customer,memberId:preview?"DEMO-"+x.id.slice(-4):x.id.slice(0,8)}} onDetails={()=>setDetails(x.id)} actions={<button className="quote" onClick={()=>{if(canQuote)setQuoteLoad(x.id);else setDetails(x.id);setNotice("")}}>{canQuote?"Quote Now":"View Load"}</button>} extra={active?<div className="xd-card-expanded"><strong>Load details</strong><p>Pickup: {x.from} Â· Delivery: {x.to} Â· Vehicle: {x.vehicle} Â· Payment: {x.paymentTerms}</p>{!preview&&canQuote&&<div className="xd-inline-quote"><label>Quote (GBP excl. VAT) <input type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)}/></label><button disabled={!(Number(amount)>0)} onClick={()=>submitDemoQuote(x.id,role,Number(amount)).then(()=>setNotice("Quote submitted")).catch(e=>setNotice(e.message))}>Submit Quote</button></div>}{preview&&<p>Preview only - no booking or quote has been submitted.</p>}</div>:undefined}/>})}
   {!map&&pageCount>1&&<nav className="xd-board-pagination" aria-label="Load pages"><button disabled={page<=1} onClick={()=>setPage(v=>v-1)}>Previous</button><span>Page {Math.min(page,pageCount)} of {pageCount}</span><button disabled={page>=pageCount} onClick={()=>setPage(v=>v+1)}>Next</button></nav>}\n  </main></div></section>;
 }
+
 

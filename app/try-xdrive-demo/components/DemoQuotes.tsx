@@ -11,7 +11,7 @@ export async function submitDemoQuote(loadId:string,role:string,amount:number,de
 export async function withdrawDemoQuote(id:string){const r=await authenticatedDemoFetch("/api/try-xdrive-demo/quotes",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status:"Withdrawn"})});if(!r.ok)throw Error("Could not withdraw quote");window.dispatchEvent(new Event("xdrive-demo-quote-change"))}
 export default function DemoMyQuotes({role:_role="Driver"}:{role?:string}){
  const quotes=useDemoQuotes(),loads=useDemoLoads(),[error,setError]=useState(""),[tab,setTab]=useState("All"),[search,setSearch]=useState(""),[sort,setSort]=useState("Newest First"),[selected,setSelected]=useState<Quote|null>(null);
- const data=useMemo(()=>quotes.filter(q=>(tab==="All"||q.status===tab)&&(!search||[q.id,q.loadId,q.route?.from,q.route?.to,loads.find(l=>l.id===q.loadId)?.from,loads.find(l=>l.id===q.loadId)?.to].join(" ").toLowerCase().includes(search.toLowerCase()))).sort((a,b)=>sort==="Price (Highest)"?b.amount-a.amount:sort==="Price (Lowest)"?a.amount-b.amount:new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()),[quotes,loads,tab,search,sort]);
+ const data=useMemo(()=>quotes.filter(q=>(_role!=="Owner Driver"||(q.role==="Owner Driver"||q.role==="Driver"))&&(tab==="All"||q.status===tab)&&(!search||[q.id,q.loadId,q.route?.from,q.route?.to,loads.find(l=>l.id===q.loadId)?.from,loads.find(l=>l.id===q.loadId)?.to].join(" ").toLowerCase().includes(search.toLowerCase()))).sort((a,b)=>sort==="Price (Highest)"?b.amount-a.amount:sort==="Price (Lowest)"?a.amount-b.amount:new Date(b.createdAt).getTime()-new Date(a.createdAt).getTime()),[quotes,loads,tab,search,sort,_role]);
  const counts=(s:string)=>s==="All"?quotes.length:quotes.filter(q=>q.status===s).length;
  return <section className="xd-quotes-page">
   <header className="xd-quotes-heading"><h1>Quotes</h1><p>Manage your submitted freight quotations and their status</p></header>
@@ -27,5 +27,7 @@ export default function DemoMyQuotes({role:_role="Driver"}:{role?:string}){
   {error&&<p role="alert">{error}</p>}
  </section>
 }
+
+
 
 
