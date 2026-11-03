@@ -34,3 +34,12 @@ See SEVEN_WORKSPACES_ORIGINAL_BOARDS_AUDIT.md for exact mappings, source, role b
 2026-11-03: Continued PR #757; original My Fleet/Drivers cards reused in Fleet and Owner Driver using suppressPreview to avoid sample fallback; scoped ESLint 0, tsc 0. Browser preview pending. No main merge.
 
 2026-11-03: Existing Employee Driver preview source located and recovered as separate route; ESLint PASS and tsc PASS. Employee authenticated E2E still pending.
+
+## Hosted verification completed, 2026-11-03
+- Head 8ed8a684, PR #757 Draft, base main. Netlify deploy preview #757 READY on exact head.
+- Playwright desktop: all nine route previews HTTP 200; 92 role-appropriate sidebar tabs total (Customer 7, Broker 10, Company 17, Fleet 10, Dispatcher 8, Owner Driver 18, Driver 7, Company Driver 6, Employee Driver 9), zero page JavaScript errors, no document overflow. Fleet and Owner Driver original My Fleet board rendered successfully. Company Driver 3 separate stability passes of 6 tabs.
+- Playwright mobile viewport 390x844: all 9/9 routes HTTP 200, mobile tabs visible, left sidebar hidden, document width 390 with no overflow, zero JS errors. See nine-workspaces-browser-audit.json and mobile-nine-workspaces.log.
+- /admin and /broker unauthenticated redirect 307. /api/workspace/messages, /api/workspace/notifications and /api/directory unauthenticated return 401. TypeScript --noEmit PASS, ESLint PASS, diff --check PASS.
+- LIMITS: no authenticated tenant E2E, no real invoice/award/POD writes, no OPPO physical-device QA, no comprehensive visual pixel comparison. Original public demo fixtures remain where those demo boards were intentionally preserved. Production main is NOT modified, PR remains Draft.
+
+2026-11-03 Company sidebar tab parity: branch feature/role-tab-company-parity-20261103. Reuses original Company Dashboard, Quotes, Bookings and Network & Tools in Customer/Broker/Fleet/Owner Driver; original Quotes/Bookings and restricted Network Tools in Driver/Company Driver; Dispatcher Network original. Authenticated Broker UI aligned, ProtectedRoute retained and Company3150LiveProvider added, writes routed to native broker pages. Full tsc PASS with NODE_OPTIONS=--max-old-space-size=2048; ESLint PASS, git diff check PASS. Details ROLE_TAB_COMPANY_PARITY_AUDIT_20261103.md. Pending: hosted visual/mobile E2E, real auth, production. No main merge.
