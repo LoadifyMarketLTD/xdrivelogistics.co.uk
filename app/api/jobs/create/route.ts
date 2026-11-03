@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
 
   const membershipRole = String(membership?.role_in_company ?? '').trim().toLowerCase();
   let canPostForCompany = ['owner', 'admin', 'dispatcher'].includes(membershipRole);
-  if (!canPostForCompany && input.mode === 'broker' && membershipRole === 'member') {
+  if (!canPostForCompany && (input.mode === 'broker' || input.mode === 'customer') && membershipRole === 'member') {
     const { data: brokerProfile, error: brokerProfileError } = await supabaseAdmin
       .from('profiles')
       .select('role,status,company_id')
@@ -207,14 +207,14 @@ export async function POST(request: NextRequest) {
     if (brokerProfileError) {
       return operationalError({
         status: 500,
-        message: 'We could not verify your broker workspace access. Please try again.',
+        message: 'We could not verify your workspace access. Please try again.',
         context: `jobs.create.broker-profile.company:${input.companyId}.user:${authData.user.id}`,
         cause: brokerProfileError,
         retryable: true,
       });
     }
     canPostForCompany =
-      String(brokerProfile?.role ?? '').trim().toLowerCase() === 'broker'
+      String(brokerProfile?.role ?? '').trim().toLowerCase() === input.mode
       && String(brokerProfile?.status ?? '').trim().toLowerCase() === 'active'
       && String(brokerProfile?.company_id ?? '') === input.companyId;
   }
