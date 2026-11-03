@@ -61,3 +61,24 @@
 .broker3118-steps a span:last-child{margin-left:auto;color:#1d57d8}
 @media(max-width:850px){.broker3118-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:500px){.broker3118-metrics{grid-template-columns:1fr}.broker3118-route{gap:8px}.broker3118-panel{padding:14px}}
+
+
+/* Extend 3118 visual system to every existing Broker operation page, preserving
+   live Supabase-backed forms, quotes, award controls and document workflows. */
+.broker3118-content .xdrive-page-frame{width:100%;max-width:none!important;margin:0!important;padding:0!important;background:transparent!important}
+.broker3118-content .xdrive-page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 18px!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
+.broker3118-content .xdrive-page-header__eyebrow{color:#64748b;font-size:10px;font-weight:800;letter-spacing:.5px}
+.broker3118-content .xdrive-page-header__title{color:#0b2f6b!important;font-size:26px!important;line-height:1.25!important;font-weight:800!important;letter-spacing:normal!important}
+.broker3118-content .xdrive-page-header__description{font-size:12px!important;line-height:1.5!important;color:#64748b!important}
+.broker3118-content .workspace-tab-strip{display:flex;flex-wrap:wrap;gap:2px;background:transparent!important;border:0!important;border-bottom:1px solid #dce5f0!important;padding:0!important;margin:0 0 18px!important;border-radius:0!important;box-shadow:none!important}
+.broker3118-content .workspace-tab-strip a,.broker3118-content .workspace-tab-strip button{min-height:42px!important;padding:10px 13px!important;border:0!important;border-bottom:3px solid transparent!important;border-radius:0!important;background:transparent!important;color:#1a1f2b!important;font-size:12px!important;font-weight:750!important}
+.broker3118-content .workspace-tab-strip [aria-selected="true"],.broker3118-content .workspace-tab-strip [data-active="true"]{border-bottom-color:#f5a300!important;color:#0b2f6b!important}
+.broker3118-content .xdrive-page-frame :is(input,select,textarea){font-family:Inter,Arial,sans-serif;border-color:#cbd5e1;border-radius:6px}
+.broker3118-content .xdrive-page-frame :is(section,article){border-radius:9px}
+.broker3118-content .xdrive-page-frame :is(h1,h2,h3){font-family:Inter,Arial,sans-serif}
+.broker3118-content .xdrive-page-frame :is(h2,h3){color:#0b2f6b}
+.broker3118-content .xdrive-page-frame :is(button,[role="button"]){font-family:Inter,Arial,sans-serif}
+.broker3118-content .xdrive-page-frame :is(table){width:100%;border-collapse:separate;border-spacing:0}
+.broker3118-content .xdrive-page-frame :is(th){background:#f6f9fd;color:#0b2f6b;font-size:11px;font-weight:800}
+.broker3118-content .xdrive-page-frame :is(td){font-size:12px}
+@media(max-width:650px){.broker3118-content .xdrive-page-header__title{font-size:22px!important}.broker3118-content .workspace-tab-strip{flex-wrap:nowrap;overflow-x:auto}.broker3118-content .workspace-tab-strip a{white-space:nowrap}}
