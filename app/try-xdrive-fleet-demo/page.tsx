@@ -11,7 +11,7 @@ import DemoMyQuotes,{useDemoQuotes} from "../try-xdrive-demo/components/DemoQuot
 import DemoExchangeBoard from "../try-xdrive-demo/components/DemoExchangeBoard";
 import NetworkTools from "../try-xdrive-demo/components/NetworkTools";
 import PostLoadDemo from "../try-xdrive-demo/components/PostLoadDemo";
-import DemoFleetManager from "../try-xdrive-demo/components/DemoFleetManager";
+import DemoFleetBoard from "../try-xdrive-demo/components/DemoFleetBoard";
 import DemoMoreTools from "../try-xdrive-demo/components/DemoMoreTools";
 import DemoLiveAvailability from "../try-xdrive-demo/components/DemoLiveAvailability";
 import "../try-xdrive-demo/demo.css";
@@ -33,7 +33,7 @@ const facts=<div className="facts"><span>🚚 {l.vehicle}</span><span>▦ {l.car
 const goto=(i:number)=>setTab(i);
 return <main className="demo-shell fleet-demo xd-approved-sidebar-shell"><ApprovedSidebar items={nav} activeIndex={tab} onSelect={goto} /><div className="content"><header className="topbar"><div className="mobile-brand">XDRIVE <em>LOGISTICS</em></div><div className="top-actions"></div></header><nav className="mobile-tabs">{nav.map((n,i)=><button key={n} className={tab===i?"active":""} onClick={()=>goto(i)}>{n}</button>)}</nav><div className="page"><div className="page-head">{tab!==3&&<h1>{nav[tab]}</h1>}</div>
 {tab===0&&<>{demoPosted&&<div className="notice">✓ Sample load created: {postedRoute}. This exists only in this demonstration.</div>}<div className="metrics"><div><small>FLEET VEHICLES</small><b>{vehicles.length}</b><span>Registered demo vehicles</span></div><div><small>AVAILABLE</small><b>{vehicles.filter(v=>v.status==="Available").length}</b><span>Ready for assignment</span></div><div><small>QUOTES SUBMITTED</small><b>{sharedQuotes.filter(q=>q.role==="Fleet"&&q.status==="Open").length}</b><span>Open demo quotes</span></div><div><small>ACTIVE BOOKINGS</small><b>{sharedLoads.filter(x=>x.status==="Awarded"&&x.driver==="Fleet").length}</b><span>Managed transport</span></div></div><div className="panel"><div className="panel-title"><h2>Fleet operations overview</h2><span>DEMO ACCOUNT</span></div><div className="fleet-summary">{vehicles.map(v=><div key={v.id}><strong>{v.reg}</strong><small>{v.vehicle}</small><span className={v.status==="Available"?"fleet-status":"fleet-status busy"}>{v.status}</span><small>{v.driver} · {v.location}</small></div>)}</div><div className="actions"><button className="primary" onClick={()=>goto(1)}>Manage my fleet →</button><button className="outline" onClick={()=>goto(2)}>Live availability</button></div></div><div className="panel"><h2>Fleet transport lifecycle</h2><div className="steps">{["Prepare fleet","Find available loads","Submit carrier quote","Assign a driver","Track delivery & POD"].map((x,i)=><button key={x} onClick={()=>goto([1,3,4,5,5][i])}><b>{String(i+1).padStart(2,"0")}</b><span>{x}</span><span>→</span></button>)}</div></div></>}
-{tab===1&&<DemoFleetManager vehicles={vehicles} setVehicles={setVehicles} drivers={drivers} setDrivers={setDrivers}/>}
+{tab===1&&<DemoFleetBoard suppressPreview vehicles={vehicles} setVehicles={setVehicles} drivers={drivers} setDrivers={setDrivers}/>}
 {tab===2&&<DemoLiveAvailability/>}
 
 {tab===3&&<DemoExchangeBoard role="Fleet"/>}

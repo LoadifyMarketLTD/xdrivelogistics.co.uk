@@ -30,3 +30,5 @@ Remaining: final tsc; build/deploy preview; authenticated QA; check updated main
 
 ## Seven-workspace original page transfer - 2026-11-03
 See SEVEN_WORKSPACES_ORIGINAL_BOARDS_AUDIT.md for exact mappings, source, role boundaries, tests and remaining hosted/authenticated QA. Branch feature/7-workspaces-original-boards-20261103, based on Company 5b4f3690. Main and production untouched.
+
+2026-11-03: Continued PR #757; original My Fleet/Drivers cards reused in Fleet and Owner Driver using suppressPreview to avoid sample fallback; scoped ESLint 0, tsc 0. Browser preview pending. No main merge.

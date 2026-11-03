@@ -20,11 +20,15 @@ import DemoMessagesBoard from "../try-xdrive-demo/components/DemoMessagesBoard";
 import DemoReportsBoard from "../try-xdrive-demo/components/DemoReportsBoard";
 import DemoInvoicesBoard from "../try-xdrive-demo/components/DemoInvoicesBoard";
 import DemoDriverTools from "../try-xdrive-demo/components/DemoDriverTools";
+import DemoFleetBoard from "../try-xdrive-demo/components/DemoFleetBoard";
+import DemoDriversBoard from "../try-xdrive-demo/components/DemoDriversBoard";
 import "../try-xdrive-demo/demo.css";
 import "../try-xdrive-demo/wide-layout.css";
 const nav=["Dashboard","Loads","My Quotes","Bookings","More","Network & Tools","Diary","Invoices","Directory","Live Availability","Return Journeys","Freight Vision","Messages","Notifications","Reports","My Fleet","Drivers & Vehicles"];
 export default function OwnerDriverDemo(){
 const [demoPosted,setDemoPosted]=useState(false),[postedRoute,setPostedRoute]=useState(""),[tab,setTab]=useState(0);
+const [ownerVehicles,setOwnerVehicles]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>([]);
+const [ownerDrivers,setOwnerDrivers]=useState<string[]>([]);
 const sharedLoads=useDemoLoads(),{loads:exchangeLoads}=useExchangeLoads(),sharedQuotes=useDemoQuotes();const available=exchangeLoads.filter(l=>l.status==="Open"),bookings=sharedLoads.filter(l=>l.status==="Awarded"&&(l.driver==="Owner Driver"||l.driver==="Driver"));
 const ownerJobs=sharedLoads.map(j=>({id:j.id,from:j.from,to:j.to,vehicle:j.vehicle,cargo:(j.pallets||"")+" pallets / "+(j.weight||"")+" kg",company:j.customer||"Not recorded",status:j.podReceived?"Completed":j.status,price:Number(j.quote||0),driver:j.assignedDriver||"",vehicleId:j.assignedVehicleId||"",stage:j.deliveryStage||0,pod:!!j.podReceived}));
 return <main className="demo-shell xd-approved-sidebar-shell"><ApprovedSidebar items={nav} activeIndex={tab} onSelect={setTab} extra={{label:"Find Loads",onClick:()=>setTab(17)}} /><div className="content"><header className="topbar"><div className="mobile-brand">XDRIVE <em>OWNER DRIVER</em></div><div className="top-actions"></div></header><nav className="mobile-tabs">{nav.map((n,i)=><button key={n} className={tab===i?"active":""} onClick={()=>{setTab(i)}}>{n}</button>)}</nav><div className="page"><div className="page-head">{tab!==1&&<div><h1>{tab===18?"Post Load":tab===17?"Find Loads":nav[tab]}</h1></div>}</div>
@@ -45,8 +49,8 @@ return <main className="demo-shell xd-approved-sidebar-shell"><ApprovedSidebar i
 {tab===12&&<DemoMessagesBoard jobs={ownerJobs} onBooking={()=>setTab(3)}/>}
 {tab===14&&<DemoReportsBoard jobs={ownerJobs} drivers={[]} vehicles={[]}/>}
 {tab===13&&<DemoNotifications onNavigate={setTab}/>}
-{tab===15&&<div className="panel"><h2>My Fleet</h2><p>Manage your own vehicle, availability and transport documents.</p><DemoDriverTools role="Owner Driver"/></div>}
-{tab===16&&<div className="panel"><h2>Driver & Vehicle Documents</h2><p>Owner Driver compliance and vehicle records.</p><DemoDriverTools role="Owner Driver"/></div>}
+{tab===15&&<DemoFleetBoard suppressPreview vehicles={ownerVehicles} setVehicles={setOwnerVehicles} drivers={ownerDrivers} setDrivers={setOwnerDrivers}/>}
+{tab===16&&<DemoDriversBoard drivers={ownerDrivers} vehicles={ownerVehicles} onFleet={()=>setTab(15)}/>}
 {tab===18&&<><div className="actions"><button className="outline" onClick={()=>setTab(4)}> Back to More</button></div><PostLoadDemo role="Customer" from="Birmingham B6" to="Manchester M1" vehicle="Luton Van" pallets="2" weight="450" onPublish={async(data)=>{await publishDemoLoad(data);setPostedRoute(data.from+"  "+data.to);setDemoPosted(true);setTab(0)}}/></>}
 </div></div></main>;
 }

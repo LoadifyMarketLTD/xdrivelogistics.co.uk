@@ -21,3 +21,9 @@
 - Full TypeScript check PASS before final setter-only lint fix; final pass to be confirmed.
 - Original DEMO may include local example fixtures; this branch preserves source pages, NOT a verified substitution of all real authenticated data across seven roles. No authorization bypass or DEMO writes to live database.
 - Need hosted HTTP smoke and browser click tests across seven after Netlify branch build, authenticated production E2E and visual screenshot QA before any merge into main.
+
+## Follow-up: original My Fleet parity (2026-11-03)
+- Fleet My Fleet now renders the same approved DemoFleetBoard visual component as Company, not a simplified inline DemoFleetManager. Its original route still owns the existing local list, not newly invented records.
+- Owner Driver My Fleet and Drivers & Vehicles use the original DemoFleetBoard and DemoDriversBoard, respectively; preview sample generation is disabled for Fleet and Owner Driver. Their initial records are empty rather than generated samples.
+- Shared DemoFleetBoard adds suppressPreview (default false) so Company approved appearance is unchanged.
+- Full TypeScript --noEmit incremental exit 0. Scoped ESLint exit 0 after removing unused import. Real account E2E and hosted visual screenshots remain unverified.
