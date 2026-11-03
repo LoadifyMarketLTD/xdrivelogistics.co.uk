@@ -57,7 +57,7 @@ return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><Approved
 {realOperational&&tab!==0&&<MasterOperationalSection role={role} tab={nav[tab]}/>}
 {!realOperational&&<>
 {!isDispatch&&tab===10&&(preview?<MasterOperationalSection role={role} tab="Directory" preview/>:live?<MemberDirectoryPage/>:<NetworkTools role="Company" initialView="Directory" showTabs={false}/>)}
-{!isDispatch&&tab===11&&(live&&role==="Company / Carrier"?<MasterOperationalSection role={role} tab="Live Availability" href="/admin/live-availability"/>:<DemoLiveAvailability/>)}
+{!isDispatch&&tab===11&&(<DemoLiveAvailability/>)}
 {!isDispatch&&tab===12&&<DemoReturnJourneys/>}
 {!isDispatch&&tab===13&&<DemoFreightVision onLoads={()=>show(2)}/>}
 {!isDispatch&&tab===14&&(preview?<MasterOperationalSection role={role} tab="Messages" preview/>:<DemoMessagesBoard jobs={sharedJobs} onBooking={()=>show(4)}/>)}
