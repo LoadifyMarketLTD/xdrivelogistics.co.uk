@@ -17,13 +17,12 @@ import "../try-xdrive-demo/demo.css";
 import "../try-xdrive-demo/wide-layout.css";
 import "./fleet.css";
 const nav=["Dashboard","My Fleet","Live Availability","Loads","Quotes","Bookings","Diary","More","Network & Tools","Post Load"];
-const initial=[{id:"XD-V101",reg:"DX26 VAN",vehicle:"Luton Van Â· Tail-lift",driver:"Alex Carter",status:"Available",location:"Birmingham B6"},{id:"XD-V102",reg:"DX25 LTN",vehicle:"Luton Van",driver:"Jamie Taylor",status:"On Job",location:"Coventry CV1"},{id:"XD-V103",reg:"DX24 LWB",vehicle:"Large Van",driver:"Morgan Lee",status:"Available",location:"Leicester LE1"}];
 const loads=[{id:"XDL-DEMO-1029",from:"Birmingham B6",to:"Manchester M1",cargo:"2 pallets Â· 450 kg",vehicle:"Luton Van Â· Tail-lift",company:"Sample Freight Broker Ltd",price:195},{id:"XDL-DEMO-1030",from:"Coventry CV1",to:"Nottingham NG1",cargo:"1 pallet Â· 180 kg",vehicle:"Large Van",company:"Demo Distribution Ltd",price:145}];
 export default function FleetDemo(){
-const [demoPosted,setDemoPosted]=useState(false),[postedRoute,setPostedRoute]=useState(""),[tab,setTab]=useState(0),[vehicles,setVehicles]=useState(initial),[job,setJob]=useState(0),[selected,setSelected]=useState("XD-V101"),[quote,setQuote]=useState("195"),[quoted,setQuoted]=useState(false),[awarded,setAwarded]=useState(false),[_pod]=useState(false),[filter,setFilter]=useState("All");
+const [demoPosted,setDemoPosted]=useState(false),[postedRoute,setPostedRoute]=useState(""),[tab,setTab]=useState(0),[vehicles,setVehicles]=useState([]),[job,setJob]=useState(0),[selected,setSelected]=useState("XD-V101"),[quote,setQuote]=useState("195"),[quoted,setQuoted]=useState(false),[awarded,setAwarded]=useState(false),[_pod]=useState(false),[filter,setFilter]=useState("All");
 const sharedLoads=useDemoLoads(),sharedQuotes=useDemoQuotes();
-const [drivers,setDrivers]=useState(["Alex Carter","Jamie Taylor","Morgan Lee"]);const fleetLoaded=useRef(false);
-useEffect(()=>{authenticatedDemoFetch("/api/try-xdrive-demo/fleet").then(r=>{if(!r.ok)throw Error("Fleet unavailable");return r.json()}).then(d=>{setVehicles(d.vehicles);setDrivers(d.drivers);fleetLoaded.current=true}).catch(console.error)},[]);
+const [drivers,setDrivers]=useState<string[]>([]);const fleetLoaded=useRef(false);
+useEffect(()=>{authenticatedDemoFetch("/api/try-xdrive-demo/fleet").then(r=>{if(!r.ok)throw Error("Fleet unavailable");return r.json()}).then(d=>{setVehicles(Array.isArray(d.vehicles)?d.vehicles:[]);setDrivers(Array.isArray(d.drivers)?d.drivers:[]);fleetLoaded.current=true}).catch(console.error)},[]);
 useEffect(()=>{if(!fleetLoaded.current)return;authenticatedDemoFetch("/api/try-xdrive-demo/fleet",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({vehicles,drivers})}).then(r=>{if(!r.ok)throw Error("Fleet save failed")}).catch(console.error)},[vehicles,drivers]);
 const l=loads[job],_assigned=vehicles.find(v=>v.id===selected)||vehicles[0];
 const legacyUiEnabled=process.env.NEXT_PUBLIC_DEMO_LEGACY_UI==="enabled";
@@ -45,5 +44,7 @@ return <main className="demo-shell fleet-demo xd-approved-sidebar-shell"><Approv
 {tab===9&&<><PostLoadDemo role="Customer" from="Birmingham B6" to="Manchester M1" vehicle="Luton Van" pallets="2" weight="450" onPublish={(data)=>{publishDemoLoad(data);setPostedRoute(data.from+" â†’ "+data.to);setDemoPosted(true);goto(0)}}/></>}
 </div></div></main>;
 }
+
+
 
 
