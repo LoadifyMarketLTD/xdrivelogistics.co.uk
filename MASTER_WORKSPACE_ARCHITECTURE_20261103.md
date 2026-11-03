@@ -15,7 +15,7 @@ Company/Carrier 3150 is the visual source of truth. One sidebar, one set of shar
 
 ## Continuous regression guard
 - `scripts/verify-master-workspace.mjs`: fails when a role route stops using MasterWorkspace or diverges its canonical 17 tabs, or privileged capabilities appear in driver/customer configs.
-- `.github/workflows/master-workspace-parity.yml`: runs the guard on future PRs and pushes to main affecting the relevant source paths.
+- Per protected `AGENTS.md`, GitHub Actions stay disabled. The guard is executed locally with Node + PowerShell and is NOT configured in `.github/workflows`.
 
 ## Test evidence / outstanding work
 - Full project TypeScript --noEmit and ESLint on touched files: PASS.
