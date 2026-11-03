@@ -1,4 +1,4 @@
-/* Visual contract: approved Fleet 3119 sidebar, reused in the six other DEMO roles. */
+﻿/* Visual contract: approved Fleet 3119 sidebar, reused in the six other DEMO roles. */
 @media(min-width:851px){
 .demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar{
 position:fixed!important;left:0!important;top:0!important;bottom:0!important;
@@ -25,7 +25,7 @@ width:68px!important;min-width:68px!important;max-width:68px!important
 display:block!important;flex:none;width:196px;height:64px;min-height:64px;
 padding:0!important;margin:5px auto 13px!important;font-size:0!important;
 color:transparent!important;line-height:0!important;letter-spacing:0!important;
-background:url("/xdrive-logo-primary.png") center center/contain no-repeat!important
+background:url("/xdrive-logo-company-3150.png") center center/contain no-repeat!important
 }
 .demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar.is-collapsed .brand{
 width:50px!important;height:42px!important;min-height:42px!important;
@@ -72,3 +72,4 @@ border-radius:6px!important;cursor:pointer!important
 .demo-shell.xd-approved-sidebar-shell>.content{margin:0!important;width:100%!important;min-width:0!important}
 }
 @media(prefers-reduced-motion:reduce){.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar{transition:none!important}}
+
