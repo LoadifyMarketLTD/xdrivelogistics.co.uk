@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import {useMemo,useState} from "react";
 import {useDemoLoads,useExchangeLoads} from "./demoExchange";
 import type {DemoLoad} from "./demoExchange";
@@ -20,7 +20,7 @@ const routes=[
 const fixtures:DemoLoad[]=Array.from({length:56},(_,i)=>{const r=routes[i%routes.length];return {id:"XDR-"+String(10457+i),from:r[0],to:r[1],vehicle:r[2],pallets:r[3],weight:r[4],packaging:r[5],paymentTerms:r[6],customer:r[7],service:r[8],pickupDate:new Date(Date.UTC(2026,9,31+i%12)).toISOString().slice(0,10),deliveryMode:"ASAP",postedAt:new Date(Date.UTC(2026,9,30)).toISOString(),status:"Open",sell:"",readOnly:true}});
 
 export default function DemoExchangeBoard({role}:{role:Role}){
- const canQuote=["Owner Driver","Fleet","Carrier","Broker"].includes(role);
+ const canQuote=["Owner Driver","Driver","Company Driver","Employee Driver","Fleet","Carrier","Broker"].includes(role);
  const live=useDemoLoads(),exchange=useExchangeLoads();
  
  const [tab,setTab]=useState("All Loads"),[from,setFrom]=useState(""),[to,setTo]=useState(""),[radius,setRadius]=useState("10"),[vehicle,setVehicle]=useState(""),[service,setService]=useState(""),[date,setDate]=useState(""),[same,setSame]=useState(false),[next,setNext]=useState(false),[sort,setSort]=useState("new"),[page,setPage]=useState(1),[map,setMap]=useState(false),[selected,_setSelected]=useState<string|null>(null),[details,setDetails]=useState<string|null>(null),[quoteLoad,setQuoteLoad]=useState<string|null>(null),[amount,setAmount]=useState(""),[_notice,setNotice]=useState("");
