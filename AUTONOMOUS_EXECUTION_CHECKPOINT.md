@@ -27,3 +27,6 @@ Remaining: final tsc; build/deploy preview; authenticated QA; check updated main
 - Real Company data context retained. Original Quotes only uses authenticated company bids with direction; real award delegates to authorized quotes. Original Invoices reads actual invoice records and delegates issuance to authorized invoices. Original Messages uses protected /api/workspace/messages, not local browser sample messages, when authenticated. Original NetworkTools uses protected directory and live datasets. Original Returns does not mislabel ordinary company jobs as return journeys.
 - TypeScript --noEmit PASS after fixing quote direction literal types (last test). ESLint scoped original boards PASS (0 errors). Browser eight-tab rendered UI smoke pending/not yet certified. Public original DEMO reference /try-xdrive-company-demo remains separate from authenticated /admin.
 - No main merge or production deploy. Source project's uncommitted changes untouched. Worktree branch feature/company-3150-real-data-20261103; PR #756 remains DRAFT pending browser/auth checks.
+
+## Seven-workspace original page transfer - 2026-11-03
+See SEVEN_WORKSPACES_ORIGINAL_BOARDS_AUDIT.md for exact mappings, source, role boundaries, tests and remaining hosted/authenticated QA. Branch feature/7-workspaces-original-boards-20261103, based on Company 5b4f3690. Main and production untouched.
