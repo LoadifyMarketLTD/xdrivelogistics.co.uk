@@ -27,3 +27,8 @@
 - Owner Driver My Fleet and Drivers & Vehicles use the original DemoFleetBoard and DemoDriversBoard, respectively; preview sample generation is disabled for Fleet and Owner Driver. Their initial records are empty rather than generated samples.
 - Shared DemoFleetBoard adds suppressPreview (default false) so Company approved appearance is unchanged.
 - Full TypeScript --noEmit incremental exit 0. Scoped ESLint exit 0 after removing unused import. Real account E2E and hosted visual screenshots remain unverified.
+
+## Employee Driver (additional approved role preview)
+- Recovered the existing DriverWorkspacePreview.tsx and original /try-xdrive-employee-driver-demo route from D:\XDrive-Company-Employee-Driver-3150-20261103. This preserves the approved employee-only navigation and prevents Company admin or carrier functionality from being exposed in its demo shell.
+- It is an existing visual/role preview, not a connected employee-driver end-to-end booking application.
+- Employee Driver component and route passed ESLint, and full TypeScript --noEmit passed (exit 0).
