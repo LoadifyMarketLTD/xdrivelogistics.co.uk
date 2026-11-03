@@ -66,12 +66,12 @@ function classify(member:DirectoryMember,category:string){
 }
 const ukPostcode=/^(GIR\s?0AA|(?:[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}))$/i;
 
-export default function DemoNetworkToolsBoard({onNavigate}:{onNavigate:(index:number)=>void}){
+export default function DemoNetworkToolsBoard({onNavigate,audience="company"}:{onNavigate:(index:number)=>void;audience?:"company"|"standard"|"driver"}){
   const live=useCompany3150Live();
   const loads=useDemoLoads();
   const sent=useDemoQuotes("mine");
   const received=useDemoQuotes("received");
-  const [active,setActive]=useState<Tab>("Overview");
+  const [active,setActive]=useState<Tab>(audience==="driver"?"Operational Tools":"Overview");
   const [tool,setTool]=useState<Utility|null>(null);
   const [members,setMembers]=useState<DirectoryMember[]>([]);
   const [directoryState,setDirectoryState]=useState<"loading"|"ready"|"error">("loading");
@@ -152,6 +152,7 @@ export default function DemoNetworkToolsBoard({onNavigate}:{onNavigate:(index:nu
     {label:"Data Sync",value:live?"Live":"DEMO",note:live?"Company data source":"Live sync not verified",icon:Cloud,tone:"#176de5"},
   ];
   const go=(idx:number)=>onNavigate(idx);
+  const visibleTabs=audience==="company"?tabs:audience==="driver"?tabs.filter(t=>t==="Operational Tools"):tabs.filter(t=>t!=="API & Access"&&t!=="Settings");
   const copyApiPath=async(path:string)=>{
     try{await navigator.clipboard.writeText(path);setNotice("API path copied.");return;}
     catch{ /* Some browsers restrict Clipboard API even on localhost. */ }
@@ -288,7 +289,7 @@ export default function DemoNetworkToolsBoard({onNavigate}:{onNavigate:(index:nu
       <item.icon style={{color:item.tone}} size={35} strokeWidth={2.2}/>
       <div><b>{item.label}</b><strong>{item.value}</strong><small>{item.note}</small></div>
     </article>)}</div>
-    <nav className="xd-network-tabs" aria-label="Network tool sections">{tabs.map((name,i)=>{
+    <nav className="xd-network-tabs" aria-label="Network tool sections">{visibleTabs.map((name,i)=>{
       const icons=[LayoutGrid,Link2,Wrench,Download,Code2,Settings];const Icon=icons[i];
       return <button key={name} className={active===name?"active":""} aria-current={active===name?"page":undefined} onClick={()=>setTab(name)}>
         <Icon size={19}/>{name}
@@ -335,8 +336,8 @@ export default function DemoNetworkToolsBoard({onNavigate}:{onNavigate:(index:nu
           <h2><Activity size={24} color="#f59e0b"/> Quick Actions</h2>
           <button onClick={()=>go(10)}><UsersRound size={21}/> Manage Directory <ChevronRight size={18}/></button>
           <button onClick={()=>setTab("Data & Export")}><Download size={21}/> Import / Export Data <ChevronRight size={18}/></button>
-          <button onClick={()=>setTab("API & Access")}><Code2 size={21}/> API Access & Keys <ChevronRight size={18}/></button>
-          <button onClick={()=>setTab("Settings")}><Settings size={21}/> Network Settings <ChevronRight size={18}/></button>
+          {audience==="company"&&<button onClick={()=>setTab("API & Access")}><Code2 size={21}/> API Access & Keys <ChevronRight size={18}/></button>}
+          {audience==="company"&&<button onClick={()=>setTab("Settings")}><Settings size={21}/> Network Settings <ChevronRight size={18}/></button>}
         </article>
       </div>
     </>}
@@ -386,7 +387,7 @@ export default function DemoNetworkToolsBoard({onNavigate}:{onNavigate:(index:nu
       </article>
     </div>}
 
-    {active==="API & Access"&&<div className="xd-network-detail-grid">
+    {audience==="company"&&active==="API & Access"&&<div className="xd-network-detail-grid">
       <article className="xd-network-panel"><h2><Code2 size={23}/> DEMO API & Access</h2>
         <p>Staging APIs are protected by authentication and row-level access controls. This screen does not display tokens or API secrets.</p>
         {[
@@ -407,7 +408,7 @@ export default function DemoNetworkToolsBoard({onNavigate}:{onNavigate:(index:nu
       </article>
     </div>}
 
-    {active==="Settings"&&<div className="xd-network-detail-grid">
+    {audience==="company"&&active==="Settings"&&<div className="xd-network-detail-grid">
       <article className="xd-network-panel"><h2><Settings size={23}/> Local DEMO Preferences</h2>
         <p>Preferences are saved only in this browser. They do not change the production company account or any notification service.</p>
         <label className="xd-network-setting">Preferred search radius

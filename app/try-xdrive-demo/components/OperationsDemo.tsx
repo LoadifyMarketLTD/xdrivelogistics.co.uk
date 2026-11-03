@@ -71,7 +71,7 @@ return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><Approved
 {!isDispatch&&tab===8&&<DemoInvoicesBoard jobs={sharedJobs}/>}
 {isDispatch&&tab===6&&<DemoReportsBoard jobs={sharedJobs} drivers={companyDrivers} vehicles={companyFleet}/>}
 {!isDispatch&&tab===9&&<DemoNetworkToolsBoard onNavigate={show}/>}
-{isDispatch&&tab===7&&<NetworkTools role="Dispatcher"/>}
+{isDispatch&&tab===7&&<DemoNetworkToolsBoard audience="standard" onNavigate={i=>show(({4:2,10:7,11:7,12:7,16:6} as Record<number,number>)[i]??7)}/>}
 </div></div></main>
 }
 
