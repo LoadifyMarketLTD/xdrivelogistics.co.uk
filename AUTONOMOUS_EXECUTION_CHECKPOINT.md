@@ -1,13 +1,7 @@
-# XDrive 3118 web-only transfer checkpoint — 2026-11-02
-
-Authoritative source: D:\XDrive-CX-Debug (approved 3118), snapshot commit 47cc83cf98e82309c5f495be05d906216d832a2e.
-Base: GitHub LoadifyMarketLTD/xdrivelogistics.co.uk main, commit 9a14ab01a1fb663d9a74ce2122702bf4c20967df.
-Working branch: transfer/3118-web-only-20261102; folder E:\XDrive-Protection\XDrive-3118-TO-MAIN-20261102.
-
-Scope: Move approved 3118 web workspace code toward real main, preserve existing Driver PWA and Supabase Real. No production deployment, no direct main update, no existing DB modification. No import of old PWA.
-
-Completed: Overlaid 3118's try-xdrive workspace pages/components, associated library and try-xdrive-demo API (100 files staged). Driver PWA and app/driver paths: 0 changes. Resolved four type errors in DemoQuotePanel and DemoCompanyDashboard, without UI modifications. `npm run typecheck` passed (exit 0) on the transfer working tree. Two modified files passed scoped ESLint.
-
-Still BLOCKED for production: 3118 demo API uses a staging-specific guard in app/api/try-xdrive-demo/memberAuth.ts; it is not integrated with real production authentication, company-tenant isolation, and operational APIs. Full scoped ESLint returned 38 errors (unused vars and irregular whitespace). No complete production build / end-to-end verification; no visual approval of new frontend in deployed environment. The transfer is not authorized to overwrite Driver PWA nor Supabase Real.
-
-Next: migrate each workspace route to real auth/data access without adding fictional records, retain 3118 visuals, repair lint violations without changing UI, run build and operational E2E, then review promotion to main. Do not merge or deploy before gates pass.
+﻿# Owner Driver workspace — execution checkpoint 2026-11-03
+Task: begin next workspace after Company 3150; use approved Company 3150 visual contract as shared design standard, but retain independent Owner Driver features and permissions.
+Base: origin/main 06e6d5f1. Isolated worktree D:\XDrive-Owner-Driver-3150-20261103; branch feat/owner-driver-3150-visual-20261103. Original D:\XDrive-CX-Debug untouched.
+Reference: D:\XDrive-Company-3150-Visual-Contract-20261103 (17-section contract, 20 screenshots, measurements.json).
+Found: no dedicated try-xdrive-owner-driver-demo route in preserved 3150 project; try-xdrive-driver-demo contains Owner Driver tools and Post Load but is generic Driver. Real app/driver is operational with 30+ nested routes; /owner-drivers is public marketing, not authenticated workspace. Do not replace /owner-drivers marketing or Company /admin.
+Next: identify owner-driver auth role and landing, build separate visual preview, map Owner Driver-specific navigation and workflows (Loads, Quotes, Bookings, Diary, Post Load, POD, Invoices), run typecheck/lint/build and visual checks, then propose isolated PR. Do not merge without verification.
+Created separate /try-xdrive-owner-driver-demo preview from preserved 3150 Driver DEMO, using shared ApprovedSidebar and Owner Driver role, keeping fictional records. Local preview port 3177 returned HTTP 200 and OWNER DRIVER heading. ESLint target PASS. Full typecheck still running; production role routing and mobile visual QA not verified. No production changes.
