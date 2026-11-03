@@ -60,7 +60,7 @@ return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><Approved
 {realOperational&&tab!==initialTab&&tab===2&&<DemoExchangeBoard role="Carrier"/>}
 {realOperational&&tab!==initialTab&&tab===4&&<DemoCompanyBookings role={role}/>}
 {realOperational&&tab!==initialTab&&tab===5&&<DemoFleetBoard vehicles={realFleet} setVehicles={setCompanyFleet} drivers={realDrivers} setDrivers={setCompanyDrivers} readOnly={!can("manageFleet")}/>}
-{realOperational&&tab!==initialTab&&tab===6&&<DemoDriversBoard drivers={realDrivers} vehicles={realFleet} onFleet={()=>show(5)}/>}
+{realOperational&&tab!==initialTab&&tab===6&&<DemoDriversBoard drivers={realDrivers} vehicles={realFleet} onFleet={()=>can("manageDrivers")?window.location.assign("/admin/drivers"):show(6)}/>}
 {realOperational&&tab!==initialTab&&tab===7&&<DemoBookingOverview view="diary"/>}
 {realOperational&&tab!==initialTab&&tab===10&&<MemberDirectoryPage/>}
 {realOperational&&tab!==initialTab&&tab===15&&<DemoNotifications onNavigate={show}/>}
