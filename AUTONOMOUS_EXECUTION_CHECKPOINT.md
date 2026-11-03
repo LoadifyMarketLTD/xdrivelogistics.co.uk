@@ -43,3 +43,8 @@ extjs-portal intercepted clicks at bottom-left of the screen when sidebar was 68
 - Scoped dev-only CSS workaround moves collapsed expand control 52px above toolbar only when developer portal exists. Production position unchanged.
 - Playwright result: INITIAL 224px -> AFTER COLLAPSE 68px -> AFTER EXPAND 224px, real mouse clicks PASS.
 - Authenticated Broker E2E not run (no real authenticated session in isolated preview).
+
+### Route guard regression, 2026-11-03
+- Browser route probe: 27/27 Broker entry routes returned HTTP 307 to /login?next=... when unauthenticated. No unauthorized route leakage observed in this limited probe.
+- Static source review confirmed real Broker Post Load, Loads, Bids, Jobs, Diary, POD, Finance and Carrier Network pages remain connected to existing operational components; no DEMO route replacement performed.
+- Awaiting authenticated functional/E2E verification before calling Broker complete.
