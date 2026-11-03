@@ -27,3 +27,19 @@ Next: migrate each workspace route to real auth/data access without adding ficti
 - Current limitation: authenticated real Broker pages, financial forms and all full end-to-end workflows not yet verified with a real Broker session. The visual preview is not an authenticated functional test.
 - GitHub main, Netlify production, Supabase and PWA: **unchanged**. No deploy or PR.
 - Next: authenticated visual comparisons for Dashboard/Post Load/My Loads/Quotes/Awards/Bookings/Diary/POD and More; responsive + role-based regression tests, then seek user visual acceptance before merge.
+
+### Regression follow-up 2026-11-03
+- Rechecked browser preview at 3152: HTTP 200, 10 Broker navigation links each 39 px with Lucide icon, sidebar 224 px, logo image, no page JS exceptions.
+- Mobile 390 px: sidebar hidden, 10 horizontal navigation links, no page overflow.
+- Unauthenticated real routes /broker, /broker/loads, /broker/bids, /broker/awards, /broker/jobs, /broker/diary, /broker/pod-review: all HTTP 307 to matching login next path. This verifies login gating only, NOT authenticated functionality.
+- Collapse to 68 px verified after hydration; re-expand consistency not yet validated by automated test. Do not mark full interaction PASS.
+- Evidence images: BROKER-3150-desktop.png and BROKER-3150-mobile.png (local root).
+- No changes to main/Netlify/Supabase; no authenticated end-to-end test conducted.
+
+
+### Collapse root-cause and regression � 2026-11-03
+- Root cause of failed re-expand: Next.js developer toolbar
+extjs-portal intercepted clicks at bottom-left of the screen when sidebar was 68px wide, not application state logic.
+- Scoped dev-only CSS workaround moves collapsed expand control 52px above toolbar only when developer portal exists. Production position unchanged.
+- Playwright result: INITIAL 224px -> AFTER COLLAPSE 68px -> AFTER EXPAND 224px, real mouse clicks PASS.
+- Authenticated Broker E2E not run (no real authenticated session in isolated preview).
