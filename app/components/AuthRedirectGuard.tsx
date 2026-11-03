@@ -8,7 +8,7 @@ import { isMobileDriverBrowser } from '../../lib/isMobileDriverBrowser';
 
 /**
  * Silently redirects authenticated users to their dashboard.
- * Renders nothing â€” never blocks the server-rendered landing page.
+ * Renders nothing - never blocks the server-rendered landing page.
  */
 export function AuthRedirectGuard() {
   const { user, isLoading } = useAuth();

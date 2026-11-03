@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import {useState} from "react";
 import {useDemoBookings,updateDemoLoad} from "./demoExchange";
 import DemoLoadSummary from "./DemoLoadSummary";
@@ -27,8 +27,8 @@ export default function DemoSharedBookings({role}:{role:string}){
    {l.readOnly&&l.operationalStatus==="pending_acceptance"&&["Carrier","Carrier / Company","Company","Fleet","Dispatcher"].includes(role)&&<div className="actions"><button className="primary" disabled={busy===l.id} onClick={()=>void respond("accepted")}>Accept booking</button><button className="outline" disabled={busy===l.id} onClick={()=>void respond("rejected")}>Reject booking</button></div>}
    {l.readOnly&&l.operationalStatus==="accepted"&&canAssign&&<div className="form-grid"><label>Driver<input value={draft.driver} maxLength={120} onChange={e=>setDrafts(x=>({...x,[l.id]:{...draft,driver:e.target.value}}))}/></label><label>Vehicle ID<input value={draft.vehicle} maxLength={80} onChange={e=>setDrafts(x=>({...x,[l.id]:{...draft,vehicle:e.target.value}}))}/></label><button className="primary" disabled={busy===l.id||!draft.driver.trim()||!draft.vehicle.trim()} onClick={()=>void allocate()}>Allocate driver and vehicle</button></div>}
    <DemoLoadSummary load={l} expanded/>{l.readOnly&&<p className="notice">Verified booking status: {l.operationalStatus||"Unknown"} (read-only). Acceptance, allocation and POD actions require authenticated booking operations.</p>}
-   <p>Quote: Â£{l.quote} Â· Awarded quote: {l.awardedQuoteId}</p>
-   {!l.readOnly&&<p>Acceptance: <strong>{l.acceptanceStatus||"Pending (legacy demo booking)"}</strong> Â· Assigned driver: {l.assignedDriver||"Unallocated"} Â· Vehicle: {l.assignedVehicleId||"Unallocated"}</p>}{!l.readOnly&&pending&&["Owner Driver","Driver","Company Driver","Fleet","Carrier","Company"].includes(role)&&<div className="actions"><button className="primary" disabled={busy===l.id} onClick={()=>save({acceptanceStatus:"Accepted"})}>Accept allocated job</button><button className="outline" disabled={busy===l.id} onClick={()=>save({acceptanceStatus:"Rejected"})}>Reject allocated job</button></div>}{l.acceptanceStatus==="Rejected"&&<p className="notice">Job rejected. No collection or delivery actions are available.</p>}
+   <p>Quote: Â£{l.quote}  /  Awarded quote: {l.awardedQuoteId}</p>
+   {!l.readOnly&&<p>Acceptance: <strong>{l.acceptanceStatus||"Pending (legacy demo booking)"}</strong>  /  Assigned driver: {l.assignedDriver||"Unallocated"}  /  Vehicle: {l.assignedVehicleId||"Unallocated"}</p>}{!l.readOnly&&pending&&["Owner Driver","Driver","Company Driver","Fleet","Carrier","Company"].includes(role)&&<div className="actions"><button className="primary" disabled={busy===l.id} onClick={()=>save({acceptanceStatus:"Accepted"})}>Accept allocated job</button><button className="outline" disabled={busy===l.id} onClick={()=>save({acceptanceStatus:"Rejected"})}>Reject allocated job</button></div>}{l.acceptanceStatus==="Rejected"&&<p className="notice">Job rejected. No collection or delivery actions are available.</p>}
    {!l.readOnly&&canAssign&&accepted&&<div className="form-grid">
     <label>Driver<input aria-label={"Driver for "+l.id} value={draft.driver} maxLength={120} onChange={e=>setDrafts(x=>({...x,[l.id]:{...draft,driver:e.target.value}}))}/></label>
     <label>Vehicle ID<input aria-label={"Vehicle for "+l.id} value={draft.vehicle} maxLength={80} onChange={e=>setDrafts(x=>({...x,[l.id]:{...draft,vehicle:e.target.value}}))}/></label>
@@ -39,7 +39,7 @@ export default function DemoSharedBookings({role}:{role:string}){
    {!l.readOnly&&!ready&&<p className="notice">Driver and vehicle assignment required before delivery actions.</p>}
    {!l.readOnly&&canAdvance&&accepted&&ready&&stage<6&&<button className="primary" disabled={busy===l.id} onClick={()=>save({deliveryStage:stage+1})}>Complete next milestone: {steps[stage+1]}</button>}
    {!l.readOnly&&canAdvance&&accepted&&ready&&stage===6&&!l.podReceived&&<DemoPOD onComplete={async evidence=>{await updateDemoLoad(l.id,{podReceived:true,podRecipient:evidence.recipient,podPhotoCount:evidence.photoCount})}}/>}
-   {l.podReceived&&<p className="notice">Sample POD recorded for {l.podRecipient} Â· {l.podPhotoCount} photo(s) confirmed Â· {l.podConfirmedAt?new Date(l.podConfirmedAt).toLocaleString("en-GB"):""}. Images are not uploaded or retained.</p>}
+   {l.podReceived&&<p className="notice">Sample POD recorded for {l.podRecipient}  /  {l.podPhotoCount} photo(s) confirmed  /  {l.podConfirmedAt?new Date(l.podConfirmedAt).toLocaleString("en-GB"):""}. Images are not uploaded or retained.</p>}
    <DemoInvoicePreview booking={l}/>
   </div>
  })}

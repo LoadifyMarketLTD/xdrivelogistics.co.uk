@@ -208,7 +208,7 @@ export default function LoginPage() {
                   Need an account? <Link href="/register">Register</Link>
                 </p>
                 <div className={styles.registerRow} aria-label="Legal documents">
-                  <Link href="/legal">Legal Centre</Link> Â· <Link href="/terms">Terms</Link> Â· <Link href="/privacy">Privacy</Link> Â· <Link href="/cookies">Cookies</Link>
+                  <Link href="/legal">Legal Centre</Link> | <Link href="/terms">Terms</Link> | <Link href="/privacy">Privacy</Link> | <Link href="/cookies">Cookies</Link>
                 </div>
               </form>
             ) : (
