@@ -10,20 +10,13 @@ import XDriveLoadCard from "./XDriveLoadCard";
 const tabs=["All","Unallocated","Allocated","In Progress","Completed","Cancelled","Expired","Awaiting Feedback","Recent Feedback"] as const;
 type Tab=typeof tabs[number];
 type Row={id:string;from:string;to:string;time:string;date:string;vehicle:string;cargo:string;weight:string;driver:string;reg:string;status:string;source?:DemoLoad};
-const samples:Row[]=[
-{id:"XDR-10456",from:"BLACKBURN, BB1",to:"ERITH, DA8",time:"08:30",date:"2026-10-31",vehicle:"Luton (Tail Lift)",cargo:"4 Pallets",weight:"1,200 kg",driver:"John P.",reg:"DX26 LTN",status:"Completed"},
-{id:"XDR-10457",from:"PRESTON, PR1",to:"ST HELENS, WA11",time:"10:00",date:"2026-10-31",vehicle:"7.5 Tonne",cargo:"6 Pallets",weight:"2,400 kg",driver:"Mark R.",reg:"DX24 FHD",status:"In Progress"},
-{id:"XDR-10458",from:"MANCHESTER, M1",to:"SHEFFIELD, S9",time:"12:45",date:"2026-10-31",vehicle:"LWB Van",cargo:"12 Boxes",weight:"300 kg",driver:"",reg:"",status:"Unallocated"},
-{id:"XDR-10459",from:"LIVERPOOL, L1",to:"LEEDS, LS10",time:"14:30",date:"2026-10-31",vehicle:"7.5 Tonne",cargo:"8 Pallets",weight:"4,800 kg",driver:"Alex M.",reg:"DX23 VBY",status:"Allocated"},
-{id:"XDR-10460",from:"WARRINGTON, WA1",to:"BIRMINGHAM, B6",time:"16:00",date:"2026-10-31",vehicle:"Luton (Tail Lift)",cargo:"5 Pallets",weight:"1,750 kg",driver:"David S.",reg:"DX72 KTU",status:"Awaiting POD"}
-];
 function status(l:DemoLoad){if(l.status==="Cancelled")return "Cancelled";if(l.podReceived)return "Completed";if((l.deliveryStage??0)>0)return "In Progress";if(l.assignedDriver||l.assignedVehicleId)return "Allocated";return "Unallocated"}
 export default function DemoBookingOverview({view}:{view:"tracking"|"documents"|"awards"|"diary"|"pod"}){
  const real=useCompany3150Live();
  const loads=useDemoLoads().filter(l=>l.status==="Awarded"||(l.status==="Cancelled"&&Boolean(l.awardHistory?.length)));
  const quotes=useDemoQuotes();
  const [tab,setTab]=useState<Tab>("All"),[query,setQuery]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState(""),[driver,setDriver]=useState(""),[vehicle,setVehicle]=useState(""),[date,setDate]=useState(real?new Date().toISOString().slice(0,10):"2026-10-31"),[sort,setSort]=useState("earliest"),[selected,setSelected]=useState<Row|null>(null),[viewMode,setViewMode]=useState<"list"|"calendar">("list");
- const rows=useMemo<Row[]>(()=>loads.length?loads.map((l,i)=>({id:l.id,from:l.from,to:l.to,time:real?(l.pickupStart||"Not recorded"):["08:30","10:00","12:45"][i%3],date:l.pickupDate?.slice(0,10)||(real?new Date().toISOString().slice(0,10):"2026-10-31"),vehicle:l.vehicle||"Luton Van",cargo:real?(l.pallets?l.pallets+" Pallets":"Cargo not recorded"):(l.pallets||"0")+" Pallets",weight:real?(l.weight?l.weight+" kg":"Not recorded"):(l.weight||"0")+" kg",driver:l.assignedDriver||"",reg:l.assignedVehicleId||"",status:status(l),source:l})):(real?[]:samples),[loads,real]);
+ const rows=useMemo<Row[]>(()=>loads.length?loads.map((l,i)=>({id:l.id,from:l.from,to:l.to,time:real?(l.pickupStart||"Not recorded"):["08:30","10:00","12:45"][i%3],date:l.pickupDate?.slice(0,10)||(real?new Date().toISOString().slice(0,10):"2026-10-31"),vehicle:l.vehicle||"Luton Van",cargo:real?(l.pallets?l.pallets+" Pallets":"Cargo not recorded"):(l.pallets||"0")+" Pallets",weight:real?(l.weight?l.weight+" kg":"Not recorded"):(l.weight||"0")+" kg",driver:l.assignedDriver||"",reg:l.assignedVehicleId||"",status:status(l),source:l})):[],[loads,real]);
  const tabCount=(t:Tab)=>t==="All"?rows.length:t==="Awaiting Feedback"?rows.filter(r=>r.status==="Completed").length:t==="Recent Feedback"||t==="Expired"?0:rows.filter(r=>r.status===t||(t==="Completed"&&r.status==="Awaiting POD")).length;
  const shown=rows.filter(r=>(tab==="All"||r.status===tab||(tab==="Completed"&&r.status==="Awaiting POD"))&&(r.id+" "+r.from+" "+r.to+" "+r.driver).toLowerCase().includes(query.toLowerCase())&&r.from.toLowerCase().includes(from.toLowerCase())&&r.to.toLowerCase().includes(to.toLowerCase())&&(!driver||r.driver===driver)&&(!vehicle||r.vehicle===vehicle)&&(!date||r.date===date)).sort((a,b)=>sort==="latest"?b.time.localeCompare(a.time):a.time.localeCompare(b.time));
  const shift=(n:number)=>{const d=new Date(date+"T12:00:00");d.setDate(d.getDate()+n);setDate(d.toISOString().slice(0,10))};

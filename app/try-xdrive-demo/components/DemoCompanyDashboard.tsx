@@ -5,25 +5,20 @@ import {useCompany3150Live} from "./Company3150LiveData";
 
 type Job={id:string;from:string;to:string;vehicle:string;cargo:string;company:string;status:string;price:number;driver:string;vehicleId:string;stage:number;pod:boolean};
 type Fleet={id:string;reg:string;type:string;driver:string;area:string;status:string};
-const demo=[
- {id:"XDR-10457",from:"BLACKBURN, BB1",to:"ERITH, DA8",vehicle:"Luton (Tail Lift)",cargo:"4 Pallets",status:"In Transit",driver:"John P.",vehicleId:"DX26 LTN",eta:"ETA ~14:30",date:"Fri 31 Oct"},
- {id:"XDR-10458",from:"PRESTON, PR1",to:"ST HELENS, WA11",vehicle:"7.5 Tonne",cargo:"6 Pallets",status:"Awaiting Driver",driver:"Unallocated",vehicleId:"—",eta:"Pickup 12:45",date:"Fri 31 Oct"},
- {id:"XDR-10459",from:"MANCHESTER, M1",to:"SHEFFIELD, S9",vehicle:"LWB Van",cargo:"12 Boxes",status:"POD Required",driver:"Mark R.",vehicleId:"DX24 FHD",eta:"Delivered 10:20",date:"Fri 31 Oct"}
-];
 export default function DemoCompanyDashboard({jobs,fleet,drivers,go,workspaceLabel="Company",suppressPreview=false}:{jobs:Job[];fleet:Fleet[];drivers:string[];go:(index:number)=>void;workspaceLabel?:string;suppressPreview?:boolean}){
  const real=useCompany3150Live();
  const availableDrivers=real?real.data.drivers.filter(d=>(d.availability_status||"").toLowerCase()==="available").length:drivers.length;
  const outstanding=real?real.data.invoices.filter(i=>!["paid","cancelled","void"].includes((i.payment_status||i.status||"").toLowerCase())&&(i.currency||"GBP")==="GBP").reduce((n,i)=>n+Number(i.amount??0),0):0;
  const recentJobs=real?real.data.jobs.filter(j=>new Date(j.created_at).getTime()>=Date.now()-7*86400000):[];
  const completedJobs=real?real.data.jobs.filter(j=>["completed","delivered"].includes((j.current_status||j.status||"").toLowerCase())):[];
- const hasData=!!real||jobs.length>0||suppressPreview;
+ const hasData=true;
  const today=new Date().toISOString().slice(0,10);
  const dashboardJobs=real?jobs.filter(j=>real.loads.some(l=>l.id===j.id&&l.pickupDate===today)):jobs;
  const active=jobs.filter(j=>j.status==="In Progress"||j.status==="Allocated").length;
  const pending=jobs.filter(j=>!j.driver&&j.status!=="Completed").length;
  const awaiting=jobs.filter(j=>j.status==="Completed"&&!j.pod).length;
- const rows=useMemo(()=>hasData?dashboardJobs.slice(0,5).map(j=>({id:j.id,from:j.from,to:j.to,vehicle:j.vehicle,cargo:j.cargo,status:j.pod?"Completed":!j.driver?"Awaiting Driver":j.status,driver:j.driver||"Unallocated",vehicleId:j.vehicleId||"—",eta:j.pod?"Delivered":j.stage>0?"In transit":"Pending",date:real?new Date((real.loads.find(l=>l.id===j.id)?.pickupDate||today)+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}):"Today"})):demo,[hasData,dashboardJobs,real,today]);
- const kpis=[{label:"Active Loads",value:hasData?jobs.length:24,sub:real?"Company job records":hasData?"Shared transport records":"8 awaiting quotes",icon:"▣",color:"orange",go:2},{label:"In Progress",value:hasData?active:12,sub:hasData?"Bookings underway":"3 deliveries today",icon:"▤",color:"blue",go:7},{label:"Available Drivers",value:real?availableDrivers:hasData?drivers.length:8,sub:real?"Available company drivers":hasData?"Company drivers":"Out of 14 drivers",icon:"♟",color:"green",go:6},{label:"Awaiting POD",value:hasData?awaiting:3,sub:"Action required",icon:"▧",color:"amber",go:7},{label:"Outstanding",value:real?"£"+outstanding.toFixed(2):suppressPreview?"—":"£4,850",sub:real?"Unpaid GBP invoice records":suppressPreview?"Invoice records not connected":"7 unpaid invoices · sample",icon:"£",color:"sky",go:8}];
+ const rows=useMemo(()=>hasData?dashboardJobs.slice(0,5).map(j=>({id:j.id,from:j.from,to:j.to,vehicle:j.vehicle,cargo:j.cargo,status:j.pod?"Completed":!j.driver?"Awaiting Driver":j.status,driver:j.driver||"Unallocated",vehicleId:j.vehicleId||"—",eta:j.pod?"Delivered":j.stage>0?"In transit":"Pending",date:real?new Date((real.loads.find(l=>l.id===j.id)?.pickupDate||today)+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}):"Today"})):[],[hasData,dashboardJobs,real,today]);
+ const kpis=[{label:"Active Loads",value:hasData?jobs.length:24,sub:real?"Company job records":hasData?"Shared transport records":"8 awaiting quotes",icon:"▣",color:"orange",go:2},{label:"In Progress",value:hasData?active:12,sub:hasData?"Bookings underway":"3 deliveries today",icon:"▤",color:"blue",go:7},{label:"Available Drivers",value:real?availableDrivers:hasData?drivers.length:8,sub:real?"Available company drivers":hasData?"Company drivers":"Out of 14 drivers",icon:"♟",color:"green",go:6},{label:"Awaiting POD",value:hasData?awaiting:3,sub:"Action required",icon:"▧",color:"amber",go:7},{label:"Outstanding",value:real?"£"+outstanding.toFixed(2):"—",sub:real?"Unpaid GBP invoice records":suppressPreview?"Invoice records not connected":"7 unpaid invoices · sample",icon:"£",color:"sky",go:8}];
  const actions=[{name:"Quotes to Review",n:real?real.quotes.filter(q=>q.status==="Open").length:hasData?0:2,go:3,color:"blue"},{name:"Unallocated Bookings",n:hasData?pending:1,go:4,color:"amber"},{name:"Awaiting POD",n:hasData?awaiting:1,go:7,color:"orange"},{name:"Overdue Deliveries",n:hasData?0:1,go:7,color:"red"}];
  return <section className="xd-dashboard">
   <div className="xd-dashboard-heading"><div><h1>Dashboard</h1><p>{workspaceLabel} overview · {real?new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):suppressPreview?new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"}):"Saturday, 31 October 2026"}</p></div></div>

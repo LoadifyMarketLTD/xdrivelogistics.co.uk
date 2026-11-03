@@ -27,6 +27,15 @@ for(const route of ["admin","broker"]){
   assert.ok(page.includes("ProtectedRoute"),route+" must remain auth protected");
   assert.ok(page.includes("Company3150LiveProvider"),route+" must have authenticated data provider");
 }
+for(const role of ["customer","driver"]){
+ const page=read("app/"+role+"/page.tsx");
+ assert.ok(page.includes("MasterWorkspace"),role+" authenticated route must use the canonical Master");
+ assert.ok(page.includes("authenticated dashboard="),role+" root must preserve its live operational dashboard");
+ assert.ok(!page.includes("Company3150LiveProvider"),role+" must use only its native tenant-scoped dashboard");
+ const layout=read("app/"+role+"/layout.tsx");
+ assert.ok(layout.includes("ProtectedRoute"),role+" must retain ProtectedRoute");
+ assert.ok(layout.includes("MasterLayoutGate"),role+" must avoid a duplicate sidebar while protecting child pages");
+}
 const policy=read("app/try-xdrive-demo/components/MasterWorkspacePolicy.ts");
 const expected=["Dashboard","Post Load","Loads","Quotes","Bookings","My Fleet","Drivers","Diary","Invoices","Network & Tools","Directory","Live Availability","Return Journeys","Freight Vision","Messages","Notifications","Reports"];
 const nav=(policy.match(/MASTER_WORKSPACE_TABS\s*=\s*\[([^\]]+)\]/)||[])[1]||"";
@@ -48,7 +57,7 @@ for(const role of ["Company Driver","Employee Driver"]){
 }
 const engine=read("app/try-xdrive-demo/components/OperationsDemo.tsx");
 assert.ok(engine.includes("MASTER_WORKSPACE_TABS"),"Shell must use canonical shared sidebar");
-assert.ok(engine.includes('readOnly={!can("manageFleet")}'),"Fleet mutations must be role gated");
+assert.ok(engine.includes('readOnly={!live||!can("manageFleet")}'),"Fleet mutations must be role gated");
 assert.ok(engine.includes('readOnly={!can("invoice")}'),"Invoicing actions must be role gated");
-assert.ok(engine.includes('disabled={!can("postLoad")}'),"Post Load must be role gated");
-console.log("PASS single master, 17 canonical tabs, 11 master routes, role permission safeguards");
+assert.ok(engine.includes('disabled={preview||!can("postLoad")}'),"Post Load must be role gated");
+console.log("PASS single master, 17 canonical tabs, 13 master routes, role permission safeguards");
