@@ -1,1 +1,1 @@
-Fleet 3150 isolated release from preserved 2026-10-31 snapshot. Route /try-xdrive-fleet-demo and fleet.css only. No authenticated fleet route changed. ESLint passed on source copy. TypeScript verification running; visual and deployment unverified.
+Fleet My Fleet replaced DemoFleetManager with the exact Company DemoFleetBoard visual model. Fleet-specific showSamples=false prevents fabricated Company sample fleet rows. Existing Fleet vehicles/drivers state and fleet API untouched. ESLint PASS. Typecheck pending. No authenticated Fleet production route changed.
