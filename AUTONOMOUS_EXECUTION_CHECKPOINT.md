@@ -12,3 +12,18 @@ No CSS files changed. No Supabase schema/data updates executed.
 Testing: ESLint modified files PASS; TypeScript PASS before final small changes, final rerun pending. Playwright local public DEMO: 17/17 sidebar tabs, sidebar 224px #071D43, desktop no horizontal overflow, 0 JS page errors. /admin unauthenticated redirects 307; unauth API returns 503 in isolated local environment missing server configuration (fails closed); authenticated full workflows NOT tested.
 IMPORTANT: current status is isolated worktree only, NOT merged or deployed. No real Company logged-in session was available to verify data display. No claim of production success yet.
 Remaining: final tsc; build/deploy preview; authenticated QA; check updated main before merge; no force push. Any work not covered by real APIs (e.g., actual GPS map, return journeys direct in 3150) currently opens authorised native routes, with no fictitious entries.
+
+### Final checks
+- Full tsc --noEmit --incremental false PASS (exit 0) after the final functional navigation adjustment.
+- ESLint scoped files PASS (exit 0); git diff --check PASS.
+- Netlify PR #756 first deploy e4c553c1 READY, hosted public DEMO 200, /admin 307 unauth, protected directory/notifications 401 unauth.
+- Follow-up commit 567791e9 fixes live sidebar view keys, pushed to same PR; follow-up Netlify deploy still building at time of this checkpoint.
+- No authenticated Company tenant data or write workflow E2E completed. PR stays DRAFT; main untouched.
+
+
+### Original Company boards recovered 2026-11-03
+- Verified authoritative code source D:\XDrive-3118-Transfer-Complete-20261102\app\try-xdrive-demo\components. Distinct original files: DemoReportsBoard, DemoFreightVision (+ DemoFreightMap), DemoInvoicesBoard, DemoMessagesBoard, DemoLiveAvailability, DemoReturnJourneys, DemoNetworkToolsBoard, DemoCompanyQuotes, plus original namespaced CSS and return-journeys.css.
+- COPIED without redesign into app/try-xdrive-demo/components of isolated Company 3150 real-data worktree; attached to the 8 corresponding Company sidebar tabs in OperationsDemo.tsx. Previous simplified Company3150LiveNetwork/Invoices components no longer rendered on those tabs.
+- Real Company data context retained. Original Quotes only uses authenticated company bids with direction; real award delegates to authorized quotes. Original Invoices reads actual invoice records and delegates issuance to authorized invoices. Original Messages uses protected /api/workspace/messages, not local browser sample messages, when authenticated. Original NetworkTools uses protected directory and live datasets. Original Returns does not mislabel ordinary company jobs as return journeys.
+- TypeScript --noEmit PASS after fixing quote direction literal types (last test). ESLint scoped original boards PASS (0 errors). Browser eight-tab rendered UI smoke pending/not yet certified. Public original DEMO reference /try-xdrive-company-demo remains separate from authenticated /admin.
+- No main merge or production deploy. Source project's uncommitted changes untouched. Worktree branch feature/company-3150-real-data-20261103; PR #756 remains DRAFT pending browser/auth checks.

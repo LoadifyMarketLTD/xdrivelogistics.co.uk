@@ -12,6 +12,7 @@ export type LiveQuote = {
   id: string;
   loadId: string;
   role: string;
+  direction: "Received" | "Sent";
   amount: number;
   createdAt: string;
   status: 'Open' | 'Withdrawn' | 'Accepted' | 'Rejected';
@@ -99,6 +100,7 @@ export function Company3150LiveProvider({ children }: { children: ReactNode }) {
       id: b.id,
       loadId: b.job_id,
       role: 'Carrier',
+      direction: data.jobs.find(j=>j.id===b.job_id)?.company_id===data.companyId?("Received" as const):("Sent" as const),
       amount: b.bid_price_gbp ?? b.amount ?? 0,
       createdAt: b.created_at,
       status: mapBidStatus(b.status),
