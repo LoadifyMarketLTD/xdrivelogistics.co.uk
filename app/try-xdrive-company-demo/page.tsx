@@ -1,4 +1,4 @@
-import OperationsDemo from "../try-xdrive-demo/components/OperationsDemo";
-export const dynamic = 'force-dynamic';
-export const metadata={title:"XDrive Carrier / Company Demo",robots:{index:false,follow:false}};
-export default function Page(){return <OperationsDemo role="Carrier / Company"/>}
+import MasterWorkspace from "../try-xdrive-demo/components/MasterWorkspace";
+export const dynamic = "force-dynamic";
+export const metadata={title:"XDrive Company / Carrier Workspace",robots:{index:false,follow:false}};
+export default function Page(){return <MasterWorkspace role="Company / Carrier"/>;}

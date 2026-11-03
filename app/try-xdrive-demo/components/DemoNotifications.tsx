@@ -6,14 +6,7 @@ import {useDemoLoads} from "./demoExchange";
 import {useDemoQuotes} from "./DemoQuotes";
 import "./demo-notifications.css";
 type N={id:string;type:"Jobs"|"Quotes"|"Bookings"|"Invoices"|"System";title:string;description:string;time:string;ref:string;from?:string;to?:string;vehicle?:string;cargo?:string;weight?:string;collection?:string;delivery?:string;read:boolean};
-const examples:N[]=[
-{id:"n1",type:"Bookings",title:"Booking Assigned — XDR-10457",description:"You have been allocated a booking: BLACKBURN, BB1 → ERITH, DA8",time:"10:24",ref:"XDR-10457",from:"BLACKBURN, BB1",to:"ERITH, DA8",vehicle:"Luton (Tail Lift)",cargo:"4 Pallets",weight:"1,200 kg",collection:"31 Oct, 08:30",delivery:"31 Oct, ~14:30",read:false},
-{id:"n2",type:"Quotes",title:"New Quote Received — XDR-10458",description:"A new quote has been received for your load: PRESTON, PR1 → ST HELENS, WA11",time:"09:57",ref:"XDR-10458",read:false},
-{id:"n3",type:"Jobs",title:"Load Posted — XDR-10459",description:"New load available: MANCHESTER, M1 → SHEFFIELD, S9",time:"09:21",ref:"XDR-10459",read:true},
-{id:"n4",type:"Bookings",title:"POD Received — XDR-10456",description:"POD has been uploaded and the job is marked as completed.",time:"Yesterday, 16:42",ref:"XDR-10456",read:true},
-{id:"n5",type:"Invoices",title:"Invoice Issued — INV-003872",description:"Invoice INV-003872 for £381.00 has been issued.",time:"Yesterday, 14:10",ref:"INV-003872",read:true},
-{id:"n6",type:"Jobs",title:"Job Completed — XDR-10453",description:"The job has been completed and closed.",time:"29 Oct, 17:36",ref:"XDR-10453",read:true}
-];
+const examples:N[]=[];
 const colors:Record<N["type"],string>={Jobs:"#ff7900",Quotes:"#1165e5",Bookings:"#12aa39",Invoices:"#176de5",System:"#e62929"};
 const icons:Record<N["type"],string>={Jobs:"🚚",Quotes:"◇",Bookings:"▣",Invoices:"▤",System:"⚠"};
 export default function DemoNotifications({onNavigate}:{onNavigate?:(page:number)=>void}){
