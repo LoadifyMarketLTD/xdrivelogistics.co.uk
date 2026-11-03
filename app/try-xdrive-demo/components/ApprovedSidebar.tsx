@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 import {useState} from "react";
-import {LayoutDashboard,PackagePlus,Truck,Tags,ClipboardCheck,CalendarDays,Menu,Network,MapPinned,FileText,Users,MessageSquare,Bell,BarChart3,Search,Route,ClipboardList,CheckCircle2,ShieldCheck,ChevronsLeft,ChevronsRight,PackageSearch,BriefcaseBusiness} from "lucide-react";
+import {LayoutDashboard,PackagePlus,Truck,Tags,ClipboardCheck,CalendarDays,Menu,Network,MapPinned,FileText,Users,MessageSquare,Bell,BarChart3,Route,ClipboardList,CheckCircle2,ShieldCheck,ChevronsLeft,ChevronsRight,PackageSearch,BriefcaseBusiness} from "lucide-react";
 import "./approved-sidebar-3119.css";
 
 const icons:Record<string,typeof LayoutDashboard>={
@@ -23,3 +23,4 @@ return <aside className={"sidebar xd-approved-sidebar"+(collapsed?" is-collapsed
 <div className="xd-approved-footer"><button type="button" aria-label={collapsed?"Expand sidebar":"Collapse sidebar"} title={collapsed?"Expand sidebar":"Collapse sidebar"} onClick={()=>setCollapsed(v=>!v)}>{collapsed?<ChevronsRight size={21}/>:<ChevronsLeft size={21}/>}</button></div>
 </aside>;
 }
+
