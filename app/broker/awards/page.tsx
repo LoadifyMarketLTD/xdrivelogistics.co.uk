@@ -1,5 +1,7 @@
-import { redirect } from 'next/navigation';
+'use client';
 
-export default function BrokerAwardsCompatibilityPage() {
-  redirect('/broker/jobs');
+import BrokerJobsPage from '../jobs/page';
+
+export default function BrokerAwardsPage() {
+  return <BrokerJobsPage initialTab="awarded" />;
 }
