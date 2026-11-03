@@ -1,0 +1,84 @@
+/* Broker 3118 presentation: one dedicated navigation surface, real Broker pages. */
+.xdrive-broker-workspace{--broker3118-blue:#0b2f6b;--broker3118-accent:#1d57d8;--broker3118-orange:#f5a300;--broker3118-border:#dce5f0}
+.xdrive-broker-workspace .top-workspace-nav--primary{display:none!important}
+.xdrive-broker-workspace .top-workspace-shell__content{min-height:calc(100vh - 50px)!important;background:#f4f6f8!important}
+.xdrive-broker-workspace .top-workspace-shell__content>div.broker3118-app{width:100%!important;max-width:none!important;padding:0!important}
+.xdrive-broker-workspace .top-workspace-shell__header{position:sticky!important;top:0!important;z-index:85!important;background:#fff!important;border-bottom:1px solid var(--broker3118-border)!important}
+.broker3118-app{display:grid;grid-template-columns:218px minmax(0,1fr);min-height:calc(100vh - 50px);font-family:Inter,Arial,sans-serif;font-size:12px;color:#1a1f2b;background:#f4f6f8}
+.broker3118-sidebar{position:sticky;top:50px;align-self:start;height:calc(100vh - 50px);overflow-y:auto;background:var(--broker3118-blue);color:#fff;padding:22px 11px 14px;display:flex;flex-direction:column;gap:7px}
+.broker3118-brand{display:block;padding:5px 11px 0;font-size:20px;font-weight:850;letter-spacing:.03em;color:#fff;text-decoration:none}
+.broker3118-brand em{font-size:10px;font-weight:650;font-style:normal;letter-spacing:0}
+.broker3118-caption{font-size:10px;font-weight:750;letter-spacing:1px;color:#a9c2e7;padding:4px 11px 18px}
+.broker3118-links{display:grid;gap:4px}
+.broker3118-link{display:flex;align-items:center;gap:10px;min-height:40px;padding:9px 12px;border-radius:7px;color:#eaf1fc;text-decoration:none;font-size:13px;font-weight:650}
+.broker3118-link:hover{background:#1b4a91;color:#fff}
+.broker3118-link.active{background:var(--broker3118-accent);color:#fff;box-shadow:inset 3px 0 0 var(--broker3118-orange)}
+.broker3118-icon{width:19px;flex:0 0 19px;text-align:center;font-size:15px}
+.broker3118-sidefooter{margin-top:auto;padding:20px 10px 2px;color:#adc3e3;font-size:10px}
+.broker3118-main{min-width:0;padding:0}
+.broker3118-content{padding:18px 22px;min-width:0}
+.broker3118-content>div{max-width:none!important}
+.broker3118-content :is(.broker-clean-dashboard,.ws-page-frame){--ws-radius:9px;--ws-font-body:12px;--ws-font-label:12px}
+.broker3118-content :is(.broker-clean-dashboard,.ws-page-frame) :is(section,article){border-radius:9px}
+.broker3118-tools{display:flex;flex-wrap:wrap;gap:8px;margin:0 22px 22px;padding:12px;border:1px solid var(--broker3118-border);border-radius:9px;background:#fff}
+.broker3118-tools a{padding:8px 12px;border:1px solid #dce5f0;border-radius:6px;color:var(--broker3118-blue);text-decoration:none;font-weight:700}
+.broker3118-tools a.active{background:#e8f1ff;border-color:var(--broker3118-accent)}
+.broker3118-mobile{display:none}
+@media(max-width:1024px){.broker3118-app{grid-template-columns:1fr}.broker3118-sidebar{display:none}.broker3118-mobile{display:flex;gap:4px;overflow-x:auto;padding:9px 10px;background:var(--broker3118-blue)}.broker3118-mobile a{flex:0 0 auto;color:#eaf1fc;text-decoration:none;font-size:12px;font-weight:700;padding:10px;border-radius:6px}.broker3118-mobile a.active{background:var(--broker3118-accent);color:#fff}.broker3118-content{padding:12px}.broker3118-tools{margin:0 12px 12px}}
+
+
+/* Broker 3118 original dashboard visual composition, backed by live data. */
+.broker3118-dashboard{display:grid;gap:18px;max-width:none;font-family:Inter,Arial,sans-serif}
+.broker3118-dashboard h1{font-size:26px;line-height:1.25;font-weight:800;color:#0b2f6b;margin:0}
+.broker3118-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.broker3118-metrics>div{display:flex;flex-direction:column;gap:8px;background:#fff;border:1px solid #dce5f0;border-radius:9px;padding:17px;box-shadow:0 2px 6px #0b2f6b10}
+.broker3118-metrics small,.broker3118-customer small{color:#64748b;font-size:10px;font-weight:800;letter-spacing:.5px}
+.broker3118-metrics b{font-size:27px;line-height:1.2;color:#0b2f6b}
+.broker3118-metrics span{font-size:12px;color:#64748b}
+.broker3118-panel{background:#fff;border:1px solid #dce5f0;border-radius:9px;padding:20px;box-shadow:0 2px 6px #0b2f6b10}
+.broker3118-panel h2{font-size:18px;font-weight:800;color:#0b2f6b;margin:0 0 14px}
+.broker3118-panelhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.broker3118-panelhead>span{font-size:11px;color:#64748b}
+.broker3118-customer{display:flex;flex-direction:column;gap:7px;padding:15px 18px;border-radius:9px;border:1px solid #dce7f4;background:#f6f9fd;margin:12px 0}
+.broker3118-customer strong{color:#0b2f6b;font-size:16px}
+.broker3118-customer span{color:#64748b;font-size:12px}
+.broker3118-route{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;padding:16px 0}
+.broker3118-route>div{display:grid;gap:6px}
+.broker3118-route small{font-size:10px;font-weight:800;color:#64748b}
+.broker3118-route strong{font-size:17px;color:#0b2f6b}
+.broker3118-route>span{font-size:22px;color:#f5a300}
+.broker3118-facts{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}
+.broker3118-facts span{background:#eef3f8;border-radius:5px;padding:7px 9px;color:#34465e;font-size:11px}
+.broker3118-actions{display:flex;gap:10px;flex-wrap:wrap}
+.broker3118-actions a{display:inline-flex;align-items:center;min-height:38px;padding:9px 14px;border-radius:7px;text-decoration:none;font-size:12px;font-weight:800}
+.broker3118-actions .primary{background:#0b2f6b;color:#fff}
+.broker3118-actions .outline{background:#fff;border:1px solid #cbd5e1;color:#0b2f6b}
+.broker3118-steps{display:grid;gap:0}
+.broker3118-steps a{display:flex;align-items:center;gap:16px;min-height:48px;padding:10px 12px;border-bottom:1px solid #e7edf4;text-decoration:none;color:#1a1f2b;font-size:13px;font-weight:650}
+.broker3118-steps a:last-child{border-bottom:0}
+.broker3118-steps a:hover{background:#f6f9fd}
+.broker3118-steps a b{color:#0b2f6b;font-size:14px}
+.broker3118-steps a span:last-child{margin-left:auto;color:#1d57d8}
+@media(max-width:850px){.broker3118-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:500px){.broker3118-metrics{grid-template-columns:1fr}.broker3118-route{gap:8px}.broker3118-panel{padding:14px}}
+
+
+/* Extend 3118 visual system to every existing Broker operation page, preserving
+   live Supabase-backed forms, quotes, award controls and document workflows. */
+.broker3118-content .xdrive-page-frame{width:100%;max-width:none!important;margin:0!important;padding:0!important;background:transparent!important}
+.broker3118-content .xdrive-page-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 18px!important;padding:0!important;background:transparent!important;border:0!important;box-shadow:none!important}
+.broker3118-content .xdrive-page-header__eyebrow{color:#64748b;font-size:10px;font-weight:800;letter-spacing:.5px}
+.broker3118-content .xdrive-page-header__title{color:#0b2f6b!important;font-size:26px!important;line-height:1.25!important;font-weight:800!important;letter-spacing:normal!important}
+.broker3118-content .xdrive-page-header__description{font-size:12px!important;line-height:1.5!important;color:#64748b!important}
+.broker3118-content .workspace-tab-strip{display:flex;flex-wrap:wrap;gap:2px;background:transparent!important;border:0!important;border-bottom:1px solid #dce5f0!important;padding:0!important;margin:0 0 18px!important;border-radius:0!important;box-shadow:none!important}
+.broker3118-content .workspace-tab-strip a,.broker3118-content .workspace-tab-strip button{min-height:42px!important;padding:10px 13px!important;border:0!important;border-bottom:3px solid transparent!important;border-radius:0!important;background:transparent!important;color:#1a1f2b!important;font-size:12px!important;font-weight:750!important}
+.broker3118-content .workspace-tab-strip [aria-selected="true"],.broker3118-content .workspace-tab-strip [data-active="true"]{border-bottom-color:#f5a300!important;color:#0b2f6b!important}
+.broker3118-content .xdrive-page-frame :is(input,select,textarea){font-family:Inter,Arial,sans-serif;border-color:#cbd5e1;border-radius:6px}
+.broker3118-content .xdrive-page-frame :is(section,article){border-radius:9px}
+.broker3118-content .xdrive-page-frame :is(h1,h2,h3){font-family:Inter,Arial,sans-serif}
+.broker3118-content .xdrive-page-frame :is(h2,h3){color:#0b2f6b}
+.broker3118-content .xdrive-page-frame :is(button,[role="button"]){font-family:Inter,Arial,sans-serif}
+.broker3118-content .xdrive-page-frame :is(table){width:100%;border-collapse:separate;border-spacing:0}
+.broker3118-content .xdrive-page-frame :is(th){background:#f6f9fd;color:#0b2f6b;font-size:11px;font-weight:800}
+.broker3118-content .xdrive-page-frame :is(td){font-size:12px}
+@media(max-width:650px){.broker3118-content .xdrive-page-header__title{font-size:22px!important}.broker3118-content .workspace-tab-strip{flex-wrap:nowrap;overflow-x:auto}.broker3118-content .workspace-tab-strip a{white-space:nowrap}}

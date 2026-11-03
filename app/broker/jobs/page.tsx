@@ -41,7 +41,7 @@ function matchesTab(job: WorkspaceJob, tab: JobsTab) {
   return stage === 'completed';
 }
 
-export default function BrokerJobsPage() {
+export default function BrokerJobsPage({ initialTab = 'all' }: { initialTab?: JobsTab } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -49,7 +49,7 @@ export default function BrokerJobsPage() {
   const canEditOwnedJobs = ['owner', 'admin', 'dispatcher'].includes((user?.membershipRole ?? '').trim().toLowerCase());
   const deepJob = searchParams.get('job');
 
-  const [tab, setTab] = useState<JobsTab>('all');
+  const [tab, setTab] = useState<JobsTab>(initialTab);
   const [customer, setCustomer] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
