@@ -67,7 +67,7 @@ describe('Post Load workspace width and access contract', () => {
 
   it('matches the server-side company posting membership contract', () => {
     expect(createApi).toContain("['owner', 'admin', 'dispatcher'].includes(membershipRole)");
-    expect(createApi).toContain("input.mode === 'broker' && membershipRole === 'member'");
+    expect(createApi).toContain("(input.mode === 'broker' || input.mode === 'customer') && membershipRole === 'member'");
     expect(getProtectedRouteRequirement('/admin/post-load')?.anyOf).toContain('loads.create');
     expect(shell).toContain("isCapabilityAllowedForPath('/admin/post-load'");
   });
