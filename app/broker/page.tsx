@@ -1,7 +1,12 @@
 'use client';
 
-import BrokerDashboardHome from './BrokerDashboardHome';
+import ProtectedRoute from '../components/ProtectedRoute';
+import BrokerDemo3150 from './BrokerDemo3150';
 
-export default function Page() {
-  return <BrokerDashboardHome />;
+export default function BrokerHomePage() {
+  return (
+    <ProtectedRoute allowedRoles={['broker']}>
+      <BrokerDemo3150 />
+    </ProtectedRoute>
+  );
 }

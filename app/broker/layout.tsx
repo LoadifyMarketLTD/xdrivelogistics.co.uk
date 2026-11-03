@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
+import Broker3150LayoutGate from './Broker3150LayoutGate';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import './broker-dashboard-convergence.css';
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace xdrive-broker-workspace">
-      <TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell>
+      <Broker3150LayoutGate>{children}</Broker3150LayoutGate>
     </div>
   );
 }
