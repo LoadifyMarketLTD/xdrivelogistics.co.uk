@@ -8,7 +8,6 @@ import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal'
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
-import { sendGeneratedInvoice } from '../../../lib/client/invoiceDelivery';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
@@ -487,8 +486,8 @@ export default function JobHistoryPage() {
         throw new Error(payload?.error ?? 'Invoice could not be created.');
       }
 
-      await sendGeneratedInvoice(payload.invoice.id, token);
-      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+      // Creating a Draft never sends email; the authorised user must review it first.
+      router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
     } catch (reason) {
       setDetailWarning(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
