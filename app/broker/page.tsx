@@ -1,7 +1,7 @@
 'use client';
 
-import BrokerDashboardHome from './BrokerDashboardHome';
+import Broker3118Dashboard from './Broker3118Dashboard';
 
 export default function Page() {
-  return <BrokerDashboardHome />;
+  return <Broker3118Dashboard />;
 }
