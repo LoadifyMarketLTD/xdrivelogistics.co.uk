@@ -1,14 +1,17 @@
 "use client";
 import {useEffect,useState} from "react";
+import {useCompany3150Live} from "./Company3150LiveData";
 import {authenticatedDemoFetch} from "../../../lib/try-xdrive-demo/authenticatedFetch";
 export type DemoLoad={id:string;from:string;to:string;vehicle:string;pallets:string;weight:string;customer:string;sell:string;pickupDate?:string;deliveryDate?:string;pickupStart?:string;pickupEnd?:string;deliveryTime?:string;deliveryMode?:string;service?:string;packaging?:string;dimensions?:string;notes?:string;hardPod?:boolean;paymentTerms?:string;body?:string;postedAt:string;status:"Open"|"Awarded"|"Cancelled";quote?:number;driver?:string;awardedQuoteId?:string;acceptanceStatus?:"Pending"|"Accepted"|"Rejected";acceptanceAt?:string;awardHistory?:{quoteId:string;role:string;amount:number;awardedAt:string;decision?:string;decisionAt?:string}[];assignedDriver?:string;assignedVehicleId?:string;deliveryStage?:number;podReceived?:boolean;podRecipient?:string;podPhotoCount?:number;podConfirmedAt?:string;readOnly?:boolean;operationalStatus?:string};
 const event="xdrive-demo-loads-changed";
 let cache:DemoLoad[]=[];
 export function getDemoLoads(){return cache}
 export function useExchangeLoads(){
+ const ctx=useCompany3150Live();
  const [loads,setLoads]=useState<DemoLoad[]>([]);
  const [error,setError]=useState("");
  useEffect(()=>{
+  if(ctx)return;
   let active=true;
   const refresh=async()=>{
    try{
@@ -22,13 +25,15 @@ export function useExchangeLoads(){
   const timer=setInterval(()=>void refresh(),4000);
   window.addEventListener("xdrive-demo-session-change",refresh);
   return()=>{active=false;clearInterval(timer);window.removeEventListener("xdrive-demo-session-change",refresh)};
- },[]);
- return {loads,error};
+ },[ctx]);
+ return {loads:ctx?.loads??loads,error:ctx?ctx.data.error:error};
 }
 export function useDemoBookings(){
+ const ctx=useCompany3150Live();
  const [loads,setLoads]=useState<DemoLoad[]>([]);
  const [error,setError]=useState("");
  useEffect(()=>{
+  if(ctx)return;
   let active=true;
   const refresh=async()=>{
    try{
@@ -41,8 +46,8 @@ export function useDemoBookings(){
   void refresh();const timer=setInterval(()=>void refresh(),4000);
   window.addEventListener("xdrive-demo-booking-change",refresh);
   return()=>{active=false;clearInterval(timer);window.removeEventListener("xdrive-demo-booking-change",refresh)};
- },[]);
- return {loads,error};
+ },[ctx]);
+ return {loads:ctx?.bookings??loads,error:ctx?ctx.data.error:error};
 }
 export async function refreshDemoLoads(){const response=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{cache:"no-store"});if(!response.ok)throw Error("Demo exchange unavailable");cache=await response.json();window.dispatchEvent(new Event(event));return cache}
 export async function publishDemoLoad(data:Omit<DemoLoad,"id"|"postedAt"|"status">){const response=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});if(!response.ok)throw Error("Could not save demo load");const load:DemoLoad=await response.json();const published=await authenticatedDemoFetch("/api/try-xdrive-demo/loads",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:load.id,status:"posted"})});if(!published.ok){const details=await published.json().catch(()=>({})) as {error?:string};throw Error("Draft saved but publishing failed: "+(details.error||"Unknown error")+". Do not resubmit; review the draft first.")}await refreshDemoLoads();return {...load,status:"Open" as const}}
@@ -52,4 +57,4 @@ export async function updateDemoLoad(id:string,patch:Partial<DemoLoad>){
  if(!response.ok){const payload=await response.json().catch(()=>({})) as {error?:string};throw Error(payload.error||"Could not cancel demo load")}
  await refreshDemoLoads();
 }
-export function useDemoLoads(){const [loads,setLoads]=useState<DemoLoad[]>(cache);useEffect(()=>{let active=true;const sync=()=>{if(active)setLoads([...cache])};const refresh=()=>{refreshDemoLoads().catch(()=>{})};refresh();window.addEventListener(event,sync);const timer=setInterval(refresh,4000);return()=>{active=false;window.removeEventListener(event,sync);clearInterval(timer)}},[]);return loads}
+export function useDemoLoads(){const ctx=useCompany3150Live();const [loads,setLoads]=useState<DemoLoad[]>(cache);useEffect(()=>{if(ctx)return;let active=true;const sync=()=>{if(active)setLoads([...cache])};const refresh=()=>{refreshDemoLoads().catch(()=>{})};refresh();window.addEventListener(event,sync);const timer=setInterval(refresh,4000);return()=>{active=false;window.removeEventListener(event,sync);clearInterval(timer)}},[ctx]);return ctx?.loads??loads}
