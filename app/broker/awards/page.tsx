@@ -1,7 +1,7 @@
 'use client';
 
-import BrokerJobsPage from '../jobs/page';
+import BrokerJobsView from '../jobs/BrokerJobsView';
 
 export default function BrokerAwardsPage() {
-  return <BrokerJobsPage initialTab="awarded" />;
+  return <BrokerJobsView initialTab="awarded" />;
 }

@@ -48,3 +48,8 @@ extjs-portal intercepted clicks at bottom-left of the screen when sidebar was 68
 - Browser route probe: 27/27 Broker entry routes returned HTTP 307 to /login?next=... when unauthenticated. No unauthorized route leakage observed in this limited probe.
 - Static source review confirmed real Broker Post Load, Loads, Bids, Jobs, Diary, POD, Finance and Carrier Network pages remain connected to existing operational components; no DEMO route replacement performed.
 - Awaiting authenticated functional/E2E verification before calling Broker complete.
+
+### Netlify PR #752 build fix (2026-11-03)
+- First Netlify deploy 6ae9663e68ec56f11f054729 failed Next.js PageProps validation: app/broker/jobs/page.tsx accepted custom initialTab prop, disallowed on route default export.
+- Moved parameterized component to app/broker/jobs/BrokerJobsView.tsx, kept app/broker/jobs/page.tsx as proper zero-prop route, and wired app/broker/awards/page.tsx to the view with initialTab=awarded.
+- Scoped ESLint passed. Netlify build recheck pending.
