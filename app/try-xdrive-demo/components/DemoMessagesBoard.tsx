@@ -116,11 +116,7 @@ export default function DemoMessagesBoard({jobs,onBooking,targetRecipient}:{jobs
       }).catch(e=>setNotice(e instanceof Error?e.message:"Message could not be sent"));
       return;
     }
-    const msg:ChatMessage={id:"msg-"+Date.now(),from:"me",text:draft.trim(),time:timestamp()};
-    setConversations(xs=>xs.map(c=>c.id===current.id?
-      {...c,lastTime:msg.time,messages:[...c.messages,msg]}:c));
-    setDraft("");setEmojiOpen(false);
-    setNotice("Mesaj salvat local. Nu a fost trimis unui destinatar real.");
+    setNotice("Messaging requires an authenticated company session. No message has been sent.");
   };
   const startConversation=()=>{
     if(live){window.location.assign("/admin/messages");return;}
