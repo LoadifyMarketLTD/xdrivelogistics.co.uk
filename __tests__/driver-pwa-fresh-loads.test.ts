@@ -28,6 +28,13 @@ describe('fresh LOADS marketplace filtering', () => {
   it('does not guess pickup distance when GPS location is missing', () => {
     expect(run([{ ...base, distance_to_pickup_miles: null }], { pickupRadius: '10' })).toHaveLength(0);
   });
+  it('fails closed for non-finite distance and invalid radius filters', () => {
+    expect(run([{ ...base, distance_to_pickup_miles: Number.NaN }], { pickupRadius: '10' })).toHaveLength(0);
+    expect(run([{ ...base, distance_to_pickup_miles: Number.POSITIVE_INFINITY }], { pickupRadius: '10' })).toHaveLength(0);
+    expect(run([base], { pickupRadius: 'not-a-radius' })).toHaveLength(0);
+    expect(run([{ ...base, distance_to_delivery_miles: Number.NaN }], { destinationRadius: '50' })).toHaveLength(0);
+    expect(run([base], { destinationRadius: '-10' })).toHaveLength(0);
+  });
   it('applies pickup radius and permits boundary distance', () => {
     expect(run([base], { pickupRadius: '5' })).toHaveLength(0);
     expect(run([base], { pickupRadius: '10' })).toHaveLength(1);
