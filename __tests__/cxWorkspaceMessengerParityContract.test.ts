@@ -52,7 +52,7 @@ describe('CX-close participant messaging parity', () => {
     expect(topShell).toContain("dispatcher: '/admin/messages'");
     expect(topShell).toContain("label: 'Messages'");
     expect(customerQuotes).toContain('MessageParticipantDialog');
-    expect(customerQuotes).toContain('>Message</ActionButton>');
+    expect(customerQuotes).toContain('>Message</button>');
     expect(customerQuotes).not.toContain("router.push('/customer/messages')");
   });
 });

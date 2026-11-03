@@ -15,7 +15,7 @@ const workflowUi = read('app/admin/workflowUi.tsx');
 
 describe('Company Driver commercial boundary', () => {
   it('never allows company drivers to post new transport work', () => {
-    expect(jobsCreate).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
+    expect(jobsCreate).toContain("['owner', 'admin', 'dispatcher'].includes(membershipRole)");
     expect(jobsCreate).toContain('You cannot post loads for this company workspace.');
     expect(jobsCreate).not.toContain("'driver']");
   });
