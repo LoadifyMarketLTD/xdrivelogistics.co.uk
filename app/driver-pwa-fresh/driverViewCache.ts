@@ -57,4 +57,3 @@ export async function prefetchDriverTabData(tab: 'jobs' | 'quotes' | 'bookings',
     prefetching.delete(key);
   }
 }
-

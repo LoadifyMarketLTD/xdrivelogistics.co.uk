@@ -67,4 +67,3 @@ Commit only isolated safe code locally until release gate clears; do not push ma
 - Real operational POSTs, files or mutations NEVER performed. Existing job status/history preserved. Supabase migration remains NOT APPLIED.
 - Physical Pixel can show read-only booking detail and invoice draft; some asynchronous route loading requires waiting.
 - The local origin still lacks service_role; use production-configured preview for API tests.
-
