@@ -21,6 +21,10 @@ export async function GET(request: NextRequest) {
   if (membershipError) return json(500, { error: 'Carrier memberships could not be resolved.' });
   const companyIds = (memberships ?? []).map((row) => row.company_id as string).filter(Boolean);
 
+  const pageParam = request.nextUrl.searchParams.get('page') ?? '0';
+  if (!/^(0|[1-9]\d*)$/.test(pageParam) || Number(pageParam) > 10000) return json(400, { error: 'Invalid page.' });
+  const page = Number(pageParam);
+  const pageSize = 100;
   const filters = [`bidder_user_id.eq.${user.id}`];
   if (companyIds.length) filters.push(`carrier_company_id.in.(${companyIds.join(',')})`);
   const { data: offers, error: offersError } = await supabaseAdmin
@@ -28,7 +32,7 @@ export async function GET(request: NextRequest) {
     .select('id,job_id,bid_id,buyer_company_id,carrier_company_id,bidder_user_id,bidder_driver_id,quoted_vehicle_id,quoted_amount,currency,status,offered_at,responded_at,decline_reason,commercial_agreement_id')
     .or(filters.join(','))
     .order('offered_at', { ascending: false })
-    .limit(100);
+    .range(page * pageSize, (page + 1) * pageSize);
   if (offersError) {
     if (offersError.code === '42P01' || offersError.code === 'PGRST205') return json(503, { error: 'Booking acceptance schema is not deployed yet.' });
     return json(500, { error: offersError.message });
@@ -44,7 +48,8 @@ export async function GET(request: NextRequest) {
   const buyerById = new Map((buyers ?? []).map((row) => [row.id as string, row]));
 
   return json(200, {
-    offers: (offers ?? []).map((offer) => {
+    page, hasMore: (offers ?? []).length > pageSize, nextPage: (offers ?? []).length > pageSize ? page + 1 : null,
+    offers: (offers ?? []).slice(0, pageSize).map((offer) => {
       const job = jobById.get(offer.job_id as string) ?? null;
       const buyer = buyerById.get(offer.buyer_company_id as string) ?? null;
       const zones = inspectJobEnvironmentalZones(job);
