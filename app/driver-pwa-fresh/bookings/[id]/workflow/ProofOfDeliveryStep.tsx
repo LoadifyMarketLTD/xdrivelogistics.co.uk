@@ -39,7 +39,7 @@ export default function ProofOfDeliveryStep(props:Props){
   <WorkflowCard title="2. Delivery Evidence">
    <div className={styles.gallery}>
     {photoPaths.slice(0,3).map((path,index)=><div className={styles.photo} key={path}>{photoUrls[index]?<img src={photoUrls[index]} alt={'Delivery evidence '+(index+1)}/>:<span>Photo {index+1}</span>}{index===2&&photoPaths.length>3&&<b>+{photoPaths.length-2}</b>}</div>)}
-    {photoPaths.length<10&&<label className={styles.add}><span>＋</span><small>Add photo</small><input type="file" accept="image/jpeg,image/png" capture="environment" multiple disabled={working} onChange={onPhotos}/></label>}
+    {photoPaths.length<10&&<label className={styles.add}><span>＋</span><small>Add photo</small><input type="file" accept="image/jpeg,image/png" multiple disabled={working} onChange={onPhotos}/></label>}
    </div>
    <p className={styles.evidenceMeta}>{photoPaths.length} of 10 delivery photographs saved.</p>
    <div className={styles.documentRow}><span>{documentPaths.length} POD document{documentPaths.length===1?'':'s'} attached</span>{documentPaths.length<10&&<label>Add document<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working} onChange={onDocuments}/></label>}</div>
