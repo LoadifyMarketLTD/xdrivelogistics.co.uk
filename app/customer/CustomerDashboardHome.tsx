@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../lib/supabaseClient';
+import { fetchAllBookingOfferPages } from '../../lib/bookingOfferPages';
 import {
   isCustomerVisibleWorkspaceInvoice,
   useCompanyWorkspaceData,
@@ -102,18 +103,14 @@ export default function CustomerDashboardHome() {
       setBookingOfferError('Carrier acceptance state is unavailable until the session is refreshed.');
       return;
     }
-    const response = await fetch('/api/customer/booking-offers', {
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    });
-    const payload = await response.json().catch(() => ({})) as { offers?: BuyerBookingOffer[]; error?: string };
-    if (!response.ok) {
+    try {
+      const offers = await fetchAllBookingOfferPages<BuyerBookingOffer>('/api/customer/booking-offers', token);
+      setBookingOffers(offers);
+      setBookingOfferError('');
+    } catch (reason) {
       setBookingOffers([]);
-      setBookingOfferError(payload.error ?? 'Carrier acceptance state could not be loaded.');
-      return;
+      setBookingOfferError(reason instanceof Error ? reason.message : 'Carrier acceptance state could not be loaded.');
     }
-    setBookingOffers(payload.offers ?? []);
-    setBookingOfferError('');
   }, []);
 
   useEffect(() => { void loadBookingOffers(); }, [loadBookingOffers, data.jobs, data.bids]);
