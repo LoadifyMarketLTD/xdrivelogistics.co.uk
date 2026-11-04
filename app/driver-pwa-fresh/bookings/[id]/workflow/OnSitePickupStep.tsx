@@ -35,8 +35,10 @@ export default function OnSitePickupStep(props:Props){
   <WorkflowCard title="Collection Evidence (optional)">
    <p className={styles.helper}>Add evidence only when useful or requested by the posting company.</p>
    <div className={styles.evidenceActions}>
-    <label className={styles.upload}><span>Camera / Photos</span><small>{collectionPhotoCount}/10</small><input type="file" accept="image/jpeg,image/png" capture="environment" multiple disabled={working||collectionPhotoCount>=10} onChange={onPhotos}/></label>
-    <label className={styles.upload}><span>Add Document</span><small>{collectionDocumentCount}/10</small><input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||collectionDocumentCount>=10} onChange={onDocuments}/></label>
+    <label className={styles.upload}><span>Take collection photo (camera)</span><small>{collectionPhotoCount}/10</small><input type="file" accept="image/*" capture="environment" disabled={working||collectionPhotoCount>=10} onChange={onPhotos}/></label>
+    <label className={styles.upload}><span>Add saved collection photos</span><small>{collectionPhotoCount}/10</small><input type="file" accept="image/jpeg,image/png" multiple disabled={working||collectionPhotoCount>=10} onChange={onPhotos}/></label>
+    <label className={styles.upload}><span>Scan collection document (camera)</span><small>{collectionDocumentCount}/10</small><input type="file" accept="image/*" capture="environment" disabled={working||collectionDocumentCount>=10} onChange={onDocuments}/></label>
+    <label className={styles.upload}><span>Add saved document / image</span><small>{collectionDocumentCount}/10</small><input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||collectionDocumentCount>=10} onChange={onDocuments}/></label>
    </div>
    <label className={styles.notes}>Notes<textarea value={notes} onChange={e=>onNotes(e.target.value)} placeholder="Collection notes"/></label>
    <PrimaryAction disabled={working} onClick={onConfirmLoaded}>{working?'Saving…':'Confirm Loaded'}</PrimaryAction>
