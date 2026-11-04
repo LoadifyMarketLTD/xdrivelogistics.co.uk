@@ -42,7 +42,7 @@ export default function OnSiteDeliveryStep(props:Props){
   <WorkflowCard title="Delivery Photos">
    <div className={styles.gallery}>
     {photoPaths.slice(0,3).map((path,index)=><div className={styles.photo} key={path}>{photoUrls[index]?<img src={photoUrls[index]} alt={'Delivery evidence '+(index+1)}/>:<span>Photo {index+1}</span>}{index===2&&photoPaths.length>3&&<b>+{photoPaths.length-2}</b>}</div>)}
-    {photoPaths.length<10&&<label className={styles.addPhoto}><span>＋</span><small>Add photo</small><input type="file" accept="image/jpeg,image/png" capture="environment" multiple disabled={working} onChange={onPhotos}/></label>}
+    {photoPaths.length<10&&<label className={styles.addPhoto}><span>＋</span><small>Add photo</small><input type="file" accept="image/jpeg,image/png" multiple disabled={working} onChange={onPhotos}/></label>}
    </div>
    <p className={styles.photoHint}>{photoPaths.length}/10 saved delivery photo{photoPaths.length===1?'':'s'}. At least one is required before confirming delivery.</p>
   </WorkflowCard>
