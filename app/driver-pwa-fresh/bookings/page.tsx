@@ -13,6 +13,8 @@ type Response={jobs?:Booking[];error?:string};
 type OffersResponse={offers?:PendingOffer[];error?:string};
 type Period='current'|'week'|'month';
 const fmt=(date:string|null)=>date?new Date(date).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'Time not provided';
+const BOOKING_PROGRESS:Readonly<Record<string,number>>={awarded:-1,allocated:-1,assigned:-1,accepted:-1,on_my_way:0,on_site_pickup:1,loaded:2,in_transit:3,on_site_delivery:4,delivered:5,completed:6,pod_complete:6,invoiced:6};
+const BOOKING_STEPS=['On my way to pickup','On site at pickup','Loaded','On my way to delivery','On site at delivery','Delivered','POD'] as const;
 const fmtOfferPlace=(place:string|null|undefined,postcode:string|null|undefined)=>{const name=(place||'').trim(),code=(postcode||'').trim();if(!code)return name.toUpperCase();if(!name)return code.toUpperCase();const normalized=(value:string)=>value.toUpperCase().replace(/[^A-Z0-9]/g,'');return (normalized(name).includes(normalized(code))?name:name+', '+code).toUpperCase();};
 export default function Bookings(){
  const {user,isLoading:authLoading}=useAuth();
@@ -55,7 +57,7 @@ export default function Bookings(){
    distance_miles:job.jobDistanceMiles,weight_kg:null,pallets:null,payment_terms:null,exchange_posted_at:job.updatedAt,
    member:{name:job.postingCompanyName||'Booking',postedBy:job.postingCompanyName||'Booking'}
  } satisfies Load} actions={<>
-   <section className="fresh-booking-timeline" aria-label="Booking progress"><strong>{job.canonicalStatus}</strong><div>{(["On my way","On site","Loaded","Delivered","POD"] as const).map((step,index)=>{const state=job.canonicalStatus.toLowerCase();const progress=state.includes("pod")||state==="completed"||state==="invoiced"?4:state==="delivered"?3:state==="on_site_delivery"?2:state.includes("load")||state==="in_transit"?2:state.includes("site")?1:state.includes("way")?0:-1;return <div key={step} className={index<=progress?"done":""}><span className="fresh-booking-step-dot"/><small>{step}</small></div>})}</div></section>
+   <section className="fresh-booking-timeline" aria-label="Booking progress"><strong>{job.canonicalStatus}</strong><div>{BOOKING_STEPS.map((step,index)=>{const progress=BOOKING_PROGRESS[job.canonicalStatus.toLowerCase()]??-1;return <div key={step} className={index<=progress?"done":""}><span className="fresh-booking-step-dot"/><small>{step}</small></div>})}</div></section>
    <Link className="fresh-booking-open" href={'/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)}>Booking Details</Link>
  </>}/>)}
  </main><FreshBottom active="bookings"/></ProtectedRoute>;
