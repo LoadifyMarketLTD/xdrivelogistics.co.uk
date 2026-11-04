@@ -35,3 +35,7 @@ npm run build
 ```
 
 If the invariant gate fails, stop and repair the regression. Do not bypass or delete the guard to make a change pass.
+
+## Current execution policy (2026-11-04)
+
+Read `docs/CURRENT_AGENT_EXECUTION_POLICY_2026-11-04.md` before acting on any historical blueprint, checkpoint, E2E runbook or handoff. Historical instructions are not permission to undo current `main` behavior. In particular: do not reconnect production to obsolete staging, do not enable production mutation testing by default, do not replace the shared Master Workspace with old demo layouts, and do not restart the approved Driver PWA from an October prototype. Preserve real data, permissions, current workflows and PowerShell-only local release gates.
