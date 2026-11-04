@@ -9,8 +9,8 @@ describe('Driver top workspace role boundary', () => {
   const roles = read('lib/workspaceRole.ts');
 
   it('keeps owner-only business controls out of the employed Driver primary navigation', () => {
-    expect(shell).toContain("if (role === 'owner_driver') return composeDriverPrimaryNav(base, true);");
-    expect(shell).toContain("if (role === 'driver') return composeDriverPrimaryNav(base, false);");
+    expect(shell).toContain("if (role === 'owner_driver') return composeDriverPrimaryNav(accessibleBase, true);");
+    expect(shell).toContain("if (role === 'driver') return composeDriverPrimaryNav(accessibleBase, false);");
     expect(shell).toContain("const showOwnerDriverPostLoadAction = role === 'owner_driver';");
     for (const label of ['Invoices','Company Profile','Drivers & Staff','Settings','Membership & Billing']) {
       expect(roles).toContain(`label: '${label}'`);
