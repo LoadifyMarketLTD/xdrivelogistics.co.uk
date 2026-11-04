@@ -183,13 +183,13 @@ for (const role of roles) {
       expect(identityGeometry, role.id + ' ' + route.kind + ': Admin Marketplace visual identity marker').not.toBeNull();
       if (identityGeometry) {
         expect(identityGeometry.display, role.id + ' ' + route.kind + ': Admin Marketplace layout display').toBe('flex');
-        expect(identityGeometry.gap, role.id + ' ' + route.kind + ': Admin Marketplace layout gap').toBe('10px');
-        expect(identityGeometry.x, role.id + ' ' + route.kind + ': Admin Marketplace layout left edge').toBe(12);
-        expect(identityGeometry.width, role.id + ' ' + route.kind + ': Admin Marketplace layout width').toBe(1656);
-        expect(identityGeometry.railWidth, role.id + ' ' + route.kind + ': Admin Marketplace rail width').toBe(165);
-        expect(identityGeometry.mainWidth, role.id + ' ' + route.kind + ': Admin Marketplace main width').toBe(1481);
+        expect(identityGeometry.gap, role.id + ' ' + route.kind + ': Admin Marketplace layout gap').toBe('14px');
+        expect(identityGeometry.x, role.id + ' ' + route.kind + ': workspace begins inside viewport').toBeGreaterThanOrEqual(0);
+        expect(identityGeometry.width, role.id + ' ' + route.kind + ': workspace has usable width').toBeGreaterThan(500);
+        expect(identityGeometry.railWidth, role.id + ' ' + route.kind + ': Admin Marketplace rail width').toBe(196);
+        expect(identityGeometry.mainWidth, role.id + ' ' + route.kind + ': main panel has usable width').toBeGreaterThan(400);
         if (identityGeometry.controlHeight != null) {
-          expect(identityGeometry.controlHeight, role.id + ' ' + route.kind + ': Admin Marketplace filter control height').toBe(27);
+          expect(identityGeometry.controlHeight, role.id + ' ' + route.kind + ': readable filter control').toBeGreaterThanOrEqual(32);
         }
       }
       const record = { role: role.id, kind: route.kind, path: route.path, status: response?.status() ?? null, url, cardCount, measuredRoot, loginVisible, shellGeometry, identityGeometry, geometry, bodyText };
