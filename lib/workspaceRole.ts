@@ -199,7 +199,6 @@ const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
     { id: 'auto-match', label: 'Auto-match & Alerts', href: '/driver/load-alerts', icon: '◷' },
     { id: 'nearby', label: "Who's Nearby", href: '/driver/nearby', icon: '⌖' },
     { id: 'tracking', label: 'Tracking', href: '/driver/freight-vision', icon: '◎' },
-    { id: 'directory', label: 'Directory', href: '/driver/directory', icon: '⊕' },
     { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩' },
   ] },
   { id: 'business', label: 'Business', items: [
