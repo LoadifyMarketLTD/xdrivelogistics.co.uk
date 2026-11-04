@@ -212,6 +212,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [job, setJob] = useState<DbJob | null>(null);
   const [sheet, setSheet] = useState<JobSheet | null>(null);
+  const [multiStops, setMultiStops] = useState<Array<{id:string;sequence:number;type:string;address:string;status:string}>>([]);
+  const [multiStopsReady, setMultiStopsReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
@@ -267,6 +269,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       return;
     }
     setLoading(true);
+    setMultiStopsReady(false);
     setError('');
     const { data, error: loadError } = await supabase.from('jobs').select('*').eq('id', jobId).eq('assigned_driver_id', driverId).maybeSingle();
     if (loadError || !data) {
@@ -321,6 +324,15 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       } catch {
         // Execution remains usable if enrichment is temporarily unavailable.
       }
+    }
+    if (auth) {
+      try {
+        const stopResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId), { headers: { Authorization: auth }, cache: 'no-store' });
+        const stopPayload = await stopResponse.json().catch(() => ({})) as { job?: { stops?: Array<{id?:string;sequence?:number;type?:string;address?:string;status?:string}> }; multiDropPartial?:boolean };
+        if (!stopResponse.ok || stopPayload.multiDropPartial) throw new Error('Stops unavailable');
+        setMultiStops((stopPayload.job?.stops ?? []).filter((stop): stop is {id:string;sequence:number;type:string;address:string;status:string} => Boolean(stop.id && typeof stop.sequence === 'number' && stop.type && stop.address && stop.status)).sort((a,b)=>a.sequence-b.sequence));
+        setMultiStopsReady(true);
+      } catch { setMultiStopsReady(false); }
     }
     setLoading(false);
   }, [authHeader, driverId, jobId]);
@@ -930,6 +942,23 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     setWorking(false);
   };
 
+  const updateMultiStop = async (stopId: string, status: 'arrived' | 'completed') => {
+    const auth = await authHeader();
+    if (!auth) { setError('Please sign in again.'); return; }
+    setWorking(true); setError('');
+    try {
+      const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId) + '/stop-status', {
+        method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stop_id: stopId, status }),
+      });
+      const payload = await response.json().catch(() => ({})) as {error?:string};
+      if (!response.ok) { setError(payload.error || 'Stop could not be updated.'); return; }
+      await loadJob();
+      setMessage(status === 'arrived' ? 'Arrived at stop.' : 'Stop completed. Continue to the next stop.');
+    } catch { setError('Connection failed. Stop was not changed. Please retry.'); }
+    finally { setWorking(false); }
+  };
+
   const confirmDeliveredFromPage6 = async () => {
     if (!Number.isInteger(Number(podItemCount)) || Number(podItemCount) < 1) {
       setError('Number of items must be at least 1 before confirming delivery.');
@@ -1019,6 +1048,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     ] as const;
     const activeStep = executionSteps.findIndex(([key]) => key === currentStatus);
     const approvedScreen=driverBookingScreen(currentStatus,podComplete,invoiceRecorded?sheet?.invoices[0]?.status:null,invoiceRecorded?sheet?.invoices[0]?.paymentStatus:null);
+    if (podOnly && (!multiStopsReady || multiStops.some(stop => !['completed','skipped'].includes(stop.status)))) {
+      return <PageFrame><section className="fresh-mobile-booking-card"><h1>Complete delivery stops first</h1><p>{multiStopsReady ? 'Finish the remaining stops in your booking before final POD.' : 'Stop status could not be verified. Please retry.'}</p><button type="button" onClick={() => router.push('/driver-pwa-fresh/bookings/' + encodeURIComponent(jobId))}>Return to booking stops</button><button type="button" onClick={() => void loadJob()}>Retry</button></section></PageFrame>;
+    }
     const paymentRecordedState=(sheet?.invoices[0]?.paymentStatus??"").toLowerCase();
     const paymentFlowCurrent=(["paid","partially_paid","overdue"].includes(paymentRecordedState)?paymentRecordedState:sheet?.invoices[0]?.status??"").toLowerCase().replace(/_/g," ");
     if (!podOnly && approvedScreen.number===1 && currentStatus==='accepted') {
@@ -1147,7 +1179,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         onNext={()=>void moveStatus('in_transit')}
       />;
     }
-    if (!podOnly && approvedScreen.number===5 && currentStatus==='in_transit') {
+    if (!podOnly && approvedScreen.number===5 && currentStatus==='in_transit' && multiStopsReady && multiStops.length === 0) {
       const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
       const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
       return <InTransitDeliveryStep
@@ -1170,6 +1202,26 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         onBack={()=>router.push('/driver-pwa-fresh/bookings')}
         onNext={()=>void moveStatus('on_site_delivery')}
       />;
+    }
+    if (!podOnly && ['in_transit','on_site_delivery'].includes(currentStatus) && !multiStopsReady) {
+      return <PageFrame><section className="fresh-mobile-booking-card"><h1>Checking delivery stops</h1><p>Stop details are unavailable. Do not confirm final delivery until all stops are verified.</p><button type="button" onClick={() => void loadJob()}>Retry loading stops</button></section></PageFrame>;
+    }
+    if (!podOnly && ['in_transit','on_site_delivery'].includes(currentStatus) && multiStops.length > 0 && multiStops.some(stop => !['completed','skipped'].includes(stop.status))) {
+      const nextStop = multiStops.find(stop => !['completed','skipped'].includes(stop.status))!;
+      const finished = multiStops.filter(stop => ['completed','skipped'].includes(stop.status)).length;
+      return <PageFrame><section className="fresh-mobile-booking-card" aria-label="Multi-stop delivery progress">
+        <h1>Stops - {finished} of {multiStops.length} completed</h1>
+        <p>Complete each stop in sequence. Final POD is available only after all stops are completed.</p>
+        {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
+        <ol>{multiStops.map(stop => <li key={stop.id}><strong>{stop.type === 'collection' ? 'Collection' : 'Delivery'} {stop.sequence}</strong> - {stop.address} - {stop.status}</li>)}</ol>
+        <h2>Next stop: {nextStop.address}</h2>
+        <p>{nextStop.type === 'collection' ? 'Collection' : 'Delivery'} stop {nextStop.sequence}</p>
+        <a href={navigationUrl(nextStop.address,'','navigate') ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nextStop.address)}`} target="_blank" rel="noopener noreferrer">Navigate to next stop</a>
+        {nextStop.status === 'pending' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'arrived')}>On Site at Stop</button>}
+        {nextStop.status === 'arrived' && nextStop.type === 'delivery' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'completed')}>Complete Delivery Stop</button>}
+        {nextStop.status === 'arrived' && nextStop.type === 'collection' && <p role="alert">Collection stop requires a separately saved photo handover. Do not mark it complete without evidence.</p>}
+        <button type="button" onClick={() => void loadJob()} disabled={working}>Refresh stops</button>
+      </section></PageFrame>;
     }
     if (!podOnly && approvedScreen.number===6 && currentStatus==='on_site_delivery') {
       const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
