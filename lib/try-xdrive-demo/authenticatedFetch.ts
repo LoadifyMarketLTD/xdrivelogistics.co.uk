@@ -1,13 +1,13 @@
 import { getSupabase } from '../supabaseClient';
-import { isAuthorizedDemoStagingUrl } from './stagingProject';
+import { isAuthorizedXDriveProductionUrl } from './productionProject';
 
-/** Fail closed: never send a demo bearer token to a non-staging project. */
+/** Fail closed: send user tokens only to APIs backed by the authorized XDrive production project. */
 export async function authenticatedDemoFetch(input: string, init: RequestInit = {}): Promise<Response> {
-  if (!isAuthorizedDemoStagingUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)) {
-    throw new Error('XDrive Demo requires its dedicated Supabase staging project');
+  if (!isAuthorizedXDriveProductionUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)) {
+    throw new Error('XDrive production Supabase connection is not configured');
   }
   const client = getSupabase();
-  if (!client) throw new Error('Supabase staging session unavailable');
+  if (!client) throw new Error('XDrive authentication unavailable');
   const { data, error } = await client.auth.getSession();
   if (error || !data.session?.access_token) throw new Error('XDrive Demo authentication required');
   const headers = new Headers(init.headers);

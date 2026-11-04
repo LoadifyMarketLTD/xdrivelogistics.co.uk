@@ -389,7 +389,7 @@ export default function DemoNetworkToolsBoard({onNavigate,audience="company"}:{o
 
     {audience==="company"&&active==="API & Access"&&<div className="xd-network-detail-grid">
       <article className="xd-network-panel"><h2><Code2 size={23}/> DEMO API & Access</h2>
-        <p>Staging APIs are protected by authentication and row-level access controls. This screen does not display tokens or API secrets.</p>
+        <p>XDrive APIs are protected by authentication and row-level access controls. This screen does not display tokens or API secrets.</p>
         {[
           {name:"Loads",endpoint:"/api/try-xdrive-demo/loads",purpose:"Load and booking data"},
           {name:"Quotes",endpoint:"/api/try-xdrive-demo/quotes",purpose:"Quote records"},

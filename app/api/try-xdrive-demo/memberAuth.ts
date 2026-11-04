@@ -1,15 +1,15 @@
 import {createClient,type SupabaseClient} from "@supabase/supabase-js";
 import {NextRequest,NextResponse} from "next/server";
 import {getBearerToken} from "../_lib/supabaseAdmin";
-import {isAuthorizedDemoStagingUrl} from "../../../lib/try-xdrive-demo/stagingProject";
+import {isAuthorizedXDriveProductionUrl} from "../../../lib/try-xdrive-demo/productionProject";
 
 const deny=(status:number,error:string)=>NextResponse.json({error},{status,headers:{"Cache-Control":"no-store"}});
 export type DemoMember={userId:string;memberId:string;role:string;db:SupabaseClient};
-/** Per-request JWT-scoped client. Never use service-role privileges for DEMO data access. */
+/** Per-request JWT-scoped client for XDrive workspace data. Preserve RLS and tenant isolation. */
 export async function requireDemoMember(request:NextRequest):Promise<DemoMember|NextResponse>{
  const url=process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()||process.env.SUPABASE_URL?.trim();
  const anonKey=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()||process.env.SUPABASE_ANON_KEY?.trim();
- if(!isAuthorizedDemoStagingUrl(url)||!anonKey)return deny(503,"Dedicated staging configuration unavailable");
+ if(!isAuthorizedXDriveProductionUrl(url)||!anonKey)return deny(503,"XDrive production Supabase configuration unavailable");
  const token=getBearerToken(request);
  if(!token)return deny(401,"Authentication required");
  const db=createClient(url!,anonKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false},global:{headers:{Authorization:`Bearer ${token}`}}});
