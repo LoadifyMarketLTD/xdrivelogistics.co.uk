@@ -105,10 +105,10 @@ const detailHref = (role: Role, invoice: Invoice) => {
   return `/admin/invoices/${invoice.id}`;
 };
 
-export function WorkspaceFinanceControl({ role }: { role: Role }) {
+export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { role: Role; initialView?: View }) {
   const router = useRouter();
   const [payload, setPayload] = useState<Payload | null>(null);
-  const [view, setView] = useState<View>('dashboard');
+  const [view, setView] = useState<View>(initialView);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
@@ -154,7 +154,7 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
   const showReceivables = role !== 'customer';
   const tabs: Array<[View, string]> = role === 'carrier'
     ? [
-      ['dashboard', 'Dashboard'], ['all', 'All'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
+      ['dashboard', 'Dashboard'], ['all', 'All'], ['receivable', 'Accounts Receivable'], ['payable', 'Accounts Payable'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
       ['paid', 'Paid'], ['customers', 'Customers'], ['archive', 'Archive'], ['statements', 'Statements'],
     ]
     : [
@@ -245,7 +245,7 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
         </section>
       )}
 
-      {view === 'customers' && role === 'carrier' && (
+      {view === 'customers' && (role === 'carrier') && (
         <section className={styles.register}>
           <div className={styles.registerHead}><div><div className={styles.panelKicker}>Account performance</div><div className={styles.registerTitle}>Customers</div></div><button className={styles.button} onClick={() => downloadCustomers(customers)} disabled={!customers.length}>Export CSV</button></div>
           <div style={{padding:14,borderBottom:'1px solid #e4eaf1'}}><input value={customerQuery} onChange={(event) => setCustomerQuery(event.target.value)} placeholder="Customer name or ID" style={{minHeight:38,width:'min(360px,100%)',border:'1px solid #cbd5e1',borderRadius:8,padding:'0 12px'}} /></div>
