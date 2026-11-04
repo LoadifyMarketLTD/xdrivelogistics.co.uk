@@ -45,3 +45,14 @@ Recheck stop-level delivery evidence and offline recovery before production.
 ## Next
 Inspect second build, rerun final typecheck and targeted ESLint/tests, review all remaining failures.
 Commit only isolated safe code locally until release gate clears; do not push main or deploy.
+
+## Pixel login service remediation (2026-11-04, 17:10 GMT)
+- Pixel 10 Pro XL ADB connected; inspected actual Chrome local preview on port 3877.
+- Root cause: isolated preview had no .env.local, making isSupabaseConfigured false and AuthContext return Login service unavailable before contacting Supabase.
+- Configured ignored .env.local with production Supabase project URL and active public anon key from Supabase connector. No service_role or password stored.
+- Production Supabase Auth health returned HTTP 200 when called with publishable key.
+- Rebuilt Next production preview with .env.local: exit 0; restarted isolated preview at http://127.0.0.1:3877 with ADB reverse active.
+- Pixel Chrome displays refreshed login page; screenshot: D:\XDrive-DriverPWA-Audit-Evidence-20261104\pixel-auth-fixed.png.
+- Real sign-in with a user account NOT tested because no credentials were entered.
+- Driver API backend remains disabled locally without SUPABASE_SERVICE_ROLE_KEY. Keep release BLOCKED; no change to main, Netlify, production DB or user data.
+
