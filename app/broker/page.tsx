@@ -7,7 +7,7 @@ import {Company3150LiveProvider} from '../try-xdrive-demo/components/Company3150
 export default function BrokerHomePage() {
   return (
     <ProtectedRoute allowedRoles={['broker']}>
-      <Company3150LiveProvider><MasterWorkspace role="Broker"/></Company3150LiveProvider>
+      <Company3150LiveProvider><MasterWorkspace role="Broker" authenticated/></Company3150LiveProvider>
     </ProtectedRoute>
   );
 }
