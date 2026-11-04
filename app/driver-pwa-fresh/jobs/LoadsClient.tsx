@@ -7,7 +7,8 @@ const PublicLoadsMap = dynamic(() => import('../../components/workspace/Marketpl
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
-import { filterMarketplaceLoads } from './loadFilters';
+import { canQuoteStillOpenLoad, filterMarketplaceLoads } from './loadFilters';
+import { getDriverViewCache, putDriverViewCache } from '../driverViewCache';
 import FreshJobCard from '../FreshJobCard';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
 
@@ -70,7 +71,12 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
   }, []);
   const fetchLoads = useCallback(async () => {
     if (previewLoads) return;
-    setLoading(true); setError('');
+    const cacheKey = user?.id ? `loads:${user.id}` : null;
+    const cached = cacheKey ? getDriverViewCache<Load[]>(cacheKey) : null;
+    if (cached) setLoads(cached);
+    setLoading(!cached); setError('');
+    // Paint the last verified response immediately and revalidate in the background.
+    // A fresh server response replaces it without a blocking navigation spinner.
     try {
       if (!navigator.onLine) throw new Error('You are offline. Reconnect and try again.');
       let authorization = await readRouteAuthHeader();
@@ -82,14 +88,19 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
       const response = await fetch('/api/driver/marketplace/loads', { headers: { Authorization: authorization }, cache: 'no-store' });
       const payload = await response.json() as { loads?: Load[]; error?: string };
       if (!response.ok) throw new Error(payload.error || 'Unable to load jobs.');
-      setLoads(Array.isArray(payload.loads) ? payload.loads : []);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load jobs.'); setLoads([]); }
+      const actualLoads = Array.isArray(payload.loads) ? payload.loads : [];
+      setLoads(actualLoads);
+      if (cacheKey) putDriverViewCache(cacheKey, actualLoads);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to load jobs.'); if (!cached) setLoads([]); }
     finally { setLoading(false); }
-  }, [previewLoads]);
+  }, [previewLoads, user?.id]);
   useEffect(() => {
     if (!previewLoads && !authLoading && user) void fetchLoads();
   }, [previewLoads, authLoading, user, fetchLoads]);
-  const results = useMemo(() => filterMarketplaceLoads(loads.filter(load => !load.myBid), { from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius }, clock), [loads, from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius, clock]);
+  // A withdrawn/unsuccessful quote does not permanently remove a still-open load
+  // from the available board. Only an active or awarded bid prevents re-quoting.
+  const quoteableLoads = useMemo(() => loads.filter(canQuoteStillOpenLoad), [loads]);
+  const results = useMemo(() => filterMarketplaceLoads(quoteableLoads, { from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius }, clock), [quoteableLoads, from, to, vehicle, bodyType, collectWithin, pickupRadius, destinationRadius, clock]);
   const searchedResults = useMemo(() => results.filter(load => {
     const name = [load.member?.name, load.member?.postedBy, load.id].filter(Boolean).join(' | ').toLowerCase();
     if (memberQuery && !name.includes(memberQuery.trim().toLowerCase())) return false;
@@ -139,7 +150,7 @@ export default function FreshLoadsPage({ previewLoads }: { previewLoads?: Load[]
         <details className="fresh-extra-filters"><summary>More filters</summary><label>Destination town / outcode<input value={to} onChange={event => setTo(event.target.value)} placeholder="Town or outcode" /></label><label>Collect within<select value={collectWithin} onChange={event => setCollectWithin(event.target.value)}><option value="">Any time</option>{[15,30,45,60,90,120].map(n => <option key={n} value={n}>{n} minutes</option>)}</select></label><label>Destination radius<select value={destinationRadius} onChange={event => setDestinationRadius(event.target.value)}><option value="">Any distance</option>{[5,10,25,50,100].map(n => <option key={n} value={n}>{n} miles</option>)}</select></label></details>
         <div className="fresh-filter-actions"><button type="button" className="primary" onClick={() => setTab('available')}>SEARCH ({searchedResults.length})</button><button type="button" onClick={() => { const saved={from,to,vehicle,bodyType,collectWithin,pickupRadius,destinationRadius,locationMode,dateRange,startDate,endDate,memberQuery,freightType,vehicleFrom,vehicleTo}; try { localStorage.setItem("xdrive-driver-saved-job-filters",JSON.stringify(saved)); window.alert("Search preferences saved until you press Clear."); } catch { window.alert("Unable to save search preferences."); } }}>SAVE</button><button type="button" onClick={() => { try { localStorage.removeItem("xdrive-driver-saved-job-filters"); } catch { /* Storage can be unavailable in private browsing. */ } setFrom('');setTo('');setVehicle('');setBodyType('');setCollectWithin('');setPickupRadius('10');setDestinationRadius('');setLocationMode('current');setDateRange('any');setStartDate('');setEndDate('');setMemberQuery('');setFreightType('');setVehicleFrom('');setVehicleTo(''); }}>CLEAR</button></div>
       </section> : tab === 'map' && loading ? <div className="fresh-message" role="status">Loading available jobs...</div> : tab === 'map' && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchLoads()}>Try again</button></p></div> : tab === 'map' ? <section className="fresh-map-view fresh-map-reference" aria-label="Available jobs map"><div className="fresh-map-summary">{searchedResults.length} available jobs -  pickup areas shown at outcode level</div><PublicLoadsMap loads={searchedResults.map(load => ({ id: load.id, pickupLabel: place(load.pickup_area, load.pickup_postcode_area), pickupPostcode: load.pickup_postcode_area, deliveryLabel: place(load.delivery_area, load.delivery_postcode_area), deliveryPostcode: load.delivery_postcode_area, vehicleLabel: load.requested_vehicle_label || load.vehicle_type || 'Van', posterName: load.member?.name || 'Company', pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at }))} onDetails={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}`)} onQuote={id => router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(id)}#quote`)} /><div className="fresh-map-sheet"><button className="fresh-map-sheet-heading" type="button" onClick={()=>setMapSheetOpen(v=>!v)} aria-expanded={mapSheetOpen}>Loads nearby ({searchedResults.length}) <span>{mapSheetOpen?"×":"⌃"}</span></button>{mapSheetOpen?<div className="fresh-map-sheet-items">{searchedResults.slice(0,12).map(load=><button type="button" className="fresh-map-sheet-row" key={load.id} onClick={()=>router.push(`/driver-pwa-fresh/jobs/${encodeURIComponent(load.id)}`)}><span className="fresh-map-van" aria-hidden="true">🚚</span><span className="fresh-map-sheet-places"><strong>{load.pickup_area} {load.pickup_postcode_area}</strong><small>{load.delivery_area} {load.delivery_postcode_area}</small><small>{load.distance_miles != null?`${load.distance_miles} miles`:"View job details"}</small></span><span className="fresh-map-sheet-status">View ›</span></button>)}</div>:null}</div></section> : <>
-        {loading ? <div className="fresh-message" role="status">Loading available jobs...</div> : error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchLoads()}>Try again</button></p></div> : searchedResults.length === 0 ? <div className="fresh-message">No available loads match your search.<p><button type="button" onClick={() => setTab('filter')}>Change filters</button></p></div> : searchedResults.map(load => <FreshJobCard key={load.id} load={load} mode={previewLoads ? "preview" : "jobs"} />)}
+        {loading ? <div className="fresh-message" role="status">Loading available jobs...</div> : error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchLoads()}>Try again</button></p></div> : searchedResults.length === 0 ? <div className="fresh-message">No available loads match your search.<p><button type="button" onClick={() => setTab('filter')}>Change filters</button></p></div> : searchedResults.map(load => <div key={load.id}>{load.pickup_datetime && Date.parse(load.pickup_datetime) < clock ? <p className="fresh-message" role="note">Collection time has passed. Confirm this still-open load with the customer before quoting.</p> : null}<FreshJobCard load={load} mode={previewLoads ? "preview" : "jobs"} /></div>)}
       </>}
     </main>
     <FreshBottom active="jobs" demo={Boolean(previewLoads)} />

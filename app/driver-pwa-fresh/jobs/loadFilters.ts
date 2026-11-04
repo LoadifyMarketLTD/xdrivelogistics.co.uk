@@ -23,6 +23,11 @@ export type LoadFilters = {
   destinationRadius?: string;
 };
 
+export function canQuoteStillOpenLoad(load: { myBid?: { status: string | null } | null }): boolean {
+  if (!load.myBid) return true;
+  return ['withdrawn','rejected','unsuccessful','expired','cancelled'].includes(String(load.myBid.status ?? '').toLowerCase());
+}
+
 const available = new Set(['posted', 'quoted']);
 const label = (town: string, outcode: string | null) => [town, outcode].filter(Boolean).join(', ').toLowerCase();
 
@@ -31,14 +36,19 @@ export function filterMarketplaceLoads<T extends MarketplaceLoad>(loads: T[], fi
     if (!available.has(String(load.status).toLowerCase())) return false;
     if (load.pickup_datetime) {
       const pickup = Date.parse(load.pickup_datetime);
-      if (!Number.isFinite(pickup) || pickup < now) return false;
-      if (filters.collectWithin && pickup > now + Number(filters.collectWithin) * 60_000) return false;
+      if (!Number.isFinite(pickup)) return false;
+      // The server is authoritative for whether a posted load is still open.
+      // An overdue collection time is NOT an expired job: keep it visible with
+      // an explicit warning while the publisher has not withdrawn the listing.
+      if (filters.collectWithin && (pickup < now || pickup > now + Number(filters.collectWithin) * 60_000)) return false;
     } else if (filters.collectWithin) return false;
     if (filters.pickupRadius) {
       const radius = Number(filters.pickupRadius);
-      if (!Number.isFinite(radius) || radius < 0 ||
-          load.distance_to_pickup_miles == null || !Number.isFinite(load.distance_to_pickup_miles) ||
-          load.distance_to_pickup_miles > radius) return false;
+      if (!Number.isFinite(radius) || radius < 0) return false;
+      // Missing driver GPS is unknown distance, not evidence the job is outside
+      // the default 10-mile radius. Never silently hide the entire load board.
+      if (load.distance_to_pickup_miles != null &&
+          (!Number.isFinite(load.distance_to_pickup_miles) || load.distance_to_pickup_miles > radius)) return false;
     }
     if (filters.destinationRadius) {
       const radius = Number(filters.destinationRadius);
