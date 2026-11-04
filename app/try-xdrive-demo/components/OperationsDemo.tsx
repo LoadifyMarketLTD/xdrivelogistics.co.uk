@@ -4,7 +4,7 @@ import MasterLogoutButton from "./MasterLogoutButton";
 import {MASTER_WORKSPACE_TABS,masterWorkspaceCan,type MasterWorkspaceRole} from "./MasterWorkspacePolicy";
 import "../xdrive-design-system.css";
 
-import {useState,type ReactNode} from "react";
+import {useEffect,useState,type ReactNode} from "react";
 import {useRouter} from "next/navigation";
 import MasterOperationalSection from "./MasterOperationalSection";
 import {MemberDirectoryPage} from "../../components/workspace/MemberDirectoryPage";
@@ -60,6 +60,7 @@ const sharedLoads=useDemoLoads(isLiveDriverWorkspace);
 const sharedJobs:Job[]=sharedLoads.map(l=>({id:l.id,from:l.from,to:l.to,vehicle:l.vehicle,cargo:`${l.pallets||"0"} pallets Ã‚Â· ${l.weight||"0"} kg`,company:l.customer||"Company not recorded",status:l.podReceived?"Completed":l.status==="Awarded"?"In Progress":l.status,price:l.quote||0,driver:l.assignedDriver||"",vehicleId:l.assignedVehicleId||"",stage:l.deliveryStage||0,pod:Boolean(l.podReceived)}));
 const nav=[...MASTER_WORKSPACE_TABS,...(isLiveDriverWorkspace?['Documents','Settings']:[])];
 const [companyDrivers,setCompanyDrivers]=useState<string[]>([]),[companyFleet,setCompanyFleet]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>(role==="Company / Carrier"?fleet.map(v=>({id:v.id,reg:v.reg,vehicle:v.type,driver:v.driver,status:"Available",location:v.area})):[]),[tab,setTab]=useState(initialTab),[,setJobs]=useState<Job[]>(initial),[,setSelected]=useState(""),[filter,setFilter]=useState("All"),[search,setSearch]=useState("");
+useEffect(()=>setTab(initialTab),[initialTab]);
 const realDrivers=live?live.data.drivers.map(d=>d.display_name||"Unnamed driver"):companyDrivers;
 const realFleet=live?live.data.vehicles.map(v=>({id:v.id,reg:v.reg_plate||"Not recorded",vehicle:v.type||"Not recorded",driver:live.data.drivers.find(d=>d.id===v.assigned_driver_id)?.display_name||"Unassigned",status:"Not verified",location:"Not recorded"})):companyFleet;
 const show=(i:number)=>{
