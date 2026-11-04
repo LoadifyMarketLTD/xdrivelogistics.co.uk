@@ -64,6 +64,35 @@ const realDrivers=live?live.data.drivers.map(d=>d.display_name||"Unnamed driver"
 const realFleet=live?live.data.vehicles.map(v=>({id:v.id,reg:v.reg_plate||"Not recorded",vehicle:v.type||"Not recorded",driver:live.data.drivers.find(d=>d.id===v.assigned_driver_id)?.display_name||"Unassigned",status:"Not verified",location:"Not recorded"})):companyFleet;
 const show=(i:number)=>{
  if(isLiveDriverWorkspace){router.push(DRIVER_LIVE_ROUTES[i]??'/driver');return;}
+ // Authenticated Master navigation must open operational routes, not demo card datasets.
+ if(authenticated && i===0){
+   router.push(role==='Customer'?'/customer':role==='Broker'?'/broker':'/admin');
+   return;
+ }
+ if(authenticated && i===1){
+   router.push(role==='Customer'?'/customer/post-load':role==='Broker'?'/broker/post-load':'/admin/post-load');
+   return;
+ }
+ if(authenticated && i===2){
+   router.push(role==='Customer'?'/customer/loads':role==='Broker'?'/broker/loads':'/admin/marketplace');
+   return;
+ }
+ if(authenticated && i===3){
+   router.push(role==='Customer'?'/customer/quotes':role==='Broker'?'/broker/bids':'/admin/exchange');
+   return;
+ }
+ if(authenticated && i===4){
+   router.push(role==='Customer'?'/customer/bookings':role==='Broker'?'/broker/jobs':'/admin/won-work');
+   return;
+ }
+ if(authenticated && i===7){
+   router.push(role==='Customer'?'/customer/diary':role==='Broker'?'/broker/diary':'/admin/diary');
+   return;
+ }
+ if(authenticated && i===8){
+   router.push(role==='Customer'?'/customer/invoices':role==='Broker'?'/broker/finance':'/admin/finance');
+   return;
+ }
  setTab(i);
 };
 const list=(items:Job[],actions=true)=><div className="ops-job-list">{items.map(j=><article className="ops-job" key={j.id}><div className="ops-job-top"><strong>{j.company}</strong><small>{j.id} Ã‚Â· {j.status}</small></div><div className="ops-route"><div><small>COLLECTION</small><b>{j.from}</b></div><span>Ã¢â€ â€™</span><div><small>DELIVERY</small><b>{j.to}</b></div></div><div className="facts"><span>{j.vehicle}</span><span>{j.cargo}</span><span>30 days EOM</span><span>POD {j.pod?"received":"required"}</span></div><div className="ops-job-bottom"><small>{j.driver?j.driver+" Ã‚Â· "+j.vehicleId:"Unallocated"} Ã‚Â· Ã‚Â£{j.price}</small>{actions&&<button className="outline" onClick={()=>{setSelected(j.id);show(isDispatch?2:4)}}>View & manage Ã¢â€ â€™</button>}</div></article>)}</div>;
