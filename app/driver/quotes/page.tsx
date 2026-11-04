@@ -199,7 +199,7 @@ export default function MyQuotesPage() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const pageSize = 25;
+  const [pageSize, setPageSize] = useState(25);
   const [visibleCount, setVisibleCount] = useState(25);
   const refreshInFlightRef = useRef(false);
   const pendingWithdrawalsRef = useRef<Set<string>>(new Set());
@@ -459,7 +459,7 @@ export default function MyQuotesPage() {
               <button type="button" role="tab" aria-selected={activeTab === 'archived'} data-active={activeTab === 'archived' ? 'true' : 'false'} className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived</button>
               <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted</button>
               <button type="button" role="tab" aria-selected={activeTab === 'unsuccessful'} data-active={activeTab === 'unsuccessful' ? 'true' : 'false'} className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful</button>
-              <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span>
+              <span className="cx-quote-state-tabs__action" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}><label>Items per Page <select aria-label="Items per Page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span>
             </div>
 
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (

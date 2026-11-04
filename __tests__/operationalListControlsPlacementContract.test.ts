@@ -18,7 +18,9 @@ describe('Operational list controls placement contract', () => {
     expect(loads).toContain('className="load-result-head"');
     expect(loads).toContain("marginLeft: 'auto'");
     expect(loads).not.toContain('<div className="footer"><span>1-');
-    expect(quotes).toContain('className="cx-quote-pagination-row"');
+    expect(quotes).toContain('className="cx-quote-state-tabs__action"');
+    expect(quotes).toContain('aria-label="Items per Page"');
+    expect(quotes).toContain('onChange={(event) => setPageSize(Number(event.target.value))}');
     expect(quotes).not.toContain('<div className="footer"><span>Items per Page:');
     expect(returns).toContain("toggleExpandAll");
     expect(returns).not.toContain('<div className="footer"><span>Items per Page:');
