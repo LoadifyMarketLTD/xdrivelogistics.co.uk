@@ -458,7 +458,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     const parsed = Number(value);
     return [key, value && (!Number.isFinite(parsed) || parsed < 0 || ((key === 'pallets' || key === 'itemCount') && !Number.isInteger(parsed))) ? 'Enter a valid non-negative ' + (key === 'pallets' || key === 'itemCount' ? 'whole number' : 'number') : ''];
   }));
-  const emailError = mode !== 'customer' && form.clientEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.clientEmail.trim()) ? 'Enter a valid customer email address' : '';
+  const emailError = form.clientEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.clientEmail.trim()) ? 'Enter a valid customer email address' : '';
   const hasDimensionErrors = Boolean(dimensionErrors.length || dimensionErrors.width || dimensionErrors.height);
   const dimensionsCm = [form.length, form.width, form.height].map(numberOrNull);
   const hasDimensionValues = dimensionsCm.some((value) => value != null);
@@ -899,7 +899,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>XDrive Exchange</strong>
               <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Publish to eligible carriers and receive quotes.</span>
             </button>
-            {mode !== 'customer' && (
+            {(
               <button
                 type="button"
                 aria-pressed={directTargetMode === 'external_subcontractor'}
@@ -910,7 +910,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Confirm work with a non-XDrive subcontractor and retain the commercial record.</span>
               </button>
             )}
-            {(mode === 'admin' || mode === 'owner') && (
+            {(
               <button
                 type="button"
                 aria-pressed={directTargetMode === 'internal_resource'}
@@ -937,7 +937,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             </div>
           )}
 
-          {directTargetMode === 'external_subcontractor' && mode !== 'customer' && (
+          {directTargetMode === 'external_subcontractor' && (
             <div style={{ ...gridStyle, marginTop: 10 }}>
               <label style={labelStyle}>Contact name
                 <input style={fieldStyle} aria-invalid={showValidation && (externalTarget.contactName.trim().length < 2)} value={externalTarget.contactName} onChange={(event) => setExternalTarget((current) => ({ ...current, contactName: event.target.value }))} />
@@ -962,7 +962,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             </div>
           )}
 
-          {directTargetMode === 'internal_resource' && (mode === 'admin' || mode === 'owner') && (
+          {directTargetMode === 'internal_resource' && (
             <div style={{ ...gridStyle, marginTop: 10 }}>
               {internalResourcesError ? <AlertBanner tone="danger">{internalResourcesError}</AlertBanner> : null}
               <label style={labelStyle}>Driver
@@ -1050,7 +1050,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         ) : null}
       </Panel>
 
-      {mode !== 'customer' && (
+      {(
         <Panel title="Customer" description={mode === 'broker' ? 'The customer whose transport request is being managed by the broker.' : 'Optional customer details for work being posted by this operating account.'}>
           <div style={gridStyle}>
             <label style={labelStyle}>Customer name<input style={fieldStyle} value={form.clientName} onChange={(event) => set('clientName', event.target.value)} /></label>
