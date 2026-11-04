@@ -5,6 +5,7 @@ import {
   jobLifecyclePresentationGroup,
 } from '../../../../lib/jobs/jobLifecyclePresentation';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
+import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 import { loadDriverAgreedRates } from '../_lib/commercialRate';
 import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverContext';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
@@ -15,6 +16,11 @@ type DriverJobRow = {
   id: string;
   status: string | null;
   current_status: string | null;
+  pod_generated: boolean | null;
+  delivery_photos: unknown;
+  pod_photos: unknown;
+  delivery_signature_data: unknown;
+  client_signature_name: string | null;
   assigned_driver_id: string | null;
   assigned_company_id: string | null;
   vehicle_id: string | null;
@@ -62,6 +68,11 @@ export async function GET(request: NextRequest) {
       'id',
       'status',
       'current_status',
+      'pod_generated',
+      'delivery_photos',
+      'pod_photos',
+      'delivery_signature_data',
+      'client_signature_name',
       'assigned_driver_id',
       'assigned_company_id',
       'vehicle_id',
@@ -194,6 +205,7 @@ export async function GET(request: NextRequest) {
       const canonicalStatus = workspaceJobPresentationStatus(row);
       return {
         id: row.id,
+        podComplete: hasCompletePodEvidence(row),
         reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
         pickupLocation: row.pickup_location,
         deliveryLocation: row.delivery_location,

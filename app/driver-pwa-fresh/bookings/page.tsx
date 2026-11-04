@@ -8,7 +8,7 @@ import {FreshHeader,FreshBottom} from '../FreshNavigation';
 import FreshJobCard, { type Load } from '../FreshJobCard';
 import { getDriverViewCache, putDriverViewCache } from '../driverViewCache';
 
-type Booking={id:string;reference:string;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
+type Booking={id:string;podComplete:boolean;reference:string;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
 type PendingOffer={id:string;job_id:string;status:string;buyer_name:string;public_reference:string|null;quoted_amount:number|null;job:{pickup_city:string|null;pickup_location:string|null;pickup_postcode:string|null;delivery_city:string|null;delivery_location:string|null;delivery_postcode:string|null;pickup_datetime:string|null;job_distance_miles:number|null}|null};
 type Response={jobs?:Booking[];error?:string};
 type OffersResponse={offers?:PendingOffer[];error?:string};
@@ -44,8 +44,9 @@ export default function Bookings(){
  const now=Date.now(),day=86400000;
  const visible=items.filter(job=>{
   const timestamp=job.updatedAt?new Date(job.updatedAt).getTime():NaN;
-  if(period==='current')return job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming';
-  if(job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming')return false;
+  const awaitingPod=job.canonicalStatus.toLowerCase()==='delivered'&&!job.podComplete;
+  if(period==='current')return job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||awaitingPod;
+  if(job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||awaitingPod)return false;
   if(!Number.isFinite(timestamp))return false;
   const age=now-timestamp;
   return period==='week'?age>=0&&age<=7*day:age>7*day&&age<=30*day;
@@ -63,7 +64,7 @@ export default function Bookings(){
    distance_miles:job.jobDistanceMiles,weight_kg:null,pallets:null,payment_terms:null,exchange_posted_at:job.updatedAt,
    member:{name:job.postingCompanyName||'Booking',postedBy:job.postingCompanyName||'Booking'}
  } satisfies Load} actions={<>
-   <section className="fresh-booking-timeline" aria-label="Booking progress"><strong>{job.canonicalStatus}</strong><div>{BOOKING_STEPS.map((step,index)=>{const progress=BOOKING_PROGRESS[job.canonicalStatus.toLowerCase()]??-1;return <div key={step} className={index<=progress?"done":""}><span className="fresh-booking-step-dot"/><small>{step}</small></div>})}</div></section>
+   <section className="fresh-booking-timeline" aria-label="Booking progress"><strong>{job.podComplete&&job.canonicalStatus.toLowerCase()==='delivered'?'POD Completed':job.canonicalStatus}</strong><div>{BOOKING_STEPS.map((step,index)=>{const progress=job.podComplete?6:BOOKING_PROGRESS[job.canonicalStatus.toLowerCase()]??-1;return <div key={step} className={index<=progress?"done":""}><span className="fresh-booking-step-dot"/><small>{step}</small></div>})}</div></section>
    <Link className="fresh-booking-open" href={'/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)}>Booking Details</Link>
  </>}/>)}
  </main><FreshBottom active="bookings"/></ProtectedRoute>;
