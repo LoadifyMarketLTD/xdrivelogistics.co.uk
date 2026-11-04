@@ -6,6 +6,7 @@ import {useAuth} from '../../components/AuthContext';
 import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
 import FreshJobCard, { type Load } from '../FreshJobCard';
+import { getDriverViewCache, putDriverViewCache } from '../driverViewCache';
 
 type Booking={id:string;reference:string;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
 type PendingOffer={id:string;job_id:string;status:string;buyer_name:string;public_reference:string|null;quoted_amount:number|null;job:{pickup_city:string|null;pickup_location:string|null;pickup_postcode:string|null;delivery_city:string|null;delivery_location:string|null;delivery_postcode:string|null;pickup_datetime:string|null;job_distance_miles:number|null}|null};
@@ -21,15 +22,20 @@ export default function Bookings(){
  const [items,setItems]=useState<Booking[]>([]),[offers,setOffers]=useState<PendingOffer[]>([]),[period,setPeriod]=useState<Period>('current'),[busy,setBusy]=useState(true),[error,setError]=useState('');
  const refresh=useCallback(async()=>{
   if(!user?.id)return;
-  setBusy(true);setError('');
+  const cacheKey=`bookings:${user.id}`;
+  const cached=getDriverViewCache<{jobs:Booking[];offers:PendingOffer[]}>(cacheKey);
+  if(cached){setItems(cached.jobs);setOffers(cached.offers);}
+  setBusy(!cached);setError('');
   try{
    const token=await readRouteAuthAccessToken();if(!token)throw new Error('Please sign in to view bookings.');
    const [jobsResponse,offersResponse]=await Promise.all([fetch('/api/driver/jobs?scope=all&limit=250',{headers:{Authorization:'Bearer '+token},cache:'no-store'}),fetch('/api/booking-offers',{headers:{Authorization:'Bearer '+token},cache:'no-store'})]);
    const body=await jobsResponse.json() as Response; const offerBody=await offersResponse.json() as OffersResponse;
    if(!jobsResponse.ok)throw new Error(body.error||'Bookings could not be loaded.');
    if(!offersResponse.ok)throw new Error(offerBody.error||'Booking offers could not be loaded.');
-   setItems((body.jobs||[]).filter(job=>job.lifecycleGroup!=='other'));
-   setOffers((offerBody.offers||[]).filter(offer=>offer.status==='pending'));
+   const jobs=(body.jobs||[]).filter(job=>job.lifecycleGroup!=='other');
+   const pending=(offerBody.offers||[]).filter(offer=>offer.status==='pending');
+   setItems(jobs);setOffers(pending);
+   putDriverViewCache(cacheKey,{jobs,offers:pending});
   }catch(e){setError(e instanceof Error?e.message:'Unable to load bookings.');}
   finally{setBusy(false);}
  },[user?.id]);

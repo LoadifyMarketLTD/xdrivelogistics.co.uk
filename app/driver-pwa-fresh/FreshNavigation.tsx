@@ -2,9 +2,12 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
+import { useAuth } from '../components/AuthContext';
+import { prefetchDriverTabData } from './driverViewCache';
 
 const menuGroups=[
  {label:'My Profile',href:'/driver/profile'},
+ {label:'My Van',href:'/driver-pwa-fresh/vehicles'},
  {label:'Vehicles & Documents',href:'/driver/vehicles'},
  {label:'Return Journeys',href:'/driver/returns'},
  {label:'Availability & Nearby',href:'/driver/availability'},
@@ -27,6 +30,7 @@ export function FreshHeader({onSearch,title,onBack}:{onSearch?:()=>void;title?:s
 export function FreshBottom({active,demo=false}:{active:'jobs'|'quotes'|'bookings';demo?:boolean}){
  const router=useRouter();
  const pathname=usePathname();
+ const { user } = useAuth();
  const [selected,setSelected]=useState(active);
  const base=demo?'/driver-pwa-fresh/visual-preview/workflow?tab=':'/driver-pwa-fresh/';
  useEffect(()=>setSelected(active),[active,pathname]);
@@ -34,6 +38,15 @@ export function FreshBottom({active,demo=false}:{active:'jobs'|'quotes'|'booking
   if(demo)return;
   for(const target of ['jobs','quotes','bookings'] as const)router.prefetch('/driver-pwa-fresh/'+target);
  },[demo,router]);
+ useEffect(() => {
+  if (demo || !user?.id) return;
+  const id = window.setTimeout(() => {
+   for (const target of ['jobs','quotes','bookings'] as const) {
+    if (target !== active) void prefetchDriverTabData(target, user.id);
+   }
+  }, 700);
+  return () => window.clearTimeout(id);
+ }, [demo, active, user?.id]);
  const tabs=(['jobs','quotes','bookings'] as const);
  return <nav className="fresh-bottom" aria-label="Driver tabs">{tabs.map(tab=><Link key={tab} prefetch href={base+tab} aria-current={selected===tab?'page':undefined} className={selected===tab?'selected':''} onPointerDown={()=>setSelected(tab)} onClick={()=>setSelected(tab)}>{tab==='jobs'?'Loads':tab==='quotes'?'My Quotes':'Bookings'}</Link>)}</nav>;
 }
