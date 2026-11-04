@@ -40,7 +40,7 @@ type Role=MasterWorkspaceRole;
 type Job={id:string;from:string;to:string;vehicle:string;cargo:string;company:string;status:string;price:number;driver:string;vehicleId:string;stage:number;pod:boolean};
 const initial:Job[]=[];
 const fleet:{id:string;reg:string;type:string;driver:string;area:string}[]=[];
-export default function OperationsDemo({role,authenticated=false,initialTab=0}:{role:Role;authenticated?:boolean;dashboard?:ReactNode;initialTab?:number}){
+export default function OperationsDemo({role,authenticated=false,dashboard,initialTab=0}:{role:Role;authenticated?:boolean;dashboard?:ReactNode;initialTab?:number}){
 const live=useCompany3150Live();
 const preview=useMasterPreviewIsolation();
 const isDispatch=false;
@@ -55,6 +55,7 @@ const realFleet=live?live.data.vehicles.map(v=>({id:v.id,reg:v.reg_plate||"Not r
 const show=(i:number)=>setTab(i);
 const list=(items:Job[],actions=true)=><div className="ops-job-list">{items.map(j=><article className="ops-job" key={j.id}><div className="ops-job-top"><strong>{j.company}</strong><small>{j.id} Ã‚Â· {j.status}</small></div><div className="ops-route"><div><small>COLLECTION</small><b>{j.from}</b></div><span>Ã¢â€ â€™</span><div><small>DELIVERY</small><b>{j.to}</b></div></div><div className="facts"><span>{j.vehicle}</span><span>{j.cargo}</span><span>30 days EOM</span><span>POD {j.pod?"received":"required"}</span></div><div className="ops-job-bottom"><small>{j.driver?j.driver+" Ã‚Â· "+j.vehicleId:"Unallocated"} Ã‚Â· Ã‚Â£{j.price}</small>{actions&&<button className="outline" onClick={()=>{setSelected(j.id);show(isDispatch?2:4)}}>View & manage Ã¢â€ â€™</button>}</div></article>)}</div>;
 return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><ApprovedSidebar items={nav} activeIndex={tab} onSelect={show} footerAction={authenticated ? <MasterLogoutButton /> : null} /><div className="content"><header className="topbar"><div className="mobile-brand">XDRIVE <em>LOGISTICS</em></div><div className="top-actions">{!live&&<><Link href="/try-xdrive">All workspaces</Link><Link href={isDispatch?"/try-xdrive-company-demo":"/try-xdrive-dispatcher-demo"}>{isDispatch?"Company Demo":"Dispatcher Demo"}</Link></>}{authenticated&&<MasterLogoutButton/>}</div></header><div className="page">
+{dashboard&&tab===initialTab?dashboard:<>
 {realOperational&&tab===initialTab&&<DemoCompanyDashboard workspaceLabel={role} suppressPreview jobs={sharedJobs} fleet={realFleet.map(v=>({...v,type:v.vehicle,area:v.location}))} drivers={realDrivers} go={show}/>}
 {realOperational&&tab!==initialTab&&tab===1&&<section>{can("postLoad")?<LoadPostingForm mode="customer"/>:<p role="status">Posting loads is restricted for this role.</p>}</section>}
 {realOperational&&tab!==initialTab&&tab===2&&<DemoExchangeBoard role={role==="Employee Driver"?"Company Driver":role}/>}
@@ -96,6 +97,7 @@ return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><Approved
 {isDispatch&&tab===6&&<DemoReportsBoard jobs={sharedJobs} drivers={companyDrivers} vehicles={companyFleet}/>}
 {!isDispatch&&tab===9&&(preview?<MasterOperationalSection role={role} tab="Network & Tools" preview/>:<DemoNetworkToolsBoard onNavigate={show} audience={can("manageCompany")?"company":can("quote")||can("postLoad")||can("award")?"standard":"driver"}/>) }
 {isDispatch&&tab===7&&<DemoNetworkToolsBoard audience="standard" onNavigate={i=>show(({4:2,10:7,11:7,12:7,16:6} as Record<number,number>)[i]??7)}/>}
+</>}
 </>}</div></div></main>
 }
 
