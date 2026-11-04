@@ -9,6 +9,7 @@ import { getJobClientFields } from '../../../../lib/jobClientFields';
 import { useAuth } from '../../../components/AuthContext';
 import { getAccessToken } from '../../_lib/getAccessToken';
 import { getLoadDetailSections, type LoadDetailSection } from '../../../../lib/loadPostingDetails';
+import MasterJobDetailView from '../../../components/workspace/MasterJobDetailView';
 
 interface Job {
   id: string;
@@ -389,6 +390,24 @@ export default function JobDetailPage() {
         </div>
       </ProtectedRoute>
     );
+  }
+
+  if (!editMode) {
+    const canManage = job.ownerCompanyId === companyId && ['owner', 'admin', 'dispatcher'].includes((user?.membershipRole ?? '').trim().toLowerCase());
+    const driver = drivers.find((item) => item.id === job.assignedDriverId);
+    return <ProtectedRoute><MasterJobDetailView
+      job={job}
+      driverName={driver ? getDriverLabel(driver) : job.assignedDriverId ? 'Assigned driver record unavailable' : 'Unallocated'}
+      saveMessage={saveMessage}
+      exchangeVisibility={exchangeVisibility}
+      publishingExchange={publishingExchange}
+      canManage={canManage}
+      onBack={() => router.push('/admin/jobs')}
+      onEdit={handleEdit}
+      onInvoice={handleGenerateInvoice}
+      onDelete={() => { if (window.confirm('Delete this job? This action cannot be undone.')) void handleDelete(); }}
+      onExchange={() => void handlePublishToExchange()}
+    /></ProtectedRoute>;
   }
 
   return (
