@@ -26,7 +26,7 @@ const leftAtOptions=['Goods Inwards','Reception','Recipient','Warehouse','Loadin
 export default function ProofOfDeliveryStep(props:Props){
  const {bookingReference,routeLabel,agreedRate,paymentTerms,deliveryConfirmed,deliveryStatus,itemCount,weight,photoPaths,photoUrls,documentPaths,recipientName,leftAt,deliveredOn,notes,signatureRef,signatureReady,hardCopyRequired,hardCopyAcknowledged,draftLoaded,draftSaving,draftError,working=false,error,message,onBack,onDeliveryStatus,onItemCount,onWeight,onRecipientName,onLeftAt,onDeliveredOn,onNotes,onPhotos,onDocuments,onSignatureStart,onSignatureMove,onSignatureEnd,onSaveSignature,onClearSignature,onHardCopyAcknowledged,onSaveDraft,onSubmit}=props;
  const validItems=Number.isInteger(Number(itemCount))&&Number(itemCount)>=1;
- const canSubmit=deliveryConfirmed&&deliveryStatus==='Completed Delivery'&&validItems&&photoPaths.length>0&&recipientName.trim().length>0&&leftAt.trim().length>0&&Boolean(deliveredOn)&&signatureReady&&(!hardCopyRequired||hardCopyAcknowledged)&&draftLoaded&&!draftSaving&&!working;
+ const canSubmit=deliveryConfirmed&&deliveryStatus==='Completed Delivery'&&validItems&&photoPaths.length>0&&documentPaths.length>0&&recipientName.trim().length>0&&leftAt.trim().length>0&&Boolean(deliveredOn)&&signatureReady&&(!hardCopyRequired||hardCopyAcknowledged)&&draftLoaded&&!draftSaving&&!working;
  return <WorkflowFrame title="Proof of Delivery" bookingReference={bookingReference} routeLabel={routeLabel} badge="Delivered" agreedRate={agreedRate} paymentTerms={paymentTerms} error={error} message={message} onBack={onBack} compact>
   <WorkflowCard title="1. Delivery Information">
    <div className={styles.deliveryInfo}>
@@ -39,10 +39,15 @@ export default function ProofOfDeliveryStep(props:Props){
   <WorkflowCard title="2. Delivery Evidence">
    <div className={styles.gallery}>
     {photoPaths.slice(0,3).map((path,index)=><div className={styles.photo} key={path}>{photoUrls[index]?<img src={photoUrls[index]} alt={'Delivery evidence '+(index+1)}/>:<span>Photo {index+1}</span>}{index===2&&photoPaths.length>3&&<b>+{photoPaths.length-2}</b>}</div>)}
-    {photoPaths.length<10&&<label className={styles.add}><span>＋</span><small>Add photo</small><input type="file" accept="image/jpeg,image/png" multiple disabled={working} onChange={onPhotos}/></label>}
    </div>
-   <p className={styles.evidenceMeta}>{photoPaths.length} of 10 delivery photographs saved.</p>
-   <div className={styles.documentRow}><span>{documentPaths.length} POD document{documentPaths.length===1?'':'s'} attached</span>{documentPaths.length<10&&<label>Add document<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working} onChange={onDocuments}/></label>}</div>
+   <p className={styles.evidenceMeta}>{photoPaths.length}/10 delivery photographs saved. At least one photograph is required.</p>
+   <div className={styles.documentRow}><span>{documentPaths.length}/10 delivery documents saved. At least one document is required.</span></div>
+   <div className={styles.documentRow}>
+    <label>Take delivery photo (camera)<input type="file" accept="image/*" capture="environment" disabled={working||photoPaths.length>=10} onChange={onPhotos}/></label>
+    <label>Add saved delivery photos<input type="file" accept="image/jpeg,image/png" multiple disabled={working||photoPaths.length>=10} onChange={onPhotos}/></label>
+    <label>Scan delivery document (camera)<input type="file" accept="image/*" capture="environment" disabled={working||documentPaths.length>=10} onChange={onDocuments}/></label>
+    <label>Add saved document / image<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||documentPaths.length>=10} onChange={onDocuments}/></label>
+   </div>
   </WorkflowCard>
 
   <WorkflowCard title="3. Recipient & Signature">
