@@ -56,3 +56,15 @@ Commit only isolated safe code locally until release gate clears; do not push ma
 - Real sign-in with a user account NOT tested because no credentials were entered.
 - Driver API backend remains disabled locally without SUPABASE_SERVICE_ROLE_KEY. Keep release BLOCKED; no change to main, Netlify, production DB or user data.
 
+
+## Authenticated physical Pixel validation on Netlify preview #762 (2026-11-04)
+- Draft PR #762 at https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/pull/762 ; Netlify preview deployed from 59c2b129, production main NOT touched.
+- Pixel Chrome authenticated session read securely in process memory, token never logged or persisted.
+- Preview GET /api/driver/jobs 200: 18 actual assigned jobs. Invalid JWT 401, nonexistent booking 404, assigned booking detail 200 with two stops, multiDropPartial=false.
+- Physical Pixel UI using read-only GET proxy to preview: Current 9 (previous code), last week 2, last month 3, with genuine real records and user history.
+- Confirmed 7 completed POD, 6 delivered with pod_generated true, 3 delivered with pod_generated false, 2 cancelled; earlier PWA Current incorrectly displayed 6 already-POD items.
+- Latest pending patch changes Current to require hasCompletePodEvidence=false, uses server POD evidence confirmation, de-duplicates displayed outcodes, and removes mandatory photo on legacy mobile Delivered.
+- Real operational POSTs, files or mutations NEVER performed. Existing job status/history preserved. Supabase migration remains NOT APPLIED.
+- Physical Pixel can show read-only booking detail and invoice draft; some asynchronous route loading requires waiting.
+- The local origin still lacks service_role; use production-configured preview for API tests.
+

@@ -7,7 +7,7 @@ import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import {FreshHeader,FreshBottom} from '../FreshNavigation';
 import FreshJobCard, { type Load } from '../FreshJobCard';
 
-type Booking={id:string;reference:string|null;assignedDriverName:string|null;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;pickupTimeSlot:string|null;deliveryTime:string|null;deliveryTimeSlot:string|null;serviceMode:string|null;bookingNotes:string|null;paymentTerms:string|null;weightKg:number|null;itemCount:number|null;createdAt:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
+type Booking={id:string;podGenerated:boolean;podComplete:boolean;reference:string|null;assignedDriverName:string|null;pickupLocation:string|null;deliveryLocation:string|null;pickupTime:string|null;pickupTimeSlot:string|null;deliveryTime:string|null;deliveryTimeSlot:string|null;serviceMode:string|null;bookingNotes:string|null;paymentTerms:string|null;weightKg:number|null;itemCount:number|null;createdAt:string|null;updatedAt:string|null;jobDistanceMiles:number|null;vehicleType:string|null;canonicalStatus:string;lifecycleGroup:string;agreedRateAmount:number|null;postingCompanyName:string|null};
 type PendingOffer={id:string;job_id:string;status:string;buyer_name:string;public_reference:string|null;quoted_amount:number|null;job:{pickup_city:string|null;pickup_location:string|null;pickup_postcode:string|null;delivery_city:string|null;delivery_location:string|null;delivery_postcode:string|null;pickup_datetime:string|null;job_distance_miles:number|null}|null};
 type Response={jobs?:Booking[];error?:string};
 type OffersResponse={offers?:PendingOffer[];error?:string};
@@ -16,6 +16,7 @@ const fmt=(date:string|null)=>date?new Date(date).toLocaleString('en-GB',{day:'2
 const BOOKING_PROGRESS:Readonly<Record<string,number>>={awarded:-1,allocated:-1,assigned:-1,accepted:-1,on_my_way:0,on_site_pickup:1,loaded:2,in_transit:3,on_site_delivery:4,delivered:5,completed:6,pod_complete:6,invoiced:6};
 const BOOKING_STEPS=['On my way to pickup','On site at pickup','Loaded','On my way to delivery','On site at delivery','Delivered','POD'] as const;
 const fmtOfferPlace=(place:string|null|undefined,postcode:string|null|undefined)=>{const name=(place||'').trim(),code=(postcode||'').trim();if(!code)return name.toUpperCase();if(!name)return code.toUpperCase();const normalized=(value:string)=>value.toUpperCase().replace(/[^A-Z0-9]/g,'');return (normalized(name).includes(normalized(code))?name:name+', '+code).toUpperCase();};
+const bookingArea=(location:string|null,fallback:string)=>{const raw=(location??'').trim();if(!raw)return fallback;const parts=raw.split(',').map(part=>part.trim());return parts.length===2&&parts[0].toUpperCase()===parts[1].toUpperCase()?parts[0]:raw;};
 export default function Bookings(){
  const {user,isLoading:authLoading}=useAuth();
  const [items,setItems]=useState<Booking[]>([]),[offers,setOffers]=useState<PendingOffer[]>([]),[period,setPeriod]=useState<Period>('current'),[busy,setBusy]=useState(true),[error,setError]=useState('');
@@ -39,7 +40,7 @@ export default function Bookings(){
  const visible=items.filter(job=>{
   const timestamp=job.updatedAt?new Date(job.updatedAt).getTime():NaN;
   // Delivered remains actionable until real POD submission and completion.
-  const awaitingPod=job.canonicalStatus.toLowerCase()==='delivered';
+  const awaitingPod=job.canonicalStatus.toLowerCase()==='delivered'&&!job.podComplete;
   if(period==='current')return job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||awaitingPod;
   if(job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||awaitingPod)return false;
   if(!Number.isFinite(timestamp))return false;
@@ -51,8 +52,8 @@ export default function Bookings(){
   {period==='current'?offers.map(offer=><article className="fresh-card fresh-pending-offer" key={offer.id}><section className="fresh-summary"><div className="fresh-summary-top"><strong>{offer.buyer_name||'Transport buyer'}</strong><span className="fresh-pending-badge">Acceptance Required</span></div><div className="fresh-posted">Load ID: {offer.public_reference||offer.job_id.slice(0,8).toUpperCase()}</div></section><section className="fresh-route"><div className="fresh-route-places"><div><strong>{fmtOfferPlace(offer.job?.pickup_city||offer.job?.pickup_location,offer.job?.pickup_postcode)}</strong><p>{fmt(offer.job?.pickup_datetime||null)}</p></div><div><strong>{fmtOfferPlace(offer.job?.delivery_city||offer.job?.delivery_location,offer.job?.delivery_postcode)}</strong><p>{offer.job?.job_distance_miles!=null?offer.job.job_distance_miles.toFixed(2)+' miles':'Distance not available'}</p></div></div></section><div className="fresh-actions"><Link className="fresh-booking-open" href={'/driver-pwa-fresh/bookings/offers/'+encodeURIComponent(offer.id)}>Review &amp; Accept</Link></div></article>):null}
   {error?<p role="alert" className="fresh-message">{error} <button type="button" onClick={()=>void refresh()}>Retry</button></p>:null}
   {busy?<p role="status" className="fresh-message">Loading bookings...</p>:!error&&visible.length===0?<p className="fresh-message">No bookings for this period.</p>:visible.map(job=><FreshJobCard key={job.id} mode="bookings" load={{
-   id:job.id,status:job.canonicalStatus,pickup_area:job.pickupLocation||'Collection',pickup_postcode_area:null,
-   delivery_area:job.deliveryLocation||'Delivery',delivery_postcode_area:null,
+   id:job.id,status:job.canonicalStatus,pickup_area:bookingArea(job.pickupLocation,'Collection'),pickup_postcode_area:null,
+   delivery_area:bookingArea(job.deliveryLocation,'Delivery'),delivery_postcode_area:null,
    pickup_datetime:job.pickupTime,delivery_datetime:job.deliveryTime,pickup_time_slot:job.pickupTimeSlot,delivery_time_slot:job.deliveryTimeSlot,
    vehicle_type:job.vehicleType,requested_vehicle_label:job.vehicleType,requested_vehicle_type:job.vehicleType,
    service_mode:job.serviceMode,public_quote_notes:job.bookingNotes,distance_to_pickup_miles:null,distance_to_delivery_miles:null,
@@ -65,7 +66,7 @@ export default function Bookings(){
     {job.paymentTerms&&<span><strong>Payment terms:</strong> {job.paymentTerms}</span>}
     {job.itemCount!=null&&<span><strong>Items:</strong> {job.itemCount}</span>}
    </section>
-   <section className="fresh-booking-timeline" aria-label="Booking progress"><strong>{job.canonicalStatus}</strong><div>{BOOKING_STEPS.map((step,index)=>{const progress=BOOKING_PROGRESS[job.canonicalStatus.toLowerCase()]??-1;return <div key={step} className={index<=progress?"done":""}><span className="fresh-booking-step-dot"/><small>{step}</small></div>})}</div></section>
+   <section className="fresh-booking-timeline" aria-label="Booking progress"><strong>{job.podComplete&&job.canonicalStatus.toLowerCase()==='delivered'?'POD Completed':job.canonicalStatus}</strong><div>{BOOKING_STEPS.map((step,index)=>{const progress=job.podComplete?6:BOOKING_PROGRESS[job.canonicalStatus.toLowerCase()]??-1;return <div key={step} className={index<=progress?"done":""}><span className="fresh-booking-step-dot"/><small>{step}</small></div>})}</div></section>
    <Link className="fresh-booking-open" href={'/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id)}>Booking Details</Link>
  </>}/>)}
  </main><FreshBottom active="bookings"/></ProtectedRoute>;

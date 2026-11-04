@@ -4,6 +4,7 @@ import {
   driverJobStatusesForScope,
   jobLifecyclePresentationGroup,
 } from '../../../../lib/jobs/jobLifecyclePresentation';
+import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { loadDriverAgreedRates } from '../_lib/commercialRate';
 import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverContext';
@@ -15,6 +16,11 @@ type DriverJobRow = {
   id: string;
   status: string | null;
   current_status: string | null;
+  pod_generated: boolean | null;
+  delivery_photos: unknown;
+  pod_photos: unknown;
+  delivery_signature_data: unknown;
+  client_signature_name: string | null;
   assigned_driver_id: string | null;
   assigned_company_id: string | null;
   vehicle_id: string | null;
@@ -72,6 +78,11 @@ export async function GET(request: NextRequest) {
       'id',
       'status',
       'current_status',
+      'pod_generated',
+      'delivery_photos',
+      'pod_photos',
+      'delivery_signature_data',
+      'client_signature_name',
       'assigned_driver_id',
       'assigned_company_id',
       'vehicle_id',
@@ -231,6 +242,8 @@ export async function GET(request: NextRequest) {
       const canonicalStatus = workspaceJobPresentationStatus(row);
       return {
         id: row.id,
+        podGenerated: row.pod_generated === true,
+        podComplete: hasCompletePodEvidence(row),
         reference: row.booking_reference || row.load_reference || null,
         assignedDriverName: driverName,
         pickupLocation: row.pickup_location,
