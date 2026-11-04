@@ -97,6 +97,10 @@ const show=(i:number)=>{
    router.push(role==='Customer'?'/customer/network':role==='Broker'?'/broker/carrier-network':'/admin/marketplace/directory');
    return;
  }
+ if(authenticated && i===11){
+   router.push(role==='Customer'?'/customer/live-availability':role==='Broker'?'/broker/live-availability':'/admin/live-availability');
+   return;
+ }
  if(authenticated && i===14){
    router.push(role==='Customer'?'/customer/messages':role==='Broker'?'/broker/messages':'/admin/messages');
    return;
