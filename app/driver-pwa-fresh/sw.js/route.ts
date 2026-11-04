@@ -2,7 +2,7 @@
 
 // The driver shell needs a controlling service worker for installability.
 // Never cache authenticated bookings, photos, POD documents or API responses.
-const WORKER = `self.addEventListener('install', () => self.skipWaiting());
+const WORKER = `// Deployment: ${process.env.COMMIT_REF || process.env.DEPLOY_ID || 'unknown'}\nself.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', () => {});`;
 
