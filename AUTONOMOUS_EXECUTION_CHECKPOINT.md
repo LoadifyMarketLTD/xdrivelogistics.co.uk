@@ -65,3 +65,10 @@ Base origin/main: 94bd07eac0e6945fe53ed68af12cc8309d498df5
 - ESLint focused PASS (initial warnings on new dashboard dependencies removed); TypeScript PASS before latest dashboard refactor, revalidation needed.
 - Additional 67-route unauthenticated production-mode browser check initiated at local 3192, result pending at checkpoint.
 - Main / Netlify remain untouched. Full authenticated E2E and all 8 release gates remain BLOCKED. No PWA source changes.
+
+## Route gate addendum
+- Local Next.js production-mode server port 3192: HTTP redirect test for every one of the 67 Admin routes PASSED 67/67 unauthenticated access boundaries (302/307/308 -> /login).
+- Initial Playwright 67-route browser run proved too slow; terminated without claiming PASS. The independent fast HTTP test is script scripts/master-admin-public-boundary.mjs; it tests authentication redirects only, not rendered UI or role permissions.
+- Current local branch commit e61d5ce6 is WIP, not released or pushed to main.
+- Focused ESLint PASS; code contracts 8/8 PASS; Next.js build PASS; TypeScript PASS before the last dashboard-only refactor. Database 6-actor cross-company read-only checks did not expose foreign unassigned driver/vehicle/invoice rows, but are not exhaustive.
+- All 8 release gates remain BLOCKED. Outstanding: 67 internal page component reviews, Super Admin component consolidation, authorized E2E and commercial workflow validation and visual review.
