@@ -47,7 +47,7 @@ const isDispatch=false;
 const realOperational=authenticated&&(role==="Customer"||role==="Driver"||role==="Company Driver"||role==="Employee Driver");
 const can=(action:Parameters<typeof masterWorkspaceCan>[1])=>masterWorkspaceCan(role,action);
 const sharedLoads=useDemoLoads();
-const sharedJobs:Job[]=sharedLoads.map(l=>({id:l.id,from:l.from,to:l.to,vehicle:l.vehicle,cargo:`${l.pallets||"0"} pallets Ã‚Â· ${l.weight||"0"} kg`,company:l.customer||"Demo customer",status:l.podReceived?"Completed":l.status==="Awarded"?"In Progress":l.status,price:l.quote||0,driver:l.assignedDriver||"",vehicleId:l.assignedVehicleId||"",stage:l.deliveryStage||0,pod:Boolean(l.podReceived)}));
+const sharedJobs:Job[]=sharedLoads.map(l=>({id:l.id,from:l.from,to:l.to,vehicle:l.vehicle,cargo:`${l.pallets||"0"} pallets Ã‚Â· ${l.weight||"0"} kg`,company:l.customer||"Company not recorded",status:l.podReceived?"Completed":l.status==="Awarded"?"In Progress":l.status,price:l.quote||0,driver:l.assignedDriver||"",vehicleId:l.assignedVehicleId||"",stage:l.deliveryStage||0,pod:Boolean(l.podReceived)}));
 const nav=[...MASTER_WORKSPACE_TABS];
 const [companyDrivers,setCompanyDrivers]=useState<string[]>([]),[companyFleet,setCompanyFleet]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>(role==="Company / Carrier"?fleet.map(v=>({id:v.id,reg:v.reg,vehicle:v.type,driver:v.driver,status:"Available",location:v.area})):[]),[tab,setTab]=useState(initialTab),[,setJobs]=useState<Job[]>(initial),[,setSelected]=useState(""),[filter,setFilter]=useState("All"),[search,setSearch]=useState("");
 const realDrivers=live?live.data.drivers.map(d=>d.display_name||"Unnamed driver"):companyDrivers;
