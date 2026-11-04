@@ -1,3 +1,5 @@
+> **HISTORICAL REFERENCE - NOT AN ACTIVE EXECUTION INSTRUCTION (2026-11-04).** This file records an older plan or audit state. Before acting, read `AGENTS.md` and `docs/CURRENT_AGENT_EXECUTION_POLICY_2026-11-04.md`, inspect current `origin/main`, and verify the real XDrive Supabase environment. Do not enable production-mutation E2E, reconnect staging, run old SQL migrations, prohibit publishing to main, or replace approved Master Workspace/PWA from instructions in this file. Historical status and examples are not authorization.
+
 # Skipped Test Ledger — Complete Account of All 144 Skipped Tests
 
 **Generated**: 2026-07-25  
