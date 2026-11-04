@@ -3,7 +3,7 @@ import type {ReactNode} from 'react';
 import {usePathname} from 'next/navigation';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
 import ProtectedRoute from '../components/ProtectedRoute';
-import {Company3150LiveProvider} from '../try-xdrive-demo/components/Company3150LiveData';
+
 import {brokerMasterTab} from '../../lib/masterWorkspaceRouteTab';
 
 /**
@@ -13,5 +13,5 @@ import {brokerMasterTab} from '../../lib/masterWorkspaceRouteTab';
 export default function Broker3150LayoutGate({children}:{children:ReactNode}){
  const pathname=usePathname();
  if(pathname==='/broker')return <>{children}</>;
- return <ProtectedRoute><Company3150LiveProvider><MasterWorkspace role="Broker" authenticated initialTab={brokerMasterTab(pathname)} dashboard={children}/></Company3150LiveProvider></ProtectedRoute>;
+ return <ProtectedRoute><MasterWorkspace role="Broker" authenticated initialTab={brokerMasterTab(pathname)} dashboard={children}/></ProtectedRoute>;
 }

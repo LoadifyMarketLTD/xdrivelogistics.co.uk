@@ -1,6 +1,22 @@
 "use client";
-import OperationsDemo from "./OperationsDemo";
+import dynamic from "next/dynamic";
+const OperationsDemo=dynamic(()=>import("./OperationsDemo"),{ssr:false});
 import type {MasterWorkspaceRole} from "./MasterWorkspacePolicy";
 import type {ReactNode} from "react";
 import {MasterPreviewIsolation} from "./MasterPreviewIsolation";
-export default function MasterWorkspace({role,authenticated=false,dashboard,initialTab=0}:{role:MasterWorkspaceRole;authenticated?:boolean;dashboard?:ReactNode;initialTab?:number}) {const view=<OperationsDemo role={role} authenticated={authenticated} dashboard={dashboard} initialTab={initialTab}/>;const isolated=!authenticated;return isolated?<MasterPreviewIsolation>{view}</MasterPreviewIsolation>:view;}
+import AuthenticatedMasterShell from '../../components/workspace/AuthenticatedMasterShell';
+
+/**
+ * Canonical entry point. Authenticated route content must never pass through
+ * preview/demo data providers or local demo navigation.
+ */
+export default function MasterWorkspace({role,authenticated=false,dashboard,initialTab=0}:{
+ role:MasterWorkspaceRole;authenticated?:boolean;dashboard?:ReactNode;initialTab?:number;
+}){
+ if(authenticated){
+  return <AuthenticatedMasterShell role={role} activeTab={initialTab}>
+   {dashboard}
+  </AuthenticatedMasterShell>;
+ }
+ return <MasterPreviewIsolation><OperationsDemo role={role} authenticated={false} dashboard={dashboard} initialTab={initialTab}/></MasterPreviewIsolation>;
+}

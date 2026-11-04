@@ -49,3 +49,19 @@ Base origin/main: 94bd07eac0e6945fe53ed68af12cc8309d498df5
 - Tests: 6/6 focused source contracts passed; TypeScript earlier rerun PASS. ESLint focused PASS.
 - Source audit markdown: audit/MASTER_WORKSPACE_AUDIT_20261104.md (67 routes).
 - No production commits, no Netlify changes. Release gates remain unconfirmed.
+
+## Continuation after 18:43 — production-safe Master remediation
+
+- Added app/components/workspace/AuthenticatedMasterShell.tsx: shared role-aware sidebar, authentic route navigation and production content. It deliberately does not import any local DEMO data store.
+- MasterWorkspace.tsx now uses this shell for authenticated roles, with the historical OperationsDemo isolated to explicit preview routes.
+- Added lib/masterWorkspaceNavigation.ts; nine role mappings, 17-tab structure, route existence and role-domain checks via lib/masterWorkspaceNavigation.test.cjs.
+- Converted Company / Carrier and Broker dashboards to use real Supabase-derived dashboard data through app/components/workspace/CompanyMasterDashboard.tsx with shared WorkspaceUI primitives; no static KPI metrics or dummy entities in their live dashboard.
+- Centralized approved brand asset in MasterBrandImage, shared by main workspace and Super Admin navigation.
+- Removed dependence on the demo frontend shell for Admin / Broker deep links. Legacy internal page components are still present and must be migrated individually.
+- Read-only production RLS evidence written to audit/PRODUCTION_RLS_AND_WORKFLOW_20261104.md, including six authenticated session samples and a documented invoice reconciliation discrepancy (4 of 16 invoices without job_id).
+- Automated unauthenticated browser smoke of eight critical routes: 8/8 correctly redirected to /login without exposing commercial actions (Next dev 3191).
+- Source contracts: 9/9 focused tests PASS after Master navigation and production-boundary changes; subsequent 8/8 targeted tests PASS.
+- Next.js production build at local SHA ffacb145 plus current uncommitted changes completed PASS on 2026-11-04 (212 static pages and dynamic routes).
+- ESLint focused PASS (initial warnings on new dashboard dependencies removed); TypeScript PASS before latest dashboard refactor, revalidation needed.
+- Additional 67-route unauthenticated production-mode browser check initiated at local 3192, result pending at checkpoint.
+- Main / Netlify remain untouched. Full authenticated E2E and all 8 release gates remain BLOCKED. No PWA source changes.

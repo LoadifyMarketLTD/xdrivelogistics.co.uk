@@ -49,7 +49,7 @@ function mapJob(job: WorkspaceJob, driverNames: Map<string, string>): DemoLoad {
     from: job.pickup_location || job.pickup_postcode || 'Collection not specified',
     to: job.delivery_location || job.delivery_postcode || 'Delivery not specified',
     vehicle: job.vehicle_type || 'Not specified',
-    pallets: '',
+    pallets: job.pallets == null ? '' : String(job.pallets),
     weight: '',
     customer: job.client_name || 'Customer not recorded',
     sell: job.budget_amount == null ? '' : String(job.budget_amount),

@@ -4,11 +4,11 @@ import { usePathname } from 'next/navigation';
 import { adminMasterTab } from '../../lib/masterWorkspaceRouteTab';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
 import ProtectedRoute from '../components/ProtectedRoute';
-import { Company3150LiveProvider } from '../try-xdrive-demo/components/Company3150LiveData';
+
 export default function Company3150LayoutGate({children}:{children:ReactNode}) {
   const pathname=usePathname();
   if(pathname==='/admin') return <>{children}</>;
-  return <ProtectedRoute><Company3150LiveProvider><MasterWorkspace
+  return <ProtectedRoute><MasterWorkspace
     role="Company / Carrier" authenticated initialTab={adminMasterTab(pathname)} dashboard={children}
-  /></Company3150LiveProvider></ProtectedRoute>;
+  /></ProtectedRoute>;
 }
