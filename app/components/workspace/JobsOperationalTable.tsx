@@ -26,6 +26,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import styles from './WorkspaceUI.module.css';
 import { OperationalExpandAllControl } from './OperationalExpandAllControl';
+import './master-jobs-cards.css';
 
 /*
  * Business logic is owned by the canonical contract module.
@@ -52,6 +53,7 @@ export {
 } from '../../../lib/jobs/jobOperationalContract';
 
 export interface JobsOperationalTableProps {
+  cardLayout?: boolean;
   /** Filtered + paginated jobs to render in table */
   filteredJobs: JobRow[];
   page: number;
@@ -135,6 +137,7 @@ function fmtDate(iso: string): string {
 
 export function JobsOperationalTable({
   filteredJobs,
+  cardLayout = false,
   page,
   perPage,
   totalFiltered,
@@ -289,7 +292,7 @@ export function JobsOperationalTable({
       </div>
 
       <div className={styles.jobsTableSection} data-testid="jobs-desktop-table">
-      {!isMobileViewport && (
+      {!isMobileViewport && !cardLayout && (
       <div className={styles.operationalTableContainer}>
         <div className={styles.operationalTableScroll}>
           <table className={`${styles.operationalTable} ${styles.operationalTableMinWidth} ${styles.jobsOperationalTable}`}>
@@ -413,8 +416,8 @@ export function JobsOperationalTable({
       )}
       </div>
 
-      <div className={styles.jobsMobileCardList} data-testid="jobs-mobile-cards" aria-label="Jobs list">
-        {isMobileViewport ? (
+      <div className={`${styles.jobsMobileCardList} ${cardLayout ? 'master-jobs-card-layout' : ''}`} data-testid="jobs-mobile-cards" aria-label="Jobs list">
+        {(isMobileViewport || cardLayout) ? (
           filteredJobs.length === 0 ? (
             <div className={styles.jobsEmptyMobileState}>No jobs match the current filters.</div>
           ) : (
@@ -473,6 +476,14 @@ export function JobsOperationalTable({
           )
         ) : null}
       </div>
+      {cardLayout && totalFiltered > perPage && (
+        <nav className="master-jobs-pagination" aria-label="Jobs pagination">
+          <span>{start}–{end} of {totalFiltered.toLocaleString('en-GB')} jobs</span>
+          <button type="button" disabled={page === 0} onClick={() => onPageChange(Math.max(0, page-1))}>Previous</button>
+          <span>Page {page+1} / {totalPages}</span>
+          <button type="button" disabled={page >= totalPages-1} onClick={() => onPageChange(Math.min(totalPages-1,page+1))}>Next</button>
+        </nav>
+      )}
     </div>
   );
 }

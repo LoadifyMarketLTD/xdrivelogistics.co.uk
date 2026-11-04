@@ -5,7 +5,7 @@
  */
 export const MASTER_AUTHENTICATED_ROUTES = {
   'Company / Carrier': [
-    '/admin', '/admin/post-load', '/admin/jobs', '/admin/quotes',
+    '/admin', '/admin/post-load', '/admin/jobs', '/admin/exchange-quotes',
     '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
     '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
     '/admin/live-availability', '/admin/returns', '/admin/freight-vision',
@@ -33,7 +33,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
     '/driver/messages', '/driver/notifications', null,
   ],
   'Company Driver': [
-    '/driver', null, '/driver/loads', null,
+    '/driver', null, '/driver/loads', '/driver/quotes',
     '/driver/jobs', null, null, '/driver/history',
     null, null, '/driver/directory',
     '/driver/availability', '/driver/returns', null,
@@ -47,7 +47,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
     '/driver/messages', '/driver/notifications', null,
   ],
   Fleet: [
-    '/admin', '/admin/post-load', '/admin/jobs', '/admin/quotes',
+    '/admin', '/admin/post-load', '/admin/jobs', '/admin/exchange-quotes',
     '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
     '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
     '/admin/live-availability', '/admin/returns', '/admin/freight-vision',
@@ -61,7 +61,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
     '/driver/messages', '/driver/notifications', null,
   ],
   Dispatcher: [
-    '/admin', '/admin/post-load', '/admin/jobs', '/admin/quotes',
+    '/admin', '/admin/post-load', '/admin/jobs', '/admin/exchange-quotes',
     '/admin/won-work', '/admin/fleet/assignments', '/admin/drivers', '/admin/diary',
     '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
     '/admin/live-availability', '/admin/returns', '/admin/freight-vision',

@@ -81,3 +81,13 @@ Base origin/main: 94bd07eac0e6945fe53ed68af12cc8309d498df5
 - Broker bids page still uses historical browser confirmation and has **not** been migrated to the approved fullscreen Award component. An exploratory modification was reverted entirely so no incomplete financial consent path remains in working code.
 - Authenticated end-to-end commercial tests not run; release gates still 0/8.
 - Latest local feature commit: 0cc5e231. Production main and Netlify unchanged.
+
+## Remediation phase - 2026-11-04 18:59 onwards
+- Still in isolated worktree and feature branch; no GitHub main/Netlify/PWA publication.
+- Replaced native browser award confirmation in three independently active workflow routes with approved BookingConfirmationFullPage requiring two separate acknowledgements: /broker/bids, /admin/bids, /customer/jobs/[id]. Kept canonical server payment obligation and atomic award APIs and original commercial permission guards. Admin retrieves real scoped job details before award; quote amount must be positive.
+- Company Admin Jobs list displays the canonical operations as compact 2-column navy/orange Master cards using the original data/actions/status transitions and desktop pagination; New Job routes to the current /admin/post-load rather than legacy modal. Legacy create form code remains unused for this action.
+- Company Driver and Driver quote visual capabilities restored; /driver/quotes Company Driver nav restored. Authenticated driver deep-link Master role now resolves owner_driver vs company_driver from actual auth context. Master navigation hides commercial quote link when canCommercialBid is not true; server eligibility remains authoritative.
+- Company / Fleet / Dispatcher Quotes tab routed to active company marketplace /admin/exchange-quotes rather than unrelated old ad-hoc /admin/quotes.
+- 12/12 focused source tests PASS; ESLint changed files PASS; TypeScript and Next.js build PASS before last driver navigation capability guard, final TypeScript rerun pending.
+- Full Vitest suite was launched safely with maxWorkers=2: see audit/VITEST_FULL_20261104.log. Failures include historical PWA and old-layout expected snapshots; DO NOT mark regression PASS or attempt edits in separately managed PWA. Need final summary and categorize critical blockers.
+- All 8 holistic release gates remain blocked; no authenticated commercial E2E or production visual proof. Existing unresolved invoice ledger has 4/16 invoices without job_id.

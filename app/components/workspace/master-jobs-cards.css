@@ -1,0 +1,20 @@
+/* Master Workspace Company/Carrier operational card parity. Existing data and actions remain unchanged. */
+.master-jobs-card-layout{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px!important;align-items:start;margin:12px 0}
+.master-jobs-card-layout>div{min-width:0;background:#fff;border:1px solid #d8dee8;border-left:3px solid #ff7900;border-radius:7px;overflow:hidden;box-shadow:0 1px 2px rgba(5,30,70,.04)}
+.master-jobs-card-layout [class*="jobsMobileCardHeader"]{display:flex;align-items:center;gap:10px;min-height:40px;padding:9px 12px;background:#edf3fc;border-bottom:1px solid #d8dee8}
+.master-jobs-card-layout [class*="jobsMobileCardRef"]{font-size:12px;color:#0b2f6b;font-weight:750;overflow-wrap:anywhere}
+.master-jobs-card-layout [class*="jobsMobileCardBody"]{padding:12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:12px;row-gap:7px}
+.master-jobs-card-layout [class*="jobsMobileCardRoute"]{grid-column:1/-1;display:grid;gap:6px;border-bottom:1px solid #e7edf5;padding:0 0 10px;margin:0 0 3px}
+.master-jobs-card-layout [class*="jobsMobileCardRouteOrigin"]{font-weight:750;color:#0b2f6b;font-size:14px;overflow-wrap:anywhere}
+.master-jobs-card-layout [class*="jobsMobileCardRouteDest"]{font-weight:650;color:#29394e;font-size:14px;overflow-wrap:anywhere}
+.master-jobs-card-layout [class*="jobsMobileCardRoute"] span{margin-left:5px}
+.master-jobs-card-layout [class*="jobsMobileCardRow"]{display:flex;flex-direction:column;align-items:stretch;gap:3px;background:#f7f9fc;padding:8px;border:1px solid #edf0f5;border-radius:4px;min-width:0;font-size:12px;overflow-wrap:anywhere}
+.master-jobs-card-layout [class*="jobsMobileCardLabel"]{font-size:10px;text-transform:uppercase;letter-spacing:.035em;font-weight:700;color:#64748b}
+.master-jobs-card-layout [class*="jobsMobileCardDetail"]{padding:10px 12px;border-top:1px solid #e4eaf3;display:grid;gap:7px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.master-jobs-card-layout [class*="jobsMobileCardActions"]{display:flex;gap:7px;justify-content:flex-end;align-items:center;flex-wrap:wrap;background:#f7f9fc;border-top:1px solid #dce5f1;padding:10px 12px}
+.master-jobs-card-layout [class*="jobsMobileCardActions"] button,.master-jobs-card-layout [class*="jobsMobileCardActions"] select{font-size:12px;min-height:32px;padding:5px 10px;border-radius:5px;cursor:pointer}
+.master-jobs-pagination{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;font-size:12px;color:#52627a;padding:12px}
+.master-jobs-pagination button{min-height:32px;padding:6px 14px;border:1px solid #ced9e9;background:#fff;color:#0b2f6b;font-weight:650;border-radius:5px}
+.master-jobs-pagination button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:1180px){.master-jobs-card-layout{grid-template-columns:1fr}}
+@media(max-width:560px){.master-jobs-card-layout [class*="jobsMobileCardBody"],.master-jobs-card-layout [class*="jobsMobileCardDetail"]{grid-template-columns:1fr}.master-jobs-card-layout [class*="jobsMobileCardRoute"]{grid-column:1}}
