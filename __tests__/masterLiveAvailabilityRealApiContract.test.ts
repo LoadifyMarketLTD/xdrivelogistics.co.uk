@@ -8,6 +8,7 @@ const api = read('app/api/availability/nearby/route.ts');
 describe('Master live availability uses verified Exchange presence', () => {
   it('opens live role-appropriate pages, not DemoLiveAvailability', () => {
     expect(master).toContain('if(authenticated && i===11)');
+    expect(master).toContain("'/driver/availability/live'");
     expect(master).toContain("role==='Customer'?'/customer/live-availability':role==='Broker'?'/broker/live-availability':'/admin/live-availability'");
     expect(read('app/customer/live-availability/page.tsx')).toContain('MemberLiveAvailabilityPage');
     expect(read('app/broker/live-availability/page.tsx')).toContain('MemberLiveAvailabilityPage');

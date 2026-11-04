@@ -41,7 +41,7 @@ type Role=MasterWorkspaceRole;
 const DRIVER_LIVE_ROUTES: readonly string[]=[
  '/driver','/driver/post-load','/driver/loads','/driver/quotes',
  '/driver/jobs','/driver/vehicles','/driver/drivers','/driver/history',
- '/driver/finance','/driver/network','/driver/directory','/driver/availability',
+ '/driver/finance','/driver/network','/driver/directory','/driver/availability/live',
  '/driver/returns','/driver/freight-vision','/driver/messages','/driver/notifications',
  '/driver/won-work','/driver/documents','/driver/settings',
 ] as const;
