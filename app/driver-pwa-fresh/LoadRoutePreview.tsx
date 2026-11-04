@@ -23,7 +23,7 @@ async function geocode(value: string | null, signal: AbortSignal): Promise<Point
 }
 const formatLeg = (route: Route | null) => route && Number.isFinite(route.distanceMiles) && Number.isFinite(route.durationMinutes)
   ? `${route.distanceMiles} miles · ${route.durationMinutes} mins` : 'Distance unavailable';
-export default function LoadRoutePreview({ pickup, delivery, loadId }: { pickup: string | null; delivery: string | null; loadId: string }) {
+export default function LoadRoutePreview({ pickup, delivery }: { pickup: string | null; delivery: string | null; loadId: string }) {
   const host = useRef<HTMLDivElement>(null);
   const [pickupLeg, setPickupLeg] = useState<Route | null>(null);
   const [jobLeg, setJobLeg] = useState<Route | null>(null);

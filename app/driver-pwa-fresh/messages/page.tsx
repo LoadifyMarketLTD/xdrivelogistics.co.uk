@@ -45,5 +45,5 @@ export default function DriverMobileMessages(){
  {history.map(m=><div key={m.threadKey+':'+m.id} style={{margin:'10px 0',padding:12,borderRadius:10,background:m.direction==='outbound'?'#e8f2ff':'#f4f6f8',marginLeft:m.direction==='outbound'?25:0,marginRight:m.direction==='inbound'?25:0}}><div style={{whiteSpace:'pre-wrap'}}>{m.body}</div><small>{m.createdAt?new Date(m.createdAt).toLocaleString('en-GB'):''}</small></div>)}
  {target.canReply?<><label htmlFor="mobile-reply">Reply</label><textarea id="mobile-reply" value={draft} maxLength={4000} onChange={e=>setDraft(e.target.value)} rows={3} style={{width:'100%',padding:12,borderRadius:8}}/><button type="button" disabled={!draft.trim()||sending} onClick={()=>void send()} style={{minHeight:48,width:'100%',background:'#16A34A',color:'white',border:0,borderRadius:8}}>{sending?'Sending…':'Send message'}</button></>:<p>Reply unavailable for this historical conversation.</p>}
  </section>:null}
- </main><FreshBottom active="loads"/></ProtectedRoute>;
+ </main><FreshBottom active="jobs"/></ProtectedRoute>;
 }
