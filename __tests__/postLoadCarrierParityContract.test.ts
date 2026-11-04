@@ -17,7 +17,7 @@ describe('Post Load parity across authorized posting workspaces', () => {
     expect(form).not.toContain("(mode === 'admin' || mode === 'owner') && (");
     expect(form).toContain("directTargetMode === 'external_subcontractor' && (");
     expect(form).toContain("directTargetMode === 'internal_resource' && (");
-    expect(form).toContain('<Panel title="Customer"');
+    expect(form).toContain('style={{ order: 3 }} title="Customer"');
     expect(form).toContain('mode: mode === \'owner\' ? \'admin\' : mode');
   });
 });
