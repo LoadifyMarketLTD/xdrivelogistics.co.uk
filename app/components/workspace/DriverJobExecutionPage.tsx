@@ -724,6 +724,10 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       setError('At least one delivery photo is required to complete POD.');
       return;
     }
+    if (mobilePwa && !pendingPodDocuments.length) {
+      setError('At least one delivery document or scanned image is required to complete POD.');
+      return;
+    }
     if (!recipientName.trim()) {
       setError('Recipient name is required to complete POD.');
       return;
