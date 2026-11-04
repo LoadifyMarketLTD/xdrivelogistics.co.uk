@@ -293,7 +293,9 @@ export default function JobHistoryPage() {
   const companyId = typeof user?.companyId === 'string' ? user.companyId.trim() : '';
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const canViewCompanyDiary = canGenerateInvoices && Boolean(companyId);
-  const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('company');
+  // Open the driver's own authenticated job history by default. Owners may
+  // explicitly switch to Company Diary without losing the wider scope.
+  const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('mine');
   const diaryScope: 'company' | 'mine' = canViewCompanyDiary ? selectedDiaryScope : 'mine';
   const feedbackReviewerCompanyId = canViewCompanyDiary && diaryScope === 'company' ? companyId : null;
   const historyFilters = useMemo(() => getCanonicalDiaryTabs(canViewCompanyDiary ? 'owner_driver' : 'driver'), [canViewCompanyDiary]);

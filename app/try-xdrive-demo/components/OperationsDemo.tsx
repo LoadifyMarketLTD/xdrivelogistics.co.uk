@@ -5,6 +5,7 @@ import {MASTER_WORKSPACE_TABS,masterWorkspaceCan,type MasterWorkspaceRole} from 
 import "../xdrive-design-system.css";
 
 import {useState,type ReactNode} from "react";
+import {useRouter} from "next/navigation";
 import MasterOperationalSection from "./MasterOperationalSection";
 import {MemberDirectoryPage} from "../../components/workspace/MemberDirectoryPage";
 import {useMasterPreviewIsolation} from "./MasterPreviewIsolation";
@@ -37,24 +38,36 @@ import "./company-sidebar-compact.css";
 import "./company-layout-stability.css";
 
 type Role=MasterWorkspaceRole;
+const DRIVER_LIVE_ROUTES: readonly string[]=[
+ '/driver','/driver/post-load','/driver/loads','/driver/quotes',
+ '/driver/jobs','/driver/vehicles','/driver/drivers','/driver/history',
+ '/driver/finance','/driver/network','/driver/directory','/driver/availability',
+ '/driver/returns','/driver/freight-vision','/driver/messages','/driver/notifications',
+ '/driver/won-work','/driver/documents','/driver/settings',
+] as const;
 type Job={id:string;from:string;to:string;vehicle:string;cargo:string;company:string;status:string;price:number;driver:string;vehicleId:string;stage:number;pod:boolean};
 const initial:Job[]=[];
 const fleet:{id:string;reg:string;type:string;driver:string;area:string}[]=[];
 export default function OperationsDemo({role,authenticated=false,dashboard,initialTab=0}:{role:Role;authenticated?:boolean;dashboard?:ReactNode;initialTab?:number}){
+const router=useRouter();
 const live=useCompany3150Live();
 const preview=useMasterPreviewIsolation();
 const isDispatch=false;
 const realOperational=authenticated&&(role==="Customer"||role==="Driver"||role==="Company Driver"||role==="Employee Driver");
 const can=(action:Parameters<typeof masterWorkspaceCan>[1])=>masterWorkspaceCan(role,action);
-const sharedLoads=useDemoLoads();
+const isLiveDriverWorkspace=authenticated&&['Owner Driver','Driver','Company Driver'].includes(role);
+const sharedLoads=useDemoLoads(isLiveDriverWorkspace);
 const sharedJobs:Job[]=sharedLoads.map(l=>({id:l.id,from:l.from,to:l.to,vehicle:l.vehicle,cargo:`${l.pallets||"0"} pallets Ã‚Â· ${l.weight||"0"} kg`,company:l.customer||"Company not recorded",status:l.podReceived?"Completed":l.status==="Awarded"?"In Progress":l.status,price:l.quote||0,driver:l.assignedDriver||"",vehicleId:l.assignedVehicleId||"",stage:l.deliveryStage||0,pod:Boolean(l.podReceived)}));
-const nav=[...MASTER_WORKSPACE_TABS];
+const nav=[...MASTER_WORKSPACE_TABS,...(isLiveDriverWorkspace?['Documents','Settings']:[])];
 const [companyDrivers,setCompanyDrivers]=useState<string[]>([]),[companyFleet,setCompanyFleet]=useState<{id:string;reg:string;vehicle:string;driver:string;status:string;location:string}[]>(role==="Company / Carrier"?fleet.map(v=>({id:v.id,reg:v.reg,vehicle:v.type,driver:v.driver,status:"Available",location:v.area})):[]),[tab,setTab]=useState(initialTab),[,setJobs]=useState<Job[]>(initial),[,setSelected]=useState(""),[filter,setFilter]=useState("All"),[search,setSearch]=useState("");
 const realDrivers=live?live.data.drivers.map(d=>d.display_name||"Unnamed driver"):companyDrivers;
 const realFleet=live?live.data.vehicles.map(v=>({id:v.id,reg:v.reg_plate||"Not recorded",vehicle:v.type||"Not recorded",driver:live.data.drivers.find(d=>d.id===v.assigned_driver_id)?.display_name||"Unassigned",status:"Not verified",location:"Not recorded"})):companyFleet;
-const show=(i:number)=>setTab(i);
+const show=(i:number)=>{
+ if(isLiveDriverWorkspace){router.push(DRIVER_LIVE_ROUTES[i]??'/driver');return;}
+ setTab(i);
+};
 const list=(items:Job[],actions=true)=><div className="ops-job-list">{items.map(j=><article className="ops-job" key={j.id}><div className="ops-job-top"><strong>{j.company}</strong><small>{j.id} Ã‚Â· {j.status}</small></div><div className="ops-route"><div><small>COLLECTION</small><b>{j.from}</b></div><span>Ã¢â€ â€™</span><div><small>DELIVERY</small><b>{j.to}</b></div></div><div className="facts"><span>{j.vehicle}</span><span>{j.cargo}</span><span>30 days EOM</span><span>POD {j.pod?"received":"required"}</span></div><div className="ops-job-bottom"><small>{j.driver?j.driver+" Ã‚Â· "+j.vehicleId:"Unallocated"} Ã‚Â· Ã‚Â£{j.price}</small>{actions&&<button className="outline" onClick={()=>{setSelected(j.id);show(isDispatch?2:4)}}>View & manage Ã¢â€ â€™</button>}</div></article>)}</div>;
-return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><ApprovedSidebar items={nav} activeIndex={tab} onSelect={show} footerAction={authenticated ? <MasterLogoutButton /> : null} /><div className="content"><header className="topbar"><div className="mobile-brand">XDRIVE <em>LOGISTICS</em></div><div className="top-actions">{!live&&<><Link href="/try-xdrive">All workspaces</Link><Link href={isDispatch?"/try-xdrive-company-demo":"/try-xdrive-dispatcher-demo"}>{isDispatch?"Company Demo":"Dispatcher Demo"}</Link></>}{authenticated&&<MasterLogoutButton/>}</div></header><div className="page">
+return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><ApprovedSidebar items={nav} activeIndex={tab} onSelect={show} footerAction={authenticated ? <MasterLogoutButton /> : null} /><div className="content"><header className="topbar"><div className="mobile-brand">XDRIVE <em>LOGISTICS</em></div><div className="top-actions">{!live&&!authenticated&&<><Link href="/try-xdrive">All workspaces</Link><Link href={isDispatch?"/try-xdrive-company-demo":"/try-xdrive-dispatcher-demo"}>{isDispatch?"Company Demo":"Dispatcher Demo"}</Link></>}{authenticated&&<MasterLogoutButton/>}</div></header><div className="page">
 {dashboard&&tab===initialTab?dashboard:<>
 {realOperational&&tab===initialTab&&<DemoCompanyDashboard workspaceLabel={role} suppressPreview jobs={sharedJobs} fleet={realFleet.map(v=>({...v,type:v.vehicle,area:v.location}))} drivers={realDrivers} go={show}/>}
 {realOperational&&tab!==initialTab&&tab===1&&<section>{can("postLoad")?<LoadPostingForm mode="customer"/>:<p role="status">Posting loads is restricted for this role.</p>}</section>}
