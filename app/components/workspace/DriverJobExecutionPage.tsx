@@ -214,6 +214,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const [sheet, setSheet] = useState<JobSheet | null>(null);
   const [multiStops, setMultiStops] = useState<Array<{id:string;sequence:number;type:string;address:string;status:string}>>([]);
   const [multiStopsReady, setMultiStopsReady] = useState(false);
+  const [stopPhotoPaths, setStopPhotoPaths] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
@@ -942,14 +943,14 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     setWorking(false);
   };
 
-  const updateMultiStop = async (stopId: string, status: 'arrived' | 'completed') => {
+  const updateMultiStop = async (stopId: string, status: 'arrived' | 'completed', photoPaths: string[] = []) => {
     const auth = await authHeader();
     if (!auth) { setError('Please sign in again.'); return; }
     setWorking(true); setError('');
     try {
       const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId) + '/stop-status', {
         method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stop_id: stopId, status }),
+        body: JSON.stringify({ stop_id: stopId, status, ...(status === 'completed' && photoPaths.length ? { handover: { photoPaths, documentPaths: [] } } : {}) }),
       });
       const payload = await response.json().catch(() => ({})) as {error?:string};
       if (!response.ok) { setError(payload.error || 'Stop could not be updated.'); return; }
@@ -959,6 +960,29 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     finally { setWorking(false); }
   };
 
+  const uploadStopCollectionPhoto = async (stopId: string, file: File) => {
+    if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setError('Select a JPEG or PNG photo no larger than 10 MB.'); return;
+    }
+    const auth = await authHeader();
+    if (!auth) { setError('Please sign in again.'); return; }
+    setWorking(true); setError('');
+    try {
+      const ext = file.type === 'image/png' ? 'png' : 'jpg';
+      const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': file.type,
+          'x-xdrive-evidence-kind': 'collection', 'x-xdrive-evidence-category': 'photos',
+          'x-xdrive-stop-id': stopId, 'x-xdrive-evidence-name': `stop-${crypto.randomUUID()}.${ext}` },
+        body: file,
+      });
+      const payload = await response.json().catch(() => ({})) as { storagePath?: string; error?: string };
+      if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Photo upload failed.');
+      setStopPhotoPaths(previous => ({ ...previous, [stopId]: [...(previous[stopId] ?? []), payload.storagePath!] }));
+      setMessage('Collection photo saved. You can now complete this stop.');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Photo upload failed.'); }
+    finally { setWorking(false); }
+  };
   const confirmDeliveredFromPage6 = async () => {
     if (!Number.isInteger(Number(podItemCount)) || Number(podItemCount) < 1) {
       setError('Number of items must be at least 1 before confirming delivery.');
@@ -1219,7 +1243,11 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         <a href={navigationUrl(nextStop.address,'','navigate') ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nextStop.address)}`} target="_blank" rel="noopener noreferrer">Navigate to next stop</a>
         {nextStop.status === 'pending' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'arrived')}>On Site at Stop</button>}
         {nextStop.status === 'arrived' && nextStop.type === 'delivery' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'completed')}>Complete Delivery Stop</button>}
-        {nextStop.status === 'arrived' && nextStop.type === 'collection' && <p role="alert">Collection stop requires a separately saved photo handover. Do not mark it complete without evidence.</p>}
+        {nextStop.status === 'arrived' && nextStop.type === 'collection' && <div>
+          <label>Collection photo (camera or gallery)<input type="file" accept="image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopCollectionPhoto(nextStop.id, file); event.currentTarget.value = ''; }} /></label>
+          <p>{(stopPhotoPaths[nextStop.id] ?? []).length} photo(s) saved for this stop.</p>
+          <button type="button" className="fresh-mobile-booking-primary" disabled={working || !(stopPhotoPaths[nextStop.id]?.length)} onClick={() => void updateMultiStop(nextStop.id, 'completed', stopPhotoPaths[nextStop.id])}>Complete Collection Stop</button>
+        </div>}
         <button type="button" onClick={() => void loadJob()} disabled={working}>Refresh stops</button>
       </section></PageFrame>;
     }
