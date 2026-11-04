@@ -34,7 +34,7 @@ export default function DriverVan(){
    {!loading&&!error&&vehicles.length===0?<p className="fresh-message">No van assigned to this Driver account. Ask your company administrator to assign the vehicle.</p>:null}
    {!loading&&!error&&vehicles.map(van=><article className="fresh-card" key={van.id}>
     <section className="fresh-summary"><div className="fresh-summary-top"><strong>{[van.make,van.model].filter(Boolean).join(' ')||van.type||'Registered van'}</strong><span className="fresh-available">{van.id===activeId?'Active van':'Registered'}</span></div><div className="fresh-posted">Registration: {van.reg_plate||'Not recorded'}</div></section>
-    <section className="fresh-quick"><p><strong>Vehicle:</strong> {van.type||'Not recorded'}</p><p><strong>Payload:</strong> {van.payload_kg!=null?`${van.payload_kg} kg`:'Not recorded'}</p><p><strong>Pallet capacity:</strong> {van.pallets_capacity??'Not recorded'}</p><p><strong>Tail lift:</strong> {van.has_tail_lift===null?'Not specified':van.has_tail_lift?'Yes':'No'}</p></section>
+    <section className="fresh-quick"><p><strong>Vehicle:</strong> {van.type?van.type.split('_').map(segment=>segment.charAt(0).toUpperCase()+segment.slice(1)).join(' '):'Not recorded'}</p><p><strong>Payload:</strong> {van.payload_kg!=null?`${van.payload_kg} kg`:'Not recorded'}</p><p><strong>Pallet capacity:</strong> {van.pallets_capacity??'Not recorded'}</p><p><strong>Tail lift:</strong> {van.has_tail_lift===null?'Not specified':van.has_tail_lift?'Yes':'No'}</p></section>
    </article>)}
   </main>
   <FreshBottom active="jobs"/>

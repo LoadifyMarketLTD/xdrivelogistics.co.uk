@@ -390,3 +390,8 @@
 .fresh-driver-pwa .fresh-actions .fresh-booking-timeline>div>div.done{color:#1d57d8;font-weight:700;}
 .fresh-driver-pwa .fresh-actions .fresh-booking-timeline>div>div.done .fresh-booking-step-dot{background:#1d57d8;box-shadow:0 0 0 1px #1d57d8;}
 .fresh-driver-pwa .fresh-actions .fresh-booking-timeline small{font-size:11px;line-height:15px;overflow-wrap:normal;}
+
+/* Keep all three live quote statuses on one compact row. */
+.fresh-driver-pwa .fresh-quote-status-tabs{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.fresh-driver-pwa .fresh-quote-status-tabs button{font-size:clamp(12px,3.5vw,16px);letter-spacing:-.2px}
+.fresh-driver-pwa .fresh-overdue-note{display:block;padding:4px 8px;margin:-6px 0 10px;color:#85600b;font-size:12px;line-height:1.35}
