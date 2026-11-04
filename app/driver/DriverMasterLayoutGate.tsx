@@ -6,7 +6,7 @@ import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
 
 const DRIVER_MASTER_TAB_BY_ROUTE: Readonly<Record<string,number>> = {
- 'post-load':1,loads:2,quotes:3,jobs:4,'won-work':16,
+ 'post-load':1,loads:2,quotes:3,jobs:4,'won-work':4,reports:16,
  vehicles:5,fleet:5,drivers:6,history:7,finance:8,network:9,
  directory:10,availability:11,nearby:11,returns:12,'freight-vision':13,
  messages:14,notifications:15,documents:17,settings:18,profile:18,

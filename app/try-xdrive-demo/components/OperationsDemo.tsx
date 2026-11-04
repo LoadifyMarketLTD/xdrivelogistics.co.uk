@@ -43,7 +43,7 @@ const DRIVER_LIVE_ROUTES: readonly string[]=[
  '/driver/jobs','/driver/vehicles','/driver/drivers','/driver/history',
  '/driver/finance','/driver/network','/driver/directory','/driver/availability/live',
  '/driver/returns','/driver/freight-vision','/driver/messages','/driver/notifications',
- '/driver/won-work','/driver/documents','/driver/settings',
+ '/driver/reports','/driver/documents','/driver/settings',
 ] as const;
 type Job={id:string;from:string;to:string;vehicle:string;cargo:string;company:string;status:string;price:number;driver:string;vehicleId:string;stage:number;pod:boolean};
 const initial:Job[]=[];
@@ -86,6 +86,14 @@ const show=(i:number)=>{
    router.push(role==='Customer'?'/customer/bookings':role==='Broker'?'/broker/jobs':'/admin/won-work');
    return;
  }
+ if(authenticated && i===5){
+   router.push(role==='Customer'?'/customer/fleet':role==='Broker'?'/broker/fleet':'/admin/vehicles');
+   return;
+ }
+ if(authenticated && i===6){
+   router.push(role==='Customer'?'/customer/drivers':role==='Broker'?'/broker/drivers':'/admin/drivers');
+   return;
+ }
  if(authenticated && i===7){
    router.push(role==='Customer'?'/customer/diary':role==='Broker'?'/broker/diary':'/admin/diary');
    return;
@@ -106,12 +114,24 @@ const show=(i:number)=>{
    router.push(role==='Customer'?'/customer/live-availability':role==='Broker'?'/broker/live-availability':'/admin/live-availability');
    return;
  }
+ if(authenticated && i===12){
+   router.push(role==='Customer'?'/customer/returns':role==='Broker'?'/broker/returns':'/admin/fleet/returns');
+   return;
+ }
+ if(authenticated && i===13){
+   router.push(role==='Customer'?'/customer/freight-vision':role==='Broker'?'/broker/freight-vision':'/admin/freight-vision');
+   return;
+ }
  if(authenticated && i===14){
    router.push(role==='Customer'?'/customer/messages':role==='Broker'?'/broker/messages':'/admin/messages');
    return;
  }
  if(authenticated && i===15){
    router.push(role==='Customer'?'/customer/notifications':role==='Broker'?'/broker/notifications':'/admin/notifications');
+   return;
+ }
+ if(authenticated && i===16){
+   router.push(role==='Customer'?'/customer/reports':role==='Broker'?'/broker/reports':'/admin/reports');
    return;
  }
  setTab(i);
