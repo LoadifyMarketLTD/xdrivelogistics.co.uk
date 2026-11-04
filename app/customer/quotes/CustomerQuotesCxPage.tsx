@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
+import { fetchAllBookingOfferPages } from '../../../lib/bookingOfferPages';
 import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import BookingConfirmationFullPage from './BookingConfirmationFullPage';
@@ -205,11 +206,14 @@ export default function CustomerQuotesCxPage() {
     const { data: session } = await supabase.auth.getSession();
     const token = session.session?.access_token;
     if (!token) { setBookingOffers([]); setBookingOfferError('Carrier acceptance state is unavailable until the session is refreshed.'); return; }
-    const response = await fetch('/api/customer/booking-offers', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-    const payload = await response.json().catch(() => ({})) as { offers?: BuyerBookingOffer[]; error?: string };
-    if (!response.ok) { setBookingOffers([]); setBookingOfferError(payload.error ?? 'Carrier acceptance state could not be loaded.'); return; }
-    setBookingOffers(payload.offers ?? []);
-    setBookingOfferError('');
+    try {
+      const offers = await fetchAllBookingOfferPages<BuyerBookingOffer>('/api/customer/booking-offers', token);
+      setBookingOffers(offers);
+      setBookingOfferError('');
+    } catch (reason) {
+      setBookingOffers([]);
+      setBookingOfferError(reason instanceof Error ? reason.message : 'Carrier acceptance state could not be loaded.');
+    }
   }, []);
 
   useEffect(() => { void loadBookingOffers(); }, [loadBookingOffers, data.bids, data.jobs]);
