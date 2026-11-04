@@ -13,6 +13,7 @@ type Props={
 
 export default function InvoiceDraftStep(props:Props){
  const {bookingReference,routeLabel,invoiceNumber,clientName,customerXdId,issuerName,issuerXdId,jobRef,netAmount,vatRate,vatAmount,totalAmount,paymentTerms,invoiceDate,dueDate,serviceDescription,working=false,error,message,onBack,onPreview,onEdit,onReview}=props;
+ const displayServiceDescription=serviceDescription?.trim().startsWith("{")?"Freight transport service":serviceDescription;
  const rows=[
   clientName?['Invoice to',[clientName,customerXdId].filter(Boolean).join(' · ')]:null,
   issuerName?['Invoice from',[issuerName,issuerXdId].filter(Boolean).join(' · ')]:null,
@@ -29,7 +30,7 @@ export default function InvoiceDraftStep(props:Props){
   <WorkflowCard title="Invoice Details">
    <dl className={styles.details}>{rows.map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
   </WorkflowCard>
-  {serviceDescription&&<WorkflowCard title="Service / Notes"><p className={styles.notes}>{serviceDescription}</p></WorkflowCard>}
+  {displayServiceDescription&&<WorkflowCard title="Service / Notes"><p className={styles.notes}>{displayServiceDescription}</p></WorkflowCard>}
   <WorkflowCard>
    <div className={styles.secondary}><button type="button" disabled={working} onClick={onPreview}>Preview PDF</button><button type="button" disabled={working} onClick={onEdit}>Edit Draft</button></div>
    <PrimaryAction disabled={working} onClick={onReview}>{working?'Loading…':'Review Invoice'}</PrimaryAction>
