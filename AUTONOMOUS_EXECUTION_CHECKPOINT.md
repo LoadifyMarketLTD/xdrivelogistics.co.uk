@@ -91,3 +91,21 @@ Base origin/main: 94bd07eac0e6945fe53ed68af12cc8309d498df5
 - 12/12 focused source tests PASS; ESLint changed files PASS; TypeScript and Next.js build PASS before last driver navigation capability guard, final TypeScript rerun pending.
 - Full Vitest suite was launched safely with maxWorkers=2: see audit/VITEST_FULL_20261104.log. Failures include historical PWA and old-layout expected snapshots; DO NOT mark regression PASS or attempt edits in separately managed PWA. Need final summary and categorize critical blockers.
 - All 8 holistic release gates remain blocked; no authenticated commercial E2E or production visual proof. Existing unresolved invoice ledger has 4/16 invoices without job_id.
+
+## 3118 Member Directory unification - 2026-11-04
+- User's new priority: take approved Directory 3118 out of demo context and apply same production directory in all workspaces, retaining real data/RLS and current approved Master identity.
+- Verified SHA256 of approved 3118 app/components/workspace/MemberDirectoryPage.tsx equals branch production component byte-for-byte (3DD73B475F97AB8F56F23BB9ED9E33AFD5480006C5BCB01F4BB2286E6A62153E).
+- Existing shared MemberDirectoryPage already powers Admin, Broker, Customer and Driver Directory routes, using authenticated /api/directory and private group/owner-driver watchlist controls, no stage/demo endpoints.
+- Fixed Master Sidebar tab index 10 (Directory) for Broker to /broker/carrier-network/directory instead of /broker/customers, and Customer to /customer/network/directory instead of generic /customer/network. Company/Carrier, Fleet, Dispatcher use /admin/marketplace/directory; Driver, Owner Driver, Company Driver use /driver/directory.
+- Added /super-admin/members-directory with the exact same shared component and approved 3118 measured CSS. Added visible Member Directory entry without replacing existing Super Admin Explore All Areas page.
+- Directory API now permits verified active platform owner profile to access Directory even if they lack company membership; does not rely on user-editable metadata. Existing membership/active-driver auth remains; unauthorized user still 403 and missing bearer still 401. No production database mutations.
+- Node tests lib/masterDirectory3118.test.cjs + lib/masterWorkspaceNavigation.test.cjs: 6/6 PASS. Focused ESLint PASS. TypeScript noEmit rerun started PID 15720; final status pending checkpoint.
+- All edits isolated to feat/master-workspaces-unification-20261104; main/Netlify/PWA unchanged. Full role-auth visual E2E and entire Master release gates still outstanding.
+
+## Directory 3118 final local verification
+- Focused source tests: 6/6 PASS (node --test lib/masterDirectory3118.test.cjs lib/masterWorkspaceNavigation.test.cjs).
+- Directory Vitest regression: 26/26 PASS across six Directory test files (reputation, shared parity, direct booking, Diary recovery, seven-workspace access, nearest search).
+- Focused ESLint PASS, TypeScript noEmit PASS.
+- Full Next.js production build PASS (212/212 static pages generated; new /super-admin/members-directory confirmed in route manifest), process 32596 exit code 0.
+- Local build does not have SUPABASE_SERVICE_ROLE_KEY, so authenticated production-backed Directory API E2E is NOT verified by that build. No secrets added or live data modified.
+- This is isolated local commit c55ffdea, not merged or deployed. Existing broad Vitest baseline was 54 failures; all eight Master blueprint release gates are not yet cleared.

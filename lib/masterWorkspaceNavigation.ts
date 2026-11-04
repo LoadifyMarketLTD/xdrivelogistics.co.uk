@@ -14,14 +14,14 @@ export const MASTER_AUTHENTICATED_ROUTES = {
   Broker: [
     '/broker', '/broker/post-load', '/broker/loads', '/broker/bids',
     '/broker/jobs', '/broker/carrier-network', '/broker/team', '/broker/diary',
-    '/broker/finance', '/broker/carrier-network', '/broker/customers',
+    '/broker/finance', '/broker/carrier-network', '/broker/carrier-network/directory',
     null, null, null,
     '/broker/messages', '/broker/notifications', '/broker/reports',
   ],
   Customer: [
     '/customer', '/customer/post-load', '/customer/loads', '/customer/quotes',
     '/customer/bookings', null, null, '/customer/diary',
-    '/customer/invoices', '/customer/network', '/customer/network',
+    '/customer/invoices', '/customer/network', '/customer/network/directory',
     null, null, null,
     '/customer/messages', '/customer/notifications', null,
   ],
