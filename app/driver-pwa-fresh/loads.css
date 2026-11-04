@@ -152,3 +152,10 @@
 /* Booking Details is a primary touch target, not an unstyled text link. */
 .fresh-driver-pwa .fresh-booking-open{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;padding:12px 16px;margin-top:10px;border-radius:8px;background:#0B2F6B;color:#fff;font-size:16px;font-weight:700;text-decoration:none;line-height:1.3;touch-action:manipulation;}
 .fresh-driver-pwa .fresh-booking-open:focus-visible{outline:3px solid #F5A300;outline-offset:3px;}
+
+/* Real server-recorded booking event history, visible without opening a disclosure. */
+.fresh-driver-pwa .fresh-booking-event-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
+.fresh-driver-pwa .fresh-booking-event-list li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px 12px;border-left:3px solid #16a34a;background:#f4f6f8;border-radius:5px}
+.fresh-driver-pwa .fresh-booking-event-list strong{font-size:14px;overflow-wrap:anywhere}
+.fresh-driver-pwa .fresh-booking-event-list time{font-size:12px;color:#526173;text-align:right}
+.fresh-driver-pwa .fresh-booking-event-list small{grid-column:1/-1;color:#526173;overflow-wrap:anywhere}
