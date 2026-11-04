@@ -14,6 +14,7 @@ import {
   type CanonicalPaymentStatus,
 } from '../../../lib/invoiceStatus';
 import { AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { InvoiceProDashboard, InvoiceProHero, InvoiceProMetrics, InvoiceProMasterTabs, InvoiceProRegister, InvoiceProStatusTabs, InvoiceProSurface } from '../../components/workspace/InvoiceProMasterFrame';
 import styles from '../../components/workspace/InvoiceProFinance.module.css';
 
 type InvoiceStatus = CanonicalInvoiceStatus;
@@ -260,22 +261,22 @@ export default function DriverFinancePage() {
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell hideHeader>
-        <div className={styles.surface} data-testid="invoice-pro-driver-finance">
+        <InvoiceProSurface data-testid="invoice-pro-driver-finance">
           {error && <AlertBanner tone="danger">{error}</AlertBanner>}
           {generateError && <AlertBanner tone="danger">{generateError}</AlertBanner>}
 
-          <nav className={styles.nav} aria-label="Finance navigation">
-            <button className={styles.navButton} data-active={section === 'dashboard'} onClick={() => selectSection('dashboard')}>Dashboard</button>
-            <button className={styles.navButton} data-active={section === 'register' && activeTab === 'All'} onClick={() => selectSection('register', 'All')}>All</button>
-            {financeView === 'receivables' && <button className={styles.navButton} data-active={section === 'ready'} onClick={() => selectSection('ready')}>Ready To Invoice</button>}
-            <button className={styles.navButton} data-active={section === 'register' && activeTab === 'Sent'} onClick={() => selectSection('register', 'Sent')}>Awaiting Payment</button>
-            <button className={styles.navButton} data-active={section === 'register' && activeTab === 'Paid'} onClick={() => selectSection('register', 'Paid')}>Paid</button>
-            <button className={styles.navButton} data-active={section === 'customers'} onClick={() => selectSection('customers', 'All')}>{financeView === 'payables' ? 'Suppliers' : 'Customers'}</button>
-            <button className={styles.navButton} data-active={section === 'register' && activeTab === 'Cancelled'} onClick={() => selectSection('register', 'Cancelled')}>Archive</button>
-            <button className={styles.navButton} data-active={section === 'statements'} onClick={() => selectSection('statements', 'All')}>Statements</button>
-          </nav>
+          <InvoiceProMasterTabs tabs={[
+            { id: 'dashboard', label: 'Dashboard', active: section === 'dashboard', onSelect: () => selectSection('dashboard') },
+            { id: 'all', label: 'All', active: section === 'register' && activeTab === 'All', onSelect: () => selectSection('register', 'All') },
+            ...(financeView === 'receivables' ? [{ id: 'ready', label: 'Ready To Invoice', active: section === 'ready', onSelect: () => selectSection('ready') }] : []),
+            { id: 'awaiting', label: 'Awaiting Payment', active: section === 'register' && activeTab === 'Sent', onSelect: () => selectSection('register', 'Sent') },
+            { id: 'paid', label: 'Paid', active: section === 'register' && activeTab === 'Paid', onSelect: () => selectSection('register', 'Paid') },
+            { id: 'accounts', label: financeView === 'payables' ? 'Suppliers' : 'Customers', active: section === 'customers', onSelect: () => selectSection('customers', 'All') },
+            { id: 'archive', label: 'Archive', active: section === 'register' && activeTab === 'Cancelled', onSelect: () => selectSection('register', 'Cancelled') },
+            { id: 'statements', label: 'Statements', active: section === 'statements', onSelect: () => selectSection('statements', 'All') },
+          ]} />
 
-          <header className={styles.hero}>
+          <InvoiceProHero>
             <div>
               <div className={styles.eyebrow}>Finance overview</div>
               <h1 className={styles.title}>{financeView === 'payables' ? 'Control your payables.' : 'Command your cashflow.'}</h1>
@@ -286,9 +287,9 @@ export default function DriverFinancePage() {
               <button className={styles.button} onClick={() => router.push(financeView === 'receivables' ? '/driver/finance?view=payables' : '/driver/finance')}>{financeView === 'receivables' ? 'Accounts Payable' : 'Accounts Receivable'}</button>
               {canGenerateInvoices && <button className={[styles.button, styles.buttonPrimary].join(' ')} onClick={() => selectSection('ready')}>+ Create invoice</button>}
             </div>
-          </header>
+          </InvoiceProHero>
 
-          <section className={styles.metrics} aria-label="Finance summary">
+          <InvoiceProMetrics aria-label="Finance summary">
             <article className={[styles.metric, styles.metricGold].join(' ')}>
               <div className={styles.metricLabel}>{financeView === 'receivables' ? 'Ready to invoice' : 'Open payables'}</div>
               <div className={styles.metricValue}>{financeView === 'receivables' ? money(eligibleJobs.reduce((sum, job) => sum + Number(job.invoice?.amount ?? job.agreed_amount ?? job.direct_invoice_amount ?? 0), 0)) : money(values?.outstanding ?? 0)}</div>
@@ -309,10 +310,10 @@ export default function DriverFinancePage() {
               <div className={styles.metricValue}>GBP</div>
               <div className={styles.metricSub}>Primary finance ledger</div>
             </article>
-          </section>
+          </InvoiceProMetrics>
 
           {section === 'dashboard' && (
-            <section className={styles.dashboard}>
+            <InvoiceProDashboard>
               <article className={styles.panel}>
                 <div className={styles.panelHeader}>
                   <div><div className={styles.panelKicker}>Cashflow workspace</div><h2 className={styles.panelTitle}>{financeView === 'receivables' ? 'Receivables flow' : 'Payables flow'}</h2></div>
@@ -340,11 +341,11 @@ export default function DriverFinancePage() {
                 <button className={styles.actionButton} onClick={() => selectSection('customers', 'All')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>{financeView === 'payables' ? 'Suppliers' : 'Customers'}</span><span className={styles.actionSub}>Review account performance</span></span><span className={styles.arrow}></span></button>
                 <button className={styles.actionButton} onClick={() => setSection('statements')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>Statements</span><span className={styles.actionSub}>Review finance summaries</span></span><span className={styles.arrow}></span></button>
               </aside>
-            </section>
+            </InvoiceProDashboard>
           )}
 
           {section === 'ready' && financeView === 'receivables' && (
-            <section className={styles.register}>
+            <InvoiceProRegister>
               <div className={styles.registerHead}><div><div className={styles.panelKicker}>Direct settlements</div><div className={styles.registerTitle}>POD-complete jobs ready to invoice</div></div><button className={styles.button} onClick={() => void loadEligibleJobs()} disabled={jobsLoading}>Refresh</button></div>
               {jobsLoading ? <div className={styles.empty}><strong>Loading completed jobs</strong></div> : eligibleJobs.length === 0 ? (
                 <div className={styles.empty}><strong>No eligible invoices</strong><span>No delivered jobs with completed POD are currently available.</span></div>
@@ -354,16 +355,16 @@ export default function DriverFinancePage() {
                   return <tr key={job.id}><td>{'JOB-' + job.id.slice(0,8).toUpperCase()}</td><td>{job.pickup_location ?? 'Collection'}  {job.delivery_location ?? 'Delivery'}</td><td>{job.client_name ?? 'Marketplace customer'}</td><td>{commercialAmount == null ? 'TBC' : money(commercialAmount, job.currency)}</td><td>{job.invoice?.invoice_number ?? 'Ready for draft'}</td><td><button className={[styles.button, styles.buttonPrimary].join(' ')} disabled={generatingJobId === job.id} onClick={() => void generateInvoice(job.id)}>{generatingJobId === job.id ? 'Preparing' : job.invoice ? 'Open invoice' : 'Create invoice'}</button></td></tr>;
                 })}</tbody></table></div>
               )}
-            </section>
+            </InvoiceProRegister>
           )}
 
           {section === 'customers' && (
-            <section className={styles.register}>
+            <InvoiceProRegister>
               <div className={styles.registerHead}><div><div className={styles.panelKicker}>Account performance</div><div className={styles.registerTitle}>{financeView === 'payables' ? 'Suppliers' : 'Customers'}</div></div><span className={styles.registerMeta}>{customers.length} accounts</span></div>
               {loading ? <div className={styles.empty}><strong>Loading accounts</strong></div> : customers.length === 0 ? <div className={styles.empty}><strong>No account activity yet</strong></div> : (
                 <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Account</th><th>Invoices</th><th>Billed</th><th>Outstanding</th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.name}><td><strong>{customer.name}</strong></td><td>{customer.invoices}</td><td>{money(customer.billed)}</td><td>{money(customer.outstanding)}</td></tr>)}</tbody></table></div>
               )}
-            </section>
+            </InvoiceProRegister>
           )}
 
           {section === 'statements' && (
@@ -378,17 +379,17 @@ export default function DriverFinancePage() {
           )}
 
           {section === 'register' && (
-            <section className={styles.register}>
+            <InvoiceProRegister>
               <div className={styles.registerHead}><div><div className={styles.panelKicker}>Invoice operations</div><div className={styles.registerTitle}>{financeView === 'payables' ? 'Accounts Payable' : 'Accounts Receivable'}</div></div><div className={styles.heroActions}><span className={styles.registerMeta}>{invoices.length} invoices</span><button className={styles.button} onClick={() => void loadInvoices()} disabled={loading}>Refresh</button></div></div>
-              <div className={styles.tabStrip} role="tablist" aria-label="Invoice states">{STATUS_TABS.map((tab) => <button key={tab.id} className={styles.tabButton} data-active={activeTab === tab.id} onClick={() => setActiveTab(tab.id)}>{tab.label} {counts[tab.id]}</button>)}</div>
+              <InvoiceProStatusTabs tabs={STATUS_TABS.map((tab) => ({ id: tab.id, label: `${tab.label} ${counts[tab.id]}`, active: activeTab === tab.id, onSelect: () => setActiveTab(tab.id) }))} />
               {loading ? <div className={styles.empty}><strong>Loading invoices</strong></div> : invoices.length === 0 ? (
                 <div className={styles.empty}><strong>No invoices in this view</strong><span>{canGenerateInvoices ? 'Create an invoice from a completed job or choose another filter.' : 'Choose another invoice/payment filter or refresh the register.'}</span></div>
               ) : (
                 <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Invoice</th><th>{financeView === 'payables' ? 'Supplier / job' : 'Customer / job'}</th><th>Due</th><th>Total</th><th>Invoice state</th><th>Payment</th><th>Outstanding</th><th>Action</th></tr></thead><tbody>{invoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.invoice_number}</strong><div className={styles.registerMeta}>{date(invoice.invoice_date)}</div></td><td><strong>{invoice.client_name}</strong><div className={styles.registerMeta}>{invoice.job_id ? 'Job #' + invoice.job_id.slice(0,8).toUpperCase() : invoice.job_ref}</div></td><td>{date(invoice.due_date)}</td><td><strong>{money(invoice.amount, invoice.currency)}</strong><div className={styles.registerMeta}>Net {money(invoice.net_amount, invoice.currency)}  VAT {money(invoice.vat_amount, invoice.currency)}</div></td><td><StatusBadge value={invoice.status} tone={statusTone(invoice.status)} /></td><td><StatusBadge value={invoice.payment_status.replace(/_/g,' ')} tone={paymentTone(invoice.payment_status)} /></td><td>{money(invoice.outstanding_amount, invoice.currency)}</td><td><button className={styles.button} onClick={() => router.push('/driver/finance/invoices/' + invoice.id)}>Open</button></td></tr>)}</tbody></table></div>
               )}
-            </section>
+            </InvoiceProRegister>
           )}
-        </div>
+        </InvoiceProSurface>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

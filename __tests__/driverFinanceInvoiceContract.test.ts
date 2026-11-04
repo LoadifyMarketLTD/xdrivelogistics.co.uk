@@ -21,7 +21,8 @@ describe('driver finance invoice contract', () => {
     const page = readRepoFile('app/driver/finance/page.tsx');
     const css = readRepoFile('app/driver/driver-prototype-parity.css');
 
-    expect(page).toContain('aria-label="Invoice states"');
+    expect(page).toContain('<InvoiceProStatusTabs');
+    expect(readRepoFile('app/components/workspace/InvoiceProMasterFrame.tsx')).toContain("label = 'Invoice states'");
     expect(page).not.toContain('aria-label="Payment states"');
     expect(page).not.toContain('PAYMENT_TABS');
     expect(page).not.toContain('paymentTab');

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { AlertBanner, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 import { getAuthHeader } from '../../_lib/getAuthHeader';
+import { InvoiceProDashboard, InvoiceProHero, InvoiceProMetrics, InvoiceProMasterTabs, InvoiceProRegister, InvoiceProSurface } from '../../../components/workspace/InvoiceProMasterFrame';
 import styles from '../../../components/workspace/InvoiceProFinance.module.css';
 
 type GlobalInvoice = {
@@ -80,27 +81,26 @@ export default function SuperAdminInvoicesPage() {
   const open = (id: string) => router.push(`/super-admin/finance/invoices/${encodeURIComponent(id)}`);
 
   return <ProtectedRoute allowedRoles={['owner']}>
-    <div className={styles.surface} data-testid="approved-super-admin-invoices">
+    <InvoiceProSurface data-testid="approved-super-admin-invoices">
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-      <nav className={styles.nav} aria-label="Invoice navigation">
-        {([['dashboard', 'Dashboard'], ['all', 'All'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['archive', 'Archive']] as const).map(([id, label]) =>
-          <button key={id} type="button" className={styles.navButton} data-active={view === id} onClick={() => setView(id)}>{label}</button>)}
-      </nav>
-      <header className={styles.hero}>
+      <InvoiceProMasterTabs label="Invoice navigation" tabs={([
+        ['dashboard', 'Dashboard'], ['all', 'All'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['archive', 'Archive'],
+      ] as const).map(([id, label]) => ({ id, label, active: view === id, onSelect: () => setView(id) }))} />
+      <InvoiceProHero>
         <div><div className={styles.eyebrow}>Finance overview</div><h1 className={styles.title}>Platform invoices.</h1>
           <p className={styles.subtitle}>Cross-company invoice oversight. Monetary totals are not combined across currencies.</p></div>
         <div className={styles.heroActions}>
           <button className={styles.button} type="button" onClick={() => setView('all')}>Invoice register</button>
           <button className={styles.button} type="button" disabled={loading} onClick={refresh}>Refresh</button>
         </div>
-      </header>
-      <section className={styles.metrics} aria-label="Verified invoice metrics">
+      </InvoiceProHero>
+      <InvoiceProMetrics aria-label="Verified invoice metrics">
         <article className={[styles.metric, styles.metricGold].join(' ')}><div className={styles.metricLabel}>Platform invoices</div><div className={styles.metricValue}>{total ?? '—'}</div><div className={styles.metricSub}>Exact backend record count</div></article>
         <article className={[styles.metric, styles.metricBlue].join(' ')}><div className={styles.metricLabel}>Companies</div><div className={styles.metricValue}>{pageCompanies}</div><div className={styles.metricSub}>Represented on this page</div></article>
         <article className={[styles.metric, styles.metricGreen].join(' ')}><div className={styles.metricLabel}>Paid</div><div className={styles.metricValue}>{paid}</div><div className={styles.metricSub}>On this page only</div></article>
         <article className={[styles.metric, styles.metricNavy].join(' ')}><div className={styles.metricLabel}>Currencies</div><div className={styles.metricValue}>{pageCurrencies}</div><div className={styles.metricSub}>On this page only</div></article>
-      </section>
-      {view === 'dashboard' && <section className={styles.dashboard}>
+      </InvoiceProMetrics>
+      {view === 'dashboard' && <InvoiceProDashboard>
         <article className={styles.panel}><div className={styles.panelHeader}><div><div className={styles.panelKicker}>Platform finance</div><h2 className={styles.panelTitle}>Invoice oversight</h2></div><button className={styles.button} onClick={() => setView('all')}>Open register</button></div>
           <div className={styles.flow}><div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>Verified invoice records</div><div className={styles.flowSub}>Across platform companies</div></div><strong className={styles.flowValue}>{total ?? 'Unavailable'}</strong></div>
             <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Overdue</div><div className={styles.flowSub}>On current page</div></div><strong className={styles.flowValue}>{overdue}</strong></div>
@@ -110,15 +110,15 @@ export default function SuperAdminInvoicesPage() {
           <button className={styles.actionButton} onClick={() => setView('overdue')}><span className={styles.actionIcon} /><span><span className={styles.actionLabel}>Overdue invoices</span><span className={styles.actionSub}>Review current-page records</span></span><span className={styles.arrow}>›</span></button>
           <button className={styles.actionButton} onClick={() => setView('all')}><span className={styles.actionIcon} /><span><span className={styles.actionLabel}>Company invoice ledger</span><span className={styles.actionSub}>Open invoice details and reconciliation</span></span><span className={styles.arrow}>›</span></button>
         </aside>
-      </section>}
-      {view !== 'dashboard' && <section className={styles.register}>
+      </InvoiceProDashboard>}
+      {view !== 'dashboard' && <InvoiceProRegister>
         <div className={styles.registerHead}><div><div className={styles.panelKicker}>Invoice operations</div><div className={styles.registerTitle}>{view === 'all' ? 'Invoice register' : view === 'overdue' ? 'Overdue invoices' : view === 'paid' ? 'Paid invoices' : 'Archived invoices'}</div></div><span className={styles.registerMeta}>{visible.length} on this page</span></div>
         {loading ? <div className={styles.empty}><strong>Loading verified invoices</strong></div> : visible.length === 0 ? <div className={styles.empty}><strong>No invoices in this view</strong></div> :
           <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Invoice</th><th>Company</th><th>Customer</th><th>Amount</th><th>Due</th><th>Invoice state</th><th>Payment</th><th>Action</th></tr></thead><tbody>
             {visible.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</strong></td><td>{invoice.company_name ?? 'Not supplied'}</td><td>{invoice.client_name ?? 'Not supplied'}</td><td>{currencyAmount(invoice.amount, invoice.currency)}</td><td>{shortDate(invoice.due_date)}</td><td><StatusBadge value={invoice.status ?? 'Not supplied'} /></td><td><StatusBadge value={invoice.payment_status ?? 'Not supplied'} /></td><td><button className={styles.button} onClick={() => open(invoice.id)}>Open</button></td></tr>)}
           </tbody></table></div>}
         <div className={styles.registerHead}><span className={styles.registerMeta}>Page {page}{total == null ? '' : ` · ${total} platform invoices`}</span><div className={styles.heroActions}><button className={styles.button} disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}>Previous</button><button className={styles.button} disabled={!hasNext || loading} onClick={() => setPage((value) => value + 1)}>Next</button></div></div>
-      </section>}
-    </div>
+      </InvoiceProRegister>}
+    </InvoiceProSurface>
   </ProtectedRoute>;
 }
