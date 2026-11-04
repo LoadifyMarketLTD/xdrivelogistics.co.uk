@@ -43,9 +43,9 @@ describe('authenticated Owner Driver Master Workspace',()=>{
   it('opens all real Driver quotes and personal job history by default',()=>{
     const quotes=read('app/driver/quotes/page.tsx');
     const diary=read('app/driver/history/page.tsx');
-    expect(quotes).toContain("useState<TabId>('all')");
-    expect(quotes).toContain("activeTab === 'all' || quoteBucket(bid) === activeTab");
-    expect(quotes).toContain('All Quotes');
+    expect(quotes).toContain("useState<TabId>('submitted')");
+    expect(quotes).toContain('quoteBucket(bid) === activeTab');
+    expect(quotes).toContain('Awarded');
     expect(diary).toContain("useState<'company' | 'mine'>('mine')");
     expect(diary).toContain("<option value=\"company\">Company Diary");
   });
