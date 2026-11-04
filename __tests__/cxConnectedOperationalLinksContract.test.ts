@@ -12,8 +12,9 @@ describe('CX connected operational module links', () => {
     expect(shell).toContain("['carrier-live-availability', 'Live Availability', '/admin/live-availability']");
     expect(shell).toContain("['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns']");
     expect(live).not.toContain("router.push('/admin/fleet/returns')");
-    expect(live).toContain("router.push('/admin/fleet/drivers')");
-    expect(live).toContain('Driver register');
+    expect(live).toContain("router.push('/admin/fleet/resources')");
+    expect(live).toContain('Register your vehicles');
+    expect(resources).toContain('Users / Drivers</button>');
     expect(live).not.toContain('>Return Journeys</ActionButton>');
     expect(live).not.toContain('/admin/drivers?driver=');
   });
