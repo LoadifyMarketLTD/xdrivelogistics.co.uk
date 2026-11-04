@@ -38,8 +38,10 @@ export default function Bookings(){
  const now=Date.now(),day=86400000;
  const visible=items.filter(job=>{
   const timestamp=job.updatedAt?new Date(job.updatedAt).getTime():NaN;
-  if(period==='current')return job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming';
-  if(job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming')return false;
+  // Delivered remains actionable until real POD submission and completion.
+  const awaitingPod=job.canonicalStatus.toLowerCase()==='delivered';
+  if(period==='current')return job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||awaitingPod;
+  if(job.lifecycleGroup==='active'||job.lifecycleGroup==='upcoming'||awaitingPod)return false;
   if(!Number.isFinite(timestamp))return false;
   const age=now-timestamp;
   return period==='week'?age>=0&&age<=7*day:age>7*day&&age<=30*day;

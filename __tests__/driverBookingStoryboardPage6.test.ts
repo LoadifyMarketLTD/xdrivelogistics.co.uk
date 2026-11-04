@@ -32,7 +32,7 @@ describe('Driver booking storyboard page 6', () => {
     expect(page).toContain('Confirm Delivered');
     expect(page).not.toContain('Received By');
     expect(page).not.toContain('Signature');
-    expect(page).toContain('photoPaths.length>0');
+    expect(page).not.toContain('photoPaths.length>0&&');
   });
 
   it('loads secure signed previews for delivery evidence instead of exposing storage paths as image URLs', () => {

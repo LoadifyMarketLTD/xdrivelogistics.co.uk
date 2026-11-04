@@ -15,7 +15,9 @@ describe('Driver Job Execution mandatory POD to invoice contract', () => {
   });
 
   it('requires delivery evidence, recipient and signature to complete POD', () => {
-    expect(page).toContain('At least one delivery photo is required to complete POD.');
+    expect(page).toContain('At least one genuine delivery photo or POD document is required.');
+    const finalPolicy=fs.readFileSync(path.join(root,'supabase/migrations/20261104153000_driver_pwa_optional_pickup_verified_pod.sql'),'utf8');
+    expect(finalPolicy).toContain('At least one delivery photo or POD document is required before completion.');
     expect(page).toContain('Recipient name is required to complete POD.');
     expect(page).toContain('Recipient signature is required to complete POD.');
     expect(page).toContain('/api/driver/web/jobs/${encodeURIComponent(job.id)}/pod');

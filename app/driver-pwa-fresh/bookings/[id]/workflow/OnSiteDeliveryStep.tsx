@@ -23,7 +23,7 @@ const step=(raw:string,delta:number,min:number,decimals=0)=>{
 
 export default function OnSiteDeliveryStep(props:Props){
  const {bookingReference,routeLabel,agreedRate,paymentTerms,address,schedule,contactName,phone,itemCount,weight,photoPaths,photoUrls,notes,draftLoaded,draftSaving,draftError,working=false,error,message,onBack,onItemCount,onWeight,onNotes,onPhotos,onConfirm}=props;
- const canConfirm=photoPaths.length>0&&Number.isInteger(Number(itemCount))&&Number(itemCount)>=1&&(!weight.trim()||(Number.isFinite(Number(weight))&&Number(weight)>=0))&&draftLoaded&&!draftSaving;
+ const canConfirm=Number.isInteger(Number(itemCount))&&Number(itemCount)>=1&&(!weight.trim()||(Number.isFinite(Number(weight))&&Number(weight)>=0))&&draftLoaded&&!draftSaving;
  return <WorkflowFrame title="On Site at Delivery" bookingReference={bookingReference} routeLabel={routeLabel} badge="At delivery" agreedRate={agreedRate} paymentTerms={paymentTerms} error={error} message={message} onBack={onBack} compact>
   <WorkflowCard title="Delivery Details">
    <div className={styles.delivery}>
@@ -44,7 +44,7 @@ export default function OnSiteDeliveryStep(props:Props){
     {photoPaths.slice(0,3).map((path,index)=><div className={styles.photo} key={path}>{photoUrls[index]?<img src={photoUrls[index]} alt={'Delivery evidence '+(index+1)}/>:<span>Photo {index+1}</span>}{index===2&&photoPaths.length>3&&<b>+{photoPaths.length-2}</b>}</div>)}
     {photoPaths.length<10&&<label className={styles.addPhoto}><span>＋</span><small>Add photo</small><input type="file" accept="image/jpeg,image/png" multiple disabled={working} onChange={onPhotos}/></label>}
    </div>
-   <p className={styles.photoHint}>{photoPaths.length}/10 saved delivery photo{photoPaths.length===1?'':'s'}. At least one is required before confirming delivery.</p>
+   <p className={styles.photoHint}>{photoPaths.length}/10 saved delivery photo{photoPaths.length===1?'':'s'}. Evidence is required at final POD submission; saving photos here is optional.</p>
   </WorkflowCard>
 
   <WorkflowCard title="Notes">

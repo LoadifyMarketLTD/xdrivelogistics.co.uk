@@ -195,10 +195,6 @@ const storageObjectExists = async (path: string) => {
   return (data ?? []).some((entry) => entry.name === fileName);
 };
 
-function nowDateUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function requiresHardCopyPod(value: unknown) {
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (!normalized) return false;
@@ -246,7 +242,9 @@ async function savePod(
   const allowedDeliveryStatuses = new Set(['Completed Delivery', 'Partial Delivery', 'Failed Delivery', 'Refused', 'Left Safe']);
   const leftAt = typeof body.leftAt === 'string' ? body.leftAt.trim().slice(0, 500) : '';
   const deliveredOnRaw = typeof body.deliveredOn === 'string' ? body.deliveredOn.trim() : '';
-  const deliveredOn = /^\d{4}-\d{2}-\d{2}$/.test(deliveredOnRaw) ? deliveredOnRaw : nowDateUtc();
+  const deliveredDate = /^\d{4}-\d{2}-\d{2}$/.test(deliveredOnRaw) ? new Date(`${deliveredOnRaw}T00:00:00Z`) : null;
+  const deliveredOn = deliveredDate && !Number.isNaN(deliveredDate.getTime()) && deliveredDate.toISOString().slice(0, 10) === deliveredOnRaw ? deliveredOnRaw : null;
+  if (!deliveredOn) return respond(400, { error: 'A valid recorded delivery date is required for POD.' });
   const itemCountRaw = body.itemCount == null || body.itemCount === '' ? null : Number(body.itemCount);
   const itemCount = itemCountRaw === null ? null : Math.round(itemCountRaw);
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
@@ -258,7 +256,7 @@ async function savePod(
   if (deliveryStatus !== 'Completed Delivery') return respond(409, {
     error: 'This delivery has an unresolved exception. Save the POD draft and resolve it before final submission.',
   });
-  if (itemCount !== null && (!Number.isFinite(itemCount) || itemCount < 0 || itemCount > 100000)) {
+  if (itemCount === null || !Number.isInteger(itemCountRaw) || itemCount < 1 || itemCount > 100000) {
     return respond(400, { error: 'Enter a valid delivered item count.' });
   }
   const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
@@ -291,10 +289,10 @@ async function savePod(
   const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
   const signatureData = rawSignature || job.delivery_signature_data || null;
-  const effectivePhotoCount = new Set([...existingPhotos, ...photoPaths]).size;
+  const effectiveEvidenceCount = new Set([...existingPhotos, ...photoPaths, ...existingDocuments, ...documentPaths]).size;
 
-  if (effectivePhotoCount === 0) {
-    return respond(400, { error: 'At least one delivery photo is required for POD.' });
+  if (effectiveEvidenceCount === 0) {
+    return respond(400, { error: 'At least one delivery photo or POD document is required.' });
   }
   if (!signatureData) {
     return respond(400, { error: 'Recipient signature is required for POD.' });

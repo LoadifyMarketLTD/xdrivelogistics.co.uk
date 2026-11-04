@@ -24,9 +24,9 @@ describe('driver PWA persistent mobile POD contract', () => {
   });
   it('provides a mobile-only POD route with server draft recovery', () => {
     expect(screen).toContain('mobilePwa podOnly');
-    expect(screen).toContain('Back to booking');
+    expect(page).toContain("onBack={()=>router.push('/driver-pwa-fresh/bookings/'+encodeURIComponent(job.id))}");
     expect(screen).not.toContain('Navigate');
-    expect(page).toContain('Save Signature');
+    expect(read('app/driver-pwa-fresh/bookings/[id]/workflow/ProofOfDeliveryStep.tsx')).toContain('Save Signature');
     expect(page).toContain("method: 'PUT'");
     expect(page).toContain('podDraftSaveQueue.current');
   });

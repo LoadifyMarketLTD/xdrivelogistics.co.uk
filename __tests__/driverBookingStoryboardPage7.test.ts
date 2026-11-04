@@ -31,7 +31,7 @@ describe('Driver booking storyboard page 7', () => {
 
   it('retains real POD completion gates and does not allow exception statuses to be finalised', () => {
     const source=fs.readFileSync(path.join(process.cwd(),'app/components/workspace/DriverJobExecutionPage.tsx'),'utf8');
-    expect(source).toContain("if (!deliveryPhotos.length)");
+    expect(source).toContain("if (!deliveryPhotos.length && !pendingPodDocuments.length)");
     expect(source).toContain("if (!recipientName.trim())");
     expect(source).toContain('if (!newSignature && !savedSignatureData && !hasStoredSignature)');
     expect(source).toContain("if (mobilePwa && !podLeftAt.trim())");

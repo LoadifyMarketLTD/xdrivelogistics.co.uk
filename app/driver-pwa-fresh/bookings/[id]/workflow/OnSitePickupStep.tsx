@@ -22,7 +22,7 @@ export default function OnSitePickupStep(props:Props){
   {cargoRows.length>0&&<WorkflowCard title="Cargo Details">
    <dl className={styles.cargo}>{cargoRows.map(row=><div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
    <div className={styles.differenceFields}>
-    <label>Items actually collected (required)<input required type="number" min="0" step="1" inputMode="numeric" value={actualItems} onChange={e=>onActualItems(e.target.value)} placeholder={declaredItems||'Enter actual count'}/></label>
+    <label>Items actually collected (if supplied)<input type="number" min="0" step="1" inputMode="numeric" value={actualItems} onChange={e=>onActualItems(e.target.value)} placeholder={declaredItems||'Enter actual count'}/></label>
    </div>
    <details className={styles.difference} open={hasDifference}>
     <summary>Report a collection difference</summary>

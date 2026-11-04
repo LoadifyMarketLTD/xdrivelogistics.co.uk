@@ -43,6 +43,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .eq('id', id).eq('assigned_driver_id', driver.driverId).maybeSingle();
   if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
   if (!job) return respond(404, { error: 'Job not found.' });
+  const stopId = request.nextUrl.searchParams.get('stopId')?.trim() ?? '';
+  if (stopId) {
+    if (!/^[0-9a-f-]{36}$/i.test(stopId)) return respond(400, { error: 'Stop ID is invalid.' });
+    const { data: stop, error: stopError } = await supabaseAdmin.from('job_stops')
+      .select('id').eq('id', stopId).eq('job_id', id).maybeSingle();
+    if (stopError) return respond(503, { error: 'Stop evidence could not be verified.' });
+    if (!stop) return respond(404, { error: 'Stop not found for this booking.' });
+    const paths: Record<'photos' | 'documents', string[]> = { photos: [], documents: [] };
+    for (const category of ['photos', 'documents'] as const) {
+      const folder = `${driver.companyId}/${id}/stops/${stopId}/${category}`;
+      const { data, error } = await supabaseAdmin.storage.from('pod-photos').list(folder, { limit: 100 });
+      if (error) return respond(503, { error: 'Stop evidence could not be recovered.' });
+      paths[category] = (data ?? []).filter(entry => SAFE_NAME.test(entry.name) && Boolean(entry.id))
+        .map(entry => `${folder}/${entry.name}`);
+    }
+    return respond(200, { ok: true, photoPaths: paths.photos, documentPaths: paths.documents });
+  }
   const folder = `${driver.companyId}/${id}/collection-documents`;
   const { data, error } = await supabaseAdmin.storage.from('pod-photos').list(folder, { limit: 100 });
   if (error) return respond(500, { error: 'Collection documents could not be recovered.' });
