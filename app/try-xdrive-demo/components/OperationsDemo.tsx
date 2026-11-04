@@ -11,6 +11,7 @@ import {useMasterPreviewIsolation} from "./MasterPreviewIsolation";
 import {useCompany3150Live} from "./Company3150LiveData";
 import DemoNetworkToolsBoard from "./DemoNetworkToolsBoard";
 import DemoCompanyQuotes from "./DemoCompanyQuotes";
+import CustomerQuotesCxPage from "../../customer/quotes/CustomerQuotesCxPage";
 import DemoFreightVision from "./DemoFreightVision";
 import DemoReportsBoard from "./DemoReportsBoard";
 import DemoMessagesBoard from "./DemoMessagesBoard";
@@ -65,7 +66,7 @@ return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><Approved
 {realOperational&&tab!==initialTab&&tab===7&&<DemoBookingOverview view="diary"/>}
 {realOperational&&tab!==initialTab&&tab===10&&<MemberDirectoryPage/>}
 {realOperational&&tab!==initialTab&&tab===15&&<DemoNotifications onNavigate={show}/>}
-{realOperational&&tab!==initialTab&&tab===3&&<DemoCompanyQuotes mode={can("award")?"received":"sent"} allowAward={false}/>}
+{realOperational&&tab!==initialTab&&tab===3&&(authenticated&&can("award")?<CustomerQuotesCxPage routeBase={role==="Customer"?"/customer":"/admin"}/>:<DemoCompanyQuotes mode="sent" allowAward={false}/>)}
 {realOperational&&tab!==initialTab&&tab===8&&<DemoInvoicesBoard jobs={sharedJobs} readOnly={!can("invoice")}/>}
 {realOperational&&tab!==initialTab&&tab===9&&<DemoNetworkToolsBoard audience={can("manageCompany")?"company":can("quote")||can("postLoad")||can("award")?"standard":"driver"} onNavigate={show}/>}
 {realOperational&&tab!==initialTab&&tab===14&&<DemoMessagesBoard jobs={sharedJobs} onBooking={()=>show(4)}/>}
@@ -88,7 +89,7 @@ return <main className="demo-shell ops-demo xd-approved-sidebar-shell"><Approved
 {isDispatch&&tab===1&&((authenticated||live)&&!preview?(can("postLoad")?<LoadPostingForm mode="admin"/>:<p role="status">Posting loads is restricted for this role.</p>):<DemoExchangeBoard role="Dispatcher"/>)}
 {isDispatch&&tab===1&&(!(authenticated||live)||preview)&&<div className="panel"><div className="panel-title"><h2>{isDispatch?"Dispatch Board":"Load Exchange"}</h2><span>{sharedJobs.length} SHARED LOADS</span></div><div className="ops-filters"><input aria-label="Search jobs" placeholder="Search route, ID or company" value={search} onChange={e=>setSearch(e.target.value)}/><select aria-label="Filter job status" value={filter} onChange={e=>setFilter(e.target.value)}>{["All","Open","Allocated","In Progress","Completed"].map(x=><option key={x}>{x}</option>)}</select></div>{list(sharedJobs.filter(j=>(filter==="All"||j.status===filter)&&(j.id+j.from+j.to+j.company).toLowerCase().includes(search.toLowerCase())))}</div>}
 {((!isDispatch&&tab===4)||(isDispatch&&tab===2))&&<DemoCompanyBookings role={role}/>}
-{!isDispatch&&tab===3&&<DemoCompanyQuotes mode={can("award")?"all":"sent"} allowAward={can("award")}/>}
+{!isDispatch&&tab===3&&(authenticated&&can("award")?<CustomerQuotesCxPage routeBase={role==="Customer"?"/customer":role==="Broker"?"/broker":"/admin"}/>:<DemoCompanyQuotes mode={can("award")?"all":"sent"} allowAward={can("award")&&!authenticated}/>)}
 {!isDispatch&&tab===5&&<DemoFleetBoard vehicles={realFleet} setVehicles={setCompanyFleet} drivers={realDrivers} setDrivers={setCompanyDrivers} suppressPreview={role!=="Company / Carrier"} readOnly={!live||!can("manageFleet")}/>}
 {!isDispatch&&tab===6&&<DemoDriversBoard drivers={realDrivers} vehicles={realFleet} onFleet={()=>can("manageDrivers")?(live?window.location.assign("/admin/drivers"):show(5)):show(6)} suppressPreview={role!=="Company / Carrier"}/>}
 {isDispatch&&tab===5&&<DemoMessagesBoard jobs={sharedJobs} onBooking={()=>show(2)}/>}

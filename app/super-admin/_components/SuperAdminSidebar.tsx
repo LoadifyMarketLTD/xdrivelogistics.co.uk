@@ -118,7 +118,7 @@ export default function SuperAdminSidebar({
       aria-label="Super Admin navigation"
     >
       <Link href={definition.homeHref} prefetch={false} className={styles.sidebarBrand} onClick={() => { setOptimisticActiveHref(definition.homeHref); onNavigate(); }}>
-        <Image src="/icon-192.png" alt="" width={36} height={36} priority />
+        <Image src="/xdrive-logo-company-3150.png" alt="XDrive Logistics" width={196} height={64} priority />
         <span className={styles.sidebarBrandCopy}>
           <strong>XDrive</strong>
           <small>Platform Control</small>

@@ -1,0 +1,6 @@
+﻿"role","pages","layouts"
+"admin","67","Company3150LayoutGate.tsx|layout.tsx"
+"customer","29","CustomerMasterLayoutGate.tsx|layout.tsx"
+"broker","33","Broker3150LayoutGate.tsx|layout.tsx"
+"driver","41","DriverMasterLayoutGate.tsx|layout.tsx"
+"super-admin","74","layout.tsx"
