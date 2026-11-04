@@ -93,6 +93,18 @@ const show=(i:number)=>{
    router.push(role==='Customer'?'/customer/invoices':role==='Broker'?'/broker/finance':'/admin/finance');
    return;
  }
+ if(authenticated && i===9){
+   router.push(role==='Customer'?'/customer/network':role==='Broker'?'/broker/carrier-network':'/admin/marketplace/directory');
+   return;
+ }
+ if(authenticated && i===14){
+   router.push(role==='Customer'?'/customer/messages':role==='Broker'?'/broker/messages':'/admin/messages');
+   return;
+ }
+ if(authenticated && i===15){
+   router.push(role==='Customer'?'/customer/notifications':role==='Broker'?'/broker/notifications':'/admin/notifications');
+   return;
+ }
  setTab(i);
 };
 const list=(items:Job[],actions=true)=><div className="ops-job-list">{items.map(j=><article className="ops-job" key={j.id}><div className="ops-job-top"><strong>{j.company}</strong><small>{j.id} Ã‚Â· {j.status}</small></div><div className="ops-route"><div><small>COLLECTION</small><b>{j.from}</b></div><span>Ã¢â€ â€™</span><div><small>DELIVERY</small><b>{j.to}</b></div></div><div className="facts"><span>{j.vehicle}</span><span>{j.cargo}</span><span>30 days EOM</span><span>POD {j.pod?"received":"required"}</span></div><div className="ops-job-bottom"><small>{j.driver?j.driver+" Ã‚Â· "+j.vehicleId:"Unallocated"} Ã‚Â· Ã‚Â£{j.price}</small>{actions&&<button className="outline" onClick={()=>{setSelected(j.id);show(isDispatch?2:4)}}>View & manage Ã¢â€ â€™</button>}</div></article>)}</div>;
