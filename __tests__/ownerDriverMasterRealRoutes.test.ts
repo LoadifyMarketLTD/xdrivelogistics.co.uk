@@ -40,6 +40,15 @@ describe('authenticated Owner Driver Master Workspace',()=>{
     expect(operations).toContain('!live&&!authenticated');
   });
 
+  it('opens all real Driver quotes and personal job history by default',()=>{
+    const quotes=read('app/driver/quotes/page.tsx');
+    const diary=read('app/driver/history/page.tsx');
+    expect(quotes).toContain("useState<TabId>('all')");
+    expect(quotes).toContain("activeTab === 'all' || quoteBucket(bid) === activeTab");
+    expect(quotes).toContain('All Quotes');
+    expect(diary).toContain("useState<'company' | 'mine'>('mine')");
+    expect(diary).toContain("<option value=\"company\">Company Diary");
+  });
   it('keeps the owner-driver production dashboard and real vehicle API',()=>{
     expect(read('app/driver/page.tsx')).toContain("role === 'Owner Driver' ? <Company3150LiveProvider>");
     expect(read('app/driver/vehicles/page.tsx')).toContain("fetch('/api/driver/vehicles'");

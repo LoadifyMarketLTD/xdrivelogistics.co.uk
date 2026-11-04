@@ -12,7 +12,7 @@ import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh'
 import CxQuoteCard from '../../components/workspace/CxQuoteCard';
 
 type QuoteDirection = 'outgoing' | 'incoming';
-type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful';
+type TabId = 'all' | 'received' | 'archived' | 'submitted' | 'unsuccessful';
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DetailAccess = 'marketplace' | 'assigned' | 'own' | 'protected';
 
@@ -195,7 +195,9 @@ export default function MyQuotesPage() {
   const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<TabId>('received');
+  // Most Driver/Owner Driver activity consists of quotes sent to the exchange.
+  // Display the user's own submitted quotes immediately, not a blank Received tab.
+  const [activeTab, setActiveTab] = useState<TabId>('all');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -418,7 +420,7 @@ export default function MyQuotesPage() {
     return true;
   }), [appliedFilters, bids, companyNames, viewForBid]);
 
-  const tabBids = useMemo(() => filteredBids.filter((bid) => quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
+  const tabBids = useMemo(() => filteredBids.filter((bid) => activeTab === 'all' || quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
   const visibleBids = useMemo(() => tabBids.slice(0, visibleCount), [tabBids, visibleCount]);
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
   const canLoadMore = visibleCount < tabBids.length;
@@ -455,6 +457,7 @@ export default function MyQuotesPage() {
           <main className="main">
             {error && <div className="vision-note">{error}</div>}
             <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Driver quote statuses">
+              <button type="button" role="tab" aria-selected={activeTab === 'all'} data-active={activeTab === 'all' ? 'true' : 'false'} className={activeTab === 'all' ? 'active' : ''} onClick={() => setActiveTab('all')}>All Quotes</button>
               <button type="button" role="tab" aria-selected={activeTab === 'received'} data-active={activeTab === 'received' ? 'true' : 'false'} className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received</button>
               <button type="button" role="tab" aria-selected={activeTab === 'archived'} data-active={activeTab === 'archived' ? 'true' : 'false'} className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived</button>
               <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted</button>
