@@ -15,12 +15,14 @@ const workspaceData = fs.readFileSync(path.join(process.cwd(), 'app/components/w
 describe('CX-close Customer quote award and tracking parity', () => {
   it('routes Customer Quotes through the review-before-award surface', () => {
     expect(customerQuotesRoute).toContain("import CustomerQuotesCxPage from './CustomerQuotesCxPage'");
-    expect(customerQuotes).toContain("columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']}");
+    expect(customerQuotes).toContain('<CxQuoteCard');
+    expect(customerQuotes).toContain('expandedContent={<>');
+    expect(customerQuotes).toContain('footer={<>');
     expect(customerQuotes).toContain('<MemberIdentityLink');
     expect(customerQuotes).toContain('Best price');
     expect(customerQuotes).toContain('Review & Send Offer');
-    expect(customerQuotes).toContain('Confirm booking offer');
-    expect(customerQuotes).toContain('Send Booking Offer');
+    expect(customerQuotes).toContain('<BookingConfirmationFullPage');
+    expect(customerQuotes).toContain('onConfirm={onConfirm}');
     expect(customerQuotes).toContain('setCandidate(participant)');
     expect(customerQuotes).toContain('onConfirm={() => void award(candidate.bid.id)}');
     expect(customerQuotes).toContain("onClick={() => void reject(bid.id)}");
@@ -37,7 +39,8 @@ describe('CX-close Customer quote award and tracking parity', () => {
   it('starts quote messaging only from a verified bidder relationship', () => {
     expect(customerQuotes).toContain('MessageParticipantDialog');
     expect(customerQuotes).toContain("fetch(`/api/customer/bids/${messageCandidate.bid.id}/message`");
-    expect(customerQuotes).toContain('Message</ActionButton>');
+    expect(customerQuotes).toContain('onClick={() => { setMessageCandidate(participant);');
+    expect(customerQuotes).toContain('>Message</button>');
     expect(bidderMessageRoute).toContain(".select('id, job_id, bidder_user_id, company_id, status')");
     expect(bidderMessageRoute).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
     expect(bidderMessageRoute).toContain("const recipientUserId = typeof bid.bidder_user_id === 'string' ? bid.bidder_user_id : ''");
@@ -58,7 +61,8 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(notificationBridge).toContain('NEW.recipient_user_id');
     expect(notificationBridge).toContain('user_id = auth.uid()');
     expect(notificationProcessor).toContain('async function handleBidAccepted');
-    expect(notificationProcessor).toContain('Bid Accepted - XDrive Logistics');
+    expect(notificationProcessor).toContain('Booking Confirmation - Ref: ${context.reference}');
+    expect(notificationProcessor).toContain('buildBookingAttachments(context)');
   });
 
   it('keeps POD broadcast out of personal inbox while delivering company-operator email', () => {
@@ -68,7 +72,8 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(notificationBridge).toContain('RETURN NEW;');
     expect(notificationProcessor).toContain('async function handlePodUploaded');
     expect(notificationProcessor).toContain('emailCompanyOperators(');
-    expect(notificationProcessor).toContain('Job Delivered - POD Ready');
+    expect(notificationProcessor).toContain('POD - ${bundle.job.pickup} to ${bundle.job.delivery} - Ref: ${bundle.job.reference}');
+    expect(notificationProcessor).toContain('loadPodEmailBundle(event)');
     expect(notificationProcessor).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
   });
 
