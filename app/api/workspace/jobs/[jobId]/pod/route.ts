@@ -48,8 +48,10 @@ export async function GET(
     job.assigned_company_id,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0);
 
-  let authorised = job.created_by === authData.user.id;
-  if (!authorised && allowedCompanyIds.length > 0) {
+  // A former employee or job creator must not retain POD access after
+  // company membership is revoked. Require current active membership.
+  let authorised = false;
+  if (allowedCompanyIds.length > 0) {
     const { data: membership, error: membershipError } = await supabaseAdmin
       .from('company_memberships')
       .select('id')
