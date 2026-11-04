@@ -316,6 +316,15 @@ export async function GET(request: NextRequest) {
       ? []
       : ((profilesResult.data ?? []) as ProfileRow[]).map((row) => [row.user_id, row]),
   );
+  if (bidsResult.error) {
+    return operationalError({
+      status: 500,
+      message: quotedHistory ? 'Your quote history could not be loaded. Please retry.' : 'Marketplace quote information could not be loaded. Please retry.',
+      context: quotedHistory ? 'driver.marketplace.loads.quote-history-bid-details' : 'driver.marketplace.loads.bid-details',
+      cause: bidsResult.error,
+      retryable: true,
+    });
+  }
   const bidByJobId = new Map<string, BidRow>();
   if (!bidsResult.error) {
     for (const bid of (bidsResult.data ?? []) as BidRow[]) {
