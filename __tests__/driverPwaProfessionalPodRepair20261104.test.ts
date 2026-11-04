@@ -52,6 +52,42 @@ describe('Driver PWA professional booking/POD repair', () => {
     expect(api).toContain("rpc('record_driver_pod_atomic'");
   });
 
+  it('renders real booking references, assigned driver and payment terms without an invented default', () => {
+    const api=source('app/api/driver/jobs/route.ts');
+    const list=source('app/driver-pwa-fresh/bookings/page.tsx');
+    expect(api).toContain('reference: row.booking_reference || row.load_reference || null');
+    expect(api).toContain('assignedDriverName: driverName');
+    expect(api).toContain('paymentTerms: agreedPaymentTerms.get(row.id) ?? row.payment_terms ?? null');
+    expect(api).toContain('deliveryTime: row.delivery_datetime');
+    expect(list).toContain('Booking ref:');
+    expect(list).toContain('Payment terms:');
+    expect(list).toContain('job.deliveryTime');
+    expect(list).not.toContain("delivery_datetime:null");
+  });
+
+  it('enforces per-stop delivery evidence and preserves optional collection handover', () => {
+    const stop=source('app/api/driver/web/jobs/[id]/webStopStatus.ts');
+    const ui=source('app/components/workspace/DriverJobExecutionPage.tsx');
+    expect(stop).toContain("target.stop_type === 'delivery'");
+    expect(stop).toContain('Attach at least one delivery photo or POD document for this stop.');
+    expect(stop).toContain('verifyStopEvidence(documentPaths');
+    expect(stop).toContain('photoPaths: [], documentPaths: []');
+    expect(ui).toContain("uploadStopEvidence(nextStop.id, file, 'photos', 'delivery')");
+    expect(ui).toContain("uploadStopEvidence(nextStop.id, file, 'documents', 'delivery')");
+    expect(ui).toContain('stopPodPhotos');
+    expect(ui).toContain('stopPodDocs');
+  });
+
+  it('permits final POD to reference only recorded completed delivery-stop paths, with storage recheck', () => {
+    const route=source('app/api/driver/web/jobs/[id]/[action]/route.ts');
+    expect(route).toContain("if (stop.stop_type !== 'delivery') continue;");
+    expect(route).toContain("if (stop.status !== 'completed')");
+    expect(route).toContain('completedDeliveryPhotoPaths');
+    expect(route).toContain('completedDeliveryDocumentPaths');
+    expect(route).toContain('recordedDeliveryStopPaths.has(path)');
+    expect(route).toContain('storageObjectExists(path)');
+  });
+
   it('keeps database release gated behind a reversible migration with genuine POD before completion', () => {
     const migration = source('supabase/migrations/20261104153000_driver_pwa_optional_pickup_verified_pod.sql');
     const rollback = source('docs/rollbacks/20261104153000_driver_pwa_optional_pickup_verified_pod.rollback.sql');

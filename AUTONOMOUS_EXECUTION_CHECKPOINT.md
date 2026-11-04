@@ -14,7 +14,9 @@ Production Supabase: jqxlauexhkonixtjvljw. No production writes performed.
 - Live database trigger wrongly demanded delivery evidence before Delivered, while actual final POD is captured subsequently.
 - Live status RPC still demanded optional pickup photo even though handover trigger no longer does.
 - Multistop collection route demanded photo; added optional camera/photos/docs PDF and stop evidence recovery.
-- Baseline Next build failed on unused loadId in LoadRoutePreview; local fix applied.
+- Multi-stop delivery lacked required evidence; new per-stop photo/document verification, backend persisted stop handover and final POD reuses verified delivery-stop files without redundant upload.
+- Booking card used fabricated XDL reference, service and posted time; now reads real booking reference, assigned driver, payment terms, actual service/date/time and shipment details.
+- Baseline Next build failed on unused loadId in LoadRoutePreview; subsequently fixed on the rebased main.
 
 ## Isolated changes
 Source and tests in this worktree modified to address above; no user data or unrelated workspaces touched.
@@ -26,12 +28,14 @@ Migration preflight compares live MD5s to avoid overwriting changed functions.
 Baseline tsc exit 2 (baseline-typecheck.log).
 Patched tsc exit 0 (final-typecheck2.log); final release-gate tsc exit 0 (typecheck-release-gate.log).
 Scoped ESLint exit 0 (final-eslint.log) and final edited-file lint exit 0 (lint-release-gate.log).
-29/29 targeted tests passed (final-targeted-tests.log).
-14/14 booking/POD tests passed (final-after-booking-fix.log).
-Broader unit suite had multiple unrelated stale regressions and worker timeouts; manually terminated our own test PID.
-First build failed on unused loadId; fixed on new main. Second Next production build exit 0 (build-validation2.log, 301 seconds).
-No authenticated real booking API E2E, Pixel interaction, rollout or Netlify deploy verified.
-Pixel 10 Pro XL present via ADB but another app was in foreground.
+Targeted 46/46 tests passed (11 suites; tests-latest.log). These include source-contract checks, not live authenticated API/E2E.
+Broader unit suite had pre-existing cross-workspace regressions and worker timeouts; own unit process terminated; NOT PASS.
+Latest scoped ESLint exit 0 (eslint-final-card-multistop.log); typecheck exit 0 (typecheck-final-card-multistop.log).
+Next production build exit 0 after multistop/card changes (build-final-card-multistop.log, 290s); newest minor source refinements require a final rebuild before release.
+Actual Netlify production deploy observed in Opera: deploy ID 6aeb57b13d606534e586ce65, SHA 7e335b68... published Nov 4 at 16:05, NOT our isolated patch.
+No authenticated real assigned-booking E2E, JWT/RLS mutation security test, Pixel interaction or verified installed XDrive PWA update.
+Pixel 10 Pro XL attached via ADB; 16 installed WebAPK packages inspected: only XDrive Invoice Pro matched XDrive name. No Driver PWA WebAPK confirmed. Other app in foreground; no interference.
+Local isolated build does not have SUPABASE_SERVICE_ROLE_KEY: admin routes disabled in local runtime; real authenticated local end-to-end workflow could not be validated.
 
 ## Release blocks
 Release BLOCKED until full typecheck/lint/build/E2E/security/role/device regression and deployment SHA checks pass.

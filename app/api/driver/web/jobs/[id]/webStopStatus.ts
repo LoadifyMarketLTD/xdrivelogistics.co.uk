@@ -149,6 +149,12 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
   if (next === 'completed' && target.stop_type === 'collection' && !handover) {
     handover = { version: 1, capturedAt: new Date().toISOString(), photoPaths: [], documentPaths: [] };
   }
+  // Delivery evidence belongs to its individual stop; the later POD also verifies
+  // recipient, signature and the complete booking. Never mark a stop complete without it.
+  if (next === 'completed' && target.stop_type === 'delivery' &&
+      (!handover || ((handover.photoPaths as string[]).length + (handover.documentPaths as string[]).length) === 0)) {
+    return respond(400, { error: 'Attach at least one delivery photo or POD document for this stop.' });
+  }
 
   const now = new Date().toISOString();
   const update: Record<string, unknown> = next === 'arrived'

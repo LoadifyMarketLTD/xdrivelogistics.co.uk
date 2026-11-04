@@ -167,14 +167,15 @@ const persistentPodPath = (
   companyId: string | null,
   jobId: string,
   kind: PodEvidenceKind,
-  value: unknown
+  value: unknown,
+  recordedDeliveryStopPaths: Set<string> = new Set(),
 ): value is string => {
   if (!companyId || typeof value !== 'string') return false;
   const path = value.trim();
   return (
     path.length > 0 &&
     path.length <= 1024 &&
-    path.startsWith(`${companyId}/${jobId}/${kind}/`) &&
+    (path.startsWith(`${companyId}/${jobId}/${kind}/`) || recordedDeliveryStopPaths.has(path)) &&
     !path.includes('://') &&
     !path.includes('..') &&
     !path.includes('\\') &&
@@ -274,9 +275,31 @@ async function savePod(
     return respond(413, { error: 'Recipient signature is too large.' });
   }
 
-  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'photos', value));
+  // Completed delivery stops are the authority for stop-scoped POD evidence.
+  // Reuse those exact, verified storage paths; never require a duplicate upload.
+  const { data: stopRows, error: stopError } = await supabaseAdmin!.from('job_stops')
+    .select('id,stop_type,status,handover').eq('job_id', jobId);
+  if (stopError) return respond(503, { error: 'Delivery stop evidence could not be verified.' });
+  const completedDeliveryPhotoPaths = new Set<string>();
+  const completedDeliveryDocumentPaths = new Set<string>();
+  for (const stop of stopRows ?? []) {
+    if (stop.stop_type !== 'delivery') continue;
+    if (stop.status !== 'completed') return respond(409, { error: 'Complete all delivery stops before submitting final POD.' });
+    const handover = stop.handover && typeof stop.handover === 'object' && !Array.isArray(stop.handover)
+      ? stop.handover as Record<string,unknown> : null;
+    for (const [kind, destination] of [
+      ['photos', completedDeliveryPhotoPaths],
+      ['documents', completedDeliveryDocumentPaths],
+    ] as const) {
+      const paths = handover?.[kind === 'photos' ? 'photoPaths' : 'documentPaths'];
+      if (!Array.isArray(paths)) continue;
+      for (const path of paths) if (typeof path === 'string' &&
+          path.startsWith(`${companyId}/${jobId}/stops/${stop.id}/${kind}/`)) destination.add(path);
+    }
+  }
+  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'photos', value, completedDeliveryPhotoPaths));
   const damagePhotoPaths = rawDamagePhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'damage', value));
-  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(companyId, jobId, 'documents', value));
+  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(companyId, jobId, 'documents', value, completedDeliveryDocumentPaths));
   if (
     photoPaths.length !== rawPhotoUris.length ||
     damagePhotoPaths.length !== rawDamagePhotoUris.length ||

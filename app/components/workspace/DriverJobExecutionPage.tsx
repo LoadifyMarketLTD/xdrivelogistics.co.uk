@@ -330,17 +330,23 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     if (auth) {
       try {
         const stopResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId), { headers: { Authorization: auth }, cache: 'no-store' });
-        const stopPayload = await stopResponse.json().catch(() => ({})) as { job?: { stops?: Array<{id?:string;sequence?:number;type?:string;address?:string;status?:string}> }; multiDropPartial?:boolean };
+        const stopPayload = await stopResponse.json().catch(() => ({})) as { job?: { stops?: Array<{id?:string;sequence?:number;type?:string;address?:string;status?:string;handover?:{photoPaths?:string[];documentPaths?:string[]}|null}> }; multiDropPartial?:boolean };
         if (!stopResponse.ok || stopPayload.multiDropPartial) throw new Error('Stops unavailable');
-        const verifiedStops = (stopPayload.job?.stops ?? []).filter((stop): stop is {id:string;sequence:number;type:string;address:string;status:string} => Boolean(stop.id && typeof stop.sequence === 'number' && stop.type && stop.address && stop.status)).sort((a,b)=>a.sequence-b.sequence);
+        const verifiedStops = (stopPayload.job?.stops ?? []).filter((stop): stop is {id:string;sequence:number;type:string;address:string;status:string;handover?:{photoPaths?:string[];documentPaths?:string[]}|null} => Boolean(stop.id && typeof stop.sequence === 'number' && stop.type && stop.address && stop.status)).sort((a,b)=>a.sequence-b.sequence);
         setMultiStops(verifiedStops);
-        const collectionStop = verifiedStops.find(stop => stop.type === 'collection' && stop.status === 'arrived');
-        if (collectionStop) {
-          const evidenceResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence?stopId=${encodeURIComponent(collectionStop.id)}`, { headers: { Authorization: auth }, cache: 'no-store' });
+        // Final POD reuses already persisted delivery-stop evidence, without new uploads.
+        const deliveredStops = verifiedStops.filter(stop => stop.type === 'delivery' && stop.status === 'completed');
+        const stopPodPhotos = deliveredStops.flatMap(stop => Array.isArray(stop.handover?.photoPaths) ? stop.handover.photoPaths : []).filter((path):path is string => typeof path === 'string');
+        const stopPodDocs = deliveredStops.flatMap(stop => Array.isArray(stop.handover?.documentPaths) ? stop.handover.documentPaths : []).filter((path):path is string => typeof path === 'string');
+        setPendingPodPhotos(previous => [...new Set([...previous, ...stopPodPhotos])].slice(0,10));
+        setPendingPodDocuments(previous => [...new Set([...previous, ...stopPodDocs])].slice(0,10));
+        const arrivedStop = verifiedStops.find(stop => stop.status === 'arrived');
+        if (arrivedStop) {
+          const evidenceResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence?stopId=${encodeURIComponent(arrivedStop.id)}`, { headers: { Authorization: auth }, cache: 'no-store' });
           const evidence = await evidenceResponse.json().catch(() => ({})) as { photoPaths?: string[]; documentPaths?: string[]; error?: string };
           if (!evidenceResponse.ok) throw new Error(evidence.error || 'Saved stop evidence could not be recovered.');
-          setStopPhotoPaths(previous => ({...previous, [collectionStop.id]: evidence.photoPaths ?? []}));
-          setStopDocumentPaths(previous => ({...previous, [collectionStop.id]: evidence.documentPaths ?? []}));
+          setStopPhotoPaths(previous => ({...previous, [arrivedStop.id]: evidence.photoPaths ?? []}));
+          setStopDocumentPaths(previous => ({...previous, [arrivedStop.id]: evidence.documentPaths ?? []}));
         }
         setMultiStopsReady(true);
       } catch (reason) {
@@ -733,7 +739,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       setMessage('POD is already complete. Invoice creation is now available.');
       return;
     }
-    if (!deliveryPhotos.length && !pendingPodDocuments.length) {
+    if (!deliveryPhotos.length && !pendingPodPhotos.length && !pendingPodDocuments.length) {
       setError('At least one genuine delivery photo or POD document is required.');
       return;
     }
@@ -973,7 +979,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     finally { setWorking(false); }
   };
 
-  const uploadStopCollectionEvidence = async (stopId: string, file: File, category: 'photos' | 'documents') => {
+  const uploadStopEvidence = async (stopId: string, file: File, category: 'photos' | 'documents', kind: 'collection' | 'delivery') => {
     const allowed = category === 'documents'
       ? ['application/pdf', 'image/jpeg', 'image/png']
       : ['image/jpeg', 'image/png'];
@@ -990,7 +996,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': file.type,
-          'x-xdrive-evidence-kind': 'collection', 'x-xdrive-evidence-category': category,
+          'x-xdrive-evidence-kind': kind, 'x-xdrive-evidence-category': category,
           'x-xdrive-stop-id': stopId, 'x-xdrive-evidence-name': `stop-${crypto.randomUUID()}.${ext}` },
         body: file,
       });
@@ -1260,12 +1266,20 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         <p>{nextStop.type === 'collection' ? 'Collection' : 'Delivery'} stop {nextStop.sequence}</p>
         <a href={navigationUrl(nextStop.address,'','navigate') ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nextStop.address)}`} target="_blank" rel="noopener noreferrer">Navigate to next stop</a>
         {nextStop.status === 'pending' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'arrived')}>On Site at Stop</button>}
-        {nextStop.status === 'arrived' && nextStop.type === 'delivery' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'completed')}>Complete Delivery Stop</button>}
+        {nextStop.status === 'arrived' && nextStop.type === 'delivery' && <div>
+          <p>At least one real photo or POD document is required for this delivery stop.</p>
+          <label>Take delivery photo (camera)<input type="file" accept="image/*" capture="environment" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'photos', 'delivery'); event.currentTarget.value = ''; }} /></label>
+          <label>Add saved delivery photo<input type="file" accept="image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'photos', 'delivery'); event.currentTarget.value = ''; }} /></label>
+          <label>Scan delivery document (camera)<input type="file" accept="image/*" capture="environment" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'documents', 'delivery'); event.currentTarget.value = ''; }} /></label>
+          <label>Add saved delivery document / PDF<input type="file" accept="application/pdf,image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'documents', 'delivery'); event.currentTarget.value = ''; }} /></label>
+          <p>{(stopPhotoPaths[nextStop.id] ?? []).length} photo(s) and {(stopDocumentPaths[nextStop.id] ?? []).length} document(s) saved for this stop.</p>
+          <button type="button" className="fresh-mobile-booking-primary" disabled={working || !((stopPhotoPaths[nextStop.id]?.length ?? 0) + (stopDocumentPaths[nextStop.id]?.length ?? 0))} onClick={() => void updateMultiStop(nextStop.id, 'completed', stopPhotoPaths[nextStop.id], stopDocumentPaths[nextStop.id])}>Complete Delivery Stop</button>
+        </div>}
         {nextStop.status === 'arrived' && nextStop.type === 'collection' && <div>
-          <label>Take collection photo (camera)<input type="file" accept="image/*" capture="environment" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopCollectionEvidence(nextStop.id, file, 'photos'); event.currentTarget.value = ''; }} /></label>
-          <label>Add saved collection photo<input type="file" accept="image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopCollectionEvidence(nextStop.id, file, 'photos'); event.currentTarget.value = ''; }} /></label>
-          <label>Scan collection document (camera)<input type="file" accept="image/*" capture="environment" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopCollectionEvidence(nextStop.id, file, 'documents'); event.currentTarget.value = ''; }} /></label>
-          <label>Add saved collection document / PDF<input type="file" accept="application/pdf,image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopCollectionEvidence(nextStop.id, file, 'documents'); event.currentTarget.value = ''; }} /></label>
+          <label>Take collection photo (camera)<input type="file" accept="image/*" capture="environment" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'photos', 'collection'); event.currentTarget.value = ''; }} /></label>
+          <label>Add saved collection photo<input type="file" accept="image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'photos', 'collection'); event.currentTarget.value = ''; }} /></label>
+          <label>Scan collection document (camera)<input type="file" accept="image/*" capture="environment" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'documents', 'collection'); event.currentTarget.value = ''; }} /></label>
+          <label>Add saved collection document / PDF<input type="file" accept="application/pdf,image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopEvidence(nextStop.id, file, 'documents', 'collection'); event.currentTarget.value = ''; }} /></label>
           <p>{(stopPhotoPaths[nextStop.id] ?? []).length} photo(s) and {(stopDocumentPaths[nextStop.id] ?? []).length} document(s) saved. Both are optional.</p>
           <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id, 'completed', stopPhotoPaths[nextStop.id], stopDocumentPaths[nextStop.id])}>Complete Collection Stop</button>
         </div>}
@@ -1317,7 +1331,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         deliveryStatus={podDeliveryStatus}
         itemCount={podItemCount}
         weight={podWeight}
-        photoPaths={deliveryPhotos}
+        photoPaths={[...new Set([...deliveryPhotos, ...pendingPodPhotos])]}
         photoUrls={deliveryPhotoUrls}
         documentPaths={pendingPodDocuments}
         recipientName={recipientName}

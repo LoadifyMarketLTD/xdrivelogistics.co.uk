@@ -29,6 +29,16 @@ type DriverJobRow = {
   delivery_lat: number | null;
   delivery_lng: number | null;
   pickup_datetime: string | null;
+  pickup_time_slot: string | null;
+  delivery_datetime: string | null;
+  delivery_time_slot: string | null;
+  service_mode: string | null;
+  booking_reference: string | null;
+  load_reference: string | null;
+  load_notes: string | null;
+  payment_terms: string | null;
+  weight_kg: number | string | null;
+  no_of_items: number | null;
   job_distance_miles: number | string | null;
   job_distance_minutes: number | string | null;
   requested_vehicle_label: string | null;
@@ -76,6 +86,16 @@ export async function GET(request: NextRequest) {
       'delivery_lat',
       'delivery_lng',
       'pickup_datetime',
+      'pickup_time_slot',
+      'delivery_datetime',
+      'delivery_time_slot',
+      'service_mode',
+      'booking_reference',
+      'load_reference',
+      'load_notes',
+      'payment_terms',
+      'weight_kg',
+      'no_of_items',
       'job_distance_miles',
       'job_distance_minutes',
       'requested_vehicle_label',
@@ -188,16 +208,42 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // The booking card must display authoritative assignment and agreed payment terms.
+  // Never fabricate these when the canonical records are unavailable.
+  const jobIds = rows.map(row => row.id);
+  const [assignedDriver, agreementsResponse] = await Promise.all([
+    supabaseAdmin.from('drivers').select('id,full_name,display_name,name').eq('id', driver.driverId).maybeSingle(),
+    jobIds.length
+      ? supabaseAdmin.from('job_commercial_agreements')
+          .select('job_id,payment_terms,agreement_status,agreed_at').in('job_id', jobIds).eq('agreement_status', 'accepted').order('agreed_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const driverName = assignedDriver.error ? null :
+    assignedDriver.data?.full_name || assignedDriver.data?.display_name || assignedDriver.data?.name || null;
+  const agreedPaymentTerms = new Map<string,string>();
+  for (const agreement of agreementsResponse.data ?? []) {
+    if (agreement.job_id && agreement.payment_terms && !agreedPaymentTerms.has(String(agreement.job_id))) agreedPaymentTerms.set(String(agreement.job_id), String(agreement.payment_terms));
+  }
+
   return json(200, {
     scope,
     jobs: rows.map((row) => {
       const canonicalStatus = workspaceJobPresentationStatus(row);
       return {
         id: row.id,
-        reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
+        reference: row.booking_reference || row.load_reference || null,
+        assignedDriverName: driverName,
         pickupLocation: row.pickup_location,
         deliveryLocation: row.delivery_location,
         pickupTime: row.pickup_datetime,
+        pickupTimeSlot: row.pickup_time_slot,
+        deliveryTime: row.delivery_datetime,
+        deliveryTimeSlot: row.delivery_time_slot,
+        serviceMode: row.service_mode,
+        bookingNotes: row.load_notes,
+        paymentTerms: agreedPaymentTerms.get(row.id) ?? row.payment_terms ?? null,
+        weightKg: row.weight_kg == null ? null : Number(row.weight_kg),
+        itemCount: row.no_of_items,
 
         distanceToPickupMiles: pickupMetrics.get(row.id)?.distanceMiles ?? null,
         pickupEtaMinutes: pickupMetrics.get(row.id)?.durationMinutes ?? null,
