@@ -36,7 +36,14 @@ export async function GET(request: NextRequest) {
   const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
 
-  const scope = new URL(request.url).searchParams.get('scope')?.trim().toLowerCase() ?? '';
+  const searchParams = new URL(request.url).searchParams;
+  const scope = searchParams.get('scope')?.trim().toLowerCase() ?? '';
+  const pageText = searchParams.get('page') ?? '0';
+  if (!/^(0|[1-9]\d*)$/.test(pageText) || Number(pageText) > 10000) {
+    return respond(400, { error: 'Invalid page.' });
+  }
+  const page = Number(pageText);
+  const pageSize = 100;
   if (scope === 'active-company') {
     // Quote ownership is company/job when the Driver belongs to a carrier company,
     // but full commercial history remains personal. Expose only job ids so Expo
@@ -67,7 +74,7 @@ export async function GET(request: NextRequest) {
     .select('id, job_id, company_id, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, base_amount, additional_extras_gbp, collect_within_minutes, currency, status, message, created_at, quote_vehicle_id, quote_vehicle_type, quote_vehicle_equipment, quote_vehicle_max_pallets, quote_vehicle_max_weight_kg')
     .or(identityFilters.join(','))
     .order('created_at', { ascending: false })
-    .limit(100);
+    .range(page * pageSize, (page + 1) * pageSize);
   if (bidsError) return respond(500, { error: bidsError.message });
 
   const jobIds = [...new Set((bids ?? []).map((bid) => String(bid.job_id)).filter(Boolean))];
@@ -81,7 +88,10 @@ export async function GET(request: NextRequest) {
 
   const jobById = new Map((jobs ?? []).map((job) => [String(job.id), job]));
   return respond(200, {
-    bids: (bids ?? []).map((bid) => {
+    page,
+    hasMore: (bids ?? []).length > pageSize,
+    nextPage: (bids ?? []).length > pageSize ? page + 1 : null,
+    bids: (bids ?? []).slice(0, pageSize).map((bid) => {
       const job = jobById.get(String(bid.job_id));
       const executionUnlocked = Boolean(job && job.assigned_driver_id === driver.driverId);
       const total = Number(bid.bid_price_gbp ?? bid.amount ?? 0);
