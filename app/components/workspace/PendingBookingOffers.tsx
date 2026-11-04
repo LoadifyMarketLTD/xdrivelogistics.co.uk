@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
+import { fetchAllBookingOfferPages } from '../../../lib/bookingOfferPages';
 import { ActionButton, AlertBanner, EmptyState, Panel } from './WorkspaceUI';
 
 type BookingOffer = {
@@ -12,7 +13,7 @@ type BookingOffer = {
 
 export default function PendingBookingOffers({ onChanged }: { onChanged?: () => void }) {
   const [offers,setOffers]=useState<BookingOffer[]>([]); const [error,setError]=useState(''); const [message,setMessage]=useState(''); const [working,setWorking]=useState<string|null>(null); const [loading,setLoading]=useState(true);
-  const load=useCallback(async()=>{setLoading(true);setError(''); const token=readRouteAuthAccessToken(); if(!token){setError('Your session has expired.');setLoading(false);return;} const response=await fetch('/api/booking-offers',{headers:{Authorization:`Bearer ${token}`},cache:'no-store'}); const body=await response.json().catch(()=>({})) as {offers?:BookingOffer[];error?:string}; if(!response.ok){setError(body.error??'Booking offers could not be loaded.');setOffers([]);} else setOffers((body.offers??[]).filter(o=>o.status==='pending')); setLoading(false);},[]);
+  const load=useCallback(async()=>{setLoading(true);setError(''); const token=readRouteAuthAccessToken(); if(!token){setError('Your session has expired.');setLoading(false);return;} try { const allOffers=await fetchAllBookingOfferPages<BookingOffer>('/api/booking-offers',token); setOffers(allOffers.filter(o=>o.status==='pending')); } catch (reason) { setError(reason instanceof Error ? reason.message : 'Booking offers could not be loaded.'); setOffers([]); } finally { setLoading(false); }},[]);
   useEffect(()=>{void load();},[load]);
   const respond=async(offer:BookingOffer,action:'accept'|'decline')=>{setWorking(offer.id);setError('');setMessage(''); const token=readRouteAuthAccessToken(); if(!token){setError('Your session has expired.');setWorking(null);return;} const response=await fetch(`/api/booking-offers/${offer.id}/respond`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action})}); const body=await response.json().catch(()=>({})) as {error?:string}; if(!response.ok)setError(body.error??'Booking response failed.'); else {setMessage(action==='accept'?'Booking accepted. The transport agreement is now formed.':'Booking offer declined.'); await load(); onChanged?.();} setWorking(null);};
   if(loading) return <Panel title="Booking offers"><EmptyState compact title="Loading booking offers…" /></Panel>;
