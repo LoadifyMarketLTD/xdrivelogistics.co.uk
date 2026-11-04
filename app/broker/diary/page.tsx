@@ -7,6 +7,7 @@ import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspa
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
@@ -219,6 +220,7 @@ export default function BrokerDiaryPage() {
 
   return (
     <PageFrame>
+      <Master3150OperationsKpis jobs={data.jobs} view="diary" />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {feedbackError && <AlertBanner tone="warning">{feedbackError}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}

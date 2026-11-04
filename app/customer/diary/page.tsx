@@ -8,6 +8,7 @@ import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame } from '../../components/workspace/WorkspaceUI';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
@@ -141,6 +142,7 @@ export default function CustomerDiaryPage() {
 
   return (
     <PageFrame>
+      <Master3150OperationsKpis jobs={data.jobs} view="diary" />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">

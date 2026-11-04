@@ -109,3 +109,34 @@ Base origin/main: 94bd07eac0e6945fe53ed68af12cc8309d498df5
 - Full Next.js production build PASS (212/212 static pages generated; new /super-admin/members-directory confirmed in route manifest), process 32596 exit code 0.
 - Local build does not have SUPABASE_SERVICE_ROLE_KEY, so authenticated production-backed Directory API E2E is NOT verified by that build. No secrets added or live data modified.
 - This is isolated local commit c55ffdea, not merged or deployed. Existing broad Vitest baseline was 54 failures; all eight Master blueprint release gates are not yet cleared.
+
+## Approved 3150 Dashboard / Loads / Bookings / Diary extraction - 2026-11-04 21:36 onward
+
+### Task / source
+- Source: approved 3150 try-xdrive-company-demo, local files app/try-xdrive-demo/components/{DemoCompanyDashboard,DemoExchangeBoard,DemoCompanyBookings,DemoBookingOverview,XDriveLoadCard} and corresponding 3150 CSS.
+- Goal: common production Master presentation in all authorized workspaces, live Supabase / real workflow, no demo sources, no PWA files, no GitHub Actions.
+- Working branch: feat/master-workspaces-unification-20261104; main/Netlify unchanged.
+
+### Implemented in this worktree
+- New production-only app/components/workspace/Master3150DashboardLayout.tsx uses approved 3150 Dashboard markup and CSS class hierarchy (KPI row, today's operations, action-required, fleet, recent activity, performance, 7-day overview). Data comes ONLY from real WorkspaceDataState, no useDemoLoads, fake records, or demo API.
+- Company and Broker home dashboards use this production component through existing Company3150LiveProvider/real useCompanyWorkspaceData, via CompanyMasterDashboard.tsx.
+- Customer home now shows identical Master3150DashboardLayout and keeps CustomerDashboardHome controls accessible via Customer Commercial & Operational Controls (collapsed) rather than deleting pending carrier offers, invoicing/finance and tracking actions.
+- Shared master3150-production.css applies the navy/orange 3150 identity to real CxLoadCard, CxDiaryCard, filters, tabs and Customer operational cards across authenticated Master routes. SuperAdminCardNavigationShell imports this style scope but remains a separate privileged shell.
+- Shared Master3150OperationsKpis.tsx computes five booking or diary KPIs from authorized real jobs. Mounted without replacing real workflow handlers into admin/won-work, broker/jobs, customer bookings, Admin Diary, Broker Diary and Customer Diary. Existing award, tracking, POD, invoice, feedback and filters remain intact.
+- 3150 board reference CSS copied to app/components/workspace/master3150-board-reference.css for baseline parity.
+- No edits under app/driver PWA; Driver native/PWA and Super Admin dashboard parity are NOT completed.
+
+### Verification and outstanding
+- Focused production 3150 contract tests: 4/4 PASS.
+- Focused regression vitest on canonical Diary, Customer Load actions, quote/dense load cards and Diary operations: 21/21 PASS (6 files).
+- ESLint affected files PASS (earlier run); TypeScript noEmit ran and passed before final Customer entry and Super Admin CSS changes, new run PID 13448 pending.
+- No fully authenticated live E2E or image-level pixel comparison against 3150; Next production build still pending for this change.
+- Important gaps: 3150 component-level card DOM differs from existing canonical CxLoadCard (visual skin only), Driver/PWA unchanged by request, Super Admin operations not fully migrated, role-wide production tests not complete. Do not mark migration complete or merge into main until gates clear.
+
+## 3150 test evidence / release blocking
+- 2026-11-04 21:49: focused Vitest suite (canonical Diary, cross-workspace Diary, Customer Load actions, Diary lifecycle and dense Loads/Quotes): 6 files / 21 tests PASS.
+- Source-level contract tests for approved 3150 migration (including Customer 3150 Dashboard and preserved commercial controls): 4/4 PASS. Master workspaces source contracts 11/11 PASS before latest Customer change.
+- TypeScript full noEmit: PASS (89.64 sec) after these changes.
+- ESLint affected implementation files: PASS.
+- Awaiting full Next build and authenticated role-level E2E, data completeness review, and screenshot parity.
+- Important: current migration retains old canonical operational actions; visual parity is partial for Loads/Bookings/Diary (3150 chrome/cards/KPIs but some legacy layouts remain). Driver/PWA remains untouched, Super Admin Dashboard parity incomplete. Do not merge into production until agreed gates pass.
