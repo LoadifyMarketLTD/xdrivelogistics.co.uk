@@ -9,6 +9,8 @@ export default function DriverServiceWorkerRegistration() {
     if (!('serviceWorker' in navigator)) return;
     let registration: ServiceWorkerRegistration | null = null;
     let reloaded = false;
+    // Initial service-worker takeover is not an app update.
+    const hadControllerAtMount = Boolean(navigator.serviceWorker.controller);
     const check = () => {
       if (document.visibilityState === 'visible') void registration?.update().catch(() => {});
     };
@@ -18,7 +20,7 @@ export default function DriverServiceWorkerRegistration() {
       return !editing && !document.querySelector('[aria-busy="true"]');
     };
     const onControllerChange = () => {
-      if (reloaded || !navigator.serviceWorker.controller) return;
+      if (reloaded || !hadControllerAtMount || !navigator.serviceWorker.controller) return;
       if (safeToReload()) {
         reloaded = true;
         window.location.reload();
@@ -51,7 +53,7 @@ export default function DriverServiceWorkerRegistration() {
     navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
     document.addEventListener('visibilitychange', check);
     window.addEventListener('focus', check);
-    const timer = window.setInterval(check, 60_000);
+    const timer = window.setInterval(check, 5 * 60_000);
     return () => {
       window.removeEventListener('load', register);
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
