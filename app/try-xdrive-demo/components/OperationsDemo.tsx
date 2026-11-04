@@ -98,6 +98,10 @@ const show=(i:number)=>{
    router.push(role==='Customer'?'/customer/network':role==='Broker'?'/broker/carrier-network':'/admin/marketplace/directory');
    return;
  }
+ if(authenticated && i===10){
+   router.push(role==='Customer'?'/customer/directory':role==='Broker'?'/broker/directory':'/admin/marketplace/directory');
+   return;
+ }
  if(authenticated && i===11){
    router.push(role==='Customer'?'/customer/live-availability':role==='Broker'?'/broker/live-availability':'/admin/live-availability');
    return;
