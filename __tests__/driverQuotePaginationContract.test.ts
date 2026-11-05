@@ -9,6 +9,12 @@ describe('driver personal quote history pagination contract', () => {
     expect(source).toContain("Number(pageText) > 10000");
     expect(source).toContain("error: 'Invalid page.'");
   });
+  it('loads every outgoing quote page in the desktop Driver workspace', () => {
+    const page = readFileSync(join(process.cwd(), 'app/driver/quotes/page.tsx'), 'utf8');
+    expect(page).toContain('.range(start, start + 149)');
+    expect(page).toContain('outgoingRows.push(...rows)');
+    expect(page).toContain('if (rows.length < 150) break;');
+  });
   it('returns page metadata and one page of personal bids', () => {
     expect(source).toContain('.range(page * pageSize, (page + 1) * pageSize)');
     expect(source).toContain('hasMore: (bids ?? []).length > pageSize');

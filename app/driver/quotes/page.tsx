@@ -215,14 +215,24 @@ export default function MyQuotesPage() {
     setError('');
 
     const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at';
-    const outgoingRes = await supabase
-      .from('job_bids')
-      .select(bidSelect)
-      .eq('bidder_user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(150);
+    const outgoingRows: Array<Omit<BidRow, 'direction'>> = [];
+    let outgoingError = false;
+    for (let page = 0; page <= 10000; page++) {
+      const start = page * 150;
+      const result = await supabase
+        .from('job_bids')
+        .select(bidSelect)
+        .eq('bidder_user_id', userId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(start, start + 149);
+      if (result.error) { outgoingError = true; break; }
+      const rows = (result.data ?? []) as Array<Omit<BidRow, 'direction'>>;
+      outgoingRows.push(...rows);
+      if (rows.length < 150) break;
+    }
 
-    if (outgoingRes.error) {
+    if (outgoingError) {
       setError('Your submitted quotes could not be loaded. Please refresh and try again.');
       if (!background) setBids([]);
       refreshInFlightRef.current = false;
@@ -230,7 +240,7 @@ export default function MyQuotesPage() {
       return;
     }
 
-    const outgoing = ((outgoingRes.data ?? []) as Array<Omit<BidRow, 'direction'>>).map((bid) => ({ ...bid, direction: 'outgoing' as const }));
+    const outgoing = outgoingRows.map((bid) => ({ ...bid, direction: 'outgoing' as const }));
     const outgoingJobIds = [...new Set(outgoing.map((bid) => bid.job_id))];
 
     const fullJobSelect = 'id, company_id, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, job_distance_miles, job_distance_minutes, vehicle_type, budget_amount, status, current_status, exchange_posted_at, service_mode, direct_delivery_required, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)';
