@@ -16,6 +16,12 @@ describe('Master web workspace mobile navigation independent of Driver PWA',()=>
     expect(production).toContain('mobile-master-navigation.css');
     expect(production).toContain('onMobileClose={()=>setMobileMenuOpen(false)}');
     expect(production).toContain('original=document.body.style.overflow');
+    expect(production).toContain('authenticated-master-mobile-content.css');
+    const content=read('app/components/workspace/authenticated-master-mobile-content.css');
+    expect(content).toContain('@media (max-width: 850px)');
+    expect(content).toContain('.workspace-tab-strip.cx-diary-state-tabs');
+    expect(content).toContain('.xdrive-admin-marketplace-identity.xdrive-exchange-workspace-layout > main');
+    expect(content).toContain('overflow-x: auto !important');
   });
   it('provides a mobile menu button and a screen-reader labelled Master navigation',()=>{
     expect(master).toContain('xd-mobile-nav-toggle');

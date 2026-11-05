@@ -1,0 +1,79 @@
+/* Phone-width corrections for the authenticated 3150 web workspace ONLY.
+   Never applied to Driver delivery PWA or approved desktop layout. */
+@media (max-width: 850px) {
+  .xdrive-workspace-measured .master3150-production :is(
+    .workspace-board-layout,
+    .xdrive-exchange-workspace-layout,
+    .driver-diary-board,
+    .xdrive-diary-split-layout
+  ) {
+    display: flex !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  .xdrive-workspace-measured .master3150-production :is(
+    .workspace-board-layout,
+    .xdrive-exchange-workspace-layout,
+    .driver-diary-board,
+    .xdrive-diary-split-layout
+  ) > :is(main, .workspace-board-main, .carrier-exchange-rail, .workspace-filter-rail, .driver-filter-rail) {
+    flex: 0 1 auto !important;
+    flex-basis: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    align-self: stretch !important;
+  }
+  .xdrive-workspace-measured .master3150-production .xdrive-admin-marketplace-identity.xdrive-exchange-workspace-layout > main,
+  .xdrive-workspace-measured .master3150-production .xdrive-admin-marketplace-identity.workspace-board-layout > main,
+  .xdrive-workspace-measured .master3150-production .xdrive-admin-marketplace-identity.driver-diary-board > main {
+    flex: 0 1 auto !important;
+    flex-basis: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  .master3150-production :is(.workspace-board-main, .xdrive-exchange-workspace-layout, .xdrive-admin-marketplace-identity) {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  .master3150-production .workspace-tab-strip.cx-diary-state-tabs {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .master3150-production .workspace-tab-strip.cx-diary-state-tabs > * {
+    flex-shrink: 0 !important;
+  }
+  .master3150-production :is(.carrier-exchange-secondary-tabs, .cx-loads-secondary-tabs, .cx-quote-state-tabs) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .master3150-production .workspace-record-meta.workspace-list-controls {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  .master3150-production .workspace-record-meta.workspace-list-controls > * {
+    max-width: 100% !important;
+  }
+}

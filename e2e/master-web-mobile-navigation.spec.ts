@@ -3,7 +3,7 @@ import { loginWithCredentials } from './helpers/authLogin';
 
 for (const item of [
   { role: 'Customer', env: 'E2E_CUSTOMER', root: '/customer', loads: '/customer/loads', quotes: '/customer/quotes' },
-  { role: 'Broker', env: 'E2E_BROKER', root: '/broker', loads: '/broker/loads', quotes: '/broker/quotes' },
+  { role: 'Broker', env: 'E2E_BROKER', root: '/broker', loads: '/broker/loads', quotes: '/broker/bids' },
   { role: 'Company / Carrier', env: 'E2E_CARRIER_ADMIN', root: '/admin', loads: '/admin/marketplace', quotes: '/admin/exchange' },
 ]) {
   test(item.role + ' web Master navigation at phone width', async ({page}) => {

@@ -5,25 +5,25 @@
  */
 export const MASTER_AUTHENTICATED_ROUTES = {
   'Company / Carrier': [
-    '/admin', '/admin/post-load', '/admin/jobs', '/admin/exchange-quotes',
+    '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
     '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
     '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
-    '/admin/live-availability', '/admin/returns', '/admin/freight-vision',
-    '/admin/messages', '/admin/notifications', '/admin/finance/reports',
+    '/admin/live-availability', '/admin/fleet/returns', '/admin/freight-vision',
+    '/admin/messages', '/admin/notifications', '/admin/reports',
   ],
   Broker: [
     '/broker', '/broker/post-load', '/broker/loads', '/broker/bids',
-    '/broker/jobs', '/broker/carrier-network', '/broker/team', '/broker/diary',
-    '/broker/finance', '/broker/carrier-network', '/broker/carrier-network/directory',
-    null, null, null,
+    '/broker/jobs', '/broker/fleet', '/broker/drivers', '/broker/diary',
+    '/broker/finance', '/broker/carrier-network', '/broker/directory',
+    '/broker/live-availability', '/broker/returns', '/broker/freight-vision',
     '/broker/messages', '/broker/notifications', '/broker/reports',
   ],
   Customer: [
     '/customer', '/customer/post-load', '/customer/loads', '/customer/quotes',
-    '/customer/bookings', null, null, '/customer/diary',
-    '/customer/invoices', '/customer/network', '/customer/network/directory',
-    null, null, null,
-    '/customer/messages', '/customer/notifications', null,
+    '/customer/bookings', '/customer/fleet', '/customer/drivers', '/customer/diary',
+    '/customer/invoices', '/customer/network', '/customer/directory',
+    '/customer/live-availability', '/customer/returns', '/customer/freight-vision',
+    '/customer/messages', '/customer/notifications', '/customer/reports',
   ],
   Driver: [
     '/driver', null, '/driver/loads', '/driver/quotes',
@@ -47,11 +47,11 @@ export const MASTER_AUTHENTICATED_ROUTES = {
     '/driver/messages', '/driver/notifications', null,
   ],
   Fleet: [
-    '/admin', '/admin/post-load', '/admin/jobs', '/admin/exchange-quotes',
+    '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
     '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
     '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
-    '/admin/live-availability', '/admin/returns', '/admin/freight-vision',
-    '/admin/messages', '/admin/notifications', '/admin/finance/reports',
+    '/admin/live-availability', '/admin/fleet/returns', '/admin/freight-vision',
+    '/admin/messages', '/admin/notifications', '/admin/reports',
   ],
   'Owner Driver': [
     '/driver', '/driver/post-load', '/driver/loads', '/driver/quotes',
@@ -61,11 +61,11 @@ export const MASTER_AUTHENTICATED_ROUTES = {
     '/driver/messages', '/driver/notifications', null,
   ],
   Dispatcher: [
-    '/admin', '/admin/post-load', '/admin/jobs', '/admin/exchange-quotes',
+    '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
     '/admin/won-work', '/admin/fleet/assignments', '/admin/drivers', '/admin/diary',
     '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
-    '/admin/live-availability', '/admin/returns', '/admin/freight-vision',
-    '/admin/messages', '/admin/notifications', '/admin/finance/reports',
+    '/admin/live-availability', '/admin/fleet/returns', '/admin/freight-vision',
+    '/admin/messages', '/admin/notifications', '/admin/reports',
   ],
 } as const satisfies Record<string, readonly (string|null)[]>;
 

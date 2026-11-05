@@ -16,6 +16,7 @@ import '../../try-xdrive-demo/components/company-layout-stability.css';
 import './master3150-production.css';
 import './master3150-board-reference.css';
 import '../../try-xdrive-demo/components/mobile-master-navigation.css';
+import './authenticated-master-mobile-content.css';
 
 /**
  * Production-only Master visual shell. Intentionally does NOT import
