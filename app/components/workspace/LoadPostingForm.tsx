@@ -31,7 +31,7 @@ const REGULAR_DAYS = [
   ['mon', 'Mon'], ['tue', 'Tue'], ['wed', 'Wed'], ['thu', 'Thu'], ['fri', 'Fri'], ['sat', 'Sat'], ['sun', 'Sun'],
 ] as const;
 const MAX_DOCUMENT_FILES = 12;
-const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 12 * 1024 * 1024;
 const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
   'application/pdf',
   'image/jpeg',
@@ -147,6 +147,7 @@ const validateStop = ({
   address,
   requireDate = false,
   requireTime = false,
+  allowAsap = false,
   minimumDate,
   now,
 }: {
@@ -156,12 +157,13 @@ const validateStop = ({
   address: string;
   requireDate?: boolean;
   requireTime?: boolean;
+  allowAsap?: boolean;
   minimumDate?: string;
   now: Date | null;
 }): StopFieldErrors => {
   const today = now ? localDateKey(now) : '';
   const dateIsRequired = requireDate || Boolean(time);
-  const timeIsRequired = requireTime || Boolean(date);
+  const timeIsRequired = !allowAsap && (requireTime || Boolean(date));
   let dateError: string | undefined;
   if (dateIsRequired && !date) dateError = 'Required';
   else if (date && today && date < today) dateError = 'Choose today or a future date';
@@ -210,6 +212,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const sourceActionParam = searchParams.get('sourceAction');
   const sourceAction = sourceActionParam === 'rebook' || sourceActionParam === 'repost' ? sourceActionParam : null;
   const idempotencyKeyRef = useRef<string | null>(null);
+  const documentInputRef = useRef<HTMLInputElement | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -231,12 +234,33 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [cloneNotice, setCloneNotice] = useState('');
   const [cloneLoading, setCloneLoading] = useState(false);
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
+  const [documentName, setDocumentName] = useState('');
+  const [documentNames, setDocumentNames] = useState<Record<string,string>>({});
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const privateGroups = usePrivateNetworkGroups(postingCompany?.id);
 
   const [smartReadText, setSmartReadText] = useState('');
   const [smartReadFeedback, setSmartReadFeedback] = useState('');
   const [fixedPriceError, setFixedPriceError] = useState(false);
+  const [showOptional, setShowOptional] = useState(true);
+  const [pickupMode, setPickupMode] = useState<'Between' | 'At' | 'Before' | 'ASAP'>('Between');
+  const [deliveryMode, setDeliveryMode] = useState<'ASAP' | 'At' | 'By' | 'Between'>('ASAP');
+  const [pickupEnd, setPickupEnd] = useState('');
+  const [deliveryEnd, setDeliveryEnd] = useState('');
+  const [jobDescription, setJobDescription] = useState('Deliver Direct');
+  const [bodyType, setBodyType] = useState('n/a');
+  const [jobType, setJobType] = useState<'Hotshot' | 'Backload'>('Hotshot');
+  const [loadingMetres, setLoadingMetres] = useState('');
+  const [cubicMetres, setCubicMetres] = useState('');
+  const [waitReturn, setWaitReturn] = useState(false);
+  const [hiab, setHiab] = useState(false);
+  const [trailer, setTrailer] = useState(false);
+  const [moffett, setMoffett] = useState(false);
+  const [trackedPreferred, setTrackedPreferred] = useState(false);
+  const [electronicQuotes, setElectronicQuotes] = useState(true);
+  const [smartPayOnly, setSmartPayOnly] = useState(false);
+  const [allowEuMembers, setAllowEuMembers] = useState(false);
+  const [notifyRadius, setNotifyRadius] = useState('10');
   const [form, setForm] = useState({
     loadType: 'on_demand' as CanonicalLoadType,
     regularDays: [] as Array<(typeof REGULAR_DAYS)[number][0]>,
@@ -410,9 +434,12 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const todayKey = clockNow ? localDateKey(clockNow) : '';
   const minimumRouteDate = form.pickupDate && (!todayKey || form.pickupDate > todayKey) ? form.pickupDate : todayKey;
 
+  const effectivePickupTime = pickupMode === 'ASAP' ? availableQuarterHourSlots(form.pickupDate, clockNow)[0] ?? '' : form.pickupTime;
+  const effectiveDeliveryTime = deliveryMode === 'ASAP' ? '' : form.deliveryTime;
+  const scheduleError = pickupMode === 'Between' && !pickupEnd ? 'Choose the end of the collection window.' : deliveryMode === 'Between' && !deliveryEnd ? 'Choose the end of the delivery window.' : '';
   const collectionErrors = validateStop({
     date: form.pickupDate,
-    time: form.pickupTime,
+    time: effectivePickupTime,
     postcode: form.pickupPostcode,
     address: form.pickupAddress,
     requireDate: true,
@@ -422,7 +449,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   });
   const deliveryErrors = validateStop({
     date: form.deliveryDate,
-    time: form.deliveryTime,
+    time: effectiveDeliveryTime,
+    allowAsap: deliveryMode === 'ASAP',
     postcode: form.deliveryPostcode,
     address: form.deliveryAddress,
     minimumDate: minimumRouteDate || undefined,
@@ -475,7 +503,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     }, 0);
   };
 
-  const save = async (publish: boolean) => {
+  const save = async (publish: boolean, saveForRepeat = false) => {
     setError('');
     setSuccess('');
     setStripeSetupCompanyId(null);
@@ -495,8 +523,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     }
     setFixedPriceError(false);
 
-    if (hasRequiredErrors || hasDimensionErrors || loadTypeError || Object.values(numericErrors).some(Boolean) || emailError) {
-      setError(loadTypeError || 'Load details are incomplete or invalid. Complete the fields highlighted in red.');
+    if (hasRequiredErrors || hasDimensionErrors || loadTypeError || scheduleError || Object.values(numericErrors).some(Boolean) || emailError) {
+      setError(scheduleError || loadTypeError || 'Load details are incomplete or invalid. Complete the fields highlighted in red.');
       focusFirstInvalidField();
       return;
     }
@@ -510,7 +538,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       || !ALLOWED_DOCUMENT_MIME_TYPES.has(file.type.trim().toLowerCase()),
     );
     if (invalidDocument) {
-      setError('Document ' + invalidDocument.name + ' is empty, exceeds 20 MB, or uses an unsupported file type.');
+      setError('Document ' + invalidDocument.name + ' is empty, exceeds 12 MB, or uses an unsupported file type.');
       return;
     }
     if (!user?.id || !isSupabaseConfigured) {
@@ -585,14 +613,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           clientName: form.clientName || null,
           clientEmail: form.clientEmail || '',
           clientPhone: form.clientPhone || null,
-          pickupDateTime: dateTime(form.pickupDate, form.pickupTime),
-          pickupTimeSlot: form.pickupTime,
+          pickupDateTime: dateTime(form.pickupDate, effectivePickupTime),
+          pickupTimeSlot: pickupMode === 'Between' ? `Between ${effectivePickupTime}-${pickupEnd}` : pickupMode === 'ASAP' ? 'ASAP' : `${pickupMode} ${effectivePickupTime}`,
           pickupAddress: form.pickupAddress.trim(), pickupTown: form.pickupTown.trim(),
           pickupPostcode,
           collectionContact: form.collectionContact || null,
           collectionPhone: form.collectionPhone || null,
-          deliveryDateTime: dateTime(form.deliveryDate, form.deliveryTime),
-          deliveryTimeSlot: form.deliveryTime,
+          deliveryDateTime: dateTime(form.deliveryDate, effectiveDeliveryTime),
+          deliveryTimeSlot: deliveryMode === 'Between' ? `Between ${effectiveDeliveryTime}-${deliveryEnd}` : deliveryMode === 'ASAP' ? 'ASAP' : `${deliveryMode} ${effectiveDeliveryTime}`,
           deliveryAddress: form.deliveryAddress.trim(), deliveryTown: form.deliveryTown.trim(),
           deliveryPostcode,
           deliveryContact: form.deliveryContact || null,
@@ -636,12 +664,21 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           collectionAccessRestrictions: form.collectionAccessRestrictions.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
           deliveryAccessRestrictions: form.deliveryAccessRestrictions.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
           specialRequirementsList: [
+            waitReturn && 'Wait & Return', hiab && 'Hiab', trailer && 'Trailer', moffett && 'Moffett Mounty',
             form.pumpTruck && 'Pump truck required',
             form.twoPersonCrew && 'Two-person crew required',
             form.dedicatedVehicle && 'Dedicated vehicle / no co-loading',
           ].filter((value): value is string => Boolean(value)),
           isFixedPrice: form.isFixedPrice,
           publicQuoteNotes: form.publicQuoteNotes || null,
+          operationalDetails: {
+            jobDescription, bodyType, jobType, pickupMode, pickupWindowEnd: pickupEnd,
+            deliveryMode, deliveryWindowEnd: deliveryEnd,
+            loadingMetres: numberOrNull(loadingMetres), cubicMetres: numberOrNull(cubicMetres),
+            waitReturn, hiab, trailer, moffett, repeatable: saveForRepeat,
+            trackedDriverPreferred: trackedPreferred, electronicQuotes, smartPayOnly, allowEuMembers,
+            notifyRadiusMiles: Math.min(100, Math.max(1, Math.round(Number(notifyRadius) || 10))),
+          },
           executionInstructions: form.executionInstructions || null,
         }),
       });
@@ -697,7 +734,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           }
           documentRows.push({
             storagePath,
-            fileName: file.name,
+            fileName: documentNames[file.name] || file.name,
             fileSizeBytes: file.size,
             mimeType: file.type || null,
           });
@@ -755,6 +792,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         <div className="approved-postload-modes" role="group" aria-label="Load service type">
           {LOAD_TYPES.map((option) => <button key={option.value} type="button" aria-pressed={form.loadType === option.value} onClick={() => setForm((current) => ({ ...current, loadType: option.value, regularDays: option.value === 'regular_load' ? current.regularDays : [], regularEndDate: option.value === 'regular_load' ? current.regularEndDate : '', hireEndTime: option.value === 'daily_hire' ? current.hireEndTime : '' }))}>{option.label}</button>)}
         </div>
+        <div className="approved-postload-header-actions">
+          <button type="button" onClick={() => router.push(mode === 'broker' ? '/broker/loads' : mode === 'customer' ? '/customer/loads' : mode === 'owner' ? '/driver/loads' : '/admin/jobs')}>Open Saved Loads</button>
+          <button type="button" onClick={() => setShowOptional((current) => !current)}>{showOptional ? 'Close All Optional' : 'Open All Optional'}</button>
+        </div>
       </div>
       <p className="approved-postload-explainer">Only town and outcode are visible to carriers before award; complete collection and delivery addresses remain private.</p>
       {error && (
@@ -765,7 +806,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               ...Object.entries(collectionErrors).filter(([, message]) => message).map(([key, message]) => 'Collection ' + key + ': ' + message),
               ...Object.entries(deliveryErrors).filter(([, message]) => message).map(([key, message]) => 'Delivery ' + key + ': ' + message),
               ...additionalStopErrors.flatMap((errors, index) => Object.entries(errors).filter(([, message]) => message).map(([key, message]) => 'Stop ' + (index + 1) + ' ' + key + ': ' + message)),
-              townErrors.pickup, townErrors.delivery, loadTypeError, emailError,
+              townErrors.pickup, townErrors.delivery, loadTypeError, scheduleError, emailError,
               ...Object.entries(dimensionErrors).filter(([, message]) => message).map(([key, message]) => key + ': ' + message),
               ...Object.entries(numericErrors).filter(([, message]) => message).map(([key, message]) => key + ': ' + message),
             ].filter(Boolean).map(message => <li key={message}>{message}</li>)}
@@ -921,6 +962,16 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             {privateGroups.loading && <span>Loading authorised groups…</span>}
             {privateGroups.error && <AlertBanner tone="warning">{privateGroups.error}</AlertBanner>}
             {directTargetMode === 'marketplace' && visibilityGroupId && <span>Only authorised members of this private group can view and quote the load.</span>}
+            {directTargetMode === 'marketplace' && <div className="approved-postload-notify-options">
+              <label style={labelStyle}>Notify all live tracked drivers within
+                <span className="approved-postload-radius"><button type="button" onClick={() => setNotifyRadius((v) => String(Math.max(1, Number(v) - 1)))}>−</button><input style={fieldStyle} type="number" min="1" max="100" value={notifyRadius} onChange={(event) => setNotifyRadius(event.target.value)} /><button type="button" onClick={() => setNotifyRadius((v) => String(Math.min(100, Number(v) + 1)))}>+</button><span>miles of the pick-up</span></span>
+              </label>
+              <label className="approved-postload-check"><input type="checkbox" checked={trackedPreferred} onChange={(event) => setTrackedPreferred(event.target.checked)}/> Tracked Driver Preferred</label>
+              <label className="approved-postload-check"><input type="checkbox" checked={electronicQuotes} onChange={(event) => setElectronicQuotes(event.target.checked)}/> Electronic Quotes</label>
+              <label className="approved-postload-check"><input type="checkbox" checked={smartPayOnly} onChange={(event) => setSmartPayOnly(event.target.checked)}/> Accept quotes from SmartPay members only</label>
+              <label className="approved-postload-check"><input type="checkbox" checked={allowEuMembers} onChange={(event) => setAllowEuMembers(event.target.checked)}/> Also accept quotes from EU members</label>
+              <span>Distribution and quoting preferences are saved with this load; eligibility remains subject to XDrive server-side permissions.</span>
+            </div>}
           </div>
           {directTargetMode === 'external_subcontractor' && (
             <div className="approved-postload-direct-fields">
@@ -1007,16 +1058,16 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       <Panel style={{ order: 1 }} title="Customer" description="PRIVATE · Visible to authorised parties only">
         <div className="approved-postload-customer-grid">
           <label style={labelStyle}>Customer / company
-            <input style={fieldStyle} value={form.clientName} onChange={(event) => set('clientName', event.target.value)} />
+            <input style={fieldStyle} placeholder="Start typing the customer name" value={form.clientName} onChange={(event) => set('clientName', event.target.value)} />
           </label>
           {form.isFixedPrice && <label style={labelStyle}>Fixed price (£, excluding VAT)
             <input id="xdrive-fixed-price" style={{ ...fieldStyle, ...(fixedPriceError ? invalidFieldStyle : {}) }} aria-invalid={fixedPriceError || undefined} type="number" min="0.01" step="0.01" value={form.customerPrice} onChange={(event) => { set('customerPrice', event.target.value); setFixedPriceError(false); }} />
           </label>}
           <label style={labelStyle}>Your reference
-            <input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} />
+            <input style={fieldStyle} placeholder="000000" value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} />
           </label>
           <label style={labelStyle}>Customer reference
-            <input style={fieldStyle} value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} />
+            <input style={fieldStyle} placeholder="000000" value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} />
           </label>
           <label className="approved-postload-hardpod">
             <input type="checkbox" checked={form.documentChecklist.split(/\r?\n/).some((entry) => entry.trim() === 'Hard copy POD required')} onChange={(event) => setForm((current) => ({ ...current, documentChecklist: event.target.checked ? [current.documentChecklist.trim(), 'Hard copy POD required'].filter(Boolean).join('\n') : current.documentChecklist.split(/\r?\n/).filter((entry) => entry.trim() !== 'Hard copy POD required').join('\n') }))} />
@@ -1057,6 +1108,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <section className="approved-postload-stop-section"><h3>Pickup Details</h3>
           <StopFields
             title="Collection"
+            timeMode={pickupMode}
+            onTimeMode={(value) => setPickupMode(value as typeof pickupMode)}
+            endTime={pickupEnd}
+            onEndTime={setPickupEnd}
             town={form.pickupTown}
             townError={showValidation ? townErrors.pickup : undefined}
             date={form.pickupDate}
@@ -1087,6 +1142,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <section className="approved-postload-stop-section"><h3>Delivery Details</h3>
           <StopFields
             title="Delivery"
+            timeMode={deliveryMode}
+            onTimeMode={(value) => setDeliveryMode(value as typeof deliveryMode)}
+            endTime={deliveryEnd}
+            onEndTime={setDeliveryEnd}
             town={form.deliveryTown}
             townError={showValidation ? townErrors.delivery : undefined}
             date={form.deliveryDate}
@@ -1185,6 +1244,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       <Panel style={{ order: 4 }} title="Job Details" description="The live load details shown to authorised XDrive carriers.">
         <div className="approved-postload-job-columns">
           <div className="approved-postload-job-fields">
+            <label style={labelStyle}>Job Description *<select style={fieldStyle} value={jobDescription} onChange={(event) => setJobDescription(event.target.value)}>{['Deliver Direct','Same Day - Timed','Next Day','Regular Load','Daily Hire'].map((v) => <option key={v}>{v}</option>)}</select></label>
             <label style={labelStyle}>Suggested Vehicle *
               <select style={fieldStyle} value={form.vehicle} onChange={(event) => setVehicle(event.target.value)}>
                 {VEHICLES.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -1202,6 +1262,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 </label>
               ))}
             </div>
+            <label style={labelStyle}>Body Type<select style={fieldStyle} value={bodyType} onChange={(event) => setBodyType(event.target.value)}>{['n/a','Box','Curtainside','Flatbed','Refrigerated','Other'].map((v) => <option key={v}>{v}</option>)}</select></label>
+            <label style={labelStyle}>Job Type<select style={fieldStyle} value={jobType} onChange={(event) => setJobType(event.target.value as typeof jobType)}><option>Hotshot</option><option>Backload</option></select></label>
             <label style={labelStyle}>Pallet type
               <select style={fieldStyle} value={form.palletType} onChange={(event) => set('palletType', event.target.value)}>
                 <option value="">Not specified</option>
@@ -1212,9 +1274,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               </select>
             </label>
           </div>
-          <details open className="approved-postload-job-additional">
+          <details open={showOptional} className="approved-postload-job-additional">
             <summary>Additional Options</summary>
             <div className="approved-postload-job-fields">
+              <div className="approved-postload-job-metrics"><label style={labelStyle}>Loading Metres<input style={fieldStyle} type="number" min="0" step="0.01" value={loadingMetres} onChange={(event) => setLoadingMetres(event.target.value)} /></label><label style={labelStyle}>Cubic Metres<input style={fieldStyle} type="number" min="0" step="0.01" value={cubicMetres} onChange={(event) => setCubicMetres(event.target.value)} /></label></div>
               <div className="approved-postload-job-metrics">
                 {([['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)']] as const).map(([key, label]) => (
                   <label key={key} style={labelStyle}>{label}
@@ -1239,58 +1302,77 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                   </label>
                 ))}
               </div>
+              <div className="approved-postload-check-grid">
+                {([['waitReturn','Wait & Return',waitReturn,setWaitReturn],['hiab','Hiab',hiab,setHiab],['trailer','Trailer',trailer,setTrailer],['moffett','Moffett Mounty',moffett,setMoffett]] as const).map(([key,label,value,setter]) => <label key={key} className="approved-postload-check"><input type="checkbox" checked={value} onChange={(event) => setter(event.target.checked)}/>{label}</label>)}
+              </div>
               <span className="approved-postload-dimension-hint">{dimensionSummary}</span>
             </div>
           </details>
         </div>
       </Panel>
-      <Panel style={{ order: 8 }} title="Documents" description="Record the execution requirements that carriers need for safe planning. These values are persisted with the live job contract.">
-        <div className="xdrive-postload-requirements-grid">
-          <label style={labelStyle}>Collection access restrictions
-            <textarea style={textareaStyle} value={form.collectionAccessRestrictions} onChange={(event) => set('collectionAccessRestrictions', event.target.value)} placeholder="One requirement per line, e.g. loading bay 4, height restriction, timed gate access." />
+      <Panel style={{ order: 8 }} title="Documents" description="Only authorised parties to the job may access these private documents.">
+        <div className="approved-postload-documents">
+          <label style={labelStyle}>Document Name
+            <input style={fieldStyle} value={documentName} maxLength={160} placeholder="e.g. Collection instruction" onChange={(event) => setDocumentName(event.target.value)} />
           </label>
-          <label style={labelStyle}>Delivery access restrictions
-            <textarea style={textareaStyle} value={form.deliveryAccessRestrictions} onChange={(event) => set('deliveryAccessRestrictions', event.target.value)} placeholder="One requirement per line, e.g. booking reference required, rear access only." />
-          </label>
-          <label style={labelStyle}>Document checklist
-            <textarea style={textareaStyle} value={form.documentChecklist} onChange={(event) => set('documentChecklist', event.target.value)} placeholder="CMR, delivery note, photo evidence, signed POD — separate entries with commas or new lines." />
-          </label>
-          <label style={labelStyle}>Attach job documents
+          <label style={labelStyle}>Upload Document (maximum 12 MB)
             <input
+              ref={documentInputRef}
               style={{ ...fieldStyle, padding: '5px 8px', minHeight: '38px' }}
               type="file"
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.webp,.csv,.doc,.docx,.xls,.xlsx"
-              onChange={(event) => setDocumentFiles(Array.from(event.target.files ?? []))}
+              accept=".pdf,.jpg,.jpeg,.png,.csv,.doc,.docx,.xls,.xlsx"
+              onChange={(event) => {
+                const added = Array.from(event.target.files ?? []);
+                setDocumentFiles((current) => [...current, ...added].slice(0, MAX_DOCUMENT_FILES));
+                if (documentName.trim()) setDocumentNames((current) => Object.fromEntries([...Object.entries(current), ...added.map((file) => [file.name, documentName.trim()])]));
+                event.target.value = '';
+              }}
             />
-            <span style={{ color: '#64748b', fontWeight: 500 }}>
-              Up to 12 files, 20 MB each. Files are stored privately against the XDrive load and released only to authorised job users.
-            </span>
-            {documentFiles.length > 0 ? (
-              <span style={{ color: '#334155', fontWeight: 600 }}>
-                {documentFiles.length} file{documentFiles.length === 1 ? '' : 's'} selected
-              </span>
-            ) : null}
+            <span>Accepted: jpg, jpeg, png, pdf, doc, docx, xls, xlsx, csv. Maximum 12 MB per file.</span>
           </label>
+          <div className="approved-postload-document-actions">
+            <button type="button" onClick={() => documentInputRef.current?.click()} disabled={saving || documentFiles.length >= MAX_DOCUMENT_FILES}>+ Add Document</button>
+          </div>
+          {documentFiles.map((file, index) => <div key={file.name + index} className="approved-postload-document-row">
+            <span>{documentNames[file.name] || file.name} · {(file.size / 1024 / 1024).toFixed(2)} MB</span>
+            <button type="button" onClick={() => setDocumentFiles((current) => current.filter((_, i) => i !== index))} disabled={saving}>Remove</button>
+          </div>)}
+          <details open={showOptional} className="approved-postload-customer-optional">
+            <summary>Document checklist and site access restrictions</summary>
+            <div className="xdrive-postload-requirements-grid">
+              <label style={labelStyle}>Collection access restrictions
+                <textarea style={textareaStyle} value={form.collectionAccessRestrictions} onChange={(event) => set('collectionAccessRestrictions', event.target.value)} />
+              </label>
+              <label style={labelStyle}>Delivery access restrictions
+                <textarea style={textareaStyle} value={form.deliveryAccessRestrictions} onChange={(event) => set('deliveryAccessRestrictions', event.target.value)} />
+              </label>
+              <label style={labelStyle}>Document checklist
+                <textarea style={textareaStyle} value={form.documentChecklist} onChange={(event) => set('documentChecklist', event.target.value)} />
+              </label>
+            </div>
+          </details>
         </div>
       </Panel>
-
       <Panel style={{ order: 5 }} title="Notes" description="Quote-visible notes and private delivery instructions.">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '12px' }}>
           <label style={labelStyle}>
             Public quote notes
             <textarea
               style={textareaStyle}
+              maxLength={1000}
               value={form.publicQuoteNotes}
               onChange={(event) => set('publicQuoteNotes', event.target.value)}
               placeholder="Visible before award: pricing-relevant information only, e.g. timed collection, 1 pallet, assistance unavailable. Do not put gate codes, contact names or exact access instructions here."
             />
+            <span className="approved-postload-counter">{form.publicQuoteNotes.length} / 1000</span>
             <span style={{ color: '#64748b', fontWeight: 500 }}>Visible to eligible Marketplace users before they quote.</span>
           </label>
           <label style={labelStyle}>
             Private execution instructions
             <textarea
               style={textareaStyle}
+              maxLength={1000}
               value={form.executionInstructions}
               onChange={(event) => set('executionInstructions', event.target.value)}
               placeholder="Released only after authorised award/allocation: gate codes, loading-bay instructions, site-specific notes and other execution detail."
@@ -1301,9 +1383,11 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       </Panel>
 
       <div className="xdrive-postload-actions" style={{order:99}}>
-        <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>{saving ? 'Saving…' : 'Save Draft'}</ActionButton>
+        <span className="approved-postload-required-note">* Required Inputs</span>
+        <button type="button" className="approved-postload-cancel" disabled={saving} onClick={() => router.back()}>Cancel</button>
+        <ActionButton tone="secondary" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true, true)}>{saving ? 'Posting…' : 'Post Load & Save for Repeat Use'}</ActionButton>
         <ActionButton tone="warning" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
-          {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : directTargetMode === 'external_subcontractor' ? 'Confirm External Booking' : directTargetMode === 'internal_resource' ? 'Create & Allocate Booking' : 'Publish Load'}
+          {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : directTargetMode === 'external_subcontractor' ? 'Confirm External Booking' : directTargetMode === 'internal_resource' ? 'Create & Allocate Booking' : 'Post Load'}
         </ActionButton>
       </div>
     </div>
@@ -1312,10 +1396,15 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
 function StopFields({
   title, town, townError, date, time, postcode, address, contact, phone,
+  timeMode, onTimeMode, endTime, onEndTime,
   onDate, onTime, onPostcode, onAddress, onTown, onContact, onPhone,
   requiredDate = false, requiredTime = false, minDate, now, errors,
 }: {
   title: string;
+  timeMode?: string;
+  onTimeMode?: (value: string) => void;
+  endTime?: string;
+  onEndTime?: (value: string) => void;
   town?: string;
   townError?: string;
   date: string;
@@ -1376,6 +1465,9 @@ function StopFields({
           <input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} />
         </label>
       </div>
+      {onTimeMode && <div className="approved-postload-time-modes" role="group" aria-label={`${title} time mode`}>
+        {(pickup ? ['Between', 'At', 'Before', 'ASAP'] : ['ASAP', 'At', 'By', 'Between']).map((value) => <button type="button" key={value} aria-pressed={timeMode === value} onClick={() => onTimeMode(value)}>{value}</button>)}
+      </div>}
       <div className="approved-postload-schedule-fields">
         <label style={labelStyle}>{pickup ? 'Collection' : 'Delivery'} date{requiredDate ? ' *' : ''}
           <input
@@ -1390,7 +1482,7 @@ function StopFields({
           />
           {errors?.date && <span style={validationMessageStyle}>{errors.date}</span>}
         </label>
-        <label style={labelStyle}>{pickup ? 'Collection' : 'Delivery'} time{requiredTime || date ? ' *' : ''}
+        {timeMode !== 'ASAP' && <label style={labelStyle}>{timeMode === 'Between' ? 'From' : timeMode === 'Before' || timeMode === 'By' ? 'By' : 'At'}{requiredTime || date ? ' *' : ''}
           <select
             style={{ ...fieldStyle, ...(errors?.time ? invalidFieldStyle : {}) }}
             aria-invalid={Boolean(errors?.time)}
@@ -1406,7 +1498,13 @@ function StopFields({
           </select>
           {errors?.time && <span style={validationMessageStyle}>{errors.time}</span>}
           {!errors?.time && noSlotsLeftToday && <span style={{ color: '#64748b', fontSize: '10px' }}>No future slots today — choose tomorrow.</span>}
-        </label>
+        </label>}
+        {timeMode === 'Between' && onEndTime && <label style={labelStyle}>To
+          <select style={fieldStyle} value={endTime ?? ''} onChange={(event) => onEndTime(event.target.value)}>
+            <option value="">Select end time</option>
+            {QUARTER_HOUR_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+          </select>
+        </label>}
       </div>
     </div>
   );
