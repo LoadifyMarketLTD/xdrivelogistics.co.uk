@@ -138,3 +138,52 @@
 .xdrive-approved-postload-3150 .approved-postload-hardpod { display:flex; gap:8px; align-items:center; margin-top:12px; font-size:12px; font-weight:500; }
 .xdrive-approved-postload-3150 .approved-postload-hardpod input { accent-color:#1d57d8; }
 .xdrive-approved-postload-3150 .approved-postload-stop-heading { background:#e3f1fc; color:#123d69; padding:13px 15px; margin:0 0 8px !important; font-size:15px !important; font-weight:500 !important; }
+
+/* Match the canonical 3150 Post Load section geometry without altering production handlers. */
+.xdrive-approved-postload-3150 .approved-postload-two-stops{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.xdrive-approved-postload-3150 .approved-postload-stop-section{min-width:0}
+.xdrive-approved-postload-3150 .approved-postload-stop-section>h3{margin:0 0 16px;background:#e3f1fc;color:#123d69;font-size:16px;font-weight:500;padding:13px 15px}
+.xdrive-approved-postload-3150 .approved-postload-stop-section .approved-postload-stop-heading{display:none}
+.xdrive-approved-postload-3150 .approved-postload-stop-section>div{min-width:0}
+@media(max-width:850px){.xdrive-approved-postload-3150 .approved-postload-two-stops{grid-template-columns:1fr;gap:18px}}
+
+/* 3150 canonical Post Load geometry: source app/try-xdrive-demo/components/post-load.css */
+.xdrive-approved-postload-3150{gap:0!important;overflow:hidden}
+.xdrive-approved-postload-3150 .approved-postload-intro{padding:18px 22px}
+.xdrive-approved-postload-3150 .approved-postload-explainer{order:-19;margin:0;padding:10px 20px;background:#f4f8fd;color:#5d718a;font-size:12px;line-height:1.6}
+.xdrive-approved-postload-3150 .approved-postload-heading h2{margin:4px 0 0}
+.xdrive-approved-postload-3150 .approved-postload-stop-card{width:100%;min-width:0;background:#fff;border-top:1px solid #dbe6f1}
+.xdrive-approved-postload-3150 .approved-postload-stop-card .approved-postload-two-stops{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.xdrive-approved-postload-3150 .approved-postload-stop-section{padding:0 20px 18px}
+.xdrive-approved-postload-3150 .approved-postload-stop-section>h3{margin:0 -20px 16px;padding:13px 20px;font-size:16px;background:#e3f1fc;color:#123d69}
+.xdrive-approved-postload-3150 .approved-postload-stop-section label{margin-bottom:8px}
+.xdrive-approved-postload-3150 .approved-postload-audience{display:grid;gap:8px;max-width:560px}
+.xdrive-approved-postload-3150 .approved-postload-audience>span{font-size:11px;color:#52667b}
+.xdrive-approved-postload-3150 .approved-postload-direct-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+.xdrive-approved-postload-3150 .approved-postload-stop-card>div:last-child{padding:12px 20px 16px}
+.xdrive-approved-postload-3150 .xdrive-postload-actions{position:sticky;bottom:0;z-index:15;box-shadow:none}
+@media(max-width:850px){
+.xdrive-approved-postload-3150 .approved-postload-stop-card .approved-postload-two-stops{grid-template-columns:1fr;gap:0}
+.xdrive-approved-postload-3150 .approved-postload-direct-fields{grid-template-columns:1fr}
+}
+.xdrive-approved-postload-3150 .approved-postload-customer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.xdrive-approved-postload-3150 .approved-postload-customer-optional{margin-top:14px;border-top:1px solid #e2eaf3;padding-top:10px}
+.xdrive-approved-postload-3150 .approved-postload-customer-optional>summary,.xdrive-approved-postload-3150 .approved-postload-job-additional>summary{color:#1d57d8;font-size:12px;font-weight:750;cursor:pointer;padding:8px 0;list-style:none}
+.xdrive-approved-postload-3150 .approved-postload-customer-optional>summary::after,.xdrive-approved-postload-3150 .approved-postload-job-additional>summary::after{content:'⌄';margin-left:8px}
+.xdrive-approved-postload-3150 .approved-postload-customer-optional[open]>summary::after,.xdrive-approved-postload-3150 .approved-postload-job-additional[open]>summary::after{content:'⌃'}
+.xdrive-approved-postload-3150 .approved-postload-customer-optional>.approved-postload-customer-grid{margin-top:8px}
+.xdrive-approved-postload-3150 .approved-postload-hardpod{align-self:center;margin-top:5px}
+.xdrive-approved-postload-3150 .approved-postload-job-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.xdrive-approved-postload-3150 .approved-postload-job-fields{display:grid;align-content:start;gap:12px}
+.xdrive-approved-postload-3150 .approved-postload-job-metrics{display:flex;gap:8px;flex-wrap:wrap}
+.xdrive-approved-postload-3150 .approved-postload-job-metrics>label{flex:1;min-width:100px}
+.xdrive-approved-postload-3150 .approved-postload-check-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.xdrive-approved-postload-3150 .approved-postload-check{display:flex;align-items:center;gap:7px;font-size:12px}
+.xdrive-approved-postload-3150 .approved-postload-check input{accent-color:#1d57d8}
+.xdrive-approved-postload-3150 .approved-postload-dimension-hint{color:#64748b;font-size:11px}
+@media(max-width:850px){.xdrive-approved-postload-3150 .approved-postload-job-columns,.xdrive-approved-postload-3150 .approved-postload-customer-grid{grid-template-columns:1fr}}
+.xdrive-approved-postload-3150 .approved-postload-stop-fields{display:grid;align-content:start;gap:12px}
+.xdrive-approved-postload-3150 .approved-postload-location-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.xdrive-approved-postload-3150 .approved-postload-contact-fields,.xdrive-approved-postload-3150 .approved-postload-schedule-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.xdrive-approved-postload-3150 .approved-postload-stop-fields label{min-width:0;margin:0}
+@media(max-width:540px){.xdrive-approved-postload-3150 .approved-postload-location-fields,.xdrive-approved-postload-3150 .approved-postload-contact-fields{grid-template-columns:1fr}}

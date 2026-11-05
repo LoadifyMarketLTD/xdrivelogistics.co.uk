@@ -751,11 +751,12 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   return (
     <div className="xdrive-post-load-form xdrive-approved-postload-3150" data-testid="approved-post-load-3150">
       <div className="approved-postload-intro">
-        <div className="approved-postload-heading"><span className="approved-postload-new">NEW</span><h2>Post Load</h2><p>Only town and outcode are publicly visible before award; complete addresses and private instructions are protected.</p></div>
+        <div className="approved-postload-heading"><span className="approved-postload-new">NEW</span><h2>Post Load</h2></div>
         <div className="approved-postload-modes" role="group" aria-label="Load service type">
           {LOAD_TYPES.map((option) => <button key={option.value} type="button" aria-pressed={form.loadType === option.value} onClick={() => setForm((current) => ({ ...current, loadType: option.value, regularDays: option.value === 'regular_load' ? current.regularDays : [], regularEndDate: option.value === 'regular_load' ? current.regularEndDate : '', hireEndTime: option.value === 'daily_hire' ? current.hireEndTime : '' }))}>{option.label}</button>)}
         </div>
       </div>
+      <p className="approved-postload-explainer">Only town and outcode are visible to carriers before award; complete collection and delivery addresses remain private.</p>
       {error && (
         <AlertBanner tone="danger">
           {error}
@@ -790,7 +791,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       {cloneNotice && <AlertBanner tone="info">{cloneNotice}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-      <Panel style={{ order: 12 }} title="Smart Read - optional text import" description="Paste transport instructions to prefill recognised fields. Source text stays in this browser; review all values before saving.">
+      {sourceAction === 'repost' && <Panel style={{ order: 12 }} title="Smart Read - optional text import" description="Paste transport instructions to prefill recognised fields. Source text stays in this browser; review all values before saving.">
         <textarea aria-label="Transport instructions for Smart Read" value={smartReadText} onChange={(event) => setSmartReadText(event.target.value)} rows={4} maxLength={20000} style={{ width: '100%', padding: 12, border: '1px solid #c8d3e0', borderRadius: 7, font: 'inherit', color: '#111827' }} placeholder="Collection: M1 1AE today 10:15; Delivery: SW1A 1AA; Vehicle: LWB; Total weight: 450 kg; 2 pallets; Dimensions: 120cm x 80cm x 60cm" />
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
           <ActionButton tone="secondary" onClick={() => {
@@ -866,14 +867,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           }}>Prefill recognised fields</ActionButton>
           {smartReadFeedback && <span role="status" style={{ fontSize: 13 }}>{smartReadFeedback}</span>}
         </div>
-      </Panel>
-      <Panel style={{ order: 11 }} title="Posting identity & XDrive references" description="Platform ownership and the XDrive load reference are automatic. Customer-owned references remain optional inputs below.">
+      </Panel>}
+      {Boolean(directCarrierId) && <Panel style={{ order: 11 }} title="Posting identity & XDrive references" description="Platform ownership and the XDrive load reference are automatic. Customer-owned references remain optional inputs below.">
         <div style={gridStyle}>
           <label style={labelStyle}>Posting member<div style={readOnlyStyle}>{postingCompany?.name ?? 'Signed-in company'}</div></label>
           <label style={labelStyle}>Member ID<div style={readOnlyStyle}>{postingCompany?.memberId ?? 'Resolved automatically from XDrive membership'}</div></label>
           <label style={labelStyle}>XDrive load reference<div style={readOnlyStyle}>Generated automatically after save / publish</div></label>
         </div>
-      </Panel>
+      </Panel>}
 
       {directCarrierId && (
         <Panel
@@ -896,93 +897,54 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       )}
 
       {!directCarrierId && (
-        <Panel style={{ order: 10 }} title="Booking target" description="Choose whether to publish to the XDrive Exchange or confirm a Direct Booking with a permitted target.">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 }}>
-            <button
-              type="button"
-              aria-pressed={directTargetMode === 'marketplace'}
-              onClick={() => setDirectTargetMode('marketplace')}
-              style={{ border: directTargetMode === 'marketplace' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'marketplace' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
-            >
-              <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>XDrive Exchange</strong>
-              <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Publish to eligible carriers and receive quotes.</span>
-            </button>
-            {(
-              <button
-                type="button"
-                aria-pressed={directTargetMode === 'external_subcontractor'}
-                onClick={() => setDirectTargetMode('external_subcontractor')}
-                style={{ border: directTargetMode === 'external_subcontractor' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'external_subcontractor' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
+        <Panel style={{ order: 7 }} title="Who do you want to notify?" description="Publish to eligible members, a private group, or a selected direct-booking recipient.">
+          <div className="approved-postload-audience">
+            <label style={labelStyle}>Advertise this load to
+              <select
+                style={fieldStyle}
+                value={directTargetMode === 'marketplace' ? (visibilityGroupId ? 'group:' + visibilityGroupId : 'exchange') : directTargetMode}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value.startsWith('group:')) { setDirectTargetMode('marketplace'); setVisibilityGroupId(value.slice(6)); }
+                  else if (value === 'exchange') { setDirectTargetMode('marketplace'); setVisibilityGroupId(''); }
+                  else { setDirectTargetMode(value as DirectTargetMode); setVisibilityGroupId(''); }
+                }}
               >
-                <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>External subcontractor</strong>
-                <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Confirm work with a non-XDrive subcontractor and retain the commercial record.</span>
-              </button>
-            )}
-            {(
-              <button
-                type="button"
-                aria-pressed={directTargetMode === 'internal_resource'}
-                onClick={() => setDirectTargetMode('internal_resource')}
-                style={{ border: directTargetMode === 'internal_resource' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'internal_resource' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
-              >
-                <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>Company driver + vehicle</strong>
-                <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Create and allocate the booking directly to internal resources.</span>
-              </button>
-            )}
+                <option value="exchange">All XDrive members</option>
+                {privateGroups.groups.filter((group) => group.allowLoadVisibility).map((group) =>
+                  <option key={group.id} value={'group:' + group.id}>Selected group: {group.name}</option>
+                )}
+                <option value="external_subcontractor">Direct Booking - external subcontractor</option>
+                <option value="internal_resource">Direct Booking - company driver and vehicle</option>
+              </select>
+            </label>
+            {privateGroups.loading && <span>Loading authorised groups…</span>}
+            {privateGroups.error && <AlertBanner tone="warning">{privateGroups.error}</AlertBanner>}
+            {directTargetMode === 'marketplace' && visibilityGroupId && <span>Only authorised members of this private group can view and quote the load.</span>}
           </div>
-
-          {directTargetMode === 'marketplace' && (
-            <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
-              <label style={labelStyle}>Marketplace audience
-                <select style={fieldStyle} value={visibilityGroupId} onChange={(event) => setVisibilityGroupId(event.target.value)}>
-                  <option value="">Entire XDrive Exchange</option>
-                  {privateGroups.groups.filter((group) => group.allowLoadVisibility).map((group) => <option key={group.id} value={group.id}>Private Group · {group.name} ({group.members.length})</option>)}
-                </select>
-              </label>
-              {privateGroups.loading ? <span style={{ color: '#64748b', fontSize: 11 }}>Loading Private Groups…</span> : null}
-              {privateGroups.error ? <AlertBanner tone="warning">{privateGroups.error}</AlertBanner> : null}
-              {visibilityGroupId ? <span style={{ color: '#475569', fontSize: 11 }}>Only member companies in the selected Private Group can discover and quote this load.</span> : null}
-            </div>
-          )}
-
           {directTargetMode === 'external_subcontractor' && (
-            <div style={{ ...gridStyle, marginTop: 10 }}>
-              <label style={labelStyle}>Contact name
-                <input style={fieldStyle} aria-invalid={showValidation && (externalTarget.contactName.trim().length < 2)} value={externalTarget.contactName} onChange={(event) => setExternalTarget((current) => ({ ...current, contactName: event.target.value }))} />
-              </label>
-              <label style={labelStyle}>Company name
-                <input style={fieldStyle} value={externalTarget.companyName} onChange={(event) => setExternalTarget((current) => ({ ...current, companyName: event.target.value }))} />
-              </label>
-              <label style={labelStyle}>Phone
-                <input style={fieldStyle} aria-invalid={showValidation && (externalTarget.phone.trim().length < 5)} value={externalTarget.phone} onChange={(event) => setExternalTarget((current) => ({ ...current, phone: event.target.value }))} />
-              </label>
-              <label style={labelStyle}>Email
-                <input style={fieldStyle} type="email" value={externalTarget.email} onChange={(event) => setExternalTarget((current) => ({ ...current, email: event.target.value }))} />
-              </label>
-              <label style={labelStyle}>Agreed rate (£)
-                <input style={fieldStyle} type="number" min="0" value={externalTarget.agreedRate} onChange={(event) => setExternalTarget((current) => ({ ...current, agreedRate: event.target.value }))} />
-              </label>
-              <label style={labelStyle}>Payment terms
-                <select style={fieldStyle} value={externalTarget.paymentTerms} onChange={(event) => setExternalTarget((current) => ({ ...current, paymentTerms: event.target.value as (typeof PAYMENT_TERMS)[number] }))}>
-                  {PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}
-                </select>
-              </label>
+            <div className="approved-postload-direct-fields">
+              <label style={labelStyle}>Contact name *<input style={fieldStyle} value={externalTarget.contactName} onChange={(event) => setExternalTarget((v) => ({ ...v, contactName: event.target.value }))} /></label>
+              <label style={labelStyle}>Company<input style={fieldStyle} value={externalTarget.companyName} onChange={(event) => setExternalTarget((v) => ({ ...v, companyName: event.target.value }))} /></label>
+              <label style={labelStyle}>Phone *<input style={fieldStyle} value={externalTarget.phone} onChange={(event) => setExternalTarget((v) => ({ ...v, phone: event.target.value }))} /></label>
+              <label style={labelStyle}>Email<input style={fieldStyle} type="email" value={externalTarget.email} onChange={(event) => setExternalTarget((v) => ({ ...v, email: event.target.value }))} /></label>
+              <label style={labelStyle}>Agreed rate (£)<input style={fieldStyle} type="number" min="0" value={externalTarget.agreedRate} onChange={(event) => setExternalTarget((v) => ({ ...v, agreedRate: event.target.value }))} /></label>
+              <label style={labelStyle}>Payment terms<select style={fieldStyle} value={externalTarget.paymentTerms} onChange={(event) => setExternalTarget((v) => ({ ...v, paymentTerms: event.target.value as (typeof PAYMENT_TERMS)[number] }))}>{PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
             </div>
           )}
-
           {directTargetMode === 'internal_resource' && (
-            <div style={{ ...gridStyle, marginTop: 10 }}>
-              {internalResourcesError ? <AlertBanner tone="danger">{internalResourcesError}</AlertBanner> : null}
-              <label style={labelStyle}>Driver
-                <select style={fieldStyle} aria-invalid={showValidation && (!internalDriverId)} value={internalDriverId} onChange={(event) => { setInternalDriverId(event.target.value); setInternalVehicleId(''); }}>
-                  <option value="">Choose driver</option>
-                  {internalDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name}{driver.availabilityStatus ? ` · ${driver.availabilityStatus}` : ''}</option>)}
+            <div className="approved-postload-direct-fields">
+              {internalResourcesError && <AlertBanner tone="danger">{internalResourcesError}</AlertBanner>}
+              <label style={labelStyle}>Company driver *
+                <select style={fieldStyle} value={internalDriverId} onChange={(event) => { setInternalDriverId(event.target.value); setInternalVehicleId(''); }}>
+                  <option value="">Select driver</option>
+                  {internalDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name}{driver.availabilityStatus ? ' · ' + driver.availabilityStatus : ''}</option>)}
                 </select>
               </label>
-              <label style={labelStyle}>Vehicle
-                <select style={fieldStyle} aria-invalid={showValidation && (!internalVehicleId)} value={internalVehicleId} onChange={(event) => setInternalVehicleId(event.target.value)}>
-                  <option value="">Choose vehicle</option>
-                  {internalVehicles.filter((vehicle) => vehicle.assignedDriverId === internalDriverId).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.registration}{vehicle.type ? ` · ${vehicle.type}` : ''}</option>)}
+              <label style={labelStyle}>Assigned vehicle *
+                <select style={fieldStyle} value={internalVehicleId} onChange={(event) => setInternalVehicleId(event.target.value)}>
+                  <option value="">Select vehicle</option>
+                  {internalVehicles.filter((vehicle) => vehicle.assignedDriverId === internalDriverId).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.registration}{vehicle.type ? ' · ' + vehicle.type : ''}</option>)}
                 </select>
               </label>
             </div>
@@ -1021,7 +983,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           </div>
         )}
       </Panel>}
-      <Panel style={{ order: 9 }} title="Smart / Pro Alerts" description="Optional booking-level proximity alerts. XDrive uses authorised live or telematics positions and never exposes the driver's exact coordinates in the notification.">
+      <Panel style={{ order: 6 }} title="Smart Alerts" description="Optional pickup and delivery notifications, using authorised location information.">
         <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <input type="checkbox" checked={form.proximityAlertsEnabled} onChange={(event) => set('proximityAlertsEnabled', event.target.checked)} />
           <span><strong>Enable pickup and delivery proximity alerts</strong><br /><span style={{ color: '#64748b', fontSize: 11 }}>Notify the posting company when the assigned vehicle enters the configured collection or delivery radius.</span></span>
@@ -1042,34 +1004,61 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         ) : null}
       </Panel>
 
-      {(
-        <Panel style={{ order: 3 }} title="Customer" description={mode === 'broker' ? 'The customer whose transport request is being managed by the broker.' : 'Optional customer details for work being posted by this operating account.'}>
-          <div style={gridStyle}>
-            <label style={labelStyle}>Customer name<input style={fieldStyle} value={form.clientName} onChange={(event) => set('clientName', event.target.value)} /></label>
-            <label style={labelStyle}>Customer email<input style={{ ...fieldStyle, ...(showValidation && emailError ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(emailError)} type="email" value={form.clientEmail} onChange={(event) => set('clientEmail', event.target.value)} /></label>
-            <label style={labelStyle}>Customer phone<input style={fieldStyle} value={form.clientPhone} onChange={(event) => set('clientPhone', event.target.value)} /></label>
-          </div>
-          <div className="approved-postload-customer-extras">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '8px' }}>
-          <label style={labelStyle}>Customer reference<input style={fieldStyle} value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} /></label>
-          <label style={labelStyle}>PO number<input style={fieldStyle} value={form.purchaseOrder} onChange={(event) => set('purchaseOrder', event.target.value)} /></label>
-          <label style={labelStyle}>Customer booking reference (optional)<input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} /></label>
-          {form.isFixedPrice && <label style={labelStyle}>Fixed price (GBP, ex VAT)<input id="xdrive-fixed-price" style={{ ...fieldStyle, ...(fixedPriceError ? invalidFieldStyle : {}) }} aria-invalid={fixedPriceError || undefined} type="number" min="0.01" step="0.01" value={form.customerPrice} onChange={(event) => { set('customerPrice', event.target.value); setFixedPriceError(false); }} /><span style={{ fontSize: 10, color: fixedPriceError ? '#b91c1c' : '#64748b' }}>Required only for fixed-price posts.</span></label>}
-          <label style={labelStyle}>Payment terms<select style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>{PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
-          {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
+      <Panel style={{ order: 1 }} title="Customer" description="PRIVATE · Visible to authorised parties only">
+        <div className="approved-postload-customer-grid">
+          <label style={labelStyle}>Customer / company
+            <input style={fieldStyle} value={form.clientName} onChange={(event) => set('clientName', event.target.value)} />
+          </label>
+          {form.isFixedPrice && <label style={labelStyle}>Fixed price (£, excluding VAT)
+            <input id="xdrive-fixed-price" style={{ ...fieldStyle, ...(fixedPriceError ? invalidFieldStyle : {}) }} aria-invalid={fixedPriceError || undefined} type="number" min="0.01" step="0.01" value={form.customerPrice} onChange={(event) => { set('customerPrice', event.target.value); setFixedPriceError(false); }} />
+          </label>}
+          <label style={labelStyle}>Your reference
+            <input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} />
+          </label>
+          <label style={labelStyle}>Customer reference
+            <input style={fieldStyle} value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} />
+          </label>
+          <label className="approved-postload-hardpod">
+            <input type="checkbox" checked={form.documentChecklist.split(/\r?\n/).some((entry) => entry.trim() === 'Hard copy POD required')} onChange={(event) => setForm((current) => ({ ...current, documentChecklist: event.target.checked ? [current.documentChecklist.trim(), 'Hard copy POD required'].filter(Boolean).join('\n') : current.documentChecklist.split(/\r?\n/).filter((entry) => entry.trim() !== 'Hard copy POD required').join('\n') }))} />
+            Hard copy POD required
+          </label>
         </div>
-        <div style={{ marginTop: '6px', color: '#64748b', fontSize: '10px', lineHeight: '14px', fontWeight: 500 }}>
-          Customer booking reference is optional and remains an external/customer reference. XDrive generates its own load reference automatically. Payment terms are shown on every posted job and are limited to Pay now, 14 days or 30 days; 45, 60 and 90 day terms are not supported.
-        </div>
+        <details className="approved-postload-customer-optional">
+          <summary>Additional customer, pricing and payment information</summary>
+          <div className="approved-postload-customer-grid">
+            <label style={labelStyle}>Customer email
+              <input style={{ ...fieldStyle, ...(showValidation && emailError ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(emailError)} type="email" value={form.clientEmail} onChange={(event) => set('clientEmail', event.target.value)} />
+            </label>
+            <label style={labelStyle}>Customer phone
+              <input style={fieldStyle} value={form.clientPhone} onChange={(event) => set('clientPhone', event.target.value)} />
+            </label>
+            <label style={labelStyle}>Purchase order number
+              <input style={fieldStyle} value={form.purchaseOrder} onChange={(event) => set('purchaseOrder', event.target.value)} />
+            </label>
+            <label style={labelStyle}>Pricing method
+              <select style={fieldStyle} value={form.isFixedPrice ? 'fixed' : 'quotes'} onChange={(event) => set('isFixedPrice', event.target.value === 'fixed')}>
+                <option value="quotes">Accept quotes</option>
+                <option value="fixed">Fixed price</option>
+              </select>
+            </label>
+            <label style={labelStyle}>Payment terms
+              <select style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>
+                {PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}
+              </select>
+            </label>
+            {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)
+              <input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} />
+            </label>}
           </div>
-          <label className="approved-postload-hardpod"><input type="checkbox" checked={form.documentChecklist.split(/\r?\n/).some((entry) => entry.trim() === 'Hard copy POD required')} onChange={(event) => setForm((current) => ({ ...current, documentChecklist: event.target.checked ? [current.documentChecklist.trim(), 'Hard copy POD required'].filter(Boolean).join('\n') : current.documentChecklist.split(/\r?\n/).filter((entry) => entry.trim() !== 'Hard copy POD required').join('\n') }))} /> Hard copy POD required</label>
-        </Panel>
-      )}
-
-      <Panel style={{ order: 4 }} title="Collection and delivery" description="Full execution addresses and site contacts are stored for the awarded job; Marketplace shows only broad route areas before award.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(250px,1fr))', gap: '12px' }}>
+        </details>
+      </Panel>
+      <div className="approved-postload-stop-card" style={{ order: 3 }}>
+        <div className="approved-postload-two-stops">
+          <section className="approved-postload-stop-section"><h3>Pickup Details</h3>
           <StopFields
             title="Collection"
+            town={form.pickupTown}
+            townError={showValidation ? townErrors.pickup : undefined}
             date={form.pickupDate}
             time={form.pickupTime}
             postcode={form.pickupPostcode}
@@ -1093,8 +1082,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             now={clockNow}
             errors={showValidation ? collectionErrors : undefined}
           />
+
+          </section>
+          <section className="approved-postload-stop-section"><h3>Delivery Details</h3>
           <StopFields
             title="Delivery"
+            town={form.deliveryTown}
+            townError={showValidation ? townErrors.delivery : undefined}
             date={form.deliveryDate}
             time={form.deliveryTime}
             postcode={form.deliveryPostcode}
@@ -1116,12 +1110,11 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             now={clockNow}
             errors={showValidation ? deliveryErrors : undefined}
           />
+
+          </section>
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12,margin:'8px 0 12px'}}>
-          <label style={labelStyle}>Collection town (public) *<input style={{ ...fieldStyle, ...(showValidation && townErrors.pickup ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(townErrors.pickup)} aria-describedby={showValidation && townErrors.pickup ? 'collection-town-error' : undefined} value={form.pickupTown} onChange={e=>set('pickupTown',e.target.value)} placeholder="e.g. Manchester" required />{showValidation && townErrors.pickup ? <span id="collection-town-error" style={validationMessageStyle}>{townErrors.pickup}</span> : null}</label>
-          <label style={labelStyle}>Delivery town (public) *<input style={{ ...fieldStyle, ...(showValidation && townErrors.delivery ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(townErrors.delivery)} aria-describedby={showValidation && townErrors.delivery ? 'delivery-town-error' : undefined} value={form.deliveryTown} onChange={e=>set('deliveryTown',e.target.value)} placeholder="e.g. Oldham" required />{showValidation && townErrors.delivery ? <span id="delivery-town-error" style={validationMessageStyle}>{townErrors.delivery}</span> : null}</label>
-        </div>
+
         <div style={{ display: 'grid', gap: '8px', borderTop: '1px solid #e2e8f0', marginTop: '12px', paddingTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
@@ -1187,69 +1180,71 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             </div>
           )}
         </div>
-      </Panel>
+      </div>
 
-      <Panel style={{ order: 5 }} title="Cargo and vehicle" description="Vehicle capability and load dimensions used by carriers when pricing.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '8px' }}>
-          <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => setVehicle(event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
-          <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
-          {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['itemCount', 'No. of items'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => {
-            const dimensionKey = key === 'length' || key === 'width' || key === 'height';
-            const validationError = showValidation ? (dimensionKey ? dimensionErrors[key] : numericErrors[key]) : undefined;
-            return (
-              <label key={key} style={labelStyle}>{label}
-                <input
-                  style={{ ...fieldStyle, ...(validationError ? invalidFieldStyle : {}) }}
-                  aria-invalid={validationError ? 'true' : undefined}
-                  type="number"
-                  min="0"
-                  step={dimensionKey ? '1' : undefined}
-                  value={form[key]}
-                  placeholder={key === 'length' ? 'e.g. 400' : key === 'width' ? 'e.g. 185' : key === 'height' ? 'e.g. 200' : undefined}
-                  onChange={(event) => set(key, event.target.value)}
-                />
-                {validationError ? <span style={validationMessageStyle}>{validationError}</span> : null}
-              </label>
-            );
-          })}
-        </div>
-        <div className="xdrive-postload-secondary-grid">
-          <label style={labelStyle}>Pallet type
-            <select style={fieldStyle} value={form.palletType} onChange={(event) => set('palletType', event.target.value)}>
-              <option value="">Not specified</option>
-              <option value="UK Standard">UK Standard</option>
-              <option value="Euro">Euro</option>
-              <option value="Oversized">Oversized</option>
-              <option value="Custom">Custom</option>
-            </select>
-          </label>
-          <label style={labelStyle}>Stackable
-            <select style={fieldStyle} value={form.palletStackable} onChange={(event) => set('palletStackable', event.target.value)}>
-              <option value="">Not specified</option>
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <label style={labelStyle}>Pricing
-            <select style={fieldStyle} value={form.isFixedPrice ? 'fixed' : 'quotes'} onChange={(event) => set('isFixedPrice', event.target.value === 'fixed')}>
-              <option value="quotes">Accept quotes</option>
-              <option value="fixed">Fixed price</option>
-            </select>
-          </label>
-        </div>
-        <div style={{ marginTop: '6px', fontSize: '11px', color: hasDimensionErrors && showValidation ? '#b91c1c' : '#64748b', fontWeight: hasDimensionErrors && showValidation ? 700 : 500 }}>
-          {dimensionSummary}. Dimensions are entered and stored in centimetres (cm).
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
-          {([['tailLift', 'Tail lift required'], ['forklift', 'Forklift available at collection'], ['handball', 'Handball required'], ['deliveryTailLift', 'Tail lift required at delivery'], ['deliveryForklift', 'Forklift available at delivery'], ['deliveryHandball', 'Handball required at delivery'], ['pumpTruck', 'Pump truck required'], ['twoPersonCrew', 'Two-person crew'], ['dedicatedVehicle', 'Dedicated vehicle / no co-loading'], ['adr', 'ADR load'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile goods']] as const).map(([key, label]) => (
-            <label key={key} style={{ display: 'flex', gap: '5px', alignItems: 'center', fontSize: '11px', fontWeight: 700 }}>
-              <input type="checkbox" checked={form[key]} onChange={(event) => set(key, event.target.checked)} />{label}
+      <Panel style={{ order: 4 }} title="Job Details" description="The live load details shown to authorised XDrive carriers.">
+        <div className="approved-postload-job-columns">
+          <div className="approved-postload-job-fields">
+            <label style={labelStyle}>Suggested Vehicle *
+              <select style={fieldStyle} value={form.vehicle} onChange={(event) => setVehicle(event.target.value)}>
+                {VEHICLES.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
             </label>
-          ))}
+            <label style={labelStyle}>Packaging / cargo
+              <select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>
+                {CARGO.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </label>
+            <div className="approved-postload-job-metrics">
+              {([['itemCount', 'No. of Items'], ['weight', 'Gross Load Weight (kg)'], ['pallets', 'Pallets']] as const).map(([key, label]) => (
+                <label key={key} style={labelStyle}>{label}
+                  <input style={{ ...fieldStyle, ...(showValidation && numericErrors[key] ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(numericErrors[key])} type="number" min="0" value={form[key]} onChange={(event) => set(key, event.target.value)} />
+                </label>
+              ))}
+            </div>
+            <label style={labelStyle}>Pallet type
+              <select style={fieldStyle} value={form.palletType} onChange={(event) => set('palletType', event.target.value)}>
+                <option value="">Not specified</option>
+                <option value="UK Standard">UK Standard</option>
+                <option value="Euro">Euro</option>
+                <option value="Oversized">Oversized</option>
+                <option value="Custom">Custom</option>
+              </select>
+            </label>
+          </div>
+          <details open className="approved-postload-job-additional">
+            <summary>Additional Options</summary>
+            <div className="approved-postload-job-fields">
+              <div className="approved-postload-job-metrics">
+                {([['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)']] as const).map(([key, label]) => (
+                  <label key={key} style={labelStyle}>{label}
+                    <input style={{ ...fieldStyle, ...(showValidation && dimensionErrors[key] ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(dimensionErrors[key])} type="number" min="0" step="1" value={form[key]} onChange={(event) => set(key, event.target.value)} />
+                  </label>
+                ))}
+              </div>
+              <div className="approved-postload-job-metrics">
+                <label style={labelStyle}>Cargo value (£)
+                  <input style={fieldStyle} type="number" min="0" value={form.cargoValue} onChange={(event) => set('cargoValue', event.target.value)} />
+                </label>
+                <label style={labelStyle}>Stackable
+                  <select style={fieldStyle} value={form.palletStackable} onChange={(event) => set('palletStackable', event.target.value)}>
+                    <option value="">Not specified</option><option value="yes">Yes</option><option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+              <div className="approved-postload-check-grid">
+                {([['tailLift', 'Tail Lift'], ['forklift', 'Forklift at collection'], ['handball', 'Handball'], ['deliveryTailLift', 'Tail Lift at delivery'], ['deliveryForklift', 'Forklift at delivery'], ['deliveryHandball', 'Delivery handball'], ['pumpTruck', 'Pump Truck'], ['twoPersonCrew', 'Two Man'], ['dedicatedVehicle', 'Dedicated Vehicle'], ['adr', 'ADR'], ['temperatureControlled', 'Temperature Controlled'], ['fragile', 'Fragile Goods']] as const).map(([key, label]) => (
+                  <label key={key} className="approved-postload-check">
+                    <input type="checkbox" checked={form[key]} onChange={(event) => set(key, event.target.checked)} /> {label}
+                  </label>
+                ))}
+              </div>
+              <span className="approved-postload-dimension-hint">{dimensionSummary}</span>
+            </div>
+          </details>
         </div>
       </Panel>
-
-      <Panel style={{ order: 7 }} title="Documents, access & service requirements" description="Record the execution requirements that carriers need for safe planning. These values are persisted with the live job contract.">
+      <Panel style={{ order: 8 }} title="Documents" description="Record the execution requirements that carriers need for safe planning. These values are persisted with the live job contract.">
         <div className="xdrive-postload-requirements-grid">
           <label style={labelStyle}>Collection access restrictions
             <textarea style={textareaStyle} value={form.collectionAccessRestrictions} onChange={(event) => set('collectionAccessRestrictions', event.target.value)} placeholder="One requirement per line, e.g. loading bay 4, height restriction, timed gate access." />
@@ -1280,7 +1275,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         </div>
       </Panel>
 
-      <Panel style={{ order: 8 }} title="Marketplace notes & execution instructions" description="Keep quote-visible information separate from the exact instructions released after award.">
+      <Panel style={{ order: 5 }} title="Notes" description="Quote-visible notes and private delivery instructions.">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: '12px' }}>
           <label style={labelStyle}>
             Public quote notes
@@ -1316,27 +1311,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 }
 
 function StopFields({
-  title,
-  date,
-  time,
-  postcode,
-  address,
-  contact,
-  phone,
-  onDate,
-  onTime,
-  onPostcode,
-  onAddress,
-  onTown,
-  onContact,
-  onPhone,
-  requiredDate = false,
-  requiredTime = false,
-  minDate,
-  now,
-  errors,
+  title, town, townError, date, time, postcode, address, contact, phone,
+  onDate, onTime, onPostcode, onAddress, onTown, onContact, onPhone,
+  requiredDate = false, requiredTime = false, minDate, now, errors,
 }: {
   title: string;
+  town?: string;
+  townError?: string;
   date: string;
   time: string;
   postcode: string;
@@ -1359,50 +1340,73 @@ function StopFields({
   const timeOptions = availableQuarterHourSlots(date, now);
   const selectedTimeUnavailable = Boolean(time && !timeOptions.includes(time));
   const noSlotsLeftToday = Boolean(date && now && date === localDateKey(now) && timeOptions.length === 0);
-
+  const pickup = title === 'Collection' || title === 'Collection stop';
   return (
-    <div style={{ display: 'grid', gap: '8px' }}>
-      <h3 className="approved-postload-stop-heading" style={{ margin: 0, fontSize: '13px', lineHeight: '18px', fontWeight: 600, color: hasStopErrors(errors ?? {}) ? '#b91c1c' : undefined }}>{title === 'Collection' ? 'Pickup Details' : title === 'Delivery' ? 'Delivery Details' : title}</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        <label style={labelStyle}>Date{requiredDate ? ' *' : ''}
+    <div className="approved-postload-stop-fields">
+      <div className="approved-postload-location-fields">
+        {onTown && <label style={labelStyle}>{pickup ? 'Collection' : 'Delivery'} town (public) *
+          <input
+            style={{ ...fieldStyle, ...(townError ? invalidFieldStyle : {}) }}
+            aria-invalid={Boolean(townError)}
+            value={town ?? ''}
+            placeholder="e.g. Manchester"
+            onChange={(event) => onTown(event.target.value)}
+            required
+          />
+          {townError && <span style={validationMessageStyle}>{townError}</span>}
+        </label>}
+        <label style={labelStyle}>Full postcode (private until award) *
+          <input
+            style={{ ...fieldStyle, ...(errors?.postcode ? invalidFieldStyle : {}) }}
+            aria-invalid={Boolean(errors?.postcode)}
+            autoCapitalize="characters"
+            value={postcode}
+            placeholder="e.g. BB1 1AA"
+            onChange={(event) => onPostcode(event.target.value)}
+          />
+          {errors?.postcode && <span style={validationMessageStyle}>{errors.postcode}</span>}
+        </label>
+      </div>
+      <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} onPostcodeResolved={onPostcode} error={errors?.address} />
+      <div className="approved-postload-contact-fields">
+        <label style={labelStyle}>Contact name
+          <input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} />
+        </label>
+        <label style={labelStyle}>Telephone
+          <input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} />
+        </label>
+      </div>
+      <div className="approved-postload-schedule-fields">
+        <label style={labelStyle}>{pickup ? 'Collection' : 'Delivery'} date{requiredDate ? ' *' : ''}
           <input
             style={{ ...fieldStyle, ...(errors?.date ? invalidFieldStyle : {}) }}
-            aria-invalid={errors?.date ? 'true' : undefined}
+            aria-invalid={Boolean(errors?.date)}
             type="date"
-            aria-label={`${title} date`}
+            aria-label={title + ' date'}
             aria-required={requiredDate}
             min={minDate}
             value={date}
             onChange={(event) => onDate(event.target.value)}
           />
-          {errors?.date ? <span style={validationMessageStyle}>{errors.date}</span> : null}
+          {errors?.date && <span style={validationMessageStyle}>{errors.date}</span>}
         </label>
-        <label style={labelStyle}>Time{requiredTime || date ? ' *' : ''}
+        <label style={labelStyle}>{pickup ? 'Collection' : 'Delivery'} time{requiredTime || date ? ' *' : ''}
           <select
             style={{ ...fieldStyle, ...(errors?.time ? invalidFieldStyle : {}) }}
-            aria-invalid={errors?.time ? 'true' : undefined}
-            aria-label={`${title} time`}
+            aria-invalid={Boolean(errors?.time)}
+            aria-label={title + ' time'}
             aria-required={requiredTime || Boolean(date)}
             value={time}
             disabled={!date || noSlotsLeftToday}
             onChange={(event) => onTime(event.target.value)}
           >
             <option value="">{!date ? 'Select date first' : noSlotsLeftToday ? 'No slots left today' : 'Select time'}</option>
-            {selectedTimeUnavailable ? <option value={time} disabled>{time} — no longer available</option> : null}
+            {selectedTimeUnavailable && <option value={time} disabled>{time} — no longer available</option>}
             {timeOptions.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
           </select>
-          {errors?.time ? <span style={validationMessageStyle}>{errors.time}</span> : null}
-          {!errors?.time && noSlotsLeftToday ? <span style={{ color: '#64748b', fontSize: '10px', lineHeight: '13px', fontWeight: 500 }}>No future times remain today — choose tomorrow.</span> : null}
+          {errors?.time && <span style={validationMessageStyle}>{errors.time}</span>}
+          {!errors?.time && noSlotsLeftToday && <span style={{ color: '#64748b', fontSize: '10px' }}>No future slots today — choose tomorrow.</span>}
         </label>
-      </div>
-      <label style={labelStyle}>Postcode *
-        <input style={{ ...fieldStyle, ...(errors?.postcode ? invalidFieldStyle : {}) }} aria-invalid={errors?.postcode ? 'true' : undefined} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} />
-        {errors?.postcode ? <span style={validationMessageStyle}>{errors.postcode}</span> : null}
-      </label>
-      <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} onPostcodeResolved={onPostcode} error={errors?.address} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-        <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
-        <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
       </div>
     </div>
   );
