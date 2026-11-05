@@ -17,6 +17,7 @@ import { COMPANY_CONFIG } from '../../config/company';
 import { importedPostingTown, townFromPostingAddress, validPostingTown } from '../../../lib/loadPostingTown';
 import './load-posting-exchange.css';
 import './approved-post-load-3150.css';
+import './xdrive-postload-original.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const PAYMENT_TERMS = COMPANY_CONFIG.payment.terms;
