@@ -1,0 +1,17 @@
+/* Loads list: compact Courier Exchange-inspired card, XDrive branding only. */
+.fresh-driver-pwa .xd-load-card{background:#fff;border:0;border-radius:3px;overflow:hidden;margin:0 0 12px;box-shadow:0 2px 5px #00000012}
+.fresh-driver-pwa .xd-load-summary{padding:12px 14px 14px;border-bottom:1px solid #e5e5e5}
+.fresh-driver-pwa .xd-load-summary .fresh-summary-top{display:flex;align-items:center;gap:8px}
+.fresh-driver-pwa .xd-load-summary .fresh-summary-top strong{font-size:17px;font-weight:800;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.fresh-driver-pwa .xd-load-summary .fresh-available{background:#ffcc00;color:#111;border-radius:15px;font-size:12px;font-weight:800;padding:3px 8px;flex-shrink:0}
+.fresh-driver-pwa .xd-load-summary .fresh-summary-meta{display:flex;gap:12px;font-size:15px;font-weight:700;margin-top:6px}
+.fresh-driver-pwa .xd-load-summary .fresh-service{color:#d54b42;font-weight:800}
+.fresh-driver-pwa .xd-load-summary .fresh-posted{color:#777;font-size:12px;text-align:right}
+.fresh-driver-pwa .xd-load-route{padding:18px 16px;border-bottom:1px solid #e5e5e5}
+.fresh-driver-pwa .xd-load-route .fresh-route-places strong{font-size:20px;font-weight:800}
+.fresh-driver-pwa .xd-load-route .fresh-route-places p{color:#666;font-size:15px;font-weight:650}
+.fresh-driver-pwa .xd-load-card .fresh-notes{padding:14px;font-size:14px;color:#666;border-bottom:1px solid #eee;white-space:normal}
+.fresh-driver-pwa .xd-load-card .fresh-quick{padding:10px 14px;color:#555;font-size:13px}
+.fresh-driver-pwa .xd-load-actions{padding:12px 14px 18px;display:flex;flex-direction:column;gap:10px}
+.fresh-driver-pwa .xd-load-actions .xd-cx-quote{display:block;background:#58a900;color:white;text-align:center;border-radius:3px;font-size:20px;font-weight:800;padding:13px}
+.fresh-driver-pwa .xd-load-actions .xd-cx-detail{display:block;text-align:center;border:1px solid #ddd;border-radius:3px;padding:10px;font-weight:700}
