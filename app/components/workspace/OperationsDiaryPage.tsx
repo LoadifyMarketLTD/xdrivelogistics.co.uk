@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
+import { isExternallyFulfilledPostedJob } from '../../../lib/diary/companyOutsourcedJobs';
 import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
@@ -216,6 +217,8 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const intelligence = useOperationsIntelligence(companyId);
   const deepJob = searchParams.get('job');
   const [jobs, setJobs] = useState<JobRow[]>(() => fixtureData?.jobs ?? []);
+  const [externallyFulfilledJobs, setExternallyFulfilledJobs] = useState<JobRow[]>(() =>
+    (fixtureData?.jobs ?? []).filter((job) => isExternallyFulfilledPostedJob(job, fixtureData?.companyId ?? null)));
   const [drivers, setDrivers] = useState<DriverRow[]>(() => fixtureData?.drivers ?? []);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>(() => fixtureData?.reviewsByJob ?? {});
   const [loading, setLoading] = useState(() => !fixtureData);
@@ -262,7 +265,9 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
 
   const load = useCallback(async () => {
     if (fixtureData) {
-      setJobs(fixtureData.jobs); setDrivers(fixtureData.drivers ?? []); setReviewsByJob(fixtureData.reviewsByJob ?? {}); setLoading(false); hasLoadedRef.current = true;
+      setJobs(fixtureData.jobs.filter((job) => isOperatingCompanyJob(job, fixtureData.companyId)));
+      setExternallyFulfilledJobs(fixtureData.jobs.filter((job) => isExternallyFulfilledPostedJob(job, fixtureData.companyId)));
+      setDrivers(fixtureData.drivers ?? []); setReviewsByJob(fixtureData.reviewsByJob ?? {}); setLoading(false); hasLoadedRef.current = true;
       return;
     }
     if (loadInFlightRef.current) return;
@@ -272,7 +277,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       hasLoadedRef.current = true;
       setLoading(false);
     };
-    if (!companyId || !user?.id) { setJobs([]); setDrivers([]); setReviewsByJob({}); setSavedViews([]); setGroups([]); setGroupJobs([]); finishLoad(); return; }
+    if (!companyId || !user?.id) { setJobs([]); setExternallyFulfilledJobs([]); setDrivers([]); setReviewsByJob({}); setSavedViews([]); setGroups([]); setGroupJobs([]); finishLoad(); return; }
     if (!hasLoadedRef.current) setLoading(true);
     setError('');
     const [jobsResult, driversResult, reviewsResult, savedViewsResult, groupsResult, groupJobsResult] = await Promise.all([
@@ -312,10 +317,12 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
     if (jobsResult.error) {
       setError('Diary jobs could not be loaded.');
       setJobs([]);
+      setExternallyFulfilledJobs([]);
     } else {
       const loadedJobs = (jobsResult.data ?? []) as JobRow[];
       const scoped = loadedJobs.filter((job) => isOperatingCompanyJob(job, companyId));
       setJobs(scoped);
+      setExternallyFulfilledJobs(loadedJobs.filter((job) => isExternallyFulfilledPostedJob(job, companyId)));
       if (loadedJobs.length >= 300) {
         setNotice((current) => current || 'Diary reached the 300-record query limit. Older bookings may not be included in the current results.');
       }
@@ -770,6 +777,34 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
         </aside>
 
         <main className="workspace-board-main" style={{ minWidth: 0 }}>
+          <details className="workspace-panel" data-diary-scope="externally-fulfilled" style={{ marginBottom: 10, padding: 10 }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 700, color: '#0b2f6b' }}>
+              Externally Fulfilled Jobs ({loading ? 'Loading...' : error ? 'Unavailable' : externallyFulfilledJobs.length})
+              <span style={{ display: 'block', fontSize: 11, color: '#64748b', fontWeight: 400 }}>
+                Loads posted by this company and awarded to another carrier. Read-only; not own-fleet bookings.
+              </span>
+            </summary>
+            {error ? <p>External fulfilment records could not be verified.</p> : !loading && externallyFulfilledJobs.length === 0
+              ? <p>No externally fulfilled jobs recorded for this company.</p>
+              : <div className="workspace-record-list" style={{ display: 'grid', gap: 6, paddingTop: 10 }}>
+                {externallyFulfilledJobs.map((job) => (
+                  <article key={job.id} className="workspace-operational-row" data-state={effectiveStatus(job)}
+                    data-execution-scope="external-carrier" style={{ padding: 10 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8 }}>
+                      <strong>{operationalLocationLabel(job.pickup_location, job.pickup_postcode)} → {operationalLocationLabel(job.delivery_location, job.delivery_postcode)}</strong>
+                      <span>External carrier · {workspaceJobOperationalLabel(job)}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, fontSize: 12, marginTop: 5 }}>
+                      <span>Load XDL-{job.id.slice(0, 8).toUpperCase()}</span>
+                      <span>Reference: {job.booking_reference || job.customer_reference || 'Not supplied'}</span>
+                      <span>Pickup: {when(job.pickup_datetime)}</span>
+                      <span>Delivery: {when(job.delivery_datetime)}</span>
+                      <span>POD: {job.pod_generated ? 'Recorded' : 'Not recorded'}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>}
+          </details>
           <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
             <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong><span className="cx-diary-view-toggle" role="group" aria-label="Diary view mode"><label><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label><label><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label></span></span>
             <span className="workspace-list-controls__right">
