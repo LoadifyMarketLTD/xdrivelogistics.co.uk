@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import BookingConfirmationFullPage from '../../customer/quotes/BookingConfirmationFullPage';
+import type { WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
 import CxQuoteCard from '../../components/workspace/CxQuoteCard';
 import { cxDateParts } from '../../components/workspace/CxLoadCard';
@@ -67,6 +69,7 @@ export default function BrokerQuotesPage() {
   const [message, setMessage] = useState('');
   const [identities, setIdentities] = useState<Record<string, BidderIdentity>>({});
   const [identityWarning, setIdentityWarning] = useState('');
+  const [awardCandidate, setAwardCandidate] = useState<{ bid: WorkspaceBid; job: WorkspaceJob; identity?: BidderIdentity } | null>(null);
 
   useEffect(() => {
     if (deepJob) setReference(deepJob);
@@ -121,7 +124,7 @@ export default function BrokerQuotesPage() {
 
 
   const award = async (bidId: string) => {
-    if (!confirmBookingPaymentObligation()) return;
+    if (awardCandidate?.bid.id !== bidId || working) return;
     setWorking(bidId); setMessage('');
     const { data: session } = await supabase.auth.getSession();
     const response = await fetch(`/api/customer/bids/${bidId}/award`, {
@@ -132,6 +135,7 @@ export default function BrokerQuotesPage() {
     const payload = await response.json().catch(() => ({})) as { error?: string };
     setWorking(null);
     if (!response.ok) { setMessage(payload.error || 'Unable to award this carrier quote.'); return; }
+    setAwardCandidate(null);
     setMessage('Booking offer sent - awaiting carrier acceptance.');
     await data.refresh();
   };
@@ -278,7 +282,7 @@ export default function BrokerQuotesPage() {
                     </>}
                     footer={<>
                       <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !open; setExpanded((current) => { const next = new Set(current); if (open) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={open ? 'Collapse quote' : 'Expand quote'}>{open ? '▴' : '▾'}</button>
-                      {bid.status === 'submitted' && <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</button>}
+                      {bid.status === 'submitted' && <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id || priceOf(bid) <= 0} onClick={() => setAwardCandidate({bid,job,identity})}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</button>}
                       <span className="xdrive-cx-quote-card__quote-state">{quote > 0 ? money(quote) : 'Quote not priced'}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>{carrierName}</span>
                     </>}
@@ -289,6 +293,32 @@ export default function BrokerQuotesPage() {
           )}
         </main>
       </div>
+      {awardCandidate && <BookingConfirmationFullPage
+        key={awardCandidate.bid.id}
+        working={working === awardCandidate.bid.id}
+        onCancel={() => { if (!working) setAwardCandidate(null); }}
+        onConfirm={() => void award(awardCandidate.bid.id)}
+        details={{
+          jobId: awardCandidate.job.id,
+          amount: priceOf(awardCandidate.bid),
+          currency: awardCandidate.bid.currency ?? 'GBP',
+          pickup: awardCandidate.job.pickup_postcode || awardCandidate.job.pickup_location || 'Collection not specified',
+          delivery: awardCandidate.job.delivery_postcode || awardCandidate.job.delivery_location || 'Delivery not specified',
+          pickupDate: awardCandidate.job.pickup_datetime ?? null,
+          deliveryDate: awardCandidate.job.delivery_datetime ?? null,
+          vehicle: (awardCandidate.identity?.driverVehicleType || awardCandidate.job.requested_vehicle_label || awardCandidate.job.vehicle_type || 'Vehicle not specified').replaceAll('_',' '),
+          pallets: awardCandidate.job.pallets ?? awardCandidate.identity?.driverVehiclePallets ?? null,
+          tailLift: awardCandidate.identity?.driverVehicleTailLift ?? false,
+          paymentTerms: awardCandidate.job.payment_terms ?? null,
+          carrierName: awardCandidate.identity?.displayName || awardCandidate.bid.companies?.name || 'Carrier',
+          companyName: awardCandidate.identity?.companyName || awardCandidate.bid.companies?.name || null,
+          memberId: awardCandidate.identity?.memberId ?? null,
+          phone: awardCandidate.identity?.businessPhone ?? null,
+          availability: awardCandidate.identity?.driverAvailability ?? null,
+          ownerDriver: awardCandidate.identity?.quoteLevel === 'driver',
+          message: awardCandidate.bid.message ?? null,
+        }}
+      />}
     </PageFrame>
   );
 }

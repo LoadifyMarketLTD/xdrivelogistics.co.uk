@@ -11,6 +11,7 @@ import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../l
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
 import CxDiaryCard from './CxDiaryCard';
+import Master3150OperationsKpis from './Master3150OperationsKpis';
 import { operationalLocationLabel } from './locationPresentation';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
 import {
@@ -741,6 +742,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
 
   return (
     <PageFrame>
+      <Master3150OperationsKpis jobs={jobs} view="diary" />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 

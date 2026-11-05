@@ -8,6 +8,7 @@ import {
 import { operationalError } from '../_lib/operationalError';
 import { buildMemberReputation } from '../_lib/memberReputation';
 import { getBlockedCounterpartyCompanyIds } from '../_lib/companyBlocks';
+import { verifyPlatformOwner } from '../super-admin/_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const COMPANY_LIMIT = 500;
@@ -179,7 +180,12 @@ export async function GET(request: NextRequest) {
     && driverStatus === 'active'
     && driverResult.data?.is_active !== false
     && driverResult.data?.app_access === true;
-  if (!membershipResult.data && !activeDriver) {
+  // Platform owners may have no company membership; verify their role against
+  // the authoritative active profile rather than any user-editable JWT claim.
+  const platformOwner = !membershipResult.data && !activeDriver
+    ? await verifyPlatformOwner(request)
+    : null;
+  if (!membershipResult.data && !activeDriver && !platformOwner) {
     return respond(403, { error: 'An active XDrive member account is required to use Directory.' });
   }
 

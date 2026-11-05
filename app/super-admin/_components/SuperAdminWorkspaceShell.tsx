@@ -16,6 +16,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'global-search', label: 'Global Search', href: '/super-admin/search' },
       { id: 'analytics', label: 'Platform Analytics', href: '/super-admin/analytics' },
       { id: 'directory', label: 'Explore all areas', href: '/super-admin/directory' },
+      { id: 'member-directory', label: 'Member Directory', href: '/super-admin/members-directory' },
     ] },
     { id: 'marketplace-jobs', label: 'Marketplace & Jobs', items: [
       { id: 'marketplace', label: 'Live Marketplace', href: '/super-admin/marketplace' },

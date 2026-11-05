@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
@@ -100,6 +101,7 @@ export default function BrokerJobsPage() {
   return (
     <PageFrame>
       <PageHeader eyebrow="Broker operations" title="Jobs" description="Monitor awarded carrier work from allocation through execution and completion." />
+      <Master3150OperationsKpis jobs={data.jobs} view="bookings" />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">

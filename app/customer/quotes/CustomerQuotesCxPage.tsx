@@ -98,10 +98,10 @@ function AwardConfirmation({
         delivery: candidate.job.delivery_postcode ?? candidate.job.delivery_location ?? 'Delivery',
         pickupDate: candidate.job.pickup_datetime ?? null,
         deliveryDate: candidate.job.delivery_datetime ?? null,
-        vehicle: (candidate.identity?.driverVehicleType ?? candidate.job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' '),
-        pallets: candidate.identity?.driverVehiclePallets ?? null,
+        vehicle: (candidate.identity?.driverVehicleType ?? candidate.job.requested_vehicle_label ?? candidate.job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' '),
+        pallets: candidate.job.pallets ?? candidate.identity?.driverVehiclePallets ?? null,
         tailLift: candidate.identity?.driverVehicleTailLift ?? false,
-        paymentTerms: null,
+        paymentTerms: candidate.job.payment_terms ?? null,
         carrierName: candidate.identity?.personName || candidate.displayName,
         companyName: candidate.identity?.companyName ?? null,
         memberId: candidate.identity?.memberId ?? null,
@@ -165,7 +165,7 @@ function MessageParticipantDialog({
   );
 }
 
-export default function CustomerQuotesCxPage() {
+export default function CustomerQuotesCxPage({routeBase='/customer'}:{routeBase?:'/customer'|'/broker'|'/admin'}={}) {
   const data = useCompanyWorkspaceData();
   const router = useRouter();
   const [working, setWorking] = useState<string | null>(null);
@@ -334,7 +334,7 @@ export default function CustomerQuotesCxPage() {
     setMessageBody('');
     setMessage('Message sent to the verified quote participant.');
     const conversation = payload.conversationId ? `&conversation=${encodeURIComponent(payload.conversationId)}` : '';
-    router.push(`/customer/messages?bidId=${encodeURIComponent(messageCandidate.bid.id)}&jobId=${encodeURIComponent(messageCandidate.job.id)}${conversation}`);
+    router.push(`${routeBase}/messages?bidId=${encodeURIComponent(messageCandidate.bid.id)}&jobId=${encodeURIComponent(messageCandidate.job.id)}${conversation}`);
   };
 
 
@@ -420,7 +420,7 @@ export default function CustomerQuotesCxPage() {
                   {bid.status === 'submitted' && !awardLocked ? <button type="button" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</button> : null}
                   {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <button type="button" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</button> : null}
                   {quoteStage === 'archived' ? <button type="button" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_poster')}>Restore</button> : null}
-                  <button type="button" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</button>
+                  <button type="button" onClick={() => router.push(`${routeBase}/jobs/${job.id}`)}>Open load</button>
                   <span className="xdrive-cx-quote-card__quote-state">{isPendingSelectedBid ? 'Offer sent - awaiting carrier' : quoteAmount}</span>
                   <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>{displayName}</span>
                 </>}

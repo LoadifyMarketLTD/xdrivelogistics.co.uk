@@ -92,7 +92,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(customerDashboard).not.toContain('tracked %');
   });
   it('surfaces pending carrier acceptance consistently instead of reporting Driver Assigned too early', () => {
-    expect(customerDashboard).toContain("fetch('/api/customer/booking-offers'");
+    expect(customerDashboard).toContain("fetchAllBookingOfferPages<BuyerBookingOffer>('/api/customer/booking-offers', token)");
     expect(customerDashboard).toContain('Awaiting Carrier Acceptance');
     expect(customerDashboard).toContain('Awaiting carrier acceptance');
     expect(customerDashboard).toContain("if (pendingOffer) return 'orange' as const");
