@@ -62,3 +62,14 @@ Source: app/try-xdrive-demo/components/MasterWorkspace.tsx + MasterWorkspacePoli
 - Production DB unchanged. Await preview desktop E2E before merge.
 
 2026-11-04 document safety blocker discovered and patched: /api/driver/documents GET previously called purgeExpiredDriverDocuments and physically deleted expired database rows and stored files while merely viewing documents. POST also automatically purged expired and replaced uploads. Removed these destructive automatic routines; GET now returns complete document history and authorized driver/company IDs. Desktop Documents view now displays all retained rows, including historical expired/replaced records, and uses server-resolved driver identity rather than client RLS lookup. No production data modified by implementation.
+
+## 2026-11-04 Approved Driver Master visual convergence
+Scope: authenticated Owner Driver /driver/loads, /driver/quotes, /driver/jobs (Bookings) and /driver/history (Diary). Isolated worktree D:\XDrive-OwnerDiary-Approved-20261104.
+- Root cause: production real routes still used pre-3118 CxLoadCard, CxQuoteCard, CxDiaryCard and legacy Job card despite Master sidebar having approved 3118 visuals.
+- Changes: one ApprovedDriverOperationalCard family reused in all four real routes; visual geometry sourced from already-approved 3118 xdrive-unified-board.css; approved orange/navy identity, consistent status/route/vehicle/commercial fields/action footer.
+- Diary: nine canonical statuses, live counts and KPIs, date navigation and search, preserving authenticated backend data and existing booking/POD/invoice actions.
+- Quotes: approved two tabs Submitted / Awarded. Submitted retains historical unsuccessful, withdrawn and incoming non-awarded records; Awarded includes accepted bids.
+- Loads: live marketplace query, quote submission and map remain connected; no simulated records.
+- Bookings: live assigned-job execution and POD route remain connected; no mutation of job state.
+- Evidence: initial TypeScript PASS, focused test suite 12/12 PASS, previous focused ESLint after component clean-up PASS. Final build and production preview E2E required before merge.
+- No database mutations, migrations, GitHub Actions, native/PWA or Invoice Pro changes.

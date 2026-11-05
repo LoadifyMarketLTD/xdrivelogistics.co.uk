@@ -13,7 +13,7 @@ import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import CxLoadCard from '../../components/workspace/CxLoadCard';
+import ApprovedDriverLoadCard from '../_components/ApprovedDriverLoadCard';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -357,6 +357,14 @@ export default function AvailableLoadsPage() {
             <div className="filter"><button type="button" className="btn primary" onClick={applySearch}>Search</button> <button type="button" className="btn" onClick={clearFilters}>Clear</button></div>
           </aside>
           <main className="main">
+            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Loads</h1><p className="xd-approved-board-subtitle">Live Freight Exchange — authorised loads available to quote</p></div></header>
+            <div className="xd-approved-board-kpis" aria-label="Real freight exchange statistics">
+              <div className="xd-approved-board-kpi"><strong>Available Loads</strong><b>{loads.length}</b><small>Live authorised records</small></div>
+              <div className="xd-approved-board-kpi blue"><strong>Matching Loads</strong><b>{filteredLoads.length}</b><small>Current search</small></div>
+              <div className="xd-approved-board-kpi green"><strong>Not Quoted</strong><b>{loads.filter(load => !load.myBid).length}</b><small>May request a quote</small></div>
+              <div className="xd-approved-board-kpi amber"><strong>Already Quoted</strong><b>{loads.filter(load => Boolean(load.myBid)).length}</b><small>Existing quote records</small></div>
+              <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
+            </div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-result-head">
@@ -395,7 +403,7 @@ export default function AvailableLoadsPage() {
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
                   return <Fragment key={load.id}>
-                    <CxLoadCard
+                    <ApprovedDriverLoadCard
                       className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}
                       from={load.pickup_area}
                       to={load.delivery_area}
@@ -406,6 +414,7 @@ export default function AvailableLoadsPage() {
                       postedAt={fmtDate(load.exchange_posted_at)}
                       loadId={load.id.slice(0,8).toUpperCase()}
                       vehicle={selectedVehicleLabel}
+                      paymentTerms={load.payment_terms ?? 'Not supplied'}
                       expanded={expanded}
                       freight={<>
                         <div><span>Dist:</span><strong>{jobDistance}</strong></div>

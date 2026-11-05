@@ -9,10 +9,10 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import CxQuoteCard from '../../components/workspace/CxQuoteCard';
+import ApprovedDriverQuoteCard from '../_components/ApprovedDriverQuoteCard';
 
 type QuoteDirection = 'outgoing' | 'incoming';
-type TabId = 'all' | 'received' | 'archived' | 'submitted' | 'unsuccessful';
+type TabId = 'submitted' | 'awarded';
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DetailAccess = 'marketplace' | 'assigned' | 'own' | 'protected';
 
@@ -134,9 +134,7 @@ function withinWindow(value: string | null, window: TimeWindow) {
 }
 function quoteBucket(bid: BidRow): TabId {
   const stage = canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
-  if (stage === 'archived' || stage === 'accepted') return 'archived';
-  if (stage === 'unsuccessful' || stage === 'withdrawn' || stage === 'expired') return 'unsuccessful';
-  return bid.direction === 'incoming' ? 'received' : 'submitted';
+  return stage === 'accepted' ? 'awarded' : 'submitted';
 }
 function normaliseCompany(value: unknown): { name: string } | null {
   if (Array.isArray(value)) return (value[0] as { name?: string | null } | undefined)?.name ? { name: String((value[0] as { name: string }).name) } : null;
@@ -195,9 +193,9 @@ export default function MyQuotesPage() {
   const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // Most Driver/Owner Driver activity consists of quotes sent to the exchange.
-  // Display the user's own submitted quotes immediately, not a blank Received tab.
-  const [activeTab, setActiveTab] = useState<TabId>('all');
+  // Keep the approved Submitted / Awarded split; completed and unsuccessful quotes
+  // remain visible within Submitted, including received quotes awaiting award.
+  const [activeTab, setActiveTab] = useState<TabId>('submitted');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -430,7 +428,7 @@ export default function MyQuotesPage() {
     return true;
   }), [appliedFilters, bids, companyNames, viewForBid]);
 
-  const tabBids = useMemo(() => filteredBids.filter((bid) => activeTab === 'all' || quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
+  const tabBids = useMemo(() => filteredBids.filter((bid) => quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
   const visibleBids = useMemo(() => tabBids.slice(0, visibleCount), [tabBids, visibleCount]);
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
   const canLoadMore = visibleCount < tabBids.length;
@@ -465,13 +463,18 @@ export default function MyQuotesPage() {
           </aside>
 
           <main className="main">
+            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Quotes</h1><p className="xd-approved-board-subtitle">Submitted &amp; Awarded — real quotation history</p></div></header>
+            <div className="xd-approved-board-kpis" aria-label="Real quote statistics">
+              <div className="xd-approved-board-kpi"><strong>Total Quotes</strong><b>{bids.length}</b><small>All quote records</small></div>
+              <div className="xd-approved-board-kpi blue"><strong>Submitted</strong><b>{bids.filter(bid => quoteBucket(bid) === 'submitted').length}</b><small>Including historical outcomes</small></div>
+              <div className="xd-approved-board-kpi green"><strong>Awarded</strong><b>{bids.filter(bid => quoteBucket(bid) === 'awarded').length}</b><small>Accepted quotations</small></div>
+              <div className="xd-approved-board-kpi amber"><strong>Received</strong><b>{bids.filter(bid => bid.direction === 'incoming').length}</b><small>On posted loads</small></div>
+              <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
+            </div>
             {error && <div className="vision-note">{error}</div>}
             <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Driver quote statuses">
-              <button type="button" role="tab" aria-selected={activeTab === 'all'} data-active={activeTab === 'all' ? 'true' : 'false'} className={activeTab === 'all' ? 'active' : ''} onClick={() => setActiveTab('all')}>All Quotes</button>
-              <button type="button" role="tab" aria-selected={activeTab === 'received'} data-active={activeTab === 'received' ? 'true' : 'false'} className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received</button>
-              <button type="button" role="tab" aria-selected={activeTab === 'archived'} data-active={activeTab === 'archived' ? 'true' : 'false'} className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived</button>
-              <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted</button>
-              <button type="button" role="tab" aria-selected={activeTab === 'unsuccessful'} data-active={activeTab === 'unsuccessful' ? 'true' : 'false'} className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful</button>
+              <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>({filteredBids.filter((bid) => quoteBucket(bid) === 'submitted').length})</span></button>
+              <button type="button" role="tab" aria-selected={activeTab === 'awarded'} data-active={activeTab === 'awarded' ? 'true' : 'false'} className={activeTab === 'awarded' ? 'active' : ''} onClick={() => setActiveTab('awarded')}>Awarded <span>({filteredBids.filter((bid) => quoteBucket(bid) === 'awarded').length})</span></button>
               <span className="cx-quote-state-tabs__action" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}><label>Items per Page <select aria-label="Items per Page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span>
             </div>
 
@@ -506,7 +509,7 @@ export default function MyQuotesPage() {
                               ? `Quote ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`
                               : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
 
-                  return <CxQuoteCard
+                  return <ApprovedDriverQuoteCard
                     key={bid.id}
                     routeFrom={view.pickup}
                     routeTo={view.delivery}
