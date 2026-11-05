@@ -4,8 +4,19 @@ const read = (path:string) => readFileSync(new URL(`../${path}`, import.meta.url
 
 describe('Master web workspace mobile navigation independent of Driver PWA',()=>{
   const master=read('app/try-xdrive-demo/components/OperationsDemo.tsx');
+  const production=read('app/components/workspace/AuthenticatedMasterShell.tsx');
+  const dispatcher=read('app/try-xdrive-demo/components/MasterWorkspace.tsx');
   const sidebar=read('app/try-xdrive-demo/components/ApprovedSidebar.tsx');
   const css=read('app/try-xdrive-demo/components/mobile-master-navigation.css');
+  it('wires the actual authenticated production Master shell, not only the preview',()=>{
+    expect(dispatcher).toContain('<AuthenticatedMasterShell role={role} activeTab={initialTab}>');
+    expect(production).toContain('xd-mobile-nav-toggle');
+    expect(production).toContain('aria-expanded={mobileMenuOpen}');
+    expect(production).toContain('mobileOpen={mobileMenuOpen}');
+    expect(production).toContain('mobile-master-navigation.css');
+    expect(production).toContain('onMobileClose={()=>setMobileMenuOpen(false)}');
+    expect(production).toContain('original=document.body.style.overflow');
+  });
   it('provides a mobile menu button and a screen-reader labelled Master navigation',()=>{
     expect(master).toContain('xd-mobile-nav-toggle');
     expect(master).toContain('aria-expanded={mobileMenuOpen}');
