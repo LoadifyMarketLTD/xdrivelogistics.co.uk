@@ -6,6 +6,8 @@ import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import FreshJobCard from '../../FreshJobCard';
 import LoadRoutePreview from '../../LoadRoutePreview';
+import CxLoadFacts from '../../CxLoadFacts';
+import '../../cx-load-facts.css';
 import { FreshBottom, FreshHeader } from '../../FreshNavigation';
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 
@@ -97,16 +99,7 @@ export default function FreshLoadDetail() {
       {loading ? <div className="fresh-message" role="status">Loading load details…</div> : null}
       {!loading && !load && error ? <div className="fresh-message" role="alert">{error}<p><button type="button" onClick={() => void fetchDetail()}>Try again</button></p></div> : null}
       {load ? <><FreshJobCard headerOnly load={{...load,service_mode:(load as Load & {service_mode?:string|null}).service_mode || 'DIRECT',requested_vehicle_type:load.vehicle_type,distance_to_pickup_miles:null,distance_to_delivery_miles:null,exchange_posted_at:(load as Load & {exchange_posted_at?:string|null}).exchange_posted_at || null,member:load.member?{name:load.member.name,postedBy:load.member.name}:null}}/><article className="fresh-card fresh-details-card"><LoadRoutePreview pickup={load.pickup_postcode_area || load.pickup_area} delivery={load.delivery_postcode_area || load.delivery_area} loadId={load.id} />
-        <section className="fresh-preview-data fresh-details-spec xd-compact-detail" data-testid="cargo-details"><h2>Transport &amp; Cargo</h2><dl className="fresh-facts">
-<dt>Vehicle</dt><dd>{load.requested_vehicle_label || load.vehicle_type || 'Not specified'}</dd>
-{load.distance_miles != null ? <><dt>Distance</dt><dd>{load.distance_miles} miles</dd></> : null}
-{load.weight_kg != null ? <><dt>Weight</dt><dd>{load.weight_kg} kg</dd></> : null}
-{load.pallets != null ? <><dt>Pallets</dt><dd>{load.pallets}</dd></> : null}
-{load.length_cm != null && load.width_cm != null && load.height_cm != null ? <><dt>Dimensions</dt><dd>{load.length_cm} × {load.width_cm} × {load.height_cm} cm</dd></> : null}
-{load.pallet_stackable != null ? <><dt>Stackable</dt><dd>{load.pallet_stackable ? 'Yes' : 'No'}</dd></> : null}
-</dl></section>
-<section className="fresh-preview-customer fresh-details-customer xd-compact-detail"><h2>Customer / Broker</h2><p><strong>{load.member?.name || 'Marketplace member'}</strong>{load.member?.memberId ? <span className="xd-member-id"> · {load.member.memberId}</span> : null}</p>{load.payment_terms ? <p>Payment terms: <strong>{load.payment_terms}</strong></p> : null}<div className="xd-detail-links"><Link href={'/driver-pwa-fresh/messages?jobId='+encodeURIComponent(load.id)}>Message company</Link></div></section>
-{load.public_quote_notes ? <section className="fresh-preview-notes xd-compact-detail"><h2>Instructions</h2><p>{load.public_quote_notes}</p></section> : null}
+        <CxLoadFacts load={load} /><div className="xd-detail-links"><Link href={"/driver-pwa-fresh/messages?jobId="+encodeURIComponent(load.id)}>Message company</Link></div>
 <section className="fresh-preview-feedback fresh-details-feedback xd-compact-detail"><h2>Company feedback</h2><p>No verified feedback available yet.</p></section>
 <section id="quote" className="fresh-actions fresh-details-quote" aria-label="Quote Now"><h2>Your Quote</h2>
           {success ? <p role="status">Your quote was submitted successfully.</p> :
