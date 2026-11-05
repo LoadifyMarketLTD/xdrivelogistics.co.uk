@@ -317,3 +317,60 @@
   .xdrive-approved-postload-3150 .approved-postload-stop-section .approved-postload-contact-fields {grid-template-columns:1fr;}
   .xdrive-approved-postload-3150 .xdrive-postload-actions button {flex:1;}
 }
+
+/* Five controls share one horizontal baseline on desktop. */
+.xdrive-approved-postload-3150 .approved-postload-intro {
+  display:flex !important;
+  flex-direction:row !important;
+  align-items:center !important;
+  flex-wrap:nowrap !important;
+  gap:12px !important;
+}
+.xdrive-approved-postload-3150 .approved-postload-heading {
+  flex:1 1 auto;
+  min-width:150px;
+  margin-right:auto;
+}
+.xdrive-approved-postload-3150 .approved-postload-modes,
+.xdrive-approved-postload-3150 .approved-postload-header-actions {
+  flex:0 0 auto;
+  width:auto !important;
+  display:flex !important;
+  align-items:center !important;
+  flex-direction:row !important;
+  flex-wrap:nowrap !important;
+  justify-content:flex-end !important;
+  gap:6px !important;
+  margin:0 !important;
+  align-self:center !important;
+}
+.xdrive-approved-postload-3150 .approved-postload-modes button,
+.xdrive-approved-postload-3150 .approved-postload-header-actions button {
+  flex:0 0 auto !important;
+  white-space:nowrap;
+  height:40px !important;
+  min-height:40px !important;
+  padding:9px 12px !important;
+  font-size:12px !important;
+  line-height:20px !important;
+  margin:0 !important;
+}
+.xdrive-approved-postload-3150 .approved-postload-modes button[aria-pressed="true"],
+.xdrive-approved-postload-3150 .approved-postload-header-actions button[aria-pressed="true"] {
+  background:var(--xd-orange) !important;
+  border-color:var(--xd-orange) !important;
+  color:#fff !important;
+}
+@media(max-width:1130px) {
+  .xdrive-approved-postload-3150 .approved-postload-intro { flex-wrap:wrap !important; }
+  .xdrive-approved-postload-3150 .approved-postload-heading {flex-basis:100%;}
+  .xdrive-approved-postload-3150 .approved-postload-modes,
+  .xdrive-approved-postload-3150 .approved-postload-header-actions {flex:0 0 auto;}
+}
+@media(max-width:710px) {
+  .xdrive-approved-postload-3150 .approved-postload-intro {gap:9px !important;}
+  .xdrive-approved-postload-3150 .approved-postload-modes,
+  .xdrive-approved-postload-3150 .approved-postload-header-actions {width:100% !important;justify-content:flex-start !important;}
+  .xdrive-approved-postload-3150 .approved-postload-modes button,
+  .xdrive-approved-postload-3150 .approved-postload-header-actions button {flex:1 1 0 !important;min-width:0 !important;font-size:11px !important;padding:8px 5px !important;}
+}

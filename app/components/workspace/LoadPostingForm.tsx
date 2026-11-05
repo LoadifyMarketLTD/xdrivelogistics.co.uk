@@ -795,7 +795,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         </div>
         <div className="approved-postload-header-actions">
           <button type="button" onClick={() => router.push(mode === 'broker' ? '/broker/loads' : mode === 'customer' ? '/customer/loads' : mode === 'owner' ? '/driver/loads' : '/admin/jobs')}>Open Saved Loads</button>
-          <button type="button" onClick={() => setShowOptional((current) => !current)}>{showOptional ? 'Close All Optional' : 'Open All Optional'}</button>
+          <button type="button" aria-pressed={!showOptional} onClick={() => setShowOptional((current) => !current)}>{showOptional ? 'Close All Optional' : 'Open All Optional'}</button>
         </div>
       </div>
       <p className="approved-postload-explainer">Only town and outcode are visible to carriers before award; complete collection and delivery addresses remain private.</p>
