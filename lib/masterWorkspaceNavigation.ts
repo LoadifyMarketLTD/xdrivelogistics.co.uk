@@ -27,7 +27,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
   ],
   Driver: [
     '/driver', null, '/driver/loads', '/driver/quotes',
-    '/driver/jobs', '/driver/vehicles', null, '/driver/history',
+    '/driver/jobs', '/driver/fleet', '/driver/drivers', '/driver/history',
     null, '/driver/network', '/driver/directory',
     '/driver/availability', '/driver/returns', '/driver/freight-vision',
     '/driver/messages', '/driver/notifications', null,
@@ -55,14 +55,14 @@ export const MASTER_AUTHENTICATED_ROUTES = {
   ],
   'Owner Driver': [
     '/driver', '/driver/post-load', '/driver/loads', '/driver/quotes',
-    '/driver/jobs', '/driver/vehicles', null, '/driver/history',
+    '/driver/jobs', '/driver/fleet', '/driver/drivers', '/driver/history',
     '/driver/finance', '/driver/network', '/driver/directory',
     '/driver/availability', '/driver/returns', '/driver/freight-vision',
     '/driver/messages', '/driver/notifications', null,
   ],
   Dispatcher: [
     '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
-    '/admin/won-work', '/admin/fleet/assignments', '/admin/drivers', '/admin/diary',
+    '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
     '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
     '/admin/live-availability', '/admin/fleet/returns', '/admin/freight-vision',
     '/admin/messages', '/admin/notifications', '/admin/reports',

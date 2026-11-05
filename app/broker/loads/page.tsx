@@ -152,6 +152,7 @@ export default function BrokerLoadsPage() {
                     postedAt={<>{budget > 0 ? `Budget ${money(budget)}` : 'Budget not set'} · {quotes.length} quote{quotes.length === 1 ? '' : 's'}</>}
                     loadId={job.id.slice(0, 8).toUpperCase()}
                     vehicle={vehicleLabel}
+                    paymentTerms={job.payment_terms ?? 'Not supplied'}
                     expanded={open}
                     dataState={statusOf(job)}
                     freight={<>

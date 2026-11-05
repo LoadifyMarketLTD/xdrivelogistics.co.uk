@@ -8,6 +8,7 @@ import BookingConfirmationFullPage from '../../customer/quotes/BookingConfirmati
 import type { WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
 import CxQuoteCard from '../../components/workspace/CxQuoteCard';
+import Master3150QuotesKpis from '../../components/workspace/Master3150QuotesKpis';
 import { cxDateParts } from '../../components/workspace/CxLoadCard';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
@@ -213,6 +214,7 @@ export default function BrokerQuotesPage() {
             <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleAllVisible} disabled={!rows.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button><button type="button" className="cx-expand-entries-control" onClick={() => void data.refresh()}>Refresh</button></span>
           </div>
 
+          <Master3150QuotesKpis stages={data.bids.map(bid => canonicalQuoteStage(bid, 'poster'))} />
           {rows.length === 0 ? (
             <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}><EmptyState compact title="No matching quotes" description="Carrier responses will appear here when they match the selected status and filters." /></div>
           ) : (

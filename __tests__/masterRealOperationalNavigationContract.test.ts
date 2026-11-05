@@ -26,7 +26,7 @@ describe('canonical Master navigation routes real authenticated modules', () => 
     expect(master).toContain("'/driver/loads'");
   });
   it('preserves Customer role isolation even inside the preview-isolation wrapper', () => {
-    expect(source('app/try-xdrive-demo/components/MasterWorkspace.tsx')).toContain('role==="Customer"');
+    expect(source('app/try-xdrive-demo/components/MasterWorkspace.tsx')).toContain('<AuthenticatedMasterShell role={role}');
     expect(master).not.toContain('if(authenticated && !preview && i===2)');
   });
   it('real data adapters are present for posted loads, bids, bookings, diary and invoices', () => {

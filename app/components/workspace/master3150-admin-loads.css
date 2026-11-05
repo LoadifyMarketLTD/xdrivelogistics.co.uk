@@ -1,0 +1,118 @@
+/* Native approved 3150 board composition for Company/Carrier Loads.
+   Reuses original Admin handlers, RBAC and Supabase queries. */
+.master3150-admin-loads-page{
+ display:grid !important;
+ grid-template-columns:220px minmax(0,1fr) !important;
+ align-items:start !important;
+ column-gap:18px !important;
+ row-gap:14px !important;
+ background:#f7f9fc !important;
+ min-height:76vh;
+}
+.master3150-admin-loads-page>div:first-child{
+ grid-column:1/-1;
+ grid-row:1;
+}
+.master3150-admin-loads-page .master3150-admin-load-tabs{
+ display:flex !important;
+ flex-wrap:wrap;
+ grid-column:2;
+ grid-row:2;
+ overflow-x:auto;
+ border-bottom:1px solid #d9e2ee;
+ background:transparent;
+ border-radius:0;
+ margin:0 !important;
+ gap:5px !important;
+ padding:0 !important;
+}
+.master3150-admin-load-tabs button{
+ border:0 !important;
+ border-bottom:3px solid transparent !important;
+ background:transparent !important;
+ border-radius:0 !important;
+ padding:10px 12px !important;
+ min-height:40px;
+ font-size:12px !important;
+ font-weight:750 !important;
+ color:#10213d !important;
+ cursor:pointer;
+}
+.master3150-admin-load-tabs button[aria-selected=true]{
+ border-bottom-color:#ff7900 !important;
+}
+.master3150-admin-loads-page .master3150-admin-filters{
+ display:flex !important;
+ flex-direction:column !important;
+ align-items:stretch !important;
+ gap:10px !important;
+ grid-column:1 !important;
+ grid-row:2 / span 3 !important;
+ background:#fff !important;
+ padding:14px 12px !important;
+ margin:0 !important;
+ border:1px solid #d9e2ee !important;
+ border-radius:9px !important;
+ box-shadow:0 2px 6px rgba(11,47,107,.08) !important;
+ min-width:0 !important;
+ width:220px !important;
+ height:auto !important;
+ position:sticky;
+ top:12px;
+}
+.master3150-admin-filters::before{
+ content:'Find Loads';
+ display:block;
+ background:#eef2f8;
+ padding:12px;
+ margin:-14px -12px 4px;
+ color:#071b3b;
+ font-size:17px;
+ font-weight:850;
+ border-radius:9px 9px 0 0;
+}
+.master3150-admin-filters input,
+.master3150-admin-filters select{
+ display:block !important;
+ min-width:0 !important;
+ width:100% !important;
+ height:34px !important;
+ flex:initial !important;
+ background:#fff !important;
+ color:#10213d !important;
+ border:1px solid #cbd5e1 !important;
+ border-radius:5px !important;
+ padding:5px 8px !important;
+ font-size:12px !important;
+}
+.master3150-admin-filters>div{display:contents}
+.master3150-admin-filters>button{width:100%}
+.master3150-admin-loads-page .master3150-admin-hidden-table{display:none !important}
+.master3150-admin-loads-page .master3150-admin-loads-list{
+ display:block !important;
+ grid-column:2;
+ grid-row:3;
+ min-width:0;
+}
+.master3150-admin-loads-page .master-jobs-pagination{
+ grid-column:2;
+ grid-row:4;
+}
+.master3150-admin-loads-page .master3150-admin-loads-list .master3150-record{
+ width:100%;
+}
+.master3150-admin-loads-page [role=alert],
+.master3150-admin-loads-page [role=status]{
+ grid-column:1/-1;
+}
+@media(max-width:1020px){
+ .master3150-admin-loads-page{grid-template-columns:185px minmax(0,1fr)!important;column-gap:10px!important}
+ .master3150-admin-loads-page .master3150-admin-filters{width:185px!important}
+}
+@media(max-width:690px){
+ .master3150-admin-loads-page{grid-template-columns:minmax(0,1fr)!important}
+ .master3150-admin-loads-page .master3150-admin-load-tabs{grid-column:1;grid-row:2}
+ .master3150-admin-loads-page .master3150-admin-filters{grid-column:1!important;grid-row:3!important;width:100%!important;position:static}
+ .master3150-admin-loads-page .master3150-admin-loads-list{grid-column:1;grid-row:4}
+ .master3150-admin-loads-page .master-jobs-pagination{grid-column:1;grid-row:5}
+}

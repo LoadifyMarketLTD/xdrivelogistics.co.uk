@@ -14,6 +14,7 @@ import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
+import Master3150QuotesKpis from './Master3150QuotesKpis';
 import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
 import { MemberProfileOverlay } from './MemberProfile';
@@ -524,10 +525,11 @@ export default function CompanyMarketplaceExchange({
                   pickup={pickupWhen}
                   delivery={deliveryWhen}
                   band={descriptionLabel(load.jobDescription)}
-                  posted={<>Posted by {load.posterName}</>}
+                  posted={load.posterName}
                   postedAt={load.exchange_posted_at ? <>@ {cxWhen(load.exchange_posted_at)}</> : null}
                   loadId={load.id.slice(0, 8).toUpperCase()}
                   vehicle={requestedVehicle}
+                  paymentTerms={load.payment_terms || 'Not Supplied'}
                   expanded={isExpanded}
                   freight={<>
                     <div><span>Dist:</span><strong>{load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
@@ -579,6 +581,7 @@ export default function CompanyMarketplaceExchange({
             ['submitted', 'Submitted'],
             ['unsuccessful', 'Unsuccessful'],
           ] as const).map(([id, label]) => <button key={id} type="button" aria-selected={quoteStateView === id} onClick={() => setQuoteStateView(id)} className={`carrier-exchange-tab${quoteStateView === id ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}<span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleAllVisibleQuotes} disabled={!visibleBids.length}>{allVisibleQuotesExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span></div>
+          <Master3150QuotesKpis stages={bids.map(bid => bidStage(bid))} />
           <div className="xdrive-cx-quote-list">
             {visibleBids.map((bid) => {
               const expandedQuote = expandedQuotes.has(bid.id);

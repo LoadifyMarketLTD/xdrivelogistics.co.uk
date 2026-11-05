@@ -10,6 +10,8 @@ import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminTopbar from './SuperAdminTopbar';
 import styles from './SuperAdminCardNavigationShell.module.css';
 import '../../components/workspace/master3150-production.css';
+import '../../components/workspace/master3150-design-system.css';
+import '../../components/workspace/master3150-operations-shell.css';
 
 export default function SuperAdminCardNavigationShell({
   children,

@@ -12,7 +12,7 @@ export default function ApprovedDriverQuoteCard({
  loadId:ReactNode;vehicle:string;stage?:string;expanded?:boolean;
  expandedContent?:ReactNode;footer:ReactNode;paymentTerms?:ReactNode;
 }) {
- return <ApprovedDriverOperationalCard
+ return <ApprovedDriverOperationalCard mode="quote"
   from={routeFrom} to={routeTo} pickup={pickup} delivery={delivery}
   band={sold?'SOLD':band} member={service} postedAt={postedAt}
   loadId={loadId} vehicle={vehicle} paymentTerms={paymentTerms}

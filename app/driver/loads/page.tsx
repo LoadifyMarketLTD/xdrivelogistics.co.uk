@@ -417,7 +417,7 @@ export default function AvailableLoadsPage() {
                       paymentTerms={load.payment_terms ?? 'Not supplied'}
                       expanded={expanded}
                       freight={<>
-                        <div><span>Dist:</span><strong>{jobDistance}</strong></div>
+                        <div><span>Job Distance:</span><strong>{jobDistance}</strong></div>
                         <div><span>Weight:</span><strong>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</strong></div>
                         <div><span>Packaging:</span><strong>{cargoLabel}</strong></div>
                         <div><span>Dims:</span><strong>{dim ?? 'Not supplied'}</strong></div>

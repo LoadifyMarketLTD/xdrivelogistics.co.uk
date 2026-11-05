@@ -16,7 +16,7 @@ export default function ApprovedDriverDiaryCard({
  footerRole?:string;footerAriaLabel?:string;footerClassName?:string;
  onDetails:()=>void;
 }){
- return <ApprovedDriverOperationalCard from={from} to={to} pickup={pickup} delivery={delivery}
+ return <ApprovedDriverOperationalCard mode="diary" from={from} to={to} pickup={pickup} delivery={delivery}
    band={band} member={statusLine} vehicle={vehicle} loadId={loadId}
    state={dataState??state??stage} className={`xd-approved-diary-card ${className}`}
    facts={<span>{statusStamp}</span>} expanded={expanded}

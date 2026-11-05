@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader } from './WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, PageFrame } from './WorkspaceUI';
+import Master3150RealFleetBoard from './Master3150RealFleetBoard';
 
 type Vehicle = {
   id: string; reg_plate: string | null; type: string | null;
@@ -15,7 +16,7 @@ type Driver = {
 };
 type FleetResponse = { companyId?: string; vehicles?: Vehicle[]; drivers?: Driver[]; limited?: boolean; error?: string; access?: string };
 
-export default function MemberFleetOverview({ section }: { section: 'fleet'|'drivers' }) {
+export default function MemberFleetOverview({ section, canManage = false, manageHref }: { section: 'fleet'|'drivers'; canManage?: boolean; manageHref?: string }) {
   const data = useCompanyWorkspaceData();
   const [fleet,setFleet] = useState<FleetResponse | null>(null);
   const [loading,setLoading] = useState(true);
@@ -55,37 +56,15 @@ export default function MemberFleetOverview({ section }: { section: 'fleet'|'dri
     return ()=>{alive=false;};
   },[companyId,revision]);
 
-  const driversById = useMemo(()=>new Map((fleet?.drivers||[]).map((driver)=>[driver.id,driver.display_name||'Not recorded'])),[fleet]);
-  const unavailable = loading || !!error || !fleet || fleet.limited === true;
-  const rows = section==='fleet'
-    ? (fleet?.vehicles||[]).map((vehicle)=>[
-      vehicle.reg_plate||'Not recorded',vehicle.type||'Not recorded',vehicle.body_type||'Not recorded',
-      vehicle.payload_kg != null ? `${vehicle.payload_kg} kg`:'Not recorded',
-      vehicle.pallets_capacity != null ? `${vehicle.pallets_capacity} pallets`:'Not recorded',
-      vehicle.assigned_driver_id?driversById.get(vehicle.assigned_driver_id)||'Not verified':'Unassigned'
-    ])
-    : (fleet?.drivers||[]).map((driver)=>[
-      driver.display_name||'Not recorded',driver.status||'Not recorded',
-      driver.availability_status||'Not recorded',
-      (fleet?.vehicles||[]).filter(vehicle=>vehicle.assigned_driver_id===driver.id).map(vehicle=>vehicle.reg_plate||vehicle.type||'Vehicle').join(', ')||'No assigned vehicle'
-    ]);
-
   return <PageFrame>
-    <PageHeader title={section==='fleet'?'My Fleet':'Drivers'}
-      eyebrow="XDrive Logistics / Verified company records"
-      description="Own-company fleet and driver records only. This read-only view does not grant administrative permissions."
-      actions={<ActionButton tone="secondary" disabled={loading} onClick={refresh}>Refresh</ActionButton>} />
-    {error&&<AlertBanner tone="warning">{error}</AlertBanner>}
-    {fleet?.limited&&<AlertBanner tone="warning">This company has more records than can be safely verified in one request. Complete totals are unavailable.</AlertBanner>}
-    <div className="xd-fleet-metrics" style={{marginBottom:15,display:'flex',gap:12,flexWrap:'wrap'}}>
-      <div className="workspace-panel" style={{padding:12}}>Vehicles <strong>{unavailable?'Unavailable':fleet.vehicles?.length}</strong></div>
-      <div className="workspace-panel" style={{padding:12}}>Drivers <strong>{unavailable?'Unavailable':fleet.drivers?.length}</strong></div>
-      <div className="workspace-panel" style={{padding:12}}>Access <strong>Own company only</strong></div>
+    <div className="master3150-real-fleet-controls">
+      <span>Verified company records · Access restricted to the active company</span>
+      <ActionButton tone="secondary" disabled={loading} onClick={refresh}>Refresh</ActionButton>
     </div>
-    <DataTable
-      columns={section==='fleet'?['Registration','Vehicle','Body','Payload','Capacity','Assigned driver']:['Driver','Status','Availability','Assigned vehicle']}
-      rows={unavailable?[]:rows}
-      empty={<EmptyState title={loading?'Loading company records':error?'Company records unavailable':fleet?.limited?'Incomplete company records':section==='fleet'?'No registered company vehicles':'No registered company drivers'} />}
-    />
+    {error&&<AlertBanner tone="warning">{error}</AlertBanner>}
+    {loading||!fleet ? <EmptyState title={loading?'Loading company records':'Company records unavailable'} /> : (
+      <Master3150RealFleetBoard section={section} vehicles={fleet.vehicles??[]} drivers={fleet.drivers??[]}
+        canManage={canManage} manageHref={manageHref} limited={fleet.limited === true}/>
+    )}
   </PageFrame>;
 }

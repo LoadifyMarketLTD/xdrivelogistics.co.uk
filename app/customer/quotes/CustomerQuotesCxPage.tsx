@@ -10,6 +10,7 @@ import BookingConfirmationFullPage from './BookingConfirmationFullPage';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxQuoteCard from '../../components/workspace/CxQuoteCard';
+import Master3150QuotesKpis from '../../components/workspace/Master3150QuotesKpis';
 import { cxDateParts } from '../../components/workspace/CxLoadCard';
 import {
   ActionButton,
@@ -369,6 +370,7 @@ export default function CustomerQuotesCxPage({routeBase='/customer'}:{routeBase?
         <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" disabled={!visibleQuoteIds.length} onClick={toggleAllVisible}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button><button type="button" className="cx-expand-entries-control" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</button></span>
       </div>
 
+      <Master3150QuotesKpis stages={data.bids.map(bid => canonicalQuoteStage(bid, 'poster'))} />
       {grouped.length === 0 ? (
         <OperationalCard>
           <EmptyState title={data.loading ? 'Loading quotes...' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." />

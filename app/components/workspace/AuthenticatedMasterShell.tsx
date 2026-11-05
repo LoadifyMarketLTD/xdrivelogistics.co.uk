@@ -14,6 +14,8 @@ import '../../try-xdrive-demo/components/operations-demo.css';
 import '../../try-xdrive-demo/components/company-sidebar-compact.css';
 import '../../try-xdrive-demo/components/company-layout-stability.css';
 import './master3150-production.css';
+import './master3150-design-system.css';
+import './master3150-operations-shell.css';
 import './master3150-board-reference.css';
 import '../../try-xdrive-demo/components/mobile-master-navigation.css';
 import './authenticated-master-mobile-content.css';

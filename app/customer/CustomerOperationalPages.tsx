@@ -109,6 +109,7 @@ function CustomerOperationalRow({
         postedAt={job.booking_reference ? `Booking ${job.booking_reference}` : job.customer_reference ? `Customer ref ${job.customer_reference}` : 'XDrive transport'}
         loadId={job.id.slice(0, 8).toUpperCase()}
         vehicle={vehicle}
+        paymentTerms={job.payment_terms ?? 'Not supplied'}
         expanded={open}
         dataState={presentationState}
         freight={<>

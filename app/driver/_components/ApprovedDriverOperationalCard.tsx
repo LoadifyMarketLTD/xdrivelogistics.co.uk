@@ -1,6 +1,7 @@
 'use client';
 import type { ReactNode } from 'react';
 import type { CxDateParts } from '../../components/workspace/CxLoadCard';
+import Master3150Card, { type Master3150CardMode } from '../../components/workspace/Master3150Card';
 
 export type ApprovedDriverCardProps = {
   from: ReactNode;
@@ -20,32 +21,40 @@ export type ApprovedDriverCardProps = {
   className?: string;
   state?: string;
   children?: ReactNode;
+  mode?: Master3150CardMode;
 };
 
+/**
+ * Authenticated Driver workspace adapter to the same approved 3150 card used
+ * by Company, Customer and Broker. Operational handlers are supplied by the
+ * caller and are never simulated or copied from preview components.
+ */
 export default function ApprovedDriverOperationalCard({
   from, to, pickup, delivery, band, loadId, vehicle, member, footer,
-  expanded, expandedContent, facts, paymentTerms, postedAt, className='', state, children,
+  expanded, expandedContent, facts, paymentTerms, postedAt, className='', state,
+  children, mode='load',
 }: ApprovedDriverCardProps) {
-  return <article className={`xd-board-card xd-shared-job-card xd-approved-live-card ${className}`} data-state={state}>
-    <div className="xd-card-date">
-      <span>COLLECT</span>
-      <strong>{pickup.primary}</strong>
-      <small>{pickup.meta}</small>
-      <em>{band}</em>
-    </div>
-    <div className="xd-card-main">
-      <h3><span>{from}</span><i aria-hidden="true">→</i><span>{to}</span></h3>
-      <p className="xd-card-distance"><strong>Collection:</strong> {pickup.primary} {pickup.meta} <b className="xd-card-divider">|</b> <strong>Delivery:</strong> {delivery.primary} {delivery.meta}</p>
-      <div className="xd-card-facts"><span>{vehicle}</span>{facts}</div>
-      <p className="xd-card-terms"><b>Ref:</b> {loadId} <b className="xd-card-divider">|</b> <b>Payment Terms:</b> {paymentTerms ?? 'See booking details'}</p>
-    </div>
-    <div className="xd-card-company">
-      <small>Booking / member</small>
-      <strong>{member}</strong>
-      {postedAt && <small>{postedAt}</small>}
-    </div>
-    <div className="xd-approved-live-footer">{footer}</div>
-    {expanded && expandedContent && <div className="xd-approved-live-details">{expandedContent}</div>}
-    {children}
-  </article>;
+  return <Master3150Card
+    mode={mode}
+    className={`xd-approved-live-card ${className}`}
+    mainClassName="xd-card-main"
+    statusClassName="xd-card-company"
+    footerClassName="xd-approved-live-footer"
+    from={from}
+    to={to}
+    pickup={pickup}
+    delivery={delivery}
+    band={band}
+    loadId={loadId}
+    vehicle={vehicle}
+    posted={member}
+    postedAt={postedAt}
+    facts={facts}
+    terms={paymentTerms ?? 'See booking details'}
+    footer={footer}
+    expanded={expanded}
+    expandedContent={expandedContent ? <div className="xd-approved-live-details">{expandedContent}</div> : null}
+    extra={children}
+    state={state}
+  />;
 }
