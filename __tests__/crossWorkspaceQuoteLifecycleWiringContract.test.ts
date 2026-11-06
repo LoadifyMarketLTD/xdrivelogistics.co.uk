@@ -26,7 +26,7 @@ describe('cross-workspace quote lifecycle wiring', () => {
       for (const label of ['Received', 'Archived', 'Submitted', 'Unsuccessful']) expect(source).toContain(label);
       expect(source).toContain('archive_bidder');
       for (const terminal of ['accepted', 'unsuccessful', 'withdrawn', 'expired']) expect(source).toContain(`'${terminal}'`);
-      expect(source).toContain("stage === 'archived'");
+      expect(source).toMatch(/(?:quoteStage|stage) === 'archived'/);
     }
     expect(driver).not.toContain('Accepted / Won');
     expect(carrier).not.toContain('Accepted / Won');
