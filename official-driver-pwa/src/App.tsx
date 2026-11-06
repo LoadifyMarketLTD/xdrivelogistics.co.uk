@@ -581,17 +581,14 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
             ) : tab === "Invoices" ? (
               getAccessToken ? <section className="empty"><h2>Invoices</h2><p>View your real XDrive invoices and payment records in Driver Finance.</p><a className="primary" href="/driver/finance">Open Driver Finance</a></section> : <LocalInvoices jobs={jobs} />
             ) : tab === "Map" ? (
-              <div className="empty">
-                <span>Map</span>
-                <h2>Map</h2>
-                <p>
-                  Live location and load markers require approved map
-                  configuration and backend access. No fabricated vehicle
-                  positions are displayed.
-                </p>
-                <button onClick={() => setTab("Loads")}>Back to Loads</button>
-              </div>
-            ) : (
+              <section className="settings" aria-label="Map jobs">
+                <h2>Job locations</h2>
+                <p>Select a real load or assigned booking to view its collection and delivery on the map.</p>
+                {jobs.filter(j => j.status === "OPEN" || j.status !== "DELIVERED").length === 0 ? <p>No active job locations are available.</p> : jobs.filter(j => j.status === "OPEN" || j.status !== "DELIVERED").map(j => (
+                  <button key={j.id} type="button" onClick={() => setRouteJobId(j.id)}>{j.from} → {j.to} · {j.vehicle}</button>
+                ))}
+                <button type="button" onClick={() => setTab("Loads")}>Back to Loads</button>
+              </section>            ) : (
               <div className="settings">
                 <button type="button" onClick={() => setTab("Bookings")}>Bookings</button>
                 <button type="button" onClick={() => setTab("Alerts")}>Alerts</button>
