@@ -310,7 +310,12 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
         sheet.vehicle.hasTailLift === true ? 'Tail lift' : null,
       ].filter(Boolean).join(' · ') || undefined
     : undefined;
-  const privateStopAccess = mode !== 'carrier' || Boolean(sheet.carrier?.companyId && sheet.viewerCompanyId === sheet.carrier.companyId);
+  const privateStopAccess = mode !== 'carrier' || Boolean(
+    sheet.viewerCompanyId && (
+      sheet.viewerCompanyId === sheet.ownerCompany.companyId ||
+      sheet.viewerCompanyId === sheet.carrier?.companyId
+    )
+  );
   const collectionPublicLocation = privateStopAccess ? sheet.route.pickup.postcode ?? 'Not recorded' : formatPublicOutcode(sheet.route.pickup.postcode);
   const deliveryPublicLocation = privateStopAccess ? sheet.route.delivery.postcode ?? 'Not recorded' : formatPublicOutcode(sheet.route.delivery.postcode);
   const acceptedBidderDriverLabel = sheet.acceptedBidderDriver
@@ -429,7 +434,9 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
       </div>
 
       {tab === 'agreement' && (
-        <div style={{ display: 'grid', gap: 8 }}>
+        <details className="xdrive3150-real-transport__extended">
+          <summary>Full commercial agreement, amendments and adjustments</summary>
+          <div style={{ display: 'grid', gap: 8, padding: 14 }}>
           <div className="workspace-detail-grid">
             <Detail label="XDrive reference" value={sheet.references.xdrive} detail={sheet.references.booking ? `Customer booking ref ${sheet.references.booking}` : undefined} />
             <Detail label="Transport status" value={<StatusBadge value={presentationStatus} />} detail={sheet.updatedAt ? `Last updated ${when(sheet.updatedAt)}` : undefined} />
@@ -485,7 +492,8 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
               </div>
             )) : <EmptyState compact title="No execution extras recorded" description={sheet.unavailable.extras ?? undefined} />}
           </div>
-        </div>
+          </div>
+        </details>
       )}
 
       {tab === 'route' && (

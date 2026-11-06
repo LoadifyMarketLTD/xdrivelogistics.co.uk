@@ -10,7 +10,7 @@ import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
-import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import { brokerDiaryStage, classifyWorkspaceJobStage, isDiaryBookingJob, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 
@@ -38,14 +38,17 @@ const cxTimeParts = (value: string | null | undefined) => {
 const postcodeOrLocation = (postcode: string | null | undefined, location: string | null | undefined) => postcode || location || 'Not set';
 
 const hasRecentFeedback = (reviews: ReviewRow[]) => reviews.length > 0;
+const verifiedBrokerBookingStage = (job: WorkspaceJob) =>
+  classifyWorkspaceJobStage(job) === 'awarded' ? 'unallocated' as const : brokerDiaryStage(job);
 const isAwaitingFeedback = (job: WorkspaceJob, reviews: ReviewRow[], companyId: string | null) =>
-  brokerDiaryStage(job) === 'completed' && isCompanyFeedbackEligible(job, companyId) && !hasRecentFeedback(reviews);
+  verifiedBrokerBookingStage(job) === 'completed' && isCompanyFeedbackEligible(job, companyId) && !hasRecentFeedback(reviews);
 
 function matchesTab(job: WorkspaceJob, tab: DiaryTab, reviews: ReviewRow[], companyId: string | null) {
+  if (!isDiaryBookingJob(job)) return false;
   if (tab === 'all') return true;
   if (tab === 'awaiting_feedback') return isAwaitingFeedback(job, reviews, companyId);
   if (tab === 'recent_feedback') return hasRecentFeedback(reviews);
-  return brokerDiaryStage(job) === tab;
+  return verifiedBrokerBookingStage(job) === tab;
 }
 
 export default function BrokerDiaryPage() {
@@ -138,6 +141,7 @@ export default function BrokerDiaryPage() {
     const pickupTerm = pickup.trim().toLowerCase();
     const deliveryTerm = delivery.trim().toLowerCase();
     return data.jobs
+      .filter((job) => isDiaryBookingJob(job))
       .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? [], companyId))
       .filter((job) => !refTerm || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refTerm))
       .filter((job) => !customerTerm || String(job.client_name || '').toLowerCase().includes(customerTerm))
@@ -278,7 +282,7 @@ export default function BrokerDiaryPage() {
                 const reviews = reviewsByJob[job.id] ?? [];
                 const review = reviews[0];
                 const feedbackAvailable = isCompanyFeedbackEligible(job, companyId);
-                const stage = brokerDiaryStage(job);
+                const stage = verifiedBrokerBookingStage(job);
                 const pickupWhen = cxTimeParts(job.pickup_datetime);
                 const deliveryWhen = cxTimeParts(job.delivery_datetime);
                 const vehicle = (job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ');

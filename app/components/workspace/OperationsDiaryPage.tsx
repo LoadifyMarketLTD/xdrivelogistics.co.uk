@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
-import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, isDiaryBookingJob, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
 import { isExternallyFulfilledPostedJob } from '../../../lib/diary/companyOutsourcedJobs';
 import { supabase } from '../../../lib/supabaseClient';
@@ -167,11 +167,9 @@ function isOperatingCompanyJob(job: JobRow, companyId: string) {
   if (job.awarded_carrier_company_id) return job.awarded_carrier_company_id === companyId;
   if (job.assigned_company_id) return job.assigned_company_id === companyId;
   if (job.company_id !== companyId) return false;
-  const stage = classifyWorkspaceJobStage(job);
-  // A company can execute its own transport when no separate carrier is
-  // awarded, but draft/posted/quoted customer-marketplace records are not an
-  // operational Diary merely because company_id matches.
-  return Boolean(job.assigned_driver_id) || !['open', 'draft'].includes(stage);
+  // Own-company work is a Diary booking only after award or execution;
+  // an unawarded posted, expired or cancelled load remains in Loads.
+  return isDiaryBookingJob(job);
 }
 
 function hasRecentFeedback(reviews: ReviewRow[]) {

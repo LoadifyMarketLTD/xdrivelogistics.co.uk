@@ -4,12 +4,11 @@ import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket } from '../lib/diary
 const labels = (role: Parameters<typeof getCanonicalDiaryTabs>[0]) => getCanonicalDiaryTabs(role).map((item) => item.id);
 
 describe('canonical Diary engine', () => {
-  it('gives Customer the commercial lifecycle while keeping POD evidence on the booking record instead of a CX Diary tab', () => {
+  it('uses the nine approved 3150 booking tabs for Customer and keeps POD evidence inside booking details', () => {
     expect(labels('customer')).toEqual([
       'all',
-      'open',
-      'awaiting_award',
-      'awarded',
+      'unallocated',
+      'allocated',
       'in_progress',
       'completed',
       'cancelled',

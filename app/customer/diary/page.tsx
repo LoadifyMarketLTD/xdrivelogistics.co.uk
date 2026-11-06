@@ -11,7 +11,7 @@ import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame } from '../../components/workspace/WorkspaceUI';
-import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, isDiaryBookingJob, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
@@ -118,6 +118,7 @@ export default function CustomerDiaryPage() {
     const deliveryNeedle = delivery.trim().toLowerCase();
     const carrierNeedle = carrier.trim().toLowerCase();
     return data.jobs
+      .filter((job) => isDiaryBookingJob(job))
       .filter((job) => matchesTab(job, tab, (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0, (reviewsByJob[job.id]?.length ?? 0) > 0, companyId))
       .filter((job) => !refNeedle || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle))
       .filter((job) => !pickupNeedle || `${job.pickup_postcode ?? ''} ${job.pickup_location ?? ''}`.toLowerCase().includes(pickupNeedle))
