@@ -16,6 +16,8 @@ const nextConfig = {
   // metadata streaming avoids that race without changing the rendered content.
   htmlLimitedBots: /.*/,
   experimental: {
+    // Local low-memory builds can opt into a single page-data worker.
+    ...(process.env.XDRIVE_LOW_MEMORY_BUILD === '1' ? { cpus: 1 } : {}),
     optimizePackageImports: [
       'lucide-react',
       '@radix-ui/react-accordion',

@@ -44,6 +44,7 @@
   "exclude": [
     "node_modules",
     "apps/driver-mobile/**",
+    "official-driver-pwa/**",
     "supabase/functions"
   ]
 }
