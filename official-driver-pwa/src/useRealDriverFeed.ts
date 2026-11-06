@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DriverApiError, makeDriverApi } from './realApi';
 import { mapDriverSnapshot, type DriverCard } from './realJobMapper';
 
@@ -12,7 +12,7 @@ export function useRealDriverFeed(getAccessToken: () => Promise<string | null>, 
     setLoading(true);
     setError(null);
     try {
-      const snapshot = await api.loadSnapshot();
+      const snapshot = await api.loadSnapshot(base => { setJobs(mapDriverSnapshot(base)); setLoading(false); });
       setJobs(mapDriverSnapshot(snapshot));
     } catch (cause) {
       setJobs([]);

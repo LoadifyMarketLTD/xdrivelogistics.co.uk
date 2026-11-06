@@ -47,7 +47,7 @@ export function makeDriverApi(getAccessToken: () => Promise<string | null>) {
     return payload as T;
   }
   return {
-    async loadSnapshot(): Promise<RealDriverSnapshot> {
+    async loadSnapshot(onBase?: (snapshot: RealDriverSnapshot) => void): Promise<RealDriverSnapshot> {
       // No silent partial success: never present a fake or incomplete operational feed.
       const [market, quotes, active, completed] = await Promise.all([
         request<{ rows: MarketplaceJob[] }>('/api/driver/search-loads?pageSize=50').catch((error: unknown) => {
@@ -65,6 +65,8 @@ export function makeDriverApi(getAccessToken: () => Promise<string | null>) {
       }
       const bookings = [...active.jobs, ...completed.jobs.filter(job => !active.jobs.some(a => a.id === job.id))];
       const sheets: Record<string, DriverJobSheet> = {};
+      // Show authorised marketplace and booking summaries before the slower per-booking sheets finish.
+      onBase?.({marketplace:market.rows, bids:quotes.bids, bookings, sheets:{}});
       await Promise.all(bookings.map(async job => {
         try { const result = await request<{sheet:DriverJobSheet}>(`/api/driver/jobs/${encodeURIComponent(job.id)}/sheet`); if(result.sheet) sheets[job.id]=result.sheet; } catch { /* Missing sheet is explicit in card, never fabricate details. */ }
       }));
