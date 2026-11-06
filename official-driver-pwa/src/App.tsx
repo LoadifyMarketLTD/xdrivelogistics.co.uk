@@ -501,7 +501,9 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 {tab === "Quotes" && <div className="alert-tabs">{(["Submitted", "Unsuccessful"] as const).map((x) => <button key={x} className={quoteSection === x ? "selected" : ""} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
                 {(tab === "Loads" || tab === "Alerts") && !getAccessToken && <p role="status" className="notification-reason">{<>Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</>}</p>}
                 {tab === "Alerts" && <div className="alert-tabs">{(["Inbox","Saved","Deleted"] as const).map((x) => <button key={x} className={alertSection === x ? "selected" : ""} onClick={() => setAlertSection(x)}>{x}</button>)}</div>}
-                {listed.length === 0 ? (
+                {getAccessToken && realFeed.loading && listed.length === 0 ? (
+                  <div className="empty" role="status" aria-live="polite"><h2>Loading XDrive jobs...</h2><p>Retrieving your authorised loads, quotes and bookings.</p></div>
+                ) : listed.length === 0 ? (
                   <div className="empty">
                     <span aria-hidden="true">{String.fromCodePoint(0x25a3)}</span>
                     <h2>No {tab.toLowerCase()} available</h2>

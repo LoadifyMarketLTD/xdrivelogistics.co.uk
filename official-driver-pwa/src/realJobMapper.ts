@@ -1,4 +1,4 @@
-﻿import type { AssignedJob, DriverBid, DriverJobSheet, MarketplaceJob, RealDriverSnapshot } from './realApi';
+import type { AssignedJob, DriverBid, DriverJobSheet, MarketplaceJob, RealDriverSnapshot } from './realApi';
 
 /** Maps server-authorised, public marketplace fields to approved driver-card fields. */
 export type DriverCard = {
@@ -33,6 +33,8 @@ export function mapMarketplaceJob(job: MarketplaceJob): DriverCard {
     vehicle: job.requested_vehicle_label || job.vehicle_type || 'Vehicle not specified',
     weight: job.weight_kg ?? null, notes: job.load_details || '',
     status: 'OPEN', company: job.posterName || 'Marketplace member',
+    ...(job.exchange_posted_at && !Number.isNaN(Date.parse(job.exchange_posted_at)) ? {postedAt:new Date(job.exchange_posted_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'})}:{}),
+    ...(job.journeyDistanceMiles != null ? {distanceMiles:job.journeyDistanceMiles}:{}),
   };
 }
 export function mapAssignedJob(job: AssignedJob, sheet?: DriverJobSheet): DriverCard {
@@ -80,8 +82,7 @@ export function mapAssignedJob(job: AssignedJob, sheet?: DriverJobSheet): Driver
   };
 }
 export function mapDriverSnapshot(snapshot: RealDriverSnapshot): DriverCard[] {
-  const isE2e = (value:unknown) => typeof value === 'string' && /E2E TEST ONLY|AUTOMATED TEST ONLY/i.test(value);
-  const bookings = snapshot.bookings.filter(job => !isE2e(job.pickupLocation) && !isE2e(job.deliveryLocation) && !isE2e(snapshot.sheets?.[job.id]?.executionInstructions)).map(job=>mapAssignedJob(job,snapshot.sheets?.[job.id]));
+  const bookings = snapshot.bookings.map(job=>mapAssignedJob(job,snapshot.sheets?.[job.id]));
   const booked = new Set(bookings.map(job => job.id));
   const marketIds = new Set(snapshot.marketplace.map(job => job.id));
   const bids = new Map<string, DriverBid>();
@@ -95,7 +96,7 @@ export function mapDriverSnapshot(snapshot: RealDriverSnapshot): DriverCard[] {
       status: 'OPEN' as const, company: 'Marketplace member', quote: bid.amount ?? undefined,
       quoteOutcome: bid.status?.toLowerCase() === 'rejected' ? 'UNSUCCESSFUL' as const : ['cancelled', 'withdrawn'].includes(bid.status?.toLowerCase()) ? 'CANCELLED' as const : bid.status?.toLowerCase() === 'accepted' ? 'AWARDED' as const : undefined,
     })),
-    ...snapshot.marketplace.filter(job => !booked.has(job.id) && !isE2e(job.pickup_location) && !isE2e(job.delivery_location) && !isE2e(job.load_details)).map(job => {
+    ...snapshot.marketplace.filter(job => !booked.has(job.id)).map(job => {
       const card = mapMarketplaceJob(job);
       const bid = bids.get(job.id);
       if (bid && bid.amount != null) card.quote = bid.amount;
