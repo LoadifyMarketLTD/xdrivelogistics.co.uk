@@ -303,11 +303,25 @@
 }
 .driver-diary-board .xd-diary-layout {
   display:grid;
-  grid-template-columns:220px minmax(0,1fr);
+  grid-template-columns:235px minmax(0,1fr);
   gap:18px;
   align-items:start;
 }
 .driver-diary-board .xd-diary-layout>main {min-width:0}
+.driver-diary-board .xd-diary-kpis {
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:14px;
+}
+.driver-diary-board .xd-diary-kpi {
+  min-height:92px;
+  border:1px solid #dce5f0;
+  border-left-width:5px;
+  border-radius:12px;
+  padding:12px;
+  background:#fff;
+  box-shadow:0 2px 6px rgba(11,47,107,.06);
+}
 .driver-diary-board .xd-diary-header {
   display:flex;
   flex-wrap:wrap;
@@ -321,12 +335,15 @@
   gap:5px;
   align-items:center;
 }
+@media(max-width:1400px) {
+  .driver-diary-board .xd-diary-kpis {grid-template-columns:repeat(3,minmax(0,1fr))}
+}
 @media(max-width:1100px) {
   .driver-loads-prototype .pagebody,
   .driver-quotes-prototype .pagebody,
   .driver-diary-board .xd-diary-layout {
-    grid-template-columns:185px minmax(0,1fr);
-    gap:10px;
+    grid-template-columns:200px minmax(0,1fr);
+    gap:12px;
   }
 }
 @media(max-width:700px) {
@@ -338,6 +355,7 @@
   }
   .driver-loads-prototype .load-tabs,
   .driver-quotes-prototype .workspace-tab-strip,
+  .driver-diary-board .xd-diary-kpis {grid-template-columns:repeat(2,minmax(0,1fr))}
   .driver-diary-board .xd-diary-tabs {
     flex-wrap:nowrap;
     overflow-x:auto;
@@ -350,5 +368,25 @@
     white-space:nowrap;
     font-size:11px;
     padding:8px 11px;
+  }
+}
+
+/* Exact diary grid measurements from the approved 3150 xdrive-design-system.css.
+   Applied only when the operational Diary rail is present. */
+@media(min-width:1101px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.cx-diary-filter-rail) {
+    grid-template-columns:235px minmax(0,1fr);
+    gap:18px;
+  }
+}
+@media(min-width:801px) and (max-width:1100px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.cx-diary-filter-rail) {
+    grid-template-columns:200px minmax(0,1fr);
+    gap:12px;
+  }
+}
+@media(max-width:800px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.cx-diary-filter-rail) {
+    grid-template-columns:minmax(0,1fr);
   }
 }
