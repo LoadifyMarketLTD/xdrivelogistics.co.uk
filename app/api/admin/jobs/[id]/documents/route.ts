@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 12 * 1024 * 1024;
 const ALLOWED_MIME_TYPES = new Set([
   'application/pdf',
   'image/jpeg',
@@ -100,7 +100,7 @@ export async function POST(
 
     if (actualSize <= 0 || actualSize > MAX_DOCUMENT_BYTES) {
       await removeObjects([path]);
-      return json(400, { error: `Document ${document.fileName} exceeds the 20 MB limit or is empty.` });
+      return json(400, { error: `Document ${document.fileName} exceeds the 12 MB limit or is empty.` });
     }
     if (document.fileSizeBytes !== actualSize) {
       await removeObjects([path]);
