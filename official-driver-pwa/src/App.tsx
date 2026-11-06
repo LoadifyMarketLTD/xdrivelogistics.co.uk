@@ -499,7 +499,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
             {tab === "Loads" || tab === "Quotes" || tab === "Bookings" || tab === "Alerts" ? (
               <>
                 {tab === "Quotes" && <div className="alert-tabs">{(["Submitted", "Unsuccessful"] as const).map((x) => <button key={x} className={quoteSection === x ? "selected" : ""} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
-                {(tab === "Loads" || tab === "Alerts") && <p role="status" className="notification-reason">{getAccessToken ? "Live marketplace results are authorised by XDrive. Local GPS radius filtering is not applied to these records." : <>Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</>}</p>}
+                {(tab === "Loads" || tab === "Alerts") && !getAccessToken && <p role="status" className="notification-reason">{<>Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</>}</p>}
                 {tab === "Alerts" && <div className="alert-tabs">{(["Inbox","Saved","Deleted"] as const).map((x) => <button key={x} className={alertSection === x ? "selected" : ""} onClick={() => setAlertSection(x)}>{x}</button>)}</div>}
                 {listed.length === 0 ? (
                   <div className="empty">
