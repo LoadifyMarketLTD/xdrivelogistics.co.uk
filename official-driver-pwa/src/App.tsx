@@ -200,7 +200,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
   const [quoteExtra, setQuoteExtra] = useState(false);
   const [quoteExtraName, setQuoteExtraName] = useState("");
   const [quoteExtraPrice, setQuoteExtraPrice] = useState("");
-  const [quoteSection, setQuoteSection] = useState<"Submitted" | "Unsuccessful">("Submitted");
+  const [quoteSection, setQuoteSection] = useState<"Submitted" | "Awarded">("Submitted");
   const [sandboxBookingHistory, setBookingHistory] = useState<Record<string, { status: string; at: string }[]>>(() => { try { return JSON.parse(localStorage.getItem("xdrive-booking-history-v1") || "{}"); } catch { return {}; } });
   const bookingHistory = getAccessToken ? {} as Record<string, { status: string; at: string }[]> : sandboxBookingHistory;
   const [mode, setMode] = useState<"sandbox" | "unconfigured">(() =>
@@ -252,7 +252,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
     tab === "Loads" || tab === "Alerts"
       ? jobs.filter((j) => j.status === "OPEN" && j.quote === undefined && (Boolean(getAccessToken) || roadRadius.miles[j.id] !== undefined) && (tab !== "Alerts" || (alertSection === "Saved" ? savedIds.includes(j.id) : alertSection === "Deleted" ? deletedIds.includes(j.id) : !deletedIds.includes(j.id))))
       : tab === "Quotes"
-        ? jobs.filter((j) => j.quote !== undefined && (quoteSection === "Submitted" ? j.status === "OPEN" && !j.quoteOutcome : j.quoteOutcome === "UNSUCCESSFUL" || j.quoteOutcome === "CANCELLED"))
+        ? jobs.filter((j) => j.quote !== undefined && (quoteSection === "Awarded" ? j.quoteOutcome === "AWARDED" : j.quoteOutcome !== "AWARDED"))
         : jobs.filter((j) => j.status !== "OPEN" && j.quoteOutcome !== "UNSUCCESSFUL" && j.quoteOutcome !== "CANCELLED");
   const pendingAllocations = jobs.filter(j => j.acceptanceRequired === true && j.status === "ALLOCATED" && !seenAllocations.includes(j.id));
   const next = job ? nextJobStatus(job.status) : undefined;
@@ -498,7 +498,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
           <>
             {tab === "Loads" || tab === "Quotes" || tab === "Bookings" || tab === "Alerts" ? (
               <>
-                {tab === "Quotes" && <div className="alert-tabs">{(["Submitted", "Unsuccessful"] as const).map((x) => <button key={x} className={quoteSection === x ? "selected" : ""} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
+                {tab === "Quotes" && <div className="alert-tabs">{(["Submitted", "Awarded"] as const).map((x) => <button key={x} className={quoteSection === x ? "selected" : ""} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
                 {(tab === "Loads" || tab === "Alerts") && !getAccessToken && <p role="status" className="notification-reason">{<>Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</>}</p>}
                 {tab === "Alerts" && <div className="alert-tabs">{(["Inbox","Saved","Deleted"] as const).map((x) => <button key={x} className={alertSection === x ? "selected" : ""} onClick={() => setAlertSection(x)}>{x}</button>)}</div>}
                 {getAccessToken && realFeed.loading && listed.length === 0 ? (

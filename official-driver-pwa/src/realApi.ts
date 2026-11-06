@@ -40,8 +40,13 @@ export function makeDriverApi(getAccessToken: () => Promise<string | null>) {
     });
     const payload: unknown = await response.json().catch(() => null);
     if (!response.ok) {
-      const message = payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
+      const serverMessage = payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string'
         ? payload.error : `XDrive API error (${response.status})`;
+      const message = response.status === 401
+        ? 'Your XDrive session has expired. Please sign in again.'
+        : response.status === 403
+          ? 'XDrive denied access to driver data (403). Check the signed-in driver account and workspace permissions.'
+          : serverMessage;
       throw new DriverApiError(response.status, message);
     }
     return payload as T;
@@ -51,9 +56,8 @@ export function makeDriverApi(getAccessToken: () => Promise<string | null>) {
       // No silent partial success: never present a fake or incomplete operational feed.
       const [market, quotes, active, completed] = await Promise.all([
         request<{ rows: MarketplaceJob[] }>('/api/driver/search-loads?pageSize=50').catch((error: unknown) => {
-          // A company driver without commercial bidding permission still needs assigned bookings.
-          // Only an explicit 403 on marketplace access is an authorised empty marketplace.
-          if (error instanceof DriverApiError && error.status === 403) return { rows: [] as MarketplaceJob[] };
+          // Marketplace access is restricted, but assigned bookings remain available.
+          if (error instanceof DriverApiError && error.status === 403 && error.message.includes('Commercial marketplace access is not enabled')) return { rows: [] as MarketplaceJob[] };
           throw error;
         }),
         request<{ bids: DriverBid[] }>('/api/driver/official-pwa/bids'),
