@@ -5,7 +5,7 @@ export type MarketplaceJob = {
   pickup_datetime: string | null; delivery_datetime: string | null;
   requested_vehicle_label: string | null; vehicle_type: string | null;
   weight_kg: number | null; load_details: string | null;
-  posterName: string; journeyDistanceMiles: number | null; exchange_posted_at?: string | null; requested_cargo_label?: string | null;
+  posterName: string; journeyDistanceMiles: number | null; exchange_posted_at?: string | null; requested_cargo_label?: string | null; cargo_type?: string | null; pallets?: number | null; service_mode?: string | null;
 };
 export type DriverBid = {
   id: string; jobId: string; amount: number | null; status: string;

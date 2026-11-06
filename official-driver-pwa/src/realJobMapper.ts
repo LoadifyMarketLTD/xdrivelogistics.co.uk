@@ -15,7 +15,7 @@ export type DriverCard = {
   distanceMiles?: number;
   quote?: number;
   quoteOutcome?: 'AWARDED' | 'UNSUCCESSFUL' | 'CANCELLED';
-  yourRef?: string; customerRef?: string; pickupCompany?: string; deliveryCompany?: string; pickupAddress?: string; deliveryAddress?: string; pickupContactName?: string; pickupContactPhone?: string; deliveryContactName?: string; deliveryContactPhone?: string; pickupInstructions?: string; deliveryInstructions?: string; terms?: string; items?: number; packages?: number; cargoLength?: number; cargoWidth?: number; cargoHeight?: number; hardCopyPodRequired?: boolean; postedAt?: string; jobDescription?: string;
+  service?: string; freightType?: string; yourRef?: string; customerRef?: string; pickupCompany?: string; deliveryCompany?: string; pickupAddress?: string; deliveryAddress?: string; pickupContactName?: string; pickupContactPhone?: string; deliveryContactName?: string; deliveryContactPhone?: string; pickupInstructions?: string; deliveryInstructions?: string; terms?: string; items?: number; packages?: number; cargoLength?: number; cargoWidth?: number; cargoHeight?: number; hardCopyPodRequired?: boolean; postedAt?: string; jobDescription?: string;
 
 };
 const area = (value: string | null | undefined) => value?.trim() || 'Area not provided';
@@ -35,6 +35,9 @@ export function mapMarketplaceJob(job: MarketplaceJob): DriverCard {
     status: 'OPEN', company: job.posterName || 'Marketplace member',
     ...(job.exchange_posted_at && !Number.isNaN(Date.parse(job.exchange_posted_at)) ? {postedAt:new Date(job.exchange_posted_at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'})}:{}),
     ...(job.journeyDistanceMiles != null ? {distanceMiles:job.journeyDistanceMiles}:{}),
+    ...(job.requested_cargo_label || job.cargo_type ? {freightType:job.requested_cargo_label || job.cargo_type || undefined}:{}),
+    ...(job.pallets != null ? {items:job.pallets}:{}),
+    ...(job.service_mode ? {service:job.service_mode}:{}),
   };
 }
 export function mapAssignedJob(job: AssignedJob, sheet?: DriverJobSheet): DriverCard {
