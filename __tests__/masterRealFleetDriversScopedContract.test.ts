@@ -34,7 +34,8 @@ describe('live own-company Fleet and Drivers, no cross-tenant access',()=>{
     expect(ui).toContain('encodeURIComponent(companyId)');
     expect(ui).toContain("Authorization:`Bearer ${token}`");
     expect(ui).toContain("body?.companyId!==companyId");
-    expect(ui).toContain('fleet.limited === true');
+    expect(ui).toContain('activeFleet.limited === true');
+    expect(ui).toContain('fleet?.companyId === companyId');
     expect(ui + read('app/components/workspace/Master3150RealFleetBoard.tsx')).toContain("'Unavailable'");
   });
   it('does not allow Broker pages to bypass broker role gate',()=>{

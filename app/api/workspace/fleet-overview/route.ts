@@ -22,10 +22,11 @@ export async function GET(request: NextRequest) {
   if (authError || !auth.user) return respond(401, { error: 'Authentication required.' });
 
   const companyId = request.nextUrl.searchParams.get('companyId')?.trim() ?? '';
+  const includeDocuments = request.nextUrl.searchParams.get('includeDocuments') === 'true';
   if (!UUID.test(companyId)) return respond(400, { error: 'An active company ID is required.' });
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('company_id,status')
+    .select('company_id,status,role_in_company')
     .eq('user_id', auth.user.id)
     .eq('company_id', companyId)
     .eq('status', 'active')
@@ -43,11 +44,26 @@ export async function GET(request: NextRequest) {
   if (vehicleResult.error || driverResult.error)
     return respond(503, { error: 'Verified company fleet data could not be loaded.' });
 
+  const canReadDocuments = ['owner','admin','fleet_manager','dispatcher'].includes(String(membership.role_in_company ?? '').toLowerCase());
+  const documentsRestricted = includeDocuments && !canReadDocuments;
+  const vehicleIds = (vehicleResult.data ?? []).map((vehicle) => vehicle.id);
+  const documentsResult = includeDocuments && canReadDocuments && vehicleIds.length
+    ? await supabaseAdmin.from('vehicle_documents')
+      .select('id,vehicle_id,doc_type,status,expiry_date')
+      .in('vehicle_id', vehicleIds)
+      .limit(1000)
+    : { data: [], error: null };
+  const documentsUnavailable = Boolean(documentsResult.error);
+
   return respond(200, {
     companyId,
     vehicles: vehicleResult.data ?? [],
     drivers: driverResult.data ?? [],
-    limited: (vehicleResult.data?.length ?? 0) === 500 || (driverResult.data?.length ?? 0) === 500,
+    documents: documentsUnavailable ? [] : documentsResult.data ?? [],
+    documentsUnavailable,
+    documentsRestricted,
+    limited: (vehicleResult.data?.length ?? 0) === 500 ||
+      (driverResult.data?.length ?? 0) === 500 || documentsUnavailable || (documentsResult.data?.length ?? 0) === 1000,
     access: 'own-company-read-only',
   });
 }

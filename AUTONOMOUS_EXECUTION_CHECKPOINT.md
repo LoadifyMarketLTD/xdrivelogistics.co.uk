@@ -7,3 +7,13 @@ Implemented in isolated code: canonical header navigation, Pickup/Delivery side-
 ESLint PASS, TypeScript PASS, git diff --check PASS after relevant code edits. QA local route http://127.0.0.1:4188/postload-local-qa HTTP 200 on viewport 1440 and 390, no page JS errors or horizontal document overflow, old Booking target card absent. These are UI/static checks; no real job was posted.
 CRITICAL incomplete: private Customer Price separate secure DB storage; genuinely functional customer and location contact-file lookup/Save Contact File and contact fields; en-route email notifications and cadence; radius-driven tracked-driver distribution; actual enforcement SmartPay/EU/electronic-quote options; body type/weight unit conversion parity; repeat-use browsing/repost flow; screenshot parity to user's full reference; authenticated end-to-end posting across Customer/Broker/Carrier/OwnerDriver. Currently the new preference fields are saved as metadata but NOT enforced. Do not merge or deploy, and do not claim complete.
 Source local UI at D:\XDrive-PostLoad-QA-20261105 on port 4188. QA route intentionally not tracked for release. No fake fixtures used.
+
+## My Fleet 3150 all-workspace integration (2026-11-06)
+Authorized target: My Fleet from localhost:3150 company demo, same canonical DemoFleetBoard visual in production.
+Branch: fix/master3150-myfleet-all-roles-20261106; origin/main at start 2af9df6b.
+Changed: DemoFleetBoard, MemberFleetOverview, fleet-overview API, driver fleet role check, canonical My Fleet tests.
+Pages: /admin/fleet, /broker/fleet, /customer/fleet, /driver/fleet. Admin/owner management routes retained.
+Data: API verifies auth plus active company membership, scopes vehicles/drivers to company and documents via allowed membership role and matching vehicle IDs; no example records.
+QA: TS/ESLint and isolated 390/1440 browser tests; 4 selected vitest suites pass.
+Known prior unrelated test failure: master3150EightLiveWorkspaceContract locks master3150-operations-shell.css to stale baseline; reproduced on untouched previous worktree.
+Production-authenticated E2E and Netlify deployment are not confirmed. No GitHub Actions used.

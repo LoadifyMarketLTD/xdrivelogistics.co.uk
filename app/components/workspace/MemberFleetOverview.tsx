@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, EmptyState, PageFrame } from './WorkspaceUI';
+import { AlertBanner, EmptyState, PageFrame } from './WorkspaceUI';
 import Master3150RealFleetBoard from './Master3150RealFleetBoard';
+import DemoFleetBoard from '../../try-xdrive-demo/components/DemoFleetBoard';
 
 type Vehicle = {
   id: string; reg_plate: string | null; type: string | null;
@@ -14,15 +15,13 @@ type Vehicle = {
 type Driver = {
   id: string; display_name: string | null; status: string | null; availability_status: string | null;
 };
-type FleetResponse = { companyId?: string; vehicles?: Vehicle[]; drivers?: Driver[]; limited?: boolean; error?: string; access?: string };
+type FleetResponse = { companyId?: string; vehicles?: Vehicle[]; drivers?: Driver[]; documents?: Array<{id:string;vehicle_id:string|null;doc_type:string|null;status:string|null;expiry_date:string|null}>; documentsUnavailable?: boolean; documentsRestricted?: boolean; limited?: boolean; error?: string; access?: string };
 
 export default function MemberFleetOverview({ section, canManage = false, manageHref }: { section: 'fleet'|'drivers'; canManage?: boolean; manageHref?: string }) {
   const data = useCompanyWorkspaceData();
   const [fleet,setFleet] = useState<FleetResponse | null>(null);
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState('');
-  const [revision,setRevision] = useState(0);
-  const refresh = useCallback(() => setRevision((value)=>value+1),[]);
   const companyId = data.companyId;
 
   useEffect(() => {
@@ -40,7 +39,7 @@ export default function MemberFleetOverview({ section, canManage = false, manage
         return;
       }
       try {
-        const response = await fetch(`/api/workspace/fleet-overview?companyId=${encodeURIComponent(companyId)}`,{
+        const response = await fetch(`/api/workspace/fleet-overview?companyId=${encodeURIComponent(companyId)}&includeDocuments=${section === 'fleet'}`,{
           headers:{Authorization:`Bearer ${token}`}, cache:'no-store'
         });
         const body = await response.json().catch(()=>null) as FleetResponse | null;
@@ -54,17 +53,21 @@ export default function MemberFleetOverview({ section, canManage = false, manage
     };
     void load();
     return ()=>{alive=false;};
-  },[companyId,revision]);
+  },[companyId,section]);
+
+  const activeFleet = fleet?.companyId === companyId ? fleet : null;
 
   return <PageFrame>
-    <div className="master3150-real-fleet-controls">
-      <span>Verified company records · Access restricted to the active company</span>
-      <ActionButton tone="secondary" disabled={loading} onClick={refresh}>Refresh</ActionButton>
-    </div>
     {error&&<AlertBanner tone="warning">{error}</AlertBanner>}
-    {loading||!fleet ? <EmptyState title={loading?'Loading company records':'Company records unavailable'} /> : (
-      <Master3150RealFleetBoard section={section} vehicles={fleet.vehicles??[]} drivers={fleet.drivers??[]}
-        canManage={canManage} manageHref={manageHref} limited={fleet.limited === true}/>
+    {loading||!activeFleet ? <EmptyState title={loading?'Loading company records':'Company records unavailable'} /> : (
+      section === 'fleet'
+        ? <DemoFleetBoard
+            verifiedFleet={{ vehicles: activeFleet.vehicles ?? [], drivers: activeFleet.drivers ?? [], documents: activeFleet.documents ?? [], documentsUnavailable: activeFleet.documentsUnavailable === true, documentsRestricted: activeFleet.documentsRestricted === true, limited: activeFleet.limited === true }}
+            readOnly={!canManage} manageHref={manageHref}
+          />
+        : <Master3150RealFleetBoard section="drivers" vehicles={activeFleet.vehicles ?? []} drivers={activeFleet.drivers ?? []}
+            canManage={canManage} manageHref={manageHref} limited={activeFleet.limited === true}/>
+
     )}
   </PageFrame>;
 }
