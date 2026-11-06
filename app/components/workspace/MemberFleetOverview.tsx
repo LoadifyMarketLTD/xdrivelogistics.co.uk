@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import { AlertBanner, EmptyState, PageFrame } from './WorkspaceUI';
-import Master3150RealFleetBoard from './Master3150RealFleetBoard';
+import DemoDriversBoard from '../../try-xdrive-demo/components/DemoDriversBoard';
 import DemoFleetBoard from '../../try-xdrive-demo/components/DemoFleetBoard';
 
 type Vehicle = {
@@ -15,7 +15,7 @@ type Vehicle = {
 type Driver = {
   id: string; display_name: string | null; status: string | null; availability_status: string | null;
 };
-type FleetResponse = { companyId?: string; vehicles?: Vehicle[]; drivers?: Driver[]; documents?: Array<{id:string;vehicle_id:string|null;doc_type:string|null;status:string|null;expiry_date:string|null}>; documentsUnavailable?: boolean; documentsRestricted?: boolean; limited?: boolean; error?: string; access?: string };
+type FleetResponse = { companyId?: string; vehicles?: Vehicle[]; drivers?: Driver[]; documents?: Array<{id:string;vehicle_id:string|null;doc_type:string|null;status:string|null;expiry_date:string|null}>; driverDocuments?: Array<{id:string;driver_id:string|null;doc_type:string|null;status:string|null;expiry_date:string|null}>; documentsUnavailable?: boolean; documentsRestricted?: boolean; limited?: boolean; error?: string; access?: string };
 
 export default function MemberFleetOverview({ section, canManage = false, manageHref }: { section: 'fleet'|'drivers'; canManage?: boolean; manageHref?: string }) {
   const data = useCompanyWorkspaceData();
@@ -65,8 +65,7 @@ export default function MemberFleetOverview({ section, canManage = false, manage
             verifiedFleet={{ vehicles: activeFleet.vehicles ?? [], drivers: activeFleet.drivers ?? [], documents: activeFleet.documents ?? [], documentsUnavailable: activeFleet.documentsUnavailable === true, documentsRestricted: activeFleet.documentsRestricted === true, limited: activeFleet.limited === true }}
             readOnly={!canManage} manageHref={manageHref}
           />
-        : <Master3150RealFleetBoard section="drivers" vehicles={activeFleet.vehicles ?? []} drivers={activeFleet.drivers ?? []}
-            canManage={canManage} manageHref={manageHref} limited={activeFleet.limited === true}/>
+        : <DemoDriversBoard verifiedDrivers={{drivers:activeFleet.drivers ?? [],vehicles:activeFleet.vehicles ?? [],documents:activeFleet.driverDocuments ?? [],documentsUnavailable:activeFleet.documentsUnavailable === true,documentsRestricted:activeFleet.documentsRestricted === true,limited:activeFleet.limited === true}} readOnly={!canManage} manageHref={manageHref}/>
 
     )}
   </PageFrame>;

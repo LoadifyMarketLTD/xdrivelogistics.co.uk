@@ -53,17 +53,25 @@ export async function GET(request: NextRequest) {
       .in('vehicle_id', vehicleIds)
       .limit(1000)
     : { data: [], error: null };
-  const documentsUnavailable = Boolean(documentsResult.error);
+  const driverIds = (driverResult.data ?? []).map((driver) => driver.id);
+  const driverDocumentsResult = includeDocuments && canReadDocuments && driverIds.length
+    ? await supabaseAdmin.from('driver_documents')
+      .select('id,driver_id,doc_type,status,expiry_date')
+      .in('driver_id', driverIds)
+      .limit(1000)
+    : { data: [], error: null };
+  const documentsUnavailable = Boolean(documentsResult.error) || Boolean(driverDocumentsResult.error);
 
   return respond(200, {
     companyId,
     vehicles: vehicleResult.data ?? [],
     drivers: driverResult.data ?? [],
     documents: documentsUnavailable ? [] : documentsResult.data ?? [],
+    driverDocuments: documentsUnavailable ? [] : driverDocumentsResult.data ?? [],
     documentsUnavailable,
     documentsRestricted,
     limited: (vehicleResult.data?.length ?? 0) === 500 ||
-      (driverResult.data?.length ?? 0) === 500 || documentsUnavailable || (documentsResult.data?.length ?? 0) === 1000,
+      (driverResult.data?.length ?? 0) === 500 || documentsUnavailable || (documentsResult.data?.length ?? 0) === 1000 || (driverDocumentsResult.data?.length ?? 0) === 1000,
     access: 'own-company-read-only',
   });
 }
