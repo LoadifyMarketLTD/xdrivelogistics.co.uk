@@ -579,7 +579,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 )}
               </>
             ) : tab === "Invoices" ? (
-              <LocalInvoices jobs={jobs} />
+              getAccessToken ? <section className="empty"><h2>Invoices</h2><p>View your real XDrive invoices and payment records in Driver Finance.</p><a className="primary" href="/driver/finance">Open Driver Finance</a></section> : <LocalInvoices jobs={jobs} />
             ) : tab === "Map" ? (
               <div className="empty">
                 <span>Map</span>
