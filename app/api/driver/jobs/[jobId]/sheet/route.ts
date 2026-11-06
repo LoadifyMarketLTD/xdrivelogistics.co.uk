@@ -316,8 +316,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       requirements,
       hardCopyPod,
       podRequired,
-      pickupCompany: text(job.collection_company_name) ?? text(job.pickup_company_name),
-      deliveryCompany: text(job.delivery_company_name),
+      pickupCompany: text(job.collection_company_name) ?? text(job.pickup_company_name) ?? text((job.load_details as Record<string, unknown> | null)?.collectionCompanyName),
+      deliveryCompany: text(job.delivery_company_name) ?? text((job.load_details as Record<string, unknown> | null)?.deliveryCompanyName),
       pickup: {
         address: text(job.pickup_location),
         postcode: text(job.pickup_postcode),
