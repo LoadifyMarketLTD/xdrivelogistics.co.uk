@@ -10,6 +10,26 @@ async function geocode(address: string): Promise<Point | null> {
   if (cache.has(address)) return cache.get(address)!;
   const cleaned = address.replace(/\s*\(TEST ADDRESS\)/gi, "").trim();
   const town = cleaned.replace(/\s+[A-Z]{1,2}\d[A-Z\d]?\s*$/i, "").trim();
+  // UK outward codes (DA8, BB1) are not reliably resolved by Nominatim.
+  // Resolve postcode centroids first, without inventing a precise street location.
+  const postcode = cleaned.match(/\b([A-Z]{1,2}\d[A-Z\d]?)(?:\s*(\d[A-Z]{2}))?\b/i);
+  if (postcode) {
+    const outward = postcode[1].toUpperCase();
+    const full = postcode[2] ? `${outward} ${postcode[2].toUpperCase()}` : null;
+    const endpoint = full ? `postcodes/${encodeURIComponent(full)}` : `outcodes/${encodeURIComponent(outward)}`;
+    try {
+      const response = await fetch(`https://api.postcodes.io/${endpoint}`, { signal: AbortSignal.timeout(8000) });
+      if (response.ok) {
+        const data: { result?: { latitude?: number; longitude?: number } } = await response.json();
+        const lat = data.result?.latitude, lon = data.result?.longitude;
+        if (typeof lat === 'number' && typeof lon === 'number' && Number.isFinite(lat) && Number.isFinite(lon)) {
+          const point = { lat, lon };
+          cache.set(address, point);
+          return point;
+        }
+      }
+    } catch { /* Fall back to the existing town geocoder. */ }
+  }
   const queries = [...new Set([cleaned, town].filter(Boolean))];
   for (const query of queries) {
     try {
