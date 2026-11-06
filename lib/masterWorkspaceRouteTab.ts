@@ -16,7 +16,7 @@ export const ADMIN_MASTER_SECTION_TABS: Readonly<Record<string, number>> = {
 };
 export const BROKER_MASTER_SECTION_TABS: Readonly<Record<string, number>> = {
  'post-load':1,'loads':2,'jobs':2,'quotes':3,'bids':3,
- 'awards':3,'bookings':4,'diary':7,'invoices':8,
+ 'awards':3,'bookings':4,'fleet':5,'drivers':6,'diary':7,'invoices':8,
  'network':9,'directory':10,'availability':11,'returns':12,
  'messages':14,'notifications':15,'reports':16,
 };

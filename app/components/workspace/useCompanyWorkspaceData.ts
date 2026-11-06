@@ -472,6 +472,11 @@ export function resolveWorkspaceDataQueryPlan(input: {
     return { surface: 'customer', datasets: ['jobs', 'bids', 'invoices'], blocker: null };
   }
 
+  if (pathname === '/broker/diary') {
+    // The canonical 3150 Diary driver/vehicle filters use real, company-scoped records.
+    return { surface: 'broker', datasets: ['jobs', 'bids', 'invoices', 'drivers', 'vehicles'], blocker: null };
+  }
+
   if (pathname === '/broker' || pathname.startsWith('/broker/')) {
     return { surface: 'broker', datasets: ['jobs', 'bids', 'invoices'], blocker: null };
   }
