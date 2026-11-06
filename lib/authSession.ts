@@ -668,7 +668,7 @@ export const getResponsivePostLoginRoute = (
 
   // Dedicated driver accounts land in the standalone PWA on mobile.
   // Preserve the existing desktop workspace for company and broker roles.
-  if (user.role === 'driver' && user.canAccessDriverMode) return '/driver/official-pwa-live';
+  if (user.canAccessDriverMode && (user.role === 'driver' || user.workspaceRole === 'owner_driver' || user.ownerDriverWorkspace === true)) return '/driver/official-pwa-live';
   return canonical;
 };
 

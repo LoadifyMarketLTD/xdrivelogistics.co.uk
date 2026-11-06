@@ -435,7 +435,10 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/settings', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
-  // owner_operator (/driver)
+  // owner_operator (/driver): the approved PWA is a protected driver entrypoint.
+  // Driver identity, active status and app_access are enforced below before this route is allowed.
+  { prefix: '/driver/official-pwa-live', workspace: 'owner_operator', exact: true },
+  { prefix: '/driver/official-pwa', workspace: 'owner_operator' },
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/support', workspace: 'owner_operator' },
