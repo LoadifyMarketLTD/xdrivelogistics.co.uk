@@ -12,10 +12,15 @@ const driver = {
   mustChangePassword: false,
 };
 
-describe('official Driver PWA post-login routing', () => {
-  it('routes approved drivers to the new PWA even in Android desktop mode', () => {
-    expect(getResponsivePostLoginRoute(driver, false)).toBe('/driver/official-pwa-live');
+describe('Driver device-aware post-login routing', () => {
+  it('opens desktop workspace on desktop and official PWA on mobile', () => {
+    expect(getResponsivePostLoginRoute(driver, false)).toBe('/driver/jobs');
     expect(getResponsivePostLoginRoute(driver, true)).toBe('/driver/official-pwa-live');
+  });
+  it('routes company drivers to the correct surface', () => {
+    const companyDriver = { ...driver, workspaceRole: 'driver' as const, ownerDriverWorkspace: false };
+    expect(getResponsivePostLoginRoute(companyDriver, false)).toBe('/driver/jobs');
+    expect(getResponsivePostLoginRoute(companyDriver, true)).toBe('/driver/official-pwa-live');
   });
   it('does not bypass mandatory password change', () => {
     expect(getResponsivePostLoginRoute({ ...driver, mustChangePassword: true }, true)).toBe('/driver/change-password');

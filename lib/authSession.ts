@@ -669,7 +669,7 @@ export const getResponsivePostLoginRoute = (
   // Dedicated Driver accounts must enter the approved PWA even when Android
   // requests a desktop site or reports a desktop-width viewport.
   // Company/carrier workspaces retain their desktop landing route.
-  if (user.canAccessDriverMode && user.role === 'driver') return '/driver/official-pwa-live';
+  if (isMobile && user.canAccessDriverMode && user.role === 'driver') return '/driver/official-pwa-live';
   if (isMobile && user.canAccessDriverMode && (user.workspaceRole === 'owner_driver' || user.ownerDriverWorkspace === true)) return '/driver/official-pwa-live';
   return canonical;
 };

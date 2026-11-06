@@ -67,7 +67,7 @@ export default function LoginPage() {
       } else if (result.route) {
         const selfServiceDocuments = safeNextPath === '/onboarding/documents' || safeNextPath?.startsWith('/onboarding/documents?')
           || safeNextPath === '/settings/payments' || safeNextPath?.startsWith('/settings/payments?');
-        router.replace(selfServiceDocuments ? safeNextPath! : result.route === '/driver-pwa-fresh/jobs' ? '/driver/official-pwa-live' : result.route);
+        router.replace(selfServiceDocuments ? safeNextPath! : result.route === '/driver-pwa-fresh/jobs' ? (isMobileDriverBrowser() ? '/driver/official-pwa-live' : '/driver/jobs') : result.route);
       }
     } finally {
       setIsLoading(false);

@@ -377,10 +377,10 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     ],
   },
   driver: {
-    role: 'driver', label: 'Driver Workspace', subtitle: 'Assigned transport execution and driver readiness', homeHref: '/driver/official-pwa-live', nav: DRIVER_EXECUTION_NAV,
+    role: 'driver', label: 'Driver Workspace', subtitle: 'Assigned transport execution and driver readiness', homeHref: '/driver/jobs', nav: DRIVER_EXECUTION_NAV,
   },
   owner_driver: {
-    role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver/official-pwa-live', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: OWNER_DRIVER_NAV,
+    role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver/jobs', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: OWNER_DRIVER_NAV,
   },
   finance: {
     role: 'finance', label: 'Finance Workspace', subtitle: 'Invoices, payments, balances and reporting', homeHref: '/admin/invoices',
