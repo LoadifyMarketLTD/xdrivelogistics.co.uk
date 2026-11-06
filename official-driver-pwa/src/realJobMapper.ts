@@ -15,7 +15,7 @@ export type DriverCard = {
   distanceMiles?: number;
   quote?: number;
   quoteOutcome?: 'AWARDED' | 'UNSUCCESSFUL' | 'CANCELLED';
-  yourRef?: string; customerRef?: string; pickupAddress?: string; deliveryAddress?: string; pickupContactName?: string; pickupContactPhone?: string; deliveryContactName?: string; deliveryContactPhone?: string; pickupInstructions?: string; deliveryInstructions?: string; terms?: string; items?: number; packages?: number; cargoLength?: number; cargoWidth?: number; cargoHeight?: number; hardCopyPodRequired?: boolean; postedAt?: string; jobDescription?: string;
+  yourRef?: string; customerRef?: string; pickupCompany?: string; deliveryCompany?: string; pickupAddress?: string; deliveryAddress?: string; pickupContactName?: string; pickupContactPhone?: string; deliveryContactName?: string; deliveryContactPhone?: string; pickupInstructions?: string; deliveryInstructions?: string; terms?: string; items?: number; packages?: number; cargoLength?: number; cargoWidth?: number; cargoHeight?: number; hardCopyPodRequired?: boolean; postedAt?: string; jobDescription?: string;
 
 };
 const area = (value: string | null | undefined) => value?.trim() || 'Area not provided';
@@ -51,6 +51,9 @@ export function mapAssignedJob(job: AssignedJob, sheet?: DriverJobSheet): Driver
       : canonical.includes('arrived_pickup') || canonical.includes('on_site_pickup') ? 'ON_SITE_PICKUP'
       : canonical === 'on_my_way' || canonical.includes('on_way_pickup') || canonical.includes('en_route_pickup') ? 'ON_WAY_TO_PICKUP' : 'ALLOCATED',
     company: sheet?.bookedBy || job.postingCompanyName || 'Customer not provided', quoteOutcome: 'AWARDED',
+    ...(job.createdAt && !Number.isNaN(new Date(job.createdAt).getTime()) ? {postedAt:new Date(job.createdAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'})}:{}),
+    ...(sheet?.pickupCompany ? {pickupCompany:sheet.pickupCompany}:{}),
+    ...(sheet?.deliveryCompany ? {deliveryCompany:sheet.deliveryCompany}:{}),
     ...(sheet?.reference ? {yourRef:sheet.reference}:{}),
     ...(sheet?.customerReference ? {customerRef:sheet.customerReference}:{}),
     ...(sheet?.pickup?.address ? {pickupAddress:[sheet.pickup.address,sheet.pickup.postcode].filter(Boolean).join(', ')}:{}),
@@ -77,7 +80,8 @@ export function mapAssignedJob(job: AssignedJob, sheet?: DriverJobSheet): Driver
   };
 }
 export function mapDriverSnapshot(snapshot: RealDriverSnapshot): DriverCard[] {
-  const bookings = snapshot.bookings.map(job=>mapAssignedJob(job,snapshot.sheets?.[job.id]));
+  const isE2e = (value:unknown) => typeof value === 'string' && /E2E TEST ONLY|AUTOMATED TEST ONLY/i.test(value);
+  const bookings = snapshot.bookings.filter(job => !isE2e(job.pickupLocation) && !isE2e(job.deliveryLocation) && !isE2e(snapshot.sheets?.[job.id]?.executionInstructions)).map(job=>mapAssignedJob(job,snapshot.sheets?.[job.id]));
   const booked = new Set(bookings.map(job => job.id));
   const marketIds = new Set(snapshot.marketplace.map(job => job.id));
   const bids = new Map<string, DriverBid>();
@@ -91,7 +95,7 @@ export function mapDriverSnapshot(snapshot: RealDriverSnapshot): DriverCard[] {
       status: 'OPEN' as const, company: 'Marketplace member', quote: bid.amount ?? undefined,
       quoteOutcome: bid.status?.toLowerCase() === 'rejected' ? 'UNSUCCESSFUL' as const : ['cancelled', 'withdrawn'].includes(bid.status?.toLowerCase()) ? 'CANCELLED' as const : bid.status?.toLowerCase() === 'accepted' ? 'AWARDED' as const : undefined,
     })),
-    ...snapshot.marketplace.filter(job => !booked.has(job.id)).map(job => {
+    ...snapshot.marketplace.filter(job => !booked.has(job.id) && !isE2e(job.pickup_location) && !isE2e(job.delivery_location) && !isE2e(job.load_details)).map(job => {
       const card = mapMarketplaceJob(job);
       const bid = bids.get(job.id);
       if (bid && bid.amount != null) card.quote = bid.amount;

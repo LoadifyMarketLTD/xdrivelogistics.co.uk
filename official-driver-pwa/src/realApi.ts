@@ -15,12 +15,12 @@ export type DriverBid = {
 export type AssignedJob = {
   id: string; status?: string; current_status?: string;
   pickupLocation?: string | null; deliveryLocation?: string | null;
-  pickupTime?: string | null; canonicalStatus?: string;
+  pickupTime?: string | null; canonicalStatus?: string; createdAt?: string | null;
   jobDistanceMiles?: number | null; vehicleType?: string | null;
   postingCompanyName?: string | null; agreedRateAmount?: number | null; lifecycleGroup?: string;
 };
 export type DriverJobSheet = {
-  reference?: string | null; bookedBy?: string | null; customerName?: string | null; customerReference?: string | null; paymentTerms?: string | null; paymentDueDays?: number | null; agreedRate?: number | null; distanceMiles?: number | null; requestedVehicle?: string | null; executionInstructions?: string | null; hardCopyPod?: string | null; cargo?: { type?: string | null; weightKg?: number | null; pallets?: number | null; lengthCm?: number | null; widthCm?: number | null; heightCm?: number | null }; pickup?: { address?: string | null; postcode?: string | null; dateTime?: string | null; contactName?: string | null; contactPhone?: string | null; notes?: string | null }; delivery?: { address?: string | null; postcode?: string | null; dateTime?: string | null; contactName?: string | null; contactPhone?: string | null; notes?: string | null }; requirements?: string[]; documents?: Array<{ fileName?: string | null }>;
+  reference?: string | null; bookedBy?: string | null; pickupCompany?: string | null; deliveryCompany?: string | null; customerName?: string | null; customerReference?: string | null; paymentTerms?: string | null; paymentDueDays?: number | null; agreedRate?: number | null; distanceMiles?: number | null; requestedVehicle?: string | null; executionInstructions?: string | null; hardCopyPod?: string | null; cargo?: { type?: string | null; weightKg?: number | null; pallets?: number | null; lengthCm?: number | null; widthCm?: number | null; heightCm?: number | null }; pickup?: { address?: string | null; postcode?: string | null; dateTime?: string | null; contactName?: string | null; contactPhone?: string | null; notes?: string | null }; delivery?: { address?: string | null; postcode?: string | null; dateTime?: string | null; contactName?: string | null; contactPhone?: string | null; notes?: string | null }; requirements?: string[]; documents?: Array<{ fileName?: string | null }>;
 };
 export type RealDriverSnapshot = {
   marketplace: MarketplaceJob[]; bids: DriverBid[]; bookings: AssignedJob[]; sheets: Record<string, DriverJobSheet>;
