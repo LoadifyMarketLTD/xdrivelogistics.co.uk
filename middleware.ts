@@ -614,7 +614,7 @@ function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string
     `style-src ${styleSrc}`,
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://maps.googleapis.com https://mapsresources-pa.googleapis.com https://maps.gstatic.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://maps.googleapis.com https://mapsresources-pa.googleapis.com https://maps.gstatic.com https://api.postcodes.io https://nominatim.openstreetmap.org https://router.project-osrm.org",
     allowNetlifyPreviewFrame ? "frame-src 'self' https://app.netlify.com" : "frame-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",
