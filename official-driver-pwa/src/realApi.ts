@@ -19,8 +19,11 @@ export type AssignedJob = {
   jobDistanceMiles?: number | null; vehicleType?: string | null;
   postingCompanyName?: string | null; agreedRateAmount?: number | null; lifecycleGroup?: string;
 };
+export type DriverJobSheet = {
+  reference?: string | null; bookedBy?: string | null; customerName?: string | null; customerReference?: string | null; paymentTerms?: string | null; paymentDueDays?: number | null; agreedRate?: number | null; distanceMiles?: number | null; requestedVehicle?: string | null; executionInstructions?: string | null; hardCopyPod?: string | null; cargo?: { type?: string | null; weightKg?: number | null; pallets?: number | null; lengthCm?: number | null; widthCm?: number | null; heightCm?: number | null }; pickup?: { address?: string | null; postcode?: string | null; dateTime?: string | null; contactName?: string | null; contactPhone?: string | null; notes?: string | null }; delivery?: { address?: string | null; postcode?: string | null; dateTime?: string | null; contactName?: string | null; contactPhone?: string | null; notes?: string | null }; requirements?: string[]; documents?: Array<{ fileName?: string | null }>;
+};
 export type RealDriverSnapshot = {
-  marketplace: MarketplaceJob[]; bids: DriverBid[]; bookings: AssignedJob[];
+  marketplace: MarketplaceJob[]; bids: DriverBid[]; bookings: AssignedJob[]; sheets: Record<string, DriverJobSheet>;
 };
 export class DriverApiError extends Error {
   readonly status: number;
@@ -60,10 +63,15 @@ export function makeDriverApi(getAccessToken: () => Promise<string | null>) {
       if (!Array.isArray(market.rows) || !Array.isArray(quotes.bids) || !Array.isArray(active.jobs) || !Array.isArray(completed.jobs)) {
         throw new DriverApiError(502, 'XDrive returned an invalid driver feed.');
       }
+      const bookings = [...active.jobs, ...completed.jobs.filter(job => !active.jobs.some(a => a.id === job.id))];
+      const sheets: Record<string, DriverJobSheet> = {};
+      await Promise.all(bookings.map(async job => {
+        try { const result = await request<{sheet:DriverJobSheet}>(`/api/driver/jobs/${encodeURIComponent(job.id)}/sheet`); if(result.sheet) sheets[job.id]=result.sheet; } catch { /* Missing sheet is explicit in card, never fabricate details. */ }
+      }));
       return {
         marketplace: market.rows,
         bids: quotes.bids,
-        bookings: [...active.jobs, ...completed.jobs.filter(job => !active.jobs.some(a => a.id === job.id))],
+        bookings, sheets,
       };
     },
     updateJobStatus(jobId: string, action: string, driverNotes = '') {

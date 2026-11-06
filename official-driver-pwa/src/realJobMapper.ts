@@ -1,4 +1,4 @@
-﻿import type { AssignedJob, DriverBid, MarketplaceJob, RealDriverSnapshot } from './realApi';
+﻿import type { AssignedJob, DriverBid, DriverJobSheet, MarketplaceJob, RealDriverSnapshot } from './realApi';
 
 /** Maps server-authorised, public marketplace fields to approved driver-card fields. */
 export type DriverCard = {
@@ -15,6 +15,8 @@ export type DriverCard = {
   distanceMiles?: number;
   quote?: number;
   quoteOutcome?: 'AWARDED' | 'UNSUCCESSFUL' | 'CANCELLED';
+  yourRef?: string; customerRef?: string; pickupAddress?: string; deliveryAddress?: string; pickupContactName?: string; pickupContactPhone?: string; deliveryContactName?: string; deliveryContactPhone?: string; pickupInstructions?: string; deliveryInstructions?: string; terms?: string; items?: number; packages?: number; cargoLength?: number; cargoWidth?: number; cargoHeight?: number; hardCopyPodRequired?: boolean; postedAt?: string; jobDescription?: string;
+
 };
 const area = (value: string | null | undefined) => value?.trim() || 'Area not provided';
 const time = (value: string | null | undefined) => {
@@ -33,7 +35,7 @@ export function mapMarketplaceJob(job: MarketplaceJob): DriverCard {
     status: 'OPEN', company: job.posterName || 'Marketplace member',
   };
 }
-export function mapAssignedJob(job: AssignedJob): DriverCard {
+export function mapAssignedJob(job: AssignedJob, sheet?: DriverJobSheet): DriverCard {
   if (!job.id || job.id.startsWith('TEST-')) throw new Error('Invalid live booking identifier');
   const canonical = String(job.canonicalStatus || '').toLowerCase();
   const lifecycle = String(job.lifecycleGroup || '').toLowerCase();
@@ -48,13 +50,34 @@ export function mapAssignedJob(job: AssignedJob): DriverCard {
       : canonical.includes('loaded') || canonical.includes('collected') ? 'LOADED'
       : canonical.includes('arrived_pickup') || canonical.includes('on_site_pickup') ? 'ON_SITE_PICKUP'
       : canonical === 'on_my_way' || canonical.includes('on_way_pickup') || canonical.includes('en_route_pickup') ? 'ON_WAY_TO_PICKUP' : 'ALLOCATED',
-    company: job.postingCompanyName || 'Customer not provided', quoteOutcome: 'AWARDED',
-    ...(job.agreedRateAmount != null ? { quote: job.agreedRateAmount } : {}),
+    company: sheet?.bookedBy || job.postingCompanyName || 'Customer not provided', quoteOutcome: 'AWARDED',
+    ...(sheet?.reference ? {yourRef:sheet.reference}:{}),
+    ...(sheet?.customerReference ? {customerRef:sheet.customerReference}:{}),
+    ...(sheet?.pickup?.address ? {pickupAddress:[sheet.pickup.address,sheet.pickup.postcode].filter(Boolean).join(', ')}:{}),
+    ...(sheet?.delivery?.address ? {deliveryAddress:[sheet.delivery.address,sheet.delivery.postcode].filter(Boolean).join(', ')}:{}),
+    ...(sheet?.pickup?.contactName ? {pickupContactName:sheet.pickup.contactName}:{}),
+    ...(sheet?.pickup?.contactPhone ? {pickupContactPhone:sheet.pickup.contactPhone}:{}),
+    ...(sheet?.delivery?.contactName ? {deliveryContactName:sheet.delivery.contactName}:{}),
+    ...(sheet?.delivery?.contactPhone ? {deliveryContactPhone:sheet.delivery.contactPhone}:{}),
+    ...(sheet?.pickup?.notes ? {pickupInstructions:sheet.pickup.notes}:{}),
+    ...(sheet?.delivery?.notes ? {deliveryInstructions:sheet.delivery.notes}:{}),
+    ...(sheet?.executionInstructions ? {notes:sheet.executionInstructions,jobDescription:sheet.executionInstructions}:{}),
+    ...(sheet?.paymentDueDays ? {terms:`${sheet.paymentDueDays} days`}:sheet?.paymentTerms ? {terms:sheet.paymentTerms}:{}),
+    ...(sheet?.cargo?.weightKg != null ? {weight:sheet.cargo.weightKg}:{}),
+    ...(sheet?.cargo?.pallets != null ? {items:sheet.cargo.pallets}:{}),
+    ...(sheet?.cargo?.lengthCm != null ? {cargoLength:sheet.cargo.lengthCm}:{}),
+    ...(sheet?.cargo?.widthCm != null ? {cargoWidth:sheet.cargo.widthCm}:{}),
+    ...(sheet?.cargo?.heightCm != null ? {cargoHeight:sheet.cargo.heightCm}:{}),
+    ...(sheet?.hardCopyPod ? {hardCopyPodRequired:/required/i.test(sheet.hardCopyPod)}:{}),
+    ...(sheet?.requestedVehicle ? {vehicle:sheet.requestedVehicle}:{}),
+    ...(sheet?.pickup?.dateTime ? {pickup:time(sheet.pickup.dateTime)}:{}),
+    ...(sheet?.delivery?.dateTime ? {delivery:time(sheet.delivery.dateTime)}:{}),
+    ...(sheet?.agreedRate != null ? { quote: sheet.agreedRate } : job.agreedRateAmount != null ? { quote: job.agreedRateAmount } : {}),
     ...(job.jobDistanceMiles != null ? { distanceMiles: job.jobDistanceMiles } : {}),
   };
 }
 export function mapDriverSnapshot(snapshot: RealDriverSnapshot): DriverCard[] {
-  const bookings = snapshot.bookings.map(mapAssignedJob);
+  const bookings = snapshot.bookings.map(job=>mapAssignedJob(job,snapshot.sheets?.[job.id]));
   const booked = new Set(bookings.map(job => job.id));
   const marketIds = new Set(snapshot.marketplace.map(job => job.id));
   const bids = new Map<string, DriverBid>();
