@@ -14,6 +14,9 @@ import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
+import Canonical3150TransportSummary from './Canonical3150TransportSummary';
+import { formatPublicOutcode } from '../../../lib/jobs/formatPublicOutcode';
+import './canonical3150-transport-summary.css';
 import Master3150QuotesKpis from './Master3150QuotesKpis';
 import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
@@ -176,6 +179,7 @@ export default function CompanyMarketplaceExchange({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   const [memberTarget, setMemberTarget] = useState<LoadRow | null>(null);
+  const [detailsTarget, setDetailsTarget] = useState<LoadRow | null>(null);
   const [bidTarget, setBidTarget] = useState<LoadRow | null>(null);
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteMessage, setQuoteMessage] = useState('');
@@ -547,7 +551,7 @@ export default function CompanyMarketplaceExchange({
                     <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'}>{isExpanded ? 'â–´' : 'â–¾'}</button>
                     {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => openQuote(load)}>Quote Now</button> : null}
                     <span className="xdrive-cx-load-footer__member">
-                      <button className="xdrive-inline-link" type="button" onClick={() => setExpanded((current) => new Set(current).add(load.id))}>View Details</button>
+                      <button className="xdrive-inline-link" type="button" onClick={() => setDetailsTarget(load)}>View Details</button>
                       {load.posterMemberCode ? <span> ({load.posterMemberCode})</span> : null}
                       <button className="xdrive-inline-link xdrive-cx-load-footer__company" type="button" onClick={() => setMemberTarget(load)}>{load.posterName}</button>
                       {load.posterPhone ? <a href={`tel:${load.posterPhone.replace(/\s+/g, '')}`}>{load.posterPhone}</a> : null}
@@ -670,6 +674,52 @@ export default function CompanyMarketplaceExchange({
         />
         </Panel>
         </main>
+      </div>}
+
+      {detailsTarget && <div className="xdrive3150-marketplace-detail-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetailsTarget(null); }}>
+        <div className="xdrive3150-marketplace-detail-dialog" role="dialog" aria-modal="true" aria-label="Load transport details">
+          <Canonical3150TransportSummary
+            reference={detailsTarget.id.slice(0, 8).toUpperCase()}
+            route={`${formatPublicOutcode(detailsTarget.pickup_postcode)} → ${formatPublicOutcode(detailsTarget.delivery_postcode)}`}
+            status="Open for quotes"
+            sections={[
+              { title: 'Load & Posting Company', fields: [
+                { label: 'Load Reference', value: detailsTarget.id.slice(0, 8).toUpperCase() },
+                { label: 'Posted By', value: detailsTarget.posterName },
+                { label: 'Member ID', value: detailsTarget.posterMemberCode || 'Not recorded' },
+                { label: 'Service', value: detailsTarget.loadType?.replace(/_/g, ' ') || 'On Demand' },
+              ] },
+              { title: 'Collection Details', fields: [
+                { label: 'Collection Town / Outcode', value: formatPublicOutcode(detailsTarget.pickup_postcode) },
+                { label: 'Collection Date / Time', value: detailsTarget.pickup_datetime ? cxWhen(detailsTarget.pickup_datetime) : detailsTarget.pickup_time_slot || 'Not recorded' },
+                { label: 'Collection Window', value: detailsTarget.pickup_time_slot || 'Not recorded' },
+                { label: 'Full Address & Contact', value: 'Available only to authorised parties after award' },
+              ] },
+              { title: 'Delivery Details', fields: [
+                { label: 'Delivery Town / Outcode', value: formatPublicOutcode(detailsTarget.delivery_postcode) },
+                { label: 'Delivery Date / Time', value: detailsTarget.delivery_datetime ? cxWhen(detailsTarget.delivery_datetime) : detailsTarget.delivery_time_slot || 'Not recorded' },
+                { label: 'Delivery Window', value: detailsTarget.delivery_time_slot || 'Not recorded' },
+                { label: 'Full Address & Contact', value: 'Available only to authorised parties after award' },
+              ] },
+              { title: 'Vehicle & Cargo', fields: [
+                { label: 'Vehicle Type', value: detailsTarget.requested_vehicle_label || detailsTarget.vehicle_type?.replace(/_/g, ' ') || 'Not recorded' },
+                { label: 'Packaging / Pallets', value: detailsTarget.pallets != null ? `${detailsTarget.pallets} pallets` : detailsTarget.requested_cargo_label || detailsTarget.cargo_type || 'Not recorded' },
+                { label: 'Weight', value: detailsTarget.weight_kg != null ? `${detailsTarget.weight_kg} kg` : 'Not recorded' },
+                { label: 'Handling Requirements', value: detailsTarget.special_requirements || 'Not recorded' },
+              ] },
+              { title: 'Terms & Documents', fields: [
+                { label: 'Payment Terms', value: detailsTarget.payment_terms || 'Not recorded' },
+                { label: 'Hard Copy POD', value: detailsTarget.hard_copy_pod || 'Not recorded' },
+                { label: 'Special Instructions', value: detailsTarget.jobDescription || 'Not recorded' },
+                { label: 'Documents & POD', value: 'Available through authorised booking records after award' },
+              ] },
+            ]}
+          />
+          <footer className="xdrive3150-marketplace-detail-actions">
+            <small>Verified public load fields only. Private addresses, customer prices and documents remain restricted.</small>
+            <button type="button" onClick={() => setDetailsTarget(null)}>Close Details</button>
+          </footer>
+        </div>
       </div>}
 
       {memberTarget?.company_id && <MemberProfileOverlay companyId={memberTarget.company_id} onClose={() => setMemberTarget(null)} />}
