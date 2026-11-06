@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { CxDateParts } from './CxLoadCard';
 import './master3150-design-system.css';
 import './master3150-record-card.css';
+import './master3150-live-operations.css';
 
 /**
  * Production counterpart of approved 3150 XDriveLoadCard.
