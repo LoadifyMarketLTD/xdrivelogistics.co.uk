@@ -5,7 +5,7 @@
     "scope":  "/driver/official-pwa/",
     "display":  "standalone",
     "background_color":  "#f8f9fb",
-    "theme_color":  "#f47716",
+    "theme_color":  "#0A2239",
     "icons":  [
                   {
                       "purpose":  "any",
