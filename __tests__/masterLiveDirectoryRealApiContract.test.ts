@@ -10,7 +10,8 @@ describe('Master Directory is real, private and unified', () => {
     expect(read('app/customer/directory/page.tsx')).toContain('<MemberDirectoryPage />');
     expect(read('app/broker/directory/page.tsx')).toContain('<MemberDirectoryPage />');
     expect(read('app/broker/directory/page.tsx')).toContain("allowedRoles={['broker']}");
-    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('directory:10');
+    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('customerMasterTab(pathname)');
+    expect(read('lib/masterWorkspaceRouteTab.ts')).toContain('directory:10');
   });
   it('uses authenticated API with server-side verified active member access', () => {
     const component = read('app/components/workspace/MemberDirectoryPage.tsx');
