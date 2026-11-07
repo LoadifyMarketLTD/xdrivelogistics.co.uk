@@ -794,7 +794,7 @@ function DriverDashboardContent() {
 export default function DriverDashboard(){
   const { user } = useAuth();
   const workspace = resolveWorkspaceRole(user);
-  const role = workspace === 'owner_driver' ? 'Owner Driver' : String(user?.rawRole ?? '').toLowerCase() === 'company_driver' ? 'Company Driver' : 'Driver';
+  const role = workspace === 'owner_driver' ? 'Owner Driver' : 'Company Driver';
   const view = <MasterWorkspace role={role} authenticated dashboard={<DriverDashboardContent/>}/>;
   return role === 'Owner Driver' ? <Company3150LiveProvider>{view}</Company3150LiveProvider> : view;
 }

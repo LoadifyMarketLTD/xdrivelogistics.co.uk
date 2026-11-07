@@ -18,8 +18,7 @@ export default function DriverMasterLayoutGate({children}:{children:ReactNode}){
  const {user}=useAuth();
  if(pathname==='/driver')return <>{children}</>;
  const workspace=resolveWorkspaceRole(user);
- const role=workspace==='owner_driver'?'Owner Driver':
-   String(user?.rawRole??'').toLowerCase()==='company_driver'?'Company Driver':'Driver';
+ const role=workspace==='owner_driver'?'Owner Driver':'Company Driver';
  const section=pathname.split('/')[2]||'';
  return <MasterWorkspace key={pathname} role={role} authenticated
   initialTab={DRIVER_MASTER_TAB_BY_ROUTE[section]??0} dashboard={children}/>;
