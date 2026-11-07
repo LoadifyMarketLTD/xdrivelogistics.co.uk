@@ -9,8 +9,8 @@ for(const role of ['customer','driver']){
  const gate=read('app/'+role+'/'+(role==='customer'?'CustomerMasterLayoutGate.tsx':'DriverMasterLayoutGate.tsx'));
  assert.ok(page.includes('<MasterWorkspace'),role+' root must render the canonical Master');
  assert.ok(page.includes('authenticated dashboard='),role+' must use its real operational dashboard');
- if(role==='customer') assert.ok(!page.includes('Company3150LiveProvider'),'customer must not load carrier data');
- if(role==='driver') assert.ok(page.includes("role === 'Owner Driver' ? <Company3150LiveProvider>"),'only authorized owner driver may mount carrier data');
+ if(role==='customer') assert.ok(page.includes('<Company3150LiveProvider>')&&page.includes('CompanyMasterDashboard role="Customer"'),'customer must use scoped 3150 provider and dashboard');
+ if(role==='driver') assert.ok(page.includes("role === 'Owner Driver' ? <Company3150LiveProvider>{view}</Company3150LiveProvider> : view"),'only authorized owner driver may mount company data');
  assert.ok(read("app/try-xdrive-demo/components/MasterWorkspace.tsx").includes("MasterPreviewIsolation"),"Master must isolate demo endpoints");
  assert.ok(layout.includes('ProtectedRoute'),role+' must preserve authentication');
  assert.ok(layout.includes('MasterLayoutGate'),role+' must suppress duplicate top navigation at root');
@@ -30,8 +30,8 @@ const section=read('app/try-xdrive-demo/components/MasterOperationalSection.tsx'
 assert.ok(!section.includes('/api/try-xdrive-demo/'), 'authenticated operations must not use demo endpoints');
 assert.ok(!section.includes('XDL-DEMO'), 'authenticated master must not create sample jobs');
 const source=read('app/try-xdrive-demo/components/OperationsDemo.tsx');
-assert.ok(source.includes('realOperational&&tab===initialTab&&dashboard'),'real dashboards must be shown in the shared Master at the selected tab');
-assert.ok(source.includes('realOperational&&tab!==initialTab&&<MasterOperationalSection'), 'other tabs must open real operational routes');
+assert.ok(source.includes('dashboard&&tab===initialTab?dashboard'),'real dashboards must be shown in the shared Master at the selected tab');
+for(const index of [1,2,3,4,5,6,7,10,11,12,13,14,15,16]) assert.ok(source.includes('if(authenticated && i==='+index+')'),'authenticated Master tab '+index+' must navigate to a real role-scoped route');
 for(const route of ['customer/post-load','customer/quotes','customer/bookings','customer/network/directory','driver/loads','driver/quotes','driver/jobs','driver/history','driver/directory','driver/finance']){
  assert.ok(existsSync(resolve(root,'app',route,'page.tsx')),route+' original live route was lost');
 }
