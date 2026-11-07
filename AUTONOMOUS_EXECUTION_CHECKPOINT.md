@@ -24,3 +24,13 @@ Read-only examination of production SQL RPCs found missing pickup date checks in
 2. Validate SQL migration syntax and transaction behavior on isolated clone, including old pending offers, carrier-company-only awards, simultaneous withdraw/accept races and RLS.
 3. Verify POST Load→Driver Quote→Customer Award→Driver Acceptance→Booking→Collection/Delivery/POD→Invoice, plus messages and notifications, with safe test job rather than real financial commitment.
 4. Controlled build with sufficient memory and all regression suites; user-approved release only.
+
+## Continuation checkpoint 03:24 UTC (7 Nov)
+- Read-only live Supabase integrity inventory: 17 booking offers total (9 accepted, 5 declined, 3 pending), no orphaned bid/job/driver/vehicle, no mismatched accepted driver assignments. All three pending offers now have expired pickup; one quoted vehicle has insufficient pallet capacity.
+- Additional privacy hardening: a dedicated explicit allowlist projection for any unaccepted/declined/cancelled offer; no private addresses, detailed postcodes, private references, phone, coordinates or private load notes. Runtime unit tests cover 6 cases.
+- Driver WEB quotes API now hides customer client_name and customer_reference before allocation; only explicitly designated publicQuoteNotes/publicNotes permitted, raw plain text and driverNotes rejected.
+- Protected 3150 driver card regression tests updated to validate the actual Master3150Card expansion and improved quote identity fallback (no protected PR files modified).
+- PendingBookingOffers now refreshes when active every 30 seconds without clearing visible cards during background fetch.
+- Production read-only audit: booking_offer_created tracking events exist, but no notification trigger on job_booking_offers or job_tracking_events. Draft notification trigger migration added: supabase/migrations/20261107034000_booking_offer_counterparty_notifications.sql; not applied.
+- Six targeted suites 36/36 PASS, other six targeted suites 32/32 PASS, ESLint and TypeScript PASS (exit 0). Earlier parallel Vitest run hit memory pressure; sequential low-memory runner succeeded.
+- Full Next build still NOT PASS due page-generation Node OOM; transaction migrations not applied or SQL-executed; authenticated cross-role E2E not executed.

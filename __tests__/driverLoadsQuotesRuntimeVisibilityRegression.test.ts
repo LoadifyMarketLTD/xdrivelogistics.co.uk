@@ -8,6 +8,7 @@ describe('Driver Loads / Quotes runtime visibility regressions', () => {
   const loadCard = read('app/driver/_components/ApprovedDriverLoadCard.tsx');
   const quoteCard = read('app/driver/_components/ApprovedDriverQuoteCard.tsx');
   const sharedCard = read('app/driver/_components/ApprovedDriverOperationalCard.tsx');
+  const canonicalCard = read('app/components/workspace/Master3150Card.tsx');
   const quoteModal = read('app/driver/_components/MarketplaceQuoteModal.tsx');
   const jobs = read('app/driver/jobs/page.tsx');
   it('uses approved shared Load cards with separate expanded freight, commercial and notes', () => {
@@ -16,14 +17,16 @@ describe('Driver Loads / Quotes runtime visibility regressions', () => {
     expect(loadCard).toContain('commercial &&');
     expect(loadCard).toContain('notes &&');
     expect(loadCard).toContain('<ApprovedDriverOperationalCard');
-    expect(sharedCard).toContain('expanded &&');
+    expect(sharedCard).toContain('expanded={expanded}');
+    expect(canonicalCard).toContain('expanded && expandedContent &&');
   });
   it('renders canonical quote details only when expanded', () => {
     expect(quotes).toContain('<ApprovedDriverQuoteCard');
     expect(quotes).toContain('expandedContent={');
     expect(quoteCard).toContain('<ApprovedDriverOperationalCard');
     expect(quoteCard).toContain('expanded={expanded} expandedContent={expandedContent}');
-    expect(sharedCard).toContain('expanded &&');
+    expect(sharedCard).toContain('expanded={expanded}');
+    expect(canonicalCard).toContain('expanded && expandedContent &&');
   });
   it('allows withdrawn quotes to become actionable again', () => {
     expect(loads).toContain("load.myBid.status !== 'withdrawn'");

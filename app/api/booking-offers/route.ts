@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../_lib/supabaseAdmin';
 import { inspectJobEnvironmentalZones } from '../../../lib/environmentalZone';
 import { publicQuoteNotes } from '../driver/_lib/marketplacePublic';
+import { bookingOfferVisibleJob } from '../_lib/bookingOfferPublicProjection';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -68,18 +69,7 @@ export async function GET(request: NextRequest) {
         public_reference: 'XDL-' + String(offer.job_id ?? '').slice(0, 8).toUpperCase(), 
         environmental_zone: zoneLabel,
         public_quote_notes: publicQuoteNotes(job?.load_details),
-        job: job && offer.status === 'pending'
-          ? {
-              ...job,
-              pickup_location: job.pickup_city || String(job.pickup_postcode||'').split(' ')[0] || 'Collection area',
-              delivery_location: job.delivery_city || String(job.delivery_postcode||'').split(' ')[0] || 'Delivery area',
-              pickup_postcode: String(job.pickup_postcode||'').split(' ')[0] || null,
-              delivery_postcode: String(job.delivery_postcode||'').split(' ')[0] || null,
-              pickup_lat: null, pickup_lng: null, delivery_lat: null, delivery_lng: null,
-              load_details: null,
-              customer_reference: null,booking_reference:null,
-            }
-          : job,
+        job: bookingOfferVisibleJob(job, String(offer.status)),
       };
     }),
   });

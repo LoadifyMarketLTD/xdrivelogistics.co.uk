@@ -11,12 +11,14 @@ function publicBidNotes(...values: unknown[]): string {
   for (const value of values) {
     if (typeof value !== 'string' || !value.trim()) continue;
     const raw = value.trim();
-    if (!raw.startsWith('{') && !raw.startsWith('[')) return raw;
+    // A plain legacy note can contain customer contact details. Only explicitly
+    // marked quote-safe notes are released before booking acceptance.
+    if (!raw.startsWith('{')) continue;
     try {
       const parsed: unknown = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         const record = parsed as Record<string, unknown>;
-        for (const key of ['publicQuoteNotes', 'publicNotes', 'notes', 'driverNotes']) {
+        for (const key of ['publicQuoteNotes', 'publicNotes']) {
           if (typeof record[key] === 'string' && (record[key] as string).trim()) return (record[key] as string).trim();
         }
       }
@@ -125,13 +127,13 @@ export async function GET(request: NextRequest) {
           : 'Delivery area',
         pickupDatetime: job?.pickup_datetime ?? null,
         deliveryDatetime: job?.delivery_datetime ?? null,
-        clientName: job?.client_name || '',
+        clientName: executionUnlocked ? (job?.client_name || '') : '',
         paymentTerms: job?.payment_terms || null,
         vehicleType: job?.requested_vehicle_label || job?.vehicle_type || null,
         journeyDistanceMiles: job?.job_distance_miles ?? null,
         journeyDurationMinutes: job?.job_distance_minutes ?? null,
         jobNotes: publicBidNotes(job?.load_notes, job?.load_details),
-        jobReference: job?.load_id || job?.customer_reference || null,
+        jobReference: job?.load_id || (executionUnlocked ? job?.customer_reference : null) || null,
         executionUnlocked,
       };
     }),
