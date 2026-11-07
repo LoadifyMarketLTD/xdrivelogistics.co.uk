@@ -149,9 +149,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const notes = typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 2000) : '';
     const photoPaths = pathList(raw.photoPaths);
     const documentPaths = pathList(raw.documentPaths);
-    if (target.stop_type === 'collection' && photoPaths.length === 0) {
-      return respond(400, { error: 'At least one collection photo is required for this stop.' });
-    }
     if (photoPaths.length > 0 || documentPaths.length > 0) {
       if (!driver.companyId) return respond(403, { error: 'Driver company is required for stop evidence.' });
       const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
