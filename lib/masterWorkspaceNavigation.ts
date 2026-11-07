@@ -7,7 +7,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
   'Company / Carrier': [
     '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
     '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
-    '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
+    '/admin/invoices', '/admin/network-tools', '/admin/marketplace/directory',
     '/admin/live-availability', '/admin/fleet/returns', '/admin/freight-vision',
     '/admin/messages', '/admin/notifications', '/admin/reports',
   ],
@@ -49,7 +49,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
   Fleet: [
     '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
     '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
-    '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
+    '/admin/invoices', '/admin/network-tools', '/admin/marketplace/directory',
     '/admin/live-availability', '/admin/fleet/returns', '/admin/freight-vision',
     '/admin/messages', '/admin/notifications', '/admin/reports',
   ],
@@ -63,7 +63,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
   Dispatcher: [
     '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
     '/admin/won-work', '/admin/fleet', '/admin/drivers', '/admin/diary',
-    '/admin/invoices', '/admin/marketplace', '/admin/marketplace/directory',
+    '/admin/invoices', '/admin/network-tools', '/admin/marketplace/directory',
     '/admin/live-availability', '/admin/fleet/returns', '/admin/freight-vision',
     '/admin/messages', '/admin/notifications', '/admin/reports',
   ],
