@@ -204,7 +204,25 @@ function App() {
   const [notes, setNotes] = useState("");
   const [quoteEta, setQuoteEta] = useState("ASAP");
   const [quoteVehicle, setQuoteVehicle] = useState("");
-  const driverVehicles: string[] = (() => { try { const data: unknown = JSON.parse(localStorage.getItem("xdrive-driver-vehicles-v1") || "[]"); return Array.isArray(data) ? data.filter((v): v is string => typeof v === "string" && v.trim().length > 0) : []; } catch { return []; } })();
+  const [driverVehicles, setDriverVehicles] = useState<{ id: string; label: string }[]>([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
+  useEffect(() => {
+    if (!quoteOpen || !liveConnected || !liveSession?.token) return;
+    let active = true;
+    setVehiclesLoading(true);
+    void driverGet("/vehicles", liveSession.token).then(response => {
+      if (!active) return;
+      const rows = Array.isArray(response.vehicles) ? response.vehicles : [];
+      const vehicles = rows.filter((v): v is Record<string, unknown> => !!v && typeof v === "object" && typeof v.id === "string").map(v => ({
+        id: String(v.id),
+        label: [String(v.type || "Vehicle").replaceAll("_", " "), String(v.reg_plate || "")].filter(Boolean).join(" · "),
+      }));
+      setDriverVehicles(vehicles);
+      const preferred = String(response.canonicalVehicleId || response.assignedVehicleId || "");
+      setQuoteVehicle(current => vehicles.some(v => v.id === current) ? current : vehicles.find(v => v.id === preferred)?.id || (vehicles.length === 1 ? vehicles[0].id : ""));
+    }).catch(() => { if (active) setDriverVehicles([]); }).finally(() => { if (active) setVehiclesLoading(false); });
+    return () => { active = false; };
+  }, [quoteOpen, liveConnected, liveSession?.token]);
   const [quoteExtra, setQuoteExtra] = useState(false);
   const [quoteExtraName, setQuoteExtraName] = useState("");
   const [quoteExtraPrice, setQuoteExtraPrice] = useState("");
@@ -629,7 +647,7 @@ function App() {
             </div>
             <div className="quote-job-summary"><strong>{job.company || 'XDrive local test customer'}</strong><div><b className="hotshot">HOTSHOT</b> · {job.vehicle}</div>{job.zoneAlert && <b>{job.zoneAlert}</b>}<div className="quote-route"><strong>{job.from}</strong><span>{job.pickup} GMT | Today</span><strong>{job.to}</strong><span>{job.delivery} GMT</span></div>{job.distanceMiles !== undefined && <div className="quote-distance">Distance: {job.distanceMiles.toFixed(2)} miles {job.travelMinutes !== undefined && `(${Math.floor(job.travelMinutes / 60)}h ${job.travelMinutes % 60}mins)`}</div>}</div>
             <label>Will Pick Up Within<select value={quoteEta} onChange={e => setQuoteEta(e.target.value)}>{["ASAP","15 minutes","30 minutes","60 minutes","90 minutes","120 minutes"].map(v => <option key={v} value={v}>{v}</option>)}</select></label>
-            <label>Vehicle<select value={quoteVehicle} onChange={e => setQuoteVehicle(e.target.value)}><option value="">Select vehicle</option>{(driverVehicles.length ? driverVehicles : [job.vehicle]).map(v => <option key={v} value={v}>{v}</option>)}</select>{driverVehicles.length === 0 && <small>Registered driver vehicle details are temporarily unavailable. Confirm the correct vehicle before submitting.</small>}</label>
+            <label>Vehicle{liveConnected ? (driverVehicles.length === 1 ? <strong>{driverVehicles[0].label}</strong> : driverVehicles.length > 1 ? <select value={quoteVehicle} onChange={e => setQuoteVehicle(e.target.value)}><option value="">Select vehicle</option>{driverVehicles.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}</select> : <small>{vehiclesLoading ? "Loading your registered vehicle..." : "Your registered vehicle could not be loaded. Retry before submitting."}</small>) : <strong>{job.vehicle}</strong>}</label>
             <label>Choose currency<input value="GBP" readOnly /></label>
             <label>
               My Quotes (£) *
@@ -678,7 +696,7 @@ function App() {
               disabled={
                 liveBusy ||
                 validateQuote(Number(amount)) !== null ||
-                !quoteVehicle ||
+                (liveConnected && (!quoteVehicle || vehiclesLoading)) ||
                 (role === "Company Driver" && !canBid)
               }
               onClick={async () => {
@@ -693,7 +711,7 @@ function App() {
                       amount: Number(amount) + (quoteExtra ? Number(quoteExtraPrice) || 0 : 0),
                       baseAmount: Number(amount),
                       additionalExtrasGbp: quoteExtra ? Number(quoteExtraPrice) || 0 : 0,
-                      message: [notes.trim(), "Collection ETA: " + quoteEta, "Vehicle: " + quoteVehicle, quoteExtra ? quoteExtraName.trim() : ""].filter(Boolean).join("; "),
+                      message: [notes.trim(), "Collection ETA: " + quoteEta, "Vehicle: " + (driverVehicles.find(v => v.id === quoteVehicle)?.label || job.vehicle), quoteExtra ? quoteExtraName.trim() : ""].filter(Boolean).join("; "),
                     });
                     setQuoteOpen(false); setTab("Quotes"); setSelected(null);
                     try { await refreshLive(session.token); } catch (refreshError) {
