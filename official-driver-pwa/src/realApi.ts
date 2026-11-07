@@ -45,7 +45,7 @@ export function makeDriverApi(getAccessToken: () => Promise<string | null>) {
       const message = response.status === 401
         ? 'Your XDrive session has expired. Please sign in again.'
         : response.status === 403
-          ? 'XDrive denied access to driver data (403). Check the signed-in driver account and workspace permissions.'
+          ? (serverMessage.includes('Commercial marketplace access is not enabled') ? serverMessage : 'XDrive denied access to driver data (403). Check the signed-in driver account and workspace permissions.')
           : serverMessage;
       throw new DriverApiError(response.status, message);
     }

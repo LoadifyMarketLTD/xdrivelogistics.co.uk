@@ -31,7 +31,7 @@ export default function DriverSettings({ role }: { role: 'Owner Driver' | 'Compa
     <h2>Settings</h2>
     <p>Device preferences for {role}.</p>
     <h3>Availability & job search</h3>
-    <label className="check"><input type="checkbox" checked={prefs.available} onChange={e => change({ available: e.target.checked })}/> Mark available</label>
+    <p>Use Driver Menu → Availability to change your LIVE availability status.</p>
     <label>Search radius (miles)
       <select value={prefs.radiusMiles} onChange={e => change({ radiusMiles: Number(e.target.value) })}>
         {[5, 10, 15, 20, 25, 30].map(radius => <option key={radius} value={radius}>{radius} miles</option>)}
@@ -46,7 +46,6 @@ export default function DriverSettings({ role }: { role: 'Owner Driver' | 'Compa
       </select>
     </label>
     <h3>Notifications</h3>
-    <label className="check"><input type="checkbox" checked={prefs.notifications} onChange={e => change({ notifications: e.target.checked })}/> Enable notifications</label>
-    <p>Push notifications require backend connection.</p>
+    <p>Manage LIVE notification channels in Driver Menu → Load Alerts. Device notification permission is controlled by your browser settings.</p>
   </section>
 }

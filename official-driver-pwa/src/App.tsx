@@ -1,7 +1,5 @@
-import EtaQuarterHour from './EtaQuarterHour';
 import { useEffect, useState } from "react";
 import "./App.css";
-import { useRealDriverFeed } from "./useRealDriverFeed";
 import {
   nextJobStatus,
   validateQuote,
@@ -11,13 +9,24 @@ import {
 import {
   readLocalRecords,
   writeLocalRecords,
-  isLocalJob,
 } from "./localRepository";
 import LocalInvoices from "./LocalInvoices";
-import DriverSettings from "./DriverSettings";
 import DriverMenu from "./DriverMenu";
 import PodCapture from "./PodCapture";
 import RouteMap from "./RouteMap";
+import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
+const LIVE_SESSION_KEY = "xdrive-driver-live-session-v1";
+function savedLiveSession(): LiveSession | null {
+  try {
+    const raw = localStorage.getItem(LIVE_SESSION_KEY);
+    if (!raw) return null;
+    const value: unknown = JSON.parse(raw);
+    if (!value || typeof value !== "object") return null;
+    const session = value as Partial<LiveSession>;
+    return typeof session.token === "string" && typeof session.refreshToken === "string" && typeof session.expiresAt === "number"
+      ? session as LiveSession : null;
+  } catch { return null; }
+}
 import { useRoadRadius } from "./useRoadRadius";
 type Tab = "Loads" | "Quotes" | "Bookings" | "Map" | "Invoices" | "More" | "Alerts";
 type Load = {
@@ -111,74 +120,73 @@ type Load = {
   isNew?: boolean;
 };
 // Fictional, explicitly local-only sample data; never presented as live customer records.
-const fixtureDetails: Record<string, Partial<Load>> = {
-  "TEST-1001": { company: "XDrive Test Freight Ltd", terms: "30 days", distanceMiles: 239, travelMinutes: 249, service: "Same Day · Timed", smartPay: true, packages: 2, postedAt: "15:34" },
-  "TEST-1002": { company: "Midlands Test Cargo Ltd", terms: "30 days", distanceMiles: 87.5, travelMinutes: 115, service: "Same Day · Timed", packages: 3, postedAt: "14:02" },
-  "TEST-1003": { company: "Northern Test Express Ltd", terms: "45 days", distanceMiles: 209, travelMinutes: 222, service: "Same Day · Timed", smartPay: true, packages: 1, zoneAlert: "Bradford CAZ Alert", postedAt: "08:15" },
-  "TEST-1004": { company: "Yorkshire Test Logistics Ltd", terms: "30 days", distanceMiles: 42.4, travelMinutes: 59, service: "Same Day · Timed", smartPay: true, packages: 3, postedAt: "09:42" },
-  "TEST-1005": { company: "Mersey Test Transport Ltd", terms: "30 days", distanceMiles: 36.8, travelMinutes: 52, service: "Same Day · Timed", packages: 2, postedAt: "10:57" },
-  "TEST-1006": { company: "Central Test Couriers Ltd", terms: "45 days", distanceMiles: 22.3, travelMinutes: 37, service: "Same Day · Timed", packages: 4, postedAt: "11:45" },
-  "TEST-1007": { company: "East Midlands Test Freight Ltd", terms: "30 days", distanceMiles: 29.7, travelMinutes: 45, service: "Same Day · Timed", packages: 6, postedAt: "12:48" },
-  "TEST-1008": { company: "Lancashire Test Sameday Ltd", terms: "30 days", distanceMiles: 72.5, travelMinutes: 96, service: "Same Day · Timed", smartPay: true, packages: 1, postedAt: "15:21" },
-};
-const fixtures: Load[] = [
-  {
-    id: "TEST-1001",
-    customerRef: "LOCAL-CUST-1001",
-    yourRef: "LOCAL-1001",
-    from: "Preston PR5",
-    to: "Broxbourne EN10",
-    pickup: "12:30",
-    delivery: "17:00",
-    vehicle: "Luton Van",
-    weight: 540,
-    notes: "2 pallets  ·  tail lift required",
-    status: "OPEN",
-  },
-  {
-    id: "TEST-1002",
-    customerRef: "LOCAL-CUST-1002",
-    yourRef: "LOCAL-1002",
-    from: "Manchester M1",
-    to: "Birmingham B1",
-    pickup: "14:15",
-    delivery: "18:30",
-    vehicle: "Large Van",
-    weight: 260,
-    notes: "Fragile cargo",
-    status: "OPEN",
-  },
-  { id: "TEST-1003", from: "Bradford BD4", to: "Glasgow G12", pickup: "08:30", delivery: "14:30", vehicle: "Small Van", weight: 180, notes: "Urgent delivery", status: "OPEN" },
-  { id: "TEST-1004", from: "Leeds LS10", to: "Sheffield S9", pickup: "10:00", delivery: "12:15", vehicle: "SWB Van", weight: 95, notes: "3 boxes", status: "OPEN" },
-  { id: "TEST-1005", from: "Liverpool L3", to: "Manchester M17", pickup: "11:15", delivery: "13:30", vehicle: "Luton Van", weight: 620, notes: "2 pallets, tail lift required", status: "OPEN" },
-  { id: "TEST-1006", from: "Birmingham B6", to: "Coventry CV1", pickup: "12:00", delivery: "14:00", vehicle: "Large Van", weight: 240, notes: "Fragile equipment", status: "OPEN" },
-  { id: "TEST-1007", from: "Nottingham NG2", to: "Leicester LE3", pickup: "13:00", delivery: "15:00", vehicle: "Small Van", weight: 75, notes: "Sealed cartons", status: "OPEN" },
-  { id: "TEST-1008", from: "Darwen BB3", to: "Thirsk YO7", pickup: "15:30", delivery: "08:00 next day", vehicle: "SWB Van", weight: 140, notes: "Safety boots required", status: "OPEN" },
-  { id: "TEST-1099", from: "Birmingham B6", to: "Manchester M1", pickup: "10:00", delivery: "14:00", vehicle: "Luton Van", weight: 450, notes: "DEMO ONLY: collect two pallets at loading bay 2; call contact before arrival; secure load with straps; obtain signed POD at delivery.", status: "ALLOCATED", acceptanceRequired: true, quoteOutcome: "AWARDED", quote: 180, company: "XDrive Sample Customer (TEST)", terms: "30 days", distanceMiles: 88.5, postedAt: "09:15", yourRef: "DEMO-BOOKING-1099", customerRef: "DEMO-CUST-1099", pickupCompany: "Birmingham Sample Warehouse (TEST)", pickupAddress: "Unit 12, Example Industrial Estate, Birmingham B6 0AA (TEST ADDRESS)", pickupContactName: "Sample Collection Contact", pickupContactPhone: "00000 000000", pickupDate: "05/11/2026", pickupTimeMode: "Between", pickupTimeTo: "12:00", pickupAdditionalAddress: "Loading bay 2; report to goods-in desk", pickupInstructions: "Call the warehouse before arrival. Safety footwear and hi-vis required.", deliveryCompany: "Manchester Sample Distribution (TEST)", deliveryAddress: "Unit 4, Example Distribution Park, Manchester M1 0AA (TEST ADDRESS)", deliveryContactName: "Sample Delivery Contact", deliveryContactPhone: "00000 000000", deliveryDate: "05/11/2026", deliveryTimeMode: "ASAP", deliveryAdditionalAddress: "Use the rear goods entrance", deliveryInstructions: "Unload at goods-in and obtain signed hard-copy POD.", hardCopyPodRequired: true, jobDescription: "Deliver Direct", packaging: "Pallets", items: 2, packages: 2, bodyType: "Box", jobType: "Hotshot", freightType: "General goods", loadMetres: 2.4, cubicMetres: 3.6, cargoLength: 120, cargoWidth: 100, cargoHeight: 150, cargoDimensionUnit: "cm", handlingRequirements: { "Tail Lift": true, "Forklift": true, "Two Man": false, "Stackable": false, "Handball": false }, attachmentNames: ["DEMO-collection-instructions.pdf (test placeholder)"], service: "Same Day · Timed" },
-];
-const noLiveToken = async (): Promise<string | null> => null;
-function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null> } = {}) {
-  const realFeed = useRealDriverFeed(getAccessToken ?? noLiveToken, Boolean(getAccessToken));
-  const [tab, setTab] = useState<Tab>("Loads");
-  const [sandboxJobs, setJobs] = useState<Load[]>(() => {
-    const existing = readLocalRecords<Load>(
-      "xdrive-local-jobs-v1",
-      (value): value is Load =>
-        isLocalJob(value) &&
-        typeof (value as Load).from === "string" &&
-        typeof (value as Load).to === "string" &&
-        typeof (value as Load).vehicle === "string" &&
-        typeof (value as Load).weight === "number" &&
-        typeof (value as Load).pickup === "string" &&
-        typeof (value as Load).delivery === "string" &&
-        typeof (value as Load).notes === "string",
-    );
-    const ids = new Set(existing.map(j => j.id));
-    return [...existing.filter(j => j.id !== "TEST-1099"), ...fixtures.filter(j => Number(j.id.slice(5)) >= 1003 && (!ids.has(j.id) || j.id === "TEST-1099"))].map(j => ({ ...fixtureDetails[j.id], ...j, company: j.company || fixtureDetails[j.id]?.company, terms: j.terms || fixtureDetails[j.id]?.terms, distanceMiles: j.distanceMiles ?? fixtureDetails[j.id]?.distanceMiles, travelMinutes: j.travelMinutes ?? fixtureDetails[j.id]?.travelMinutes, service: j.service || fixtureDetails[j.id]?.service, smartPay: j.smartPay ?? fixtureDetails[j.id]?.smartPay, packages: j.packages ?? fixtureDetails[j.id]?.packages, zoneAlert: j.zoneAlert || fixtureDetails[j.id]?.zoneAlert, postedAt: j.postedAt || fixtureDetails[j.id]?.postedAt }));
-  });
+function App() {
+  const [tab, setTab] = useState<Tab>(() => savedLiveSession() ? "Loads" : "More");
+  const [liveSession, setLiveSession] = useState<LiveSession | null>(savedLiveSession);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveError, setLiveError] = useState("");
+  const [liveWarning, setLiveWarning] = useState("");
+  const [liveConnected, setLiveConnected] = useState(false);
+  useEffect(() => { if (liveSession) localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(liveSession)); }, [liveSession]);
+  useEffect(() => {
+    let active = true;
+    const previous = savedLiveSession();
+    if (!previous) return;
+    setLiveBusy(true);
+    void (async () => {
+      try {
+        const session = await renewSession(previous);
+        if (!active) return;
+        setLiveSession(session);
+        setLiveConnected(true);
+        await syncAuthenticatedRole(session.token);
+        const records = await loadLiveWithDiagnostics(session.token);
+        if (!active) return;
+        setJobs(records.jobs as Load[]);
+        setLiveWarning(records.warnings.join(" | "));
+        setLiveError("");
+      } catch (error) {
+        if (!active) return;
+        setLiveError(error instanceof Error ? error.message : "Session restoration failed");
+      } finally { if (active) setLiveBusy(false); }
+    })();
+    return () => { active = false; };
+  }, []);
+  const syncAuthenticatedRole = async (token: string) => {
+    const profile = await driverGet("/profile", token);
+    const driver = profile.driver as Record<string, unknown> | undefined;
+    const type = String(driver?.driver_type || "").toLowerCase();
+    setRole(type.includes("owner") ? "Owner Driver" : "Company Driver");
+  };
+  const refreshLive = async (token: string) => {
+    await syncAuthenticatedRole(token);
+    const records = await loadLiveWithDiagnostics(token);
+    setJobs(records.jobs as Load[]);
+    setLiveWarning(records.warnings.join(" | "));
+    setLiveConnected(true);
+  };
+  const connectLive = async () => {
+    setLiveBusy(true);
+    setLiveError("");
+    try {
+      const session = await liveLogin(loginEmail.trim(), loginPassword);
+      setLiveSession(session);
+      localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(session));
+      setLiveConnected(true);
+      await refreshLive(session.token);
+      setLoginPassword("");
+      setSelected(null);
+      setTab("Loads");
+    } catch (error) {
+      setLiveError(error instanceof Error ? error.message : "Live connection failed");
+    } finally { setLiveBusy(false); }
+  };
+  // Never present locally stored or seeded test records as production loads.
+  // The approved TEST-1099 UI can still be loaded explicitly from the local test workspace.
+  const [jobs, setJobs] = useState<Load[]>([]);
 
-  const jobs: Load[] = getAccessToken ? realFeed.jobs.map(card => ({ ...card, weight: card.weight ?? 0 })) : sandboxJobs;
-  // Do not expose internal API feed counts or loading diagnostics in the driver UI.
   const [selected, setSelected] = useState<string | null>(null);
   const [seenAllocations, setSeenAllocations] = useState<string[]>(() => readLocalRecords<string>("xdrive-seen-allocations-v1", (v): v is string => typeof v === "string"));
   const [alertSection, setAlertSection] = useState<"Inbox" | "Saved" | "Deleted">("Inbox");
@@ -190,7 +198,6 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
   const [bookingUploadError, setBookingUploadError] = useState("");
   const [savedDocumentNames, setSavedDocumentNames] = useState<Record<string, string[]>>(() => { try { return JSON.parse(localStorage.getItem("xdrive-booking-documents-saved-v1") || "{}"); } catch { return {}; } });
   const [quoteOpen, setQuoteOpen] = useState(false);
-  const [liveActionError, setLiveActionError] = useState<string | null>(null);
   const [bookingScreen, setBookingScreen] = useState<"details" | "status" | "pickup" | "loaded" | "history" | "pod">("details");
   const [amount, setAmount] = useState("");
 
@@ -201,18 +208,15 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
   const [quoteExtra, setQuoteExtra] = useState(false);
   const [quoteExtraName, setQuoteExtraName] = useState("");
   const [quoteExtraPrice, setQuoteExtraPrice] = useState("");
-  const [quoteSection, setQuoteSection] = useState<"Submitted" | "Awarded">("Submitted");
-  const [sandboxBookingHistory, setBookingHistory] = useState<Record<string, { status: string; at: string }[]>>(() => { try { return JSON.parse(localStorage.getItem("xdrive-booking-history-v1") || "{}"); } catch { return {}; } });
-  const bookingHistory = getAccessToken ? {} as Record<string, { status: string; at: string }[]> : sandboxBookingHistory;
-  const [mode, setMode] = useState<"sandbox" | "unconfigured">(() =>
-    readLocalRecords("xdrive-local-jobs-v1", isLocalJob).length
-      ? "sandbox"
-      : "unconfigured",
-  );
+  const [quoteSection, setQuoteSection] = useState<"Submitted" | "Unsuccessful">("Submitted");
+  const [bookingSection, setBookingSection] = useState<"Current" | "Completed" | "Archived">("Current");
+  const [archivedBookingIds, setArchivedBookingIds] = useState<string[]>(() => readLocalRecords("xdrive-booking-archive-v1", (value): value is string => typeof value === "string"));
+  const [bookingHistory, setBookingHistory] = useState<Record<string, { status: string; at: string }[]>>(() => { try { return JSON.parse(localStorage.getItem("xdrive-booking-history-v1") || "{}"); } catch { return {}; } });
+  const [mode, setMode] = useState<"sandbox" | "unconfigured">("unconfigured");
   const [role, setRole] = useState<"Owner Driver" | "Company Driver">(
     "Owner Driver",
   );
-  const [canBid, setCanBid] = useState(true);
+  const canBid = true;
   const [yourRef, setYourRef] = useState("");
   const [collectionWeight, setCollectionWeight] = useState("");
   const [podName, setPodName] = useState("");
@@ -226,11 +230,12 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
   const [etaDateTime, setEtaDateTime] = useState("");
   const [podReceivedBy, setPodReceivedBy] = useState("");
   const [podLeftAt, setPodLeftAt] = useState("");
-  useEffect(() => { if (!getAccessToken) writeLocalRecords("xdrive-local-jobs-v1", sandboxJobs); }, [getAccessToken, sandboxJobs]);
+  useEffect(() => { if (!liveConnected && mode === "sandbox") writeLocalRecords("xdrive-local-jobs-v1", jobs); }, [jobs, liveConnected, mode]);
   useEffect(() => writeLocalRecords("xdrive-alerts-saved-v1", savedIds), [savedIds]);
+  useEffect(() => writeLocalRecords("xdrive-booking-archive-v1", archivedBookingIds), [archivedBookingIds]);
   useEffect(() => writeLocalRecords("xdrive-seen-allocations-v1", seenAllocations), [seenAllocations]);
   useEffect(() => writeLocalRecords("xdrive-alerts-deleted-v1", deletedIds), [deletedIds]);
-  useEffect(() => { if (!getAccessToken) localStorage.setItem("xdrive-booking-history-v1", JSON.stringify(sandboxBookingHistory)); }, [sandboxBookingHistory, getAccessToken]);
+  useEffect(() => localStorage.setItem("xdrive-booking-history-v1", JSON.stringify(bookingHistory)), [bookingHistory]);
   useEffect(() => localStorage.setItem('xdrive-driver-available-v1', String(available)), [available]);
   const [searchRadius, setSearchRadius] = useState(() => { try { return Math.min(30, Math.max(1, Number(JSON.parse(localStorage.getItem("xdrive-driver-preferences-v1") || "{}").radiusMiles) || 30)); } catch { return 30; } });
   useEffect(() => { const sync = () => { try { setSearchRadius(Math.min(30, Math.max(1, Number(JSON.parse(localStorage.getItem("xdrive-driver-preferences-v1") || "{}").radiusMiles) || 10))); } catch { setSearchRadius(30); } }; window.addEventListener("xdrive-radius-change", sync); return () => window.removeEventListener("xdrive-radius-change", sync); }, []);
@@ -239,41 +244,31 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
   const activeDelivery = returnLoads ? jobs.find(j => j.status !== "OPEN" && j.quoteOutcome !== "CANCELLED" && j.quoteOutcome !== "UNSUCCESSFUL" && j.status !== "DELIVERED") : undefined;
   const roadRadius = useRoadRadius(jobs, searchRadius, activeDelivery ? (activeDelivery.deliveryAddress && !activeDelivery.deliveryAddress.includes("(TEST ADDRESS)") ? activeDelivery.deliveryAddress : activeDelivery.to) : undefined);
   const job = jobs.find((j) => j.id === selected);
-  const liveStep = async (id: string, action: string, screen: "details" | "status" | "pickup" | "loaded" | "history" | "pod") => {
-    setLiveActionError(null);
-    try { await realFeed.updateJobStatus(id, action, driverNotes); openJob(id); setBookingScreen(screen); }
-    catch (error) { setLiveActionError(error instanceof Error ? error.message : "Status update failed."); }
-  };
   const update = (id: string, patch: Partial<Load>) => {
-    if (getAccessToken) { window.alert("Live action not yet enabled. No server change was made."); return; }
+    if (liveConnected) { setLiveError("LIVE booking status updates are not yet connected. No changes were sent."); return; }
     if (patch.status) setBookingHistory((history) => ({ ...history, [id]: [...(history[id] || []), { status: patch.status!, at: new Date().toISOString() }] }));
     setJobs((js) => js.map((j) => (j.id === id ? { ...j, ...patch } : j)));
   };
   const listed =
     tab === "Loads" || tab === "Alerts"
-      ? jobs.filter((j) => j.status === "OPEN" && j.quote === undefined && (Boolean(getAccessToken) || roadRadius.miles[j.id] !== undefined) && (tab !== "Alerts" || (alertSection === "Saved" ? savedIds.includes(j.id) : alertSection === "Deleted" ? deletedIds.includes(j.id) : !deletedIds.includes(j.id))))
+      ? jobs.filter((j) => j.status === "OPEN" && j.quote === undefined && (liveConnected || roadRadius.miles[j.id] !== undefined) && (tab !== "Alerts" || (alertSection === "Saved" ? savedIds.includes(j.id) : alertSection === "Deleted" ? deletedIds.includes(j.id) : !deletedIds.includes(j.id))))
       : tab === "Quotes"
-        ? jobs.filter((j) => j.quote !== undefined && (quoteSection === "Awarded" ? j.quoteOutcome === "AWARDED" : j.quoteOutcome !== "AWARDED"))
-        : jobs.filter((j) => j.status !== "OPEN" && j.quoteOutcome !== "UNSUCCESSFUL" && j.quoteOutcome !== "CANCELLED");
+        ? jobs.filter((j) => j.quote !== undefined && (quoteSection === "Submitted" ? j.status === "OPEN" && j.quoteOutcome !== "UNSUCCESSFUL" && j.quoteOutcome !== "CANCELLED" : j.quoteOutcome === "UNSUCCESSFUL" || j.quoteOutcome === "CANCELLED"))
+        : jobs.filter((j) => (liveConnected || j.id === "TEST-1099") && j.status !== "OPEN" && j.quoteOutcome !== "UNSUCCESSFUL" && j.quoteOutcome !== "CANCELLED" && (bookingSection === "Archived" ? archivedBookingIds.includes(j.id) : bookingSection === "Completed" ? j.status === "DELIVERED" && !archivedBookingIds.includes(j.id) : j.status !== "DELIVERED" && !archivedBookingIds.includes(j.id)));
   const pendingAllocations = jobs.filter(j => j.acceptanceRequired === true && j.status === "ALLOCATED" && !seenAllocations.includes(j.id));
   const next = job ? nextJobStatus(job.status) : undefined;
   const openJob = (id: string) => { const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.status === "ALLOCATED") setSeenAllocations(v => v.includes(id) ? v : [...v, id]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
   const toggleSaved = (id: string) => setSavedIds((v) => v.includes(id) ? v.filter((x) => x !== id) : [...v, id]);
   const toggleDeleted = (id: string) => setDeletedIds((v) => v.includes(id) ? v.filter((x) => x !== id) : [...v, id]);
   return (
-    <div className={routeJobId ? "shell route-view" : "shell"}>
-      {realFeed.error && <div role="alert" aria-live="assertive">{realFeed.error}</div>}
-      {liveActionError && <div role="alert">{liveActionError}</div>}
+    <div className={routeJobId ? "shell route-view" : tab === "Loads" && listed.length === 0 ? "shell no-empty-scroll" : "shell"}>
       <header>
         <div className="brand">
-          <span className="mark">X</span>
-          <span>
-            XDRIVE <small>DRIVER</small>
-          </span>
+          <img className="driver-brand-logo" src="/driver/official-pwa/xdrive-logo-company-3150.png" alt="XDrive Logistics" />
         </div>
         <button
           className="headbtn"
-          onClick={() => { setMenuSection(null); setMenuOpen(true); }}
+          onClick={() => { if (!liveConnected) { setTab("More"); return; } setMenuSection(null); setMenuOpen(true); }}
           aria-label="Open driver menu"
         >
           Menu
@@ -291,7 +286,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
             <article className={tab === "Bookings" && bookingScreen === "details" ? "booking-details-root" : "card"}>
               {tab !== "Bookings" ? <div className="booking-overview">
               <div className="cardtop">
-                <strong>{job.id}</strong>
+                <strong>{job.yourRef || job.customerRef || `Job ${job.id.slice(0, 8).toUpperCase()}`}</strong>
                 <span className="pill">{job.status.replaceAll("_", " ")}</span>
               </div>
               <div className="route">
@@ -308,7 +303,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 <span>{job.vehicle}</span>
                 <span>{job.weight} kg</span>
               </div>
-              <div className="mobile-job-facts"><div>Service: {job.service || "Same Day"}</div><div>Vehicle: {job.vehicle}</div><div>Weight: {job.weight} kg</div><div>Packages: {job.packages ?? "Not specified"}</div></div>
+              <div className="mobile-job-facts"><div>Service: {(job.service || "Same Day").replaceAll("_", " ")}</div><div>Vehicle: {job.vehicle}</div><div>Weight: {job.weight} kg</div>{job.packages != null && <div>Packages: {job.packages}</div>}</div>
               <button className="map-action" onClick={() => setRouteJobId(job.id)}>View on Map</button>
 
               {tab === "Alerts" && job.status === "OPEN" && <p className="notification-reason">Notification Reason: {job.notificationReason || "Driver current location"}</p>}
@@ -323,7 +318,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                   Your quote: <strong>£{job.quote.toFixed(2)} net</strong>
                 </p>
               )}
-              {job.status === "ALLOCATED" && job.acceptanceRequired && <section className="acceptance-panel"><h2>Acceptance Required</h2><p>{job.company || "XDrive test customer"} · Your Ref. {job.yourRef || job.id}</p><div className="actions"><button className="danger" onClick={() => { if (getAccessToken) { setLiveActionError("Decline requires a verified server action. Booking was not changed."); return; } update(job.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" }); setSelected(null); }}>Decline</button><button className="accept-action" onClick={async () => { if (getAccessToken) { try { setLiveActionError(null); await realFeed.updateJobStatus(job.id, "accept"); } catch (error) { setLiveActionError(error instanceof Error ? error.message : "Acceptance failed."); } } else update(job.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() }); }}>Accept</button></div></section>}
+              {job.status === "ALLOCATED" && job.acceptanceRequired && <section className="acceptance-panel"><h2>Acceptance Required</h2><p>{job.company || "XDrive test customer"} · Your Ref. {job.yourRef || job.id}</p><div className="actions"><button className="danger" onClick={() => { update(job.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" }); setSelected(null); }}>Decline</button><button className="accept-action" onClick={() => update(job.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() })}>Accept</button></div></section>}
               </div> : null}
 
               {job.status !== "OPEN" && bookingScreen === "details" && <section className="booking-detail-sheet booking-detail-redesign">
@@ -362,15 +357,15 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 <section className="booking-detail-group"><h3>Delivery Details</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company:job.deliveryCompany,address:job.deliveryAddress || job.to,reference:job.customerRef,instructions:job.deliveryInstructions}]).map((dest,i) => <div key={i + "-" + dest.address}><h4>{i+1}. {dest.address} · {dest.time || job.delivery}</h4><div className="booking-info-row"><b>Company</b><span>{dest.company || "Not provided in Post Load"}</span></div><div className="booking-info-row"><b>Full address</b><span>{dest.address !== job.to ? dest.address : "Full address not provided in Post Load"}</span></div>{dest.reference && <div className="booking-info-row"><b>Reference</b><span>{dest.reference}</span></div>}{dest.instructions && <p>{dest.instructions}</p>}{dest.date && <div className="booking-info-row"><b>Delivery date</b><span>{dest.date}</span></div>}{dest.time && <div className="booking-info-row"><b>Delivery time</b><span>{dest.time}</span></div>}{dest.timeMode && <div className="booking-info-row"><b>Time mode</b><span>{dest.timeMode}</span></div>}{dest.contactName && <div className="booking-info-row"><b>Contact</b><span>{dest.contactName}</span></div>}{dest.contactPhone && <div className="booking-info-row"><b>Phone</b><a href={"tel:" + dest.contactPhone}>{dest.contactPhone}</a></div>}{dest.additionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{dest.additionalAddress}</span></div>}</div>)}{job.deliveryDate && <div className="booking-info-row"><b>Delivery date</b><span>{job.deliveryDate}</span></div>}{job.deliveryTimeMode && <div className="booking-info-row"><b>Delivery time mode</b><span>{job.deliveryTimeMode}</span></div>}{job.deliveryAdditionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{job.deliveryAdditionalAddress}</span></div>}{job.deliveryContactName && <div className="booking-info-row"><b>Contact</b><span>{job.deliveryContactName}</span></div>}{job.deliveryContactPhone && <div className="booking-info-row"><b>Phone</b><a href={"tel:" + job.deliveryContactPhone}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div className="booking-info-row"><b>Email</b><span>{job.deliveryContactEmail}</span></div>}{Object.entries(job.deliveryDetails || {}).filter(([,v]) => v !== undefined && v !== null && v !== "").map(([k,v]) => <div className="booking-info-row" key={k}><b>{k}</b><span>{String(v)}</span></div>)}</section>
                 <section className="booking-detail-group"><h3>Cargo & Job Details</h3>{job.jobDescription && <div className="booking-info-row"><b>Job description</b><span>{job.jobDescription}</span></div>}<div className="booking-info-row"><b>Vehicle</b><span>{job.vehicle}</span></div><div className="booking-info-row"><b>Items / packages</b><span>{job.items ?? job.packages ?? "Not provided"}</span></div><div className="booking-info-row"><b>Weight</b><span>{job.weight ? job.weight + " kg" : "Not provided"}</span></div><div className="booking-info-row"><b>Service</b><span>{job.service || "Not provided"}</span></div>{([['Packaging',job.packaging],['Body type',job.bodyType],['Job type',job.jobType],['Freight type',job.freightType],['Loading metres',job.loadMetres],['Cubic metres',job.cubicMetres],['Length',job.cargoLength],['Width',job.cargoWidth],['Height',job.cargoHeight],['Dimension units',job.cargoDimensionUnit]] as [string,string | number | undefined][]).filter(([,v])=>v!==undefined && v!=='').map(([k,v])=><div className="booking-info-row" key={k}><b>{k}</b><span>{v}</span></div>)}{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).length>0 && <><h4>Handling requirements</h4><p>{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).map(([name])=>name).join(' · ')}</p></>}<h4>Job instructions</h4><p>{job.notes || "No instructions supplied"}</p></section>
                 <div className="booking-detail-metrics"><div><small>AGREED RATE</small><strong>{job.quote !== undefined ? "£" + job.quote.toFixed(2) : "Not provided"}</strong></div><div><small>DISTANCE</small><strong>{job.distanceMiles !== undefined ? job.distanceMiles.toFixed(2) + " miles" : "Not provided"}</strong></div><div><small>VEHICLE</small><strong>{job.vehicle}</strong></div><div><small>PAYMENT TERMS</small><strong>{job.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</strong></div></div>
-                <section className="booking-detail-group"><h3>Documents</h3>{job.hardCopyPodRequired && <p><strong>Hard copy POD required</strong></p>}<h4>Attachments</h4><label className="booking-attach-button">+ Attach document<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={event => { if (getAccessToken) { setBookingUploadError("Document upload requires secure backend storage; nothing was uploaded."); event.currentTarget.value = ""; return; } const files = Array.from(event.currentTarget.files || []); const oversized = files.filter(file => file.size > 12 * 1024 * 1024); setBookingUploadError(oversized.length ? "Maximum file size is 12 MB per document." : ""); const accepted = files.filter(file => file.size <= 12 * 1024 * 1024).map(file => ({name:file.name,url:URL.createObjectURL(file)})); if (accepted.length) setBookingUploads(previous => ({...previous,[job.id]:[...(previous[job.id] || []),...accepted]})); event.currentTarget.value = ""; }} /></label>{(bookingUploads[job.id] || []).length > 0 && <button type="button" className="primary" onClick={() => { const names = (bookingUploads[job.id] || []).map(f => f.name); const next = {...savedDocumentNames, [job.id]: [...(savedDocumentNames[job.id] || []), ...names]}; localStorage.setItem("xdrive-booking-documents-saved-v1", JSON.stringify(next)); setSavedDocumentNames(next); setBookingUploads(prev => ({...prev, [job.id]: []})); }}>Save documents</button>}{(savedDocumentNames[job.id] || []).map((name, i) => <p key={i}>Saved: {name} (local record only; file not retained after reload)</p>)}{bookingUploadError && <p role="alert">{bookingUploadError}</p>}{(bookingUploads[job.id] || []).map(file => <p key={file.url}><a href={file.url} download={file.name}>{file.name}</a> <small>(local attachment)</small></p>)}{job.attachmentDocuments?.length ? job.attachmentDocuments.map(doc=><p key={doc.name}>{doc.url ? <a href={doc.url} target="_blank" rel="noopener noreferrer">{doc.name}</a> : doc.name}</p>) : job.attachmentNames?.length ? job.attachmentNames.map(n => <p key={n}>{n}</p>) : <p>No documents attached in Post Load</p>}</section>
-                {!getAccessToken && !job.acceptanceRequired && <button className="booking-history-action" type="button" onClick={() => setBookingScreen("history")}>Booking Status History</button>}
+                <section className="booking-detail-group"><h3>Documents</h3>{job.hardCopyPodRequired && <p><strong>Hard copy POD required</strong></p>}<h4>Attachments</h4><label className="booking-attach-button">+ Attach document<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={event => { const files = Array.from(event.currentTarget.files || []); const oversized = files.filter(file => file.size > 12 * 1024 * 1024); setBookingUploadError(oversized.length ? "Maximum file size is 12 MB per document." : ""); const accepted = files.filter(file => file.size <= 12 * 1024 * 1024).map(file => ({name:file.name,url:URL.createObjectURL(file)})); if (accepted.length) setBookingUploads(previous => ({...previous,[job.id]:[...(previous[job.id] || []),...accepted]})); event.currentTarget.value = ""; }} /></label>{(bookingUploads[job.id] || []).length > 0 && <button type="button" className="primary" onClick={() => { const names = (bookingUploads[job.id] || []).map(f => f.name); const next = {...savedDocumentNames, [job.id]: [...(savedDocumentNames[job.id] || []), ...names]}; localStorage.setItem("xdrive-booking-documents-saved-v1", JSON.stringify(next)); setSavedDocumentNames(next); setBookingUploads(prev => ({...prev, [job.id]: []})); }}>Save documents</button>}{(savedDocumentNames[job.id] || []).map((name, i) => <p key={i}>Saved: {name} (local record only; file not retained after reload)</p>)}{bookingUploadError && <p role="alert">{bookingUploadError}</p>}{(bookingUploads[job.id] || []).map(file => <p key={file.url}><a href={file.url} download={file.name}>{file.name}</a> <small>(local attachment)</small></p>)}{job.attachmentDocuments?.length ? job.attachmentDocuments.map(doc=><p key={doc.name}>{doc.url ? <a href={doc.url} target="_blank" rel="noopener noreferrer">{doc.name}</a> : doc.name}</p>) : job.attachmentNames?.length ? job.attachmentNames.map(n => <p key={n}>{n}</p>) : <p>No documents attached in Post Load</p>}</section>
+                {!job.acceptanceRequired && <button className="booking-history-action" type="button" onClick={() => setBookingScreen("history")}>Booking Status History</button>}
               </section>}
-              {job.status !== "OPEN" && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "history") && <section className="booking-timeline" aria-label="Booking status"><h2>{bookingScreen === "history" ? "Booking Status History" : "Booking Status"}</h2><div className="timeline-step current"><span className="timeline-dot" /><button type="button" className="timeline-current-label" onClick={() => { if (getAccessToken) { if (job.status === "ON_SITE_PICKUP") setBookingScreen("pickup"); else if (job.status === "LOADED") setBookingScreen("loaded"); else setBookingScreen("status"); return; } if (job.status === "ON_WAY_TO_PICKUP") { update(job.id, { status: "ON_SITE_PICKUP" }); setBookingScreen("pickup"); } else if (job.status === "ON_SITE_PICKUP") { setBookingScreen("pickup"); } else if (job.status === "LOADED") { setBookingScreen("loaded"); } }}>{({ ALLOCATED: job.acceptanceRequired ? "Acceptance Required" : "On my Way to Pickup", ON_WAY_TO_PICKUP: "On Site (Pickup)", ON_SITE_PICKUP: "Loaded", LOADED: "On Site (Delivery)", ON_WAY_TO_DELIVERY: "On Site (Delivery)", ON_SITE_DELIVERY: "POD / Delivered", POD_SUBMITTED: "Delivered", DELIVERED: "Delivery Completed" } as Record<string, string>)[job.status]}</button></div>{["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].filter(status => status !== "ALLOCATED" || !job.acceptanceRequired).filter(status => ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(status) <= ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(job.status)).reverse().map((status, index) => { const event = bookingHistory[job.id]?.find(entry => entry.status === status); const title = ({ ALLOCATED: "Accepted", ON_WAY_TO_PICKUP: "On my Way to Pickup", ON_SITE_PICKUP: "On Site (Pickup)", LOADED: "Loaded", ON_WAY_TO_DELIVERY: "On my Way to Delivery", ON_SITE_DELIVERY: "On Site (Delivery)", POD_SUBMITTED: "POD Submitted", DELIVERED: "Delivered" } as Record<string, string>)[status]; return <div key={status} className="timeline-step done"><span className="timeline-dot">✓</span><div className="timeline-copy"><strong>{title}</strong>{event && <small>at {new Date(event.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</small>}{status === "LOADED" && <div className="timeline-loaded-details"><div>Your Ref: {job.yourRef || job.id}</div><div>Customer Ref: {job.customerRef || "Not provided"}</div><div>Items: {job.items ?? "Not provided"}</div></div>}</div>{index === 0 && status !== "ALLOCATED" && status !== "POD_SUBMITTED" && status !== "DELIVERED" && <button className="timeline-undo" type="button" onClick={() => { if (getAccessToken) { setLiveActionError("Undo requires server authorisation. No change was made."); return; } const history = bookingHistory[job.id] || []; const previous = history[history.length - 2]; if (!previous) return; setBookingHistory(h => ({ ...h, [job.id]: history.slice(0, -1) })); setJobs(js => js.map(j => j.id === job.id ? { ...j, status: previous.status as JobStatus } : j)); }}>Undo</button>}</div>; })}</section>}
+              {job.status !== "OPEN" && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "history") && <section className="booking-timeline" aria-label="Booking status"><h2>{bookingScreen === "history" ? "Booking Status History" : "Booking Status"}</h2><div className="timeline-step current"><span className="timeline-dot" /><button type="button" className="timeline-current-label" onClick={() => { if (job.status === "ON_WAY_TO_PICKUP") { update(job.id, { status: "ON_SITE_PICKUP" }); setBookingScreen("pickup"); } else if (job.status === "ON_SITE_PICKUP") { setBookingScreen("pickup"); } else if (job.status === "LOADED") { setBookingScreen("loaded"); } }}>{({ ALLOCATED: job.acceptanceRequired ? "Acceptance Required" : "On my Way to Pickup", ON_WAY_TO_PICKUP: "On Site (Pickup)", ON_SITE_PICKUP: "Loaded", LOADED: "On Site (Delivery)", ON_WAY_TO_DELIVERY: "On Site (Delivery)", ON_SITE_DELIVERY: "POD / Delivered", POD_SUBMITTED: "Delivered", DELIVERED: "Delivery Completed" } as Record<string, string>)[job.status]}</button></div>{["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].filter(status => status !== "ALLOCATED" || !job.acceptanceRequired).filter(status => ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(status) <= ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(job.status)).filter(status => !liveConnected || status === job.status || (bookingHistory[job.id] || []).some(entry => entry.status === status)).reverse().map((status, index) => { const event = bookingHistory[job.id]?.find(entry => entry.status === status); const title = ({ ALLOCATED: "Accepted", ON_WAY_TO_PICKUP: "On my Way to Pickup", ON_SITE_PICKUP: "On Site (Pickup)", LOADED: "Loaded", ON_WAY_TO_DELIVERY: "On my Way to Delivery", ON_SITE_DELIVERY: "On Site (Delivery)", POD_SUBMITTED: "POD Submitted", DELIVERED: "Delivered" } as Record<string, string>)[status]; return <div key={status} className="timeline-step done"><span className="timeline-dot">&#10003;</span><div className="timeline-copy"><strong>{title}</strong>{event && <small>at {new Date(event.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</small>}{status === "LOADED" && <div className="timeline-loaded-details"><div>Your Ref: {job.yourRef || job.id}</div><div>Customer Ref: {job.customerRef || "Not provided"}</div><div>Items: {job.items ?? "Not provided"}</div></div>}</div>{index === 0 && status !== "ALLOCATED" && status !== "POD_SUBMITTED" && status !== "DELIVERED" && <button className="timeline-undo" type="button" onClick={() => { const history = bookingHistory[job.id] || []; const previous = history[history.length - 2]; if (!previous) return; setBookingHistory(h => ({ ...h, [job.id]: history.slice(0, -1) })); setJobs(js => js.map(j => j.id === job.id ? { ...j, status: previous.status as JobStatus } : j)); }}>Undo</button>}</div>; })}</section>}
               {job.status === "OPEN" ? (
                 <>
                   <button
                     className="primary"
-                    disabled={!getAccessToken && role === "Company Driver" && !canBid}
+                    disabled={role === "Company Driver" && !canBid}
                     onClick={() => {
                       setQuoteOpen(true);
                       setAmount(String(job.quote ?? 160));
@@ -378,7 +373,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                   >
                     {job.quote !== undefined ? "Edit Quote" : "Quote Now"}
                   </button>
-                  {!getAccessToken && mode === "sandbox" &&
+                  {mode === "sandbox" &&
                     job.id.startsWith("TEST-") &&
                     job.quote !== undefined && (
                       <button
@@ -405,8 +400,8 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 </>
               ) : bookingScreen === "status" || bookingScreen === "pickup" || bookingScreen === "loaded" || bookingScreen === "pod" ? (
                 <>
-                  {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-pickup-form"><h2>On Site (Pickup)</h2><div className="pickup-location-details"><h3>Collection Details</h3><div><b>Company:</b> {job.pickupCompany || "Not provided in Post Load"}</div><div><b>Collection address:</b> {job.pickupAddress || job.from}</div><div><b>Collection time:</b> {job.pickup}</div>{job.pickupContactName && <div><b>Contact:</b> {job.pickupContactName}</div>}{job.pickupContactPhone && <div><b>Telephone:</b> <a href={`tel:${job.pickupContactPhone}`}>{job.pickupContactPhone}</a></div>}{job.pickupContactEmail && <div><b>Email:</b> {job.pickupContactEmail}</div>}{job.customerRef && <div><b>Customer reference:</b> {job.customerRef}</div>}{job.pickupInstructions && <div><b>Collection instructions:</b> {job.pickupInstructions}</div>}{Object.entries(job.pickupDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}<h3>Delivery Destination</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company: job.deliveryCompany, address: job.deliveryAddress || job.to, reference: job.customerRef, instructions: job.deliveryInstructions}]).map((destination,index) => <div className="pickup-destination" key={`${index}-${destination.address}`}><div><b>Destination {index + 1}:</b> {destination.company || "Company not provided"}</div><div><b>Address:</b> {destination.address}</div>{destination.reference && <div><b>Reference:</b> {destination.reference}</div>}{destination.instructions && <div><b>Delivery instructions:</b> {destination.instructions}</div>}</div>)}{job.deliveryContactName && <div><b>Delivery contact:</b> {job.deliveryContactName}</div>}{job.deliveryContactPhone && <div><b>Delivery telephone:</b> <a href={`tel:${job.deliveryContactPhone}`}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div><b>Delivery email:</b> {job.deliveryContactEmail}</div>}{Object.entries(job.deliveryDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}</div><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref.<input value={job.customerRef || ""} readOnly /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<EtaQuarterHour value={etaDateTime} onChange={setEtaDateTime} /></label><h3>Job Details</h3><p>{job.vehicle}</p><label>Driver’s Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} placeholder="Driver’s Notes" /></label><PodCapture key={'pickup-' + job.id} jobId={job.id} recipient="" initialStage="ARRIVED_PICKUP" onSaved={() => setPodEvidence(true)} /><button type="button" className="booking-yellow" onClick={() => { if(getAccessToken) {setBookingScreen("loaded");return;} update(job.id, { yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, driverNotes }); setBookingScreen("loaded"); }}>Save</button></section>}
-                  {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<EtaQuarterHour value={etaDateTime} onChange={setEtaDateTime} /></label><label>Driver’s Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label><PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => setPodEvidence(true)} /><button type="button" className="booking-yellow" onClick={() => { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); }}>Save</button></div>}
+                  {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-pickup-form"><h2>On Site (Pickup)</h2><div className="pickup-location-details"><h3>Collection Details</h3><div><b>Company:</b> {job.pickupCompany || "Not provided in Post Load"}</div><div><b>Collection address:</b> {job.pickupAddress || job.from}</div><div><b>Collection time:</b> {job.pickup}</div>{job.pickupContactName && <div><b>Contact:</b> {job.pickupContactName}</div>}{job.pickupContactPhone && <div><b>Telephone:</b> <a href={`tel:${job.pickupContactPhone}`}>{job.pickupContactPhone}</a></div>}{job.pickupContactEmail && <div><b>Email:</b> {job.pickupContactEmail}</div>}{job.customerRef && <div><b>Customer reference:</b> {job.customerRef}</div>}{job.pickupInstructions && <div><b>Collection instructions:</b> {job.pickupInstructions}</div>}{Object.entries(job.pickupDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}<h3>Delivery Destination</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company: job.deliveryCompany, address: job.deliveryAddress || job.to, reference: job.customerRef, instructions: job.deliveryInstructions}]).map((destination,index) => <div className="pickup-destination" key={`${index}-${destination.address}`}><div><b>Destination {index + 1}:</b> {destination.company || "Company not provided"}</div><div><b>Address:</b> {destination.address}</div>{destination.reference && <div><b>Reference:</b> {destination.reference}</div>}{destination.instructions && <div><b>Delivery instructions:</b> {destination.instructions}</div>}</div>)}{job.deliveryContactName && <div><b>Delivery contact:</b> {job.deliveryContactName}</div>}{job.deliveryContactPhone && <div><b>Delivery telephone:</b> <a href={`tel:${job.deliveryContactPhone}`}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div><b>Delivery email:</b> {job.deliveryContactEmail}</div>}{Object.entries(job.deliveryDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}</div><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref.<input value={job.customerRef || ""} readOnly /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<input type="datetime-local" step={900} value={etaDateTime} onChange={e => { const v=e.target.value; if (!v) {setEtaDateTime("");return;} const [date,time]=v.split("T"); const [h,m]=time.split(":").map(Number); const total=h*60+Math.round(m/15)*15; const next=new Date(date+"T00:00:00"); next.setMinutes(total); const pad=(n:number)=>String(n).padStart(2,"0"); setEtaDateTime(next.getFullYear()+"-"+pad(next.getMonth()+1)+"-"+pad(next.getDate())+"T"+pad(next.getHours())+":"+pad(next.getMinutes())); }} /></label><h3>Job Details</h3><p>{job.vehicle}</p><label>Driverâ€™s Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} placeholder="Driverâ€™s Notes" /></label>{!liveConnected && <PodCapture key={'pickup-' + job.id} jobId={job.id} recipient="" initialStage="ARRIVED_PICKUP" onSaved={() => setPodEvidence(true)} />}<button type="button" className="booking-yellow" onClick={() => { update(job.id, { yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, driverNotes }); setBookingScreen("loaded"); }}>Save</button></section>}
+                  {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<input type="datetime-local" step={900} value={etaDateTime} onChange={e => { const v=e.target.value; if (!v) {setEtaDateTime("");return;} const [date,time]=v.split("T"); const [h,m]=time.split(":").map(Number); const total=h*60+Math.round(m/15)*15; const next=new Date(date+"T00:00:00"); next.setMinutes(total); const pad=(n:number)=>String(n).padStart(2,"0"); setEtaDateTime(next.getFullYear()+"-"+pad(next.getMonth()+1)+"-"+pad(next.getDate())+"T"+pad(next.getHours())+":"+pad(next.getMinutes())); }} /></label><label>Driverâ€™s Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label>{!liveConnected && <PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => setPodEvidence(true)} />}<button type="button" className="booking-yellow" onClick={() => { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); }}>Save</button></div>}
                   
                   {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && (
                     <label>
@@ -422,7 +417,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                     </label>
                   )}
                   {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && <div className="settings"><label>Received by<input value={podReceivedBy} onChange={e => { setPodReceivedBy(e.target.value); setPodEvidence(false); }} /></label><label>Left at<input value={podLeftAt} onChange={e => setPodLeftAt(e.target.value)} /></label></div>}
-                  {!getAccessToken && next === "POD_SUBMITTED" && bookingScreen === "pod" && (
+                  {next === "POD_SUBMITTED" && bookingScreen === "pod" && !liveConnected && (
                     <PodCapture
                       key={job.id}
                       jobId={job.id}
@@ -435,27 +430,18 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                       onSaved={() => setPodEvidence(true)}
                     />
                   )}
-                  {!getAccessToken && next === "POD_SUBMITTED" && bookingScreen === "status" && <button type="button" className="primary" onClick={() => setBookingScreen("pod")}>Create POD</button>}
+                  {next === "POD_SUBMITTED" && bookingScreen === "status" && <button type="button" className="primary" onClick={() => setBookingScreen("pod")}>Create POD</button>}
                   {next && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "pod") && next !== "LOADED" && (
                     <button
                       className="primary"
                       disabled={
-                        (getAccessToken ? next === "POD_SUBMITTED" : (next === "POD_SUBMITTED" && bookingScreen !== "pod") || validateTransition(job.status, next, {
+                        (next === "POD_SUBMITTED" && bookingScreen !== "pod") || validateTransition(job.status, next, {
                           customerReference: job.customerRef,
                           recipientName: podReceivedBy || podName,
                           hasPodEvidence: podEvidence,
-                        }) !== null)
+                        }) !== null
                       }
-                      onClick={async () => {
-                        if (getAccessToken) {
-                          const actions: Record<string, string> = { ON_WAY_TO_PICKUP: "on-my-way-pickup", ON_SITE_PICKUP: "arrived-pickup", LOADED: "loaded", ON_WAY_TO_DELIVERY: "on-my-way-delivery", ON_SITE_DELIVERY: "arrived-delivery", DELIVERED: "delivered" };
-                          const action = actions[next];
-                          if (!action) { setLiveActionError("This step requires a verified server workflow; no status was changed."); return; }
-                          setLiveActionError(null);
-                          try { await realFeed.updateJobStatus(job.id, action, driverNotes); if(next === "ON_SITE_PICKUP") setBookingScreen("pickup"); else if(String(next) === "LOADED") setBookingScreen("loaded"); else if(next === "ON_SITE_DELIVERY") setBookingScreen("pod"); else setBookingScreen("status"); }
-                          catch (error) { setLiveActionError(error instanceof Error ? error.message : "Status update failed."); }
-                          return;
-                        }
+                      onClick={() => {
                         if (
                           validateTransition(job.status, next, {
                             customerReference: job.customerRef,
@@ -499,26 +485,27 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
           <>
             {tab === "Loads" || tab === "Quotes" || tab === "Bookings" || tab === "Alerts" ? (
               <>
-                {tab === "Quotes" && <div className="alert-tabs">{(["Submitted", "Awarded"] as const).map((x) => <button key={x} className={quoteSection === x ? "selected" : ""} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
-                {(tab === "Loads" || tab === "Alerts") && !getAccessToken && <p role="status" className="notification-reason">{<>Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</>}</p>}
+                {tab === "Bookings" && <div className="alert-tabs booking-section-tabs" role="group" aria-label="Booking sections">{(["Current", "Completed", "Archived"] as const).map(section => <button key={section} type="button" className={bookingSection === section ? "selected" : ""} aria-pressed={bookingSection === section} onClick={() => setBookingSection(section)}>{section}</button>)}</div>}
+                {tab === "Quotes" && <div className="alert-tabs booking-section-tabs quote-section-tabs" role="group" aria-label="Quote sections">{(["Submitted", "Unsuccessful"] as const).map((x) => <button key={x} type="button" className={quoteSection === x ? "selected" : ""} aria-pressed={quoteSection === x} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
+                {tab === "Alerts" && <p role="status" className="notification-reason">Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</p>}
                 {tab === "Alerts" && <div className="alert-tabs">{(["Inbox","Saved","Deleted"] as const).map((x) => <button key={x} className={alertSection === x ? "selected" : ""} onClick={() => setAlertSection(x)}>{x}</button>)}</div>}
-                {getAccessToken && realFeed.loading && listed.length === 0 ? (
-                  <div className="empty" role="status" aria-live="polite"><h2>Loading XDrive jobs...</h2><p>Retrieving your authorised loads, quotes and bookings.</p></div>
-                ) : listed.length === 0 ? (
+                {liveBusy && <p role="status" className="notification-reason">Connecting to XDrive LIVE and loading records...</p>}
+                {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
+                {liveWarning && <p role="status" className="notification-reason">{liveWarning}</p>}
+                {listed.length === 0 ? (
                   <div className="empty">
-                    <span aria-hidden="true">{String.fromCodePoint(0x25a3)}</span>
+                    <span aria-hidden="true">&#128230;</span>
                     <h2>No {tab.toLowerCase()} available</h2>
                     <p>
-                      {getAccessToken
-                        ? "No records returned by your authenticated XDrive account for this section."
-                        : mode === "unconfigured"
-                        ? "Connect the existing XDrive backend before live jobs can appear."
+                      {liveBusy ? "Loading real records from XDrive LIVE..." : liveConnected ? "No matching real records returned by XDrive LIVE." : mode === "unconfigured"
+                        ? "Sign in to see your available loads."
                         : "No matching records in the isolated test workspace."}
                     </p>
+                    {!liveConnected && mode === "unconfigured" && <button className="primary" type="button" onClick={() => setTab("More")}>Sign in</button>}
                   </div>
                 ) : (
                   listed.map((j) => (
-                    <article className="card unified-job-card" key={j.id}>
+                    <article className={tab === "Loads" ? "card unified-job-card compact-load-card" : "card unified-job-card"} key={j.id}>
                       <div className="cardtop">
                         <strong>{j.company || "Customer not provided"}</strong>
                         {tab !== "Bookings" && <span className="pill">
@@ -543,7 +530,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                         </div>
                       </div>
                       {j.distanceMiles !== undefined && <p className={tab === "Bookings" ? "booking-distance" : "job-distance"}><b>{tab === "Bookings" ? "Distance:" : "Dist:"}</b> {j.distanceMiles.toFixed(2)} miles{j.travelMinutes !== undefined ? ` (${Math.floor(j.travelMinutes / 60) ? `${Math.floor(j.travelMinutes / 60)}h ` : ""}${j.travelMinutes % 60}mins)` : ""}</p>}
-                      {tab !== "Bookings" && <div className="quote-customer"><div><b>Cust:</b> {j.company || "Customer details not provided"}</div>{j.customerPhone && <div><b>Tel:</b> <a href={`tel:${j.customerPhone}`}>{j.customerPhone}</a> <a className="call-action" href={`tel:${j.customerPhone}`}>Call</a></div>}</div>}
+                      {tab !== "Bookings" && tab !== "Loads" && <div className="quote-customer">{j.customerPhone && <div><b>Tel:</b> <a href={`tel:${j.customerPhone}`}>{j.customerPhone}</a> <a className="call-action" href={`tel:${j.customerPhone}`}>Call</a></div>}</div>}
                       {tab !== "Bookings" && (j.feedbackPay || j.feedbackDelivery) && <div className="quote-feedback"><strong>Feedback (Last 90 days)</strong>{j.feedbackPay && <div>Pay: Pos: {j.feedbackPay.positive} · Neu: {j.feedbackPay.neutral} · Neg: {j.feedbackPay.negative}</div>}{j.feedbackDelivery && <div>Del: Pos: {j.feedbackDelivery.positive} · Neu: {j.feedbackDelivery.neutral} · Neg: {j.feedbackDelivery.negative}</div>}</div>}
                       {j.notes && (tab === "Bookings" ? <><p className="booking-notes"><b>Notes:</b><span>{j.notes}</span></p><p className="booking-hint">View Booking Details for full notes...</p></> : <p>Notes: {j.notes}</p>)}
                       {tab === "Alerts" && j.stops !== undefined && <p>Stops: {j.stops}</p>}
@@ -551,7 +538,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                       {tab !== "Bookings" && j.quoteEta && <p>ETA at collection: {j.quoteEta}</p>}
                       {tab !== "Bookings" && j.quote !== undefined && (tab === "Quotes" && j.quoteOutcome === "UNSUCCESSFUL" ? <p className="quote-unsuccessful">Your Quote (£{j.quote.toFixed(2)}) was Unsuccessful</p> : tab === "Quotes" && j.quoteOutcome === "CANCELLED" ? <p className="quote-unsuccessful">Your Quote (£{j.quote.toFixed(2)}) was Cancelled</p> : <p>Quoted: <strong>£{j.quote.toFixed(2)} net</strong></p>)}
                       {tab !== "Bookings" && j.quoteOutcome === "AWARDED" && <p className="quote-awarded">Load allocated to your company</p>}
-                      {<button className="map-action" onClick={() => setRouteJobId(j.id)}>View on Map</button>}
+                      {tab !== "Loads" && <button className="map-action" onClick={() => setRouteJobId(j.id)}>View on Map</button>}
                       <div className={tab === "Bookings" ? "actions booking-card-actions" : "actions"}>
                         <button onClick={() => openJob(j.id)}>
                           {tab === "Bookings" ? "View Booking Details" : "View Details"}
@@ -559,7 +546,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                         {(tab === "Loads" || tab === "Alerts") && (
                           <button
                             className="primary"
-                            disabled={!getAccessToken && role === "Company Driver" && !canBid}
+                            disabled={role === "Company Driver" && !canBid}
                             onClick={() => {
                               setSelected(j.id);
                               setAmount(j.quote === undefined ? "" : String(j.quote));
@@ -570,9 +557,10 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                           </button>
                         )}
                       </div>
-                      {tab === "Bookings" && j.acceptanceRequired && <div className="actions booking-decision"><button className="danger" onClick={() => { if(getAccessToken) {setLiveActionError("Decline requires a verified server action. Booking was not changed.");return;} update(j.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" }); }}>Decline</button><button className="accept-action" onClick={() => { if(getAccessToken) {void liveStep(j.id,"accept","details");return;} update(j.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() }); }}>Accept</button></div>}
-                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ALLOCATED" && <button className="accept-action booking-next" onClick={() => { if(getAccessToken) {void liveStep(j.id,"on-my-way-pickup","status");return;} update(j.id, { status: "ON_WAY_TO_PICKUP" }); openJob(j.id); setBookingScreen("status"); }}>On my Way to Pickup</button>}
-                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_WAY_TO_PICKUP" && <button className="accept-action booking-next" onClick={() => { if(getAccessToken) {void liveStep(j.id,"arrived-pickup","pickup");return;} update(j.id, { status: "ON_SITE_PICKUP" }); openJob(j.id); setBookingScreen("pickup"); }}>On Site (Pickup)</button>}
+                      {tab === "Bookings" && (bookingSection === "Completed" || bookingSection === "Archived") && <div className="actions booking-archive-actions"><button type="button" onClick={() => setArchivedBookingIds(ids => bookingSection === "Archived" ? ids.filter(id => id !== j.id) : ids.includes(j.id) ? ids : [...ids, j.id])}>{bookingSection === "Archived" ? "Restore to Completed" : "Archive booking"}</button></div>}
+                      {tab === "Bookings" && j.acceptanceRequired && <div className="actions booking-decision"><button className="danger" onClick={() => update(j.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" })}>Decline</button><button className="accept-action" onClick={() => update(j.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() })}>Accept</button></div>}
+                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ALLOCATED" && <button className="accept-action booking-next" onClick={() => { update(j.id, { status: "ON_WAY_TO_PICKUP" }); openJob(j.id); setBookingScreen("status"); }}>On my Way to Pickup</button>}
+                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_WAY_TO_PICKUP" && <button className="accept-action booking-next" onClick={() => { update(j.id, { status: "ON_SITE_PICKUP" }); openJob(j.id); setBookingScreen("pickup"); }}>On Site (Pickup)</button>}
                       {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_SITE_PICKUP" && <button className="accept-action booking-next" onClick={() => { openJob(j.id); setBookingScreen("loaded"); }}>Loaded</button>}
                       {tab === "Alerts" && <div className="alert-actions"><button onClick={() => toggleSaved(j.id)}>{savedIds.includes(j.id) ? "Unsave" : "SAVE"}</button><button onClick={() => toggleDeleted(j.id)}>{deletedIds.includes(j.id) ? "Restore" : "DELETE"}</button></div>}
                     </article>
@@ -580,76 +568,34 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 )}
               </>
             ) : tab === "Invoices" ? (
-              getAccessToken ? <section className="empty"><h2>Invoices</h2><p>View your real XDrive invoices and payment records in Driver Finance.</p><a className="primary" href="/driver/finance">Open Driver Finance</a></section> : <LocalInvoices jobs={jobs} />
+              liveConnected ? <div className="empty"><h2>LIVE invoices</h2><p>Invoice issuing is disabled until authenticated PDF and email delivery are verified. No local invoice will be presented as issued.</p></div> : <LocalInvoices jobs={jobs} />
             ) : tab === "Map" ? (
-              <section className="settings" aria-label="Map jobs">
-                <h2>Job locations</h2>
-                <p>Select a real load or assigned booking to view its collection and delivery on the map.</p>
-                {jobs.filter(j => j.status === "OPEN" || j.status !== "DELIVERED").length === 0 ? <p>No active job locations are available.</p> : jobs.filter(j => j.status === "OPEN" || j.status !== "DELIVERED").map(j => (
-                  <button key={j.id} type="button" onClick={() => setRouteJobId(j.id)}>{j.from} → {j.to} · {j.vehicle}</button>
-                ))}
-                <button type="button" onClick={() => setTab("Loads")}>Back to Loads</button>
-              </section>            ) : (
-              <div className="settings">
-                <button type="button" onClick={() => setTab("Bookings")}>Bookings</button>
-                <button type="button" onClick={() => setTab("Alerts")}>Alerts</button>
-                <button type="button" onClick={() => setTab("Invoices")}>
-                  Invoices
-                </button>
-                <button type="button" onClick={() => setTab("Map")}>
-                  Map
-                </button>
-                {getAccessToken ? <p>Driver profile and permissions are managed by your authenticated XDrive account. Local test controls are unavailable.</p> : <><h2>Driver profile</h2>
-                <label>
-                  Driver type
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as typeof role)}
-                  >
-                    <option>Owner Driver</option>
-                    <option>Company Driver</option>
-                  </select>
-                </label>
-                {role === "Company Driver" && (
-                  <label className="check">
-                    <input
-                      type="checkbox"
-                      checked={canBid}
-                      onChange={(e) => setCanBid(e.target.checked)}
-                    />{" "}
-                    Authorized to bid (local test)
-                  </label>
-                )}
-                <h2>Local test workspace</h2>
-                <p>No connection to production, GitHub or Netlify.</p>
-                <button
-                  onClick={() => {
-                    setJobs(fixtures.map(j => ({ ...fixtureDetails[j.id], ...j })));
-                    setMode("sandbox");
-                    setSelected(null);
-                    setTab("Loads");
-                  }}
-                >
-                  Load clearly labeled test fixtures
-                </button>
-                <button
-                  onClick={() => {
-                    setJobs([]);
-                    setMode("unconfigured");
-                    setSelected(null);
-                  }}
-                >
-                  Clear local test data
-                </button>
-                <h2>Vehicle & documents</h2>
+              <div className="empty">
+                <span>Map</span>
+                <h2>Map</h2>
                 <p>
-                  Awaiting authenticated backend connection. No placeholder
-                  vehicle or documents will be represented as real.
+                  Live location and load markers require approved map
+                  configuration and backend access. No fabricated vehicle
+                  positions are displayed.
                 </p>
-                <h2>Availability</h2><label className="check"><input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} /> Available for new loads (local only)</label>
-                <h2>Notifications</h2>
-                <p>Realtime feed not connected.</p>
-                <DriverSettings role={role} /></>}
+                <button onClick={() => setTab("Loads")}>Back to Loads</button>
+              </div>
+            ) : (
+              <div className="settings driver-account-gate">
+                {liveConnected ? <>
+                  <h2>Driver account</h2>
+                  <p>Signed in to XDrive Logistics.</p>
+                  <button type="button" onClick={() => { if (!liveConnected) { setTab("More"); return; } setMenuSection(null); setMenuOpen(true); }}>Open Driver Menu</button>
+                </> : <>
+                  <h2>Sign in to XDrive Logistics</h2>
+                  <p>Sign in with your driver account to access your jobs, quotes and bookings.</p>
+                  <form onSubmit={(event) => { event.preventDefault(); void connectLive(); }}>
+                    <label>Email<input type="email" autoComplete="username" required value={loginEmail} onChange={event => setLoginEmail(event.target.value)} /></label>
+                    <label>Password<input type="password" autoComplete="current-password" required value={loginPassword} onChange={event => setLoginPassword(event.target.value)} /></label>
+                    <button type="submit" disabled={liveBusy}>{liveBusy ? "Signing in..." : "Sign in"}</button>
+                  </form>
+                  {liveError && <p role="alert">{liveError}</p>}
+                </>}
               </div>
             )}
           </>
@@ -667,12 +613,12 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
               setRouteJobId(null);
             }}
           >
-            <span aria-hidden="true">{["\u2630", "\u00a3", "\u25a3"][i]}</span>
+            <span>{["\u{1F4E6}", "\u{1F4AC}", "\u{1F69A}", "\u{1F514}"][i]}</span>
             {t}
           </button>
         ))}
       </nav>
-      {menuOpen && <DriverMenu section={menuSection} setSection={setMenuSection} onClose={() => setMenuOpen(false)} onNavigate={destination => { setMenuOpen(false); setSelected(null); setRouteJobId(null); if (destination === "Notifications") { setMenuSection("Notifications"); setMenuOpen(true); } else { if (destination === "Alerts") setAlertSection("Inbox"); setTab(destination); } }} role={role} available={available} setAvailable={setAvailable} savedCount={savedIds.length} />}
+      {menuOpen && <DriverMenu section={menuSection} setSection={setMenuSection} onClose={() => setMenuOpen(false)} onNavigate={destination => { setMenuOpen(false); setSelected(null); setRouteJobId(null); if (destination === "Notifications") { setMenuSection("Notifications"); setMenuOpen(true); } else { if (destination === "Alerts") setAlertSection("Inbox"); setTab(destination); } }} role={role} available={available} setAvailable={setAvailable} savedCount={savedIds.length} liveConnected={liveConnected} token={liveSession?.token ?? null} onLogout={() => { if (liveSession) void revokeLiveSession(liveSession).catch(() => { console.warn('Server session revocation could not be confirmed; local credentials cleared.'); }); localStorage.removeItem(LIVE_SESSION_KEY); setLiveSession(null); setLiveConnected(false); setJobs([]); setSelected(null); setLiveError(""); setLiveWarning(""); setLoginPassword(""); setMode("unconfigured"); setTab("More"); setRole("Company Driver"); setMenuOpen(false); setMenuSection(null); }} />}
       {availabilityPrompt && <div className="overlay"><div className="modal"><h2>Update driver availability?</h2><p>POD saved locally. Would you like to mark yourself available for new loads?</p><div className="actions"><button onClick={() => setAvailabilityPrompt(false)}>No, keep current setting</button><button className="primary" onClick={() => { setAvailable(true); setAvailabilityPrompt(false); }}>Yes, available</button></div></div></div>}
       {quoteOpen && job && (
         <div className="overlay">
@@ -683,7 +629,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
             </div>
             <div className="quote-job-summary"><strong>{job.company || 'XDrive local test customer'}</strong><div><b className="hotshot">HOTSHOT</b> · {job.vehicle}</div>{job.zoneAlert && <b>{job.zoneAlert}</b>}<div className="quote-route"><strong>{job.from}</strong><span>{job.pickup} GMT | Today</span><strong>{job.to}</strong><span>{job.delivery} GMT</span></div>{job.distanceMiles !== undefined && <div className="quote-distance">Distance: {job.distanceMiles.toFixed(2)} miles {job.travelMinutes !== undefined && `(${Math.floor(job.travelMinutes / 60)}h ${job.travelMinutes % 60}mins)`}</div>}</div>
             <label>Will Pick Up Within<select value={quoteEta} onChange={e => setQuoteEta(e.target.value)}>{["ASAP","15 minutes","30 minutes","60 minutes","90 minutes","120 minutes"].map(v => <option key={v} value={v}>{v}</option>)}</select></label>
-            {!getAccessToken && <label>Vehicle<select value={quoteVehicle} onChange={e => setQuoteVehicle(e.target.value)}><option value="">Select vehicle</option>{(driverVehicles.length ? driverVehicles : [job.vehicle]).map(v => <option key={v} value={v}>{v}</option>)}</select>{driverVehicles.length === 0 && <small>Test preview: only the job vehicle type is available. Registered driver vehicles require backend connection.</small>}</label>}
+            <label>Vehicle<select value={quoteVehicle} onChange={e => setQuoteVehicle(e.target.value)}><option value="">Select vehicle</option>{(driverVehicles.length ? driverVehicles : [job.vehicle]).map(v => <option key={v} value={v}>{v}</option>)}</select>{driverVehicles.length === 0 && <small>Test preview: only the job vehicle type is available. Registered driver vehicles require backend connection.</small>}</label>
             <label>Choose currency<input value="GBP" readOnly /></label>
             <label>
               My Quotes (£) *
@@ -695,7 +641,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 onChange={(e) => setAmount(e.target.value)}
               />
             </label>
-            {!getAccessToken && <><div className="quote-extras"><strong>Extras</strong><button type="button" onClick={() => setQuoteExtra(v => !v)}>+ ADD NEW</button></div>{quoteExtra && <div className="collection-pair"><label>Extra description<input value={quoteExtraName} onChange={e => setQuoteExtraName(e.target.value)} /></label><label>Extra amount (£)<input type="number" min="0" step="0.01" value={quoteExtraPrice} onChange={e => setQuoteExtraPrice(e.target.value)} /></label></div>}
+            <div className="quote-extras"><strong>Extras</strong><button type="button" onClick={() => setQuoteExtra(v => !v)}>+ ADD NEW</button></div>{quoteExtra && <div className="collection-pair"><label>Extra description<input value={quoteExtraName} onChange={e => setQuoteExtraName(e.target.value)} /></label><label>Extra amount (£)<input type="number" min="0" step="0.01" value={quoteExtraPrice} onChange={e => setQuoteExtraPrice(e.target.value)} /></label></div>}
             {false && <div className="stepper">
               <button
                 onClick={() =>
@@ -707,7 +653,7 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
               <button onClick={() => setAmount(String(Number(amount) + 10))}>
                 + £10
               </button>
-            </div>}</>}
+            </div>}
 
             <label>
               Notes
@@ -718,35 +664,45 @@ function App({ getAccessToken }: { getAccessToken?: () => Promise<string | null>
                 placeholder="Optional driver notes"
               />
             </label>
-            {liveActionError && <p role="alert" className="error">{liveActionError}</p>}
             <div className="breakdown">
               Net £{(Number(amount) || 0).toFixed(2)}
               <br />
               VAT preview (20%): £{((Number(amount) || 0) * 0.2).toFixed(2)}
               <br />
               <strong>Gross £{((Number(amount) || 0) * 1.2).toFixed(2)}</strong>
-              <small>{getAccessToken ? "VAT illustration only; actual tax treatment depends on your account." : "Local test quote, excluding VAT."}</small>
+              <small>{liveConnected ? "LIVE quote, excluding VAT." : "Local test quote, excluding VAT."}</small>
             </div>
+            {liveError && <p role="alert">{liveError}</p>}
             <button
               className="primary"
               disabled={
+                liveBusy ||
                 validateQuote(Number(amount)) !== null ||
-                (!getAccessToken && !quoteVehicle) ||
-                (!getAccessToken && role === "Company Driver" && !canBid)
+                !quoteVehicle ||
+                (role === "Company Driver" && !canBid)
               }
               onClick={async () => {
-                if (getAccessToken) {
-                  setLiveActionError(null);
+                if (liveConnected) {
+                  if (!liveSession) { setLiveError("Driver session expired"); return; }
+                  setLiveBusy(true); setLiveError("");
                   try {
-                    const eta = quoteEta === "ASAP" ? null : Number.parseInt(quoteEta, 10);
-                    await realFeed.submitQuote(job.id, Number(amount), eta, notes.trim());
+                    const session = await renewSession(liveSession);
+                    setLiveSession(session);
+                    await driverPost("/mobile/bids", session.token, {
+                      jobId: job.id,
+                      amount: Number(amount) + (quoteExtra ? Number(quoteExtraPrice) || 0 : 0),
+                      baseAmount: Number(amount),
+                      additionalExtrasGbp: quoteExtra ? Number(quoteExtraPrice) || 0 : 0,
+                      message: [notes.trim(), "Collection ETA: " + quoteEta, "Vehicle: " + quoteVehicle, quoteExtra ? quoteExtraName.trim() : ""].filter(Boolean).join("; "),
+                    });
+                    await refreshLive(session.token);
+                    setQuoteOpen(false); setTab("Quotes"); setSelected(null);
                   } catch (error) {
-                    setLiveActionError(error instanceof Error ? error.message : "Quote submission failed.");
-                    return;
-                  }
-                } else {
-                  update(job.id, { quote: Number(amount), quoteEta, quoteVehicle, quoteNotes: notes.trim(), quoteExtraName: quoteExtra ? quoteExtraName.trim() : undefined, quoteExtraPrice: quoteExtra ? Number(quoteExtraPrice) || 0 : undefined, quoteSubmittedAt: new Date().toISOString(), quoteOutcome: undefined });
+                    setLiveError(error instanceof Error ? error.message : "Quote submission failed");
+                  } finally { setLiveBusy(false); }
+                  return;
                 }
+                update(job.id, { quote: Number(amount), quoteEta, quoteVehicle, quoteNotes: notes.trim(), quoteExtraName: quoteExtra ? quoteExtraName.trim() : undefined, quoteExtraPrice: quoteExtra ? Number(quoteExtraPrice) || 0 : undefined, quoteSubmittedAt: new Date().toISOString(), quoteOutcome: undefined });
                 setQuoteOpen(false);
                 setTab("Quotes");
                 setSelected(null);

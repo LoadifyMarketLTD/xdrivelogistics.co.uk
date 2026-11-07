@@ -118,3 +118,57 @@ main > .booking-details-root, .booking-details-root{display:block!important;widt
 .unified-job-card .quote-customer,.unified-job-card .quote-feedback{margin:10px 0}
 .unified-job-card .booking-card-heading>div:first-child{color:var(--job-muted)}
 @keyframes bookingAllocationFlash { 0%, 100% { background: #b91c1c; color: white; } 50% { background: #fff1f2; color: #b91c1c; } }nav button.booking-allocation-alert { animation: bookingAllocationFlash 1s ease-in-out infinite; border-radius: 12px; font-weight: 800; }@media (prefers-reduced-motion: reduce) { nav button.booking-allocation-alert { animation: none; background: #b91c1c; color: white; outline: 3px solid #fca5a5; } }
+
+.booking-section-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 12px}.booking-section-tabs button{min-width:0;padding:12px 5px;background:#fff;border:1px solid #d6e0ec;border-radius:10px;color:#173b63;font-weight:700;font-size:13px}.booking-section-tabs button.selected{background:#eaf2fb;border:1px solid #8caecc;color:#09284a}.booking-archive-actions{margin-top:10px}.booking-archive-actions button{width:100%;background:#fff;border:1px solid #cad7e5;color:#244f7a;border-radius:8px;padding:10px;font-weight:700}
+
+/* Quotes and Bookings share the approved card height, spacing and bottom-aligned actions. */
+.unified-job-card:has(.booking-card-heading),.unified-job-card:has(.reference):has(.quote-customer){min-height:430px;display:flex;flex-direction:column;box-sizing:border-box}
+.unified-job-card:has(.booking-card-heading)>.map-action,.unified-job-card:has(.reference):has(.quote-customer)>.map-action{margin-top:auto}
+.unified-job-card:has(.booking-card-heading)>.actions,.unified-job-card:has(.reference):has(.quote-customer)>.actions{flex-shrink:0}
+.unified-job-card:has(.reference):has(.quote-customer) .quote-customer{margin:5px 0}
+.unified-job-card:has(.reference):has(.quote-customer) .reference{margin-bottom:8px}
+
+/* Approved Master Workspace 3150 brand in the driver top-left navbar. */
+.shell > header .driver-brand-logo{display:block;width:min(170px,calc(100vw - 110px));height:42px;object-fit:contain;object-position:left center}
+
+
+/* Prevent Android pull-to-refresh/rubber-band on short empty Loads screens. Keep normal scrolling on long jobs and detail views. */
+html,body,#root{overscroll-behavior-y:none}
+body:has(.shell.no-empty-scroll){overflow:hidden}
+.shell.no-empty-scroll{height:100dvh;min-height:0;overflow:hidden;overscroll-behavior:none}
+.shell.no-empty-scroll>main{touch-action:pan-x;overscroll-behavior:none}
+
+
+/* Quotes uses the exact same compact tab visual system as Bookings. */
+.quote-section-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* Loads: two glanceable jobs per viewport; details and maps remain accessible. */
+.card.unified-job-card.compact-load-card{min-height:0!important;display:block!important;padding:12px!important;margin-bottom:9px!important;border-radius:12px!important}
+.compact-load-card .cardtop{margin:0 0 5px!important;gap:6px}
+.compact-load-card .cardtop>strong{font-size:15px!important;line-height:1.15;max-width:76%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.compact-load-card .pill{font-size:10px!important;padding:3px 7px!important}
+.compact-load-card .reference{font-size:11px!important;margin:0 0 5px!important;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.compact-load-card .reference b{padding:2px 6px!important}
+.compact-load-card .job-posted-terms{margin:3px 0 6px!important;font-size:11px!important;line-height:1.2}
+.compact-load-card .route{margin:5px 0!important;padding:8px 9px 8px 28px!important;min-height:0!important;gap:4px!important}
+.compact-load-card .route>div{margin:0!important;padding:0!important;min-height:0!important}
+.compact-load-card .route strong{font-size:15px!important;line-height:1.2!important}
+.compact-load-card .route small{font-size:11px!important;line-height:1.2!important}
+.compact-load-card .job-distance{font-size:12px!important;margin:5px 0!important;line-height:1.2}
+.compact-load-card .quote-customer{display:none!important}
+.compact-load-card>p:not(.job-distance){font-size:11px!important;margin:4px 0!important;line-height:1.25;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.compact-load-card .quote-feedback{display:none!important}
+.compact-load-card>.map-action{width:100%!important;min-height:32px!important;margin:5px 0!important;padding:5px!important;font-size:12px!important;border-radius:7px!important}
+.compact-load-card>.actions{margin:5px 0 0!important;gap:7px!important}
+.compact-load-card>.actions>button{min-height:34px!important;padding:6px!important;font-size:12px!important;border-radius:7px!important}
+/* Legibility pass: retain compact density while giving route and times visual priority. */
+.compact-load-card .cardtop>strong{font-size:14px!important;color:#183653!important;font-weight:700!important}
+.compact-load-card .reference{font-size:12px!important;color:#465568!important;font-weight:600!important}
+.compact-load-card .reference b{font-size:11px!important}
+.compact-load-card .job-posted-terms{font-size:12px!important;color:#344b64!important;font-weight:600!important}
+.compact-load-card .route{background:#f2f4f8!important;padding:8px 9px 8px 34px!important}
+.compact-load-card .route strong{font-size:18px!important;font-weight:800!important;color:#102d51!important;letter-spacing:.1px!important}
+.compact-load-card .route small{font-size:13px!important;font-weight:600!important;color:#536477!important}
+.compact-load-card .job-distance{font-size:13px!important;color:#33475c!important}
+.compact-load-card>p:not(.job-distance){font-size:12px!important;color:#566477!important}
+.compact-load-card>.actions>button{font-size:13px!important;font-weight:750!important;min-height:38px!important}
