@@ -47,7 +47,9 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
   const [identity,setIdentity]=useState<QuoteIdentity|null>(null);
   const [identityState,setIdentityState]=useState<'loading'|'resolved'|'unavailable'>('loading');
   useEffect(()=>{
-    if(!details.bidId){setIdentityState('unavailable');return;}
+    setIdentity(null);
+    setIdentityState(details.bidId ? 'loading' : 'unavailable');
+    if(!details.bidId)return;
     let active=true;
     const resolve=async()=>{
       try{
@@ -66,8 +68,10 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
   const pickupExpired=!details.pickupDate || !Number.isFinite(Date.parse(details.pickupDate)) || Date.parse(details.pickupDate)<=Date.now();
   const capacityMismatch=identity?.driverVehiclePallets!=null && details.pallets!=null && details.pallets>identity.driverVehiclePallets;
   const namedDriverQuote=identity?.quoteLevel==='driver' || details.ownerDriver;
-  const vehicleUnverified=namedDriverQuote && details.pallets!=null && details.pallets>0 && (!identity?.quotedVehicleId || identity?.driverVehiclePallets==null);
-  const verificationBlocked=identityState!=='resolved' || !identity || vehicleUnverified;
+  const vehicleUnverified=namedDriverQuote && (!identity?.quotedVehicleId || !identity?.driverId || identity?.driverVehiclePallets==null);
+  const tailLiftMismatch=details.tailLift && namedDriverQuote && identity?.driverVehicleTailLift===false;
+  const quoteVehicleMismatch=namedDriverQuote && identity?.quotedVehicleId!=null && identity?.vehicleRegistration==null;
+  const verificationBlocked=identityState!=='resolved' || !identity || vehicleUnverified || quoteVehicleMismatch || tailLiftMismatch;
   const ready = detailsAccepted && paymentAccepted && !working && !pickupExpired && !capacityMismatch && !verificationBlocked;
 
   useEffect(() => {
@@ -147,7 +151,8 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
                 <span>Vehicle capacity</span><strong>{identity?.driverVehiclePallets != null ? `${identity.driverVehiclePallets} pallets` : 'Not recorded'}</strong>
                 <span>Identity source</span><strong>{identityState==='loading' ? 'Retrieving from XDrive API' : identityState==='resolved' ? identity ? 'Resolved from quote records' : 'No matched bidder profile' : 'API unavailable'}</strong>
               </div>
-              {capacityMismatch && <p className={styles.capacityWarning}>Capacity mismatch: this load requires {details.pallets} pallets, but the quoted driver&apos;s registered vehicle has capacity for {identity.driverVehiclePallets}. Confirm an appropriate vehicle before booking.</p>}
+              {capacityMismatch && <p className={styles.capacityWarning} role="alert">Capacity mismatch: this load requires {details.pallets} pallets, but the quoted driver&apos;s registered vehicle has capacity for {identity.driverVehiclePallets}. Confirm an appropriate vehicle before booking.</p>}
+              {tailLiftMismatch && <p className={styles.capacityWarning} role="alert">Tail-lift required by the load, but the quoted vehicle is not recorded as tail-lift equipped. Select an eligible vehicle before booking.</p>}
               <p className={styles.help}>The selected driver and vehicle information is read from the bidder's linked XDrive records. No unverified rating or job history is displayed.</p>
               {details.message && <p className={styles.carrierMessage}><strong>Carrier message:</strong> {details.message}</p>}
             </section>

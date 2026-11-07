@@ -44,3 +44,9 @@ Read-only examination of production SQL RPCs found missing pickup date checks in
 - Real SQL rollback-only staging test of notifications migration: 2 pending notifications (named driver and carrier owner) and 1 buyer acceptance notification. Deduplication tested via repeated status transitions, no duplicates. Function converted to SECURITY INVOKER and revoked PUBLIC execute. Production untouched; schema migrations still NOT applied.
 - Latest targeted unit suites: 36/36 PASS; ESLint PASS. TypeScript global full project check crashed OOM despite NODE_OPTIONS 3072 due severe Windows memory pressure; do NOT mark TypeScript PASS for this continuation. No full Next build PASS. Other agents' processes intentionally not stopped.
 - Production SQL migration not applied. No end-to-end financial mutations / POD / invoice workflow executed. User's PWA replacement not yet released.
+
+## Continuation 06:48 UTC 7 Nov
+- Resumed branch fix/award-identity-visual-20261107 from clean commit 533720cc. No changes to main.
+- Hardened Award/Booking Confirmation: reset bidder identity and loading state when switching bids to avoid showing previous driver's identity; block send for named driver without linked quote vehicle, linked driver and registered pallet capacity; block mismatched tail lift and unregistered quoted vehicle; added accessible alerts.
+- Added __tests__/awardIdentityVehicleSafetyContract.test.ts (3 assertions). Four targeted Vitest suites 18/18 PASS; ESLint changed files PASS; TSX isolated transpilation 0 diagnostics. Full TypeScript project/build still unverified due laptop memory pressure.
+- Next: authenticated browser recheck modal against a safe current future-dated quote; full production-equivalent build and Driver->Customer->POD->Invoice E2E with isolated test jobs; do not deploy without user visual approval.
