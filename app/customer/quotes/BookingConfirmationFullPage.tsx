@@ -69,6 +69,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
     return()=>{active=false;};
   },[details.bidId]);
   const verifiedName=identity?.personName||identity?.companyName||details.carrierName;
+  const publicDriverId = (identity?.memberId || details.memberId || '').match(/XD-\d{6}/i)?.[0]?.toUpperCase() || null;
   const pickupExpired=!details.pickupDate || !Number.isFinite(Date.parse(details.pickupDate)) || Date.parse(details.pickupDate)<=Date.now();
   const capacityMismatch=identity?.driverVehiclePallets!=null && details.pallets!=null && details.pallets>identity.driverVehiclePallets;
   const namedDriverQuote=identity?.quoteLevel==='driver' || details.ownerDriver;
@@ -149,7 +150,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
               {verificationBlocked && <p className={styles.capacityWarning} role="alert">Bidder or quoted vehicle verification is unavailable. Booking cannot be sent until the selected quotation and vehicle are verified.</p>}
               <div className={styles.identityFacts}>
                 <span>Quote profile</span><strong>{identity?.driverId ? 'Named driver linked to this quotation' : identity?.quoteLevel==='company' ? 'Company quote' : 'Bidder not yet verified'}</strong>
-                <span>Driver ID</span><strong>{identity?.driverId || 'Not linked to quote'}</strong>
+                <span>Driver ID</span><strong>{identity?.driverId ? (publicDriverId || 'Public Driver ID unavailable') : 'Not linked to quote'}</strong>
                 <span>Vehicle</span><strong>{identity?.driverVehicleType?.replaceAll('_',' ') || details.vehicle}</strong>
                 <span>Registration</span><strong>{identity?.vehicleRegistration || 'Not provided'}</strong>
                 <span>Vehicle capacity</span><strong>{identity?.driverVehiclePallets != null ? `${identity.driverVehiclePallets} pallets` : 'Not recorded'}</strong>
