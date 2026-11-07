@@ -142,7 +142,7 @@ function App() {
         if (!active) return;
         setLiveSession(session);
         setLiveConnected(true);
-        await syncAuthenticatedRole(session.token);
+        await syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ });
         const records = await loadLiveWithDiagnostics(session.token);
         if (!active) return;
         setJobs(records.jobs as Load[]);
@@ -163,7 +163,7 @@ function App() {
     setRole(type.includes("owner") ? "Owner Driver" : "Company Driver");
   };
   const refreshLive = async (token: string) => {
-    await syncAuthenticatedRole(token);
+    await syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ });
     const records = await loadLiveWithDiagnostics(token);
     setJobs(records.jobs as Load[]);
     setLiveWarning(records.warnings.join(" | "));
