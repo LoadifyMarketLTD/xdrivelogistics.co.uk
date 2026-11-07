@@ -10,6 +10,7 @@ import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPan
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
 import { useVisibleRefresh } from '../components/workspace/useVisibleRefresh';
 import CxLoadCard from '../components/workspace/CxLoadCard';
+import { compactRouteLocation } from '../../lib/jobs/compactRouteLocation';
 import Master3150OperationsKpis from '../components/workspace/Master3150OperationsKpis';
 import {
   ActionButton,
@@ -34,17 +35,6 @@ const cxTimeParts = (value: string | null | undefined) => {
     primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
     meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}`,
   };
-};
-
-const routeLocationLabel = (location: string | null | undefined, postcode: string | null | undefined, fallback: string) => {
-  const place = location?.trim() ?? '';
-  const code = postcode?.trim() ?? '';
-  if (place && code) {
-    const placeUpper = place.toUpperCase();
-    const codeUpper = code.toUpperCase();
-    return placeUpper.includes(codeUpper) ? place : place + ', ' + code;
-  }
-  return place || code || fallback;
 };
 
 function quoteCounts(data: ReturnType<typeof useCompanyWorkspaceData>) {
@@ -100,8 +90,8 @@ function CustomerOperationalRow({
   return (
     <>
       <CxLoadCard
-        from={routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}
-        to={routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}
+        from={compactRouteLocation(job.pickup_location, job.pickup_postcode, 'Collection')}
+        to={compactRouteLocation(job.delivery_location, job.delivery_postcode, 'Delivery')}
         pickup={cxTimeParts(job.pickup_datetime)}
         delivery={cxTimeParts(job.delivery_datetime)}
         band={presentationStatus}
@@ -114,9 +104,6 @@ function CustomerOperationalRow({
         dataState={presentationState}
         freight={<>
           <div><span>{middleLabel}:</span><strong>{middleValue}</strong></div>
-          <div><span>Vehicle:</span><strong>{vehicle}</strong></div>
-          <div><span>Booking:</span><strong>{job.booking_reference || 'Not supplied'}</strong></div>
-          <div><span>Customer ref:</span><strong>{job.customer_reference || 'Not supplied'}</strong></div>
         </>}
         commercial={<>
           <div><span>Status:</span><strong>{presentationStatus}</strong></div>
