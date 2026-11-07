@@ -30,7 +30,7 @@ const get = (row: Json, ...keys: string[]): unknown => keys.map(k => row[k]).fin
 async function jsonFetch(url: string, init?: RequestInit): Promise<Json> {
   const response = await fetch(url, { ...init, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
   const body = obj(await response.json().catch(() => ({})));
-  if (!response.ok) throw new Error(str(body.error) || 'API request failed (' + response.status + ')');
+  if (!response.ok) throw new Error(str(body.error_description) || str(body.msg) || str(body.error) || 'API request failed (' + response.status + ')');
   return body;
 }
 export async function login(email: string, password: string): Promise<LiveSession> {
@@ -44,20 +44,36 @@ export async function login(email: string, password: string): Promise<LiveSessio
   });
   const token = str(auth.access_token);
   if (!token) throw new Error('No access token returned');
-  return { token, refreshToken: str(auth.refresh_token), expiresAt: Date.now() + (num(auth.expires_in) || 3600) * 1000 };
+  latestSession = { token, refreshToken: str(auth.refresh_token), expiresAt: Date.now() + (num(auth.expires_in) || 3600) * 1000 };
+  return latestSession;
 }
+let latestSession: LiveSession | null = null;
+let renewalInFlight: Promise<LiveSession> | null = null;
 export async function renewSession(session: LiveSession): Promise<LiveSession> {
-  if (session.expiresAt > Date.now() + 120000) return session;
+  const current = latestSession && latestSession.expiresAt > session.expiresAt ? latestSession : session;
+  if (current.expiresAt > Date.now() + 120000) return current;
+  if (renewalInFlight) return renewalInFlight;
+  renewalInFlight = renewSessionOnce(current).then(next => { latestSession = next; return next; }).finally(() => { renewalInFlight = null; });
+  return renewalInFlight;
+}
+async function renewSessionOnce(session: LiveSession): Promise<LiveSession> {
   if (!session.refreshToken) throw new Error('Session expired. Please sign in again.');
   const config = await jsonFetch(base + '/mobile/config');
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
   if (url !== 'https://jqxlauexhkonixtjvljw.supabase.co' || !key) throw new Error('LIVE authentication configuration mismatch');
-  const auth = await jsonFetch(url + '/auth/v1/token?grant_type=refresh_token', {
-    method: 'POST',
-    headers: { apikey: key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: session.refreshToken }),
-  });
+  let auth: Json;
+  try {
+    auth = await jsonFetch(url + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { apikey: key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: session.refreshToken }),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Session renewal failed';
+    if (/400|invalid.grant|refresh.token|already.used|session.expired/i.test(message)) throw new Error('Session expired. Please sign in again.');
+    throw error;
+  }
   const token = str(auth.access_token);
   if (!token) throw new Error('Session renewal failed');
   return {

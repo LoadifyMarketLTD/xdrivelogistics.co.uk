@@ -152,7 +152,12 @@ function App() {
       } catch (error) {
         if (!active) return;
         setLiveConnected(false);
-        setLiveError(error instanceof Error ? error.message : "Session restoration failed");
+        const message = error instanceof Error ? error.message : 'Session restoration failed';
+        if (/refresh.token|invalid.grant|session.expired|already.used|invalid.*token/i.test(message)) {
+          localStorage.removeItem(LIVE_SESSION_KEY);
+          setLiveSession(null);
+          setLiveError('Your session expired. Sign in again to receive your bookings.');
+        } else setLiveError(message);
       } finally { if (active) setLiveBusy(false); }
     })();
     return () => { active = false; };
