@@ -266,7 +266,7 @@ function App() {
         </div>
         <button
           className="headbtn"
-          onClick={() => { if (!liveConnected) { setTab("More"); return; } setMenuSection(null); setMenuOpen(true); }}
+          onClick={() => { setMenuSection(null); setMenuOpen(true); }}
           aria-label="Open driver menu"
         >
           Menu
@@ -583,7 +583,7 @@ function App() {
                 {liveConnected ? <>
                   <h2>Driver account</h2>
                   <p>Signed in to XDrive Logistics.</p>
-                  <button type="button" onClick={() => { if (!liveConnected) { setTab("More"); return; } setMenuSection(null); setMenuOpen(true); }}>Open Driver Menu</button>
+                  <button type="button" onClick={() => { setMenuSection(null); setMenuOpen(true); }}>Open Driver Menu</button>
                 </> : <>
                   <h2>Sign in to XDrive Logistics</h2>
                   <p>Sign in with your driver account to access your jobs, quotes and bookings.</p>
