@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import { fetchAllBookingOfferPages } from '../../../lib/bookingOfferPages';
 import BookingConfirmationFullPage from '../../customer/quotes/BookingConfirmationFullPage';
 import type { WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
@@ -20,6 +21,12 @@ import {
 } from '../../components/workspace/WorkspaceUI';
 
 type QuoteTab = 'received' | 'archived' | 'submitted' | 'unsuccessful';
+type BuyerBookingOffer = {
+  id: string;
+  job_id: string;
+  bid_id: string;
+  status: string;
+};
 type BidderIdentity = {
   bidId: string;
   companyId: string | null;
@@ -70,6 +77,9 @@ export default function BrokerQuotesPage() {
   const [message, setMessage] = useState('');
   const [identities, setIdentities] = useState<Record<string, BidderIdentity>>({});
   const [identityWarning, setIdentityWarning] = useState('');
+  const [bookingOffers, setBookingOffers] = useState<BuyerBookingOffer[]>([]);
+  const [bookingOfferError, setBookingOfferError] = useState('');
+  const [bookingOffersLoaded, setBookingOffersLoaded] = useState(false);
   const [awardCandidate, setAwardCandidate] = useState<{ bid: WorkspaceBid; job: WorkspaceJob; identity?: BidderIdentity } | null>(null);
 
   useEffect(() => {
@@ -87,7 +97,7 @@ export default function BrokerQuotesPage() {
         const { data: session } = await supabase.auth.getSession();
         const token = session.session?.access_token;
         if (!token) throw new Error('Session unavailable.');
-        const response = await fetch('/api/admin/bids/identities', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+        const response = await fetch('/api/workspace/bids/identities', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
         const payload = await response.json().catch(() => ({})) as { identities?: BidderIdentity[]; error?: string };
         if (!response.ok) throw new Error(payload.error || 'Bidder identities could not be resolved.');
         if (!active) return;
@@ -102,6 +112,32 @@ export default function BrokerQuotesPage() {
     void loadIdentities();
     return () => { active = false; };
   }, [data.bids]);
+
+  const loadBookingOffers = useCallback(async () => {
+    setBookingOffersLoaded(false);
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    if (!token) {
+      setBookingOffers([]);
+      setBookingOfferError('Carrier acceptance state is unavailable until the session is refreshed.');
+      return;
+    }
+    try {
+      const offers = await fetchAllBookingOfferPages<BuyerBookingOffer>('/api/customer/booking-offers', token);
+      setBookingOffers(offers);
+      setBookingOfferError('');
+      setBookingOffersLoaded(true);
+    } catch (error) {
+      setBookingOffers([]);
+      setBookingOfferError(error instanceof Error ? error.message : 'Carrier acceptance state could not be loaded.');
+    }
+  }, []);
+
+  useEffect(() => { void loadBookingOffers(); }, [loadBookingOffers, data.bids, data.jobs]);
+  const pendingOfferByJob = useMemo(
+    () => new Map(bookingOffers.filter((offer) => offer.status === 'pending').map((offer) => [offer.job_id, offer])),
+    [bookingOffers],
+  );
 
   const rows = useMemo(() => {
     const jobs = new Map(data.jobs.map((job) => [job.id, job]));
@@ -126,6 +162,11 @@ export default function BrokerQuotesPage() {
 
   const award = async (bidId: string) => {
     if (awardCandidate?.bid.id !== bidId || working) return;
+    if (!bookingOffersLoaded || bookingOfferError || pendingOfferByJob.has(awardCandidate.job.id)) {
+      setMessage('Carrier acceptance must be verified before awarding another quote.');
+      setAwardCandidate(null);
+      return;
+    }
     setWorking(bidId); setMessage('');
     const { data: session } = await supabase.auth.getSession();
     const response = await fetch(`/api/customer/bids/${bidId}/award`, {
@@ -138,7 +179,7 @@ export default function BrokerQuotesPage() {
     if (!response.ok) { setMessage(payload.error || 'Unable to award this carrier quote.'); return; }
     setAwardCandidate(null);
     setMessage('Booking offer sent - awaiting carrier acceptance.');
-    await data.refresh();
+    await Promise.all([data.refresh(), loadBookingOffers()]);
   };
 
   const updateQuoteLifecycle = async (
@@ -193,6 +234,8 @@ export default function BrokerQuotesPage() {
     <PageFrame>
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       {identityWarning && <AlertBanner tone="warning">{identityWarning}</AlertBanner>}
+      {bookingOfferError && <AlertBanner tone="warning">{bookingOfferError}</AlertBanner>}
+      {!bookingOffersLoaded && !bookingOfferError && <AlertBanner tone="warning">Checking carrier acceptance status before allowing new awards.</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}
 
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
@@ -230,6 +273,9 @@ export default function BrokerQuotesPage() {
                 const carrierDriverId = identity?.driverId ?? bid.bidder_driver_id ?? null;
                 const carrierType = identity?.companyType?.replace(/_/g, ' ') || (carrierCompanyId ? 'Carrier / Fleet' : carrierDriverId ? 'Owner Driver' : 'Member');
                 const quoteStage = canonicalQuoteStage(bid, 'poster');
+                const pendingBookingOffer = pendingOfferByJob.get(job.id);
+                const awaitingCarrierAcceptance = pendingBookingOffer?.bid_id === bid.id;
+                const bookingPendingForJob = Boolean(pendingBookingOffer);
 
                 const vehicleLabel = (job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ');
                 return (
@@ -239,7 +285,7 @@ export default function BrokerQuotesPage() {
                     routeTo={job.delivery_postcode || job.delivery_location || 'Delivery not set'}
                     pickup={cxDateParts(job.pickup_datetime, 'TBC')}
                     delivery={cxDateParts(job.delivery_datetime)}
-                    band={quoteStageLabel(quoteStage)}
+                    band={awaitingCarrierAcceptance ? 'Awaiting Carrier Acceptance' : quoteStageLabel(quoteStage)}
                     postedAt={<>@ {when(bid.created_at)}</>}
                     service={<><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink> · {quote > 0 ? money(quote) : 'Quote not priced'} · {carrierType}</>}
                     loadId={job.id.slice(0, 8).toUpperCase()}
@@ -284,7 +330,9 @@ export default function BrokerQuotesPage() {
                     </>}
                     footer={<>
                       <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !open; setExpanded((current) => { const next = new Set(current); if (open) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={open ? 'Collapse quote' : 'Expand quote'}>{open ? '▴' : '▾'}</button>
-                      {bid.status === 'submitted' && <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id || priceOf(bid) <= 0} onClick={() => setAwardCandidate({bid,job,identity})}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</button>}
+                      {bid.status === 'submitted' && bookingOffersLoaded && !bookingOfferError && !bookingPendingForJob && <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id || priceOf(bid) <= 0} onClick={() => setAwardCandidate({bid,job,identity})}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</button>}
+                      {awaitingCarrierAcceptance && <span className="xdrive-cx-quote-card__quote-state">Offer sent — awaiting carrier acceptance</span>}
+                      {bookingPendingForJob && !awaitingCarrierAcceptance && <span className="xdrive-cx-quote-card__quote-state">Another carrier offer awaits acceptance</span>}
                       <span className="xdrive-cx-quote-card__quote-state">{quote > 0 ? money(quote) : 'Quote not priced'}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>{carrierName}</span>
                     </>}
