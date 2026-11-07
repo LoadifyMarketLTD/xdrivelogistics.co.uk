@@ -150,6 +150,7 @@ function App() {
         setLiveError("");
       } catch (error) {
         if (!active) return;
+        setLiveConnected(false);
         setLiveError(error instanceof Error ? error.message : "Session restoration failed");
       } finally { if (active) setLiveBusy(false); }
     })();
@@ -181,6 +182,7 @@ function App() {
       setSelected(null);
       setTab("Loads");
     } catch (error) {
+      setLiveConnected(false);
       setLiveError(error instanceof Error ? error.message : "Live connection failed");
     } finally { setLiveBusy(false); }
   };
@@ -495,7 +497,7 @@ function App() {
                     <span aria-hidden="true">&#128230;</span>
                     <h2>No {tab.toLowerCase()} available</h2>
                     <p>
-                      {liveBusy ? "Loading real records from XDrive LIVE..." : liveConnected ? "No matching real records returned by XDrive LIVE." : mode === "unconfigured"
+                      {liveBusy ? "Loading real records from XDrive LIVE..." : liveError ? "Unable to load your Driver records. Check the error above and your Driver account access." : liveConnected ? "No matching real records returned by XDrive LIVE." : mode === "unconfigured"
                         ? "Sign in to see your available loads."
                         : "No matching records in the isolated test workspace."}
                     </p>
