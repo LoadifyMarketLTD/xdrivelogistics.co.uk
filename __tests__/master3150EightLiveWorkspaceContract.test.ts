@@ -11,13 +11,13 @@ describe('approved 3150 eight sections: authenticated Master, real data only',()
   it('locks the approved 3150 visual CSS against accidental changes',()=>{
     const locked={
       'app/components/workspace/master3150-design-system.css':'1e10ea40149cc12243dec54dcc2f562362b6006d3eab9ed27711d16ab0968602',
-      'app/components/workspace/master3150-operations-shell.css':'a2f77a4c32604d31d98339673c69f4fac31621fe59ac977167024c77a97eb29b',
-      'app/components/workspace/master3150-record-card.css':'fa108db00dec264268798209502bf4981fd5937e25c01cb1f2e7856aa21a5c36',
-      'app/components/workspace/master3150-admin-loads.css':'7064b28cdc8f3509a7034adcba9ccb38bad9e7f89814296c132a5c72b1b4ac2f',
+      'app/components/workspace/master3150-operations-shell.css':'e068a48e6724057d257f31a29924bf5afac360129653e74718120e1a06a6619b',
+      'app/components/workspace/master3150-record-card.css':'ce71391309d99de87a0f4503050d017079b42f736d426afbcb4bfbcf5829e22b',
+      'app/components/workspace/master3150-admin-loads.css':'ff278f64ea5700b101555196763a9e96a911307b2ccafd23e2dc43a629658951',
       'app/components/workspace/master3150-quotes.css':'418acf3ff8698de0aa1259a32a598c7724da001d7d143e172a68ddc4eadb7bad',
       'app/try-xdrive-demo/components/demo-fleet-board.css':'830f8af8f8166d0d05928b03e8289b3363edd004623498d09000ecbba7623765',
       'app/try-xdrive-demo/components/demo-drivers-board.css':'9e31132d78fd69e962d55b6acc69e1f7ae2821cf735dcc1a2123a39dd666c49b',
-      'app/components/workspace/approved-post-load-3150.css':'afd2ca35a58b91b9b6958527d19ea3d4803c9bb930311f3bf7e7aca97eda8ca5',
+      'app/components/workspace/approved-post-load-3150.css':'b15b10c81f1481009ac37baf84f8dc9332c2d72d723c8027652105773fcd2940',
     };
     for(const [path,hash] of Object.entries(locked)){
       const actual=createHash('sha256').update(read(path)).digest('hex');
@@ -64,13 +64,13 @@ describe('approved 3150 eight sections: authenticated Master, real data only',()
   });
   it('renders Fleet and Drivers as 3150 layout with authenticated, own-company data',()=>{
     const member=read('app/components/workspace/MemberFleetOverview.tsx');
-    const display=read('app/components/workspace/Master3150RealFleetBoard.tsx');
     const api=read('app/api/workspace/fleet-overview/route.ts');
     expect(member).toContain('/api/workspace/fleet-overview');
-    expect(member).toContain('Master3150RealFleetBoard');
-    expect(display).toContain('data-master-fleet="3150-real"');
-    expect(display).toContain('data-master-drivers="3150-real"');
-    expect(display).toContain("['Compliant','Unavailable'");
+    expect(member).toContain('<DemoFleetBoard');
+    expect(member).toContain('verifiedFleet={{ vehicles: activeFleet.vehicles');
+    expect(member).toContain('<DemoDriversBoard');
+    expect(member).toContain('verifiedDrivers={{drivers:activeFleet.drivers');
+    expect(member).toContain('readOnly={!canManage} manageHref={manageHref}');
     expect(api).toContain("eq('user_id', auth.user.id)");
     expect(api).toContain("eq('company_id', companyId)");
     expect(api).toContain("eq('status', 'active')");

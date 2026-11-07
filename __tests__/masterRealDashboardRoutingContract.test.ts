@@ -20,8 +20,9 @@ describe('Master Dashboard: approved 3150 visuals, verified live data', () => {
   it('Customer uses the same visual and data provider, without a separate old dashboard', () => {
     const customer = read('app/customer/page.tsx');
     expect(customer).toContain('<Company3150LiveProvider>');
-    expect(customer).toContain('<MasterWorkspace role="Customer" authenticated />');
-    expect(customer).not.toContain('CustomerDashboardHome');
+    expect(customer).toContain('<MasterWorkspace role="Customer" authenticated dashboard={<');
+    expect(customer).toContain('<CompanyMasterDashboard role="Customer"/>');
+    expect(customer).toContain('CustomerDashboardHome');
     expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('role="Customer"');
   });
   it('unavailable or incomplete data is not displayed as a verified zero', () => {
@@ -36,7 +37,7 @@ describe('Master Dashboard: approved 3150 visuals, verified live data', () => {
   it('keeps Driver separately connected and synchronizes sidebar state on route changes', () => {
     const driver = read('app/driver/page.tsx');
     expect(driver).toContain('dashboard={<DriverDashboardContent/>}');
-    expect(master).toContain('useEffect(()=>setTab(initialTab),[initialTab]);');
+    expect(master).toContain('useEffect(()=>{setTab(initialTab);setMobileMenuOpen(false);},[initialTab]);');
     expect(master).toContain('if(authenticated && i===0)');
   });
 });
