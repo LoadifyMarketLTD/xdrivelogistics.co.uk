@@ -50,3 +50,8 @@ Read-only examination of production SQL RPCs found missing pickup date checks in
 - Hardened Award/Booking Confirmation: reset bidder identity and loading state when switching bids to avoid showing previous driver's identity; block send for named driver without linked quote vehicle, linked driver and registered pallet capacity; block mismatched tail lift and unregistered quoted vehicle; added accessible alerts.
 - Added __tests__/awardIdentityVehicleSafetyContract.test.ts (3 assertions). Four targeted Vitest suites 18/18 PASS; ESLint changed files PASS; TSX isolated transpilation 0 diagnostics. Full TypeScript project/build still unverified due laptop memory pressure.
 - Next: authenticated browser recheck modal against a safe current future-dated quote; full production-equivalent build and Driver->Customer->POD->Invoice E2E with isolated test jobs; do not deploy without user visual approval.
+
+## Continuation 06:57 UTC 7 Nov - Approved Awarding Page preserved
+- User explicitly confirmed Awarding Page version is approved and warned to protect top section. Inspected git diff: NO modifications to logo, header, route, reference, vehicle, price, CSS, or hero section.
+- Fixed one-frame stale identity display when changing selected bid: only show resolved bidder whose bidId matches currently selected bid. Reset both legally required acknowledgements when bid changes, preventing previous bid's consent being carried into a new offer.
+- 14/14 focused Vitest PASS, ESLint PASS, git diff --check PASS. No full build or production E2E claimed. Laptop had <1GB available RAM at start; did not stop other agents.

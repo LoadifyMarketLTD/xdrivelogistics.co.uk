@@ -6,6 +6,9 @@ const source=readFileSync('app/customer/quotes/BookingConfirmationFullPage.tsx',
 describe('Award review vehicle verification and stale state',()=>{
   it('clears previous bidder identity before loading a different bid',()=>{
     expect(source).toContain('setIdentity(null);');
+    expect(source).toContain('resolvedIdentity?.bidId===details.bidId ? resolvedIdentity : null');
+    expect(source).toContain('setDetailsAccepted(false);');
+    expect(source).toContain('setPaymentAccepted(false);');
     expect(source).toContain("setIdentityState(details.bidId ? 'loading' : 'unavailable')");
     expect(source).toContain('},[details.bidId]);');
   });

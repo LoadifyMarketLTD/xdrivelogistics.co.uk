@@ -44,10 +44,14 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
   const [detailsAccepted, setDetailsAccepted] = useState(false);
   const [paymentAccepted, setPaymentAccepted] = useState(false);
   type QuoteIdentity = { bidId:string;driverId:string|null;quoteLevel:'driver'|'company';personName:string|null;companyName:string|null;displayName:string;businessPhone:string|null;memberId:string|null;driverAvailability:string|null;driverVehicleType:string|null;vehicleRegistration:string|null;quotedVehicleId:string|null;driverVehiclePallets:number|null;driverVehicleTailLift:boolean;driverDocumentStatuses:Record<string,string>;vehicleDocumentStatuses:Record<string,string>;complianceRetrieved:boolean };
-  const [identity,setIdentity]=useState<QuoteIdentity|null>(null);
+  const [resolvedIdentity,setIdentity]=useState<QuoteIdentity|null>(null);
+  // Never render or act on a bidder resolved for a different quote, even for one frame.
+  const identity=resolvedIdentity?.bidId===details.bidId ? resolvedIdentity : null;
   const [identityState,setIdentityState]=useState<'loading'|'resolved'|'unavailable'>('loading');
   useEffect(()=>{
     setIdentity(null);
+    setDetailsAccepted(false);
+    setPaymentAccepted(false);
     setIdentityState(details.bidId ? 'loading' : 'unavailable');
     if(!details.bidId)return;
     let active=true;
