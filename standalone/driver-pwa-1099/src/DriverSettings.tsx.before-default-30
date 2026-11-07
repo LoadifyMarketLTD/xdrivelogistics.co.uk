@@ -1,0 +1,55 @@
+import { useEffect, useState } from 'react'
+
+type Preferences = {
+  radiusMiles: number
+  available: boolean
+  notifications: boolean
+  navigation: 'Google Maps' | 'Waze' | 'Device default'
+}
+const storageKey = 'xdrive-driver-preferences-v1'
+function loadPreferences(): Preferences {
+  const defaults: Preferences = { radiusMiles: 10, available: false, notifications: false, navigation: 'Device default' }
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(storageKey) || 'null')
+    if (!parsed || typeof parsed !== 'object') return defaults
+    const p = parsed as Partial<Preferences>
+    return {
+      radiusMiles: typeof p.radiusMiles === 'number' && Number.isFinite(p.radiusMiles) && p.radiusMiles >= 1 && p.radiusMiles <= 30 ? p.radiusMiles : 10,
+      available: p.available === true,
+      notifications: p.notifications === true,
+      navigation: p.navigation === 'Google Maps' || p.navigation === 'Waze' ? p.navigation : 'Device default',
+    }
+  } catch { return defaults }
+}
+export default function DriverSettings({ role }: { role: 'Owner Driver' | 'Company Driver' }) {
+  const [prefs, setPrefs] = useState<Preferences>(loadPreferences)
+  useEffect(() => { localStorage.setItem(storageKey, JSON.stringify(prefs)); window.dispatchEvent(new Event('xdrive-radius-change')) }, [prefs])
+  const change = (patch: Partial<Preferences>) => setPrefs(current => ({ ...current, ...patch }))
+  return <section className="settings" aria-label="Driver Settings">
+    <h2>Settings</h2>
+    <p>Local device preferences. These settings do not change live availability or your production account.</p>
+    <h3>Account & company</h3>
+    <p>Driver role: <strong>{role}</strong></p>
+    <p>Authenticated profile, company membership and account security are unavailable until backend sign-in is connected.</p>
+    <h3>Availability & job search</h3>
+    <label className="check"><input type="checkbox" checked={prefs.available} onChange={e => change({ available: e.target.checked })}/> Mark available on this device (preview only)</label>
+    <label>Search radius (miles)
+      <select value={prefs.radiusMiles} onChange={e => change({ radiusMiles: Number(e.target.value) })}>
+        {[5, 10, 15, 20, 25, 30].map(radius => <option key={radius} value={radius}>{radius} miles</option>)}
+      </select>
+    </label>
+    <h3>Navigation</h3>
+    <label>Preferred navigation application
+      <select value={prefs.navigation} onChange={e => change({ navigation: e.target.value as Preferences['navigation'] })}>
+        <option>Device default</option><option>Google Maps</option><option>Waze</option>
+      </select>
+    </label>
+    <h3>Notifications</h3>
+    <label className="check"><input type="checkbox" checked={prefs.notifications} onChange={e => change({ notifications: e.target.checked })}/> Notification preference (local only)</label>
+    <p>Push notifications are not active; no browser permission is requested.</p>
+    <h3>Vehicle & documents</h3>
+    <p>Real vehicle, compliance documents and expiry dates require authenticated XDrive access. No fake records are shown.</p>
+    <h3>Security & sign out</h3>
+    <p>No live account session is established in this preview. Sign out will be enabled after authentication is integrated.</p>
+  </section>
+}
