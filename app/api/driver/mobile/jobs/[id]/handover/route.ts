@@ -67,9 +67,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const packaging = cleanString(body.packaging, 120);
   const notes = cleanString(body.notes, 2000);
   const photoPaths = stringPaths(body.photoPaths, MAX_PHOTOS);
-  if (photoPaths.length === 0) {
-    return respond(400, { error: 'At least one collection photo is required.' });
-  }
   const documentPaths = stringPaths(body.documentPaths, MAX_DOCUMENTS);
 
   const { data: job, error: jobError } = await supabaseAdmin

@@ -126,9 +126,6 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
       return respond(400, { error: 'Invalid stop handover quantities.' });
     }
-    if (target.stop_type === 'collection' && photoPaths.length === 0) {
-      return respond(400, { error: 'At least one collection photo is required for this stop.' });
-    }
     if (photoPaths.length || documentPaths.length) {
       if (!driver.companyId) return respond(403, { error: 'Driver company is required for evidence.' });
       const prefix = `${driver.companyId}/${jobId}/stops/${stopId}/`;

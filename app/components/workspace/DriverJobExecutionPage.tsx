@@ -1651,7 +1651,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
               <input ref={collectionCameraInput} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={selectCollectionPhotos} />
               <input ref={collectionGalleryInput} type="file" accept="image/jpeg,image/png" multiple hidden onChange={selectCollectionPhotos} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <StatusBadge value={collectionPhotos.length ? `${collectionPhotos.length} photo${collectionPhotos.length === 1 ? '' : 's'} ready` : 'Photo required'} tone={collectionPhotos.length ? 'green' : 'orange'} />
+                <StatusBadge value={collectionPhotos.length ? `${collectionPhotos.length} photo${collectionPhotos.length === 1 ? '' : 's'} ready` : 'Photo optional'} tone={collectionPhotos.length ? 'green' : 'orange'} />
                 <ActionButton tone="secondary" disabled={working || collectionPhotos.length >= 10} onClick={() => collectionCameraInput.current?.click()}>Take photo</ActionButton>
                 <ActionButton tone="secondary" disabled={working || collectionPhotos.length >= 10} onClick={() => collectionGalleryInput.current?.click()}>Add photos</ActionButton>
               </div>
