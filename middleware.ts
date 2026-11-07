@@ -640,6 +640,11 @@ function buildNonceResponse(request: NextRequest, nonce: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  // The standalone Driver PWA authenticates its API requests using bearer tokens.
+  // Its HTML, manifest, icons and service worker must remain publicly fetchable.
+  if (request.nextUrl.pathname.startsWith('/driver/official-pwa/')) {
+    return NextResponse.next();
+  }
   const canonicalRedirect = buildCanonicalHostRedirect(request);
   if (canonicalRedirect) {
     return canonicalRedirect;
