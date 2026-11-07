@@ -3,3 +3,13 @@
 .page{height:100%;min-height:0;min-width:0}.backdrop{font-size:13px}.hero{background:linear-gradient(105deg,#092b63,#0c367b)}.heroInner{max-width:1600px}.hero h1{font-size:25px;color:#fff}.hero .quote strong{font-size:28px}.content{max-width:1600px;padding:16px 22px 24px}.panel{box-shadow:0 4px 14px #122f5315}.panelTitle strong{font-size:13px}.panelTitle small{font-size:10px}.explain,.confirm,.legal,.checkList>span,.help{font-size:12px}.document strong,.document span{font-size:11px}.footer{padding:12px 22px}.send{background:#075be8;color:#fff;border-color:#075be8!important}.send:not(:disabled):hover{background:#0349bc}.send:focus-visible,.cancel:focus-visible,.confirm input:focus-visible{outline:3px solid #f59e0b;outline-offset:3px}@media(max-width:1100px){.topGrid{grid-template-columns:1fr 1fr}.topGrid .panel:last-child{grid-column:1/-1}}@media(max-width:700px){.topGrid,.bottomGrid{grid-template-columns:1fr}.topGrid .panel:last-child{grid-column:auto}.dates{grid-template-columns:1fr 1fr}.footer{flex-wrap:wrap}.content{padding:12px}.heroInner{padding:12px}}
 
 .page{flex:1 1 auto;height:auto;min-height:0}.content{min-height:0}.footer{position:relative;z-index:2}
+
+/* Approved Award review: contrast overrides Master Workspace global heading rules */
+.backdrop .hero .routeHeading,.hero .routeHeading{color:#ffffff!important;opacity:1!important;font-weight:800!important;text-shadow:none!important}
+.hero .routeHeading span{color:#ffb02f!important}
+.hero .eyebrow,.hero .ref,.hero .quote span,.hero .quote small{color:#eaf2ff!important;opacity:1!important}
+.identityFacts{display:grid;grid-template-columns:110px minmax(0,1fr);gap:7px 13px;margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:12px}
+.identityFacts span{color:#586a85}.identityFacts strong{color:#152e55;overflow-wrap:anywhere}
+@media(max-width:650px){.identityFacts{grid-template-columns:1fr}.identityFacts strong{margin-top:-5px}}
+
+.capacityWarning{margin:12px 0 0;padding:11px 13px;border:1px solid #f1b44f;border-radius:9px;background:#fff7e8;color:#794300;font-size:12px;font-weight:650;line-height:1.5}

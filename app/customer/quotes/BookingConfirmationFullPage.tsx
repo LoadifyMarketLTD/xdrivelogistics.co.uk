@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { supabase } from '../../../lib/supabaseClient';
 import Image from 'next/image';
 import { BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT } from '../../../lib/legal/paymentObligation';
 import styles from './BookingConfirmationFullPage.module.css';
@@ -8,6 +9,7 @@ import BookingMasterShell from './BookingMasterShell';
 
 export type BookingConfirmationDetails = {
   jobId: string;
+  bidId?: string;
   amount: number;
   currency: string;
   pickup: string;
@@ -41,6 +43,26 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
 }) {
   const [detailsAccepted, setDetailsAccepted] = useState(false);
   const [paymentAccepted, setPaymentAccepted] = useState(false);
+  type QuoteIdentity = { bidId:string;driverId:string|null;quoteLevel:'driver'|'company';personName:string|null;companyName:string|null;displayName:string;businessPhone:string|null;memberId:string|null;driverAvailability:string|null;driverVehicleType:string|null;vehicleRegistration:string|null;driverVehiclePallets:number|null;driverVehicleTailLift:boolean;driverDocumentStatuses:Record<string,string>;vehicleDocumentStatuses:Record<string,string>;complianceRetrieved:boolean };
+  const [identity,setIdentity]=useState<QuoteIdentity|null>(null);
+  const [identityState,setIdentityState]=useState<'loading'|'resolved'|'unavailable'>('loading');
+  useEffect(()=>{
+    if(!details.bidId){setIdentityState('unavailable');return;}
+    let active=true;
+    const resolve=async()=>{
+      try{
+        const {data:session}=await supabase.auth.getSession();
+        if(!session.session?.access_token)throw new Error('Missing session');
+        const response=await fetch('/api/workspace/bids/identities?bidId='+encodeURIComponent(details.bidId as string),{headers:{Authorization:'Bearer '+session.session.access_token},cache:'no-store'});
+        if(!response.ok)throw new Error('Identity API unavailable');
+        const body=await response.json() as {identities?:QuoteIdentity[]};
+        if(active){setIdentity(body.identities?.find(row=>row.bidId===details.bidId)??null);setIdentityState('resolved');}
+      }catch{if(active)setIdentityState('unavailable');}
+    };
+    void resolve();
+    return()=>{active=false;};
+  },[details.bidId]);
+  const verifiedName=identity?.personName||identity?.companyName||details.carrierName;
   const ready = detailsAccepted && paymentAccepted && !working;
 
   useEffect(() => {
@@ -52,7 +74,19 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
   }, [onCancel, working]);
 
   const price = new Intl.NumberFormat('en-GB', { style: 'currency', currency: details.currency || 'GBP' }).format(details.amount);
-  const compliance = ['Driving licence', 'Driver insurance', 'Goods in Transit', 'Vehicle insurance', 'MOT', 'Identity verification'];
+  const compliance = [
+    {label:'Driving licence',type:'driver',keys:['driving_licence','driving_license']},
+    {label:'Driver insurance',type:'driver',keys:['hire_reward','insurance','driver_insurance']},
+    {label:'Goods in Transit',type:'vehicle',keys:['goods_in_transit']},
+    {label:'Vehicle insurance',type:'vehicle',keys:['vehicle_insurance','insurance']},
+    {label:'MOT',type:'vehicle',keys:['mot','mot_certificate']},
+    {label:'Identity verification',type:'driver',keys:['identity','proof_of_identity']},
+  ];
+  const docStatus=(item:typeof compliance[number])=>{
+    if(identityState!=='resolved'||!identity?.complianceRetrieved)return 'Verification unavailable';
+    const lookup=item.type==='driver'?identity.driverDocumentStatuses:identity.vehicleDocumentStatuses;
+    return item.keys.map(key=>lookup[key]).find(Boolean)||'No linked record';
+  };
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-label="Confirm booking offer">
@@ -67,7 +101,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
             <div className={styles.heroBottom}>
               <div>
                 <div className={styles.eyebrow}>EXECUTIVE BOOKING CONFIRMATION</div>
-                <h1>{details.pickup} <span>→</span> {details.delivery}</h1>
+                <h1 className={styles.routeHeading}>{details.pickup} <span>→</span> {details.delivery}</h1>
                 <p>{details.vehicle}{details.tailLift ? ' · Tail-lift' : ''}{details.pallets != null ? ` · ${details.pallets} pallets` : ''}</p>
               </div>
               <div className={styles.quote}>
@@ -94,22 +128,26 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
             <section className={styles.panel}>
               <div className={styles.panelTitle}><span className={styles.icon}>♙</span><strong>Selected Transport Partner</strong><small>{details.ownerDriver ? 'OWNER DRIVER' : 'COMPANY / FLEET'}</small></div>
               <div className={styles.person}>
-                <div className={styles.avatar} aria-hidden="true">{(details.carrierName || '?').trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')}</div>
-                <div className={styles.personDetails}><strong>{details.carrierName}</strong><span>{details.companyName || 'Company details unavailable'}</span><span>{details.memberId || 'Member ID unavailable'} · {details.phone || 'Phone unavailable'}</span></div>
-                {details.availability && <span className={styles.availability}>{details.availability.replaceAll('_', ' ')}</span>}
+                <div className={styles.avatar} aria-hidden="true">{(verifiedName || '?').trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')}</div>
+                <div className={styles.personDetails}><strong>{verifiedName}</strong><span>{identity?.companyName || details.companyName || 'Company details unavailable'}</span><span>{identity?.memberId || details.memberId || 'Member ID unavailable'} · {identity?.businessPhone || details.phone || 'Phone unavailable'}</span></div>
+                {(identity?.driverAvailability || details.availability) && <span className={styles.availability}>{(identity?.driverAvailability || details.availability || '').replaceAll('_', ' ')}</span>}
               </div>
-              <div className={styles.metrics}>
-                <div><strong>—</strong><span>Member since</span></div>
-                <div><strong>—</strong><span>Completed jobs</span></div>
-                <div><strong>—</strong><span>Customer rating</span></div>
+              <div className={styles.identityFacts}>
+                <span>Quote profile</span><strong>{identity?.driverId ? 'Named driver linked to this quotation' : identity?.quoteLevel==='company' ? 'Company quote' : 'Bidder not yet verified'}</strong>
+                <span>Driver ID</span><strong>{identity?.driverId || 'Not linked to quote'}</strong>
+                <span>Vehicle</span><strong>{identity?.driverVehicleType?.replaceAll('_',' ') || details.vehicle}</strong>
+                <span>Registration</span><strong>{identity?.vehicleRegistration || 'Not provided'}</strong>
+                <span>Vehicle capacity</span><strong>{identity?.driverVehiclePallets != null ? `${identity.driverVehiclePallets} pallets` : 'Not recorded'}</strong>
+                <span>Identity source</span><strong>{identityState==='loading' ? 'Retrieving from XDrive API' : identityState==='resolved' ? identity ? 'Resolved from quote records' : 'No matched bidder profile' : 'API unavailable'}</strong>
               </div>
-              <p className={styles.help}>Member history, completed jobs and ratings are shown only when verified XDrive records are available. No rating is assumed.</p>
+              {identity?.driverVehiclePallets != null && details.pallets != null && details.pallets > identity.driverVehiclePallets && <p className={styles.capacityWarning}>Capacity mismatch: this load requires {details.pallets} pallets, but the quoted driver&apos;s registered vehicle has capacity for {identity.driverVehiclePallets}. Confirm an appropriate vehicle before booking.</p>}
+              <p className={styles.help}>The selected driver and vehicle information is read from the bidder's linked XDrive records. No unverified rating or job history is displayed.</p>
               {details.message && <p className={styles.carrierMessage}><strong>Carrier message:</strong> {details.message}</p>}
             </section>
             <section className={styles.panel}>
-              <div className={styles.panelTitle}><span className={styles.icon}>♢</span><strong>Documents &amp; Compliance</strong><small>STATUS NOT RETRIEVED</small></div>
-              <div className={styles.documents}>{compliance.map(name => <div className={styles.document} key={name}><strong>{name}</strong><span>Not verified in this view</span></div>)}</div>
-              <p className={styles.help}>No document is represented as valid or approved without an authoritative verification record.</p>
+              <div className={styles.panelTitle}><span className={styles.icon}>♢</span><strong>Documents &amp; Compliance</strong><small>{identity?.complianceRetrieved ? 'DATABASE RECORDS' : 'STATUS UNAVAILABLE'}</small></div>
+              <div className={styles.documents}>{compliance.map(item => <div className={styles.document} key={item.label}><strong>{item.label}</strong><span>{docStatus(item)}</span></div>)}</div>
+              <p className={styles.help}>Only document status records linked to the quoted driver or vehicle are shown. Missing or unverified records are not approved.</p>
             </section>
           </div>
           <div className={styles.bottomGrid}>

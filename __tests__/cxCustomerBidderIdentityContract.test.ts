@@ -17,6 +17,16 @@ describe('CX-close customer bidder identity resolution', () => {
     expect(route).toContain(".eq('status', 'active')");
   });
 
+  it('scopes per-quote compliance lookups to one authorised bidder', () => {
+    expect(route).toContain("request.nextUrl.searchParams.get('bidId')");
+    expect(route).toContain("bidQuery = bidQuery.eq('id', targetBidId)");
+    expect(route).toContain("includeCompliance:Boolean(targetBidId)");
+    expect(identityHelper).toContain("options.includeCompliance");
+    expect(identityHelper).toContain("driversByUser");
+    expect(identityHelper).toContain("vehicleRegistration");
+    expect(identityHelper).toContain("driverDocumentStatuses");
+  });
+
   it('resolves carrier company and person display names through the canonical helper', () => {
     expect(route).toContain('enrichBidderDecisionIdentities');
     expect(identityHelper).toContain("admin.from('drivers')");

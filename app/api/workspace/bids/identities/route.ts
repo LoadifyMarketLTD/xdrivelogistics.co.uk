@@ -46,13 +46,18 @@ export async function GET(request: NextRequest) {
     .filter(Boolean))];
   if (!companyIds.length) return json(200, { identities: [] });
 
+  const targetBidId = request.nextUrl.searchParams.get('bidId');
+  if (targetBidId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetBidId)) return json(400, {error:'Invalid quote reference.'});
+
   // Resolve identities through the existing owner-scoped compatibility view.
   // This avoids depending on PostgREST relationship inference for jobs while
   // preserving the same company ownership boundary used by quote management.
-  const { data: bidData, error: bidError } = await supabaseAdmin
+  let bidQuery = supabaseAdmin
     .from('job_bids_with_job_owner')
     .select('id, bidder_company_id, bidder_driver_id, bidder_user_id, bidder_id, owner_company_id')
     .in('owner_company_id', companyIds);
+  if (targetBidId) bidQuery = bidQuery.eq('id', targetBidId);
+  const {data:bidData,error:bidError} = await bidQuery;
 
   if (bidError) return json(500, { error: 'Unable to load bidder identities.' });
   const bids = (bidData ?? []) as unknown as BidIdentityRow[];
@@ -63,7 +68,7 @@ export async function GET(request: NextRequest) {
       companyId: bid.bidder_company_id ?? null,
       driverId: bid.bidder_driver_id ?? null,
       userId: bid.bidder_user_id ?? bid.bidder_id ?? null,
-    })));
+    })), {includeCompliance:Boolean(targetBidId)});
     return json(200, { identities });
   } catch {
     return json(500, { error: 'Unable to enrich bidder decision profiles.' });

@@ -302,6 +302,7 @@ export default function BrokerQuotesPage() {
         onConfirm={() => void award(awardCandidate.bid.id)}
         details={{
           jobId: awardCandidate.job.id,
+          bidId: awardCandidate.bid.id,
           amount: priceOf(awardCandidate.bid),
           currency: awardCandidate.bid.currency ?? 'GBP',
           pickup: awardCandidate.job.pickup_postcode || awardCandidate.job.pickup_location || 'Collection not specified',

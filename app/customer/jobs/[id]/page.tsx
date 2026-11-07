@@ -220,6 +220,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
         onConfirm={() => void award(selectedAward.id)}
         details={{
           jobId: job.id,
+          bidId: selectedAward.id,
           amount: quoteAmount(selectedAward) ?? 0,
           currency: selectedAward.currency ?? 'GBP',
           pickup: job.pickup_postcode || job.pickup_location || 'Collection not recorded',

@@ -93,6 +93,7 @@ function AwardConfirmation({
       onConfirm={onConfirm}
       details={{
         jobId: candidate.job.id,
+        bidId: candidate.bid.id,
         amount: Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0),
         currency: candidate.bid.currency ?? 'GBP',
         pickup: candidate.job.pickup_postcode ?? candidate.job.pickup_location ?? 'Collection',
