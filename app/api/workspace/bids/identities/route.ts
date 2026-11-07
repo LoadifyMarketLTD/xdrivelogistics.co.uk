@@ -6,6 +6,7 @@ import {
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
 import { enrichBidderDecisionIdentities } from '../../../_lib/bidderDecisionIdentity';
+import { getBuyerViewMemberships } from '../../../_lib/buyerVisibilityScope';
 
 type BidIdentityRow = {
   id: string;
@@ -16,7 +17,6 @@ type BidIdentityRow = {
 };
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
-const BID_VIEW_MEMBERSHIP_ROLES = new Set(['owner','admin','dispatcher','member','viewer','fleet_manager']);
 const BID_DECISION_MEMBERSHIP_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
 export async function GET(request: NextRequest) {
@@ -31,20 +31,10 @@ export async function GET(request: NextRequest) {
   const { data: authData, error: authError } = await validator.auth.getUser(token);
   if (authError || !authData.user) return json(401, { error: 'Unauthorized.' });
 
-  const { data: memberships, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('company_id, role_in_company')
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active');
-
-  if (membershipError) {
-    return json(500, { error: 'Unable to verify company access.' });
-  }
-
-  const companyIds = [...new Set((memberships ?? [])
-    .filter((row) => BID_VIEW_MEMBERSHIP_ROLES.has(String(row.role_in_company ?? '').trim().toLowerCase()))
-    .map((row) => String(row.company_id))
-    .filter(Boolean))];
+  let memberships;
+  try {memberships=await getBuyerViewMemberships(supabaseAdmin,authData.user.id)}
+  catch{return json(503,{error:'Unable to verify buyer access.'})}
+  const companyIds=[...new Set(memberships.map(row=>row.company_id).filter(Boolean))];
   if (!companyIds.length) return json(200, { identities: [] });
 
   const targetBidId = request.nextUrl.searchParams.get('bidId');

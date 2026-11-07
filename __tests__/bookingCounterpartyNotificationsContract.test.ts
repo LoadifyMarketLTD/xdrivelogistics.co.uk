@@ -14,6 +14,9 @@ describe('Customer -> Driver -> Customer booking notification contract (draft mi
     expect(sql).toContain("cm.company_id=NEW.buyer_company_id");
     expect(sql).toContain("'booking_offer_accepted'");
     expect(sql).toContain("'booking_offer_declined'");
+    expect(sql).toContain('SECURITY INVOKER');
+    expect(sql).toContain('REVOKE ALL ON FUNCTION public.fn_notify_booking_offer_counterparties() FROM PUBLIC, anon, authenticated');
+    expect(sql).toContain("n.body LIKE '%' || NEW.id::text || '%'");
   });
   it('refreshes booking inbox without clearing or reloading existing content',()=>{
     expect(inbox).toContain('useVisibleRefresh');
