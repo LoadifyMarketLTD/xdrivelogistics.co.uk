@@ -23,7 +23,7 @@ describe('Customer Quotes complete API audit regression',()=>{
    expect(reject).toContain(".eq('status','submitted')");
  });
  it('does not return sensitive compliance to non-decision roles',()=>{
-   expect(identity).toContain('BID_VIEW_MEMBERSHIP_ROLES');
+   expect(identity).toContain('getBuyerViewMemberships');
    expect(identity).toContain('BID_DECISION_MEMBERSHIP_ROLES');
    expect(identity).toContain('allowSensitiveCompliance');
    expect(identity).toContain('identity.businessPhone=null');
