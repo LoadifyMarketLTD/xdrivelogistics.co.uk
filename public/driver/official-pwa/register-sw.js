@@ -1,0 +1,1 @@
+if ('serviceWorker' in navigator) {window.addEventListener('load',function(){navigator.serviceWorker.register('/driver/official-pwa/sw.js',{scope:'/driver/official-pwa/'}).catch(console.error)})}
