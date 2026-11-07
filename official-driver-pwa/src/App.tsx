@@ -629,7 +629,7 @@ function App() {
             </div>
             <div className="quote-job-summary"><strong>{job.company || 'XDrive local test customer'}</strong><div><b className="hotshot">HOTSHOT</b> · {job.vehicle}</div>{job.zoneAlert && <b>{job.zoneAlert}</b>}<div className="quote-route"><strong>{job.from}</strong><span>{job.pickup} GMT | Today</span><strong>{job.to}</strong><span>{job.delivery} GMT</span></div>{job.distanceMiles !== undefined && <div className="quote-distance">Distance: {job.distanceMiles.toFixed(2)} miles {job.travelMinutes !== undefined && `(${Math.floor(job.travelMinutes / 60)}h ${job.travelMinutes % 60}mins)`}</div>}</div>
             <label>Will Pick Up Within<select value={quoteEta} onChange={e => setQuoteEta(e.target.value)}>{["ASAP","15 minutes","30 minutes","60 minutes","90 minutes","120 minutes"].map(v => <option key={v} value={v}>{v}</option>)}</select></label>
-            <label>Vehicle<select value={quoteVehicle} onChange={e => setQuoteVehicle(e.target.value)}><option value="">Select vehicle</option>{(driverVehicles.length ? driverVehicles : [job.vehicle]).map(v => <option key={v} value={v}>{v}</option>)}</select>{driverVehicles.length === 0 && <small>Test preview: only the job vehicle type is available. Registered driver vehicles require backend connection.</small>}</label>
+            <label>Vehicle<select value={quoteVehicle} onChange={e => setQuoteVehicle(e.target.value)}><option value="">Select vehicle</option>{(driverVehicles.length ? driverVehicles : [job.vehicle]).map(v => <option key={v} value={v}>{v}</option>)}</select>{driverVehicles.length === 0 && <small>Registered driver vehicle details are temporarily unavailable. Confirm the correct vehicle before submitting.</small>}</label>
             <label>Choose currency<input value="GBP" readOnly /></label>
             <label>
               My Quotes (£) *
@@ -695,8 +695,10 @@ function App() {
                       additionalExtrasGbp: quoteExtra ? Number(quoteExtraPrice) || 0 : 0,
                       message: [notes.trim(), "Collection ETA: " + quoteEta, "Vehicle: " + quoteVehicle, quoteExtra ? quoteExtraName.trim() : ""].filter(Boolean).join("; "),
                     });
-                    await refreshLive(session.token);
                     setQuoteOpen(false); setTab("Quotes"); setSelected(null);
+                    try { await refreshLive(session.token); } catch (refreshError) {
+                      setLiveWarning("Quote submitted successfully, but the Quotes list could not refresh. " + (refreshError instanceof Error ? refreshError.message : "Please reload your quotes."));
+                    }
                   } catch (error) {
                     setLiveError(error instanceof Error ? error.message : "Quote submission failed");
                   } finally { setLiveBusy(false); }
