@@ -1,0 +1,23 @@
+import{describe,it,expect}from 'vitest';import{readFileSync}from 'node:fs';
+const file=(name:string)=>readFileSync(name,'utf8');
+const eligibility=file('app/api/driver/_lib/bidEligibility.ts');
+const booking=file('app/api/booking-offers/route.ts');
+const respond=file('app/api/booking-offers/[id]/respond/route.ts');
+const customerAward=file('app/api/customer/bids/[id]/award/route.ts');
+const driverBids=file('app/api/driver/web/bids/route.ts');
+const driverMobileBids=file('app/api/driver/mobile/bids/route.ts');
+const driverWithdraw=file('app/api/driver/bids/[id]/withdraw/route.ts');
+const driverQuotes=file('app/driver/quotes/page.tsx');
+const market=file('app/api/driver/marketplace/loads/route.ts');
+describe('Customer Driver contract parity',()=>{
+ it('rejects quoting when collection has passed',()=>{expect(eligibility).toContain("collection_time_expired");expect(eligibility).toContain('pickup_datetime');});
+ it('uses same readiness guard at Customer Award and Driver acceptance',()=>{expect(customerAward).toContain('inspectBookingReadiness');expect(respond).toContain('inspectBookingReadiness');});
+ it('restricts commercial company offers to owner/admin/dispatcher',()=>{expect(booking).toContain("['owner','admin','dispatcher']");expect(booking).toContain('bidder_user_id.eq.');expect(booking).toContain('bidder_driver_id.in.');});
+ it('hides full pickup and drop-off addresses/coordinates for pending booking offers',()=>{expect(booking).toContain('bookingOfferVisibleJob(job, String(offer.status))');});
+ it('driver Quotes only lists other bid amounts for authorized company decision-makers',()=>{expect(driverQuotes).toContain('canViewCompanyReceivedQuotes');expect(driverQuotes).toContain('if (companyId && canViewCompanyReceivedQuotes)');});
+ it('driver cannot withdraw a quote during pending carrier booking acceptance',()=>{expect(driverWithdraw).toContain('PENDING_BOOKING_OFFER');expect(driverWithdraw).toContain(".from('job_booking_offers')");expect(driverQuotes).toContain('pendingOfferBidIds.has(bid.id)');expect(driverQuotes).toContain('Review Booking Offer');});
+ it('pre-award marketplace never returns poster telephone, poster identity or target price',()=>{expect(market).toContain('phone: null');expect(market).toContain('postedBy: null');expect(market).toContain("job.is_fixed_price === true ? proposedPriceAmount(job.budget_amount) : null");expect(market).not.toContain(".select('user_id, full_name, xd_id')");});
+ it('driver marketplace hides jobs whose collection time has already elapsed',()=>{expect(market).toContain('Date.parse(collectionAt)<=nowMs');});
+ it('driver quote history strips customer names, references and raw notes before allocation',()=>{expect(driverBids).toContain("clientName: executionUnlocked ?");expect(driverBids).toContain("(executionUnlocked ? job?.customer_reference : null)");expect(driverBids).toContain("if (!raw.startsWith('{')) continue");expect(driverBids).not.toContain("'driverNotes']");expect(driverMobileBids).toContain("clientName: executionUnlocked ?");});
+ it('driver quote history includes driver ID fallback when bidder_user_id missing',()=>{expect(driverQuotes).toContain('bidder_driver_id.eq.');expect(market).toContain('bidder_driver_id.eq.');expect(driverBids).toContain('bidder_driver_id.eq.');});
+});

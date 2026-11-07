@@ -25,6 +25,7 @@ type BidEligibilityJob = {
   status: string | null;
   exchange_visibility: string | null;
   exchange_expires_at: string | null;
+  pickup_datetime: string | null;
   direct_invite_company_id: string | null;
   assigned_company_id: string | null;
   assigned_driver_id: string | null;
@@ -56,6 +57,7 @@ export type DriverBidEligibility = {
     assigned: boolean;
     awarded: boolean;
     expired: boolean;
+    collectionExpired: boolean;
     hasProposedPrice: boolean;
     proposedPriceGbp: number | null;
   };
@@ -83,7 +85,7 @@ export async function resolveDriverBidEligibility(
     resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId),
     supabaseAdmin
       .from('jobs')
-      .select('id,company_id,status,exchange_visibility,exchange_expires_at,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
+      .select('id,company_id,status,exchange_visibility,exchange_expires_at,pickup_datetime,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
       .eq('id', jobId)
       .maybeSingle(),
   ]);
@@ -105,6 +107,7 @@ export async function resolveDriverBidEligibility(
   const assigned = !!job && (Boolean(job.assigned_company_id) || Boolean(job.assigned_driver_id));
   const awarded = !!job && Boolean(job.awarded_carrier_company_id);
   const expired = !!job && exchangeExpired(job.exchange_expires_at);
+  const collectionExpired = !!job && (!job.pickup_datetime || exchangeExpired(job.pickup_datetime));
 
   let hasActiveBid = false;
   if (job) {
@@ -139,6 +142,7 @@ export async function resolveDriverBidEligibility(
   if (job && !['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase())) denialReasons.push('job_not_posted');
   if (job && !visibleToDriver) denialReasons.push('job_not_visible_to_driver');
   if (expired) denialReasons.push('job_exchange_expired');
+  if (collectionExpired) denialReasons.push('collection_time_expired');
   if (ownCompanyJob) denialReasons.push('own_company_job');
   if (assigned) denialReasons.push('job_already_assigned');
   if (awarded) denialReasons.push('job_already_awarded');
@@ -171,6 +175,7 @@ export async function resolveDriverBidEligibility(
         assigned,
         awarded,
         expired,
+        collectionExpired,
         hasProposedPrice: proposedPriceGbp !== null,
         proposedPriceGbp,
       },

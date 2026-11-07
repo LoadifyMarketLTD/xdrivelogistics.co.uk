@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { getBuyerViewMemberships } from '../../_lib/buyerVisibilityScope';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -13,15 +14,10 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error: authError } = await validator.auth.getUser(token);
   if (authError || !user) return json(401, { error: 'Unauthorized.' });
 
-  const { data: memberships, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('company_id,role_in_company')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .in('role_in_company', ['owner', 'admin', 'dispatcher']);
-
-  if (membershipError) return json(500, { error: 'Buyer memberships could not be resolved.' });
-  const companyIds = [...new Set((memberships ?? []).map((row) => row.company_id as string).filter(Boolean))];
+  let memberships;
+  try {memberships=await getBuyerViewMemberships(supabaseAdmin,user.id)}
+  catch{return json(503,{error:'Buyer memberships could not be verified.'})}
+  const companyIds=[...new Set(memberships.map(row=>row.company_id).filter(Boolean))];
   if (!companyIds.length) return json(200, { offers: [] });
 
   const pageParam = request.nextUrl.searchParams.get('page') ?? '0';

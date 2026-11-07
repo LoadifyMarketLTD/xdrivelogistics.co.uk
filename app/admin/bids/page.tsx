@@ -308,6 +308,7 @@ export default function BidsPage() {
         onConfirm={() => void acceptBid(selectedAward.bid.id)}
         details={{
           jobId: selectedAward.bid.job_id,
+          bidId: selectedAward.bid.id,
           amount: resolveBidAmountGbp(selectedAward.bid) ?? 0,
           currency: selectedAward.bid.currency || 'GBP',
           pickup: selectedAward.bid.pickup_location || 'Collection not recorded',

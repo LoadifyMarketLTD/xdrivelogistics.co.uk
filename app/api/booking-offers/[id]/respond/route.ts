@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../_lib/commercialLegalReadiness';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
+import { inspectBookingReadiness } from '../../../_lib/bookingReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 const bodySchema = z.object({ action: z.enum(['accept', 'decline']), reason: z.string().trim().max(1000).optional() });
@@ -22,12 +23,14 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (parsed.data.action === 'accept') {
     const { data: offer, error: offerError } = await supabaseAdmin
       .from('job_booking_offers')
-      .select('id, buyer_company_id, carrier_company_id, status')
+      .select('id, job_id, bid_id, buyer_company_id, carrier_company_id, status')
       .eq('id', id)
       .maybeSingle();
     if (offerError) return json(500, { error: 'Booking offer could not be verified.' });
     if (!offer) return json(404, { error: 'Booking offer not found.' });
     if (offer.status !== 'pending') return json(409, { error: 'This booking offer is no longer pending.' });
+    const readiness = await inspectBookingReadiness(supabaseAdmin, String(offer.job_id), String(offer.bid_id));
+    if (!readiness.ok) return json(409, {error:readiness.error,code:readiness.code});
 
     let buyerLegalReadiness;
     let carrierLegalReadiness;

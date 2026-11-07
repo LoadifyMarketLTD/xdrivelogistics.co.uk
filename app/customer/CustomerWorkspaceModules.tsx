@@ -174,6 +174,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
     onConfirm={()=>void awardQuote(selectedBid.id)}
     details={{
       jobId:job.id,
+      bidId:selectedBid.id,
       amount:Number(selectedBid.bid_price_gbp??selectedBid.amount??0),
       currency:selectedBid.currency??'GBP',
       pickup:job.pickup_postcode??job.pickup_location??'Collection not specified',

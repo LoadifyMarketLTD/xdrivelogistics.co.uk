@@ -76,6 +76,10 @@ export async function POST(request: NextRequest, { params }: Params) {
     return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to reject bids.' });
   }
 
+  const {data:pendingOffer,error:offerError} = await supabaseAdmin.from('job_booking_offers').select('id').eq('bid_id',bidId).eq('status','pending').limit(1);
+  if (offerError) return json(503,{error:'The booking offer state could not be verified.'});
+  if (pendingOffer?.length) return json(409,{error:'This quotation has a pending carrier acceptance request. Resolve or withdraw the booking offer before rejecting it.',code:'BOOKING_OFFER_ALREADY_PENDING'});
+
   // Update bid status to rejected
   const updatePayload: Record<string, unknown> = { status: 'rejected' };
   if (rejectionReason) {
@@ -86,6 +90,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     .from('job_bids')
     .update(updatePayload)
     .eq('id', bidId)
+    .eq('status','submitted')
     .select('id, status, job_id, company_id')
     .single();
 
