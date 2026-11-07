@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import DriverSettings from './DriverSettings'
 import { driverGet } from './liveApi'
 import { asRecord, asRows, dateLabel, dateTimeLabel, expiryLabel, moneyLabel, positiveNumber, readableLabel, textValue, yesNo, type DriverRecord } from './driverMenuView'
@@ -49,6 +49,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
  liveConnected:boolean;token:string|null
 }){
  const [data,setData]=useState<DriverRecord|null>(null)
+ const cache=useRef<{token:string;entries:Record<string,DriverRecord>}>({token:'',entries:{}})
  const [documents,setDocuments]=useState<DriverRecord[]>([])
  const [documentsError,setDocumentsError]=useState('')
  const [loading,setLoading]=useState(false)
@@ -75,12 +76,15 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
  useEffect(()=>{const listener=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()};document.addEventListener('keydown',listener);return()=>document.removeEventListener('keydown',listener)},[onClose])
  useEffect(()=>{
   const path=routes[section as Section]
-  setData(null);setError('');setSuccess('');setDocuments([]);setDocumentsError('')
+  if(cache.current.token!==token){cache.current={token:token||'',entries:{}}}
+  const cached=path&&revision===0?cache.current.entries[path]:undefined
+  setData(cached||null);setError('');setSuccess('');setDocuments([]);setDocumentsError('')
   setNotificationLimit(20);setNotificationsOnlyUnread(false)
   if(!section||!path||!token||!liveConnected){setLoading(false);return}
   let active=true
-  setLoading(true)
+  setLoading(!cached)
   void driverGet(path,token).then(result=>{
+   cache.current.entries[path]=result
    if(!active)return
    setData(result)
    const driver=asRecord(result.driver)
@@ -116,6 +120,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
   try {
    const result=await send(path,'PUT',token,payload)
    setData(result)
+   if(cache.current.token===token)cache.current.entries[path]=result
    setSuccess(result.warning?textValue(result.warning):message)
    return result
   }catch(reason){setError(reason instanceof Error?reason.message:'Save failed');return null}

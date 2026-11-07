@@ -262,7 +262,7 @@ function App() {
     <div className={routeJobId ? "shell route-view" : tab === "Loads" && listed.length === 0 ? "shell no-empty-scroll" : "shell"}>
       <header>
         <div className="brand">
-          <img className="driver-brand-logo" src="/driver/official-pwa/xdrive-logo-company-3150.png" alt="XDrive Logistics" />
+          <img className="driver-brand-logo" src={import.meta.env.DEV ? "/xdrive-logo-company-3150.png" : "/driver/official-pwa/xdrive-logo-company-3150.png"} alt="XDrive Logistics" />
         </div>
         <button
           className="headbtn"
@@ -281,7 +281,7 @@ function App() {
             <button className="back" onClick={() => setSelected(null)}>
               Back to {tab}
             </button>
-            <article className={tab === "Bookings" && bookingScreen === "details" ? "booking-details-root" : "card"}>
+            <article className={tab === "Bookings" && bookingScreen === "details" ? "booking-details-root" : tab === "Quotes" ? "card quote-green-card quote-green-details" : "card"}>
               {tab !== "Bookings" ? <div className="booking-overview">
               <div className="cardtop">
                 <strong>{job.yourRef || job.customerRef || `Job ${job.id.slice(0, 8).toUpperCase()}`}</strong>
@@ -362,7 +362,7 @@ function App() {
               {job.status === "OPEN" ? (
                 <>
                   <button
-                    className="primary"
+                    className="primary quote-now-green"
                     disabled={role === "Company Driver" && !canBid}
                     onClick={() => {
                       setQuoteOpen(true);
@@ -503,7 +503,7 @@ function App() {
                   </div>
                 ) : (
                   listed.map((j) => (
-                    <article className={tab === "Loads" ? "card unified-job-card compact-load-card" : "card unified-job-card"} key={j.id}>
+                    <article className={tab === "Loads" ? "card unified-job-card compact-load-card" : tab === "Quotes" ? "card unified-job-card quote-green-card" : "card unified-job-card"} key={j.id}>
                       <div className="cardtop">
                         <strong>{j.company || "Customer not provided"}</strong>
                         {tab !== "Bookings" && <span className="pill">

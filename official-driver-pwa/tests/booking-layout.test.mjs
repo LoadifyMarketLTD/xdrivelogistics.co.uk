@@ -11,7 +11,7 @@ test('all booking records use the same details renderer, regardless of fixture i
   assert.doesNotMatch(source, /job\.id === "TEST-1099" && bookingScreen/);
 });
 test('booking details do not use a nested generic card frame', () => {
-  assert.match(source, /bookingScreen === "details" \? "booking-details-root" : "card"/);
+  assert.match(source, /bookingScreen === "details" \? "booking-details-root" : tab === "Quotes" \? "card quote-green-card quote-green-details" : "card"/);
   assert.match(css, /\.booking-details-root\{[^}]*border:0!important/);
 });
 test('booking details share the complete Post Load sections and document action', () => {

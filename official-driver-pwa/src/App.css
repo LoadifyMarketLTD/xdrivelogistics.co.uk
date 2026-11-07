@@ -128,8 +128,6 @@ main > .booking-details-root, .booking-details-root{display:block!important;widt
 .unified-job-card:has(.reference):has(.quote-customer) .quote-customer{margin:5px 0}
 .unified-job-card:has(.reference):has(.quote-customer) .reference{margin-bottom:8px}
 
-/* Approved Master Workspace 3150 brand in the driver top-left navbar. */
-.shell > header .driver-brand-logo{display:block;width:min(170px,calc(100vw - 110px));height:42px;object-fit:contain;object-position:left center}
 
 
 /* Prevent Android pull-to-refresh/rubber-band on short empty Loads screens. Keep normal scrolling on long jobs and detail views. */
@@ -172,3 +170,24 @@ body:has(.shell.no-empty-scroll){overflow:hidden}
 .compact-load-card .job-distance{font-size:13px!important;color:#33475c!important}
 .compact-load-card>p:not(.job-distance){font-size:12px!important;color:#566477!important}
 .compact-load-card>.actions>button{font-size:13px!important;font-weight:750!important;min-height:38px!important}
+
+.shell > header .driver-brand-logo{display:block;width:min(170px,calc(100vw - 110px));height:42px;object-fit:contain;object-position:left center}
+
+/* Green quotation cards in Quotes list and job details. */
+.card.quote-green-card{background:#eef9f0!important;border:1px solid #70b988!important;box-shadow:0 3px 12px #16734212!important}
+.quote-green-card .cardtop .pill{background:#d1f0da!important;color:#176437!important}
+.quote-green-card .route{background:#e1f3e6!important;border-color:#b3dfc0!important}
+.quote-green-card .route i{border-color:#22864b!important}
+.quote-green-card .actions button:not(.primary){border-color:#8fcda4!important;color:#185d35!important}
+.quote-green-card .booking-overview{background:transparent!important}
+
+/* Alert details actions: distinct meanings, unchanged sizing and layout. */
+.card .alert-actions button:first-child{background:#e8f2fc!important;border:1px solid #a8cae9!important;color:#205b91!important}
+.card .alert-actions button:last-child{background:#fce8e8!important;border:1px solid #e5a2a2!important;color:#a92727!important}
+.card .alert-actions button:first-child:hover{background:#d6e9fa!important}
+.card .alert-actions button:last-child:hover{background:#f8dada!important}
+
+/* Approved: Save blue, Delete alert orange, Quote Now green. */
+.card .alert-actions button:last-child{background:#f47716!important;border:1px solid #f47716!important;color:#fff!important}
+.card .alert-actions button:last-child:hover{background:#db650d!important;border-color:#db650d!important}
+.card>button.primary.quote-now-green{background:var(--job-green,#159b45)!important;border-color:var(--job-green,#159b45)!important;color:#fff!important}

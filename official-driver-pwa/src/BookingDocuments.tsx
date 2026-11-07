@@ -64,10 +64,10 @@ export default function BookingDocuments({ jobId, session, live }: { jobId: stri
         event.currentTarget.value = "";
       }} />
     </label>
-    {files.map((file, index) => <p key={`${file.name}-${index}`}>{file.name} — ready to upload</p>)}
-    {files.length > 0 && <button type="button" className="primary" disabled={busy || !session?.token} onClick={() => void save()}>{busy ? "Uploading…" : "Save documents"}</button>}
-    {loading && <p>Loading saved documents…</p>}
-    {documents.map((document, index) => <p key={`${document.name}-${index}`}><a href={document.signedUrl} target="_blank" rel="noopener noreferrer">{document.name}</a> — saved securely</p>)}
+    {files.map((file, index) => <p key={`${file.name}-${index}`}>{file.name} - ready to upload</p>)}
+    {files.length > 0 && <button type="button" className="primary" disabled={busy || !session?.token} onClick={() => void save()}>{busy ? "Uploading..." : "Save documents"}</button>}
+    {loading && <p>Loading saved documents...</p>}
+    {documents.map((document, index) => <p key={`${document.name}-${index}`}><a href={document.signedUrl} target="_blank" rel="noopener noreferrer">{document.name}</a> - saved securely</p>)}
     {error && <p role="alert">{error}</p>}
   </div>;
 }
