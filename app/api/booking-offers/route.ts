@@ -48,12 +48,16 @@ export async function GET(request: NextRequest) {
 
   const jobIds = [...new Set((offers ?? []).map((offer) => offer.job_id as string))];
   const buyerIds = [...new Set((offers ?? []).map((offer) => offer.buyer_company_id as string))];
-  const [{ data: jobs }, { data: buyers }] = await Promise.all([
-    jobIds.length ? supabaseAdmin.from('jobs').select('id,pickup_location,pickup_city,pickup_postcode,delivery_location,delivery_city,delivery_postcode,pickup_datetime,delivery_datetime,payment_terms,load_id,load_ref,load_reference,booking_reference,customer_reference,vehicle_type,requested_vehicle_label,job_distance_miles,job_distance_minutes,load_details,pickup_lat,pickup_lng,delivery_lat,delivery_lng').in('id', jobIds) : Promise.resolve({ data: [] }),
-    buyerIds.length ? supabaseAdmin.from('companies').select('id,name,xd_id').in('id', buyerIds) : Promise.resolve({ data: [] }),
+  const [{ data: jobs, error: jobsError }, { data: buyers, error: buyersError }] = await Promise.all([
+    jobIds.length ? supabaseAdmin.from('jobs').select('id,pickup_location,pickup_city,pickup_postcode,delivery_location,delivery_city,delivery_postcode,pickup_datetime,delivery_datetime,payment_terms,load_id,load_ref,load_reference,booking_reference,customer_reference,vehicle_type,requested_vehicle_label,job_distance_miles,job_distance_minutes,load_details,pickup_lat,pickup_lng,delivery_lat,delivery_lng').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
+    buyerIds.length ? supabaseAdmin.from('companies').select('id,name,xd_id').in('id', buyerIds) : Promise.resolve({ data: [], error: null }),
   ]);
+  // A partial database failure must not be represented as a successful, empty booking.
+  // The driver needs the real route and buyer identity to decide on an offer.
+  if (jobsError || buyersError) return json(503, { error: 'Booking details are temporarily unavailable.' });
   const jobById = new Map((jobs ?? []).map((row) => [row.id as string, row]));
   const buyerById = new Map((buyers ?? []).map((row) => [row.id as string, row]));
+  if (jobIds.some((id) => !jobById.has(id))) return json(503, { error: 'Some booking jobs could not be resolved.' });
 
   return json(200, {
     page, hasMore: (offers ?? []).length > pageSize, nextPage: (offers ?? []).length > pageSize ? page + 1 : null,

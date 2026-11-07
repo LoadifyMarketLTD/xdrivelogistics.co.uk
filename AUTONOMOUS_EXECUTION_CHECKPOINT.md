@@ -55,3 +55,8 @@ Read-only examination of production SQL RPCs found missing pickup date checks in
 - User explicitly confirmed Awarding Page version is approved and warned to protect top section. Inspected git diff: NO modifications to logo, header, route, reference, vehicle, price, CSS, or hero section.
 - Fixed one-frame stale identity display when changing selected bid: only show resolved bidder whose bidId matches currently selected bid. Reset both legally required acknowledgements when bid changes, preventing previous bid's consent being carried into a new offer.
 - 14/14 focused Vitest PASS, ESLint PASS, git diff --check PASS. No full build or production E2E claimed. Laptop had <1GB available RAM at start; did not stop other agents.
+
+## Continuation 07:01 UTC 7 Nov
+- Inspected Driver booking-offers GET. Fixed silent DB failures: jobs/buyer lookup failures now return 503 rather than misleading 200 with incomplete booking details; orphaned offer job IDs also fail closed. Existing privacy projection and approved Award UI unchanged.
+- Added __tests__/bookingOfferApiConsistency.test.ts (3 contracts). PowerShell lightweight source checks 3/3 PASS; git diff --check PASS. Vitest process CRASHED OOM (exit 134) before tests, so new Vitest suite is NOT verified; available laptop memory <1GB and free virtual memory ~0.55GB. Do not stop other agents' processes or claim test PASS.
+- No GitHub main/Netlify/production DB changes; full authenticated booking/POD/invoice E2E still pending.
