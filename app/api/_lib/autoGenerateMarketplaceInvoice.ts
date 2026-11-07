@@ -10,7 +10,7 @@ import {
   validateInvoiceVatTotals,
 } from '../../../lib/invoiceVat';
 import { getFeatureFlag } from './platformFlags';
-import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
+import { hasCompletePodEvidence, isPodApprovedForInvoicing } from '../../../lib/jobs/podCompletion';
 
 type SupabaseAdminClient = SupabaseClient;
 
@@ -70,7 +70,7 @@ export async function autoGenerateMarketplaceInvoice({
   const [{ data: job, error: jobError }, { data: buyer, error: buyerError }] = await Promise.all([
     supabase
       .from('jobs')
-      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email, pod_required, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
+      .select('id, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email, pod_required, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name, broker_pod_review_status')
       .eq('id', jobId)
       .maybeSingle(),
     supabase
@@ -83,12 +83,20 @@ export async function autoGenerateMarketplaceInvoice({
   if (jobError) throw new Error(jobError.message);
   if (!job) return { created: false, invoiceId: null, reason: 'Job not found.' };
   if (buyerError) throw new Error(buyerError.message);
+  const jobStatus = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+  if (!['delivered', 'completed', 'invoiced'].includes(jobStatus)) {
+    return { created: false, invoiceId: null, reason: 'Delivery must be completed before creating an invoice.' };
+  }
   if (!hasCompletePodEvidence(job)) {
     return {
       created: false,
       invoiceId: null,
       reason: 'Complete POD before creating an invoice. POD is mandatory for every job.',
     };
+  }
+
+  if (!isPodApprovedForInvoicing(job.broker_pod_review_status)) {
+    return { created: false, invoiceId: null, reason: 'POD review is rejected or requests resubmission. Resolve POD review before invoicing.' };
   }
 
   const clientName = cleanText(job.client_name) || cleanText(buyer?.name);

@@ -27,6 +27,12 @@ export const hasStoredSignature = (value: unknown): boolean => {
   return typeof record.value === 'string' && hasStoredSignature(record.value);
 };
 
+/** Rejected or requested-for-resubmission PODs are not invoice-ready. */
+export function isPodApprovedForInvoicing(reviewStatus: unknown): boolean {
+  const status = String(reviewStatus ?? '').trim().toLowerCase();
+  return status !== 'rejected' && status !== 'missing_requested';
+}
+
 export function hasCompletePodEvidence(record: PodCompletionRecord) {
   const recipientName =
     typeof record.client_signature_name === 'string'
