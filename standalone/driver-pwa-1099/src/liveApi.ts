@@ -1,5 +1,5 @@
 // Production driver API adapter. Only publishable Supabase keys are accepted.
-const base = '/xdrive-api/driver';
+const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 type Json = Record<string, unknown>;
 export type LiveSession = { token: string; refreshToken: string; expiresAt: number };
 export type LiveJob = {
