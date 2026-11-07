@@ -11,7 +11,8 @@ describe('real Master Reports replace indicative demo metrics',()=>{
     expect(read('app/customer/reports/page.tsx')).toContain('MemberOperationalReports role="customer"');
     expect(read('app/broker/reports/page.tsx')).toContain('useCompanyWorkspaceData()');
     expect(read('app/admin/reports/page.tsx')).toContain('MemberOperationalReports role="carrier"');
-    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('reports:16');
+    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('customerMasterTab(pathname)');
+    expect(read('lib/masterWorkspaceRouteTab.ts')).toContain('reports:16');
     expect(read('app/driver/reports/page.tsx')).toContain('MemberOperationalReports');
     expect(read('app/driver/reports/page.tsx')).toContain("allowedRoles={['driver']}");
     expect(master).toContain("'/driver/reports'");

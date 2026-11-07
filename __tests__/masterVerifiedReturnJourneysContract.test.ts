@@ -12,7 +12,8 @@ describe('Master Return Journeys is an authorised published Exchange feed',()=>{
     expect(read('app/customer/returns/page.tsx')).toContain('MemberReturnJourneysPage');
     expect(read('app/broker/returns/page.tsx')).toContain('MemberReturnJourneysPage');
     expect(read('app/broker/returns/page.tsx')).toContain("allowedRoles={['broker']}");
-    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('returns:12');
+    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('customerMasterTab(pathname)');
+    expect(read('lib/masterWorkspaceRouteTab.ts')).toContain('returns:12');
     expect(master).toContain("'/driver/returns'");
   });
   it('server confirms active membership, only advertised active returns, no driver identity or exact addresses',()=>{

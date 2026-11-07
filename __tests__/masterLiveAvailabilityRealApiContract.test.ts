@@ -13,7 +13,8 @@ describe('Master live availability uses verified Exchange presence', () => {
     expect(read('app/customer/live-availability/page.tsx')).toContain('MemberLiveAvailabilityPage');
     expect(read('app/broker/live-availability/page.tsx')).toContain('MemberLiveAvailabilityPage');
     expect(read('app/broker/live-availability/page.tsx')).toContain("allowedRoles={['broker']}");
-    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain("'live-availability':11");
+    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('customerMasterTab(pathname)');
+    expect(read('lib/masterWorkspaceRouteTab.ts')).toContain("'live-availability':11");
   });
   it('loads the authoritative published availability endpoint with a verified session', () => {
     expect(page).toContain('supabase.auth.getSession()');

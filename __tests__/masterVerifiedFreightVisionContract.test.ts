@@ -11,7 +11,8 @@ describe('real Freight Vision with no fictitious market intelligence',()=>{
     expect(read('app/customer/freight-vision/page.tsx')).toContain('MemberFreightVisionPage');
     expect(read('app/broker/freight-vision/page.tsx')).toContain('MemberFreightVisionPage');
     expect(read('app/broker/freight-vision/page.tsx')).toContain("allowedRoles={['broker']}");
-    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain("'freight-vision':13");
+    expect(read('app/customer/CustomerMasterLayoutGate.tsx')).toContain('customerMasterTab(pathname)');
+    expect(read('lib/masterWorkspaceRouteTab.ts')).toContain("'freight-vision':13");
     expect(master).toContain("'/driver/freight-vision'");
   });
   it('reuses approved visual structure, real company jobs and quotes',()=>{
