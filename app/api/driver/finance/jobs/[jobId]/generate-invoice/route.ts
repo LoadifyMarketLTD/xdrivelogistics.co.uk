@@ -301,6 +301,16 @@ export async function POST(
     buyer_company_id: buyerCompanyId,
     supplier_company_id: supplierCompanyId,
     invoice_origin: marketplace ? 'marketplace' : 'direct',
+    // Persist immutable delivery evidence alongside the invoice for A4 PDF rendering.
+    pod_required: true,
+    pod_generated: job.pod_generated === true,
+    pod_generated_at: cleanText(job.pod_generated_at) || null,
+    pod_photos: Array.from(new Set([
+      ...(Array.isArray(job.delivery_photos) ? job.delivery_photos : []),
+      ...(Array.isArray(job.pod_photos) ? job.pod_photos : []),
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0))),
+    recipient_name: cleanText(job.client_signature_name) || null,
+    delivery_recipient: cleanText(job.client_signature_name) || null,
   };
 
   if (marketplace && agreementId) {
