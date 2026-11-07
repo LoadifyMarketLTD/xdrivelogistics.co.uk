@@ -43,7 +43,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
 }) {
   const [detailsAccepted, setDetailsAccepted] = useState(false);
   const [paymentAccepted, setPaymentAccepted] = useState(false);
-  type QuoteIdentity = { bidId:string;driverId:string|null;quoteLevel:'driver'|'company';personName:string|null;companyName:string|null;displayName:string;businessPhone:string|null;memberId:string|null;driverAvailability:string|null;driverVehicleType:string|null;vehicleRegistration:string|null;driverVehiclePallets:number|null;driverVehicleTailLift:boolean;driverDocumentStatuses:Record<string,string>;vehicleDocumentStatuses:Record<string,string>;complianceRetrieved:boolean };
+  type QuoteIdentity = { bidId:string;driverId:string|null;quoteLevel:'driver'|'company';personName:string|null;companyName:string|null;displayName:string;businessPhone:string|null;memberId:string|null;driverAvailability:string|null;driverVehicleType:string|null;vehicleRegistration:string|null;quotedVehicleId:string|null;driverVehiclePallets:number|null;driverVehicleTailLift:boolean;driverDocumentStatuses:Record<string,string>;vehicleDocumentStatuses:Record<string,string>;complianceRetrieved:boolean };
   const [identity,setIdentity]=useState<QuoteIdentity|null>(null);
   const [identityState,setIdentityState]=useState<'loading'|'resolved'|'unavailable'>('loading');
   useEffect(()=>{
@@ -63,7 +63,11 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
     return()=>{active=false;};
   },[details.bidId]);
   const verifiedName=identity?.personName||identity?.companyName||details.carrierName;
-  const ready = detailsAccepted && paymentAccepted && !working;
+  const pickupExpired=!details.pickupDate || !Number.isFinite(Date.parse(details.pickupDate)) || Date.parse(details.pickupDate)<=Date.now();
+  const capacityMismatch=identity?.driverVehiclePallets!=null && details.pallets!=null && details.pallets>identity.driverVehiclePallets;
+  const vehicleUnverified=details.pallets!=null && details.pallets>0 && (!identity?.quotedVehicleId || identity?.driverVehiclePallets==null);
+  const verificationBlocked=identityState!=='resolved' || !identity || vehicleUnverified;
+  const ready = detailsAccepted && paymentAccepted && !working && !pickupExpired && !capacityMismatch && !verificationBlocked;
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -123,7 +127,8 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
               <div className={styles.fact}><span>Vehicle</span><strong>{details.vehicle}</strong></div>
               <div className={styles.fact}><span>Cargo</span><strong>{details.pallets != null ? `${details.pallets} pallets` : 'See load details'}</strong></div>
               <div className={styles.fact}><span>Payment terms</span><strong>{details.paymentTerms || 'Refer to agreed booking terms'}</strong></div>
-              <div className={styles.fact}><span>Offer status</span><strong>Awaiting send</strong></div>
+              <div className={styles.fact}><span>Offer status</span><strong>Draft — awaiting send</strong></div>
+              {pickupExpired && <p className={styles.capacityWarning} role="alert">Collection time is in the past or missing. Update the load schedule before offering this transport.</p>}
             </section>
             <section className={styles.panel}>
               <div className={styles.panelTitle}><span className={styles.icon}>♙</span><strong>Selected Transport Partner</strong><small>{details.ownerDriver ? 'OWNER DRIVER' : 'COMPANY / FLEET'}</small></div>
@@ -132,6 +137,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
                 <div className={styles.personDetails}><strong>{verifiedName}</strong><span>{identity?.companyName || details.companyName || 'Company details unavailable'}</span><span>{identity?.memberId || details.memberId || 'Member ID unavailable'} · {identity?.businessPhone || details.phone || 'Phone unavailable'}</span></div>
                 {(identity?.driverAvailability || details.availability) && <span className={styles.availability}>{(identity?.driverAvailability || details.availability || '').replaceAll('_', ' ')}</span>}
               </div>
+              {verificationBlocked && <p className={styles.capacityWarning} role="alert">Bidder or quoted vehicle verification is unavailable. Booking cannot be sent until the selected quotation and vehicle are verified.</p>}
               <div className={styles.identityFacts}>
                 <span>Quote profile</span><strong>{identity?.driverId ? 'Named driver linked to this quotation' : identity?.quoteLevel==='company' ? 'Company quote' : 'Bidder not yet verified'}</strong>
                 <span>Driver ID</span><strong>{identity?.driverId || 'Not linked to quote'}</strong>
@@ -140,7 +146,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
                 <span>Vehicle capacity</span><strong>{identity?.driverVehiclePallets != null ? `${identity.driverVehiclePallets} pallets` : 'Not recorded'}</strong>
                 <span>Identity source</span><strong>{identityState==='loading' ? 'Retrieving from XDrive API' : identityState==='resolved' ? identity ? 'Resolved from quote records' : 'No matched bidder profile' : 'API unavailable'}</strong>
               </div>
-              {identity?.driverVehiclePallets != null && details.pallets != null && details.pallets > identity.driverVehiclePallets && <p className={styles.capacityWarning}>Capacity mismatch: this load requires {details.pallets} pallets, but the quoted driver&apos;s registered vehicle has capacity for {identity.driverVehiclePallets}. Confirm an appropriate vehicle before booking.</p>}
+              {capacityMismatch && <p className={styles.capacityWarning}>Capacity mismatch: this load requires {details.pallets} pallets, but the quoted driver&apos;s registered vehicle has capacity for {identity.driverVehiclePallets}. Confirm an appropriate vehicle before booking.</p>}
               <p className={styles.help}>The selected driver and vehicle information is read from the bidder's linked XDrive records. No unverified rating or job history is displayed.</p>
               {details.message && <p className={styles.carrierMessage}><strong>Carrier message:</strong> {details.message}</p>}
             </section>

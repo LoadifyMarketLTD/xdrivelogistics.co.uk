@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     .select('company_id,role_in_company')
     .eq('user_id', user.id)
     .eq('status', 'active')
-    .in('role_in_company', ['owner', 'admin', 'dispatcher']);
+    .in('role_in_company', ['owner', 'admin', 'dispatcher', 'member', 'viewer','fleet_manager']);
 
   if (membershipError) return json(500, { error: 'Buyer memberships could not be resolved.' });
   const companyIds = [...new Set((memberships ?? []).map((row) => row.company_id as string).filter(Boolean))];

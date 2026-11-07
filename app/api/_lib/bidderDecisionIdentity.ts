@@ -5,6 +5,7 @@ export type BidderDecisionSeed = {
   companyId: string | null;
   driverId: string | null;
   userId: string | null;
+  quoteVehicleId?: string | null;
 };
 
 export type BidderDecisionIdentity = {
@@ -25,6 +26,7 @@ export type BidderDecisionIdentity = {
   fleetVehicleTypes: string[];
   specialistServices: string[];
   vehicleRegistration: string | null;
+  quotedVehicleId: string | null;
   linkedDriverId: string | null;
   driverDocumentStatuses: Record<string,string>;
   vehicleDocumentStatuses: Record<string,string>;
@@ -108,6 +110,12 @@ export async function enrichBidderDecisionIdentities(
   for (const vehicle of [...(companyVehiclesResult.data ?? []), ...(driverVehiclesResult.data ?? [])]) {
     allVehicles.set(vehicle.id, vehicle);
   }
+  const quoteVehicleIds = [...new Set(seeds.map(seed=>seed.quoteVehicleId).filter((id):id is string=>Boolean(id)))];
+  if(quoteVehicleIds.length){
+    const {data:quotedVehicles,error:quotedVehicleError}=await admin.from('vehicles').select('id,company_id,assigned_driver_id,type,reg_plate,has_tail_lift,pallets_capacity').in('id',quoteVehicleIds);
+    if(quotedVehicleError)throw quotedVehicleError;
+    for(const vehicle of quotedVehicles??[])allVehicles.set(vehicle.id,vehicle);
+  }
   const vehicles = [...allVehicles.values()];
   const vehicleIds = vehicles.map(vehicle=>vehicle.id);
   const [driverDocs,vehicleDocs] = await Promise.all([
@@ -136,7 +144,7 @@ export async function enrichBidderDecisionIdentities(
     const profile = seed.userId ? profiles.get(seed.userId) ?? null : null;
     const companyId = resolvedCompanyId(seed);
     const company = companyId ? companies.get(companyId) ?? null : null;
-    const driverVehicle = effectiveDriverId ? vehicleByDriver.get(effectiveDriverId) ?? null : null;
+    const driverVehicle = seed.quoteVehicleId ? allVehicles.get(seed.quoteVehicleId) ?? null : effectiveDriverId ? vehicleByDriver.get(effectiveDriverId) ?? null : null;
     const companyFleet = companyId ? vehicles.filter((vehicle) => vehicle.company_id === companyId) : [];
     const fleetVehicleTypes = [...new Set(companyFleet.map((vehicle) => text(vehicle.type)).filter((value): value is string => Boolean(value)))].sort();
     const specialistServices = [...new Set(companyFleet.flatMap((vehicle) => vehicleServices(vehicle.type, vehicle.has_tail_lift)))].sort();
@@ -161,6 +169,7 @@ export async function enrichBidderDecisionIdentities(
       fleetVehicleTypes,
       specialistServices,
       linkedDriverId: effectiveDriverId,
+      quotedVehicleId: seed.quoteVehicleId??null,
       vehicleRegistration: text(driverVehicle?.reg_plate),
       complianceRetrieved,
       driverDocumentStatuses: documentStatuses(((driverDocs.data??[]) as Array<{driver_id:string;doc_type:string;status:string;expiry_date:string|null;verified_at:string|null}>).filter(doc=>doc.driver_id===effectiveDriverId)),

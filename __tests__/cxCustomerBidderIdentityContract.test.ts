@@ -20,7 +20,9 @@ describe('CX-close customer bidder identity resolution', () => {
   it('scopes per-quote compliance lookups to one authorised bidder', () => {
     expect(route).toContain("request.nextUrl.searchParams.get('bidId')");
     expect(route).toContain("bidQuery = bidQuery.eq('id', targetBidId)");
-    expect(route).toContain("includeCompliance:Boolean(targetBidId)");
+    expect(route).toContain('includeCompliance:allowSensitiveCompliance');
+    expect(route).toContain('BID_VIEW_MEMBERSHIP_ROLES');
+    expect(route).toContain('BID_DECISION_MEMBERSHIP_ROLES');
     expect(identityHelper).toContain("options.includeCompliance");
     expect(identityHelper).toContain("driversByUser");
     expect(identityHelper).toContain("vehicleRegistration");

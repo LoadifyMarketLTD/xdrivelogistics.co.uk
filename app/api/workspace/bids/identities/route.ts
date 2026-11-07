@@ -16,6 +16,7 @@ type BidIdentityRow = {
 };
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+const BID_VIEW_MEMBERSHIP_ROLES = new Set(['owner','admin','dispatcher','member','viewer','fleet_manager']);
 const BID_DECISION_MEMBERSHIP_ROLES = new Set(['owner', 'admin', 'dispatcher']);
 
 export async function GET(request: NextRequest) {
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   }
 
   const companyIds = [...new Set((memberships ?? [])
-    .filter((row) => BID_DECISION_MEMBERSHIP_ROLES.has(String(row.role_in_company ?? '').trim().toLowerCase()))
+    .filter((row) => BID_VIEW_MEMBERSHIP_ROLES.has(String(row.role_in_company ?? '').trim().toLowerCase()))
     .map((row) => String(row.company_id))
     .filter(Boolean))];
   if (!companyIds.length) return json(200, { identities: [] });
@@ -63,12 +64,21 @@ export async function GET(request: NextRequest) {
   const bids = (bidData ?? []) as unknown as BidIdentityRow[];
 
   try {
+    const bidIds=bids.map(bid=>bid.id);
+    const {data:vehicleQuotes,error:vehicleQuoteError}=bidIds.length?await supabaseAdmin.from('job_bids').select('id,quote_vehicle_id').in('id',bidIds):{data:[],error:null};
+    if(vehicleQuoteError)return json(503,{error:'Quoted vehicle references could not be retrieved.'});
+    const vehicleByQuote=new Map((vehicleQuotes??[]).map(q=>[q.id,q.quote_vehicle_id]));
+    const decisionCompanyIds = new Set((memberships ?? []).filter(row => BID_DECISION_MEMBERSHIP_ROLES.has(String(row.role_in_company ?? '').toLowerCase())).map(row => String(row.company_id)));
+    const selectedBid = targetBidId ? (bidData??[]).find(row => row.id === targetBidId) : null;
+    const allowSensitiveCompliance=Boolean(selectedBid && decisionCompanyIds.has(String(selectedBid.owner_company_id)));
     const identities = await enrichBidderDecisionIdentities(supabaseAdmin, bids.map((bid) => ({
       bidId: bid.id,
       companyId: bid.bidder_company_id ?? null,
       driverId: bid.bidder_driver_id ?? null,
       userId: bid.bidder_user_id ?? bid.bidder_id ?? null,
-    })), {includeCompliance:Boolean(targetBidId)});
+      quoteVehicleId: vehicleByQuote.get(bid.id)??null,
+    })), {includeCompliance:allowSensitiveCompliance});
+    if(!allowSensitiveCompliance){for(const identity of identities){identity.businessPhone=null;identity.driverDocumentStatuses={};identity.vehicleDocumentStatuses={};identity.complianceRetrieved=false;}}
     return json(200, { identities });
   } catch {
     return json(500, { error: 'Unable to enrich bidder decision profiles.' });

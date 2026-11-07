@@ -1,0 +1,38 @@
+/* Customer Quotes API-audited presentation. Scoped to the real Master Workspace. */
+.master3150-production .xdrive-admin-marketplace-identity .workspace-filter-rail__body input,
+.master3150-production .xdrive-admin-marketplace-identity .workspace-filter-rail__body select{
+  box-sizing:border-box;max-width:100%;min-width:0;width:100%;text-overflow:ellipsis;
+}
+.master3150-production .xdrive-admin-marketplace-identity .workspace-filter-rail__body label{
+  min-width:0;overflow-wrap:break-word;
+}
+.master3150-production .xd-master-logout,
+.master3150-production .xd-master-logout span{
+  white-space:nowrap;word-break:normal;overflow-wrap:normal;
+}
+.master3150-production .xd-master-logout{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+.master3150-production .xdrive-cx-quote-card__notes[role="alert"]{
+  background:#fff7e8;border:1px solid #e9b35d;border-radius:7px;
+  padding:8px 10px;color:#743c03;font-size:12px;
+}
+.master3150-production .workspace-tab-strip.cx-quote-state-tabs{
+  min-width:0;max-width:100%;scrollbar-width:thin;overflow-x:auto;flex-wrap:nowrap;
+}
+.master3150-production .workspace-tab-strip.cx-quote-state-tabs button{flex-shrink:0}
+
+.master3150-production .xd-approved-sidebar .xd-approved-footer{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:9px 12px;min-width:0;
+}
+.master3150-production .xd-approved-sidebar .xd-approved-footer .xd-master-logout{
+  flex:1 1 auto;min-width:0;margin:0;text-align:left;justify-content:flex-start;
+}
+.master3150-production .xd-approved-sidebar .xd-approved-footer>button[aria-label="Collapse sidebar"],
+.master3150-production .xd-approved-sidebar .xd-approved-footer>button[aria-label="Expand sidebar"]{
+  flex:0 0 auto;margin-left:auto;padding:4px;
+}
+
+/* Expired collection requires a visible high-contrast warning, not a green status. */
+.master3150-production .master3150-record--quote[data-stage="expired"] .xd-card-date em{
+ background:#b42318!important;color:#fff!important;border-color:#b42318!important;
+}
