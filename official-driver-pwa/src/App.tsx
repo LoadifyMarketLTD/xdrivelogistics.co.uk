@@ -15,7 +15,7 @@ import DriverMenu from "./DriverMenu";
 import BookingDocuments from "./BookingDocuments";
 import PodCapture from "./PodCapture";
 import RouteMap from "./RouteMap";
-import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
+import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
 const LIVE_SESSION_KEY = "xdrive-driver-live-session-v1";
 function savedLiveSession(): LiveSession | null {
   try {
@@ -64,6 +64,7 @@ type Load = {
   customerRef?: string;
   yourRef?: string;
   acceptanceRequired?: boolean;
+  offerId?: string;
   acceptedAt?: string;
   collectionWeight?: number;
   driverNotes?: string;
@@ -169,6 +170,26 @@ function App() {
     setLiveWarning(records.warnings.join(" | "));
     setLiveConnected(true);
   };
+  useEffect(() => {
+    if (!liveConnected || !liveSession) return;
+    let running = false;
+    const poll = async () => {
+      if (running || document.visibilityState === 'hidden') return;
+      running = true;
+      try {
+        const session = await renewSession(liveSession);
+        setLiveSession(session);
+        await refreshLive(session.token);
+      } catch (error) {
+        setLiveWarning('Booking updates could not refresh: ' + (error instanceof Error ? error.message : 'Request failed'));
+      } finally { running = false; }
+    };
+    const timer = window.setInterval(() => { void poll(); }, 20000);
+    const onFocus = () => { void poll(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus); };
+  }, [liveConnected, liveSession?.token, liveSession?.expiresAt]);
   const connectLive = async () => {
     setLiveBusy(true);
     setLiveError("");
@@ -191,7 +212,7 @@ function App() {
   const [jobs, setJobs] = useState<Load[]>([]);
 
   const [selected, setSelected] = useState<string | null>(null);
-  const [seenAllocations, setSeenAllocations] = useState<string[]>(() => readLocalRecords<string>("xdrive-seen-allocations-v1", (v): v is string => typeof v === "string"));
+  const [bookingResponseBusy, setBookingResponseBusy] = useState(false);
   const [alertSection, setAlertSection] = useState<"Inbox" | "Saved" | "Deleted">("Inbox");
   const [savedIds, setSavedIds] = useState<string[]>(() => readLocalRecords<string>("xdrive-alerts-saved-v1", (x): x is string => typeof x === "string"));
   const [deletedIds, setDeletedIds] = useState<string[]>(() => readLocalRecords<string>("xdrive-alerts-deleted-v1", (x): x is string => typeof x === "string"));
@@ -251,7 +272,6 @@ function App() {
   useEffect(() => { if (!liveConnected && mode === "sandbox") writeLocalRecords("xdrive-local-jobs-v1", jobs); }, [jobs, liveConnected, mode]);
   useEffect(() => writeLocalRecords("xdrive-alerts-saved-v1", savedIds), [savedIds]);
   useEffect(() => writeLocalRecords("xdrive-booking-archive-v1", archivedBookingIds), [archivedBookingIds]);
-  useEffect(() => writeLocalRecords("xdrive-seen-allocations-v1", seenAllocations), [seenAllocations]);
   useEffect(() => writeLocalRecords("xdrive-alerts-deleted-v1", deletedIds), [deletedIds]);
   useEffect(() => localStorage.setItem("xdrive-booking-history-v1", JSON.stringify(bookingHistory)), [bookingHistory]);
   useEffect(() => localStorage.setItem('xdrive-driver-available-v1', String(available)), [available]);
@@ -273,9 +293,26 @@ function App() {
       : tab === "Quotes"
         ? jobs.filter((j) => j.quote !== undefined && (quoteSection === "Submitted" ? j.status === "OPEN" && j.quoteOutcome !== "UNSUCCESSFUL" && j.quoteOutcome !== "CANCELLED" : j.quoteOutcome === "UNSUCCESSFUL" || j.quoteOutcome === "CANCELLED"))
         : jobs.filter((j) => (liveConnected || j.id === "TEST-1099") && j.status !== "OPEN" && j.quoteOutcome !== "UNSUCCESSFUL" && j.quoteOutcome !== "CANCELLED" && (bookingSection === "Archived" ? archivedBookingIds.includes(j.id) : bookingSection === "Completed" ? j.status === "DELIVERED" && !archivedBookingIds.includes(j.id) : j.status !== "DELIVERED" && !archivedBookingIds.includes(j.id)));
-  const pendingAllocations = jobs.filter(j => j.acceptanceRequired === true && j.status === "ALLOCATED" && !seenAllocations.includes(j.id));
+  const pendingAllocations = jobs.filter(j => j.acceptanceRequired === true && j.status === "ALLOCATED");
   const next = job ? nextJobStatus(job.status) : undefined;
-  const openJob = (id: string) => { const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.status === "ALLOCATED") setSeenAllocations(v => v.includes(id) ? v : [...v, id]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
+  const openJob = (id: string) => { const found = jobs.find(j => j.id === id); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
+  const respondToBooking = async (offer: Load, action: 'accept' | 'decline') => {
+    if (!liveConnected || !liveSession || !offer.offerId || bookingResponseBusy) return;
+    setBookingResponseBusy(true);
+    setLiveError('');
+    try {
+      const session = await renewSession(liveSession);
+      setLiveSession(session);
+      await bookingOfferRespond(session.token, offer.offerId, action);
+      setJobs(rows => rows.map(row => row.id === offer.id ? { ...row, acceptanceRequired: false, ...(action === 'decline' ? { status: 'OPEN' as const, quoteOutcome: 'CANCELLED' as const } : { acceptedAt: new Date().toISOString() }) } : row));
+      if (action === 'decline') setSelected(null);
+      try { await refreshLive(session.token); } catch (error) {
+        setLiveWarning('Booking response saved, but the list could not refresh: ' + (error instanceof Error ? error.message : 'Please retry refreshing.'));
+      }
+    } catch (error) {
+      setLiveError(error instanceof Error ? error.message : 'Booking response failed');
+    } finally { setBookingResponseBusy(false); }
+  };
   const toggleSaved = (id: string) => setSavedIds((v) => v.includes(id) ? v.filter((x) => x !== id) : [...v, id]);
   const toggleDeleted = (id: string) => setDeletedIds((v) => v.includes(id) ? v.filter((x) => x !== id) : [...v, id]);
   return (
@@ -336,7 +373,7 @@ function App() {
                   Your quote: <strong>£{job.quote.toFixed(2)} net</strong>
                 </p>
               )}
-              {job.status === "ALLOCATED" && job.acceptanceRequired && <section className="acceptance-panel"><h2>Acceptance Required</h2><p>{job.company || "XDrive test customer"} · Your Ref. {job.yourRef || job.id}</p><div className="actions"><button className="danger" onClick={() => { update(job.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" }); setSelected(null); }}>Decline</button><button className="accept-action" onClick={() => update(job.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() })}>Accept</button></div></section>}
+              {job.status === "ALLOCATED" && job.acceptanceRequired && <section className="acceptance-panel"><h2>Acceptance Required</h2><p>{job.company || "XDrive test customer"} · Your Ref. {job.yourRef || job.id}</p><div className="actions"><button className="danger" disabled={bookingResponseBusy} onClick={() => { if (liveConnected) void respondToBooking(job, "decline"); else { update(job.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" }); setSelected(null); } }}>Decline</button><button className="accept-action" disabled={bookingResponseBusy} onClick={() => liveConnected ? void respondToBooking(job, "accept") : update(job.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() })}>Accept</button></div></section>}
               </div> : null}
 
               {job.status !== "OPEN" && bookingScreen === "details" && <section className="booking-detail-sheet booking-detail-redesign">
@@ -576,7 +613,7 @@ function App() {
                         )}
                       </div>
                       {tab === "Bookings" && (bookingSection === "Completed" || bookingSection === "Archived") && <div className="actions booking-archive-actions"><button type="button" onClick={() => setArchivedBookingIds(ids => bookingSection === "Archived" ? ids.filter(id => id !== j.id) : ids.includes(j.id) ? ids : [...ids, j.id])}>{bookingSection === "Archived" ? "Restore to Completed" : "Archive booking"}</button></div>}
-                      {tab === "Bookings" && j.acceptanceRequired && <div className="actions booking-decision"><button className="danger" onClick={() => update(j.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" })}>Decline</button><button className="accept-action" onClick={() => update(j.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() })}>Accept</button></div>}
+                      {tab === "Bookings" && j.acceptanceRequired && <div className="actions booking-decision"><button className="danger" disabled={bookingResponseBusy} onClick={() => liveConnected ? void respondToBooking(j, "decline") : update(j.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" })}>Decline</button><button className="accept-action" disabled={bookingResponseBusy} onClick={() => liveConnected ? void respondToBooking(j, "accept") : update(j.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() })}>Accept</button></div>}
                       {tab === "Bookings" && !j.acceptanceRequired && j.status === "ALLOCATED" && <button className="accept-action booking-next" onClick={() => { update(j.id, { status: "ON_WAY_TO_PICKUP" }); openJob(j.id); setBookingScreen("status"); }}>On my Way to Pickup</button>}
                       {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_WAY_TO_PICKUP" && <button className="accept-action booking-next" onClick={() => { update(j.id, { status: "ON_SITE_PICKUP" }); openJob(j.id); setBookingScreen("pickup"); }}>On Site (Pickup)</button>}
                       {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_SITE_PICKUP" && <button className="accept-action booking-next" onClick={() => { openJob(j.id); setBookingScreen("loaded"); }}>Loaded</button>}
@@ -626,7 +663,7 @@ function App() {
             className={[tab === t ? "active" : "", t === "Bookings" && pendingAllocations.length > 0 ? "booking-allocation-alert" : ""].filter(Boolean).join(" ")}
             onClick={() => {
               setTab(t);
-              if (t === "Bookings" && pendingAllocations.length > 0) { openJob(pendingAllocations[0].id); setRouteJobId(null); return; }
+              if (t === "Bookings" && pendingAllocations.length > 0) { setBookingSection("Current"); openJob(pendingAllocations[0].id); setRouteJobId(null); return; }
               setSelected(null);
               setRouteJobId(null);
             }}

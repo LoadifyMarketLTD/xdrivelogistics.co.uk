@@ -7,6 +7,7 @@ export type LiveJob = {
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
   company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
+  offerId?: string; acceptanceRequired?: boolean;
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; service?: string;
 };
@@ -72,6 +73,12 @@ export async function revokeLiveSession(session: LiveSession): Promise<void> {
   if (url !== 'https://jqxlauexhkonixtjvljw.supabase.co' || !key) throw new Error('LIVE authentication configuration mismatch');
   const response = await fetch(url + '/auth/v1/logout', { method: 'POST', headers: { apikey: key, Authorization: 'Bearer ' + session.token } });
   if (!response.ok && response.status !== 401) throw new Error('Server session revocation failed (' + response.status + ')');
+}
+export async function bookingOffersGet(token: string): Promise<Json> {
+  return jsonFetch(import.meta.env.PROD ? '/api/booking-offers' : '/xdrive-api/booking-offers', { headers: { Authorization: 'Bearer ' + token } });
+}
+export async function bookingOfferRespond(token: string, offerId: string, action: 'accept' | 'decline'): Promise<Json> {
+  return jsonFetch((import.meta.env.PROD ? '/api/booking-offers/' : '/xdrive-api/booking-offers/') + encodeURIComponent(offerId) + '/respond', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
 }
 export async function driverGet(path: string, token: string): Promise<Json> {
   if (!token) throw new Error('Driver authentication required');
@@ -158,14 +165,15 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
     driverGet('/mobile/jobs?scope=active', token),
     driverGet('/mobile/jobs?scope=completed', token),
     driverGet('/mobile/bids', token),
+    bookingOffersGet(token),
   ]);
   const successful = responses.filter((response): response is PromiseFulfilledResult<Json> => response.status === 'fulfilled');
   if (!successful.length) {
     const errors = responses.filter((response): response is PromiseRejectedResult => response.status === 'rejected');
     throw new Error('LIVE data unavailable: ' + errors.map(error => error.reason instanceof Error ? error.reason.message : 'Request failed').join('; '));
   }
-  const warnings = responses.flatMap((response, index) => response.status === 'rejected' ? [(['Marketplace loads', 'Active bookings', 'Completed bookings', 'Quote history'][index]) + ': ' + (response.reason instanceof Error ? response.reason.message : 'Request failed')] : []);
-  const [marketplace, assigned, completed, bids] = responses.map(response => response.status === 'fulfilled' ? response.value : {});
+  const warnings = responses.flatMap((response, index) => response.status === 'rejected' ? [(['Marketplace loads', 'Active bookings', 'Completed bookings', 'Quote history', 'Booking offers'][index]) + ': ' + (response.reason instanceof Error ? response.reason.message : 'Request failed')] : []);
+  const [marketplace, assigned, completed, bids, bookingOffers] = responses.map(response => response.status === 'fulfilled' ? response.value : {});
   const result = new Map<string, LiveJob>();
   for (const row of Array.isArray(marketplace.loads) ? marketplace.loads : []) {
     const job = mapMarketplace(row); if (job.id) result.set(job.id, job);
@@ -188,6 +196,34 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
     } else {
       result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
     }
+  }
+  for (const raw of Array.isArray(bookingOffers.offers) ? bookingOffers.offers : []) {
+    const offer = obj(raw);
+    const id = str(offer.job_id);
+    const state = str(offer.status).toLowerCase();
+    if (!id || !['pending', 'accepted'].includes(state)) continue;
+    const details = obj(offer.job);
+    const existing = result.get(id);
+    const from = str(get(details, 'pickup_location', 'pickup_city', 'pickup_postcode')) || existing?.from || 'Collection';
+    const to = str(get(details, 'delivery_location', 'delivery_city', 'delivery_postcode')) || existing?.to || 'Delivery';
+    const pending = state === 'pending';
+    result.set(id, {
+      ...existing,
+      id, from, to,
+      pickup: dateTime(details.pickup_datetime) !== 'Not provided' ? dateTime(details.pickup_datetime) : existing?.pickup || 'Not provided',
+      delivery: dateTime(details.delivery_datetime) !== 'Not provided' ? dateTime(details.delivery_datetime) : existing?.delivery || 'Not provided',
+      vehicle: str(get(details, 'requested_vehicle_label', 'vehicle_type')) || existing?.vehicle || 'Not provided',
+      weight: existing?.weight || 0,
+      notes: str(offer.public_quote_notes) || existing?.notes || '',
+      status: existing && existing.status !== 'OPEN' ? existing.status : 'ALLOCATED',
+      company: str(offer.buyer_name) || existing?.company || 'Transport buyer',
+      terms: str(details.payment_terms) || existing?.terms || 'Not provided',
+      quote: num(offer.quoted_amount) ?? existing?.quote,
+      quoteOutcome: 'AWARDED',
+      offerId: str(offer.id),
+      acceptanceRequired: pending,
+      yourRef: str(offer.public_reference) || existing?.yourRef || id,
+    });
   }
   return { jobs: [...result.values()], warnings };
 }
