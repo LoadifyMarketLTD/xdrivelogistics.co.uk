@@ -48,7 +48,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (error) return respond(500, { error: 'Collection documents could not be recovered.' });
   const paths = (data ?? []).filter(entry => SAFE_NAME.test(entry.name) && Boolean(entry.id))
     .map(entry => `${folder}/${entry.name}`);
-  return respond(200, { ok: true, paths });
+  const signed = await Promise.all(paths.map(async path => {
+    const { data: link, error: linkError } = await supabaseAdmin!.storage.from('pod-photos').createSignedUrl(path, 300);
+    return linkError || !link?.signedUrl ? null : { name: path.split('/').pop() ?? 'Document', signedUrl: link.signedUrl };
+  }));
+  return respond(200, { ok: true, paths, documents: signed.filter((item): item is NonNullable<typeof item> => item !== null) });
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
