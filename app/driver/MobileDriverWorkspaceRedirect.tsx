@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
@@ -18,7 +18,7 @@ export default function MobileDriverWorkspaceRedirect({ children }: { children: 
   }, []);
   const redirect = !isLoading && user?.role === 'driver' && mobile === true && user.canAccessDriverMode === true && !user.mustChangePassword;
   useEffect(() => {
-    if (redirect) router.replace('/driver-pwa-fresh/bookings');
+    if (redirect) router.replace('/driver/official-pwa-live');
   }, [redirect, router]);
   if (redirect) return <p role="status">Opening XDrive Driver mobile application...</p>;
   return <>{children}</>;
