@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT } from '../../../lib/legal/paymentObligation';
 import styles from './BookingConfirmationFullPage.module.css';
+import BookingMasterShell from './BookingMasterShell';
 
 export type BookingConfirmationDetails = {
   jobId: string;
@@ -55,6 +56,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-label="Confirm booking offer">
+      <BookingMasterShell onClose={onCancel}>
       <div className={styles.page}>
         <header className={styles.hero}>
           <div className={styles.heroInner}>
@@ -134,6 +136,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
           </div>
         </footer>
       </div>
+      </BookingMasterShell>
     </div>
   );
 }
