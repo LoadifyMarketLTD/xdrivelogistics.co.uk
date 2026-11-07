@@ -105,6 +105,12 @@ export default function DemoFleetBoard({
     setType('Any Type'); setStatus('Any Status'); setCompliance('Any Compliance');
     setQueryInput(''); setQuery('');
   };
+  const complianceFindings = sourceDocuments.filter((document) => {
+    const status = String(document.status || '').trim().toLowerCase();
+    const approved = ['verified', 'approved', 'valid', 'compliant', 'active'].includes(status);
+    const expiry = document.expiry_date ? new Date(document.expiry_date).getTime() : NaN;
+    return !approved || !Number.isFinite(expiry) || expiry <= Date.now() + 30 * 86400000;
+  });
   const partial = verifiedFleet?.limited === true;
   const noPermission = readOnly || (isVerified && !manageHref);
   return <section className="xd-fleet" data-master-fleet={isVerified ? '3150-canonical-real' : '3150-canonical-demo'}>
@@ -183,7 +189,10 @@ export default function DemoFleetBoard({
         <h2>{section}</h2>
         {section === 'Drivers'
           ? sourceDrivers.map((driver) => <div className="network-job" key={driver.id}><strong>{driver.display_name || 'Unnamed driver'}</strong><small>{driver.availability_status || 'Availability not recorded'}</small></div>)
-          : sourceDocuments.map((document) => <div className="network-job" key={document.id}><strong>{document.doc_type || 'Document'}</strong><small>{document.status || 'Status not recorded'} · {document.expiry_date || 'No expiry recorded'}</small></div>)}
+          : section === 'Documents' ? sourceDocuments.map((document) => <div className="network-job" key={document.id}><strong>{document.doc_type || 'Document'}</strong><small>{document.status || 'Status not recorded'} · {document.expiry_date || 'No expiry recorded'}</small></div>) : null}
+        {section === 'Compliance' && <p className="muted">Compliance flags use recorded document status and expiry dates; absence of a flag is not proof of full compliance.</p>}
+        {section === 'Compliance' && complianceFindings.map((document) => <div className="network-job" key={document.id}><strong>{document.doc_type || 'Document type not recorded'}</strong><small>{document.status || 'Status not recorded'} | {document.expiry_date || 'Expiry not recorded'}</small></div>)}
+        {section === 'Compliance' && complianceFindings.length === 0 && sourceDocuments.length > 0 && <p className="muted">No known expiring or unverified documents in available records.</p>}
         {section === 'Drivers' && !sourceDrivers.length && <p className="muted">No registered drivers.</p>}
         {section !== 'Drivers' && verifiedFleet?.documentsRestricted && <p role="status">Company compliance documents are restricted for this workspace role.</p>}
         {section !== 'Drivers' && verifiedFleet?.documentsUnavailable && <p role="status">Vehicle documents are currently unavailable. Compliance results cannot be verified.</p>}
