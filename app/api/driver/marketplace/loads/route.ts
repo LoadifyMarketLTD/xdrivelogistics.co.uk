@@ -50,12 +50,6 @@ type CompanyRow = {
   created_at: string | null;
 };
 
-type ProfileRow = {
-  user_id: string;
-  full_name: string | null;
-  xd_id: string | null;
-};
-
 type BidRow = {
   id: string;
   job_id: string;
@@ -74,6 +68,8 @@ function visibilityAllows(job: JobRow, driverCompanyId: string | null) {
 }
 
 function exchangePostActive(job: JobRow, nowMs = Date.now()) {
+  const collectionAt=marketplaceText(job.pickup_datetime);
+  if(!collectionAt || !Number.isFinite(Date.parse(collectionAt)) || Date.parse(collectionAt)<=nowMs) return false;
   const expiresAt = marketplaceText(job.exchange_expires_at);
   if (!expiresAt) return true;
   const expires = new Date(expiresAt).getTime();
@@ -83,14 +79,10 @@ function exchangePostActive(job: JobRow, nowMs = Date.now()) {
 function publicLoad(
   job: JobRow,
   companyById: Map<string, CompanyRow>,
-  profileByUserId: Map<string, ProfileRow>,
   bidByJobId: Map<string, BidRow>,
 ) {
   const companyId = marketplaceText(job.company_id) ?? '';
   const company = companyById.get(companyId) ?? null;
-  const createdBy = marketplaceText(job.created_by);
-  const posterProfile = createdBy ? profileByUserId.get(createdBy) ?? null : null;
-  const postedBy = posterProfile?.full_name ?? null;
   const memberId = company?.xd_id ?? null;
   const bid = bidByJobId.get(String(job.id)) ?? null;
 
@@ -143,7 +135,7 @@ function publicLoad(
     distance_to_pickup_miles: null,
     pickup_eta_minutes: null,
     is_fixed_price: job.is_fixed_price === true,
-    budget_amount: proposedPriceAmount(job.budget_amount),
+    budget_amount: job.is_fixed_price === true ? proposedPriceAmount(job.budget_amount) : null,
     currency: marketplaceText(job.currency) ?? 'GBP',
     exchange_posted_at: marketplaceText(job.exchange_posted_at),
     hard_copy_pod: marketplaceText(job.hard_copy_pod),
@@ -154,10 +146,10 @@ function publicLoad(
       companyId,
       name: company?.name ?? 'Marketplace member',
       memberId,
-      phone: company?.phone ?? null,
+      phone: null, // Company telephone is shared only after accepted booking.
       memberType: company?.company_type ?? null,
       memberSince: company?.created_at ?? null,
-      postedBy,
+      postedBy: null, // Named poster contact remains private pre-booking.
     },
     myBid: bid ? {
       id: bid.id,
@@ -193,7 +185,7 @@ export async function GET(request: NextRequest) {
     const { data: quotedRows, error: quotedRowsError } = await supabaseAdmin
       .from('job_bids')
       .select('job_id')
-      .eq('bidder_user_id', driver.userId)
+      .or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)
       .order('created_at', { ascending: false })
       .limit(LIST_LIMIT);
     if (quotedRowsError) {
@@ -270,11 +262,6 @@ export async function GET(request: NextRequest) {
       .map((job) => marketplaceText(job.company_id))
       .filter((value): value is string => Boolean(value)),
   )];
-  const createdByIds = [...new Set(
-    jobs
-      .map((job) => marketplaceText(job.created_by))
-      .filter((value): value is string => Boolean(value)),
-  )];
 
   const bidQuery = jobIds.length
     ? supabaseAdmin
@@ -284,17 +271,12 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
     : null;
 
-  const [companiesResult, profilesResult, bidsResult] = await Promise.all([
+  const [companiesResult, bidsResult] = await Promise.all([
     companyIds.length
       ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
       : Promise.resolve({ data: [], error: null }),
-    createdByIds.length
-      ? supabaseAdmin.from('profiles').select('user_id, full_name, xd_id').in('user_id', createdByIds)
-      : Promise.resolve({ data: [], error: null }),
     bidQuery
-      ? driver.companyId
-        ? (quotedHistory ? bidQuery.eq('bidder_user_id', driver.userId) : bidQuery.eq('company_id', driver.companyId))
-        : bidQuery.eq('bidder_user_id', driver.userId)
+      ? bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -310,11 +292,6 @@ export async function GET(request: NextRequest) {
 
   const companyById = new Map(
     ((companiesResult.data ?? []) as CompanyRow[]).map((row) => [row.id, row]),
-  );
-  const profileByUserId = new Map(
-    profilesResult.error
-      ? []
-      : ((profilesResult.data ?? []) as ProfileRow[]).map((row) => [row.user_id, row]),
   );
   if (bidsResult.error) {
     return operationalError({
@@ -396,7 +373,7 @@ export async function GET(request: NextRequest) {
     }
 
     return {
-      ...publicLoad(job, companyById, profileByUserId, bidByJobId),
+      ...publicLoad(job, companyById, bidByJobId),
       distance_to_pickup_miles: distanceToPickupMiles,
       distance_to_delivery_miles: distanceToDeliveryMiles,
       pickup_eta_minutes: pickupEtaMinutes,

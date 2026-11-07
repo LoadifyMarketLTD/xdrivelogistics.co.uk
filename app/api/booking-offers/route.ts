@@ -15,17 +15,24 @@ export async function GET(request: NextRequest) {
 
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('company_id')
+    .select('company_id,role_in_company')
     .eq('user_id', user.id)
     .eq('status', 'active');
   if (membershipError) return json(500, { error: 'Carrier memberships could not be resolved.' });
-  const companyIds = (memberships ?? []).map((row) => row.company_id as string).filter(Boolean);
+  // Company-wide commercial offers are visible only to company decision-makers.
+  // Company Drivers see only offers addressed to their own user account.
+  const companyIds = (memberships ?? []).filter(row=>['owner','admin','dispatcher'].includes(String(row.role_in_company??'').toLowerCase())).map(row=>row.company_id as string).filter(Boolean);
+
+  const {data:driverRows,error:driverError}=await supabaseAdmin.from('drivers').select('id').eq('user_id',user.id);
+  if(driverError)return json(503,{error:'Driver identity could not be verified.'});
+  const assignedDriverIds=(driverRows??[]).map(row=>row.id as string).filter(Boolean);
 
   const pageParam = request.nextUrl.searchParams.get('page') ?? '0';
   if (!/^(0|[1-9]\d*)$/.test(pageParam) || Number(pageParam) > 10000) return json(400, { error: 'Invalid page.' });
   const page = Number(pageParam);
   const pageSize = 100;
   const filters = [`bidder_user_id.eq.${user.id}`];
+  if(assignedDriverIds.length)filters.push(`bidder_driver_id.in.(${assignedDriverIds.join(',')})`);
   if (companyIds.length) filters.push(`carrier_company_id.in.(${companyIds.join(',')})`);
   const { data: offers, error: offersError } = await supabaseAdmin
     .from('job_booking_offers')
@@ -61,7 +68,18 @@ export async function GET(request: NextRequest) {
         public_reference: 'XDL-' + String(offer.job_id ?? '').slice(0, 8).toUpperCase(), 
         environmental_zone: zoneLabel,
         public_quote_notes: publicQuoteNotes(job?.load_details),
-        job,
+        job: job && offer.status === 'pending'
+          ? {
+              ...job,
+              pickup_location: job.pickup_city || String(job.pickup_postcode||'').split(' ')[0] || 'Collection area',
+              delivery_location: job.delivery_city || String(job.delivery_postcode||'').split(' ')[0] || 'Delivery area',
+              pickup_postcode: String(job.pickup_postcode||'').split(' ')[0] || null,
+              delivery_postcode: String(job.delivery_postcode||'').split(' ')[0] || null,
+              pickup_lat: null, pickup_lng: null, delivery_lat: null, delivery_lng: null,
+              load_details: null,
+              customer_reference: null,booking_reference:null,
+            }
+          : job,
       };
     }),
   });

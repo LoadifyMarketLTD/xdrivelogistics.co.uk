@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
+import { fetchAllBookingOfferPages } from '../../../lib/bookingOfferPages';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
@@ -185,6 +186,7 @@ export default function MyQuotesPage() {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
+  const canViewCompanyReceivedQuotes = Boolean(user && ['owner','admin','dispatcher'].includes(String(user.membershipRole??'').toLowerCase()));
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [bids, setBids] = useState<BidRow[]>([]);
   const [marketplaceByJob, setMarketplaceByJob] = useState<Record<string, MarketplaceQuoteLoad>>({});
@@ -204,6 +206,7 @@ export default function MyQuotesPage() {
   const refreshInFlightRef = useRef(false);
   const pendingWithdrawalsRef = useRef<Set<string>>(new Set());
   const [pendingWithdrawals, setPendingWithdrawals] = useState<Set<string>>(new Set());
+  const [pendingOfferBidIds,setPendingOfferBidIds] = useState<Set<string>>(new Set());
 
   const fetchBids = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
@@ -220,7 +223,7 @@ export default function MyQuotesPage() {
       const result = await supabase
         .from('job_bids')
         .select(bidSelect)
-        .eq('bidder_user_id', userId)
+        .or(driverId ? `bidder_user_id.eq.${userId},bidder_driver_id.eq.${driverId}` : `bidder_user_id.eq.${userId}`)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
         .range(start, start + 149);
@@ -244,7 +247,7 @@ export default function MyQuotesPage() {
     const fullJobSelect = 'id, company_id, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, job_distance_miles, job_distance_minutes, vehicle_type, budget_amount, status, current_status, exchange_posted_at, service_mode, direct_delivery_required, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)';
 
     let ownJobs: FullJob[] = [];
-    if (companyId) {
+    if (companyId && canViewCompanyReceivedQuotes) {
       const ownJobsRes = await supabase
         .from('jobs')
         .select(fullJobSelect)
@@ -308,9 +311,18 @@ export default function MyQuotesPage() {
     setOwnJobsById(Object.fromEntries(ownJobs.map((job) => [job.id, job])));
     setCompanyNames(nameMap);
     setBids(allRows);
+    const token=readRouteAuthAccessToken();
+    if(token){
+      try{
+        const offers=await fetchAllBookingOfferPages<{bid_id:string;status:string}>('/api/booking-offers',token);
+        setPendingOfferBidIds(new Set(offers.filter(offer=>offer.status==='pending').map(offer=>offer.bid_id)));
+      }catch{
+        setError(previous=>previous||'Booking offer statuses could not be verified; use Bookings to check current offers.');
+      }
+    }
     refreshInFlightRef.current = false;
     setLoading(false);
-  }, [companyId, driverId, userId]);
+  }, [canViewCompanyReceivedQuotes, companyId, driverId, userId]);
 
   useEffect(() => { void fetchBids(); }, [fetchBids]);
   useVisibleRefresh(
@@ -494,8 +506,11 @@ export default function MyQuotesPage() {
                   const jobStatus = String(view.jobStatus ?? '').toLowerCase();
                   const sold = quoteStage === 'unsuccessful' || quoteStage === 'accepted' || ['awarded', 'allocated', 'booked', 'in_progress', 'completed', 'delivered'].includes(jobStatus);
                   const quoteAmount = money(bidPrice, bid.currency || 'GBP');
-                  const activeQuote = bid.direction === 'outgoing' && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
-                  const footerState = quoteStage === 'unsuccessful'
+                  const pendingBookingOffer = bid.direction === 'outgoing' && pendingOfferBidIds.has(bid.id);
+                  const activeQuote = bid.direction === 'outgoing' && !pendingBookingOffer && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
+                  const footerState = pendingBookingOffer
+                    ? `Booking offer pending your acceptance · ${quoteAmount}`
+                    : quoteStage === 'unsuccessful'
                     ? `Your Quote was Unsuccessful ${quoteAmount}`
                     : quoteStage === 'accepted'
                       ? `Your Quote was Accepted ${quoteAmount}`
@@ -543,6 +558,7 @@ export default function MyQuotesPage() {
                     </>}
                     footer={<>
                       <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && bid.direction === 'incoming' && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={expanded ? 'Collapse quote' : 'Expand quote'}>{expanded ? '▴' : '▾'}</button>
+                      {pendingBookingOffer && <button type="button" className="xdrive-cx-quote-card__cancel" onClick={()=>router.push('/driver/won-work')}>Review Booking Offer</button>}
                       {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={pendingWithdrawals.has(bid.id)} onClick={() => void handleWithdrawBid(bid.id)}>{pendingWithdrawals.has(bid.id) ? 'Cancelling…' : 'Cancel Quote'}</button> : null}
                       <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${quoteStage}`}>{footerState}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>

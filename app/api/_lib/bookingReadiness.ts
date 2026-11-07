@@ -19,7 +19,9 @@ export async function inspectBookingReadiness(admin: SupabaseClient, jobId: stri
     return {ok:false,code:'INVALID_TRANSPORT_SCHEDULE',error:'Delivery cannot be earlier than collection.'};
   const pallets=Number(job.pallets);
   const vehicleId=typeof bid.quote_vehicle_id==='string'?bid.quote_vehicle_id:null;
-  if (!vehicleId && Number.isFinite(pallets) && pallets>0)
+  // Company/Carrier quotes without a named driver may allocate a vehicle after acceptance.
+  // Named-driver quotations must already identify their actual verified vehicle.
+  if (!vehicleId && bid.bidder_driver_id && Number.isFinite(pallets) && pallets>0)
     return {ok:false,code:'QUOTED_VEHICLE_REQUIRED',error:'The selected quotation has no linked vehicle. Confirm a suitable vehicle before booking.'};
   if (!vehicleId) return {ok:true,vehicleId:null,capacity:null};
   const {data:vehicle,error:vehicleError}=await admin.from('vehicles').select('id,company_id,assigned_driver_id,pallets_capacity,has_tail_lift').eq('id',vehicleId).maybeSingle();

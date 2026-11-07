@@ -65,7 +65,8 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
   const verifiedName=identity?.personName||identity?.companyName||details.carrierName;
   const pickupExpired=!details.pickupDate || !Number.isFinite(Date.parse(details.pickupDate)) || Date.parse(details.pickupDate)<=Date.now();
   const capacityMismatch=identity?.driverVehiclePallets!=null && details.pallets!=null && details.pallets>identity.driverVehiclePallets;
-  const vehicleUnverified=details.pallets!=null && details.pallets>0 && (!identity?.quotedVehicleId || identity?.driverVehiclePallets==null);
+  const namedDriverQuote=identity?.quoteLevel==='driver' || details.ownerDriver;
+  const vehicleUnverified=namedDriverQuote && details.pallets!=null && details.pallets>0 && (!identity?.quotedVehicleId || identity?.driverVehiclePallets==null);
   const verificationBlocked=identityState!=='resolved' || !identity || vehicleUnverified;
   const ready = detailsAccepted && paymentAccepted && !working && !pickupExpired && !capacityMismatch && !verificationBlocked;
 

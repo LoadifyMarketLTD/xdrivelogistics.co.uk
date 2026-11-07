@@ -25,8 +25,12 @@ describe('booking readiness: fail-closed server contract',()=>{
     expect(result).toMatchObject({ok:false,code:'TAIL_LIFT_REQUIRED'});
   });
   it('blocks a quote without any verified vehicle for a pallet load',async()=>{
-    const result=await inspectBookingReadiness(mockClient(job,{...bid,quote_vehicle_id:null},null),'j1','b1');
+    const result=await inspectBookingReadiness(mockClient(job,{...bid,bidder_driver_id:'driver-a',quote_vehicle_id:null},null),'j1','b1');
     expect(result).toMatchObject({ok:false,code:'QUOTED_VEHICLE_REQUIRED'});
+  });
+  it('allows a company-only quote to allocate its vehicle after acceptance',async()=>{
+    const result=await inspectBookingReadiness(mockClient(job,{...bid,company_id:'carrier-a',bidder_driver_id:null,quote_vehicle_id:null},null),'j1','b1');
+    expect(result).toMatchObject({ok:true,vehicleId:null,capacity:null});
   });
   it('blocks if delivery precedes collection',async()=>{
     const result=await inspectBookingReadiness(mockClient({...job,delivery_datetime:future(1)},bid,vehicle),'j1','b1');
