@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import {
   nextJobStatus,
@@ -147,8 +147,7 @@ function App() {
         if (!active) return;
         setLiveSession(session);
         setLiveConnected(true);
-        await syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ });
-        const records = await loadLiveWithDiagnostics(session.token);
+        const [records] = await Promise.all([loadLiveWithDiagnostics(session.token), syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ })]);
         if (!active) return;
         setJobs(records.jobs as Load[]);
         setLiveWarning(records.warnings.join(" | "));
@@ -172,10 +171,10 @@ function App() {
     const type = String(driver?.driver_type || "").toLowerCase();
     setRole(type.includes("owner") ? "Owner Driver" : "Company Driver");
   };
+  const statusOperationRef = useRef(false);
   const refreshLive = async (token: string) => {
-    await syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ });
-    const records = await loadLiveWithDiagnostics(token);
-    setJobs(records.jobs as Load[]);
+    const [records] = await Promise.all([loadLiveWithDiagnostics(token), syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ })]);
+    if (!statusOperationRef.current) setJobs(records.jobs as Load[]);
     setLiveWarning(records.warnings.join(" | "));
     setLiveConnected(true);
   };
@@ -314,10 +313,11 @@ function App() {
   const [deliveryLeftAt, setDeliveryLeftAt] = useState('Goods Inwards');
   const [statusBusy, setStatusBusy] = useState(false);
   const submitLiveStatus = async (booking: Load, nextStatus: JobStatus) => {
-    if (!liveSession || statusBusy) return;
+    if (!liveSession || statusOperationRef.current) return;
+    statusOperationRef.current = true;
     const apiStatuses: Partial<Record<JobStatus, string>> = { ON_WAY_TO_PICKUP: 'on_my_way', ON_SITE_PICKUP: 'on_site_pickup', LOADED: 'loaded', ON_WAY_TO_DELIVERY: 'in_transit', ON_SITE_DELIVERY: 'on_site_delivery', DELIVERED: 'delivered' };
     const apiStatus = apiStatuses[nextStatus];
-    if (!apiStatus) { setLiveError('This status requires a separate evidence or POD workflow.'); return; }
+    if (!apiStatus) { statusOperationRef.current = false; setLiveError('This status requires a separate evidence or POD workflow.'); return; }
     setStatusBusy(true);
     setLiveError('');
     // Show the requested stage immediately while the authoritative API saves it.
@@ -339,7 +339,7 @@ function App() {
       if (nextStatus === 'ON_SITE_PICKUP') setBookingScreen('pickup');
       else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('delivery');
       else if (nextStatus === 'LOADED') setBookingScreen('status');
-      try { await refreshLive(session.token); } catch { setLiveWarning('Status saved, but refreshing booking details failed.'); }
+      void refreshLive(session.token).catch(() => setLiveWarning('Status saved, but refreshing booking details failed.'));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not update booking status';
       // A stale client must recover from the server's authoritative lifecycle rather than replay acceptance.
@@ -357,9 +357,69 @@ function App() {
         setLiveError('Status not saved. Previous stage restored. ' + message);
       }
     }
-    finally { setStatusBusy(false); }
+    finally { statusOperationRef.current = false; setStatusBusy(false); }
   };
-  const saveLiveHandover = async (booking: Load) => {
+  const completeLiveDelivery = async (booking: Load) => {
+    if (!liveSession || statusBusy) return;
+    if (!deliveryRecipient.trim() || !deliveryLeftAt.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 0) {
+      setLiveError('Complete the recipient, delivered items and delivery location before confirming delivery.');
+      return;
+    }
+    setStatusBusy(true);
+    setLiveError('');
+    try {
+      const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
+      if (session !== liveSession) setLiveSession(session);
+      const deliveryNotes = [
+        'Received by: ' + deliveryRecipient.trim(),
+        'Items delivered: ' + Number(deliveryItems),
+        'Condition: ' + deliveryCondition,
+        'Left at: ' + deliveryLeftAt.trim(),
+        driverNotes.trim() ? 'Driver notes: ' + driverNotes.trim() : '',
+      ].filter(Boolean).join(' | ');
+      const draftResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(booking.id) + '/pod-draft', {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientName: deliveryRecipient.trim(),
+          leftAt: deliveryLeftAt.trim(),
+          itemCount: String(Number(deliveryItems)),
+          deliveryStatus: deliveryCondition,
+          notes: deliveryNotes,
+        }),
+      });
+      if (!draftResponse.ok) {
+        const details = await draftResponse.json().catch(() => ({})) as { error?: string };
+        throw new Error(details.error || 'Delivery details could not be saved.');
+      }
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'delivered' });
+      setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'DELIVERED', backendStatus: 'delivered' } : row));
+      setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: 'DELIVERED', at: new Date().toISOString() }] }));
+      setBookingScreen('status');
+      setLiveWarning('Delivery completed. Save POD signature and evidence to finish the booking.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Delivery saved; booking refresh is delayed.'); }
+    } catch (error) {
+      setLiveError('Delivery not completed. ' + (error instanceof Error ? error.message : 'Please retry.'));
+    } finally { setStatusBusy(false); }
+  };  const saveLivePickupDraft = async (booking: Load) => {
+    if (!liveSession || statusBusy) return;
+    setStatusBusy(true);
+    setLiveError('');
+    try {
+      const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
+      if (session !== liveSession) setLiveSession(session);
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
+        itemCount: itemCount === '' ? null : Number(itemCount),
+        weightKg: collectionWeight === '' ? null : Number(collectionWeight),
+        notes: driverNotes,
+      });
+      setBookingScreen('loaded');
+      setLiveWarning('Collection details saved to XDrive. Confirm Loaded when collection is complete.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Collection saved, but booking refresh is delayed.'); }
+    } catch (error) {
+      setLiveError('Collection details not saved. ' + (error instanceof Error ? error.message : 'Please retry.'));
+    } finally { setStatusBusy(false); }
+  };  const saveLiveHandover = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
     setStatusBusy(true);
     setLiveError('');
@@ -521,11 +581,11 @@ function App() {
 </div>}{job.pickupAdditionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{job.pickupAdditionalAddress}</span></div>}{job.pickupInstructions && <p><strong>Collection instructions:</strong> {job.pickupInstructions}</p>}{Object.entries(job.pickupDetails || {}).filter(([,v]) => v !== undefined && v !== null && v !== "").map(([k,v]) => <div className="booking-info-row" key={k}>
 <b>{k}</b>
 <span>{String(v)}</span>
-</div>)}<button className="booking-detail-nav" type="button" aria-expanded={navigationChoiceOpen} onClick={() => setNavigationChoiceOpen(open => !open)}>Navigate to Collection</button>{navigationChoiceOpen && <div className="navigation-app-picker" aria-label="Choose navigation application">
+</div>)}<button className="booking-detail-nav" type="button" aria-expanded={navigationChoiceOpen} onClick={() => setNavigationChoiceOpen(open => !open)}>{["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? "Navigate to Collection" : "Navigate to Delivery"}</button>{navigationChoiceOpen && <div className="navigation-app-picker" aria-label="Choose navigation application">
 <p>Choose navigation app</p>
-<a href={"https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(job.pickupAddress || job.from) + "&travelmode=driving"} target="_blank" rel="noopener noreferrer"><img src="https://www.google.com/maps/favicon.ico" alt="" /><span>Google Maps</span></a>
-<a href={"https://waze.com/ul?q=" + encodeURIComponent(job.pickupAddress || job.from) + "&navigate=yes"} target="_blank" rel="noopener noreferrer"><img src="https://www.waze.com/favicon.ico" alt="" /><span>Waze</span></a>
-<a href={"https://maps.apple.com/?daddr=" + encodeURIComponent(job.pickupAddress || job.from) + "&dirflg=d"} target="_blank" rel="noopener noreferrer"><img src="https://maps.apple.com/favicon.ico" alt="" /><span>Apple Maps</span></a>
+<a href={"https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? (job.pickupAddress || job.from) : (job.deliveryAddress || job.to)) + "&travelmode=driving"} target="_blank" rel="noopener noreferrer"><img src="https://www.google.com/maps/favicon.ico" alt="" /><span>Google Maps</span></a>
+<a href={"https://waze.com/ul?q=" + encodeURIComponent(["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? (job.pickupAddress || job.from) : (job.deliveryAddress || job.to)) + "&navigate=yes"} target="_blank" rel="noopener noreferrer"><img src="https://www.waze.com/favicon.ico" alt="" /><span>Waze</span></a>
+<a href={"https://maps.apple.com/?daddr=" + encodeURIComponent(["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? (job.pickupAddress || job.from) : (job.deliveryAddress || job.to)) + "&dirflg=d"} target="_blank" rel="noopener noreferrer"><img src="https://maps.apple.com/favicon.ico" alt="" /><span>Apple Maps</span></a>
 </div>}</section>
                 <section className="booking-detail-group"><h3>Delivery Details</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company:job.deliveryCompany,address:job.deliveryAddress || job.to,reference:job.customerRef,instructions:job.deliveryInstructions}]).map((dest,i) => <div key={i + "-" + dest.address}><h4>{i+1}. {dest.address} · {dest.time || job.delivery}</h4><div className="booking-info-row"><b>Company</b><span>{dest.company || "Not provided in Post Load"}</span></div><div className="booking-info-row"><b>Full address</b><span>{dest.address !== job.to ? dest.address : "Full address not provided in Post Load"}</span></div>{dest.reference && <div className="booking-info-row"><b>Reference</b><span>{dest.reference}</span></div>}{dest.instructions && <p>{dest.instructions}</p>}{dest.date && <div className="booking-info-row"><b>Delivery date</b><span>{dest.date}</span></div>}{dest.time && <div className="booking-info-row"><b>Delivery time</b><span>{dest.time}</span></div>}{dest.timeMode && <div className="booking-info-row"><b>Time mode</b><span>{dest.timeMode}</span></div>}{dest.contactName && <div className="booking-info-row"><b>Contact</b><span>{dest.contactName}</span></div>}{dest.contactPhone && <div className="booking-info-row"><b>Phone</b><a href={"tel:" + dest.contactPhone}>{dest.contactPhone}</a></div>}{dest.additionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{dest.additionalAddress}</span></div>}</div>)}{job.deliveryDate && <div className="booking-info-row"><b>Delivery date</b><span>{job.deliveryDate}</span></div>}{job.deliveryTimeMode && <div className="booking-info-row"><b>Delivery time mode</b><span>{job.deliveryTimeMode}</span></div>}{job.deliveryAdditionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{job.deliveryAdditionalAddress}</span></div>}{job.deliveryContactName && <div className="booking-info-row"><b>Contact</b><span>{job.deliveryContactName}</span></div>}{job.deliveryContactPhone && <div className="booking-info-row"><b>Phone</b><a href={"tel:" + job.deliveryContactPhone}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div className="booking-info-row"><b>Email</b><span>{job.deliveryContactEmail}</span></div>}{Object.entries(job.deliveryDetails || {}).filter(([,v]) => v !== undefined && v !== null && v !== "").map(([k,v]) => <div className="booking-info-row" key={k}><b>{k}</b><span>{String(v)}</span></div>)}</section>
                 <section className="booking-detail-group"><h3>Cargo & Job Details</h3>{job.jobDescription && <div className="booking-info-row"><b>Job description</b><span>{job.jobDescription}</span></div>}<div className="booking-info-row"><b>Vehicle</b><span>{job.vehicle}</span></div><div className="booking-info-row"><b>Items / packages</b><span>{job.items ?? job.packages ?? "Not provided"}</span></div><div className="booking-info-row"><b>Weight</b><span>{job.weight ? job.weight + " kg" : "Not provided"}</span></div><div className="booking-info-row"><b>Service</b><span>{job.service || "Not provided"}</span></div>{([['Packaging',job.packaging],['Body type',job.bodyType],['Job type',job.jobType],['Freight type',job.freightType],['Loading metres',job.loadMetres],['Cubic metres',job.cubicMetres],['Length',job.cargoLength],['Width',job.cargoWidth],['Height',job.cargoHeight],['Dimension units',job.cargoDimensionUnit]] as [string,string | number | undefined][]).filter(([,v])=>v!==undefined && v!=='').map(([k,v])=><div className="booking-info-row" key={k}><b>{k}</b><span>{v}</span></div>)}{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).length>0 && <><h4>Handling requirements</h4><p>{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).map(([name])=>name).join(' · ')}</p></>}<h4>Job instructions</h4><p>{job.notes || "No instructions supplied"}</p></section>
@@ -575,10 +635,10 @@ function App() {
                 <>
                   {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
                   {statusBusy && <p role="status" className="notification-reason">Saving booking status to XDrive...</p>}
-                  {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-pickup-form"><h2>On Site (Pickup)</h2><div className="pickup-location-details"><h3>Collection Details</h3><div><b>Company:</b> {job.pickupCompany || "Not provided in Post Load"}</div><div><b>Collection address:</b> {job.pickupAddress || job.from}</div><div><b>Collection time:</b> {job.pickup}</div>{job.pickupContactName && <div><b>Contact:</b> {job.pickupContactName}</div>}{job.pickupContactPhone && <div><b>Telephone:</b> <a href={`tel:${job.pickupContactPhone}`}>{job.pickupContactPhone}</a></div>}{job.pickupContactEmail && <div><b>Email:</b> {job.pickupContactEmail}</div>}{job.customerRef && <div><b>Customer reference:</b> {job.customerRef}</div>}{job.pickupInstructions && <div><b>Collection instructions:</b> {job.pickupInstructions}</div>}{Object.entries(job.pickupDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}<h3>Delivery Destination</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company: job.deliveryCompany, address: job.deliveryAddress || job.to, reference: job.customerRef, instructions: job.deliveryInstructions}]).map((destination,index) => <div className="pickup-destination" key={`${index}-${destination.address}`}><div><b>Destination {index + 1}:</b> {destination.company || "Company not provided"}</div><div><b>Address:</b> {destination.address}</div>{destination.reference && <div><b>Reference:</b> {destination.reference}</div>}{destination.instructions && <div><b>Delivery instructions:</b> {destination.instructions}</div>}</div>)}{job.deliveryContactName && <div><b>Delivery contact:</b> {job.deliveryContactName}</div>}{job.deliveryContactPhone && <div><b>Delivery telephone:</b> <a href={`tel:${job.deliveryContactPhone}`}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div><b>Delivery email:</b> {job.deliveryContactEmail}</div>}{Object.entries(job.deliveryDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}</div><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref.<input value={job.customerRef || ""} readOnly /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Delivery ETA (optional)<div className="eta-quarter-hour"><input aria-label="ETA delivery date (optional)" type="date" value={etaDateTime ? etaDateTime.split("T")[0] : ""} onChange={e => setEtaDateTime(e.target.value ? e.target.value + "T" + (etaDateTime.split("T")[1] || "10:30") : "")} /><select aria-label="ETA delivery time in 15-minute intervals (optional)" value={etaDateTime ? etaDateTime.split("T")[1] : ""} onChange={e => { const date = etaDateTime.split("T")[0] || new Date().toLocaleDateString("en-CA"); setEtaDateTime(e.target.value ? date + "T" + e.target.value : ""); }}><option value="">No ETA selected</option>{Array.from({length:96},(_,i)=>{const hh=String(Math.floor(i/4)).padStart(2,"0");const mm=String((i%4)*15).padStart(2,"0");const t=hh+":"+mm;return <option key={t} value={t}>{hh+"."+mm}</option>;})}</select><button type="button" onClick={()=>setEtaDateTime("")}>Clear ETA</button></div></label><h3>Job Details</h3><p>{job.vehicle}</p><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} placeholder="Driver's Notes" /></label>{!liveConnected && <PodCapture key={'pickup-' + job.id} jobId={job.id} recipient="" initialStage="ARRIVED_PICKUP" onSaved={() => setPodEvidence(true)} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { setBookingScreen("loaded"); setLiveError(""); } else { update(job.id, { yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, driverNotes }); setBookingScreen("loaded"); } }}>Save</button></section>}
+                  {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-pickup-form"><h2>On Site (Pickup)</h2><div className="pickup-location-details"><h3>Collection Details</h3><div><b>Company:</b> {job.pickupCompany || "Not provided in Post Load"}</div><div><b>Collection address:</b> {job.pickupAddress || job.from}</div><div><b>Collection time:</b> {job.pickup}</div>{job.pickupContactName && <div><b>Contact:</b> {job.pickupContactName}</div>}{job.pickupContactPhone && <div><b>Telephone:</b> <a href={`tel:${job.pickupContactPhone}`}>{job.pickupContactPhone}</a></div>}{job.pickupContactEmail && <div><b>Email:</b> {job.pickupContactEmail}</div>}{job.customerRef && <div><b>Customer reference:</b> {job.customerRef}</div>}{job.pickupInstructions && <div><b>Collection instructions:</b> {job.pickupInstructions}</div>}{Object.entries(job.pickupDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}<h3>Delivery Destination</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company: job.deliveryCompany, address: job.deliveryAddress || job.to, reference: job.customerRef, instructions: job.deliveryInstructions}]).map((destination,index) => <div className="pickup-destination" key={`${index}-${destination.address}`}><div><b>Destination {index + 1}:</b> {destination.company || "Company not provided"}</div><div><b>Address:</b> {destination.address}</div>{destination.reference && <div><b>Reference:</b> {destination.reference}</div>}{destination.instructions && <div><b>Delivery instructions:</b> {destination.instructions}</div>}</div>)}{job.deliveryContactName && <div><b>Delivery contact:</b> {job.deliveryContactName}</div>}{job.deliveryContactPhone && <div><b>Delivery telephone:</b> <a href={`tel:${job.deliveryContactPhone}`}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div><b>Delivery email:</b> {job.deliveryContactEmail}</div>}{Object.entries(job.deliveryDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}</div><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref.<input value={job.customerRef || ""} readOnly /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Delivery ETA (optional)<div className="eta-quarter-hour"><input aria-label="ETA delivery date (optional)" type="date" value={etaDateTime ? etaDateTime.split("T")[0] : ""} onChange={e => setEtaDateTime(e.target.value ? e.target.value + "T" + (etaDateTime.split("T")[1] || "10:30") : "")} /><select aria-label="ETA delivery time in 15-minute intervals (optional)" value={etaDateTime ? etaDateTime.split("T")[1] : ""} onChange={e => { const date = etaDateTime.split("T")[0] || new Date().toLocaleDateString("en-CA"); setEtaDateTime(e.target.value ? date + "T" + e.target.value : ""); }}><option value="">No ETA selected</option>{Array.from({length:96},(_,i)=>{const hh=String(Math.floor(i/4)).padStart(2,"0");const mm=String((i%4)*15).padStart(2,"0");const t=hh+":"+mm;return <option key={t} value={t}>{hh+"."+mm}</option>;})}</select><button type="button" onClick={()=>setEtaDateTime("")}>Clear ETA</button></div></label><h3>Job Details</h3><p>{job.vehicle}</p><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} placeholder="Driver's Notes" /></label>{!liveConnected && <PodCapture key={'pickup-' + job.id} jobId={job.id} recipient="" initialStage="ARRIVED_PICKUP" onSaved={() => setPodEvidence(true)} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { void saveLivePickupDraft(job); } else { update(job.id, { yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, driverNotes }); setBookingScreen("loaded"); } }}>Save</button></section>}
                   {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Delivery ETA (optional)<div className="eta-quarter-hour"><input aria-label="ETA delivery date (optional)" type="date" value={etaDateTime ? etaDateTime.split("T")[0] : ""} onChange={e => setEtaDateTime(e.target.value ? e.target.value + "T" + (etaDateTime.split("T")[1] || "10:30") : "")} /><select aria-label="ETA delivery time in 15-minute intervals (optional)" value={etaDateTime ? etaDateTime.split("T")[1] : ""} onChange={e => { const date = etaDateTime.split("T")[0] || new Date().toLocaleDateString("en-CA"); setEtaDateTime(e.target.value ? date + "T" + e.target.value : ""); }}><option value="">No ETA selected</option>{Array.from({length:96},(_,i)=>{const hh=String(Math.floor(i/4)).padStart(2,"0");const mm=String((i%4)*15).padStart(2,"0");const t=hh+":"+mm;return <option key={t} value={t}>{hh+"."+mm}</option>;})}</select><button type="button" onClick={()=>setEtaDateTime("")}>Clear ETA</button></div></label><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label>{!liveConnected && <PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => setPodEvidence(true)} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { void saveLiveHandover(job); } else { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); } }}>Save</button></div>}
                   
-                  {job.status === "ON_SITE_DELIVERY" && bookingScreen === "delivery" && <section className="settings booking-delivery-form"><h2>On Site Delivery</h2><p><strong>Delivery address:</strong> {job.deliveryAddress || job.to}</p><p><strong>Customer reference:</strong> {job.customerRef || 'Not provided'}</p><p><strong>Items:</strong> {job.items ?? 'Not provided'}</p><label>Received by<input required value={deliveryRecipient} onChange={e => setDeliveryRecipient(e.target.value)} placeholder="Name of person receiving goods" /></label><label>Items delivered<input required type="number" min="0" value={deliveryItems} onChange={e => setDeliveryItems(e.target.value)} placeholder={String(job.items ?? '')} /></label><label>Condition<select value={deliveryCondition} onChange={e => setDeliveryCondition(e.target.value)}><option>Good condition</option><option>Damaged</option><option>Shortage</option><option>Refused</option></select></label><label>Left at<input value={deliveryLeftAt} onChange={e => setDeliveryLeftAt(e.target.value)} /></label><label>Delivery notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label><button className="primary" type="button" disabled={statusBusy || !deliveryRecipient.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 0 || !deliveryLeftAt.trim()} onClick={() => { if (liveConnected) void submitLiveStatus(job, 'DELIVERED'); else { update(job.id, { status: 'DELIVERED' }); setBookingScreen('status'); } }}>Complete Delivery</button></section>}
+                  {job.status === "ON_SITE_DELIVERY" && bookingScreen === "delivery" && <section className="settings booking-delivery-form"><h2>On Site Delivery</h2><p><strong>Delivery address:</strong> {job.deliveryAddress || job.to}</p><p><strong>Customer reference:</strong> {job.customerRef || 'Not provided'}</p><p><strong>Items:</strong> {job.items ?? 'Not provided'}</p><label>Received by<input required value={deliveryRecipient} onChange={e => setDeliveryRecipient(e.target.value)} placeholder="Name of person receiving goods" /></label><label>Items delivered<input required type="number" min="0" value={deliveryItems} onChange={e => setDeliveryItems(e.target.value)} placeholder={String(job.items ?? '')} /></label><label>Condition<select value={deliveryCondition} onChange={e => setDeliveryCondition(e.target.value)}><option>Good condition</option><option>Damaged</option><option>Shortage</option><option>Refused</option></select></label><label>Left at<input value={deliveryLeftAt} onChange={e => setDeliveryLeftAt(e.target.value)} /></label><label>Delivery notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label><button className="primary" type="button" disabled={statusBusy || !deliveryRecipient.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 0 || !deliveryLeftAt.trim()} onClick={() => { if (liveConnected) void completeLiveDelivery(job); else { update(job.id, { status: 'DELIVERED' }); setBookingScreen('status'); } }}>Complete Delivery</button></section>}
                   {job.status === "DELIVERED" && bookingScreen === "status" && (job.podRecorded ? <p className="success">POD already recorded for this booking.</p> : <button className="primary" type="button" onClick={() => setBookingScreen('pod')}>Open POD</button>)}
                   {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && (
                     <label>

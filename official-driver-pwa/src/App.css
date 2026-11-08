@@ -184,3 +184,16 @@ body:has(.shell.no-empty-scroll){overflow:hidden}
 .card .alert-actions button:last-child{background:#f47716!important;border:1px solid #f47716!important;color:#fff!important}
 .card .alert-actions button:last-child:hover{background:#db650d!important;border-color:#db650d!important}
 .card>button.primary.quote-now-green{background:var(--job-green,#159b45)!important;border-color:var(--job-green,#159b45)!important;color:#fff!important}
+
+/* Immediate tactile feedback for operational booking controls on Android. */
+.booking-next,.booking-yellow,.booking-detail-sheet button,.booking-delivery-form button,.booking-pickup-form button{touch-action:manipulation;-webkit-tap-highlight-color:rgba(21,159,80,.18)}
+.booking-next:active,.booking-yellow:active,.booking-detail-sheet button:active,.booking-delivery-form button:active,.booking-pickup-form button:active{filter:brightness(.9);transform:scale(.995)}
+.booking-next:disabled,.booking-yellow:disabled{opacity:.65;cursor:wait}
+
+
+/* Fast and consistent interaction feedback throughout the driver PWA. */
+button,a,[role='button'],select,input[type='checkbox'],input[type='radio'],summary{touch-action:manipulation}
+button:not(:disabled):active,[role='button']:active,a:active{filter:brightness(.92)}
+button:focus-visible,a:focus-visible,[role='button']:focus-visible{outline:2px solid #159f50;outline-offset:2px}
+button:disabled{cursor:wait}
+/* Keep scrollable controls clear of the fixed driver navigation and Android gesture area. */
