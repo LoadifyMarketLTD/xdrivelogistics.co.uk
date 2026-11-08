@@ -13,6 +13,19 @@ describe('Owner Driver Dashboard restores approved 3150 design with real data', 
       expect(original).toContain(section);
     }
   });
+  it('loads verified fleet and receivables through tenant-authorized backend routes', () => {
+    expect(adapter).toContain('/api/workspace/fleet-overview?companyId=');
+    expect(adapter).toContain('/api/driver/finance/invoices?view=receivables&limit=500');
+    expect(adapter).toContain('readRouteAuthAccessToken');
+    expect(adapter).toContain('body?.companyId === companyId');
+    expect(adapter).toContain('setVerifiedOutstanding');
+    expect(original).toContain('verifiedOutstanding!==undefined');
+    expect(original).toContain('verifiedFleet?verifiedFleet.drivers');
+  });
+  it('does not count completed loads as active or outgoing quotes as received quotes', () => {
+    expect(original).toContain('jobs.filter(j=>!["Completed","Cancelled"].includes(j.status)).length');
+    expect(original).toContain('q.direction==="Received"');
+  });
   it('takes jobs, vehicles and drivers only from authenticated workspace data and preserves direct job links', () => {
     expect(adapter).toContain('useCompany3150Live()');
     expect(adapter).toContain('live?.data.jobs ?? []');

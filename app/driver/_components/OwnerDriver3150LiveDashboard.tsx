@@ -1,12 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCompany3150Live } from '../../try-xdrive-demo/components/Company3150LiveData';
 import DemoCompanyDashboard from '../../try-xdrive-demo/components/DemoCompanyDashboard';
 import { masterNavigationHref } from '../../../lib/masterWorkspaceNavigation';
 import { jobLifecyclePresentationGroup } from '../../../lib/jobs/jobLifecyclePresentation';
 import { workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
+import { supabase } from '../../../lib/supabaseClient';
 
 /**
  * Master Workspace 3150 Dashboard. The 3150 visual component is preserved;
@@ -15,6 +17,54 @@ import { workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobSt
 export default function OwnerDriver3150LiveDashboard() {
   const live = useCompany3150Live();
   const router = useRouter();
+  const [verifiedFleet, setVerifiedFleet] = useState<{
+    vehicles: { id: string }[];
+    drivers: { id: string; availability_status: string | null }[];
+    limited: boolean;
+  } | null>(null);
+  const [verifiedOutstanding, setVerifiedOutstanding] = useState<number | null | undefined>(undefined);
+  const companyId = live?.data.companyId ?? null;
+
+  useEffect(() => {
+    let active = true;
+    setVerifiedFleet(null);
+    setVerifiedOutstanding(undefined);
+    if (!companyId) return () => { active = false; };
+    const load = async () => {
+      const token = readRouteAuthAccessToken() ?? (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) {
+        if (active) setVerifiedOutstanding(null);
+        return;
+      }
+      const headers = { Authorization: `Bearer ${token}` };
+      const [fleetResult, financeResult] = await Promise.allSettled([
+        fetch(`/api/workspace/fleet-overview?companyId=${encodeURIComponent(companyId)}&includeDocuments=false`, { headers, cache: 'no-store' }),
+        fetch('/api/driver/finance/invoices?view=receivables&limit=500', { headers, cache: 'no-store' }),
+      ]);
+      if (!active) return;
+      if (fleetResult.status === 'fulfilled' && fleetResult.value.ok) {
+        const body = await fleetResult.value.json().catch(() => null) as {
+          companyId?: string; vehicles?: { id: string }[];
+          drivers?: { id: string; availability_status: string | null }[];
+          limited?: boolean;
+        } | null;
+        if (active && body?.companyId === companyId && Array.isArray(body.vehicles) && Array.isArray(body.drivers)) {
+          setVerifiedFleet({ vehicles: body.vehicles, drivers: body.drivers, limited: body.limited === true });
+        }
+      }
+      if (financeResult.status === 'fulfilled' && financeResult.value.ok) {
+        const body = await financeResult.value.json().catch(() => null) as {
+          valueSummary?: { outstanding?: number }; invoiceSummary?: { total?: number };
+        } | null;
+        const amount = body?.valueSummary?.outstanding;
+        if (active) setVerifiedOutstanding(typeof amount === 'number' && Number.isFinite(amount) && (body?.invoiceSummary?.total ?? 501) <= 500 ? amount : null);
+      } else if (active) {
+        setVerifiedOutstanding(null);
+      }
+    };
+    void load().catch(() => { if (active) setVerifiedOutstanding(null); });
+    return () => { active = false; };
+  }, [companyId]);
   const jobs = useMemo(() => (live?.data.jobs ?? []).map((job) => {
     const stage = jobLifecyclePresentationGroup(workspaceJobPresentationStatus(job));
     const pod = Boolean(job.pod_generated || job.pod_generated_at);
@@ -55,5 +105,7 @@ export default function OwnerDriver3150LiveDashboard() {
     drivers={drivers}
     go={go}
     onOpenJob={(jobId) => router.push(`/driver/jobs/${encodeURIComponent(jobId)}`)}
+    verifiedFleet={verifiedFleet}
+    verifiedOutstanding={verifiedOutstanding}
   />;
 }
