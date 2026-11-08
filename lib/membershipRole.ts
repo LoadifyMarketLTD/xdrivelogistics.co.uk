@@ -99,6 +99,8 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly Works
     'settings.manage',
   ],
   fleet_manager: [
+    'loads.view.marketplace',
+    'quotes.submit',
     'jobs.view',
     'jobs.allocate',
     'jobs.dispatch',
@@ -112,6 +114,8 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly Works
     'incidents.manage',
   ],
   dispatcher: [
+    'loads.view.marketplace',
+    'quotes.submit',
     'loads.create',
     'loads.publish',
     'loads.view.own',

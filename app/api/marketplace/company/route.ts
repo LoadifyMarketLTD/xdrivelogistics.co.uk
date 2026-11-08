@@ -25,7 +25,7 @@ import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '..
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
-const OPERATOR_ROLES = new Set(['owner', 'admin', 'dispatcher', 'member']);
+const OPERATOR_ROLES = new Set(['owner', 'admin', 'dispatcher', 'fleet_manager', 'member']);
 const RADIUS_VALUES = new Set([10, 20, 30, 50, 100, 200, 300]);
 const PAGE_SIZES = new Set([10, 25, 50]);
 
