@@ -18,6 +18,12 @@ describe('Company Admin 3150 dashboard visual parity',()=>{
   expect(content).toContain('classifyWorkspaceJobStage(job)');
   expect(content).not.toContain('demoExchange');
  });
+ it('counts only active loads and actually unallocated bookings in both company and owner workspaces',()=>{
+  const original=source('app/try-xdrive-demo/components/DemoCompanyDashboard.tsx');
+  expect(original).toContain('value:jobs.filter(j=>!["Completed","Cancelled"].includes(j.status)).length');
+  expect(original).toContain('const pending=jobs.filter(j=>!j.driver&&j.status==="Allocated").length;');
+  expect(original).not.toContain('value:workspaceLabel==="Owner Driver"?');
+ });
  it('keeps role-specific navigation and refuses fabricated invoice totals',()=>{
   expect(content).toContain('masterNavigationHref(role,tab)');
   expect(content).toContain('verifiedOutstanding={verifiedOutstanding}');
