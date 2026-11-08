@@ -7,7 +7,7 @@ export type LiveJob = {
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
   company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
-  offerId?: string; acceptanceRequired?: boolean;
+  offerId?: string; acceptanceRequired?: boolean; backendStatus?: string;
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; service?: string;
 };
@@ -158,7 +158,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     vehicle: str(get(r, 'vehicleRequirement', 'vehicleType', 'vehicle_type')) || 'Not provided',
     weight: num(get(r, 'weightKg', 'weight_kg')) || 0,
     notes: details.notes || str(get(r, 'collectionNotes', 'driverNotes', 'driver_notes')),
-    status: statusMap[status] || 'ALLOCATED',
+    status: statusMap[status] || 'ALLOCATED', backendStatus: status,
     company: str(get(r, 'companyName', 'clientName', 'client_name')) || 'Customer not provided',
     terms: str(get(r, 'paymentTerms', 'payment_terms')) || 'Not provided',
     postedAt: dateTime(get(r, 'exchangePostedAt', 'exchange_posted_at', 'createdAt', 'created_at', 'updatedAt')),

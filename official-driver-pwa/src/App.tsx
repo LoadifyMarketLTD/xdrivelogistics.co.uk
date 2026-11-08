@@ -65,6 +65,7 @@ type Load = {
   yourRef?: string;
   acceptanceRequired?: boolean;
   offerId?: string;
+  backendStatus?: string;
   acceptedAt?: string;
   collectionWeight?: number;
   driverNotes?: string;
@@ -317,7 +318,7 @@ function App() {
       setLiveSession(session);
       // The authoritative driver RPC requires allocated -> accepted -> on_my_way.
       // Booking acceptance via the offer endpoint can leave the job at allocated.
-      if (booking.status === 'ALLOCATED' && nextStatus === 'ON_WAY_TO_PICKUP') {
+      if (booking.status === 'ALLOCATED' && nextStatus === 'ON_WAY_TO_PICKUP' && booking.backendStatus !== 'accepted') {
         await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'accepted' });
       }
       await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: apiStatus });
