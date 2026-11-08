@@ -1,4 +1,4 @@
-const CACHE = 'xdrive-driver-official-v14';
+const CACHE = 'xdrive-driver-official-v15';
 const APP_SHELL = ['/driver/official-pwa/index.html', '/driver/official-pwa/manifest.json', '/driver/official-pwa/icon-192.png', '/driver/official-pwa/icon-512.png'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('xdrive-driver-official-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });
