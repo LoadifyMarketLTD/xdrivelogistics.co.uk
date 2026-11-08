@@ -25,6 +25,10 @@ describe('Owner Driver Dashboard restores approved 3150 design with real data', 
   it('does not count completed loads as active or outgoing quotes as received quotes', () => {
     expect(original).toContain('jobs.filter(j=>!["Completed","Cancelled"].includes(j.status)).length');
     expect(original).toContain('q.direction==="Received"');
+    expect(original).toContain('workspaceLabel==="Owner Driver"?j.status==="Allocated"');
+    expect(adapter).toContain('Assigned driver');
+    expect(original).toContain('const recentActivity=real?[...real.data.jobs].sort');
+    expect(original).toContain('j.updated_at||j.created_at');
   });
   it('takes jobs, vehicles and drivers only from authenticated workspace data and preserves direct job links', () => {
     expect(adapter).toContain('useCompany3150Live()');

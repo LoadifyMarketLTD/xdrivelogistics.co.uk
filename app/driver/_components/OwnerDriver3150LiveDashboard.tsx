@@ -19,7 +19,7 @@ export default function OwnerDriver3150LiveDashboard() {
   const router = useRouter();
   const [verifiedFleet, setVerifiedFleet] = useState<{
     vehicles: { id: string }[];
-    drivers: { id: string; availability_status: string | null }[];
+    drivers: { id: string; display_name?: string | null; availability_status: string | null }[];
     limited: boolean;
   } | null>(null);
   const [verifiedOutstanding, setVerifiedOutstanding] = useState<number | null | undefined>(undefined);
@@ -45,7 +45,7 @@ export default function OwnerDriver3150LiveDashboard() {
       if (fleetResult.status === 'fulfilled' && fleetResult.value.ok) {
         const body = await fleetResult.value.json().catch(() => null) as {
           companyId?: string; vehicles?: { id: string }[];
-          drivers?: { id: string; availability_status: string | null }[];
+          drivers?: { id: string; display_name?: string | null; availability_status: string | null }[];
           limited?: boolean;
         } | null;
         if (active && body?.companyId === companyId && Array.isArray(body.vehicles) && Array.isArray(body.drivers)) {
@@ -77,12 +77,12 @@ export default function OwnerDriver3150LiveDashboard() {
       company: job.client_name || 'Customer not recorded',
       status: stage === 'completed' ? 'Completed' : stage === 'active' ? 'In Progress' : stage === 'upcoming' ? 'Allocated' : stage === 'cancelled' ? 'Cancelled' : 'Open',
       price: Number(job.budget_amount ?? 0),
-      driver: live?.data.drivers.find((driver) => driver.id === job.assigned_driver_id)?.display_name || '',
+      driver: job.assigned_driver_id ? (live?.data.drivers.find((driver) => driver.id === job.assigned_driver_id)?.display_name || verifiedFleet?.drivers.find((driver) => driver.id === job.assigned_driver_id)?.display_name || 'Assigned driver') : '',
       vehicleId: live?.data.vehicles.find((vehicle) => vehicle.id === job.vehicle_id)?.reg_plate || '',
       stage: stage === 'completed' ? 7 : stage === 'active' ? 3 : 0,
       pod,
     };
-  }), [live]);
+  }), [live, verifiedFleet]);
   const fleet = useMemo(() => (live?.data.vehicles ?? []).map((vehicle) => ({
     id: vehicle.id,
     reg: vehicle.reg_plate || 'Registration unavailable',
