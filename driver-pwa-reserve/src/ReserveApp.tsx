@@ -4,7 +4,7 @@ import { login, loadLiveWithDiagnostics, driverPost, driverGet, bookingOfferResp
 import LiveInvoices from './LiveInvoices';
 import RouteMap from './RouteMap';
 import LiveInvoiceFlow from './LiveInvoiceFlow';
-import { reserveJobs } from './reserveLists';
+import { reserveJobs, type QuoteSection } from './reserveLists';
 import DriverMenu from './DriverMenu';
 
 type Tab = 'Loads' | 'Quotes' | 'Bookings';
@@ -42,6 +42,8 @@ export default function ReserveApp() {
   const [tab,setTab]=useState<Tab>('Loads');const [view,setView]=useState<View>('list');
   const [id,setId]=useState<string|null>(null);
   const [search,setSearch]=useState('');const [vehicleFilter,setVehicleFilter]=useState('All');
+  const [quoteSection,setQuoteSection]=useState<QuoteSection>('Submitted');
+  const [withdrawId,setWithdrawId]=useState<string|null>(null);
   const [mapReturnView,setMapReturnView]=useState<View>('list');
   const [quoteAmount,setQuoteAmount]=useState('');const [quoteEta,setQuoteEta]=useState('30');const [quoteNotes,setQuoteNotes]=useState('');
   const [items,setItems]=useState('');const [weight,setWeight]=useState('');const [pickupNotes,setPickupNotes]=useState('');const [eta,setEta]=useState('22:30');
@@ -57,12 +59,35 @@ export default function ReserveApp() {
   useEffect(()=>{if(!session)return;let active=true;void (async()=>{try{const s=await renewSession(session);if(!active)return;setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token); const p=await driverGet('/profile',s.token).catch(()=>({}));const driver=(p as Record<string,unknown>).driver as Record<string,unknown>|undefined;if(active&&driver)setRole(String(driver.driver_type||'').toLowerCase().includes('company')?'Company Driver':'Owner Driver');}catch(e){if(active)setError(e instanceof Error?e.message:'Could not restore session');}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);await fetchJobs(s.token);}catch(e){setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
   async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
-  function open(j:LiveJob,target:View){setId(j.id);setView(target);setError('');setPodDone(Boolean(j.podRecorded));setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Good condition',notes:''});setSignature(null);setPodFiles([]);setQuoteAmount(j.quote!=null?String(j.quote):'');setQuoteNotes(j.quoteNotes||'');setQuoteEta(j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
-  function navigate(t:Tab){setTab(t);setView('list');setId(null);setError('');}
+  function open(j:LiveJob,target:View){setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Good condition',notes:''});setSignature(null);setPodFiles([]);setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
+  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');}
   function openMap(j:LiveJob,back:View='list'){setId(j.id);setMapReturnView(back);setView('map');setError('');}
-  function card(j:LiveJob){const offered=Boolean(j.acceptanceRequired&&j.offerId);const quote=j.status==='OPEN'&&j.quote!=null;return <article key={j.id} className="rv-card rv-job"><div className="rv-jobhead"><div><strong>{j.company||'Transport buyer'}</strong><small>{j.yourRef||j.customerRef||j.id} · {friendlyService(j.service)}</small></div><span className={'rv-chip '+(offered?'rv-orange':quote?'rv-green':'')}>{offered?'NEW OFFER':quote?'QUOTED':j.status==='OPEN'?'AVAILABLE':j.status.replaceAll('_',' ')}</span></div><Route job={j}/><div className="rv-chips"><span>{j.vehicle}</span><span>{j.weight} kg</span><span>{j.terms||'Terms not stated'}</span>{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div><button className="rv-map-action" onClick={()=>openMap(j,'list')}>⌖ View on Map</button><div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>{j.status==='OPEN'?'Load Details':'View Booking'}</button><button className="rv-primary" onClick={()=>open(j,offered?'incoming':j.status==='OPEN'&&(j.quote==null||(j.bidId&&j.bidStatus==='submitted'))?'quote':j.status==='OPEN'?'quoteDetails':'flow')}>{offered?'Review Offer':j.status==='OPEN'&&j.quote==null?'Quote Now':j.status==='OPEN'&&j.bidId&&j.bidStatus==='submitted'?'Edit Quote':j.status==='OPEN'?'View Quote':'Open Job'}</button></div></article>}
+  function card(j:LiveJob){
+    const offered=Boolean(j.acceptanceRequired&&j.offerId);
+    const canEditOrWithdraw=tab==='Quotes'&&j.status==='OPEN'&&j.personalBid===true&&j.bidStatus==='submitted'&&Boolean(j.bidId);
+    const isWithdrawn=j.bidStatus==='withdrawn'||j.quoteOutcome==='CANCELLED';
+    const status=offered?'NEW OFFER':tab==='Quotes'?(isWithdrawn?'WITHDRAWN':j.quoteOutcome==='UNSUCCESSFUL'?'UNSUCCESSFUL':j.quoteOutcome==='AWARDED'?'AWARDED':'SUBMITTED'):j.status==='OPEN'?'AVAILABLE':j.status.replaceAll('_',' ');
+    return <article key={j.id} className="rv-card rv-job">
+      <div className="rv-jobhead"><div><strong>{j.company||'Transport buyer'}</strong><small>{j.yourRef||j.customerRef||j.id} · {friendlyService(j.service)}</small></div><span className={'rv-chip '+(offered?'rv-orange':status==='SUBMITTED'?'rv-green':'')}>{status}</span></div>
+      <Route job={j}/>
+      <div className="rv-chips"><span>{j.vehicle}</span><span>{j.weight} kg</span><span>{j.terms||'Terms not stated'}</span>{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div>
+      {tab==='Quotes'&&j.quote!=null&&<div className="rv-summary"><Fact name="Your submitted quote" value={gbp(j.quote)}/><Fact name="Collection ETA" value={j.quoteEtaMinutes==null?'Not provided':j.quoteEtaMinutes+' minutes'}/></div>}
+      <button className="rv-map-action" onClick={()=>openMap(j,'list')}>⌖ View on Map</button>
+      {tab==='Loads'?<div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>Load Details</button><button className="rv-primary" onClick={()=>open(j,'quote')}>Quote Now</button></div>
+      :tab==='Quotes'?<><div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>Load Details</button><button className="rv-primary" onClick={()=>open(j,'quoteDetails')}>View Quote</button></div>
+        {canEditOrWithdraw&&<div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'quote')}>Edit Quote</button><button className="rv-danger" onClick={()=>setWithdrawId(j.id)} disabled={busy}>Withdraw Quote</button></div>}
+        {withdrawId===j.id&&<section className="rv-withdraw-confirm" role="alertdialog" aria-label="Confirm quote withdrawal"><strong>Withdraw this quotation?</strong><p>The quote will be withdrawn from XDrive. You will no longer be considered for this job unless you submit a new quote while it remains available. Your history is preserved.</p><div className="rv-actions"><button className="rv-outline" onClick={()=>setWithdrawId(null)} disabled={busy}>Keep Quote</button><button className="rv-danger" disabled={busy} onClick={()=>void withdrawQuote(j)}>{busy?'Withdrawing…':'Confirm Withdraw'}</button></div></section>}
+      </>:<div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>View Booking</button><button className="rv-primary" onClick={()=>open(j,offered?'incoming':'flow')}>{offered?'Review Offer':'Open Job'}</button></div>}
+    </article>;
+  }
+  async function withdrawQuote(j:LiveJob){
+    if(!j.bidId||j.bidStatus!=='submitted'||j.status!=='OPEN'){setError('Only an existing submitted quotation can be withdrawn.');return;}
+    await run(s=>driverPost('/mobile/bids/'+encodeURIComponent(j.bidId!),s.token,{action:'withdraw'}),()=>{
+      setWithdrawId(null);setQuoteSection('History');setView('list');
+    });
+  }
   function list(){
-    const shown = reserveJobs(jobs, tab, tab === 'Loads' ? search : '', tab === 'Loads' ? vehicleFilter : 'All');
+    const shown = reserveJobs(jobs, tab, tab === 'Loads' ? search : '', tab === 'Loads' ? vehicleFilter : 'All',quoteSection);
     return <>
       <div className="rv-heading">
         <div><span className="rv-over">XDRIVE · REAL-TIME EXCHANGE</span>
@@ -77,15 +102,17 @@ export default function ReserveApp() {
           <option>All</option>{[...new Set(jobs.map(j => j.vehicle))].filter(Boolean).map(v => <option key={v}>{v}</option>)}
         </select>
       </div>}
+      {tab==='Quotes'&&<div className="rv-quote-tabs" role="group" aria-label="Quote sections">{(['Submitted','History'] as QuoteSection[]).map(s=><button key={s} className={quoteSection===s?'rv-selected':''} aria-pressed={quoteSection===s} onClick={()=>{setQuoteSection(s);setWithdrawId(null)}}>{s}</button>)}</div>}
       <div className="rv-count"><span>{shown.length} {tab.toLowerCase()} found</span><span>{loading?'REFRESHING…':'AUTHENTICATED XDRIVE'}</span></div>
       {shown.length ? shown.map(card) : <div className="rv-empty">
-        <b>{loading?'Loading live data…':warning?'Live feed requires attention':jobs.length===0?'No jobs returned by the server':tab==='Loads'?'No open loads available':'No matching '+tab.toLowerCase()}</b>
-        <p>{loading?'Refreshing XDrive…':warning?'Review the source warning above. This is not proof that the marketplace is empty.':tab==='Loads'&&jobs.length>0?'The API returned '+jobs.length+' jobs, but none match the currently available Loads. Check Quotes and Bookings.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
+        <b>{loading?'Loading live data…':warning?'Live feed requires attention':jobs.length===0?'No jobs returned by the server':tab==='Loads'?'No unquoted loads available':'No matching '+tab.toLowerCase()}</b>
+        <p>{loading?'Refreshing XDrive…':warning?'Review the source warning above. This is not proof that the marketplace is empty.':tab==='Loads'&&jobs.length>0?'Jobs already quoted by this driver are shown in Quotes. Loads lists only jobs ready for a new quote.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
         {tab === 'Loads' && (search || vehicleFilter !== 'All') && <button className="rv-outline" onClick={()=>{setSearch('');setVehicleFilter('All')}}>Clear filters</button>}
+        {tab==='Loads'&&jobs.some(j=>j.quote!=null)&&<button className="rv-outline rv-wide" onClick={()=>navigate('Quotes')}>View My Quotes →</button>}
       </div>}
     </>;
   }
-  function quoteDetails(){if(!job)return null;return <><button className="rv-back" onClick={()=>setView('list')}>← Back to {tab}</button><span className="rv-over">SUBMITTED QUOTATION · XDRIVE</span><h1>My Quote</h1><Route job={job}/><section className="rv-card"><h3>Submitted quote</h3><Fact name="Load reference" value={job.yourRef||job.customerRef||job.id}/><Fact name="Company" value={job.company||'Transport buyer'}/><Fact name="Quote amount" value={job.quote==null?'Unavailable':gbp(job.quote)}/><Fact name="Status" value={job.status==='OPEN'?'Submitted · awaiting decision':job.status.replaceAll('_',' ')}/><Fact name="Vehicle requested" value={job.vehicle}/><Fact name="Payment terms" value={job.terms||'Not provided'}/><Fact name="Collection ETA" value={job.quoteEtaMinutes==null?'Not provided':job.quoteEtaMinutes+' minutes'}/><Fact name="Quote notes" value={job.quoteNotes||'No notes supplied'}/></section><button className="rv-outline rv-wide" onClick={()=>setView('details')}>View Load Details →</button></>}
+  function quoteDetails(){if(!job)return null;return <><button className="rv-back" onClick={()=>setView('list')}>← Back to {tab}</button><span className="rv-over">SUBMITTED QUOTATION · XDRIVE</span><h1>My Quote</h1><Route job={job}/><section className="rv-card"><h3>Submitted quote</h3><Fact name="Load reference" value={job.yourRef||job.customerRef||job.id}/><Fact name="Company" value={job.company||'Transport buyer'}/><Fact name="Quote amount" value={job.quote==null?'Unavailable':gbp(job.quote)}/><Fact name="Status" value={job.status==='OPEN'?'Submitted · awaiting decision':job.status.replaceAll('_',' ')}/><Fact name="Vehicle requested" value={job.vehicle}/><Fact name="Payment terms" value={job.terms||'Not provided'}/><Fact name="Collection ETA" value={job.quoteEtaMinutes==null?'Not provided':job.quoteEtaMinutes+' minutes'}/><Fact name="Quote notes" value={job.quoteNotes||'No notes supplied'}/></section>{tab==='Quotes'&&job.status==='OPEN'&&job.personalBid===true&&job.bidId&&job.bidStatus==='submitted'&&<><div className="rv-actions"><button className="rv-primary" onClick={()=>setView('quote')}>Edit Quote</button><button className="rv-danger" disabled={busy} onClick={()=>setWithdrawId(job.id)}>Withdraw Quote</button></div>{withdrawId===job.id&&<section className="rv-withdraw-confirm" role="alertdialog" aria-label="Confirm quote withdrawal"><strong>Withdraw this quotation?</strong><p>Your quotation will be withdrawn, not erased from the audit history. It can be quoted again only if the job is still available and you are eligible.</p><div className="rv-actions"><button className="rv-outline" onClick={()=>setWithdrawId(null)} disabled={busy}>Keep Quote</button><button className="rv-danger" disabled={busy} onClick={()=>void withdrawQuote(job)}>{busy?'Withdrawing…':'Confirm Withdraw'}</button></div></section>}</>}<button className="rv-outline rv-wide" onClick={()=>setView('details')}>View Load Details →</button></>}
   function details(){if(!job)return null;return <><button className="rv-back" onClick={()=>setView('list')}>← Back to {tab}</button><span className="rv-over">{job.status==='OPEN'?'LOAD DETAILS':'BOOKING DETAILS'}</span><h1>{job.from} → {job.to}</h1><p className="rv-sub">{job.company||'Transport buyer'} · {job.yourRef||job.id}</p><Route job={job} full={job.status!=='OPEN'}/><button className="rv-map-action rv-wide" onClick={()=>openMap(job,'details')}>⌖ View on Map</button><section className="rv-card"><h3>Transport details</h3><Fact name="Vehicle" value={job.vehicle}/><Fact name="Weight" value={job.weight+' kg'}/><Fact name="Items" value={job.items??'Not stated'}/><Fact name="Collection" value={(job.pickupDate||'')+' '+job.pickup}/><Fact name="Delivery" value={(job.deliveryDate||'')+' '+job.delivery}/><Fact name="Payment Terms" value={job.terms||'Not provided'}/><Fact name="Agreed rate / quote" value={job.quote!=null?gbp(job.quote):'Quote required'}/></section><section className="rv-card"><h3>Instructions & References</h3><p>{job.notes||'No additional handling instructions.'}</p>{job.status!=='OPEN'&&<><Fact name="Customer reference" value={job.customerRef||'Not provided'}/><Fact name="Your reference" value={job.yourRef||job.id}/></>}</section>{job.status === 'OPEN'
   ? job.quote == null
     ? <button className="rv-primary rv-wide" onClick={()=>setView('quote')}>Quote Now →</button>
@@ -93,7 +120,7 @@ export default function ReserveApp() {
   : <button className="rv-primary rv-wide" onClick={()=>setView(job.acceptanceRequired?'incoming':'flow')}>{job.acceptanceRequired?'Review Incoming Booking':'Open Booking'} →</button>}</>}
   function quote(){
     if(!job)return null;
-    const editing = job.quote != null && job.bidStatus==='submitted' && Boolean(job.bidId);
+    const editing = tab==='Quotes' && job.personalBid===true && job.quote != null && job.bidStatus==='submitted' && Boolean(job.bidId);
     const minutes = quoteEta===''?null:Number(quoteEta);
     return <>
       <button className="rv-back" onClick={()=>setView(editing?'quoteDetails':'details')}>← {editing?'My Quote':'Load Details'}</button>

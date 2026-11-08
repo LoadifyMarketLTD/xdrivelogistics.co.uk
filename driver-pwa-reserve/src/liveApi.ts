@@ -8,6 +8,7 @@ export type LiveJob = {
   company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
   bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
+  personalBid?: boolean; // true only for records returned by authenticated /mobile/bids personal quote history
   offerId?: string; acceptanceRequired?: boolean; backendStatus?: string; podRecorded?: boolean;
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
@@ -123,7 +124,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     postedAt: dateTime(r.exchange_posted_at),
     distanceMiles: num(r.distance_miles), travelMinutes: num(r.distance_minutes),
     service: str(r.service_mode) || 'Not provided',
-    ...(bidAmount !== undefined ? { quote: bidAmount, quoteOutcome: status === 'accepted' ? 'AWARDED' as const : status === 'cancelled' ? 'CANCELLED' as const : undefined } : {}),
+    ...(bidAmount !== undefined ? { quote: bidAmount, quoteOutcome: status === 'accepted' ? 'AWARDED' as const : status === 'cancelled' || status === 'withdrawn' ? 'CANCELLED' as const : undefined, bidStatus: status, bidId: str(bid.id), quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message) } : {}),
   };
 }
 function cleanDetails(raw: unknown): { notes: string; simulated: boolean } {
@@ -214,7 +215,7 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
     const existing = result.get(id);
     const outcome = state === 'accepted' ? 'AWARDED' as const : state === 'rejected' || state === 'unsuccessful' ? 'UNSUCCESSFUL' as const : state === 'cancelled' || state === 'withdrawn' ? 'CANCELLED' as const : undefined;
     const quoteFields = { quote: amount, quoteSubmittedAt: str(bid.createdAt), quoteOutcome: outcome,
-      bidId: str(bid.id), bidStatus: state, quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message) };
+      bidId: str(bid.id), bidStatus: state, quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message), personalBid: true };
     if (existing) {
       result.set(id, { ...existing, ...quoteFields });
     } else {
