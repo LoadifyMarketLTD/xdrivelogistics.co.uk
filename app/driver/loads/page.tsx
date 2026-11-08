@@ -12,6 +12,7 @@ import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
+import '../../components/workspace/master3150-unified-loads.css';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import ApprovedDriverLoadCard from '../_components/ApprovedDriverLoadCard';
 
@@ -339,7 +340,7 @@ export default function AvailableLoadsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-loads-prototype xdrive-admin-marketplace-identity">
+      <section className="page driver-loads-prototype xdrive-admin-marketplace-identity master3150-unified-loads">
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Loads</div>

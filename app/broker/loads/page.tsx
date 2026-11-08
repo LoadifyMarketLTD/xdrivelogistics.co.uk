@@ -8,6 +8,7 @@ import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperational
 import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxLoadCard from '../../components/workspace/CxLoadCard';
+import '../../components/workspace/master3150-unified-loads.css';
 import {
   ActionButton,
   AlertBanner,
@@ -16,6 +17,8 @@ import {
 } from '../../components/workspace/WorkspaceUI';
 
 type LoadTab = 'all' | 'draft' | 'open' | 'awarded' | 'active' | 'completed';
+type Master3150LoadType = 'all' | 'on_demand' | 'same_day' | 'next_day';
+const loadTypeMatches = (job:WorkspaceJob, type:Master3150LoadType) => type === 'all' || [job.load_type,job.service_mode].some(value => String(value || '').toLowerCase().replaceAll(' ','_') === type);
 
 const cxTimeParts = (value: string | null | undefined) => {
   if (!value) return { primary: 'ASAP', meta: '' };
@@ -53,6 +56,7 @@ export default function BrokerLoadsPage() {
   const deepCustomer = searchParams.get('customer');
 
   const [tab, setTab] = useState<LoadTab>('all');
+  const [loadType,setLoadType] = useState<Master3150LoadType>('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [vehicle, setVehicle] = useState('');
@@ -69,14 +73,14 @@ export default function BrokerLoadsPage() {
     const referenceTerm = reference.trim().toLowerCase();
 
     return data.jobs
-      .filter((job) => matchesTab(job, tab))
+      .filter((job) => matchesTab(job, tab) && loadTypeMatches(job,loadType))
       .filter((job) => !referenceTerm || job.id.toLowerCase().includes(referenceTerm))
       .filter((job) => !customerTerm || String(job.client_name || '').toLowerCase().includes(customerTerm))
       .filter((job) => !fromTerm || `${job.pickup_postcode || ''} ${job.pickup_location || ''}`.toLowerCase().includes(fromTerm))
       .filter((job) => !toTerm || `${job.delivery_postcode || ''} ${job.delivery_location || ''}`.toLowerCase().includes(toTerm))
       .filter((job) => !vehicleTerm || String(job.vehicle_type || '').replaceAll('_', ' ').toLowerCase().includes(vehicleTerm))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  }, [customer, data.jobs, from, reference, tab, to, vehicle]);
+  }, [customer, data.jobs, from, reference, tab, loadType, to, vehicle]);
 
   const counts = useMemo(() => ({
     all: data.jobs.length,
@@ -110,6 +114,11 @@ export default function BrokerLoadsPage() {
     <PageFrame>
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
+      <section className="master3150-unified-loads" aria-label="Broker Loads 3150">
+      <h1 className="master3150-loads-heading">Loads</h1>
+      <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads service types">
+        {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={loadType===item.id} aria-pressed={loadType===item.id} onClick={()=>setLoadType(item.id)}>{item.label} <b>{data.jobs.filter(job=>loadTypeMatches(job,item.id)).length}</b></button>)}
+      </nav>
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail" aria-label="Load filters">
           <div className="workspace-filter-rail__header">Search Loads</div>
@@ -180,6 +189,7 @@ export default function BrokerLoadsPage() {
           )}
         </main>
       </div>
+      </section>
     </PageFrame>
   );
 }

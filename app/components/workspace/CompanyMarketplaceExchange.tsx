@@ -18,6 +18,7 @@ import Canonical3150TransportSummary from './Canonical3150TransportSummary';
 import { formatPublicOutcode } from '../../../lib/jobs/formatPublicOutcode';
 import { public3150RouteLabel } from '../../../lib/jobs/public3150RouteLabel';
 import './canonical3150-transport-summary.css';
+import './master3150-unified-loads.css';
 import Master3150QuotesKpis from './Master3150QuotesKpis';
 import MarketplaceQuoteNowDialog, { type Canonical3150QuoteMeta } from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
@@ -459,7 +460,8 @@ export default function CompanyMarketplaceExchange({
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace...</AlertBanner>}
 
       {tab === 'loads' && <>
-        <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout xdrive-admin-marketplace-identity" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <h1 className="master3150-loads-heading">Loads</h1>
+        <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout xdrive-admin-marketplace-identity master3150-unified-loads" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 196px)', width: 'var(--ws-filter-rail-w, 196px)', minWidth: 0, alignSelf: 'flex-start' }}>
             <Panel title="Search Loads">
               <div style={{ display: 'grid', gap: 7 }}>
