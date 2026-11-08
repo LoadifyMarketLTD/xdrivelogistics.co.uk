@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useCompany3150Live } from './Company3150LiveData';
 import DemoDriverProfile from './DemoDriverProfile';
 import VerifiedDriverProfile from './VerifiedDriverProfile';
+import {documentSummary,driverDocumentStatus} from '../../../lib/companyDocumentAssessment';
 import './demo-drivers-board.css';
 
 type Vehicle = { id: string; reg: string; vehicle: string; driver: string; status: string; location: string };
@@ -69,7 +70,7 @@ export default function DemoDriversBoard({
         reg: assigned?.reg_plate || 'Unassigned',
         vehicle: assigned?.type || 'No vehicle',
         status: availabilityName(driver.availability_status),
-        compliance: 'Not verified',
+        compliance: documentSummary(docs, verifiedDrivers.documentsUnavailable || verifiedDrivers.documentsRestricted).label,
         documentCount: docs.length,
         expiringCount: docs.filter(document => expiringSoon(document.expiry_date)).length,
       };
@@ -102,6 +103,7 @@ export default function DemoDriversBoard({
   const availableCount = rows.filter(driver => driver.status === 'Available').length;
   const onJobCount = rows.filter(driver => driver.status === 'On Job').length;
   const expiringCount = verifiedDrivers ? verifiedDrivers.documents.filter(document => expiringSoon(document.expiry_date)).length : real?.data.driverDocuments.filter(document => expiringSoon(document.expiry_date)).length || 0;
+  const documentTotals = documentSummary(verifiedDrivers?.documents ?? [], Boolean(verifiedDrivers?.documentsRestricted || verifiedDrivers?.documentsUnavailable));
   const counts = (section: string) => section === 'All Drivers' ? rows.length :
     section === 'Expiring Docs' ? rows.filter(driver => driver.expiringCount > 0).length :
     section === 'Archived' ? 0 : rows.filter(driver => driver.status === section).length;
@@ -113,9 +115,9 @@ export default function DemoDriversBoard({
       {[
         ['♙','Total Drivers',limited?'—':rows.length,availableCount+' Available','#ff7900'],
         ['▶','On Job',limited?'—':onJobCount,'Currently working','#1672e7'],
-        ['✓','Compliant','—','Not verified','#0ca3'],
+        ['✓','Compliant','—',verifiedDrivers ? `${documentTotals.approved} documents approved; eligibility not assessed` : 'Not verified','#0ca3'],
         ['▣','Expiring Soon',verifiedDrivers?.documentsUnavailable || verifiedDrivers?.documentsRestricted?'—':expiringCount,'Within 30 days','#ff9700'],
-        ['⚠','Not Compliant','—','Not verified','#e21b2d'],
+        ['⚠','Not Compliant','—',verifiedDrivers ? `${documentTotals.needsAction} documents need action; eligibility not assessed` : 'Not verified','#e21b2d'],
       ].map(([icon,title,count,description,color]) => <div key={title} className="xd-drivers-kpi" style={{borderLeftColor:String(color)}}>
         <span style={{color:String(color)}}>{icon}</span>
         <div><b>{title}</b><strong>{count}</strong><small>{description}</small></div>
@@ -143,7 +145,7 @@ export default function DemoDriversBoard({
           <div className="xd-drivers-avatar" aria-hidden="true">♙</div>
           <div><strong>{driver.name}</strong><small>{driver.id.slice(0, 8).toUpperCase()}</small><span className={'xd-driver-state ' + driver.status.replace(' ','-')}>{driver.status}</span></div>
           <div className="xd-drivers-vehicle"><b>🚚 {driver.reg}</b><small>{driver.vehicle}</small></div>
-          <div className="xd-drivers-checks"><span>Licence: Not verified</span><span>CPC: Not verified</span><span>ID: Not verified</span></div>
+          <div className="xd-drivers-checks"><span>Licence: {driverDocumentStatus((verifiedDrivers?.documents ?? []).filter(document=>document.driver_id===driver.id),'licence',Boolean(verifiedDrivers?.documentsUnavailable||verifiedDrivers?.documentsRestricted))}</span><span>CPC: {driverDocumentStatus((verifiedDrivers?.documents ?? []).filter(document=>document.driver_id===driver.id),'cpc',Boolean(verifiedDrivers?.documentsUnavailable||verifiedDrivers?.documentsRestricted))}</span><span>ID: {driverDocumentStatus((verifiedDrivers?.documents ?? []).filter(document=>document.driver_id===driver.id),'identity',Boolean(verifiedDrivers?.documentsUnavailable||verifiedDrivers?.documentsRestricted))}</span></div>
           <div className="xd-drivers-compliance"><b>Compliance</b><span>{driver.compliance}</span></div>
           <button type="button" className="xd-drivers-profile" onClick={() => setSelected(driver.id)}>View Profile</button>
         </article>)}

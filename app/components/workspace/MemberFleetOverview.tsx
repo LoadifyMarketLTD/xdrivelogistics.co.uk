@@ -10,7 +10,7 @@ import DemoFleetBoard from '../../try-xdrive-demo/components/DemoFleetBoard';
 type Vehicle = {
   id: string; reg_plate: string | null; type: string | null;
   body_type: string | null; payload_kg: number | null; pallets_capacity: number | null;
-  has_tail_lift: boolean | null; assigned_driver_id: string | null;
+  has_tail_lift: boolean | null; assigned_driver_id: string | null; is_available: boolean | null;
 };
 type Driver = {
   id: string; display_name: string | null; status: string | null; availability_status: string | null;
@@ -39,7 +39,7 @@ export default function MemberFleetOverview({ section, canManage = false, manage
         return;
       }
       try {
-        const response = await fetch(`/api/workspace/fleet-overview?companyId=${encodeURIComponent(companyId)}&includeDocuments=${section === 'fleet'}`,{
+        const response = await fetch(`/api/workspace/fleet-overview?companyId=${encodeURIComponent(companyId)}&includeDocuments=true`,{
           headers:{Authorization:`Bearer ${token}`}, cache:'no-store'
         });
         const body = await response.json().catch(()=>null) as FleetResponse | null;

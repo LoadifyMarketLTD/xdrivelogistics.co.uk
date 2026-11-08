@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useCompany3150Live } from './Company3150LiveData';
 import DemoFleetManager from './DemoFleetManager';
+import {documentSummary} from '../../../lib/companyDocumentAssessment';
 import './demo-fleet-board.css';
 
 type Vehicle = { id: string; reg: string; vehicle: string; driver: string; status: string; location: string };
@@ -10,7 +11,7 @@ export type VerifiedFleetSnapshot = {
   vehicles: Array<{
     id: string; reg_plate: string | null; type: string | null; body_type: string | null;
     payload_kg: number | null; pallets_capacity: number | null; has_tail_lift: boolean | null;
-    assigned_driver_id: string | null;
+    assigned_driver_id: string | null; is_available: boolean | null;
   }>;
   drivers: Array<{ id: string; display_name: string | null; status: string | null; availability_status: string | null }>;
   documents: Array<{ id: string; vehicle_id: string | null; doc_type: string | null; status: string | null; expiry_date: string | null }>;
@@ -56,7 +57,7 @@ export default function DemoFleetBoard({
         reg: vehicle.reg_plate || 'Not recorded',
         vehicle: vehicle.type || 'Vehicle type not recorded',
         driver: vehicle.assigned_driver_id ? driverNameById.get(vehicle.assigned_driver_id) || 'Driver not verified' : 'Unassigned',
-        status: 'Not verified',
+        status: vehicle.is_available === true ? 'Available' : vehicle.is_available === false ? 'Unavailable' : 'Not verified',
         location: 'Not recorded',
       }))
     : vehicles;
@@ -71,10 +72,11 @@ export default function DemoFleetBoard({
       capacity: source?.pallets_capacity == null ? 'Not recorded' : source.pallets_capacity + ' pallets',
       weight: source?.payload_kg == null ? 'Not recorded' : source.payload_kg + ' kg',
       dimensions: source?.body_type || 'Not recorded',
-      compliance: 'Not verified',
+      compliance: documentSummary(sourceDocuments.filter(document=>document.vehicle_id===vehicle.id),Boolean(verifiedFleet?.documentsUnavailable||verifiedFleet?.documentsRestricted)).label,
     };
   });
-  const availableVehicles = isVerified
+  const documentTotals = documentSummary(sourceDocuments,Boolean(verifiedFleet?.documentsUnavailable||verifiedFleet?.documentsRestricted));
+  const availableVehicles = isVerified && verifiedFleet?.vehicles.some(vehicle=>vehicle.is_available == null)
     ? null
     : fleetVehicles.filter((vehicle) => vehicle.status === 'Available').length;
   const availableDrivers = sourceDrivers.filter(
@@ -121,9 +123,9 @@ export default function DemoFleetBoard({
       {[
         ['🚚', 'Total Vehicles', partial ? '—' : fleetVehicles.length, availableVehicles == null ? 'Availability not verified' : availableVehicles + ' Available', '#ff7900'],
         ['♙', 'Total Drivers', partial ? '—' : fleetDrivers.length, availableDrivers + ' Available', '#1672e7'],
-        ['✓', 'Compliant', '—', 'Not verified', '#0ca52b'],
+        ['✓', 'Compliant', '—', isVerified ? `${documentTotals.approved} documents approved; eligibility not assessed` : 'Not verified', '#0ca52b'],
         ['▣', 'Expiring Soon', sourceDocuments.length ? expiringDocuments : '—', sourceDocuments.length ? 'Within 30 days' : 'Documents not verified', '#ff9700'],
-        ['⚠', 'Not Compliant', '—', 'Not verified', '#e21b2d'],
+        ['⚠', 'Not Compliant', '—', isVerified ? `${documentTotals.needsAction} documents need action; eligibility not assessed` : 'Not verified', '#e21b2d'],
       ].map(([icon, name, count, detailText, color]) =>
         <div className="xd-fleet-kpi" key={name} style={{ borderLeftColor: String(color) }}>
           <span style={{ color: String(color) }}>{icon}</span>
@@ -150,7 +152,7 @@ export default function DemoFleetBoard({
         </label>
         <label>Status
           <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            {['Any Status', 'Available', 'In Use', 'On Service', 'Inactive', 'Not verified'].map((option) => <option key={option}>{option}</option>)}
+            {['Any Status', 'Available', 'Unavailable', 'In Use', 'On Service', 'Inactive', 'Not verified'].map((option) => <option key={option}>{option}</option>)}
           </select>
         </label>
         <label>Compliance

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   if (!membership) return respond(403, { error: 'Company fleet records are not available to this account.' });
 
   const [vehicleResult,driverResult] = await Promise.all([
-    supabaseAdmin.from('vehicles').select('id,reg_plate,type,body_type,payload_kg,pallets_capacity,has_tail_lift,assigned_driver_id').eq('company_id',companyId).limit(500),
+    supabaseAdmin.from('vehicles').select('id,reg_plate,type,body_type,payload_kg,pallets_capacity,has_tail_lift,assigned_driver_id,is_available').eq('company_id',companyId).limit(500),
     supabaseAdmin.from('drivers').select('id,display_name,status,availability_status').eq('company_id',companyId).limit(500),
   ]);
 
