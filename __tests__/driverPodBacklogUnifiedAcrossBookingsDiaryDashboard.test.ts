@@ -45,6 +45,11 @@ describe('Canonical Awaiting POD truth across XDrive workspaces',()=>{
   expect(bookings).toContain("driverJobStage(job)==='in_progress'?0");
   expect(bookings).toContain("stage === 'cancelled' ? 'Cancelled booking'");
  });
+ it('the shared original 3150 Dashboard uses exactly the delivered awaiting POD predicate for its KPI',()=>{
+  const original=read('app/try-xdrive-demo/components/DemoCompanyDashboard.tsx');
+  expect(original).toContain('real.data.jobs.filter(isDeliveredAwaitingPod).length');
+  expect(original).not.toContain('const awaiting=jobs.filter(j=>j.status==="Completed"&&!j.pod).length;');
+ });
  it('does not modify the protected Post Load form, route or schema',()=>{
   const form=read('app/admin/post-load/page.tsx');
   expect(form).toContain('<LoadPostingForm mode="admin" />');

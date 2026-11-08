@@ -19,7 +19,7 @@ export default function OwnerDriver3150LiveDashboard() {
   const live = useCompany3150Live();
   const router = useRouter();
   const [verifiedFleet, setVerifiedFleet] = useState<{
-    vehicles: { id: string }[];
+    vehicles: { id: string; is_available?: boolean | null }[];
     drivers: { id: string; display_name?: string | null; availability_status: string | null }[];
     limited: boolean;
   } | null>(null);
