@@ -318,7 +318,7 @@ function App() {
       setLiveSession(session);
       // The authoritative driver RPC requires allocated -> accepted -> on_my_way.
       // Booking acceptance via the offer endpoint can leave the job at allocated.
-      if (booking.status === 'ALLOCATED' && nextStatus === 'ON_WAY_TO_PICKUP' && booking.backendStatus !== 'accepted') {
+      if (booking.status === 'ALLOCATED' && nextStatus === 'ON_WAY_TO_PICKUP' && ['allocated', 'assigned'].includes(booking.backendStatus || 'allocated')) {
         await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'accepted' });
       }
       await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: apiStatus });
@@ -327,7 +327,19 @@ function App() {
       if (nextStatus === 'ON_SITE_PICKUP') setBookingScreen('pickup');
       else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('pod');
       try { await refreshLive(session.token); } catch { setLiveWarning('Status saved, but refreshing booking details failed.'); }
-    } catch (error) { setLiveError(error instanceof Error ? error.message : 'Could not update booking status'); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not update booking status';
+      // A stale client must recover from the server's authoritative lifecycle rather than replay acceptance.
+      const expected = message.match(/Invalid driver status transition:\s*([a-z_]+)\s*->\s*[a-z_]+\.\s*Expected\s*([a-z_]+)/i);
+      if (expected) {
+        const serverState = expected[1].toLowerCase();
+        const recovered = ({ allocated: 'ALLOCATED', accepted: 'ALLOCATED', on_my_way: 'ON_WAY_TO_PICKUP', on_site_pickup: 'ON_SITE_PICKUP', loaded: 'LOADED', in_transit: 'ON_WAY_TO_DELIVERY', on_site_delivery: 'ON_SITE_DELIVERY', delivered: 'DELIVERED' } as Record<string, JobStatus>)[serverState];
+        if (recovered) setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: recovered, backendStatus: serverState } : row));
+        setLiveWarning('Booking status synchronized with the server. Please confirm the next step.');
+        setLiveError('');
+        try { await refreshLive((await renewSession(liveSession)).token); } catch { /* Preserve recovered state when refresh is unavailable. */ }
+      } else setLiveError(message);
+    }
     finally { setStatusBusy(false); }
   };
   const respondToBooking = async (offer: Load, action: 'accept' | 'decline') => {
@@ -651,8 +663,8 @@ function App() {
                       </div>
                       {tab === "Bookings" && (bookingSection === "Completed" || bookingSection === "Archived") && <div className="actions booking-archive-actions"><button type="button" onClick={() => setArchivedBookingIds(ids => bookingSection === "Archived" ? ids.filter(id => id !== j.id) : ids.includes(j.id) ? ids : [...ids, j.id])}>{bookingSection === "Archived" ? "Restore to Completed" : "Archive booking"}</button></div>}
                       {tab === "Bookings" && j.acceptanceRequired && <div className="actions booking-decision"><button className="danger" disabled={bookingResponseBusy} onClick={() => liveConnected ? void respondToBooking(j, "decline") : update(j.id, { status: "OPEN", acceptanceRequired: false, quoteOutcome: "CANCELLED" })}>Decline</button><button className="accept-action" disabled={bookingResponseBusy} onClick={() => liveConnected ? void respondToBooking(j, "accept") : update(j.id, { acceptanceRequired: false, acceptedAt: new Date().toISOString() })}>Accept</button></div>}
-                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ALLOCATED" && <button className="accept-action booking-next" onClick={() => { update(j.id, { status: "ON_WAY_TO_PICKUP" }); openJob(j.id); setBookingScreen("status"); }}>On my Way to Pickup</button>}
-                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_WAY_TO_PICKUP" && <button className="accept-action booking-next" onClick={() => { update(j.id, { status: "ON_SITE_PICKUP" }); openJob(j.id); setBookingScreen("pickup"); }}>On Site (Pickup)</button>}
+                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ALLOCATED" && <button className="accept-action booking-next" onClick={() => { openJob(j.id); setBookingScreen("status"); if (liveConnected) void submitLiveStatus(j, "ON_WAY_TO_PICKUP"); else update(j.id, { status: "ON_WAY_TO_PICKUP" }); }}>On my Way to Pickup</button>}
+                      {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_WAY_TO_PICKUP" && <button className="accept-action booking-next" onClick={() => { openJob(j.id); if (liveConnected) void submitLiveStatus(j, "ON_SITE_PICKUP"); else { update(j.id, { status: "ON_SITE_PICKUP" }); setBookingScreen("pickup"); } }}>On Site (Pickup)</button>}
                       {tab === "Bookings" && !j.acceptanceRequired && j.status === "ON_SITE_PICKUP" && <button className="accept-action booking-next" onClick={() => { openJob(j.id); setBookingScreen("loaded"); }}>Loaded</button>}
                       {tab === "Alerts" && <div className="alert-actions"><button onClick={() => toggleSaved(j.id)}>{savedIds.includes(j.id) ? "Unsave" : "SAVE"}</button><button onClick={() => toggleDeleted(j.id)}>{deletedIds.includes(j.id) ? "Restore" : "DELETE"}</button></div>}
                     </article>
