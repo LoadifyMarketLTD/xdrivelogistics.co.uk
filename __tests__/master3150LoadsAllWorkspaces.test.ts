@@ -57,6 +57,30 @@ describe('WORKSPACE 3510: canonical Loads for all authorised workspace roles',()
    expect(source).not.toContain('submitDemoQuote(');
   }
  });
+ it('reactivating the main Loads tab resets all seven workspaces without route reload',()=>{
+  const customer=read('app/try-xdrive-demo/components/DemoExchangeBoard.tsx');
+  const company=read('app/components/workspace/CompanyMarketplaceExchange.tsx');
+  const broker=read('app/broker/loads/page.tsx');
+  const driver=read('app/driver/loads/page.tsx');
+  const shell=read('app/components/workspace/AuthenticatedMasterShell.tsx');
+  expect(shell).toContain("new Event('xdrive:loads-reselect')");
+  for(const source of [customer,company,broker,driver]){
+   expect(source).toContain('xdrive:loads-reselect');
+   expect(source).toContain('window.removeEventListener');
+  }
+  expect(company).toContain("setViewMode('list')");
+  expect(company).toContain('setFilters(DEFAULT_FILTERS)');
+  expect(broker).toContain("setLoadType('all')");
+  expect(broker).toContain("setTab('all')");
+  expect(driver).toContain("setViewMode('list')");
+  expect(driver).toContain("setSortBy('date_desc')");
+  expect(customer).toContain('setRadius("10")');
+ });
+ it('uses the approved 5 through 300 mile radius options without changing company-scoped API',()=>{
+  const company=read('app/components/workspace/CompanyMarketplaceExchange.tsx');
+  expect(company).toContain("['5', '10', '20', '30', '50', '100', '200', '300']");
+  expect(company).toContain('radiusSearch');
+ });
  it('design system keeps exact reference geometry and mobile layout',()=>{
   const css=read('app/components/workspace/master3150-unified-loads.css');
   expect(css).toContain('--master-loads-rail:220px');

@@ -2,7 +2,7 @@
 
 import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { useAuth } from '../../components/AuthContext';
@@ -107,6 +107,23 @@ export default function BrokerLoadsPage() {
     setFrom(''); setTo(''); setVehicle(''); setCustomer(''); setReference('');
     if (deepJob || deepCustomer) router.push('/broker/loads');
   };
+
+  useEffect(() => {
+    const resetLoads = () => {
+      setFrom('');
+      setTo('');
+      setVehicle('');
+      setCustomer('');
+      setReference('');
+      setTab('all');
+      setLoadType('all');
+      setExpanded(null);
+      setExpandedAllIds(new Set());
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+    window.addEventListener('xdrive:loads-reselect', resetLoads);
+    return () => window.removeEventListener('xdrive:loads-reselect', resetLoads);
+  }, []);
 
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 

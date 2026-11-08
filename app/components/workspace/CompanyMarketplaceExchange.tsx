@@ -77,7 +77,7 @@ const VEHICLE_OPTIONS = [['', 'Any vehicle'], ['swb_van', 'SWB Van'], ['mwb_van'
 const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 const DESCRIPTION_OPTIONS = [['any', 'Any timing'], ['same_day_timed', 'Same Day - Timed'], ['same_day_non_timed', 'Same Day - Non Timed'], ['next_day_timed', 'Next Day - Timed'], ['next_day_non_timed', 'Next Day - Non Timed'], ['3_5_days', '3 - 5 Days'], ['multi_drop', 'Multi-Drop'], ['other_notes', 'Other - Specified in Notes'], ['deliver_direct', 'Deliver Direct']] as const;
 const LOAD_TYPES = [['all', 'All Live'], ['on_demand', 'On Demand'], ['regular_load', 'Regular Load'], ['daily_hire', 'Daily Hire']] as const;
-const radiusOptions = ['10', '20', '30', '50', '100', '200', '300'];
+const radiusOptions = ['5', '10', '20', '30', '50', '100', '200', '300'];
 const fieldStyle = { height: 28, border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 7px', background: '#fff', color: '#0f172a', fontSize: '11px', minWidth: 0 } as const;
 const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 500, lineHeight: '14px', marginBottom: 3 } as const;
 const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return '-'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `Â£${amount.toFixed(2)}`; } };
@@ -283,6 +283,23 @@ export default function CompanyMarketplaceExchange({
   const applyDefault = () => { if (!defaultKey) return; try { const saved = JSON.parse(localStorage.getItem(defaultKey) ?? 'null') as Partial<Filters> | null; if (saved) { setFilters({ ...DEFAULT_FILTERS, ...saved }); setPage(1); setNotice('Saved default search loaded. Press Search to refresh results.'); } else setNotice('No default marketplace search has been saved yet.'); } catch { setNotice('The saved default search could not be read.'); } };
   const saveDefault = () => { if (!defaultKey) return; localStorage.setItem(defaultKey, JSON.stringify(filters)); setNotice('Default marketplace search saved for this company workspace.'); };
   const clearFilters = () => { setFilters(DEFAULT_FILTERS); setPage(1); setNotice('Filters cleared. Results will refresh automatically.'); };
+  useEffect(() => {
+    if (tab !== 'loads') return;
+    const resetLoads = () => {
+      setFilters(DEFAULT_FILTERS);
+      setPage(1);
+      setViewMode('list');
+      setAdvancedSearchOpen(false);
+      setExpanded(new Set());
+      setDetailsTarget(null);
+      setMemberTarget(null);
+      setBidTarget(null);
+      setNotice('');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+    window.addEventListener('xdrive:loads-reselect', resetLoads);
+    return () => window.removeEventListener('xdrive:loads-reselect', resetLoads);
+  }, [tab]);
   const setFilter = (key: keyof Filters, value: string) => { setFilters((current) => ({ ...current, [key]: value })); setPage(1); };
   const setVehicleRangeBoundary = (boundary: 'min' | 'max', nextIndex: number) => { setFilters((current) => { const last = Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1); const minIndex = current.minVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === current.minVehicle)) : 0; const maxIndex = current.maxVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === current.maxVehicle)) : last; const safeIndex = Math.max(0, Math.min(last, nextIndex)); const nextMin = boundary === 'min' ? Math.min(safeIndex, maxIndex) : minIndex; const nextMax = boundary === 'max' ? Math.max(safeIndex, minIndex) : maxIndex; return { ...current, minVehicle: VEHICLE_SIZE_OPTIONS[nextMin]?.value ?? '', maxVehicle: nextMax >= last ? '' : (VEHICLE_SIZE_OPTIONS[nextMax]?.value ?? '') }; }); setPage(1); };
   const toggleDescriptionFilter = (value: string) => setFilters((current) => { const allValues = DESCRIPTION_OPTIONS.filter(([item]) => item !== 'any').map(([item]) => item); const selected = current.description === 'any' ? [...allValues] : current.description.split(',').filter(Boolean); const next = selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]; return { ...current, description: next.length === allValues.length ? 'any' : next.join(',') }; });

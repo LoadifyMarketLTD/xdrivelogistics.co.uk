@@ -294,6 +294,37 @@ export default function AvailableLoadsPage() {
     setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
     setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
+  useEffect(() => {
+    const resetLoads = () => {
+      setVehicleFilter('any');
+      setPickupFilter('');
+      setDeliveryFilter('');
+      setCargoFilter('');
+      setWeightMinFilter('');
+      setDateFromFilter('');
+      setDateToFilter('');
+      setMemberFilter('');
+      setRegionFilter('any');
+      setPostedWithinFilter('any');
+      setJobTimingFilter('any');
+      setLoadTypeFilter('all');
+      setSortBy('date_desc');
+      setVisibleCount(25);
+      setPageSize(25);
+      setViewMode('list');
+      setExpandedLoadId(null);
+      setExpandAll(false);
+      setBidLoadId(null);
+      setBidAmount('');
+      setBidMessage('');
+      setError('');
+      setSuccessMsg('');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    };
+    window.addEventListener('xdrive:loads-reselect', resetLoads);
+    return () => window.removeEventListener('xdrive:loads-reselect', resetLoads);
+  }, []);
+
   const handleBidSubmit = async (loadId: string, quote: MarketplaceQuoteSubmitPayload) => {
     if (bidLoading) return;
     const amount = quote.totalAmount;
