@@ -13,9 +13,11 @@ test('Live read requests have explicit abort timeout and independent partial fee
  assert.match(api,/Promise\.allSettled\(/);
  assert.match(app,/Retry Live Data/);
 });
-test('Expired incoming offers stay visible for audit but cannot be accepted or declined',()=>{
+test('Expired incoming offers are excluded from Received but remain protected in offer-detail code',()=>{
  assert.match(api,/const offerExpired = pending && Number\.isFinite\(pickupAt\) && pickupAt < Date\.now\(\)/);
  assert.match(app,/EXPIRED OFFER/);
+ assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired&&!j\.offerExpired\)/);
+ assert.match(app,/No current booking offers/);
  assert.match(app,/job.offerExpired\?<div className="rv-warning"/);
  assert.match(app,/Expired Booking Offer/);
  assert.match(app,/Accept\/Decline is disabled/);

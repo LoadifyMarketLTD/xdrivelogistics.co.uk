@@ -66,3 +66,4 @@ Changes (reserve only):
 Evidence: Pixel 7 Pro screenshots D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\xdrive_diag_1.png (real loads) and booking_diag_real.png / booking_expired_readonly.png (expired incoming offer, no acceptance buttons).
 npm run build PASS; 50/50 focused tests PASS; lint zero errors (26 historical warnings). No production write. Finance and real POD->combined PDF->email E2E NOT VERIFIED.
 Main/Netlify/PWA 1099 unchanged.
+2026-11-08 21:24 - Received offers now show ONLY unexpired future pickup offers. Expired pending offers remain unchanged in source database; no fabricated future dates or server edits. Build PASS; 11/11 relevant tests PASS. Physical Pixel 7 Pro Chrome screenshot: D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\received_current_only_final.png shows No current booking offers and no expired job cards. Main and Netlify unchanged.
