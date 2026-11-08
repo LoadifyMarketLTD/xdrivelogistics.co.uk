@@ -180,7 +180,7 @@ export async function loadLive(token: string): Promise<LiveJob[]> {
 export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: LiveJob[]; warnings: string[]}> {
   const responses = await Promise.allSettled([
     driverGet('/marketplace/loads', token),
-    driverGet('/mobile/jobs?scope=active', token),
+    driverGet('/mobile/jobs?scope=bookings', token),
     driverGet('/mobile/jobs?scope=completed', token),
     driverGet('/mobile/bids', token),
     bookingOffersGet(token),
@@ -222,6 +222,10 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
     if (!id || !['pending', 'accepted'].includes(state)) continue;
     const details = obj(offer.job);
     const existing = result.get(id);
+    // An accepted offer is commercial evidence, not the authoritative execution status.
+    // Prefer the job's current_status when the assigned-job response is unavailable.
+    const executionStatus = str(get(details, 'current_status', 'currentStatus', 'status')).toLowerCase();
+    const resolvedExecutionStatus = statusMap[executionStatus];
     const from = str(get(details, 'pickup_location', 'pickup_city', 'pickup_postcode')) || existing?.from || 'Collection';
     const to = str(get(details, 'delivery_location', 'delivery_city', 'delivery_postcode')) || existing?.to || 'Delivery';
     const pending = state === 'pending';
@@ -233,7 +237,8 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
       vehicle: str(get(details, 'requested_vehicle_label', 'vehicle_type')) || existing?.vehicle || 'Not provided',
       weight: existing?.weight || 0,
       notes: str(offer.public_quote_notes) || existing?.notes || '',
-      status: existing && existing.status !== 'OPEN' ? existing.status : 'ALLOCATED',
+      status: existing && existing.status !== 'OPEN' ? existing.status : (resolvedExecutionStatus || 'ALLOCATED'),
+      backendStatus: existing?.backendStatus || executionStatus,
       company: str(offer.buyer_name) || existing?.company || 'Transport buyer',
       terms: str(details.payment_terms) || existing?.terms || 'Not provided',
       quote: num(offer.quoted_amount) ?? existing?.quote,
