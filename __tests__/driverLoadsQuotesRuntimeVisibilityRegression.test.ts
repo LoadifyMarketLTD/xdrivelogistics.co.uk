@@ -16,15 +16,15 @@ describe('Driver Loads / Quotes runtime visibility regressions', () => {
     expect(loadCard).toContain('freight &&');
     expect(loadCard).toContain('commercial &&');
     expect(loadCard).toContain('notes &&');
-    expect(loadCard).toContain('<ApprovedDriverOperationalCard');
+    expect(loadCard).toContain('<CxLoadCard');
     expect(sharedCard).toContain('expanded={expanded}');
     expect(canonicalCard).toContain('expanded && expandedContent &&');
   });
   it('renders canonical quote details only when expanded', () => {
     expect(quotes).toContain('<ApprovedDriverQuoteCard');
     expect(quotes).toContain('expandedContent={');
-    expect(quoteCard).toContain('<ApprovedDriverOperationalCard');
-    expect(quoteCard).toContain('expanded={expanded} expandedContent={expandedContent}');
+    expect(quoteCard).toContain('<CxQuoteCard');
+    expect(quoteCard).toContain('stage={stage} expanded={expanded}');
     expect(sharedCard).toContain('expanded={expanded}');
     expect(canonicalCard).toContain('expanded && expandedContent &&');
   });

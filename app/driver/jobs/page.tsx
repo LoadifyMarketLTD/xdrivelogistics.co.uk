@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import ApprovedDriverOperationalCard from '../_components/ApprovedDriverOperationalCard';
+import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
@@ -223,7 +223,7 @@ export default function DriverJobsPage() {
                   const hasPod = Array.isArray(job.delivery_photos) && job.delivery_photos.length > 0;
                   const inExecution = stage === 'in_progress';
                   const complete = stage === 'completed';
-                  return <ApprovedDriverOperationalCard
+                  return <CxDiaryCard
                     key={job.id}
                     className="xd-approved-bookings-card"
                     from={job.pickup_location ?? job.pickup_postcode ?? 'Collection'}
@@ -233,8 +233,8 @@ export default function DriverJobsPage() {
                     band={workspaceJobOperationalLabel(job)}
                     loadId={job.id.slice(0, 8).toUpperCase()}
                     vehicle={vehicleLabel(job)}
-                    member="Assigned to you"
-                    facts={<><span>{job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span><span>{hasPod ? 'Delivery evidence captured' : inExecution ? 'Execution in progress' : 'Awaiting execution'}</span></>}
+                    statusLine="Assigned to you"
+                    expandedMeta={<><span>{job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span><span>{hasPod ? 'Delivery evidence captured' : inExecution ? 'Execution in progress' : 'Awaiting execution'}</span></>}
                     state={status}
                     expanded={expanded}
                     footer={<>

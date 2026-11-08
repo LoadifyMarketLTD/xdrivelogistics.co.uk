@@ -8,7 +8,7 @@ import Master3150Card from './Master3150Card';
 export default function CxQuoteCard({
   routeFrom, routeTo, pickup, delivery, band, sold = false,
   postedAt, service, loadId, vehicle, stage,
-  expanded = false, expandedContent, footer,
+  expanded = false, expandedContent, footer, paymentTerms,
 }: {
   routeFrom: ReactNode;
   routeTo: ReactNode;
@@ -24,6 +24,7 @@ export default function CxQuoteCard({
   expanded?: boolean;
   expandedContent?: ReactNode;
   footer: ReactNode;
+  paymentTerms?: ReactNode;
 }) {
   return <Master3150Card
     mode="quote"
@@ -43,6 +44,7 @@ export default function CxQuoteCard({
     postedAt={postedAt}
     loadId={loadId}
     vehicle={vehicle}
+    terms={paymentTerms}
     state={stage}
     stage={stage}
     footer={footer}
