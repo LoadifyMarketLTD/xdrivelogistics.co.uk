@@ -365,6 +365,7 @@ function App() {
       setLiveError('Complete the recipient, delivered items and delivery location before confirming delivery.');
       return;
     }
+    statusOperationRef.current = true;
     setStatusBusy(true);
     setLiveError('');
     try {
@@ -400,7 +401,7 @@ function App() {
       try { await refreshLive(session.token); } catch { setLiveWarning('Delivery saved; booking refresh is delayed.'); }
     } catch (error) {
       setLiveError('Delivery not completed. ' + (error instanceof Error ? error.message : 'Please retry.'));
-    } finally { setStatusBusy(false); }
+    } finally { statusOperationRef.current = false; setStatusBusy(false); }
   };  const saveLivePickupDraft = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
     setStatusBusy(true);
@@ -782,7 +783,7 @@ function App() {
                       {tab !== "Loads" && <button className="map-action" onClick={() => setRouteJobId(j.id)}>View on Map</button>}
                       <div className={tab === "Bookings" ? "actions booking-card-actions" : "actions"}>
                         <button onClick={() => openJob(j.id)}>
-                          {tab === "Bookings" ? "View Booking Details" : "View Details"}
+                          {tab === "Bookings" ? "View Booking" : "View Details"}
                         </button>
                         {(tab === "Loads" || tab === "Alerts") && (
                           <button
