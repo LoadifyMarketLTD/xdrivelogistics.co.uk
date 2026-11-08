@@ -8,7 +8,7 @@ import '../../components/workspace/canonical3150-customer-load-details.css';
 export default function Page() {
   return <Company3150LiveProvider publicLocations>
     <div className="master3150-production">
-      <DemoExchangeBoard role="Customer" />
+      <DemoExchangeBoard role="Customer" productionMode />
     </div>
   </Company3150LiveProvider>;
 }

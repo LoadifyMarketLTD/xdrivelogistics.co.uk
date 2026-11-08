@@ -5,7 +5,7 @@ describe('Customer Loads uses exact approved original 3150 page',()=>{
  it('replaces independent operational page with original approved component',()=>{
   const route=src('app/customer/loads/page.tsx');
   expect(route).toContain("import DemoExchangeBoard from '../../try-xdrive-demo/components/DemoExchangeBoard'");
-  expect(route).toContain('<DemoExchangeBoard role="Customer" />');
+  expect(route).toContain('<DemoExchangeBoard role="Customer" productionMode />');
   expect(route).not.toContain('CustomerLoadsOperationalPage');
  });
  it('wraps original in authenticated RLS-scoped real data provider',()=>{

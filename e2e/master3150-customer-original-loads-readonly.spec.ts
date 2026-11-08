@@ -18,13 +18,17 @@ test('Customer real-data Loads is original 3150 board with original View Details
   await expect(board.getByRole('heading',{name:'Find Loads'})).toBeVisible();
   const view=board.getByRole('button',{name:'View Details'}).first();
   await expect(view).toBeVisible({timeout:30000});
+  const authorisedSheet=page.waitForResponse(r=>/\/api\/workspace\/jobs\/[^/]+\/sheet$/.test(new URL(r.url()).pathname),{timeout:30000});
   await view.click();
+  const securedResponse=await authorisedSheet;
+  expect(securedResponse.status()).toBe(200);
   const dialog=page.getByRole('dialog',{name:/Full details/});
   await expect(dialog).toBeVisible();
   for(const section of ['Load & Posting Company','Collection Details','Delivery Details','Vehicle & Cargo','Terms & Documents']){
     await expect(dialog.getByRole('heading',{name:section})).toBeVisible();
   }
-  await expect(dialog.getByText('Visible only to authorised parties after award').first()).toBeVisible();
+  await expect(dialog.getByText('Full Address & Contact',{exact:true})).toHaveCount(2);
+  await expect(board.getByRole('button',{name:'View Load',exact:true})).toHaveCount(0);
   await expect(board.getByRole('button',{name:'Quote Now'})).toHaveCount(0);
   await dialog.getByRole('button',{name:'Close Details',exact:true}).click();
   await expect(dialog).toHaveCount(0);
