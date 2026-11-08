@@ -3,7 +3,7 @@ const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 type Json = Record<string, unknown>;
 export type LiveSession = { token: string; refreshToken: string; expiresAt: number };
 export type LiveJob = {
-  id: string; from: string; to: string; pickup: string; delivery: string;
+  id: string; from: string; to: string; fromOutcode?: string; toOutcode?: string; pickup: string; delivery: string;
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
   company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
@@ -118,6 +118,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
   return {
     id: str(r.id), from: str(get(r, 'pickup_area', 'pickup_postcode_area')) || 'Collection area',
     to: str(get(r, 'delivery_area', 'delivery_postcode_area')) || 'Delivery area',
+    fromOutcode: str(r.pickup_postcode_area), toOutcode: str(r.delivery_postcode_area),
     pickup: dateTime(r.pickup_datetime), delivery: dateTime(r.delivery_datetime),
     pickupDate: date(r.pickup_datetime), deliveryDate: date(r.delivery_datetime),
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
@@ -160,6 +161,8 @@ export function mapAssigned(raw: unknown): LiveJob {
   return {
     id: str(r.id), from: str(get(r, 'pickupLocation', 'pickup_location', 'pickupPostcode', 'pickup_postcode')) || 'Collection',
     to: str(get(r, 'deliveryLocation', 'delivery_location', 'deliveryPostcode', 'delivery_postcode')) || 'Delivery',
+    fromOutcode: str(get(r,'pickupPostcodeArea','pickup_postcode_area')),
+    toOutcode: str(get(r,'deliveryPostcodeArea','delivery_postcode_area')),
     pickup: dateTime(get(r, 'pickupTime', 'pickupDatetime', 'pickup_datetime')),
     delivery: dateTime(get(r, 'deliveryTime', 'deliveryDatetime', 'delivery_datetime')),
     pickupDate: date(get(r, 'pickupTime', 'pickupDatetime', 'pickup_datetime')),

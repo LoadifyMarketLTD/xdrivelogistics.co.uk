@@ -8,6 +8,7 @@ import { reserveJobs, type QuoteSection } from './reserveLists';
 import DriverMenu from './DriverMenu';
 import BookingStatusTimeline from './BookingStatusTimeline';
 import DeliveryHandover from './DeliveryHandover';
+import { routeLabel } from './routeLabel';
 
 type Tab = 'Loads' | 'Quotes' | 'Bookings';
 type BookingSection = 'Received' | 'Allocated' | 'Delivered';
@@ -27,7 +28,7 @@ const nextStates: Partial<Record<LiveJob['status'], { label: string; backend: st
   ON_SITE_DELIVERY: { label: 'Complete Delivery', backend: 'delivered', status: 'DELIVERED' },
 };
 const quarters = Array.from({ length: 96 }, (_, i) => String(Math.floor(i/4)).padStart(2, '0') + ':' + String(i % 4 * 15).padStart(2, '0'));
-function Route({ job, full = false }: { job: LiveJob; full?: boolean }) { return <div className="rv-route"><div className="rv-stop"><i/><div><b>{job.from}</b><span>{full && job.pickupAddress ? job.pickupAddress : 'Collection · ' + job.pickup + (job.pickupDate ? ' · ' + job.pickupDate : '')}</span></div></div><div className="rv-stop"><i/><div><b>{job.to}</b><span>{full && job.deliveryAddress ? job.deliveryAddress : 'Delivery · ' + job.delivery + (job.deliveryDate ? ' · ' + job.deliveryDate : '')}</span></div></div></div>; }
+function Route({ job, full = false }: { job: LiveJob; full?: boolean }) { return <div className="rv-route"><div className="rv-stop"><i/><div><b>{routeLabel(job.from,job.fromOutcode)}</b><span>{full && job.pickupAddress ? job.pickupAddress : 'Collection · ' + job.pickup + (job.pickupDate ? ' · ' + job.pickupDate : '')}</span></div></div><div className="rv-stop"><i/><div><b>{routeLabel(job.to,job.toOutcode)}</b><span>{full && job.deliveryAddress ? job.deliveryAddress : 'Delivery · ' + job.delivery + (job.deliveryDate ? ' · ' + job.deliveryDate : '')}</span></div></div></div>; }
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="rv-field"><span>{label}</span>{children}</label>; }
 function Fact({ name, value }: { name: string; value: string | number }) { return <div className="rv-fact"><span>{name}</span><strong>{value || 'Not provided'}</strong></div>; }
 export default function ReserveApp() {
