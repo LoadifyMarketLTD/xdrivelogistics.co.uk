@@ -105,6 +105,22 @@
 .rv-job .rv-fact{font-size:12px;padding:5px 0}
 @media (max-width:400px){.rv-main:has(.rv-job){padding:6px 8px 25px}.rv-job.rv-card{padding:12px 10px 14px}.rv-jobhead .rv-job-identity>strong{font-size:16px}.rv-job .rv-stop b{font-size:17px}.rv-job .rv-stop span{font-size:12px}.rv-job .rv-actions button{font-size:13px}}
 
+/* CX booking evidence: readable tabs, distinct handover actions, real timestamped timeline. */
+.rv-booking-tabs{gap:5px;margin:10px 0 14px}
+.rv-booking-tabs button{font-size:12px;padding:10px 5px}
+.rv-booking-actions .rv-actions{gap:8px}
+.rv-booking-actions .rv-actions button{min-height:48px}
+.rv-booking-timeline{background:#fff;padding:14px 11px;margin-top:15px;border-top:2px solid #e6ecef}
+.rv-booking-timeline h3{font-size:17px;margin:0 0 12px}
+.rv-booking-timeline ol{margin:0;padding:0;list-style:none}
+.rv-booking-timeline li{display:flex;gap:13px;position:relative;padding:0 0 23px}
+.rv-booking-timeline li:not(:last-child):before{content:'';position:absolute;top:20px;bottom:0;left:11px;border-left:3px dotted #7dce7b}
+.rv-history-check{display:flex;align-items:center;justify-content:center;flex:none;border-radius:50%;width:25px;height:25px;background:#55b45e;color:#fff;font-size:16px;font-weight:900}
+.rv-booking-timeline li strong{display:block;font-size:17px;color:#223443}
+.rv-booking-timeline li small{display:block;font-size:12px;color:#66798a;margin:5px 0}
+.rv-booking-timeline li p{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0}
+.rv-history-unavailable{padding:12px;background:#f5f8fa;border-radius:8px}
+.rv-history-unavailable p{font-size:12px;color:#617487;margin:7px 0 0}
 /* Canonical invoice generator connection */
 .rv-finance .rv-back{display:block;max-width:max-content;margin-bottom:10px}
 .rv-finance .rv-over{display:block;margin:9px 0 8px}

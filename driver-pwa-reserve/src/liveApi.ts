@@ -14,6 +14,9 @@ export type LiveJob = {
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; service?: string;
   items?: number; hardCopyPodRequired?: boolean;
+  statusHistory?: Array<{ status: string; at: string; notes?: string }>;
+  clientName?: string; contactName?: string; contactPhone?: string;
+  collectionPhotos?: string[]; deliveryPhotos?: string[]; podPhotos?: string[];
 };
 const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
 const str = (value: unknown): string => typeof value === 'string' ? value : '';
@@ -178,6 +181,11 @@ export function mapAssigned(raw: unknown): LiveJob {
     deliveryAddress: str(get(r, 'deliveryAddress', 'delivery_address')),
     customerRef: str(get(r, 'customerReference', 'customer_reference')),
     yourRef: str(get(r, 'reference', 'driverReference', 'driver_reference')) || str(r.id),
+    statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory.map(item=>{const e=obj(item);return {status:str(get(e,'status','nextStatus','event','eventType'))||'Status update',at:str(get(e,'at','timestamp','created_at','createdAt','occurred_at')),notes:str(get(e,'notes','message'))};}) : [],
+    clientName: str(r.clientName),contactName: str(r.contactName),contactPhone: str(r.contactPhone),
+    collectionPhotos: Array.isArray(r.pickupPhotos)?r.pickupPhotos.filter(v=>typeof v==='string'):[],
+    deliveryPhotos: Array.isArray(r.deliveryPhotos)?r.deliveryPhotos.filter(v=>typeof v==='string'):[],
+    podPhotos: Array.isArray(r.podPhotos)?r.podPhotos.filter(v=>typeof v==='string'):[],
   };
 }
 export async function loadLive(token: string): Promise<LiveJob[]> {
