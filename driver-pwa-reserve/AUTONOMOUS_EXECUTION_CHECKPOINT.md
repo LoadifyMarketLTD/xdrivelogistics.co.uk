@@ -51,5 +51,18 @@ Live local preview: http://127.0.0.1:5197/driver/reserve-pwa/
 - CX Posted category not integrated: no permitted posted-booking read endpoint validated.
 - Full original POD attachments, image preview and invoice A4/actual email receipt still not E2E verified.
 - No authorised transactional Accept, status change, POD upload, or invoice email occurred. No changes to production GitHub main or Netlify.
-\n## 2026-11-08 — View on Map styling\nAll map controls in Loads, Quotes, Bookings, Details now share teal fill #d0f1ed, dark text #075b61, border #79c9c3. Real routing unchanged. Build PASS, 19/19 tests PASS. Pixel screenshot: D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\mapcolor_pixel_final.png. Reserve local only; main/Netlify untouched.\n
+\n## 2026-11-08 ï¿½ View on Map styling\nAll map controls in Loads, Quotes, Bookings, Details now share teal fill #d0f1ed, dark text #075b61, border #79c9c3. Real routing unchanged. Build PASS, 19/19 tests PASS. Pixel screenshot: D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\mapcolor_pixel_final.png. Reserve local only; main/Netlify untouched.\n
 \n## 2026-11-08 - Town/outcode route labels\nRoute labels now render city, public outcode if returned by actual authenticated API. Examples Blackburn, BB1; Leeds, LS1; Manchester, M12. No fixed guessed outcode by town; full postcodes remain private pre-award. In liveApi.ts marketplace fields pickup_postcode_area/delivery_postcode_area mapped into fromOutcode/toOutcode; UI Route renders via routeLabel. npm build PASS, 14/14 tests PASS. Pixel preview opened but live jobs remained at Loading during screenshot, so live data display NOT VERIFIED. No main/Netlify changes.\n
+
+## 2026-11-08 21:15 ï¿½ Screenshot-driven stability / Bookings / Invoice recovery
+User screenshots showed endlessly loading Loads, lost scroll position on invoices, an expired collection date still labeled new job with Accept/Decline, and Finance ineligibility.
+Changes (reserve only):
+- liveApi jsonFetch now aborts stalled GET after 12 seconds; writes after 25 seconds with ambiguous-write warning; feeds retain Promise.allSettled for partial results.
+- Retry Live Data shown on missing feeds; tapping any bottom tab refreshes authenticated data without dropping existing list.
+- Route/view/job changes reset document scrolling, remount main view; scrollRestoration manual.
+- Booking offers with elapsed pickup timestamp show EXPIRED OFFER and read-only details. Incoming page removes Accept/Decline controls, names expired status and explains reason. Did not mutate any real offer.
+- Real postcode/outcode extracted only from assigned/offer job data; no city guess and no full preaward code leak.
+- Official invoice eligibility: continued to require server verification of completed status, complete signed POD, accepted commercial snapshot and finance ownership rights; clearer message and Recheck Invoice Eligibility action. Finance reads now have a timeout.
+Evidence: Pixel 7 Pro screenshots D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\xdrive_diag_1.png (real loads) and booking_diag_real.png / booking_expired_readonly.png (expired incoming offer, no acceptance buttons).
+npm run build PASS; 50/50 focused tests PASS; lint zero errors (26 historical warnings). No production write. Finance and real POD->combined PDF->email E2E NOT VERIFIED.
+Main/Netlify/PWA 1099 unchanged.

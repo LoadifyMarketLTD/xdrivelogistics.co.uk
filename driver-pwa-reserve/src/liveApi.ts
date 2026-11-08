@@ -1,4 +1,5 @@
 // Production driver API adapter. Only publishable Supabase keys are accepted.
+import { extractPublicOutcode } from './routeLabel';
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 type Json = Record<string, unknown>;
 export type LiveSession = { token: string; refreshToken: string; expiresAt: number };
@@ -9,7 +10,7 @@ export type LiveJob = {
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
   bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
   personalBid?: boolean; // true only for records returned by authenticated /mobile/bids personal quote history
-  offerId?: string; acceptanceRequired?: boolean; backendStatus?: string; podRecorded?: boolean;
+  offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; backendStatus?: string; podRecorded?: boolean;
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; service?: string;
@@ -35,10 +36,27 @@ const date = (value: unknown): string => {
 };
 const get = (row: Json, ...keys: string[]): unknown => keys.map(k => row[k]).find(v => v !== null && v !== undefined && v !== '');
 async function jsonFetch(url: string, init?: RequestInit): Promise<Json> {
-  const response = await fetch(url, { ...init, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
-  const body = obj(await response.json().catch(() => ({})));
-  if (!response.ok) throw new Error(str(body.error_description) || str(body.msg) || str(body.error) || 'API request failed (' + response.status + ')');
-  return body;
+  // Each feed must settle: one stalled endpoint must not freeze the entire app.
+  const isWrite = init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase());
+  const deadlineMs = isWrite ? 25000 : 12000;
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), deadlineMs);
+  const relayAbort = () => abort.abort();
+  init?.signal?.addEventListener('abort', relayAbort, { once: true });
+  try {
+    const response = await fetch(url, { ...init, signal: abort.signal, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
+    const body = obj(await response.json().catch(() => ({})));
+    if (!response.ok) throw new Error(str(body.error_description) || str(body.msg) || str(body.error) || 'API request failed (' + response.status + ')');
+    return body;
+  } catch (error) {
+    if (abort.signal.aborted && !init?.signal?.aborted) {
+      throw new Error(isWrite ? 'Request timed out. Its result is unknown. Refresh before attempting the action again.' : 'Live service did not respond within 12 seconds.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    init?.signal?.removeEventListener('abort', relayAbort);
+  }
 }
 export async function login(email: string, password: string): Promise<LiveSession> {
   const config = await jsonFetch(base + '/mobile/config');
@@ -161,8 +179,8 @@ export function mapAssigned(raw: unknown): LiveJob {
   return {
     id: str(r.id), from: str(get(r, 'pickupLocation', 'pickup_location', 'pickupPostcode', 'pickup_postcode')) || 'Collection',
     to: str(get(r, 'deliveryLocation', 'delivery_location', 'deliveryPostcode', 'delivery_postcode')) || 'Delivery',
-    fromOutcode: str(get(r,'pickupPostcodeArea','pickup_postcode_area')),
-    toOutcode: str(get(r,'deliveryPostcodeArea','delivery_postcode_area')),
+    fromOutcode: extractPublicOutcode(get(r,'pickupPostcodeArea','pickup_postcode_area','pickupPostcode','pickup_postcode')),
+    toOutcode: extractPublicOutcode(get(r,'deliveryPostcodeArea','delivery_postcode_area','deliveryPostcode','delivery_postcode')),
     pickup: dateTime(get(r, 'pickupTime', 'pickupDatetime', 'pickup_datetime')),
     delivery: dateTime(get(r, 'deliveryTime', 'deliveryDatetime', 'delivery_datetime')),
     pickupDate: date(get(r, 'pickupTime', 'pickupDatetime', 'pickup_datetime')),
@@ -247,9 +265,13 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
     const from = str(get(details, 'pickup_location', 'pickup_city', 'pickup_postcode')) || existing?.from || 'Collection';
     const to = str(get(details, 'delivery_location', 'delivery_city', 'delivery_postcode')) || existing?.to || 'Delivery';
     const pending = state === 'pending';
+    const pickupAt = Date.parse(str(get(details, 'pickup_datetime','pickupDatetime')));
+    const offerExpired = pending && Number.isFinite(pickupAt) && pickupAt < Date.now();
     result.set(id, {
       ...existing,
       id, from, to,
+      fromOutcode: existing?.fromOutcode || extractPublicOutcode(get(details,'pickup_postcode_area','pickup_postcode','pickupPostcode')),
+      toOutcode: existing?.toOutcode || extractPublicOutcode(get(details,'delivery_postcode_area','delivery_postcode','deliveryPostcode')),
       pickup: dateTime(details.pickup_datetime) !== 'Not provided' ? dateTime(details.pickup_datetime) : existing?.pickup || 'Not provided',
       delivery: dateTime(details.delivery_datetime) !== 'Not provided' ? dateTime(details.delivery_datetime) : existing?.delivery || 'Not provided',
       vehicle: str(get(details, 'requested_vehicle_label', 'vehicle_type')) || existing?.vehicle || 'Not provided',
@@ -263,6 +285,7 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
       quoteOutcome: 'AWARDED',
       offerId: str(offer.id),
       acceptanceRequired: pending,
+      offerExpired,
       yourRef: str(offer.public_reference) || existing?.yourRef || id,
     });
   }
