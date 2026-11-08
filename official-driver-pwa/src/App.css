@@ -224,4 +224,15 @@ button:disabled{cursor:wait}
 .booking-collection-form .booking-yellow,.booking-collection-form button[type=submit]{background:#ffc400!important;color:#161616!important;border:0!important;border-radius:3px!important;min-height:51px;font-size:17px!important;font-weight:800!important;width:100%}
 .booking-collection-form .eta-quarter-hour{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px}
 .booking-collection-form .eta-quarter-hour>*{min-width:0}
-}
+}/* Approved five-stage Booking / Collection / Delivery / POD / Invoice visual system. */
+.xdrive-approved-progress{display:flex;gap:6px;overflow-x:auto;margin:10px 0 18px;padding:3px 0 8px;scrollbar-width:thin}
+.xdrive-approved-progress span{display:flex;align-items:center;justify-content:center;gap:5px;flex:1;min-width:79px;border:1px solid #dee4ea;border-radius:9px;background:#fff;padding:11px 7px;font-size:11px;font-weight:750;color:#788594;white-space:nowrap}
+.xdrive-approved-progress b{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#edf0f3;color:#637181;font-size:10px}
+.xdrive-approved-progress .current{border-color:#f47721;background:#fff7f1;color:#b7570e}
+.xdrive-approved-progress .current b{background:#f47721;color:white}
+.xdrive-approved-progress .complete{border-color:#b8e3d2;background:#f4fbf7;color:#16845a}
+.xdrive-approved-progress .complete b{background:#16845a;color:white}
+.booking-approved-onsite,.booking-collection-form{background:#fff;border:1px solid #e1e5ea;border-radius:14px;padding:20px!important;box-shadow:0 3px 14px #19233108}
+.booking-approved-onsite input,.booking-approved-onsite textarea,.booking-approved-onsite select,.booking-collection-form input,.booking-collection-form textarea,.booking-collection-form select{border:1px solid #d9e0e7!important;border-radius:8px!important;background:#fff!important;padding:11px 12px!important;color:#283647!important}
+.booking-approved-onsite .booking-approved-save,.booking-collection-form .booking-yellow{background:#f47721!important;color:#fff!important;border:1px solid #f47721!important;border-radius:9px!important;font-size:12px!important;font-weight:800!important}
+@media(max-width:480px){.xdrive-approved-progress{gap:4px}.xdrive-approved-progress span{min-width:76px;flex-direction:column;padding:9px 5px}.booking-approved-onsite,.booking-collection-form{padding:16px!important;border-radius:11px}}
