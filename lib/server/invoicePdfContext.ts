@@ -23,6 +23,14 @@ type InvoicePdfContext = {
   logoBytes: Uint8Array | null;
   evidenceImages: EvidenceImage[];
   signatureAttestation: string | null;
+  podSummary: {
+    deliveredOn: string | null;
+    receivedBy: string | null;
+    leftAt: string | null;
+    noOfItems: number | null;
+    deliveryStatus: string | null;
+    deliveryNotes: string | null;
+  } | null;
 };
 
 const clean = (value: unknown) =>
@@ -144,16 +152,34 @@ export async function loadInvoicePdfContext({
   let vehicleDescription: string | null = null;
   const evidenceImages: EvidenceImage[] = [];
   let signatureAttestation: string | null = null;
+  let podSummary: InvoicePdfContext['podSummary'] = null;
 
   if (jobId) {
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
+      .select('id, pod_generated, pod_photos, damage_photos, pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
       .eq('id', jobId)
       .maybeSingle();
 
     if (requirePod && (jobError || !job || !hasCompletePodEvidence(job))) throw new Error('Complete POD is required before sending this invoice.');
     if (job) {
+      const { data: pod, error: podError } = await supabase.from('proof_of_delivery')
+        .select('delivered_on, received_by, left_at, no_of_items, delivery_status, delivery_notes, photo_urls')
+        .eq('job_id', jobId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (requirePod && (podError || !pod)) throw new Error('Complete POD record is missing or unavailable. The invoice cannot be sent without the delivery handover.');
+      if (pod) {
+        podSummary = {
+          deliveredOn: clean(pod.delivered_on),
+          receivedBy: clean(pod.received_by),
+          leftAt: clean(pod.left_at),
+          noOfItems: pod.no_of_items == null ? null : Number(pod.no_of_items),
+          deliveryStatus: clean(pod.delivery_status),
+          deliveryNotes: clean(pod.delivery_notes),
+        };
+      }
       pickupDateTime = clean(job.pickup_datetime);
       deliveryDateTime = clean(job.delivery_datetime);
       recipientName = clean(job.client_signature_name);
@@ -179,11 +205,15 @@ export async function loadInvoicePdfContext({
       const imagePaths: Array<{ path: string; label: string }> = [];
       const collectionPath = clean(job.collection_photo_url);
       if (collectionPath) imagePaths.push({ path: collectionPath, label: 'Collection' });
-      for (const [paths, label] of [[job.delivery_photos, 'Delivery'], [job.pod_photos, 'POD']] as const) {
+      for (const [paths, label] of [[job.delivery_photos, 'Delivery'], [job.pod_photos, 'POD'], [job.damage_photos, 'Damage evidence']] as const) {
         if (Array.isArray(paths)) for (const path of paths) {
           const cleaned = clean(path);
           if (cleaned && !imagePaths.some(image => image.path === cleaned)) imagePaths.push({ path: cleaned, label });
         }
+      }
+      if (pod && Array.isArray(pod.photo_urls)) for (const path of pod.photo_urls) {
+        const cleaned = clean(path);
+        if (cleaned && !imagePaths.some(image => image.path === cleaned)) imagePaths.push({ path: cleaned, label: 'POD document evidence' });
       }
       for (const image of imagePaths) {
         if (!image.path.startsWith(`${companyId}/${jobId}/`) || image.path.includes('..') || image.path.includes('://') || image.path.includes('\\')) {
@@ -230,5 +260,6 @@ export async function loadInvoicePdfContext({
     logoBytes,
     evidenceImages,
     signatureAttestation,
+    podSummary,
   };
 }

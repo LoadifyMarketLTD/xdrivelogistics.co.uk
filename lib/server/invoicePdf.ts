@@ -45,6 +45,14 @@ type InvoicePdfInput = {
   logoBytes?: Uint8Array | null;
   evidenceImages?: InvoiceEvidenceImage[];
   signatureAttestation?: string | null;
+  podSummary?: {
+    deliveredOn: string | null;
+    receivedBy: string | null;
+    leftAt: string | null;
+    noOfItems: number | null;
+    deliveryStatus: string | null;
+    deliveryNotes: string | null;
+  } | null;
   netAmount: number;
   vatAmount: number;
   vatRate: number;
@@ -526,6 +534,37 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     page.drawText(footerContact, { x: margin, y: 42, size: footerSize, font: regular, color: slate });
   }
 
+  // Complete proof-of-delivery record is included as its own A4 appendix.
+  // This is generated from the authoritative proof_of_delivery row, not the invoice display fields.
+  if (input.podSummary) {
+    const podPage = pdf.addPage([595.28, 841.89]);
+    podPage.drawText('PROOF OF DELIVERY', { x: 42, y: 785, font: bold, size: 18, color: ink });
+    podPage.drawText('XDrive Logistics - delivery handover', { x: 42, y: 762, font: regular, size: 10, color: slate });
+    const facts: Array<[string, string]> = [
+      ['Invoice', input.invoiceNumber],
+      ['Job reference', input.jobReference || 'Not recorded'],
+      ['Collection', input.pickupLocation || 'Not recorded'],
+      ['Delivery', input.deliveryLocation || 'Not recorded'],
+      ['Delivered on', input.podSummary.deliveredOn || input.deliveryDateTime || 'Not recorded'],
+      ['Received By', input.podSummary.receivedBy || input.recipientName || 'Not recorded'],
+      ['Left At', input.podSummary.leftAt || 'Not recorded'],
+      ['Items delivered', input.podSummary.noOfItems == null ? 'Not recorded' : String(input.podSummary.noOfItems)],
+      ['Delivery status', input.podSummary.deliveryStatus || 'Not recorded'],
+      ['Driver / delivery notes', input.podSummary.deliveryNotes || input.deliveryNotes || 'None'],
+    ];
+    let cursor = 730;
+    for (const [label, value] of facts) {
+      podPage.drawText(pdfText(label), { x: 42, y: cursor, font: bold, size: 9, color: ink });
+      const textLines = wrapText(value, 80).slice(0, 4);
+      for (const line of textLines) {
+        cursor -= 13;
+        podPage.drawText(pdfText(line), { x: 42, y: cursor, font: regular, size: 9, color: slate });
+      }
+      cursor -= 19;
+    }
+    podPage.drawText('Recipient signature and original collection/delivery photographs follow on the next pages.',
+      { x: 42, y: Math.max(92, cursor - 18), font: regular, size: 9, color: slate });
+  }
   // Appendices
   if (input.signatureAttestation) {
     const attestation = pdf.addPage([595.28, 841.89]);

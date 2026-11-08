@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from './invoicePdf';
+import { PDFDocument } from 'pdf-lib';
 import { loadInvoicePdfContext } from './invoicePdfContext';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../app/api/_lib/supabaseAdmin';
 import { requireDriverFinanceAccess } from '../../app/api/driver/finance/_lib/financeAccess';
@@ -425,6 +426,7 @@ export async function submitInvoice(
       logoBytes: pdfContext.logoBytes,
       evidenceImages: pdfContext.evidenceImages,
       signatureAttestation: pdfContext.signatureAttestation,
+      podSummary: pdfContext.podSummary,
       netAmount,
       vatAmount,
       vatRate,
@@ -442,6 +444,34 @@ export async function submitInvoice(
 
   if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
+  }
+
+  // Attach the full delivery POD as a separately named PDF in the same email.
+  // The canonical preview/storage PDF contains page 1 (invoice) followed by
+  // the authoritative delivery record, signature, photos and documents.
+  let invoicePageBytes: Uint8Array;
+  let fullPodBytes: Uint8Array;
+  try {
+    const combined = await PDFDocument.load(pdfBytes);
+    if (combined.getPageCount() < 3 || !pdfContext.podSummary
+      || (!pdfContext.signatureAttestation && !pdfContext.evidenceImages.some(item => item.label === 'Signature'))
+      || !pdfContext.evidenceImages.some(item => item.label !== 'Signature' && item.label !== 'Collection')) {
+      throw new Error('The invoice PDF is missing complete signed delivery POD evidence.');
+    }
+    const invoiceOnly = await PDFDocument.create();
+    const [invoicePage] = await invoiceOnly.copyPages(combined, [0]);
+    invoiceOnly.addPage(invoicePage);
+    invoicePageBytes = await invoiceOnly.save();
+
+    const podOnly = await PDFDocument.create();
+    const podPages = await podOnly.copyPages(
+      combined, Array.from({ length: combined.getPageCount() - 1 }, (_, index) => index + 1),
+    );
+    for (const podPage of podPages) podOnly.addPage(podPage);
+    fullPodBytes = await podOnly.save();
+    if (!invoicePageBytes.byteLength || !fullPodBytes.byteLength) throw new Error('The invoice or POD attachment is empty.');
+  } catch (reason) {
+    return failDelivery(409, reason instanceof Error ? reason.message : 'Full signed POD could not be attached.');
   }
 
   const fileName = `${cleanFileName(invoiceNumber)}.pdf`;
@@ -507,7 +537,10 @@ export async function submitInvoice(
       subject: resolvedSubject,
       text: resolvedMessage,
       html: messageToHtml(resolvedMessage),
-      attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
+      attachments: [
+        { filename: fileName, content: Buffer.from(invoicePageBytes).toString('base64') },
+        { filename: `${cleanFileName(invoiceNumber)}-Complete-POD.pdf`, content: Buffer.from(fullPodBytes).toString('base64') },
+      ],
     };
     const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
     if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');

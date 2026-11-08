@@ -46,4 +46,14 @@
 .rv-menuitem{width:100%;background:white;color:#243c54;border:1px solid #e1e9f1;padding:17px;border-radius:10px;text-align:left;font-weight:750;font-size:14px;margin:4px 0;display:flex;justify-content:space-between}
 .rv-menuitem span{color:#98aabd}.rv-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);max-width:720px;width:100%;background:#172b45;display:flex;justify-content:space-around;z-index:10;box-shadow:0 -5px 20px #11294121;padding:10px 0 max(10px,env(safe-area-inset-bottom))}
 .rv-nav button{background:transparent;color:#bdcbd9;border:0;font-size:12px;font-weight:750;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:80px}.rv-nav button span{font-size:22px}.rv-nav button.rv-active{color:#ffa66d}.rv-nav button.rv-active:after{content:'';background:#f47721;height:3px;width:22px;border-radius:3px}
+
+/* Canonical invoice generator connection */
+.rv-finance .rv-back{display:block;max-width:max-content;margin-bottom:10px}
+.rv-finance .rv-over{display:block;margin:9px 0 8px}
+.rv-finance .rv-card{margin-top:14px}
+.rv-finance .rv-confirm{display:flex;gap:11px;align-items:flex-start;line-height:1.45;margin:16px 1px;color:#385770;font-size:13px;font-weight:720}
+.rv-finance .rv-confirm input{flex:0 0 auto;width:19px;height:19px;margin-top:1px;accent-color:#f47721}
+.rv-finance .rv-invoice-paper{margin-top:13px}
+.rv-finance .rv-primary,.rv-finance .rv-outline{min-height:46px}
+.rv-finance{padding-bottom:34px}
 @media(min-width:760px){.rv-shell{box-shadow:0 8px 45px #112f4e19}}@media(max-width:380px){.rv-main{padding:13px 10px}.rv-brand strong{font-size:14px}.rv-brand small{font-size:9px}.rv-mark{height:36px;width:36px}}

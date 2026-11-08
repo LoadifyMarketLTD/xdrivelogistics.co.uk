@@ -121,6 +121,7 @@ export async function GET(
     supabase: supabaseAdmin,
     companyId: previewer.companyId,
     jobId: typeof invoice.job_id === 'string' ? invoice.job_id : null,
+    requirePod: Boolean(invoice.job_id),
   });
 
   let pdfBytes: Uint8Array;
@@ -163,6 +164,8 @@ export async function GET(
       paypalEmail: pdfContext.paypalEmail,
       logoBytes: pdfContext.logoBytes,
       evidenceImages: pdfContext.evidenceImages,
+      signatureAttestation: pdfContext.signatureAttestation,
+      podSummary: pdfContext.podSummary,
       netAmount,
       vatAmount,
       vatRate,
