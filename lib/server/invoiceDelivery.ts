@@ -446,32 +446,21 @@ export async function submitInvoice(
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
   }
 
-  // Attach the full delivery POD as a separately named PDF in the same email.
-  // The canonical preview/storage PDF contains page 1 (invoice) followed by
-  // the authoritative delivery record, signature, photos and documents.
-  let invoicePageBytes: Uint8Array;
-  let fullPodBytes: Uint8Array;
+  // The invoice and all signed POD evidence MUST remain in ONE A4 PDF.
+  // Do not split the first page from the delivery record or photos for email.
   try {
     const combined = await PDFDocument.load(pdfBytes);
-    if (combined.getPageCount() < 3 || !pdfContext.podSummary
-      || (!pdfContext.signatureAttestation && !pdfContext.evidenceImages.some(item => item.label === 'Signature'))
-      || !pdfContext.evidenceImages.some(item => item.label !== 'Signature' && item.label !== 'Collection')) {
-      throw new Error('The invoice PDF is missing complete signed delivery POD evidence.');
-    }
-    const invoiceOnly = await PDFDocument.create();
-    const [invoicePage] = await invoiceOnly.copyPages(combined, [0]);
-    invoiceOnly.addPage(invoicePage);
-    invoicePageBytes = await invoiceOnly.save();
-
-    const podOnly = await PDFDocument.create();
-    const podPages = await podOnly.copyPages(
-      combined, Array.from({ length: combined.getPageCount() - 1 }, (_, index) => index + 1),
+    const hasSignature = Boolean(pdfContext.signatureAttestation)
+      || pdfContext.evidenceImages.some(item => item.label === 'Signature');
+    const hasDeliveryEvidence = pdfContext.evidenceImages.some(
+      item => item.label === 'Delivery' || item.label === 'POD' || item.label === 'POD document evidence',
     );
-    for (const podPage of podPages) podOnly.addPage(podPage);
-    fullPodBytes = await podOnly.save();
-    if (!invoicePageBytes.byteLength || !fullPodBytes.byteLength) throw new Error('The invoice or POD attachment is empty.');
+    if (combined.getPageCount() < 3 || !pdfContext.podSummary
+      || !hasSignature || !hasDeliveryEvidence) {
+      throw new Error('The combined invoice PDF is missing the completed POD, recipient signature or delivery evidence.');
+    }
   } catch (reason) {
-    return failDelivery(409, reason instanceof Error ? reason.message : 'Full signed POD could not be attached.');
+    return failDelivery(409, reason instanceof Error ? reason.message : 'Complete invoice and POD PDF could not be verified.');
   }
 
   const fileName = `${cleanFileName(invoiceNumber)}.pdf`;
@@ -537,13 +526,29 @@ export async function submitInvoice(
       subject: resolvedSubject,
       text: resolvedMessage,
       html: messageToHtml(resolvedMessage),
-      attachments: [
-        { filename: fileName, content: Buffer.from(invoicePageBytes).toString('base64') },
-        { filename: `${cleanFileName(invoiceNumber)}-Complete-POD.pdf`, content: Buffer.from(fullPodBytes).toString('base64') },
-      ],
+      // Same combined PDF as stored in invoice-docs and offered in preview.
+      attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
     };
     const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
     if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
+  }
+  // Prevent previously queued two-file or incomplete snapshots from bypassing
+  // the required single combined invoice + complete POD attachment.
+  if (claimedInvoice.job_id) {
+    const attachments = Array.isArray(emailBody?.attachments) ? emailBody.attachments : [];
+    if (attachments.length !== 1) {
+      return failDelivery(409, 'Stored invoice email does not contain exactly one combined invoice and complete POD PDF. Finance reconciliation is required.');
+    }
+    const attachment = attachments[0] as Record<string, unknown>;
+    if (typeof attachment.content !== 'string' || attachment.filename !== `${cleanFileName(cleanHeader(claimedInvoice.invoice_number))}.pdf`) {
+      return failDelivery(409, 'The frozen invoice email attachment is invalid. Finance reconciliation is required.');
+    }
+    try {
+      const frozen = await PDFDocument.load(Buffer.from(attachment.content, 'base64'));
+      if (frozen.getPageCount() < 3) throw new Error('Missing signed POD appendix');
+    } catch {
+      return failDelivery(409, 'The frozen invoice attachment does not contain a readable invoice and full POD. Finance reconciliation is required.');
+    }
   }
   const attemptedAt = new Date().toISOString();
 

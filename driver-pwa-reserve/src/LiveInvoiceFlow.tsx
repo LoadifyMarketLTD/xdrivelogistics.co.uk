@@ -93,8 +93,8 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    if(!(res.headers.get('content-type')||'').includes('application/pdf'))throw new Error('XDrive invoice generator did not return a PDF.');
    const blob=await res.blob();if(blob.size<1000)throw new Error('PDF response is too small to be a valid invoice.');
    const url=URL.createObjectURL(blob);
-   const anchor=document.createElement('a');anchor.href=url;anchor.download='XDrive-'+(invoice.invoice_number||invoice.id)+'.pdf';document.body.appendChild(anchor);anchor.click();anchor.remove();
-   window.setTimeout(()=>URL.revokeObjectURL(url),60000);setPdfReviewed(true);setNotice('Official A4 PDF downloaded from the platform generator for review.');
+   const anchor=document.createElement('a');anchor.href=url;anchor.download='XDrive-'+(invoice.invoice_number||invoice.id)+'-Invoice-POD-Complete.pdf';document.body.appendChild(anchor);anchor.click();anchor.remove();
+   window.setTimeout(()=>URL.revokeObjectURL(url),60000);setPdfReviewed(true);setNotice('Combined A4 PDF downloaded: invoice, completed POD, recipient signature and all available collection/delivery photographs.');
  }); }
  async function send(){await action(async()=>{
    if(!invoice?.id||!pdfReviewed||!sendApproved)throw new Error('Review the generated invoice and explicitly approve the recipient before sending.');
@@ -137,15 +137,15 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    </section>}
    {stage===0&&eligible&&!invoice&&<button className="rv-primary rv-wide" disabled={busy||generatorRequested} onClick={()=>void generate()}>{busy?'Generating official draft…':'Generate Invoice in XDrive →'}</button>}
    {stage===0&&invoice&&<button className="rv-primary rv-wide" onClick={()=>setStage(sent?2:1)}>Open Existing Invoice →</button>}
-   {stage===1&&<section className="rv-card"><h3>Official A4 preview</h3>
+   {stage===1&&<section className="rv-card"><h3>Combined A4 Invoice + Complete POD</h3>
     {row('Invoice',invoice?.invoice_number||'Not generated')}
     {row('Customer',invoice?.client_name||'Unknown')}
     {row('Recipient',invoice?.client_email||'Not provided')}
     {row('Net',money(Number(invoice?.net_amount||0)))}
     {row('VAT',money(Number(invoice?.vat_amount||0)))}
     {row('Total',money(Number(invoice?.amount||0)))}
-    <p className="rv-sub">All amounts and VAT are read from the canonical invoice, not recalculated from the displayed quote.</p>
-    <button className="rv-primary rv-wide" disabled={busy} onClick={()=>void preview()}>{busy?'Generating official PDF…':'Generate / Download A4 PDF →'}</button>
+    <p className="rv-sub">One PDF in this order: invoice → complete delivery POD → recipient signature → collection and delivery photos → uploaded POD documents. Amounts and VAT come from the official invoice.</p>
+    <button className="rv-primary rv-wide" disabled={busy} onClick={()=>void preview()}>{busy?'Generating official PDF…':'Download Invoice + Complete POD (A4) →'}</button>
     {pdfReviewed&&<><div className="rv-success">✓ PDF returned by XDrive generator. Inspect it before continuing.</div><button className="rv-outline rv-wide" onClick={()=>setStage(2)}>Continue to Send Invoice →</button></>}
    </section>}
    {stage===2&&<section className="rv-card"><h3>Invoice delivery</h3>
@@ -154,7 +154,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
     {row('Status',invoice?.status||'Unknown')}
     {row('Email delivery state',invoice?.delivery_state||'Not sent')}
     {row('Delivery message ID',invoice?.delivery_message_id||'Not confirmed')}
-    {!sent&&draft&&<><label className="rv-confirm"><input type="checkbox" checked={sendApproved} onChange={e=>setSendApproved(e.target.checked)}/> I reviewed the official A4 PDF and approve sending it to the stated finance recipient.</label><button className="rv-primary rv-wide" disabled={busy||!pdfReviewed||!sendApproved} onClick={()=>void send()}>{busy?'Submitting to XDrive…':'Send Invoice via XDrive →'}</button></>}
+    {!sent&&draft&&<><label className="rv-confirm"><input type="checkbox" checked={sendApproved} onChange={e=>setSendApproved(e.target.checked)}/> I reviewed the single A4 PDF containing the invoice, full signed POD and all collection/delivery photos, and approve emailing that combined document to the stated finance recipient.</label><button className="rv-primary rv-wide" disabled={busy||!pdfReviewed||!sendApproved} onClick={()=>void send()}>{busy?'Submitting to XDrive…':'Send Invoice via XDrive →'}</button></>}
     <button className="rv-outline rv-wide" disabled={busy} onClick={()=>void verify()}>Verify Delivery Status ↻</button>
     {(sent||confirmed)&&<div className="rv-success">✓ The XDrive platform recorded invoice delivery with a message ID.</div>}
    </section>}

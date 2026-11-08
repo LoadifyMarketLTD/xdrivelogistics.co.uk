@@ -157,7 +157,7 @@ export async function loadInvoicePdfContext({
   if (jobId) {
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id, pod_generated, pod_photos, damage_photos, pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
+      .select('id, pod_generated, pod_photos, damage_photos, pickup_photos, pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
       .eq('id', jobId)
       .maybeSingle();
 
@@ -171,6 +171,10 @@ export async function loadInvoicePdfContext({
         .maybeSingle();
       if (requirePod && (podError || !pod)) throw new Error('Complete POD record is missing or unavailable. The invoice cannot be sent without the delivery handover.');
       if (pod) {
+        if (requirePod && (!clean(pod.received_by) || !clean(pod.delivered_on) || !clean(pod.delivery_status)
+          || pod.no_of_items == null || !Number.isFinite(Number(pod.no_of_items)))) {
+          throw new Error('POD handover record is incomplete: recipient, delivery date, status and item count are required.');
+        }
         podSummary = {
           deliveredOn: clean(pod.delivered_on),
           receivedBy: clean(pod.received_by),
@@ -205,6 +209,10 @@ export async function loadInvoicePdfContext({
       const imagePaths: Array<{ path: string; label: string }> = [];
       const collectionPath = clean(job.collection_photo_url);
       if (collectionPath) imagePaths.push({ path: collectionPath, label: 'Collection' });
+      if (Array.isArray(job.pickup_photos)) for (const path of job.pickup_photos) {
+        const cleaned = clean(path);
+        if (cleaned && !imagePaths.some(image => image.path === cleaned)) imagePaths.push({ path: cleaned, label: 'Collection' });
+      }
       for (const [paths, label] of [[job.delivery_photos, 'Delivery'], [job.pod_photos, 'POD'], [job.damage_photos, 'Damage evidence']] as const) {
         if (Array.isArray(paths)) for (const path of paths) {
           const cleaned = clean(path);

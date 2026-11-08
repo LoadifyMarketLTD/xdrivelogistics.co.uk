@@ -14,7 +14,7 @@ test('independent incoming booking, quote, delivery and real POD actions',()=>{
   assert.match(app,/bookingOfferRespond/);assert.match(app,/driverPost/);
   assert.match(app,/loadLiveWithDiagnostics/);
 });
-test('recorded POD continues to invoice review without re-signing or claiming send',()=>{ const app=text('ReserveApp.tsx'); assert.match(app, /podDone\|\|job\.podRecorded/); assert.match(app, /Continue to Invoice/); assert.match(app, /setView\('invoiceJob'\)/); assert.match(app, /Invoice Preview \/ Issue/); assert.match(app, /Send Invoice \/ Confirmation/); assert.match(app, /No invoice number, PDF or email has been generated or sent/); });
+test('recorded POD continues to invoice review without re-signing or claiming send',()=>{ const app=text('ReserveApp.tsx'); assert.match(app, /podDone\|\|job\.podRecorded/); assert.match(app, /Continue to Invoice/); assert.match(app, /setView\('invoiceJob'\)/); assert.match(app, /Invoice Preview \/ Issue/); assert.match(app, /Send Invoice \/ Confirmation/); const finance=text('LiveInvoiceFlow.tsx'); assert.match(finance,/generate-invoice/); assert.match(finance,/\/submit/); assert.match(finance,/delivery_message_id/); });
 test('separate manifest and no production app replacement',()=>{
   const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');
   assert.ok(main.includes('ReserveApp.tsx'));

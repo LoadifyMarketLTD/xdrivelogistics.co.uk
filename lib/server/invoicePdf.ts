@@ -500,7 +500,12 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
 
   const evidenceItems = input.evidenceImages ?? [];
   const isPdfEvidence = (item: InvoiceEvidenceImage) => String.fromCharCode(...item.bytes.slice(0, 5)) === '%PDF-';
-  const imageEvidence = evidenceItems.filter((item) => !isPdfEvidence(item));
+  const imageEvidence = evidenceItems.filter((item) => !isPdfEvidence(item)).sort((a, b) => {
+    // The recipient's signature must follow the completed handover form;
+    // then display collection and delivery images in their original grouping.
+    const rank = (label: string | null | undefined) => label === 'Signature' ? 0 : label === 'Collection' ? 1 : label === 'Delivery' ? 2 : label === 'POD' ? 3 : 4;
+    return rank(a.label) - rank(b.label);
+  });
   const pdfEvidence = evidenceItems.filter(isPdfEvidence);
   const evidenceCount = evidenceItems.length + (input.signatureAttestation ? 1 : 0);
   if (evidenceCount > 0) {

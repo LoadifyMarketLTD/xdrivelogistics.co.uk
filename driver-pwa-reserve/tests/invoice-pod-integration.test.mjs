@@ -45,13 +45,29 @@ test('PDF has complete POD handover page plus signature and evidence appendices'
  for(const k of ['PROOF OF DELIVERY','Received By','Left At','Items delivered','Delivery status','Driver / delivery notes','input.signatureAttestation','for (const item of imageEvidence)','for (const item of pdfEvidence)'])
  assert.ok(pdf.includes(k),'Missing '+k);
 });
-test('sending attaches distinct invoice and Complete-POD PDFs, fails closed when missing',()=>{
+test('invoice email contains ONE combined PDF with signed POD, not separate files',()=>{
  const send=src('lib/server/invoiceDelivery.ts');
- assert.match(send,/const podOnly = await PDFDocument\.create\(\)/);
  assert.match(send,/combined\.getPageCount\(\) < 3/);
  assert.match(send,/podSummary: pdfContext\.podSummary/);
- assert.match(send,/Complete-POD\.pdf/);
- assert.match(send,/Buffer\.from\(invoicePageBytes\)/);
- assert.match(send,/Buffer\.from\(fullPodBytes\)/);
+ assert.match(send,/attachments:\s*\[\{ filename: fileName, content: Buffer\.from\(pdfBytes\)\.toString\('base64'\) \}\]/);
+ assert.doesNotMatch(send,/Complete-POD\.pdf|invoicePageBytes|fullPodBytes|podOnly\s*=|invoiceOnly\s*=/);
  assert.match(send,/return failDelivery\(409/);
+ assert.match(send,/attachments.length !== 1/);
+ assert.match(send,/frozen.getPageCount\(\) < 3/);
+});
+test('all linked collection, delivery and POD images are loaded from storage',()=>{
+ const context=src('lib/server/invoicePdfContext.ts');
+ for(const k of ['pickup_photos','collection_photo_url','delivery_photos','pod_photos','damage_photos','photo_urls','client_signature_name','delivery_signature_data'])
+   assert.ok(context.includes(k), 'Missing image/signature field '+k);
+ assert.match(context,/if \(requirePod\) throw new Error\('POD evidence could not be downloaded/);
+});
+test('signature precedes chronological collection/delivery image appendices',()=>{
+ const pdf=src('lib/server/invoicePdf.ts');
+ assert.match(pdf,/label === 'Signature' \? 0/);
+ assert.match(pdf,/label === 'Collection' \? 1/);
+ assert.match(pdf,/label === 'Delivery' \? 2/);
+});
+test('Loads shows no obstructing statistics boxes',()=>{
+ const app=src('driver-pwa-reserve/src/ReserveApp.tsx');
+ assert.doesNotMatch(app,/rv-feedinfo|Marketplace <b>|Quoted open <b>|Bid history <b>|Bookings <b>/);
 });

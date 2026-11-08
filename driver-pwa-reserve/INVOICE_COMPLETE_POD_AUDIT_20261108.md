@@ -1,26 +1,32 @@
-# Official XDrive Driver Finance — Complete POD integration
+# XDrive Driver Reserve — combined Invoice + complete POD
 Date: 2026-11-08
-Source: https://www.xdrivelogistics.co.uk/driver/finance
-Scope: independent reserve branch, including code for the official invoice generator. No main/Netlify modification.
+Scope: branch feature/xdrive-driver-reserve-20261108 (local only)
+Reference generator: https://www.xdrivelogistics.co.uk/driver/finance
 
-## Original defect
-- Official preview route did not require valid signed POD and omitted typed signature attestation when calling PDF builder.
-- invoicePdfContext gathered photographs and signature but not the authoritative proof_of_delivery handover record.
-- invoicePdf attached photo/signature appendices but no complete delivery handover page.
-- invoiceDelivery attached one invoice PDF to the outgoing Resend email, without a separately named Complete POD PDF.
+## User-approved deliverable
+ONE A4 PDF, in this sequence:
+1. Official XDrive invoice with canonical invoice number, tax and buyer details.
+2. Complete signed Proof of Delivery record sourced from proof_of_delivery.
+3. Recipient signature or validated recipient attestation.
+4. ALL linked collection images (jobs.pickup_photos plus collection_photo_url).
+5. ALL linked delivery/POD/damage images, proof_of_delivery photo URLs, and uploaded PDF evidence.
 
-## Corrections, reserve branch
-1. Read the latest authoritative proof_of_delivery row for invoice job ID: delivered_on, received_by, left_at, no_of_items, delivery_status, delivery_notes, photo_urls. Require it for job-linked send/preview.
-2. Aggregate evidence from delivery photos, POD photos, damage photos, collection photo and proof_of_delivery photo URLs; include recipient signature or verified typed-name attestation.
-3. Build an A4 PROOF OF DELIVERY appendix page with complete handover fields and job/invoice references, followed by signature, photographs and original PDF documents.
-4. Preview refuses to generate for missing/incomplete POD; passes podSummary, signatureAttestation and images.
-5. Email delivery splits combined PDF into two attachments: Invoice.pdf (first page) and Invoice-Complete-POD.pdf (handover, signature, photos, uploaded documents).
-6. Fail closed before sending if signed POD pages are missing, or if evidence storage is inaccessible. Keep the sender's existing idempotency/outbox and provider ID logic.
-7. Reserve client links to the exact official generator flow: Ready To Invoice, generate-invoice with idempotency key, A4 preview, submit. No manual invoice or fake email confirmation.
+## Implemented in local branch
+- Removed statistics cards Marketplace, Quoted open, Bid history and Bookings from Loads to put jobs immediately below search.
+- invoicePdfContext loads the authoritative handover record (received_by, left_at, delivered_on, no_of_items, delivery_status, delivery_notes), recipient signature, pickup_photos, collection_photo_url, delivery_photos, pod_photos, damage_photos and proof_of_delivery.photo_urls.
+- Evidence deduplicated by storage path. Missing/misowned evidence stops PDF generation instead of silently dropping it.
+- invoicePdf generates the complete POD form after the invoice, followed by signature, collection and delivery photos and uploaded documents.
+- Finance preview requires complete POD on job-linked invoices.
+- invoiceDelivery stores and emails the SAME combined document as ONE PDF attachment. Previously split invoices + POD snapshots are refused for manual reconciliation; no silent retry or duplicate email.
+- Reserve app connects to /driver/finance's official Ready To Invoice -> generate-invoice -> preview -> submit API, with an explicit single-file review/approval step.
 
-## Verification
-- Node stripTypeScriptTypes parses all modified backend TS files.
-- Six contract tests PASS: tests/invoice-pod-integration.test.mjs.
-- Reserve PWA npm run build PASS.
-- No real invoice issued, no real A4 PDF with stored evidence rendered for QA, no Resend transaction or email submitted.
-- No changes deployed to GitHub main or Netlify. Release gate remains blocked until signed POD, A4 PDF page inspection, and verified email with both attachments.
+## Validation
+- npm run build PASS (TypeScript + Vite).
+- 32/32 selected unit/contract tests PASS including invoice POD and Loads regression.
+- Pixel 7 Pro Chrome visually verified no statistics cards in Loads (capture D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\rv_nostats.png).
+- No live invoice, customer email or production deployment was performed.
+- Full real PDF render check using genuine uploaded evidence and delivered email reception: NOT YET VERIFIED.
+- Current Pixel app displayed 0 loads after fresh Chrome navigation; live feed/session restoration remains a separate unresolved issue.
+
+## Protected scope
+Official PWA 1099, GitHub main, Netlify and deployed /driver/finance are UNCHANGED. Backend PDF changes are committed only to the independent reserve worktree branch. Real platform does not have these changes until separately reviewed and deployed.

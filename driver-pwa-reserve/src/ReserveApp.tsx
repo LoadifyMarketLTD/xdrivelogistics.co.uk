@@ -3,7 +3,7 @@ import './ReserveApp.css';
 import { login, loadLiveWithDiagnostics, driverPost, driverGet, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession, type LiveJob } from './liveApi';
 import LiveInvoices from './LiveInvoices';
 import LiveInvoiceFlow from './LiveInvoiceFlow';
-import { reserveCounts, reserveJobs } from './reserveLists';
+import { reserveJobs } from './reserveLists';
 import DriverMenu from './DriverMenu';
 
 type Tab = 'Loads' | 'Quotes' | 'Bookings';
@@ -59,7 +59,6 @@ export default function ReserveApp() {
   function navigate(t:Tab){setTab(t);setView('list');setId(null);setError('');}
   function card(j:LiveJob){const offered=Boolean(j.acceptanceRequired&&j.offerId);const quote=j.status==='OPEN'&&j.quote!=null;return <article key={j.id} className="rv-card rv-job"><div className="rv-jobhead"><div><strong>{j.company||'Transport buyer'}</strong><small>{j.yourRef||j.customerRef||j.id.slice(0,8)} · {j.service||'Transport'}</small></div><span className={'rv-chip '+(offered?'rv-orange':quote?'rv-green':'')}>{offered?'NEW OFFER':quote?'QUOTED':j.status==='OPEN'?'AVAILABLE':j.status.replaceAll('_',' ')}</span></div><Route job={j}/><div className="rv-chips"><span>{j.vehicle}</span><span>{j.weight} kg</span><span>{j.terms||'Terms not stated'}</span>{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div><div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>{j.status==='OPEN'?'Load Details':'View Booking'}</button><button className="rv-primary" onClick={()=>open(j,offered?'incoming':j.status==='OPEN'&&j.quote==null?'quote':j.status==='OPEN'?'details':'flow')}>{offered?'Review Offer':j.status==='OPEN'&&j.quote==null?'Quote Now':j.status==='OPEN'?'View Quote':'Open Job'}</button></div></article>}
   function list(){
-    const counts = reserveCounts(jobs);
     const shown = reserveJobs(jobs, tab, tab === 'Loads' ? search : '', tab === 'Loads' ? vehicleFilter : 'All');
     return <>
       <div className="rv-heading">
@@ -76,12 +75,9 @@ export default function ReserveApp() {
         </select>
       </div>}
       <div className="rv-count"><span>{shown.length} {tab.toLowerCase()} found</span><span>{loading?'REFRESHING…':'AUTHENTICATED XDRIVE'}</span></div>
-      {tab === 'Loads' && <div className="rv-feedinfo" aria-label="Live feed breakdown">
-        <span>Marketplace <b>{counts.open}</b></span><span>Quoted open <b>{counts.quoted}</b></span><span>Bid history <b>{counts.historyOnly}</b></span><span>Bookings <b>{counts.booked}</b></span>
-      </div>}
       {shown.length ? shown.map(card) : <div className="rv-empty">
-        <b>{loading?'Loading live data…':warning?'Live feed requires attention':counts.total===0?'No jobs returned by the server':tab==='Loads'?'No open loads available':'No matching '+tab.toLowerCase()}</b>
-        <p>{loading?'Refreshing XDrive…':warning?'Review the source warning above. This is not proof that the marketplace is empty.':tab==='Loads'&&counts.total>0?'The API returned '+counts.total+' jobs, but none match the currently available Loads. Check Quotes and Bookings.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
+        <b>{loading?'Loading live data…':warning?'Live feed requires attention':jobs.length===0?'No jobs returned by the server':tab==='Loads'?'No open loads available':'No matching '+tab.toLowerCase()}</b>
+        <p>{loading?'Refreshing XDrive…':warning?'Review the source warning above. This is not proof that the marketplace is empty.':tab==='Loads'&&jobs.length>0?'The API returned '+jobs.length+' jobs, but none match the currently available Loads. Check Quotes and Bookings.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
         {tab === 'Loads' && (search || vehicleFilter !== 'All') && <button className="rv-outline" onClick={()=>{setSearch('');setVehicleFilter('All')}}>Clear filters</button>}
       </div>}
     </>;
