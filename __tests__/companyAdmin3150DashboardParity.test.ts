@@ -12,6 +12,7 @@ describe('Company Admin 3150 dashboard visual parity',()=>{
  });
  it('does not introduce preview records and only reads the company-authenticated dataset',()=>{
   expect(content).toContain('useCompany3150Live()');
+  expect(content).toContain('if(!real||!data||data.loading)');
   expect(content).toContain('data?.jobs??[]');
   expect(content).toContain('data?.vehicles??[]');
   expect(content).toContain('data?.drivers??[]');

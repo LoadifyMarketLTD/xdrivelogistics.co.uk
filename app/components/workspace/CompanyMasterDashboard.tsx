@@ -38,7 +38,7 @@ export default function CompanyMasterDashboard({role}:{role:'Company / Carrier'|
    area:'Not recorded',status:'Not verified',
  })),[data]);
  const drivers=useMemo(()=>(data?.drivers??[]).map(driver=>driver.display_name||'Unnamed driver'),[data]);
- if(!real||data?.loading)return <p role="status">Loading live XDrive operations...</p>;
+ if(!real||!data||data.loading)return <p role="status">Loading live XDrive operations...</p>;
  if(data.error)return <p role="alert">Production records unavailable: {data.error}</p>;
  const navigate=(tab:number)=>{
    const href=masterNavigationHref(role,tab);
