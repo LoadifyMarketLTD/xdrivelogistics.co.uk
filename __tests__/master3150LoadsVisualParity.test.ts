@@ -25,6 +25,11 @@ describe('3150 exact Loads visual semantics with real role workflows',()=>{
   expect(company).toContain('MarketplaceLoadMap');
   expect(company).toContain('openQuote(load)');
   expect(company).toContain('Search Loads Results');
+  expect(company).toContain("advancedSearchOpen ? 'Collapse' : 'Expand'");
+  expect(company).toContain('placeholder="Min GBP"');
+  expect(company).toContain('placeholder="Max GBP"');
+  expect(company).not.toContain('Â£');
+  expect(company).not.toContain('â–');
  });
  it('Driver has approved top tabs, compact statistics without removal and live card actions',()=>{
   const nav=driver.indexOf('aria-label="3150 Loads primary tabs"');
