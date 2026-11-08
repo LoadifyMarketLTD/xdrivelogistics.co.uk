@@ -26,6 +26,15 @@ export type WorkspaceJob = {
   delivery_datetime: string | null;
   vehicle_type: string | null;
   requested_vehicle_label?: string | null;
+  load_type?: string | null;
+  service_mode?: string | null;
+  weight_kg?: number | null;
+  weight?: string | null;
+  cargo_type?: string | null;
+  requested_cargo_label?: string | null;
+  packaging?: string | null;
+  dimensions?: string | null;
+  load_reference?: string | null;
   pallets?: number | null;
   payment_terms?: string | null;
   assigned_driver_id?: string | null;
@@ -291,6 +300,8 @@ const CARRIER_DASHBOARD_JOB_SELECT =
 
 const EXECUTION_JOB_SELECT =
   'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, pallets, payment_terms, assigned_driver_id, vehicle_id, awarded_carrier_company_id, assigned_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
+
+const CUSTOMER_3150_LOADS_JOB_SELECT = EXECUTION_JOB_SELECT + ', load_type, service_mode, weight_kg, weight, cargo_type, requested_cargo_label, packaging, dimensions, load_reference';
 
 const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
   .split(',')
@@ -721,7 +732,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .limit(500);
         };
 
-        const firstJobsRes = await runJobsQuery(getWorkspaceJobSelect(plan.surface));
+        const firstJobsRes = await runJobsQuery(pathname === '/customer/loads' ? CUSTOMER_3150_LOADS_JOB_SELECT : getWorkspaceJobSelect(plan.surface));
         const usedVehicleIdFallback = plan.surface !== 'carrier_operations'
           && Boolean(firstJobsRes.error)
           && isMissingColumnError(firstJobsRes.error, 'jobs', 'vehicle_id');
@@ -1028,7 +1039,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setPartialData(Object.values(nextDatasets).some((dataset) => dataset.partialData));
     setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
     finishRefresh();
-  }, [companyId, plan, driverId, userId]);
+  }, [companyId, plan, driverId, userId, pathname]);
 
   useEffect(() => {
     hasLoadedRef.current = false;
