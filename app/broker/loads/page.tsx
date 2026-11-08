@@ -175,12 +175,14 @@ export default function BrokerLoadsPage() {
                       <div><span>Status:</span><strong>{workspaceJobOperationalLabel(job)}</strong></div>
                     </>}
                     footer={<>
-                      <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse load' : 'Expand load'}>{open ? '▴' : '▾'}</button>
-                      <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & award</button>
-                      {canEditOwnedJobs && job.company_id === data.companyId && <button type="button" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</button>}
-                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Job view</button>
-                      {stage === 'completed' && <button type="button" onClick={() => router.push('/broker/pod-review')}>POD</button>}
-                      <span style={{ marginLeft: 'auto' }}>{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span>
+                      <button type="button" className="xdrive-cx-load-footer__details" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>View Details</button>
+                      <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & Award</button>
+                      <details className="master3150-loads-more"><summary>More actions</summary><div>
+                        <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }}>{open ? 'Collapse load' : 'Expand load'}</button>
+                        {canEditOwnedJobs && job.company_id === data.companyId && <button type="button" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</button>}
+                        {stage === 'completed' && <button type="button" onClick={() => router.push('/broker/pod-review')}>POD</button>}
+                      </div></details>
+                      <span className="master3150-loads-state">{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span>
                     </>}
                   />
                 );

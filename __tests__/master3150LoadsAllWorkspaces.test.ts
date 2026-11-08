@@ -47,7 +47,9 @@ describe('WORKSPACE 3510: canonical Loads for all authorised workspace roles',()
   expect(company).toContain('MarketplaceQuoteNowDialog');
   expect(company).toContain('MarketplaceLoadMap');
   expect(broker).toContain('useCompanyWorkspaceData');
-  expect(broker).toContain('Quotes & award');
+  expect(broker).toContain('Quotes & Award');
+  expect(broker).toContain('View Details');
+  expect(broker).toContain('master3150-loads-more');
   expect(driver).toContain('MarketplaceQuoteModal');
   expect(driver).toContain('MarketplaceLoadMap');
   for(const source of [company,broker,driver]){

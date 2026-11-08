@@ -58,6 +58,23 @@
 .master3150-production .master3150-unified-loads .xd-card-actions button{
   border-radius:6px;min-height:32px;font-size:12px;font-weight:600;
 }
+.master3150-production .master3150-unified-loads .master3150-loads-more{
+  position:relative;align-self:center;font-size:12px;
+}
+.master3150-production .master3150-unified-loads .master3150-loads-more>summary{
+  cursor:pointer;border:1px solid #b8cce5;border-radius:6px;
+  padding:9px 10px;font-weight:650;color:#184477;
+  list-style:none;background:#fff;
+}
+.master3150-production .master3150-unified-loads .master3150-loads-more[open]>div{
+  display:flex;flex-wrap:wrap;gap:6px;position:absolute;right:0;top:100%;
+  z-index:15;min-width:175px;max-width:280px;padding:9px;
+  border:1px solid #d8e2ee;border-radius:7px;background:white;
+  box-shadow:0 5px 14px rgba(15,43,76,.16);
+}
+.master3150-production .master3150-unified-loads .master3150-loads-state{
+  display:block;width:100%;font-size:11px;color:#64748b;text-align:right;
+}
 .master3150-production .master3150-unified-loads .workspace-record-list,
 .master3150-production .master3150-unified-loads .carrier-exchange-results{
   display:grid;gap:13px;min-width:0;
