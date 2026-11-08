@@ -121,6 +121,60 @@
 .rv-booking-timeline li p{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0}
 .rv-history-unavailable{padding:12px;background:#f5f8fa;border-radius:8px}
 .rv-history-unavailable p{font-size:12px;color:#617487;margin:7px 0 0}
+
+/* Premium mobile delivery handover — CX workflow clarity, XDrive visual identity. */
+.rv-main:has(.rv-delivery-page){padding:0 0 92px;background:#fff;min-height:calc(100dvh - 170px)}
+.rv-delivery-page{color:#1b344c;font-size:14px;background:#fff}
+.rv-delivery-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 3px}
+.rv-delivery-bar .rv-back{margin:0;font-size:12px;padding:5px 0;color:#51718b}
+.rv-delivery-bar>span{font-size:10px;font-weight:850;letter-spacing:.65px;color:#8192a3}
+.rv-delivery-title{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 16px 9px}
+.rv-delivery-eyebrow{font-size:10px;color:#bc6426;font-weight:850;letter-spacing:.75px}
+.rv-delivery-title h1{margin:3px 0 0!important;font-size:24px!important;line-height:1.1}
+.rv-delivery-state{background:#fdf0e4;color:#b4561a;padding:6px 9px;border-radius:7px;font-size:11px;font-weight:850;white-space:nowrap}
+.rv-delivery-route{background:#f4f7fa;display:grid;grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);gap:4px;padding:11px 14px;margin:0 10px 11px;border-radius:9px;align-items:center}
+.rv-delivery-route>div{min-width:0;position:relative;padding-left:11px}
+.rv-delivery-route>div>span:first-child{position:absolute;left:0;top:5px;width:7px;height:7px;border-radius:100%;background:#f47721}
+.rv-delivery-route .rv-drop-dot{background:#168762!important}
+.rv-delivery-route strong{display:block;font-size:13px;font-weight:850;line-height:1.25;overflow-wrap:anywhere}
+.rv-delivery-route small{display:block;margin-top:4px;font-size:10px;color:#687e91;line-height:1.3}
+.rv-delivery-arrow{color:#92a3b2;font-size:17px;align-self:center;text-align:center}
+.rv-delivery-form{padding:0 16px}
+.rv-delivery-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:3px 0 4px}
+.rv-delivery-section-head h2{font-size:16px!important;margin:0!important;font-weight:900}
+.rv-delivery-section-head>span{color:#8b97a3;font-size:10px}
+.rv-delivery-field{display:grid;gap:5px;margin:10px 0}
+.rv-delivery-field>span{font-size:12px;color:#405b73;font-weight:800;display:flex;justify-content:space-between}
+.rv-delivery-field em{font-size:11px;color:#d46737;font-style:normal}
+.rv-delivery-field>span small{font-weight:500;color:#8a9bad}
+.rv-delivery-field input,.rv-delivery-field select,.rv-delivery-field textarea{display:block;width:100%;min-width:0;border:1px solid #cfdce6;background:#fff;border-radius:9px;font-size:14px;line-height:1.3;padding:10px 11px;color:#20364e;min-height:42px}
+.rv-delivery-field input:focus,.rv-delivery-field select:focus,.rv-delivery-field textarea:focus{outline:2px solid #f4772140;border-color:#f47721}
+.rv-delivery-field textarea{min-height:56px;max-height:130px;resize:vertical}
+.rv-delivery-field input::placeholder,.rv-delivery-field textarea::placeholder{color:#9aa8b5}
+.rv-delivery-split{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:10px}
+.rv-delivery-signature{border:1px solid #cfdce6;border-radius:10px;overflow:hidden;background:#fff}
+.rv-delivery-signature canvas{display:block;width:100%;height:113px;background:linear-gradient(#fff,#fcfdff);touch-action:none;overscroll-behavior:contain;cursor:crosshair}
+.rv-delivery-signature-foot{display:flex;align-items:center;justify-content:space-between;min-height:31px;border-top:1px solid #e8eef2;padding:4px 10px;color:#8194a4;font-size:11px}
+.rv-delivery-signature-foot button{border:0;background:transparent;color:#376184;padding:3px 6px;font-size:11px;font-weight:800}
+.rv-delivery-upload{border-top:1px solid #e6edf2;padding-top:9px;margin:10px 0 8px}
+.rv-delivery-upload-title{display:flex;justify-content:space-between;gap:6px;align-items:center}
+.rv-delivery-upload-title strong{font-size:12px}
+.rv-delivery-upload-title span{font-size:10px;color:#71879a;white-space:nowrap}
+.rv-delivery-add{display:flex;align-items:center;justify-content:center;gap:7px;position:relative;background:#f2f7fa;border:1px dashed #a7bac8;color:#345974;border-radius:9px;padding:10px;margin:8px 0 5px;font-size:12px;font-weight:850;overflow:hidden}
+.rv-delivery-attach-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.rv-delivery-add span{font-size:20px;line-height:15px}
+.rv-delivery-file-error{margin-top:7px!important;color:#a84038!important;font-weight:750}
+.rv-delivery-add input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.rv-delivery-upload p{margin:0;color:#77899a;font-size:10px;line-height:1.4}
+.rv-delivery-files{margin:8px 0 0;padding:0;list-style:none}
+.rv-delivery-files li{display:flex;justify-content:space-between;align-items:center;gap:7px;padding:5px 0;font-size:11px;border-bottom:1px solid #edf1f4}
+.rv-delivery-files li span{overflow-wrap:anywhere}
+.rv-delivery-files li button{border:0;background:transparent;color:#b04a33;font-size:20px;padding:1px 8px}
+.rv-delivery-footer{position:relative;margin:9px 10px 2px;padding:8px 7px;background:#fff;border-top:1px solid #e9eef2}
+.rv-delivery-footer button{display:block;width:100%;min-height:47px;font-size:15px;font-weight:900;border-radius:8px}
+.rv-delivery-footer p{margin:8px 4px 0;font-size:10px;line-height:1.35;text-align:center;color:#7a8b99}
+@media(max-width:380px){.rv-delivery-title{padding-left:12px;padding-right:12px}.rv-delivery-title h1{font-size:21px!important}.rv-delivery-form{padding:0 12px}.rv-delivery-route{padding:9px}.rv-delivery-route strong{font-size:12px}}
+
 /* Canonical invoice generator connection */
 .rv-finance .rv-back{display:block;max-width:max-content;margin-bottom:10px}
 .rv-finance .rv-over{display:block;margin:9px 0 8px}
