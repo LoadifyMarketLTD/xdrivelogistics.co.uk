@@ -16,7 +16,8 @@ test('Loads shows all OPEN marketplace jobs including those already quoted',()=>
  assert.deepEqual(reserveJobs(jobs,'Loads','','Small Van').map(x=>x.id),['four']);
 });
 test('Quotes owns submissions; separate History keeps withdrawn/unsuccessful records',()=>{
- assert.deepEqual(reserveJobs(jobs,'Quotes').map(x=>x.id),['two','three','five']);
+ assert.deepEqual(reserveJobs(jobs,'Quotes').map(x=>x.id),['two','five']);
+ assert.deepEqual(reserveJobs(jobs,'Quotes','','All','Awarded').map(x=>x.id),['three']);
  assert.deepEqual(reserveJobs(jobs,'Quotes','','All','History').map(x=>x.id),['six','seven']);
  assert.deepEqual(reserveJobs(jobs,'Bookings').map(x=>x.id),['three']);
 });

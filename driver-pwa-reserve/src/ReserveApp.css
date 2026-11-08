@@ -7,7 +7,7 @@
 .rv-header button{color:#fff;border:1px solid #ffffff33;background:#ffffff16;border-radius:9px;padding:9px 12px;font-size:18px}
 .rv-main{padding:20px 15px 24px;min-height:70dvh}.rv-main h1{font-size:25px;letter-spacing:-.5px;color:#172b45;line-height:1.2;margin:6px 0 8px}
 .rv-main h2{font-size:18px;color:#172b45}.rv-main h3{font-size:16px;color:#1e3650;margin:0 0 13px}
-.rv-heading{display:flex;justify-content:space-between;gap:10px;align-items:start}.rv-heading h1{margin:5px 0}.rv-heading p,.rv-sub{font-size:13px;line-height:1.5;color:#71849a;margin:5px 0 12px}
+.rv-heading{display:flex;justify-content:space-between;gap:10px;align-items:start}.rv-compact-heading{align-items:center;margin-bottom:10px}.rv-compact-heading h1{font-size:18px;line-height:1.2;margin:0;font-weight:850}.rv-compact-heading .rv-refresh{height:33px;width:33px;font-size:19px}.rv-loading-inline{font-size:12px;color:#58708a;margin:8px 0 0}.rv-heading h1{margin:5px 0}.rv-heading p,.rv-sub{font-size:13px;line-height:1.5;color:#71849a;margin:5px 0 12px}
 .rv-over{color:#7b8c9e;font-size:10px;font-weight:850;letter-spacing:1.15px}
 .rv-refresh{width:39px;height:39px;border:1px solid #d9e4ed;border-radius:9px;background:white;font-size:24px;color:#1b4868}
 .rv-card{background:white;border:1px solid #dce5ee;border-radius:13px;padding:15px;margin:13px 0;box-shadow:0 3px 13px #17365409}
@@ -33,6 +33,7 @@
 .rv-search{display:grid;grid-template-columns:2fr minmax(95px,1fr);gap:8px;margin:11px 0}.rv-count{display:flex;justify-content:space-between;font-size:11px;color:#71849a;margin:12px 0;font-weight:750}
 .rv-empty{background:white;border:1px solid #dce6ef;border-radius:13px;padding:37px 20px;text-align:center;color:#7c8fa2}.rv-empty b{color:#213c56;font-size:16px}.rv-empty p{font-size:13px}
 .rv-error{border:1px solid #efb9b2;color:#a53831;background:#fff0ed;border-radius:10px;padding:12px;margin:8px 0;font-size:13px}
+.rv-api-notes{margin:18px 0 6px;padding:9px 11px;border:1px solid #e4e8ed;background:#f6f8fa;border-radius:9px;color:#64748b;font-size:11px}.rv-api-notes summary{cursor:pointer;font-weight:650}.rv-api-notes p{overflow-wrap:anywhere;line-height:1.5}
 .rv-warning{background:#fff4e6;color:#98622a;padding:10px;border-radius:10px;margin:8px 0;font-size:12px}
 .rv-success{background:#e9f8f0;border:1px solid #c8e6d4;color:#24744e;border-radius:10px;padding:13px;font-size:13px;margin:13px 0}
 .rv-progress{height:5px;background:#e6edf3;border-radius:8px;margin:12px 0 15px;overflow:hidden}.rv-progress span{height:100%;background:#f47721;display:block}

@@ -1,7 +1,7 @@
 import type { LiveJob } from './liveApi';
 
 export type ReserveTab = 'Loads' | 'Quotes' | 'Bookings';
-export type QuoteSection = 'Submitted' | 'History';
+export type QuoteSection = 'Submitted' | 'Awarded' | 'History';
 export type ReserveCounts = { total: number; open: number; unquoted: number; quoted: number; historyOnly: number; booked: number; offers: number };
 
 const withdrawn = (j:LiveJob) => j.bidStatus === 'withdrawn' || j.quoteOutcome === 'CANCELLED';
@@ -28,7 +28,9 @@ export function reserveJobs(jobs:LiveJob[], tab:ReserveTab, search='', vehicle='
     : tab==='Quotes'
       ? j.personalBid===true && j.quote!=null && (quoteSection==='History'
           ? withdrawn(j)||j.quoteOutcome==='UNSUCCESSFUL'
-          : !withdrawn(j)&&j.quoteOutcome!=='UNSUCCESSFUL')
+          : quoteSection==='Awarded'
+            ? j.quoteOutcome==='AWARDED'||j.bidStatus==='accepted'
+            : j.bidStatus==='submitted'&&j.quoteOutcome!=='AWARDED')
       : j.status!=='OPEN' && j.quoteOutcome!=='CANCELLED'
   ).filter(j=>vehicle==='All'||j.vehicle===vehicle
   ).filter(j=>!needle||[j.from,j.to,j.company,j.vehicle,j.id]

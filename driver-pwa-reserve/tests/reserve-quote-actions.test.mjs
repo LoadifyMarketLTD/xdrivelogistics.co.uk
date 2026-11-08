@@ -22,6 +22,9 @@ test('Loads has Load Details, Quote Now or View Quote; Edit and Withdraw remain 
 test('Quotes has Edit and Withdraw and explicit confirmation, hooked to official API',()=>{
  const app=read('ReserveApp.tsx');
  assert.match(app,/role="alertdialog"/);
+ assert.match(app,/rv-primary-quote-actions/);
+ const quoteCard=app.split(":tab==='Quotes'?<>")[1]?.split('  async function withdrawQuote')[0]||'';
+ assert.ok(quoteCard.indexOf('rv-primary-quote-actions')>=0 && quoteCard.indexOf('rv-primary-quote-actions')<quoteCard.indexOf('View Quote</button>'), 'Edit and Withdraw must appear above View Quote within Quotes cards');
  assert.match(app,/Keep Quote/);
  assert.match(app,/Confirm Withdraw/);
  assert.match(app,/action:'withdraw'/);
@@ -35,7 +38,7 @@ test('Quotes are split Submitted / History and do not show company-only bids',()
  assert.match(list,/j\.status==='OPEN' && j\.marketplaceListed===true/);
  const app=read('ReserveApp.tsx');
  assert.match(app,/quoteSection===s/);
- assert.match(app,/\['Submitted','History'\]/);
+ assert.match(app,/\['Submitted','Awarded','History'\]/);
 });
 test('Edit quote uses existing bid ID, ETA and total; no fake vehicle edit or VAT double count',()=>{
  const app=read('ReserveApp.tsx');
