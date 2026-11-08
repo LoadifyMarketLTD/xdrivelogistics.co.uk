@@ -212,3 +212,13 @@ button:disabled{cursor:wait}
 .booking-approved-notes{font-size:17px;font-weight:800;color:#656b73}
 .booking-approved-notes textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #bfc4ca;border-radius:5px;padding:12px;margin-top:9px;min-height:120px;font-size:16px;resize:vertical;color:#20252d}
 .booking-approved-save{min-height:55px;width:100%;font-size:18px!important;border-radius:5px!important}
+/* Approved Loaded form: full-width single-column reference layout. */
+.booking-approved-loaded{background:#fff;padding:12px 14px 90px;display:flex;flex-direction:column;gap:18px;color:#24272d}
+.booking-approved-fields{display:flex;flex-direction:column;gap:15px}
+.booking-approved-fields>label{display:block;font-size:16px;font-weight:800;color:#646b72}
+.booking-approved-fields>label>input,.booking-approved-fields>label>textarea{display:block;box-sizing:border-box;width:100%;min-height:49px;margin-top:7px;padding:11px;border:1px solid #bfc4ca;border-radius:5px;background:#fff;color:#24272d;font-size:17px;font-weight:500}
+.booking-approved-fields>label>textarea{min-height:125px;resize:vertical}
+.booking-approved-fields .eta-quarter-hour{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:7px}
+.booking-approved-fields .eta-quarter-hour input,.booking-approved-fields .eta-quarter-hour select{min-width:0;width:100%;min-height:49px;border:1px solid #bfc4ca;border-radius:5px;background:#fff;color:#24272d;padding:8px;font-size:15px}
+.booking-approved-fields .eta-quarter-hour button{grid-column:1/-1;background:transparent;border:0;text-decoration:underline;color:#64748b;font-size:12px;text-align:right}
+.booking-approved-fields>.booking-yellow{min-height:55px;width:100%;font-size:18px;border-radius:5px}
