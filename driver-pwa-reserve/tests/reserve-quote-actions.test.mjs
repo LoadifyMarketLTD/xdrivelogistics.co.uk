@@ -9,12 +9,13 @@ test('Personal bids have ID status ETA and notes, separate from company bids',()
  assert.doesNotThrow(()=>stripTypeScriptTypes(src,{mode:'strip'}));
  for(const s of ['bidId: str(bid.id)','bidStatus: state','quoteEtaMinutes: num(bid.collectWithinMinutes)','quoteNotes: str(bid.message)','personalBid: true'])assert.ok(src.includes(s),s);
 });
-test('Loads only has Load Details and Quote Now, not edit or withdraw',()=>{
+test('Loads has Load Details, Quote Now or View Quote; Edit and Withdraw remain in Quotes',()=>{
  const app=read('ReserveApp.tsx');
  const card=app.split('  function card(j:LiveJob)')[1].split('  async function withdrawQuote')[0];
  assert.match(card,/tab==='Loads'\?<div className="rv-actions">/);
  assert.match(card,/>Load Details<\/button>/);
  assert.match(card,/>Quote Now<\/button>/);
+ assert.match(card,/>View Quote<\/button>/);
  assert.match(card,/tab==='Quotes'\?/);
  assert.doesNotMatch(card,/tab==='Loads'[^\n]*Edit Quote/);
 });
@@ -31,7 +32,7 @@ test('Quotes has Edit and Withdraw and explicit confirmation, hooked to official
 test('Quotes are split Submitted / History and do not show company-only bids',()=>{
  const list=read('reserveLists.ts');
  assert.match(list,/j\.personalBid===true/);
- assert.match(list,/j\.status==='OPEN' && j\.marketplaceListed===true && !hasActiveQuote\(j\)/);
+ assert.match(list,/j\.status==='OPEN' && j\.marketplaceListed===true/);
  const app=read('ReserveApp.tsx');
  assert.match(app,/quoteSection===s/);
  assert.match(app,/\['Submitted','History'\]/);

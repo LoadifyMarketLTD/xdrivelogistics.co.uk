@@ -10,9 +10,9 @@ const jobs=[
  {id:'six',status:'OPEN',marketplaceListed:true,quote:240,bidId:'bid6',bidStatus:'withdrawn',personalBid:true,quoteOutcome:'CANCELLED',from:'Worthing',to:'London',vehicle:'Luton'},
  {id:'seven',status:'OPEN',quote:80,bidStatus:'rejected',personalBid:true,quoteOutcome:'UNSUCCESSFUL',from:'Oxford',to:'Reading',vehicle:'Luton'}
 ];
-test('Loads only unquoted LIVE marketplace jobs, including safely withdrawn jobs',()=>{
- assert.deepEqual(reserveJobs(jobs,'Loads').map(x=>x.id),['one','four','six']);
- assert.deepEqual(reserveJobs(jobs,'Loads','london').map(x=>x.id),['six']);
+test('Loads shows all OPEN marketplace jobs including those already quoted',()=>{
+ assert.deepEqual(reserveJobs(jobs,'Loads').map(x=>x.id),['one','two','four','six']);
+ assert.deepEqual(reserveJobs(jobs,'Loads','london').map(x=>x.id),['two','six']);
  assert.deepEqual(reserveJobs(jobs,'Loads','','Small Van').map(x=>x.id),['four']);
 });
 test('Quotes owns submissions; separate History keeps withdrawn/unsuccessful records',()=>{

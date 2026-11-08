@@ -22,10 +22,9 @@ export function reserveCounts(jobs: LiveJob[]): ReserveCounts {
 export function reserveJobs(jobs:LiveJob[], tab:ReserveTab, search='', vehicle='All', quoteSection:QuoteSection='Submitted'):LiveJob[] {
   const needle=search.trim().toLocaleLowerCase();
   return jobs.filter(j=>tab==='Loads'
-    // A previously quoted load belongs to Quotes, never Loads.
-    // Once a submitted bid is withdrawn, it becomes available for a NEW quotation
-    // only if the marketplace still lists it as OPEN.
-    ? j.status==='OPEN' && j.marketplaceListed===true && !hasActiveQuote(j)
+    // Loads shows ALL currently posted marketplace jobs, including previously quoted jobs.
+    // Quote management actions live exclusively in Quotes.
+    ? j.status==='OPEN' && j.marketplaceListed===true
     : tab==='Quotes'
       ? j.personalBid===true && j.quote!=null && (quoteSection==='History'
           ? withdrawn(j)||j.quoteOutcome==='UNSUCCESSFUL'
