@@ -197,22 +197,18 @@ button:not(:disabled):active,[role='button']:active,a:active{filter:brightness(.
 button:focus-visible,a:focus-visible,[role='button']:focus-visible{outline:2px solid #159f50;outline-offset:2px}
 button:disabled{cursor:wait}
 /* Keep scrollable controls clear of the fixed driver navigation and Android gesture area. */
-/* Compact, touch-first pickup check-in. */
-.pickup-pro{display:grid;gap:12px;padding:0 0 110px!important;background:#f4f6f9}
-.pickup-pro-header{background:#112b4c;color:#fff;border-radius:14px;padding:19px 17px}
-.pickup-pro-header h2{font-size:24px!important;line-height:1.15;margin:7px 0!important;color:#fff!important}
-.pickup-pro-header p{margin:5px 0 0;color:#dbe6f2;font-size:13px}
-.pickup-pro-kicker,.pickup-pro-section-label{font-size:11px;font-weight:850;letter-spacing:.09em;color:#58718e}
-.pickup-pro-kicker{color:#ffc343}
-.pickup-pro-card,.pickup-pro-extra,.pickup-pro-action{background:#fff;border:1px solid #e2e7ee;border-radius:14px;padding:16px;box-shadow:0 2px 10px #162c4210}
-.pickup-pro-address{display:block;font-size:17px;line-height:1.35;color:#102942;margin:10px 0}
-.pickup-pro-meta{display:flex;gap:7px;flex-wrap:wrap}.pickup-pro-meta span{background:#eff3f8;border-radius:7px;padding:7px 9px;font-size:12px;font-weight:700;color:#334d68}
-.pickup-pro-link{display:inline-block;margin-top:12px;font-weight:800;color:#1262a8}
-.pickup-pro-hint{font-size:13px;color:#46576b}
-.pickup-pro-extra{padding:0}.pickup-pro-extra summary{cursor:pointer;list-style:none;padding:16px;font-weight:800;color:#173b5e}.pickup-pro-extra summary:after{content:'+';float:right;font-size:20px}.pickup-pro-extra[open] summary:after{content:'−'}.pickup-pro-extra-body{border-top:1px solid #e7edf3;padding:14px 16px;font-size:13px}
-.pickup-pro label{display:block;font-size:13px;font-weight:750;color:#344b62;margin:12px 0 0}
-.pickup-pro input,.pickup-pro select,.pickup-pro textarea{box-sizing:border-box;width:100%;min-height:46px;border:1px solid #ccd7e3;border-radius:9px;padding:10px;background:#fff;color:#16283b;font-size:15px}
-.pickup-pro .collection-pair{gap:10px}.pickup-pro .eta-quarter-hour{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:7px}
-.pickup-pro textarea{min-height:74px;resize:vertical}
-.pickup-pro-action .booking-yellow{min-height:54px;margin-top:12px;border-radius:10px;font-size:16px}
-.pickup-pro-action p{font-size:12px;text-align:center;color:#64748b;margin:10px 0 0}
+
+/* Approved 1099 pickup screen: route, job details, notes, Save. */
+.booking-approved-onsite{background:#fff;padding:0 14px 95px;display:flex;flex-direction:column;gap:22px;color:#20252d}
+.booking-approved-heading{background:#ffc400;padding:15px;margin:0 -14px}
+.booking-approved-heading h2{font-size:20px;margin:0;font-weight:800;color:#182b45}
+.booking-approved-route{padding:16px 4px 5px 28px;display:grid;gap:21px;border-left:4px dotted #b4b8bf;margin-left:8px}
+.booking-approved-route div{display:flex;flex-direction:column;gap:5px;position:relative}
+.booking-approved-route div:before{content:'●';position:absolute;left:-37px;top:0;color:#9aa4ae;font-size:17px}
+.booking-approved-route strong{font-size:19px;line-height:1.3;color:#20252d}
+.booking-approved-route span{font-size:14px;color:#66717d;font-weight:650}
+.booking-approved-details h3{font-size:17px;color:#6a7179;border-bottom:1px solid #b7bdc4;margin:0 0 8px}
+.booking-approved-details p{font-size:16px;line-height:1.5;margin:5px 0}
+.booking-approved-notes{font-size:17px;font-weight:800;color:#656b73}
+.booking-approved-notes textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #bfc4ca;border-radius:5px;padding:12px;margin-top:9px;min-height:120px;font-size:16px;resize:vertical;color:#20252d}
+.booking-approved-save{min-height:55px;width:100%;font-size:18px!important;border-radius:5px!important}
