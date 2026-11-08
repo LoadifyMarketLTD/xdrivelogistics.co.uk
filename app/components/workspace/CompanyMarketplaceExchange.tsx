@@ -16,9 +16,10 @@ import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
 import Canonical3150TransportSummary from './Canonical3150TransportSummary';
 import { formatPublicOutcode } from '../../../lib/jobs/formatPublicOutcode';
+import { public3150RouteLabel } from '../../../lib/jobs/public3150RouteLabel';
 import './canonical3150-transport-summary.css';
 import Master3150QuotesKpis from './Master3150QuotesKpis';
-import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
+import MarketplaceQuoteNowDialog, { type Canonical3150QuoteMeta } from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
 import { MemberProfileOverlay } from './MemberProfile';
 import {
@@ -348,7 +349,7 @@ export default function CompanyMarketplaceExchange({
     setError('');
   }, [bidTarget?.id, fixtureData]);
 
-  const submitQuote = async () => {
+  const submitQuote = async (meta?: Canonical3150QuoteMeta) => {
     if (!companyId || !bidTarget) return;
     const baseAmount = Number(quoteAmount);
     const extrasTotal = quoteExtras.reduce((sum, extra) => {
@@ -359,6 +360,9 @@ export default function CompanyMarketplaceExchange({
     if (!Number.isFinite(baseAmount) || baseAmount <= 0 || amount <= 0) { setError('Enter a valid quote amount greater than 0.'); return; }
     const selectedVehicle = quoteVehicles.find((vehicle) => vehicle.id === quoteVehicleId) ?? null;
     const commercialContext = [
+      meta ? `Service: ${meta.service}` : null,
+      meta ? `ETA to Collection: ${meta.etaToCollection === 'ONTIME' ? 'On Time' : meta.etaToCollection === 'ASAP' ? 'ASAP' : `${meta.etaToCollection} minutes`}` : null,
+      meta ? `Quote valid for: ${meta.validityHours} hours` : null,
       selectedVehicle ? `Vehicle: ${selectedVehicle.reg_plate || 'No registration'}${selectedVehicle.type ? ` (${selectedVehicle.type.replace(/_/g, ' ')})` : ''}` : null,
       ...quoteExtras
         .map((extra) => ({ extra, amount: Number(extra.amount) }))
@@ -447,7 +451,8 @@ export default function CompanyMarketplaceExchange({
   }, 0);
   const quoteBaseAmount = Number(quoteAmount);
   const quoteTotal = (Number.isFinite(quoteBaseAmount) && quoteBaseAmount > 0 ? quoteBaseAmount : 0) + quoteExtrasTotal;
-  const quoteCurrencySymbol = quoteCurrency === 'EUR' ? 'â‚¬' : quoteCurrency === 'USD' ? '$' : 'Â£';
+
+  const quoteCurrencySymbol = quoteCurrency === 'EUR' ? '\u20ac' : quoteCurrency === 'USD' ? '$' : '\u00a3';
   const selectedQuoteVehicle = quoteVehicles.find((vehicle) => vehicle.id === quoteVehicleId) ?? null;
   return (
     <PageFrame>
@@ -730,10 +735,21 @@ export default function CompanyMarketplaceExchange({
           memberName: bidTarget.posterName,
           memberCode: bidTarget.posterMemberCode,
           requestedVehicle: vehicleLabel(bidTarget),
-          pickup: `${routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)}, GB`,
-          delivery: `${routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)}, GB`,
+          pickup: public3150RouteLabel(bidTarget.pickup_location, bidTarget.pickup_postcode),
+          delivery: public3150RouteLabel(bidTarget.delivery_location, bidTarget.delivery_postcode),
           pickupWhen: cxWhen(bidTarget.pickup_datetime),
           deliveryWhen: bidTarget.delivery_datetime ? cxWhen(bidTarget.delivery_datetime) : 'ASAP',
+          pickupDate: bidTarget.pickup_datetime ? cxWhen(bidTarget.pickup_datetime) : bidTarget.pickup_time_slot,
+          deliveryDate: bidTarget.delivery_datetime ? cxWhen(bidTarget.delivery_datetime) : bidTarget.delivery_time_slot,
+          pickupStart: bidTarget.pickup_time_slot,
+          deliveryTime: bidTarget.delivery_time_slot,
+          pallets: bidTarget.pallets,
+          weight: bidTarget.weight_kg != null ? `${bidTarget.weight_kg} kg` : null,
+          cargo: bidTarget.requested_cargo_label || bidTarget.cargo_type,
+          service: bidTarget.loadType,
+          notes: bidTarget.special_requirements || bidTarget.jobDescription,
+          paymentTerms: bidTarget.payment_terms,
+          hardPod: bidTarget.hard_copy_pod,
         }}
         working={working}
         errorContent={error ? <div className="xdrive-quote-modal__error"><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner companyId={companyId} operation="quote" inline /></div> : null}
@@ -766,7 +782,8 @@ export default function CompanyMarketplaceExchange({
         message={quoteMessage}
         onMessageChange={setQuoteMessage}
         onClose={() => setBidTarget(null)}
-        onSubmit={() => void submitQuote()}
+        draftOwnerId={user?.id}
+        onSubmit={(meta) => void submitQuote(meta)}
       />}
     </PageFrame>
   );

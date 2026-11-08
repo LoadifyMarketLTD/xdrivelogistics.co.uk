@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../components/AuthContext';
 
 import MarketplaceQuoteNowDialog, {
   type MarketplaceQuoteNowExtra,
@@ -71,6 +72,7 @@ export default function MarketplaceQuoteModal({
   onSubmit: (payload: MarketplaceQuoteSubmitPayload) => void;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const [extras, setExtras] = useState<MarketplaceQuoteNowExtra[]>([]);
 
   useEffect(() => {
@@ -115,7 +117,7 @@ export default function MarketplaceQuoteModal({
       currencyValue="GBP"
       currencyOptions={[{ value: 'GBP', label: 'GBP - Pounds' }]}
       onCurrencyChange={() => undefined}
-      currencySymbol="£"
+      currencySymbol={'\u00a3'}
       amount={amount}
       onAmountChange={onAmountChange}
       extras={extras}
@@ -136,11 +138,12 @@ export default function MarketplaceQuoteModal({
       message={message}
       onMessageChange={onMessageChange}
       onClose={onClose}
-      onSubmit={() => onSubmit({
+      draftOwnerId={user?.id}
+      onSubmit={(meta) => onSubmit({
         totalAmount: total,
         baseAmount: safeBaseAmount,
         additionalExtrasGbp: extrasTotal,
-        message: message.trim(),
+        message: [message.trim(), `Service: ${meta.service}`, `ETA to Collection: ${meta.etaToCollection === 'ONTIME' ? 'On Time' : meta.etaToCollection === 'ASAP' ? 'ASAP' : `${meta.etaToCollection} minutes`}`, `Quote valid for: ${meta.validityHours} hours`].filter(Boolean).join('\n'),
       })}
     />
   );

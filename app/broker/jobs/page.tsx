@@ -51,7 +51,7 @@ export default function BrokerJobsPage() {
   const canEditOwnedJobs = ['owner', 'admin', 'dispatcher'].includes((user?.membershipRole ?? '').trim().toLowerCase());
   const deepJob = searchParams.get('job');
 
-  const [tab, setTab] = useState<JobsTab>('all');
+  const [tab, setTab] = useState<JobsTab>(() => searchParams.get('view') === 'awarded' ? 'awarded' : 'all');
   const [customer, setCustomer] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
