@@ -67,8 +67,8 @@
   list-style:none;background:#fff;
 }
 .master3150-production .master3150-unified-loads .master3150-loads-more[open]>div{
-  display:flex;flex-wrap:wrap;gap:6px;position:absolute;right:0;top:100%;
-  z-index:15;min-width:175px;max-width:280px;padding:9px;
+  display:flex;flex-wrap:wrap;gap:6px;position:static;
+  min-width:175px;max-width:280px;padding:9px;
   border:1px solid #d8e2ee;border-radius:7px;background:white;
   box-shadow:0 5px 14px rgba(15,43,76,.16);
 }
