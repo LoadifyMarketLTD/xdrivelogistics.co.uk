@@ -1,5 +1,17 @@
 # Reserve PWA checkpoint — 2026-11-08
 
+## 19:11 — Quotes (Pixel 7 Pro)
+- User screenshot: 3 available listed loads already QUOTED, therefore all buttons were View Quote and user could not submit a NEW quote to the same jobs.
+- Official POST /api/driver/mobile/bids prohibits a second bid per driver/job, returns HTTP 409. Official POST /api/driver/mobile/bids/[id] with action=edit ALLOWS editing existing submitted personal bid before award. No bypass or duplicate offered.
+- liveApi.ts now preserves bidId, bidStatus, quoteEtaMinutes and quoteNotes from real quote history.
+- ReserveApp.tsx shows Quote Now for unquoted OPEN jobs, Edit Quote for own submitted bids, View Quote for non-editable quotes. Edit uses official /mobile/bids/[id] action edit endpoint with amount/ETA/notes and is not a second quote.
+- Quote ETA uses collectWithinMinutes structured API field, sum labeled as total VAT-inclusive where applicable, vehicle shown read-only because backend selects validated registered vehicle.
+- Pixel screenshots: D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\xf_quoteedit_after_refresh.png (Edit Quote card) and xf_editquote_form2.png (real edit form). No write performed.
+- Removed breadcrumb/heading overlap in quote form.
+- Build PASS, selected 14/14 tests PASS. Real quote update write NOT TESTED.
+
+
+
 ## 19:04 — Loads layout and View on Map verified
 - Scope: separate reserve branch only, no changes to GitHub main, official 1099 or Netlify.
 - Removed all 4 metric cards from Loads. Confirmed on Pixel 7 Pro screenshot `D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\xf_loads_nometrics_map_button.png` — the first real job follows search and one compact count line.

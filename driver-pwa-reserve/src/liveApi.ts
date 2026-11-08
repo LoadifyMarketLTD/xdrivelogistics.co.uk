@@ -7,6 +7,7 @@ export type LiveJob = {
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
   company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
+  bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
   offerId?: string; acceptanceRequired?: boolean; backendStatus?: string; podRecorded?: boolean;
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
@@ -212,7 +213,8 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
     const state = str(bid.status).toLowerCase();
     const existing = result.get(id);
     const outcome = state === 'accepted' ? 'AWARDED' as const : state === 'rejected' || state === 'unsuccessful' ? 'UNSUCCESSFUL' as const : state === 'cancelled' || state === 'withdrawn' ? 'CANCELLED' as const : undefined;
-    const quoteFields = { quote: amount, quoteSubmittedAt: str(bid.createdAt), quoteOutcome: outcome };
+    const quoteFields = { quote: amount, quoteSubmittedAt: str(bid.createdAt), quoteOutcome: outcome,
+      bidId: str(bid.id), bidStatus: state, quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message) };
     if (existing) {
       result.set(id, { ...existing, ...quoteFields });
     } else {
