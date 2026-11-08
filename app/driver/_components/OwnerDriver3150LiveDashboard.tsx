@@ -9,6 +9,7 @@ import { jobLifecyclePresentationGroup } from '../../../lib/jobs/jobLifecyclePre
 import { workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { supabase } from '../../../lib/supabaseClient';
+import {hasCompletePodEvidence} from '../../../lib/jobs/podCompletion';
 
 /**
  * Master Workspace 3150 Dashboard. The 3150 visual component is preserved;
@@ -67,7 +68,7 @@ export default function OwnerDriver3150LiveDashboard() {
   }, [companyId]);
   const jobs = useMemo(() => (live?.data.jobs ?? []).map((job) => {
     const stage = jobLifecyclePresentationGroup(workspaceJobPresentationStatus(job));
-    const pod = Boolean(job.pod_generated || job.pod_generated_at);
+    const pod = hasCompletePodEvidence(job);
     return {
       id: job.id,
       from: job.pickup_location || job.pickup_postcode || 'Collection not recorded',

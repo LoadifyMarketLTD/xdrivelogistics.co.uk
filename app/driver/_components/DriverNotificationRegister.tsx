@@ -7,6 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import NotificationPreferencesPanel from '../../components/workspace/NotificationPreferencesPanel';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import {groupSimilarLoadAlerts} from '../../../lib/notifications/groupSimilarLoadAlerts';
 
 type NotificationRow = {
   id: string;
@@ -66,6 +67,7 @@ export default function DriverNotificationRegister({
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [expandedAlertGroups,setExpandedAlertGroups]=useState<Set<string>>(()=>new Set());
   const [error, setError] = useState('');
 
   const loadMessages = useCallback(async () => {
@@ -106,6 +108,8 @@ export default function DriverNotificationRegister({
     if (tab === 'operational') return messages.filter((message) => OPERATIONAL_TYPES.has(String(message.type ?? '')));
     return messages;
   }, [messages, tab]);
+
+  const displayedMessages=useMemo(()=>groupSimilarLoadAlerts(visibleMessages,expandedAlertGroups),[visibleMessages,expandedAlertGroups]);
 
   const counts = useMemo(() => ({
     all: messages.length,
@@ -211,7 +215,7 @@ export default function DriverNotificationRegister({
           <div className="driver-register-toolbar">
             <div>
               <strong>Notification inbox</strong>
-              <span>{visibleMessages.length} visible · {counts.unread} unread</span>
+              <span>{displayedMessages.length} rows ({visibleMessages.length} notifications) · {counts.unread} unread</span>
             </div>
           </div>
 
@@ -232,11 +236,12 @@ export default function DriverNotificationRegister({
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleMessages.map((message) => (
+                  {displayedMessages.map(({notification:message,key,count,unread,representative}) => (
                     <tr key={message.id} data-state={message.read_at ? 'read' : 'unread'}>
                       <td>
                         <strong>{message.title}</strong>
                         <small>{typeLabel(message.type)}</small>
+                        {representative && key && count>1 && <button type="button" className="driver-alert-group-toggle" aria-expanded={expandedAlertGroups.has(key)} onClick={()=>setExpandedAlertGroups(previous=>{const next=new Set(previous);if(next.has(key))next.delete(key);else next.add(key);return next;})}>{expandedAlertGroups.has(key)?'Collapse':'Expand'} {count} identical alerts ({unread} unread)</button>}
                       </td>
                       <td>{message.body?.trim() || 'Open XDrive for details.'}</td>
                       <td>{formatDateTime(message.created_at)}</td>

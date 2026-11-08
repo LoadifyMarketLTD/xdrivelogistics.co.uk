@@ -188,3 +188,9 @@
  .xdrive-driver-workspace .xd-diary-v2 .xd-diary-tabs button{white-space:nowrap;flex:none}
  .xdrive-driver-workspace .xd-approved-freight-details{grid-template-columns:1fr}
 }
+
+/* Quotes retain the approved two-tab Master 3150 layout. History is a secondary, read-only filter. */
+.driver-quotes-prototype .xd3150-quote-history-toggle{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin:8px 0 12px;padding:0 2px}
+.driver-quotes-prototype .xd3150-quote-history-toggle button{border:1px solid #cad8e9;border-radius:5px;background:#fff;color:#20466f;padding:7px 10px;font-size:12px;font-weight:650;cursor:pointer}
+.driver-quotes-prototype .xd3150-quote-history-toggle button.active{background:#e7f1ff;border-color:#2071d7;color:#0c4ea0}
+.driver-quotes-prototype .xd3150-quote-history-toggle button:focus-visible{outline:2px solid #2071d7;outline-offset:2px}

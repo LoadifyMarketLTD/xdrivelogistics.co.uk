@@ -11,9 +11,12 @@ import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { canonicalExecutionStatus, matchesDriverJobView, type DriverJobView } from '../../../lib/jobs/jobLifecyclePresentation';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import {hasCompletePodEvidence,isDeliveredAwaitingPod} from '../../../lib/jobs/podCompletion';
 import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
 import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
 import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
+
+type DriverBookingView = DriverJobView | 'current';
 
 type DriverRow = {
   id: string;
@@ -40,6 +43,10 @@ type JobRow = {
   awarded_carrier_company_id?: string | null;
   collection_photo_url: string | null;
   delivery_photos: string[] | null;
+  pod_generated: boolean | null;
+  pod_photos: string[] | null;
+  delivery_signature_data: unknown;
+  client_signature_name: string | null;
 };
 
 const JOB_COLUMNS = [
@@ -60,11 +67,15 @@ const JOB_COLUMNS = [
   'awarded_carrier_company_id',
   'collection_photo_url',
   'delivery_photos',
+  'pod_generated',
+  'pod_photos',
+  'delivery_signature_data',
+  'client_signature_name',
 ];
 const LEGACY_JOB_COLUMNS = JOB_COLUMNS.filter((column) => column !== 'vehicle_id');
 
-const FILTERS: Array<{ id: DriverJobView; label: string }> = [
-  { id: 'all', label: 'All' }, { id: 'active', label: 'Active' }, { id: 'allocated', label: 'Allocated' },
+const FILTERS: Array<{ id: DriverBookingView; label: string }> = [
+  { id: 'current', label: 'Current' }, { id: 'all', label: 'All' }, { id: 'active', label: 'Active' }, { id: 'allocated', label: 'Allocated' },
   { id: 'loaded', label: 'Loaded' }, { id: 'in_transit', label: 'In Transit' }, { id: 'completed', label: 'Completed' },
 ];
 
@@ -74,7 +85,8 @@ function effectiveStatus(job: JobRow) {
 function driverJobStage(job: JobRow) {
   return classifyWorkspaceJobStage(job);
 }
-function matchesFilter(job: JobRow, filter: DriverJobView) {
+function matchesFilter(job: JobRow, filter: DriverBookingView) {
+  if (filter === 'current') return ['allocated', 'awarded', 'in_progress'].includes(driverJobStage(job)) || isDeliveredAwaitingPod(job);
   return matchesDriverJobView(job.current_status || job.status, filter);
 }
 function fmtTime(value: string | null) {
@@ -99,7 +111,7 @@ export default function DriverJobsPage() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<DriverJobView>('all');
+  const [filter, setFilter] = useState<DriverBookingView>('current');
   const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(() => new Set());
 
   const loadJobs = useCallback(async () => {
@@ -137,8 +149,12 @@ export default function DriverJobsPage() {
   );
   useDriverLocationPublisher(activeJob ? effectiveStatus(activeJob) : undefined, Boolean(activeJob), activeJob?.id);
 
-  const filteredJobs = useMemo(() => jobs.filter((job) => matchesFilter(job, filter)), [filter, jobs]);
-  const countFor = (target: DriverJobView) => jobs.filter((job) => matchesFilter(job, target)).length;
+  const filteredJobs = useMemo(() => jobs.filter((job) => matchesFilter(job, filter)).sort((a,b)=>{
+    const priority=(job:JobRow)=>driverJobStage(job)==='in_progress'?0:isDeliveredAwaitingPod(job)?1:['allocated','awarded'].includes(driverJobStage(job))?2:driverJobStage(job)==='completed'?3:4;
+    const difference=priority(a)-priority(b);
+    return difference || String(a.pickup_datetime??'').localeCompare(String(b.pickup_datetime??''));
+  }), [filter, jobs]);
+  const countFor = (target: DriverBookingView) => jobs.filter((job) => matchesFilter(job, target)).length;
   const driverStatus = driver?.availability_status ?? driver?.status ?? 'active';
   const allVisibleExpanded = filteredJobs.length > 0 && filteredJobs.every((job) => expandedJobIds.has(job.id));
 
@@ -187,9 +203,9 @@ export default function DriverJobsPage() {
             <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Bookings</h1><p className="xd-approved-board-subtitle">Assigned work, execution and proof of delivery</p></div></header>
             <div className="xd-approved-board-kpis" aria-label="Real booking statistics">
               <div className="xd-approved-board-kpi"><strong>Total Bookings</strong><b>{jobs.length}</b><small>Assigned to this Driver</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Current</strong><b>{jobs.filter(job => ['allocated','awarded','in_progress'].includes(driverJobStage(job))).length}</b><small>Active or upcoming</small></div>
+              <div className="xd-approved-board-kpi blue"><strong>Current</strong><b>{jobs.filter(job => matchesFilter(job, 'current')).length}</b><small>Active or upcoming</small></div>
               <div className="xd-approved-board-kpi green"><strong>Completed</strong><b>{jobs.filter(job => driverJobStage(job) === 'completed').length}</b><small>Completed records</small></div>
-              <div className="xd-approved-board-kpi amber"><strong>Awaiting POD</strong><b>{jobs.filter(job => effectiveStatus(job) === 'delivered' && (!job.delivery_photos || job.delivery_photos.length === 0)).length}</b><small>Delivery evidence required</small></div>
+              <div className="xd-approved-board-kpi amber"><strong>Awaiting POD</strong><b>{jobs.filter(isDeliveredAwaitingPod).length}</b><small>Delivery evidence required</small></div>
               <div className="xd-approved-board-kpi blue"><strong>Shown</strong><b>{filteredJobs.length}</b><small>Matching current status</small></div>
             </div>
             <div className="driver-tab-strip" role="tablist" aria-label="Job status views">
@@ -220,7 +236,7 @@ export default function DriverJobsPage() {
                   const expanded = expandedJobIds.has(job.id);
                   const status = effectiveStatus(job);
                   const stage = driverJobStage(job);
-                  const hasPod = Array.isArray(job.delivery_photos) && job.delivery_photos.length > 0;
+                  const hasPod = hasCompletePodEvidence(job);
                   const inExecution = stage === 'in_progress';
                   const complete = stage === 'completed';
                   return <CxDiaryCard
@@ -233,7 +249,7 @@ export default function DriverJobsPage() {
                     band={workspaceJobOperationalLabel(job)}
                     loadId={job.id.slice(0, 8).toUpperCase()}
                     vehicle={vehicleLabel(job)}
-                    statusLine="Assigned to you"
+                    statusLine={stage === 'cancelled' ? 'Cancelled booking' : stage === 'completed' ? (hasPod ? 'POD complete' : 'POD action required') : 'Assigned to you'}
                     expandedMeta={<><span>{job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span><span>{hasPod ? 'Delivery evidence captured' : inExecution ? 'Execution in progress' : 'Awaiting execution'}</span></>}
                     state={status}
                     expanded={expanded}
@@ -246,7 +262,7 @@ export default function DriverJobsPage() {
                         <div className="driver-detail-item"><span>Pickup</span><strong>{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</strong></div>
                         <div className="driver-detail-item"><span>Delivery</span><strong>{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</strong></div>
                         <div className="driver-detail-item"><span>Vehicle</span><strong>{vehicleLabel(job)}</strong></div>
-                        <div className="driver-detail-item"><span>Evidence</span><strong>{hasPod ? 'Delivery evidence captured' : complete ? 'Open booking for full POD state' : 'Pending execution'}</strong></div>
+                        <div className="driver-detail-item"><span>Evidence</span><strong>{hasPod ? 'POD complete' : isDeliveredAwaitingPod(job) ? 'POD action required' : complete ? 'Open booking for full POD state' : 'Pending execution'}</strong></div>
                       </div>
                       <div className="driver-inline-quote driver-job-actions">
                         <span>Journey status and POD are updated only through the authorised execution workflow.</span>

@@ -11,6 +11,7 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
+import { isDeliveredAwaitingPod } from '../../../lib/jobs/podCompletion';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
@@ -591,7 +592,7 @@ export default function JobHistoryPage() {
   const today = new Date().toDateString();
   const totalToday = jobs.filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === today).length;
   const completedToday = jobs.filter((job) => jobStage(job) === 'completed' && job.delivery_datetime && new Date(job.delivery_datetime).toDateString() === today).length;
-  const awaitingPod = jobs.filter((job) => effectiveStatus(job) === 'delivered' && !hasCompletePodEvidence(job)).length;
+  const awaitingPod = jobs.filter(isDeliveredAwaitingPod).length;
   const upcomingJobs = jobs.filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).getTime() >= Date.now() && new Date(job.pickup_datetime).getTime() <= Date.now() + 7 * 86400000).length;
   const tabCount = (bucket: HistoryFilter) => jobs.filter((job) => filterMatches(job, bucket, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length;
 

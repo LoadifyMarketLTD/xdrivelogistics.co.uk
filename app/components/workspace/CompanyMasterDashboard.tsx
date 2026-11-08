@@ -6,6 +6,7 @@ import {useCompany3150Live} from '../../try-xdrive-demo/components/Company3150Li
 import DemoCompanyDashboard from '../../try-xdrive-demo/components/DemoCompanyDashboard';
 import {masterNavigationHref} from '../../../lib/masterWorkspaceNavigation';
 import {classifyWorkspaceJobStage} from '../../../lib/jobs/workspaceJobStage';
+import {hasCompletePodEvidence} from '../../../lib/jobs/podCompletion';
 
 /** The approved Master 3150 dashboard is the shared visual source for every
  * production company workspace. This adapter supplies only authenticated data. */
@@ -15,7 +16,7 @@ export default function CompanyMasterDashboard({role}:{role:'Company / Carrier'|
  const data=real?.data;
  const jobs=useMemo(()=>(data?.jobs??[]).map(job=>{
    const stage=classifyWorkspaceJobStage(job);
-   const pod=Boolean(job.pod_generated||job.pod_generated_at||job.has_delivery_evidence||job.delivery_signature_data||job.pod_photos?.length||job.delivery_photos?.length);
+   const pod=hasCompletePodEvidence(job);
    return {
      id:job.id,
      from:job.pickup_location||job.pickup_postcode||'Collection not recorded',

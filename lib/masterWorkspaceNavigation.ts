@@ -58,7 +58,7 @@ export const MASTER_AUTHENTICATED_ROUTES = {
     '/driver/jobs', '/driver/fleet', '/driver/drivers', '/driver/history',
     '/driver/finance', '/driver/network', '/driver/directory',
     '/driver/availability', '/driver/returns', '/driver/freight-vision',
-    '/driver/messages', '/driver/notifications', null,
+    '/driver/messages', '/driver/notifications', '/driver/reports',
   ],
   Dispatcher: [
     '/admin', '/admin/post-load', '/admin/marketplace', '/admin/exchange',
