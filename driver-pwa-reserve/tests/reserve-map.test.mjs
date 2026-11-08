@@ -23,3 +23,9 @@ test('Private full addresses not disclosed on OPEN marketplace maps',()=>{
 test('Obstructive statistics cards not rendered in Loads',()=>{
  assert.doesNotMatch(app,/rv-feedinfo|Marketplace <b>|Quoted open <b>|Bid history <b>|Bookings <b>/);
 });
+test('Loads begins immediately with the first job card, no heading/search/filter/refresh block',()=>{
+ const list=app.split('  function list(){')[1].split('  function quoteDetails()')[0];
+ assert.match(list,/tab !== 'Loads' && <div className="rv-heading/);
+ assert.doesNotMatch(list,/rv-search|Search town|Filter by vehicle|setSearch|setVehicleFilter|tab === 'Loads' && <div className="rv-heading"/);
+ assert.match(list,/shown.length \? shown.map\(card\)/);
+});

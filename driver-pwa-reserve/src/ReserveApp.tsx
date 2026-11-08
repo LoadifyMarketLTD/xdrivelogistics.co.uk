@@ -41,7 +41,6 @@ export default function ReserveApp() {
   const [jobs,setJobs]=useState<LiveJob[]>([]);
   const [tab,setTab]=useState<Tab>('Loads');const [view,setView]=useState<View>('list');
   const [id,setId]=useState<string|null>(null);
-  const [search,setSearch]=useState('');const [vehicleFilter,setVehicleFilter]=useState('All');
   const [quoteSection,setQuoteSection]=useState<QuoteSection>('Submitted');
   const [withdrawId,setWithdrawId]=useState<string|null>(null);
   const [mapReturnView,setMapReturnView]=useState<View>('list');
@@ -93,24 +92,17 @@ export default function ReserveApp() {
     });
   }
   function list(){
-    const shown = reserveJobs(jobs, tab, tab === 'Loads' ? search : '', tab === 'Loads' ? vehicleFilter : 'All',quoteSection);
+    const shown = reserveJobs(jobs, tab, '', 'All', quoteSection);
     return <>
-      <div className="rv-heading rv-compact-heading">
-        <h1>{tab === 'Loads' ? 'Loads' : tab === 'Quotes' ? 'My Quotes' : 'Bookings'}</h1>
-        <button className="rv-refresh" onClick={() => void refresh()} disabled={loading} aria-label="Refresh loads and quotes">↻</button>
-      </div>
-      {tab === 'Loads' && <div className="rv-search">
-        <input placeholder="Search town, postcode, company…" value={search} onChange={e => setSearch(e.target.value)}/>
-        <select aria-label="Filter by vehicle" value={vehicleFilter} onChange={e => setVehicleFilter(e.target.value)}>
-          <option>All</option>{[...new Set(jobs.map(j => j.vehicle))].filter(Boolean).map(v => <option key={v}>{v}</option>)}
-        </select>
+      {tab !== 'Loads' && <div className="rv-heading rv-compact-heading">
+        <h1>{tab === 'Quotes' ? 'My Quotes' : 'Bookings'}</h1>
+        <button className="rv-refresh" onClick={() => void refresh()} disabled={loading} aria-label="Refresh quotes and bookings">↻</button>
       </div>}
       {tab==='Quotes'&&<div className="rv-quote-tabs" role="group" aria-label="Quote sections">{(['Submitted','Awarded','History'] as QuoteSection[]).map(s=><button key={s} className={quoteSection===s?'rv-selected':''} aria-pressed={quoteSection===s} onClick={()=>{setQuoteSection(s);setWithdrawId(null)}}>{s}</button>)}</div>}
-      {loading&&<p className="rv-loading-inline" role="status">Refreshing live jobs…</p>}
+      {loading&&shown.length===0&&<p className="rv-loading-inline" role="status">Refreshing live jobs…</p>}
       {shown.length ? shown.map(card) : <div className="rv-empty">
         <b>{loading?'Loading live data…':warning?'Some sources are temporarily unavailable':jobs.length===0?'No jobs returned by the server':tab==='Loads'?'No available marketplace loads':'No matching '+tab.toLowerCase()}</b>
         <p>{loading?'Refreshing XDrive…':warning?'Review the source warning above. This is not proof that the marketplace is empty.':tab==='Loads'&&jobs.length>0?'No currently OPEN marketplace loads match the selected filters. Your submitted quotes remain under Quotes.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
-        {tab === 'Loads' && (search || vehicleFilter !== 'All') && <button className="rv-outline" onClick={()=>{setSearch('');setVehicleFilter('All')}}>Clear filters</button>}
         {tab==='Loads'&&jobs.some(j=>j.quote!=null)&&<button className="rv-outline rv-wide" onClick={()=>navigate('Quotes')}>View My Quotes →</button>}
       </div>}
       {warning&&<details className="rv-api-notes"><summary>Live data notices</summary><p>{warning}</p></details>}

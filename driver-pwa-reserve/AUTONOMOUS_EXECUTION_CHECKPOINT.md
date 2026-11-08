@@ -1,4 +1,13 @@
 # Reserve PWA checkpoint — 2026-11-08 19:42 GMT
+
+## 19:50 — User-confirmed cards-first Loads layout
+- User explicitly approved removing EVERYTHING above the Load job cards: title Loads, search input, All vehicle filter, refresh control and extra lines. Header stays; the first job card begins directly beneath it.
+- Implemented only for Loads tab in active ReserveApp.tsx. Quotes retains its functional Submitted/Awarded/History tabs; Bookings unchanged.
+- Removed search/filter state and JSX; preserves all real marketplace jobs rather than applying hidden filters.
+- Pixel 7 Pro screenshot verified first real Blackburn→Brighton job card immediately below XDrive navbar: D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\reserve_loads_first.png
+- Build PASS, 16/16 pre-update tests and 13/13 post-addition tests PASS; new regression specifically asserts absence of heading/search/filter/refresh from Loads.
+- Not deployed to main or Netlify; reserve local worktree only.
+
 Branch: feature/xdrive-driver-reserve-20261108
 Root: D:\XDrive-PWA-RESERVE-20261108
 URL: http://127.0.0.1:5197/driver/reserve-pwa/
