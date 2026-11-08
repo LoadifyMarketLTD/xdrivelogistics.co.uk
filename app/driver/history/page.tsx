@@ -18,6 +18,7 @@ import { ActionButton, AlertBanner, EmptyState } from '../../components/workspac
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import ApprovedDriverDiaryCard from './ApprovedDriverDiaryCard';
+import { Broker3150DiaryHeader, Broker3150DiaryTabs } from '../../components/workspace/Broker3150DiaryChrome';
 import { operationalLocationLabel } from '../../components/workspace/locationPresentation';
 import CxDiaryActions from '../../components/workspace/CxDiaryActions';
 
@@ -574,11 +575,6 @@ export default function JobHistoryPage() {
     if (expanding) void prefetchOrderSheets(visibleJobs);
   };
 
-  const advanceDiaryDate = (days: number) => {
-    const base = selectedDiaryDate ? new Date(`${selectedDiaryDate}T12:00:00`) : new Date();
-    base.setDate(base.getDate() + days);
-    setSelectedDiaryDate(`${base.getFullYear()}-${String(base.getMonth()+1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`);
-  };
   const today = new Date().toDateString();
   const totalToday = jobs.filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === today).length;
   const completedToday = jobs.filter((job) => jobStage(job) === 'completed' && job.delivery_datetime && new Date(job.delivery_datetime).toDateString() === today).length;
@@ -611,17 +607,9 @@ export default function JobHistoryPage() {
       <DriverWorkspaceShell hideHeader>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
-        <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity xd-diary-v2">
-          <header className="xd-diary-header xd-approved-board-header">
-            <div><h1>Diary</h1><p>Bookings &amp; Operations Schedule</p></div>
-            <div className="xd-diary-date-nav">
-              <button type="button" aria-label="Previous day" onClick={() => advanceDiaryDate(-1)}>&lsaquo;</button>
-              <input type="date" aria-label="Diary date" value={selectedDiaryDate ?? ''} onChange={(event) => setSelectedDiaryDate(event.target.value || null)} />
-              <button type="button" aria-label="Next day" onClick={() => advanceDiaryDate(1)}>&rsaquo;</button>
-              <button type="button" onClick={() => setSelectedDiaryDate(new Date().toLocaleDateString('en-CA'))}>Today</button>
-              {selectedDiaryDate && <button type="button" onClick={() => setSelectedDiaryDate(null)}>All dates</button>}
-            </div>
-          </header>
+        <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity xd-diary-v2 xd3150-broker-diary" data-diary-source="broker-3150">
+          <Broker3150DiaryHeader date={selectedDiaryDate??''}
+            onDateChange={(value)=>setSelectedDiaryDate(value||null)}/>
           <section className="xd-diary-kpis xd-approved-board-kpis" aria-label="Real booking statistics">
             <div className="xd-diary-kpi xd-approved-board-kpi"><strong>Total Bookings</strong><b>{jobs.length}</b><small>All statuses</small></div>
             <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Today's Bookings</strong><b>{totalToday}</b><small>Pickup scheduled today</small></div>
@@ -629,14 +617,11 @@ export default function JobHistoryPage() {
             <div className="xd-diary-kpi xd-approved-board-kpi amber"><strong>Awaiting POD</strong><b>{awaitingPod}</b><small>Real evidence required</small></div>
             <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Next 7 Days</strong><b>{upcomingJobs}</b><small>Scheduled collections</small></div>
           </section>
-          <div className="xd-diary-tabs" role="tablist" aria-label="Diary statuses">
-            {historyFilters.map((item) => <button type="button" role="tab" key={item.id}
-              className={statusFilter === item.id ? 'active' : ''}
-              aria-selected={statusFilter === item.id}
-              onClick={() => setStatusFilter(item.id)}>
-              {item.label}<span className="xd-tab-count">{tabCount(item.id)}</span>
-            </button>)}
-          </div>
+          <Broker3150DiaryTabs
+            tabs={historyFilters.map(item=>({...item,count:tabCount(item.id)}))}
+            selected={statusFilter} onSelect={setStatusFilter}
+            label="Driver Diary states"
+          />
           <div className="xd-diary-layout">
           {filterRail}
           <main className="driver-board-main main diary-main">

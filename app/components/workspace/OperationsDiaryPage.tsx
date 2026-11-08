@@ -12,6 +12,7 @@ import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../l
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
 import CxDiaryCard from './CxDiaryCard';
+import { Broker3150DiaryHeader, Broker3150DiaryTabs } from './Broker3150DiaryChrome';
 import Master3150OperationsKpis from './Master3150OperationsKpis';
 import { operationalLocationLabel } from './locationPresentation';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
@@ -747,17 +748,29 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
 
   return (
     <PageFrame>
+      <section className="xd3150-broker-diary" data-diary-source="broker-3150">
+        <Broker3150DiaryHeader
+          date={search.dateFrom === search.dateTo ? search.dateFrom : ''}
+          onDateChange={(value) => {
+            setSearch(current => ({...current,dateFrom:value,dateTo:value}));
+            setAppliedSearch(current => ({...current,dateFrom:value,dateTo:value}));
+          }}
+        />
+        <Broker3150DiaryTabs tabs={diaryTabs.map(item => ({
+          ...item,
+          count:jobs.filter(job => matchesTab(job,item.id,reviewsByJob[job.id]??[],companyId)).length,
+        }))} selected={tab} onSelect={setTab} label="Company Diary states" />
       <Master3150OperationsKpis jobs={jobs} view="diary" />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
-        <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
+        <aside className="workspace-filter-rail cx-diary-filter-rail xd3150-diary-rail" aria-label="Diary search filters">
           <div className="cx-diary-rail-nav">
             <ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace/directory')}>Contacts</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/finance')}>Payment Report</ActionButton>
           </div>
-          <div className="workspace-filter-rail__header">Search Panel</div>
+          <div className="workspace-filter-rail__header">Find Bookings</div>
           <div className="workspace-filter-rail__body">
             <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontSize: 11, fontWeight: 600, color: '#334155', marginBottom: 4 }}>Booking Scope</legend><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="all" checked={search.scope === 'all'} onChange={() => setSearch((current) => ({ ...current, scope: 'all' }))} /> All</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="subcontracted" checked={search.scope === 'subcontracted'} onChange={() => setSearch((current) => ({ ...current, scope: 'subcontracted' }))} /> Jobs Sub-contracted</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="ours" checked={search.scope === 'ours'} onChange={() => setSearch((current) => ({ ...current, scope: 'ours' }))} /> Our Bookings</label></fieldset>
             <label>Date:<select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option>{datePreset === 'custom' ? <option value="custom">Custom date</option> : null}</select></label>
@@ -810,8 +823,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
               <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
             </span>
           </div>
-          <div className="workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Diary states">
-            {diaryTabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}</button>)}
+          <div className="cx-diary-paging-toolbar" aria-label="Diary page controls">
             <span className="cx-diary-pagination">
               <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
               <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
@@ -988,6 +1000,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
         <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))}>{[5,4,3,2,1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
         <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" /></label>
       </WorkspaceDialog>}
+      </section>
     </PageFrame>
   );
 }

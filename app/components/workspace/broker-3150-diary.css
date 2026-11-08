@@ -49,3 +49,8 @@
 .xd3150-broker-diary .xd3150-diary-status-tabs+section{margin-bottom:16px}
 @media(max-width:1250px){.xd3150-broker-diary .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.xd3150-diary-rail){grid-template-columns:200px minmax(0,1fr);gap:12px}.xd3150-diary-status-tabs{overflow-x:auto;flex-wrap:nowrap}}
 @media(max-width:780px){.xd3150-broker-diary{padding:8px}.xd3150-diary-header{flex-wrap:wrap}.xd3150-broker-diary .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.xd3150-diary-rail){grid-template-columns:minmax(0,1fr)}.xd3150-broker-diary .xd3150-diary-rail .workspace-filter-rail__body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.xd3150-diary-extra-filters{grid-column:1/-1}.xd3150-diary-results-head{flex-wrap:wrap}.xd3150-diary-calendar-view{grid-template-columns:minmax(0,1fr)!important}}
+
+/* The same approved Broker pagination controls when other real workspaces preserve their native paging handlers. */
+.xd3150-broker-diary .cx-diary-paging-toolbar{display:flex;justify-content:flex-end;align-items:center;min-height:36px;margin:0 0 8px}
+.xd3150-broker-diary .cx-diary-paging-toolbar .cx-diary-pagination{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.xd3150-broker-diary .cx-diary-paging-toolbar button,.xd3150-broker-diary .cx-diary-paging-toolbar select{border:1px solid #d4dfeb;border-radius:5px;min-height:30px;background:white;color:#174476;padding:5px 8px}

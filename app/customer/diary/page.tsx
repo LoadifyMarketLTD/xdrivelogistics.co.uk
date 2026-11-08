@@ -8,6 +8,7 @@ import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import { Broker3150DiaryHeader, Broker3150DiaryTabs } from '../../components/workspace/Broker3150DiaryChrome';
 import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame } from '../../components/workspace/WorkspaceUI';
@@ -143,16 +144,27 @@ export default function CustomerDiaryPage() {
 
   return (
     <PageFrame>
+      <section className="xd3150-broker-diary" data-diary-source="broker-3150">
+        <Broker3150DiaryHeader date={date} onDateChange={setDate}/>
+        <Broker3150DiaryTabs
+          tabs={tabs.map(item=>({
+            ...item,
+            count:data.jobs.filter(job=>isDiaryBookingJob(job)&&matchesTab(job,item.id,
+              (quoteInfoByJob.get(job.id)?.submitted??0)>0,
+              (reviewsByJob[job.id]?.length??0)>0,companyId)).length,
+          }))}
+          selected={tab} onSelect={setTab} label="Customer Diary states"
+        />
       <Master3150OperationsKpis jobs={data.jobs} view="diary" />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
-        <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Customer diary filters">
+        <aside className="workspace-filter-rail cx-diary-filter-rail xd3150-diary-rail" aria-label="Customer diary filters">
           <div className="cx-diary-rail-nav">
             <ActionButton tone="secondary" onClick={() => router.push('/customer/network/directory')}>Contacts</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>Invoices</ActionButton>
           </div>
-          <div className="workspace-filter-rail__header">Search Panel</div>
+          <div className="workspace-filter-rail__header">Find Bookings</div>
           <div className="workspace-filter-rail__body">
             <label>Date:<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
             <label>Pickup:<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
@@ -171,8 +183,7 @@ export default function CustomerDiaryPage() {
               <ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>
             </span>
           </div>
-          <div className="workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Customer diary states">
-            {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}</button>)}
+          <div className="cx-diary-paging-toolbar" aria-label="Diary page controls">
             <span className="cx-diary-pagination">
               <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
               <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
@@ -250,6 +261,7 @@ export default function CustomerDiaryPage() {
         const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
         return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment, would_use_again: existing.would_use_again, delivered_promptly: existing.delivered_promptly, courteous: existing.courteous } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
       })() : null}
+      </section>
     </PageFrame>
   );
 }
