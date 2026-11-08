@@ -7,9 +7,10 @@ export type LiveJob = {
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
   company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
-  offerId?: string; acceptanceRequired?: boolean; backendStatus?: string;
+  offerId?: string; acceptanceRequired?: boolean; backendStatus?: string; podRecorded?: boolean;
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; service?: string;
+  items?: number; hardCopyPodRequired?: boolean;
 };
 const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
 const str = (value: unknown): string => typeof value === 'string' ? value : '';
@@ -159,8 +160,10 @@ export function mapAssigned(raw: unknown): LiveJob {
     deliveryDate: date(get(r, 'deliveryTime', 'deliveryDatetime', 'delivery_datetime')),
     vehicle: str(get(r, 'vehicleRequirement', 'vehicleType', 'vehicle_type')) || 'Not provided',
     weight: num(get(r, 'weightKg', 'weight_kg')) || 0,
+    items: num(get(r, 'itemCount', 'no_of_items')),
+    hardCopyPodRequired: /^(required|yes|true|1)$/i.test(str(get(r, 'hardCopyPod', 'hard_copy_pod'))) || get(r, 'hardCopyPodRequired') === true,
     notes: details.notes || str(get(r, 'collectionNotes', 'driverNotes', 'driver_notes')),
-    status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus,
+    status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus, podRecorded: r.podGenerated === true || Boolean(r.deliverySignatureData),
     company: str(get(r, 'companyName', 'clientName', 'client_name')) || 'Customer not provided',
     terms: str(get(r, 'paymentTerms', 'payment_terms')) || 'Not provided',
     postedAt: dateTime(get(r, 'exchangePostedAt', 'exchange_posted_at', 'createdAt', 'created_at', 'updatedAt')),

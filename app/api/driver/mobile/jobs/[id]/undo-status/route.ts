@@ -62,15 +62,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const current = canonical(job.current_status || job.status);
   const previous = previousStatus[current];
 
-  if (!previous) {
-    return respond(409, { error: 'This status cannot be undone from the driver app.' });
-  }
-  if (expectedCurrent && current === previous) {
+  // A repeated Undo must never roll back a second lifecycle step.
+  if (expectedCurrent && current === previousStatus[expectedCurrent]) {
     return respond(200, { ok: true, idempotent: true, job: mapJob(job) });
   }
   if (expectedCurrent && expectedCurrent !== current) {
     return respond(409, { error: 'The job status changed before the undo could be applied. Refresh the job and try again.' });
   }
+
+  if (!previous) return respond(409, { error: 'This status cannot be undone from the driver app.' });
 
   const now = new Date().toISOString();
   const update: Record<string, unknown> = {
@@ -95,9 +95,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .update(update)
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
+    .eq('current_status', job.current_status)
     .select(jobSelect)
-    .single();
+    .maybeSingle();
   if (updateError) return respond(500, { error: updateError.message });
+  if (!updated) return respond(409, { error: 'The booking status changed while undoing. Refresh and try again.' });
 
   await insertTrackingEvent(id, driver.userId, 'note', 'Driver undid status ' + current + ' to ' + previous + '.');
   return respond(200, { ok: true, idempotent: false, previousStatus: previous, job: mapJob(updated as unknown as MobileJobRow) });
