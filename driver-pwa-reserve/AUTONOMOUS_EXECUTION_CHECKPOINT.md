@@ -1,3 +1,14 @@
+# 2026-11-08 20:53 — Quotes + Bookings directly beneath navbar on Pixel 7 Pro
+
+- User-approved UI change: remove redundant My Quotes and Bookings page headings and standalone Refresh rows; show Submitted/Awarded/History or Received/Allocated/Delivered immediately below the dark blue XDrive navbar, with job/quote cards directly beneath tabs.
+- Updated src/ReserveApp.tsx list() with no heading for either Quotes or Bookings; compact class rv-card-first-list restricted to Quotes/Bookings list; src/ReserveApp.css reduces top padding to 4px and tabs margin to 4px top/7px bottom; untouched global bottom nav and incoming-booking functions.
+- Removed no-longer-used refresh callback from component; initial authenticated fetch and post-action refresh remain.
+- Pixel 7 Pro Chrome visual evidence: D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\quotes_compact_actual.png, D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\booking_compact_2053.png; both verified compact UI beneath navbar on device.
+- npm run build PASS; 18/18 focused tests PASS, including new Bookings + Quotes layout regressions.
+- Worktree branch feature/xdrive-driver-reserve-20261108 only. No GitHub main or Netlify changes. No real job mutations.
+
+---
+
 # Premium Delivery Handover - 2026-11-08 20:36 GMT
 
 - Root D:\XDrive-PWA-RESERVE-20261108; branch feature/xdrive-driver-reserve-20261108; URL http://127.0.0.1:5197/driver/reserve-pwa/. Main/Netlify/PWA 1099 unchanged.
