@@ -20,6 +20,17 @@ VALIDATIONS:
 - Opera at port 5197 renders NEW WORKFLOW heading, authenticated LIVE load page; no fixtures.
 - API returns expected 200 config / 401 unauthorized data.
 
+AUDIT UPDATE — 2026-11-08 screenshot 0 loads:
+- Root cause: Loads erroneously excluded ALL jobs with an existing quote (j.quote != null).
+- Live Opera feed showed 14 OPEN-labelled records, but 11 were bid-only orphan history records incorrectly marked OPEN by legacy adapter.
+- Fixed source provenance with marketplaceListed flag in liveApi.ts.
+- Loads now includes genuine marketplace-listed OPEN jobs whether quoted or unquoted, never orphan bid history. Historic bids remain under Quotes.
+- Verified Opera now shows 3 actual marketplace-listed loads (all already quoted), 11 bid-history-only records, 24 bookings. No fake jobs injected.
+- Fixed Load Details for already quoted OPEN jobs to avoid routing to Booking workflow.
+- Added data breakdown, empty-state diagnostics, source-safe pure filtering and tests/reserve-lists.test.mjs.
+- npm run build PASS; selected tests 12/12 PASS.
+- Real quote submission / real E2E remains NOT VERIFIED.
+
 OUTSTANDING:
 - No confirmed end-to-end production write across quote -> award -> delivery -> POD.
 - New front-end invoice create/issue/send is BLOCKED because audited live invoice module only supports reading existing PDF; must not fake.

@@ -31,6 +31,7 @@
 .rv-summary{padding:8px 12px;background:#f4f7fa;border-radius:10px;margin-top:12px}
 .rv-attention{background:#fff0e3;border:1px solid #f7d9bd;color:#98521e;padding:13px;border-radius:10px;font-size:13px;line-height:1.4}
 .rv-search{display:grid;grid-template-columns:2fr minmax(95px,1fr);gap:8px;margin:11px 0}.rv-count{display:flex;justify-content:space-between;font-size:11px;color:#71849a;margin:12px 0;font-weight:750}
+.rv-feedinfo{display:flex;gap:7px;flex-wrap:wrap;margin:11px 0 13px}.rv-feedinfo span{flex:1;min-width:92px;background:#fff;border:1px solid #dbe6ef;border-radius:9px;padding:10px 9px;font-size:11px;color:#63788b}.rv-feedinfo b{display:block;color:#1a3954;font-size:18px;margin-top:3px}
 .rv-empty{background:white;border:1px solid #dce6ef;border-radius:13px;padding:37px 20px;text-align:center;color:#7c8fa2}.rv-empty b{color:#213c56;font-size:16px}.rv-empty p{font-size:13px}
 .rv-error{border:1px solid #efb9b2;color:#a53831;background:#fff0ed;border-radius:10px;padding:12px;margin:8px 0;font-size:13px}
 .rv-warning{background:#fff4e6;color:#98622a;padding:10px;border-radius:10px;margin:8px 0;font-size:12px}

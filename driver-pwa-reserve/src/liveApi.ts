@@ -8,6 +8,7 @@ export type LiveJob = {
   company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
   offerId?: string; acceptanceRequired?: boolean; backendStatus?: string; podRecorded?: boolean;
+  marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; service?: string;
   items?: number; hardCopyPodRequired?: boolean;
@@ -116,7 +117,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     pickupDate: date(r.pickup_datetime), deliveryDate: date(r.delivery_datetime),
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
     weight: num(r.weight_kg) || 0, notes: str(r.public_quote_notes),
-    status: 'OPEN', company: str(member.name) || 'Marketplace member',
+    status: 'OPEN', marketplaceListed: true, company: str(member.name) || 'Marketplace member',
     terms: str(r.payment_terms) || 'Not provided',
     postedAt: dateTime(r.exchange_posted_at),
     distanceMiles: num(r.distance_miles), travelMinutes: num(r.distance_minutes),
