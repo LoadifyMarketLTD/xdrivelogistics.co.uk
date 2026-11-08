@@ -30,6 +30,8 @@ describe('Eight approved 3150 Owner Driver tab integration gates',()=>{
   expect(read(prefix+'_components/ApprovedDriverQuoteCard.tsx')).toContain('CxQuoteCard');
   expect(read(prefix+'history/ApprovedDriverDiaryCard.tsx')).toContain('CxDiaryCard');
   expect(read(prefix+'jobs/page.tsx')).toContain('return <CxDiaryCard');
+  expect(read(prefix+'jobs/page.tsx')).toContain('<DriverWorkspaceShell hideHeader');
+  expect(read(prefix+'jobs/page.tsx')).toContain('meta: [job.pickup_datetime?.slice(0,10)');
   expect(read('app/components/workspace/CxLoadCard.tsx')).toContain('Master3150Card');
   expect(read('app/components/workspace/CxQuoteCard.tsx')).toContain('Master3150Card');
   expect(read('app/components/workspace/CxDiaryCard.tsx')).toContain('Master3150Card');

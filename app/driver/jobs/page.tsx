@@ -165,7 +165,7 @@ export default function DriverJobsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
+      <DriverWorkspaceShell hideHeader
         driverName={driver?.display_name ?? undefined}
         availabilityLabel={driverStatus}
         subtitle="Assigned work, live execution and POD hand-off in one compact board."
@@ -228,8 +228,8 @@ export default function DriverJobsPage() {
                     className="xd-approved-bookings-card"
                     from={job.pickup_location ?? job.pickup_postcode ?? 'Collection'}
                     to={job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}
-                    pickup={{ primary: fmtTime(job.pickup_datetime), meta: [fmtDate(job.pickup_datetime), job.pickup_postcode].filter(Boolean).join(' Â· ') }}
-                    delivery={{ primary: fmtTime(job.delivery_datetime), meta: [fmtDate(job.delivery_datetime), job.delivery_postcode].filter(Boolean).join(' Â· ') }}
+                    pickup={{ primary: fmtTime(job.pickup_datetime), meta: [job.pickup_datetime?.slice(0,10), job.pickup_postcode].filter(Boolean).join(' | ') }}
+                    delivery={{ primary: fmtTime(job.delivery_datetime), meta: [job.delivery_datetime?.slice(0,10), job.delivery_postcode].filter(Boolean).join(' | ') }}
                     band={workspaceJobOperationalLabel(job)}
                     loadId={job.id.slice(0, 8).toUpperCase()}
                     vehicle={vehicleLabel(job)}
