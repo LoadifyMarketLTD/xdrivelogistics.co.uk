@@ -8,6 +8,19 @@ const outcodePattern = /^[A-Z]{1,2}\d[A-Z\d]?$/;
 export const publicPickupOutcode = (value: string) =>
   value.toUpperCase().match(/\b([A-Z]{1,2}\d[A-Z\d]?)\b/)?.[1] ?? '';
 
+/** An exact public outcode must remain visible even when geocoding fails. */
+export function matchesPublicPickupRadius(
+  pickup: string, centre: string, coordinates: Readonly<Record<string, Resolution>>, miles: number,
+): boolean {
+  if (!centre) return true;
+  const pickupOutcode = publicPickupOutcode(pickup);
+  if (pickupOutcode === centre) return true;
+  const origin = coordinates[centre];
+  const destination = coordinates[pickupOutcode];
+  if (!origin || !destination) return false;
+  return pickupDistanceMiles(origin, destination) <= miles;
+}
+
 export function pickupDistanceMiles(a: Coordinates, b: Coordinates): number {
   const rad = Math.PI / 180;
   const dLat = (b.lat - a.lat) * rad;
@@ -38,8 +51,10 @@ export function usePublicPickupRadius(
   useEffect(() => {
     if (!pendingKey) return;
     let cancelled = false;
-    const pendingCodes = pendingKey.split(',');
-    void Promise.all(pendingCodes.map(async outcode => {
+    // Prioritise the requested outcode; avoid 30 simultaneous external lookups.
+    // Batches prevent postcode-service throttling and transient timeouts.
+    const pendingCodes = pendingKey.split(',').sort((a, b) => Number(b === centre) - Number(a === centre));
+    const resolveCode = async (outcode: string) => {
       try {
         const response = await fetch('/api/location/postcode-area?q=' + encodeURIComponent(outcode),
           { cache: 'no-store', signal: AbortSignal.timeout(7000) });
@@ -51,22 +66,21 @@ export function usePublicPickupRadius(
       } catch {
         return [outcode, null] as const;
       }
-    })).then(entries => {
+    };
+    // React schedules the next batch after these results enter the cache.
+    // Resolve the entered outcode alone first, then four surrounding outcodes.
+    const batch = pendingCodes.slice(0, pendingCodes[0] === centre ? 1 : 4);
+    void Promise.all(batch.map(resolveCode)).then(entries => {
       if (!cancelled) setCoordinates(current => ({ ...current, ...Object.fromEntries(entries) }));
     });
     return () => { cancelled = true; };
-  }, [pendingKey]);
+  }, [pendingKey, centre]);
 
   return {
     centre,
     locating: Boolean(centre && pending.length),
     unavailable: Boolean(centre && !pending.length && !coordinates[centre]),
-    withinRadius: (pickup: string, miles: number) => {
-      if (!centre) return true;
-      const origin = coordinates[centre];
-      const destination = coordinates[publicPickupOutcode(pickup)];
-      if (!origin || !destination) return false;
-      return pickupDistanceMiles(origin, destination) <= miles;
-    },
+    withinRadius: (pickup: string, miles: number) =>
+      matchesPublicPickupRadius(pickup, centre, coordinates, miles),
   };
 }

@@ -52,7 +52,7 @@ export default function DemoExchangeBoard({role,productionMode=false}:{role:Role
   <button className="xd-clear" onClick={reset}>{"\u21BB"} Clear Filters</button><button className="xd-search-button" onClick={()=>setNotice(shown.length+" loads match your filters")}>{"\u2315"} Search Loads</button></div></aside>
   <main className="xd-board-results">
   {productionMode&&pickupRadius.locating&&<p role="status">Locating public pickup areas for radius filtering...</p>}
-  {productionMode&&pickupRadius.unavailable&&<p role="alert">Collection outcode could not be located; geographic results are unavailable. Try another UK outcode.</p>}
+  {productionMode&&pickupRadius.unavailable&&<p role="alert">Nearby radius results could not be loaded. Exact matching collection outcodes remain visible; retry or adjust the search.</p>}
   
   
   {canQuote&&tab!=="My Loads"&&quoteLoad&&(()=>{const x=loads.find(l=>l.id===quoteLoad);return x?<DemoQuotePanel load={x} role={role} preview={preview} onClose={()=>setQuoteLoad(null)}/>:null})()}
