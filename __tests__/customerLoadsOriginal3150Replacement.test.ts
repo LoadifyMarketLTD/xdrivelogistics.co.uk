@@ -10,7 +10,7 @@ describe('Customer Loads uses exact approved original 3150 page',()=>{
  });
  it('wraps original in authenticated RLS-scoped real data provider',()=>{
   const route=src('app/customer/loads/page.tsx');
-  expect(route).toContain('<Company3150LiveProvider>');
+  expect(route).toContain('<Company3150LiveProvider publicLocations>');
   const provider=src('app/try-xdrive-demo/components/Company3150LiveData.tsx');
   expect(provider).toContain('useCompanyWorkspaceData()');
   expect(provider).toContain('const loads = data.jobs.map');

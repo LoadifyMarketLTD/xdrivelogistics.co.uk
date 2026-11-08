@@ -26,6 +26,6 @@ test('Customer real-data Loads is original 3150 board with original View Details
   }
   await expect(dialog.getByText('Visible only to authorised parties after award').first()).toBeVisible();
   await expect(board.getByRole('button',{name:'Quote Now'})).toHaveCount(0);
-  await dialog.getByRole('button',{name:'Close Details'}).click();
+  await dialog.getByRole('button',{name:'Close Details',exact:true}).click();
   await expect(dialog).toHaveCount(0);
 });

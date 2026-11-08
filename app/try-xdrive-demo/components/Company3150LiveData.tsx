@@ -7,6 +7,7 @@ import {
   type WorkspaceJob,
 } from '../../components/workspace/useCompanyWorkspaceData';
 import type { DemoLoad } from './demoExchange';
+import { public3150StoredLocation } from '../../../lib/jobs/public3150StoredLocation';
 
 export type LiveQuote = {
   id: string;
@@ -40,15 +41,15 @@ function resolveJobStatus(job: WorkspaceJob): DemoLoad['status'] {
   return 'Open';
 }
 
-function mapJob(job: WorkspaceJob, driverNames: Map<string, string>): DemoLoad {
+function mapJob(job: WorkspaceJob, driverNames: Map<string, string>, publicLocations = false): DemoLoad {
   const hasPOD = Boolean(job.pod_generated || job.pod_generated_at ||
     job.has_delivery_evidence || job.delivery_signature_data ||
     job.pod_photos?.length || job.delivery_photos?.length);
   return {
     id: job.id,
-    from: job.pickup_location || job.pickup_postcode || 'Collection not specified',
-    to: job.delivery_location || job.delivery_postcode || 'Delivery not specified',
-    vehicle: job.vehicle_type || 'Not specified',
+    from: publicLocations ? public3150StoredLocation(job.pickup_location, job.pickup_postcode) : (job.pickup_location || job.pickup_postcode || 'Collection not specified'),
+    to: publicLocations ? public3150StoredLocation(job.delivery_location, job.delivery_postcode) : (job.delivery_location || job.delivery_postcode || 'Delivery not specified'),
+    vehicle: publicLocations && job.vehicle_type ? job.vehicle_type.replaceAll('_',' ').replace(/^./,x=>x.toUpperCase()) : (job.vehicle_type || 'Not specified'),
     pallets: job.pallets == null ? '' : String(job.pallets),
     weight: '',
     customer: job.client_name || 'Customer not recorded',
@@ -58,6 +59,10 @@ function mapJob(job: WorkspaceJob, driverNames: Map<string, string>): DemoLoad {
     pickupStart: job.pickup_datetime?.slice(11, 16),
     deliveryTime: job.delivery_datetime?.slice(11, 16),
     postedAt: job.created_at,
+    paymentTerms: publicLocations ? (job.payment_terms || 'Not recorded') : undefined,
+    service: publicLocations ? 'Not recorded' : undefined,
+    displayId: publicLocations ? (job.booking_reference || job.customer_reference || job.id.slice(0,8).toUpperCase()) : undefined,
+    memberId: publicLocations ? 'Not recorded' : undefined,
     status: resolveJobStatus(job),
     quote: job.budget_amount ?? undefined,
     assignedDriver: job.assigned_driver_id ? driverNames.get(job.assigned_driver_id) || 'Assigned driver' : undefined,
@@ -89,11 +94,11 @@ function mapBidStatus(status: string): LiveQuote['status'] {
   }
 }
 
-export function Company3150LiveProvider({ children }: { children: ReactNode }) {
+export function Company3150LiveProvider({ children, publicLocations = false }: { children: ReactNode; publicLocations?: boolean }) {
   const data = useCompanyWorkspaceData();
   const value = useMemo<Company3150LiveContextValue>(() => {
     const driverNames = new Map(data.drivers.map(d => [d.id, d.display_name || 'Unnamed driver']));
-    const loads = data.jobs.map(j => mapJob(j, driverNames));
+    const loads = data.jobs.map(j => mapJob(j, driverNames, publicLocations));
     const bookings = loads.filter(l => l.status === 'Awarded' || l.podReceived ||
       ['completed', 'delivered'].includes((l.operationalStatus || '').toLowerCase()));
     const quotes = data.bids.map(b => ({
@@ -107,6 +112,6 @@ export function Company3150LiveProvider({ children }: { children: ReactNode }) {
       notes: b.message || undefined,
     }));
     return { data, loads, bookings, quotes };
-  }, [data]);
+  }, [data, publicLocations]);
   return <Company3150Context.Provider value={value}>{children}</Company3150Context.Provider>;
 }
