@@ -141,13 +141,15 @@ export function isSimulatedLiveJob(raw: unknown): boolean {
 }
 const statusMap: Record<string, LiveJob['status']> = {
   allocated: 'ALLOCATED', assigned: 'ALLOCATED', accepted: 'ALLOCATED',
-  on_way_to_pickup: 'ON_WAY_TO_PICKUP', on_site_pickup: 'ON_SITE_PICKUP',
-  loaded: 'LOADED', on_way_to_delivery: 'ON_WAY_TO_DELIVERY',
-  on_site_delivery: 'ON_SITE_DELIVERY', pod_submitted: 'POD_SUBMITTED',
+  on_my_way: 'ON_WAY_TO_PICKUP', on_my_way_pickup: 'ON_WAY_TO_PICKUP', on_way_to_pickup: 'ON_WAY_TO_PICKUP',
+  on_site_pickup: 'ON_SITE_PICKUP', arrived_pickup: 'ON_SITE_PICKUP',
+  loaded: 'LOADED', in_transit: 'ON_WAY_TO_DELIVERY', on_my_way_delivery: 'ON_WAY_TO_DELIVERY', on_way_to_delivery: 'ON_WAY_TO_DELIVERY',
+  on_site_delivery: 'ON_SITE_DELIVERY', arrived_delivery: 'ON_SITE_DELIVERY', pod_submitted: 'POD_SUBMITTED',
   delivered: 'DELIVERED', completed: 'DELIVERED',
 };
 export function mapAssigned(raw: unknown): LiveJob {
-  const r = obj(raw); const status = str(get(r, 'currentStatus', 'current_status', 'status')).toLowerCase(); const details = cleanDetails(get(r, 'loadDetails', 'load_details'));
+  const r = obj(raw); const details = cleanDetails(get(r, 'loadDetails', 'load_details'));
+  const canonicalStatus = str(get(r, 'currentStatus', 'current_status', 'lifecycleStatus', 'lifecycle_status', 'status')).toLowerCase();
   return {
     id: str(r.id), from: str(get(r, 'pickupLocation', 'pickup_location', 'pickupPostcode', 'pickup_postcode')) || 'Collection',
     to: str(get(r, 'deliveryLocation', 'delivery_location', 'deliveryPostcode', 'delivery_postcode')) || 'Delivery',
@@ -158,7 +160,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     vehicle: str(get(r, 'vehicleRequirement', 'vehicleType', 'vehicle_type')) || 'Not provided',
     weight: num(get(r, 'weightKg', 'weight_kg')) || 0,
     notes: details.notes || str(get(r, 'collectionNotes', 'driverNotes', 'driver_notes')),
-    status: statusMap[status] || 'ALLOCATED', backendStatus: status,
+    status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus,
     company: str(get(r, 'companyName', 'clientName', 'client_name')) || 'Customer not provided',
     terms: str(get(r, 'paymentTerms', 'payment_terms')) || 'Not provided',
     postedAt: dateTime(get(r, 'exchangePostedAt', 'exchange_posted_at', 'createdAt', 'created_at', 'updatedAt')),
