@@ -1,17 +1,11 @@
 'use client';
 
+import ProtectedRoute from '../../components/ProtectedRoute';
 import LoadPostingForm from '../../components/workspace/LoadPostingForm';
-import { PageFrame, PageHeader } from '../../components/workspace/WorkspaceUI';
 
+/** Original 3150 Post Load form, without a second heading or wrapper. */
 export default function AdminPostLoadPage() {
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Fleet / carrier load"
-        title="Post Load"
-        description="Create a full transport request with customer, route, cargo, handling, documents and quote visibility in the live XDrive workflow."
-      />
-      <LoadPostingForm mode="admin" />
-    </PageFrame>
-  );
+  return <ProtectedRoute allowedRoles={['owner', 'company_admin', 'company_staff']}>
+    <LoadPostingForm mode="admin" />
+  </ProtectedRoute>;
 }
