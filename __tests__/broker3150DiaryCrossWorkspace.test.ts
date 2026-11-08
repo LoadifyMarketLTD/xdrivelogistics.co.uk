@@ -45,6 +45,14 @@ describe('Broker 3150 Diary — shared visual source across real workspaces',()=
     expect(css).toContain('.driver-diary-board.diary-pagebody.xd3150-broker-diary');
     expect(css).toContain('display:block!important;');
   });
+  it('shows full Broker search, result controls and booking actions across all three consumers',()=>{
+    for(const file of ['app/components/workspace/OperationsDiaryPage.tsx','app/customer/diary/page.tsx','app/driver/history/page.tsx']){
+      const source=read(file);
+      for(const label of ['From (Town/Postcode)','To (Town/Postcode)','Any Vehicle','Status','Search Diary','Clear Filters','Additional search &amp; tools','Sort by','Calendar view','Booking Details','More actions']){
+        expect(source,file+' : '+label).toContain(label);
+      }
+    }
+  });
   it('retains existing authenticated operational actions and dialogs',()=>{
     const admin=read('app/components/workspace/OperationsDiaryPage.tsx');
     expect(admin).toContain('CompanyJobSheetPanel');
