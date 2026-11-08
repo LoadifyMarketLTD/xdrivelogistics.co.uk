@@ -1,5 +1,5 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useState} from "react";
 import dynamic from "next/dynamic";
 import {useDemoLoads,useExchangeLoads} from "./demoExchange";
 import {submitDemoQuote} from "./DemoQuotes";
@@ -38,13 +38,14 @@ export default function DemoExchangeBoard({role,productionMode=false}:{role:Role
   if(next&&!tag.includes("next"))return false;
   return true;
  }).sort((a,b)=>sort==="old"?a.postedAt.localeCompare(b.postedAt):b.postedAt.localeCompare(a.postedAt)),[loads,live,preview,from,to,vehicle,service,date,tab,same,next,sort,pickupRadius,productionMode,radius]);
- const pageCount=Math.max(1,Math.ceil(shown.length/10)); const visible=shown.slice((Math.min(page,pageCount)-1)*10,Math.min(page,pageCount)*10); const reset=()=>{setFrom("");setTo("");setRadius("10");setVehicle("");setService("");setDate("");setSame(false);setNext(false);setTab("All Loads")};
+ const pageCount=Math.max(1,Math.ceil(shown.length/10)); const visible=shown.slice((Math.min(page,pageCount)-1)*10,Math.min(page,pageCount)*10); const reset=useCallback(()=>{setFrom("");setTo("");setRadius("10");setVehicle("");setService("");setDate("");setSame(false);setNext(false);setTab("All Loads");setSort("new");setPage(1);setMap(false);setDetails(null);setQuoteLoad(null);setAmount("");setNotice("");_setSelected(null);},[]);
+ useEffect(()=>{if(!productionMode)return;const onLoadsReselect=()=>{reset();window.scrollTo({top:0,behavior:"instant"});};window.addEventListener("xdrive:loads-reselect",onLoadsReselect);return()=>window.removeEventListener("xdrive:loads-reselect",onLoadsReselect);},[productionMode,reset]);
  return <section className="xd-board">
   <header className="xd-board-head"><h1>Loads</h1><nav className="xd-board-tabs">{["All Loads","On Demand","Same Day","Next Day","My Loads"].map(t=><button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{t}<b>{t==="All Loads"?loads.length:t==="My Loads"?preview?7:live.length:loads.filter(x=>String(x.service||"").toLowerCase().includes(t.toLowerCase())).length}</b></button>)}<div className="xd-board-sort"><label>Sort by: <select value={sort} onChange={e=>setSort(e.target.value)}><option value="new">Date Posted (Newest)</option><option value="old">Date Posted (Oldest)</option></select></label><button aria-label="List view" className={!map?"active":""} onClick={()=>setMap(false)}>{"\u2630"}</button><button aria-label="Map view" className={map?"active":""} onClick={()=>setMap(true)}>{"\u25A7"}</button></div></nav></header>
   <div className="xd-board-layout"><aside className="xd-board-filters"><h2>Find Loads</h2><div className="xd-filter-fields">
   <label>From (Town/Postcode)<input placeholder="e.g. BB1 or Blackburn" value={from} onChange={e=>setFrom(e.target.value)}/></label>
   <label>To (Town/Postcode)<input placeholder="e.g. DA8 or Erith" value={to} onChange={e=>setTo(e.target.value)}/></label>
-  <label>Radius<select value={radius} onChange={e=>setRadius(e.target.value)}>{["5","10","20","30","50","100"].map(v=><option key={v} value={v}>{v} mile</option>)}</select></label>
+  <label>Radius<select value={radius} onChange={e=>setRadius(e.target.value)}>{["5","10","20","30","50","100","200","300"].map(v=><option key={v} value={v}>{v} mile</option>)}</select></label>
   <label>Vehicle<select value={vehicle} onChange={e=>setVehicle(e.target.value)}><option value="">Any Vehicle</option>{["Luton","7.5 Tonne","LWB Van"].map(v=><option key={v}>{v}</option>)}</select></label>
   <label>Service<select value={service} onChange={e=>setService(e.target.value)}><option value="">Any Service</option>{["Same Day","Next Day","On Demand"].map(v=><option key={v}>{v}</option>)}</select></label>
   <label>Date<input type="date" value={date} onChange={e=>setDate(e.target.value)}/></label>
