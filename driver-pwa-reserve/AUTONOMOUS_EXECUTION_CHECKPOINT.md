@@ -51,3 +51,4 @@ Live local preview: http://127.0.0.1:5197/driver/reserve-pwa/
 - CX Posted category not integrated: no permitted posted-booking read endpoint validated.
 - Full original POD attachments, image preview and invoice A4/actual email receipt still not E2E verified.
 - No authorised transactional Accept, status change, POD upload, or invoice email occurred. No changes to production GitHub main or Netlify.
+\n## 2026-11-08 — View on Map styling\nAll map controls in Loads, Quotes, Bookings, Details now share teal fill #d0f1ed, dark text #075b61, border #79c9c3. Real routing unchanged. Build PASS, 19/19 tests PASS. Pixel screenshot: D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\mapcolor_pixel_final.png. Reserve local only; main/Netlify untouched.\n

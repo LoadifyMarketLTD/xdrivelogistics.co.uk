@@ -46,3 +46,14 @@ test('Bookings tabs and cards are immediately beneath the navbar without heading
  const styles=fs.readFileSync(new URL('../src/ReserveApp.css',import.meta.url),'utf8');
  assert.match(styles,/\.rv-main\.rv-card-first-list\{padding:4px 10px 24px/);
 });
+test('Every View on Map button shares the colored teal treatment',()=>{
+ const card=app.split('  function card(j:LiveJob)')[1].split('  async function withdrawQuote')[0];
+ assert.match(card,/tab!=='Quotes'&&<button className="rv-map-action"/);
+ assert.match(card,/className="rv-map-action" onClick=\{\(\)=>openMap\(j,'list'\)\}>⌖ View on Map/);
+ assert.match(app,/className="rv-map-action rv-wide" onClick=\{\(\)=>openMap\(job,'details'\)\}/);
+ const css=fs.readFileSync(new URL('../src/ReserveApp.css',import.meta.url),'utf8');
+ assert.match(css,/\.rv-job \.rv-actions \.rv-map-action/);
+ assert.match(css,/background:#d0f1ed/);
+ assert.match(css,/color:#075b61/);
+ assert.match(css,/border:1px solid #79c9c3/);
+});

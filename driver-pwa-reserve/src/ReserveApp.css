@@ -181,6 +181,25 @@
 .rv-card-first-list .rv-quote-tabs button{padding:10px 6px;min-height:43px;border-radius:8px}
 .rv-card-first-list .rv-empty{margin:0;padding:22px 12px;border-radius:10px}
 .rv-card-first-list .rv-job.rv-card{margin:0 0 9px}
+/* All View on Map actions: consistent teal location button across Loads, Quotes, Bookings and Details. */
+.rv-map-action,
+.rv-job .rv-map-action,
+.rv-job .rv-actions .rv-map-action{
+  background:#d0f1ed;
+  color:#075b61;
+  border:1px solid #79c9c3;
+  border-radius:8px;
+  padding:10px 13px;
+  min-height:42px;
+  font-size:13px;
+  font-weight:850;
+  text-align:center;
+  box-shadow:none;
+}
+.rv-job .rv-map-action{display:block;width:100%;margin:8px 0 10px}
+.rv-job .rv-actions .rv-map-action{width:100%;margin:0;min-height:48px}
+.rv-map-action:hover,.rv-job .rv-map-action:hover{background:#b5e8e1;border-color:#53b7ac}
+.rv-map-action:focus-visible{outline:3px solid #0c818580;outline-offset:2px}
 /* Canonical invoice generator connection */
 .rv-finance .rv-back{display:block;max-width:max-content;margin-bottom:10px}
 .rv-finance .rv-over{display:block;margin:9px 0 8px}
