@@ -29,7 +29,7 @@ const autoInvoice = readFileSync(
   'utf8',
 );
 const manualInvoice = readFileSync(
-  resolve(process.cwd(), 'app/admin/invoices/new/page.tsx'),
+  resolve(process.cwd(), 'app/components/workspace/InvoiceCreateWorkflow.tsx'),
   'utf8',
 );
 const extensionRoute = readFileSync(

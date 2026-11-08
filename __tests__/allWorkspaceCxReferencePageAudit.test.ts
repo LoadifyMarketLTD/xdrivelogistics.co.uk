@@ -25,7 +25,7 @@ const driverPages = pageFiles('app/driver').sort();
 
 describe('all operational workspace pages follow the Courier Exchange live reference contract', () => {
   it('audits every current Admin, Broker and Customer route page', () => {
-    expect(workspacePages).toHaveLength(128);
+    expect(workspacePages).toHaveLength(146);
     for (const file of workspacePages) {
       const source = read(file);
       const lines = source.split(/\r?\n/).length;
@@ -106,7 +106,7 @@ describe('all operational workspace pages follow the Courier Exchange live refer
   });
 
   it('converges the carrier invoice creation panels through existing detail-page CSS, without relying on inline radius', () => {
-    const invoicePage = read('app/admin/invoices/new/page.tsx');
+    const invoicePage = read('app/components/workspace/InvoiceCreateWorkflow.tsx');
     const carrierCss = read('app/admin/carrier-workspace-canonical.css');
     expect(invoicePage.match(/className="carrier-invoice-create-panel"/g)).toHaveLength(2);
     expect(invoicePage).toContain('className="carrier-invoice-create-fields"');
