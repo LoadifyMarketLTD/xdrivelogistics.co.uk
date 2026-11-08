@@ -610,6 +610,11 @@ export default function JobHistoryPage() {
         <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity xd-diary-v2 xd3150-broker-diary" data-diary-source="broker-3150">
           <Broker3150DiaryHeader date={selectedDiaryDate??''}
             onDateChange={(value)=>setSelectedDiaryDate(value||null)}/>
+          <Broker3150DiaryTabs
+            tabs={historyFilters.map(item=>({...item,count:tabCount(item.id)}))}
+            selected={statusFilter} onSelect={setStatusFilter}
+            label="Driver Diary states"
+          />
           <section className="xd-diary-kpis xd-approved-board-kpis" aria-label="Real booking statistics">
             <div className="xd-diary-kpi xd-approved-board-kpi"><strong>Total Bookings</strong><b>{jobs.length}</b><small>All statuses</small></div>
             <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Today's Bookings</strong><b>{totalToday}</b><small>Pickup scheduled today</small></div>
@@ -617,11 +622,7 @@ export default function JobHistoryPage() {
             <div className="xd-diary-kpi xd-approved-board-kpi amber"><strong>Awaiting POD</strong><b>{awaitingPod}</b><small>Real evidence required</small></div>
             <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Next 7 Days</strong><b>{upcomingJobs}</b><small>Scheduled collections</small></div>
           </section>
-          <Broker3150DiaryTabs
-            tabs={historyFilters.map(item=>({...item,count:tabCount(item.id)}))}
-            selected={statusFilter} onSelect={setStatusFilter}
-            label="Driver Diary states"
-          />
+
           <div className="xd-diary-layout">
           {filterRail}
           <main className="driver-board-main main diary-main">

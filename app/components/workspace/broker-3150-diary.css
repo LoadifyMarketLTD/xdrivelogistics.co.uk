@@ -54,3 +54,19 @@
 .xd3150-broker-diary .cx-diary-paging-toolbar{display:flex;justify-content:flex-end;align-items:center;min-height:36px;margin:0 0 8px}
 .xd3150-broker-diary .cx-diary-paging-toolbar .cx-diary-pagination{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
 .xd3150-broker-diary .cx-diary-paging-toolbar button,.xd3150-broker-diary .cx-diary-paging-toolbar select{border:1px solid #d4dfeb;border-radius:5px;min-height:30px;background:white;color:#174476;padding:5px 8px}
+/* Broker Diary uses a vertical page skeleton. The legacy Driver marketplace identity
+ * forcibly made the outer Diary board a flex/grid row; override only the Diary route. */
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board.diary-pagebody.xd3150-broker-diary,
+.driver-prototype-port .driver-diary-board.diary-pagebody.xd3150-broker-diary{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+}
+.driver-diary-board.xd3150-broker-diary>.xd3150-diary-header,
+.driver-diary-board.xd3150-broker-diary>.xd3150-diary-status-tabs,
+.driver-diary-board.xd3150-broker-diary>.xd-diary-kpis,
+.driver-diary-board.xd3150-broker-diary>.xd-diary-layout{
+  width:100%;
+  min-width:0;
+}
+.driver-diary-board.xd3150-broker-diary>.xd-diary-kpis{margin:0 0 16px}

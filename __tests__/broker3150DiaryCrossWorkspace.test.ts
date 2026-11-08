@@ -37,6 +37,14 @@ describe('Broker 3150 Diary — shared visual source across real workspaces',()=
       expect(content,file).toContain('data-diary-source="broker-3150"');
     }
   });
+  it('keeps Driver top layout in Broker order and overrides legacy outer flex/grid',()=>{
+    const driver=read('app/driver/history/page.tsx');
+    expect(driver.indexOf('<Broker3150DiaryHeader')).toBeLessThan(driver.indexOf('<Broker3150DiaryTabs'));
+    expect(driver.indexOf('<Broker3150DiaryTabs')).toBeLessThan(driver.indexOf('<section className="xd-diary-kpis'));
+    const css=read('app/components/workspace/broker-3150-diary.css');
+    expect(css).toContain('.driver-diary-board.diary-pagebody.xd3150-broker-diary');
+    expect(css).toContain('display:block!important;');
+  });
   it('retains existing authenticated operational actions and dialogs',()=>{
     const admin=read('app/components/workspace/OperationsDiaryPage.tsx');
     expect(admin).toContain('CompanyJobSheetPanel');
