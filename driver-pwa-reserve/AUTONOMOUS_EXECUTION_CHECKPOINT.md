@@ -13,7 +13,10 @@ Latest requirements:
 [PASS static tests] 32/32 selected Node tests.
 [PASS build] TypeScript + Vite build.
 [NOT TESTED] Live invoice PDF rendering with full real evidence, Resend email to a test recipient, received attachment check.
-[NOT COMPLETE] Pixel Chrome reload displayed 0 Loads; authenticated data refresh/session needs separate investigation.
+[PASS VISUAL] User screenshot from Pixel 7 Pro at 18:57 confirms 3 actual loads visible and obstructing statistics removed.
+[PASS CODE] Load card service label timed_direct now displayed as Timed Direct; full available job reference shown; View Quote opens separate quote details instead of generic Load Details.
+[PASS] Latest TypeScript + Vite build, 15/15 targeted regression tests.
+[NOT COMPLETE] API quote detail adapter does not expose original ETA/notes; quote details explicitly show that limitation. Live invoice+POD production email unverified.
 
 No production deploy or main merge. No real billing/email side effects.
 Next actions: regenerate a real test invoice from an authorised completed job with a stored POD, inspect every PDF page, and confirm one combined email attachment via authorised test workflow. Only after transaction safety and PDF QA consider production update.
