@@ -1,5 +1,15 @@
 # Reserve PWA checkpoint — 2026-11-08
 
+## 19:04 — Loads layout and View on Map verified
+- Scope: separate reserve branch only, no changes to GitHub main, official 1099 or Netlify.
+- Removed all 4 metric cards from Loads. Confirmed on Pixel 7 Pro screenshot `D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\xf_loads_nometrics_map_button.png` — the first real job follows search and one compact count line.
+- Restored `View on Map` button on every Load/Booking card and Load Details; it opens the existing `RouteMap.tsx` from main with Leaflet, OpenStreetMap, geocoding, road routing and GPS; no mock map.
+- Confirmed on Pixel map screenshot `D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\xf_map_loads.png`: Blackburn to Brighton visible, location active, distance shown. Back returns to same Loads list.
+- Source privacy: before award, map is passed only town/outcode-level `from`/`to` rather than private full addresses; after award full addresses are used.
+- `npm run build`: PASS. Selected test suite: 19/19 PASS, including 4 new map/privacy/layout checks.
+- Other release blockers from earlier audit, particularly real POD + invoice/email E2E, remain NOT VERIFIED.
+
+
 Current branch: feature/xdrive-driver-reserve-20261108
 Project root: D:\XDrive-PWA-RESERVE-20261108
 App: driver-pwa-reserve
