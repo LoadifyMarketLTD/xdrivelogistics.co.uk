@@ -37,6 +37,8 @@ describe('3150 exact Loads visual semantics with real role workflows',()=>{
    expect(driver).toContain(title);
   }
   expect(driver).toContain("setMasterLoadsTab('all')");
+  expect(driver).toContain('href="/driver/jobs">My Loads');
+  expect(driver).not.toContain('href="/driver/bookings"');
   expect(driver).toContain('ApprovedDriverLoadCard');
   expect(driver).toContain('MarketplaceLoadMap');
   expect(driver).toContain('usePublicPickupRadius');

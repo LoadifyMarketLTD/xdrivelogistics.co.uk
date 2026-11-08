@@ -400,7 +400,7 @@ export default function AvailableLoadsPage() {
         <header className="xd-approved-board-header master3150-driver-loads-heading"><h1 className="xd-approved-board-title">Loads</h1></header>
         <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads primary tabs">
           {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={masterLoadsTab===item.id} aria-pressed={masterLoadsTab===item.id} onClick={()=>selectMasterLoadsTab(item.id)}>{item.label}</button>)}
-          <a className="master3150-loads-my-jobs" href="/driver/bookings">My Loads</a>
+          <a className="master3150-loads-my-jobs" href="/driver/jobs">My Loads</a>
         </nav>
         <div className="pagebody">
           <aside className="left">

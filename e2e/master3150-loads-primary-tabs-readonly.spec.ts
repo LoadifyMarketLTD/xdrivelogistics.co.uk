@@ -30,7 +30,7 @@ for(const role of roles){
   const all=nav.getByRole('button',{name:'All Loads'});
   await all.click();
   await expect(all).toHaveAttribute('aria-pressed','true');
-  await expect(nav.getByRole('link',{name:'My Loads'})).toHaveAttribute('href',role.name.endsWith('driver')?'/driver/bookings':'/admin/jobs');
+  await expect(nav.getByRole('link',{name:'My Loads'})).toHaveAttribute('href',role.name.endsWith('driver')?'/driver/jobs':'/admin/jobs');
   if(role.name.endsWith('driver')){
     const radius=page.getByLabel('Collection radius');
     await expect(radius.locator('option')).toHaveCount(8);
