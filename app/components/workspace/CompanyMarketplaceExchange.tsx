@@ -76,7 +76,7 @@ const DEFAULT_FILTERS: Filters = { from: '', fromRadius: '10', to: '', toRadius:
 const VEHICLE_OPTIONS = [['', 'Any vehicle'], ['swb_van', 'SWB Van'], ['mwb_van', 'MWB Van'], ['lwb_van', 'LWB Van'], ['xlwb_van', 'XLWB Van'], ['luton', 'Luton'], ['luton_tail_lift', 'Luton Tail Lift'], ['curtainside_van', 'Curtainside Van'], ['truck_7_5t', '7.5T'], ['truck_18t', '18T'], ['truck_26t', '26T'], ['artic', 'Artic']] as const;
 const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 const DESCRIPTION_OPTIONS = [['any', 'Any timing'], ['same_day_timed', 'Same Day - Timed'], ['same_day_non_timed', 'Same Day - Non Timed'], ['next_day_timed', 'Next Day - Timed'], ['next_day_non_timed', 'Next Day - Non Timed'], ['3_5_days', '3 - 5 Days'], ['multi_drop', 'Multi-Drop'], ['other_notes', 'Other - Specified in Notes'], ['deliver_direct', 'Deliver Direct']] as const;
-const LOAD_TYPES = [['all', 'All Live'], ['on_demand', 'On Demand'], ['regular_load', 'Regular Load'], ['daily_hire', 'Daily Hire']] as const;
+const LOAD_TYPES = [['all', 'All Loads'], ['on_demand', 'On Demand'], ['regular_load', 'Regular Load'], ['daily_hire', 'Daily Hire']] as const;
 const radiusOptions = ['5', '10', '20', '30', '50', '100', '200', '300'];
 const fieldStyle = { height: 28, border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 7px', background: '#fff', color: '#0f172a', fontSize: '11px', minWidth: 0 } as const;
 const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 500, lineHeight: '14px', marginBottom: 3 } as const;
@@ -165,6 +165,7 @@ export default function CompanyMarketplaceExchange({
   const [companyId, setCompanyId] = useState<string | null>(() => fixtureData?.companyId ?? null);
   const [tab] = useState<'loads' | 'bids' | 'won'>(initialTab);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [masterLoadsTab, setMasterLoadsTab] = useState<'all' | 'on_demand' | 'same_day' | 'next_day'>('all');
   const [page, setPage] = useState(1);
   const [loads, setLoads] = useState<LoadRow[]>(() => fixtureData?.loads ?? []);
   const [bids, setBids] = useState<BidRow[]>(() => fixtureData?.bids ?? []);
@@ -282,11 +283,12 @@ export default function CompanyMarketplaceExchange({
   }, [autoLoadsFilterKey, companyId, tab]);
   const applyDefault = () => { if (!defaultKey) return; try { const saved = JSON.parse(localStorage.getItem(defaultKey) ?? 'null') as Partial<Filters> | null; if (saved) { setFilters({ ...DEFAULT_FILTERS, ...saved }); setPage(1); setNotice('Saved default search loaded. Press Search to refresh results.'); } else setNotice('No default marketplace search has been saved yet.'); } catch { setNotice('The saved default search could not be read.'); } };
   const saveDefault = () => { if (!defaultKey) return; localStorage.setItem(defaultKey, JSON.stringify(filters)); setNotice('Default marketplace search saved for this company workspace.'); };
-  const clearFilters = () => { setFilters(DEFAULT_FILTERS); setPage(1); setNotice('Filters cleared. Results will refresh automatically.'); };
+  const clearFilters = () => { setFilters(DEFAULT_FILTERS); setMasterLoadsTab('all'); setPage(1); setNotice('Filters cleared. Results will refresh automatically.'); };
   useEffect(() => {
     if (tab !== 'loads') return;
     const resetLoads = () => {
       setFilters(DEFAULT_FILTERS);
+      setMasterLoadsTab('all');
       setPage(1);
       setViewMode('list');
       setAdvancedSearchOpen(false);
@@ -301,6 +303,20 @@ export default function CompanyMarketplaceExchange({
     return () => window.removeEventListener('xdrive:loads-reselect', resetLoads);
   }, [tab]);
   const setFilter = (key: keyof Filters, value: string) => { setFilters((current) => ({ ...current, [key]: value })); setPage(1); };
+  const selectMasterLoadsTab = (next: 'all' | 'on_demand' | 'same_day' | 'next_day') => {
+    const today = new Date();
+    const toLocalIso = (date: Date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+    const collection = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (next === 'next_day' ? 1 : 0));
+    const date = toLocalIso(collection);
+    setFilters(current => ({
+      ...current,
+      loadType: next === 'on_demand' ? 'on_demand' : 'all',
+      dateFrom: next === 'same_day' || next === 'next_day' ? date : '',
+      dateTo: next === 'same_day' || next === 'next_day' ? date : '',
+    }));
+    setMasterLoadsTab(next);
+    setPage(1);
+  };
   const setVehicleRangeBoundary = (boundary: 'min' | 'max', nextIndex: number) => { setFilters((current) => { const last = Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1); const minIndex = current.minVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === current.minVehicle)) : 0; const maxIndex = current.maxVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === current.maxVehicle)) : last; const safeIndex = Math.max(0, Math.min(last, nextIndex)); const nextMin = boundary === 'min' ? Math.min(safeIndex, maxIndex) : minIndex; const nextMax = boundary === 'max' ? Math.max(safeIndex, minIndex) : maxIndex; return { ...current, minVehicle: VEHICLE_SIZE_OPTIONS[nextMin]?.value ?? '', maxVehicle: nextMax >= last ? '' : (VEHICLE_SIZE_OPTIONS[nextMax]?.value ?? '') }; }); setPage(1); };
   const toggleDescriptionFilter = (value: string) => setFilters((current) => { const allValues = DESCRIPTION_OPTIONS.filter(([item]) => item !== 'any').map(([item]) => item); const selected = current.description === 'any' ? [...allValues] : current.description.split(',').filter(Boolean); const next = selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]; return { ...current, description: next.length === allValues.length ? 'any' : next.join(',') }; });
   const applyDatePreset = (days: number | null) => { if (days == null) { setFilters((current) => ({ ...current, dateFrom: '', dateTo: '' })); setPage(1); return; } const start = new Date(); const end = new Date(); end.setDate(end.getDate() + days); const iso = (date: Date) => date.toISOString().slice(0, 10); setFilters((current) => ({ ...current, dateFrom: iso(start), dateTo: iso(end) })); setPage(1); };
@@ -478,6 +494,10 @@ export default function CompanyMarketplaceExchange({
 
       {tab === 'loads' && <>
         <h1 className="master3150-loads-heading">Loads</h1>
+        <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads primary tabs">
+          {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={masterLoadsTab===item.id} aria-pressed={masterLoadsTab===item.id} onClick={()=>selectMasterLoadsTab(item.id)}>{item.label}</button>)}
+          <a className="master3150-loads-my-jobs" href="/admin/jobs">My Loads</a>
+        </nav>
         <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout xdrive-admin-marketplace-identity master3150-unified-loads" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 196px)', width: 'var(--ws-filter-rail-w, 196px)', minWidth: 0, alignSelf: 'flex-start' }}>
             <Panel title="Search Loads">
@@ -513,7 +533,7 @@ export default function CompanyMarketplaceExchange({
           <main style={{ flex: '1 1 760px', minWidth: 0 }}>
             <div className="workspace-record-meta workspace-list-controls cx-loads-toolbar">
               <span className="cx-loads-toolbar__title">
-                <span className="cx-loads-toolbar__calendar" aria-hidden="true">â–£</span>
+                <span className="cx-loads-toolbar__calendar" aria-hidden="true">Calendar</span>
                 <strong>Search Loads Results{generatedAt ? ` at ${new Date(generatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}` : ''}</strong>
                 <span role="group" aria-label="Loads view mode" className="cx-loads-view-toggle">
                   <label><input type="radio" name="loads-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label>
@@ -527,14 +547,14 @@ export default function CompanyMarketplaceExchange({
               </span>
             </div>
             <div className="carrier-exchange-secondary-tabs cx-loads-secondary-tabs">
-              {LOAD_TYPES.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter('loadType', value)} className={`carrier-exchange-tab${filters.loadType === value ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}
+              <label className="master3150-loads-service-selector">Service type <select aria-label="Service type" value={filters.loadType} onChange={(event) => {setMasterLoadsTab('all'); setFilters(current=>({...current,loadType:event.target.value,dateFrom:'',dateTo:''}));setPage(1);}}>{LOAD_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
               <select aria-label="Quick Search" defaultValue="" className="cx-loads-quick-search" onChange={(event) => { const found = recentSearches.find((item) => item.id === event.target.value); if (found) { setFilters({ ...DEFAULT_FILTERS, ...found.filters }); setPage(1); setNotice('Quick Search loaded: ' + found.label + '. Press Search to refresh results.'); } event.currentTarget.value = ''; }}><option value="">Quick Search</option>{recentSearches.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
               <label className="cx-loads-posted-within">Show loads posted within last <select value={filters.postedWithinHours} onChange={(event) => setFilter('postedWithinHours', event.target.value)}><option value="">all</option><option value="1">1 hour</option><option value="3">3 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option><option value="48">48 hours</option></select></label>
               <span className="cx-loads-pagination">
                 <label>Items per Page: <select aria-label="Loads per page" value={filters.pageSize} onChange={(event) => setFilter('pageSize', event.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label>
-                <button type="button" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)} aria-label="Previous loads page">â€¹</button>
+                <button type="button" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)} aria-label="Previous loads page">Previous</button>
                 <span>{total === 0 ? '0' : `${(page - 1) * Number(filters.pageSize) + 1}-${Math.min(page * Number(filters.pageSize), total)} of ${total}`}</span>
-                <button type="button" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)} aria-label="Next loads page">â€º</button>
+                <button type="button" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)} aria-label="Next loads page">Next</button>
               </span>
             </div>
 
@@ -572,10 +592,10 @@ export default function CompanyMarketplaceExchange({
                   </>}
                   notes={notes ? <><span>Load Notes:</span><strong>{notes}</strong></> : null}
                   footer={<>
-                    <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'}>{isExpanded ? 'â–´' : 'â–¾'}</button>
+                    <button type="button" className="xdrive-cx-load-footer__details" onClick={() => setDetailsTarget(load)}>View Details</button>
+                    <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'}>{isExpanded ? 'Less' : 'More'}</button>
                     {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => openQuote(load)}>Quote Now</button> : null}
                     <span className="xdrive-cx-load-footer__member">
-                      <button className="xdrive-inline-link" type="button" onClick={() => setDetailsTarget(load)}>View Details</button>
                       {load.posterMemberCode ? <span> ({load.posterMemberCode})</span> : null}
                       <button className="xdrive-inline-link xdrive-cx-load-footer__company" type="button" onClick={() => setMemberTarget(load)}>{load.posterName}</button>
                       {load.posterPhone ? <a href={`tel:${load.posterPhone.replace(/\s+/g, '')}`}>{load.posterPhone}</a> : null}

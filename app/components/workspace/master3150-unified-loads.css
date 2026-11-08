@@ -19,13 +19,26 @@
   display:flex;flex-wrap:nowrap;gap:0;overflow-x:auto;
   border-bottom:1px solid #d8e2ee;margin-bottom:15px;
 }
-.master3150-production .master3150-loads-primary-tabs button{
+.master3150-production .master3150-loads-primary-tabs button,
+.master3150-production .master3150-loads-primary-tabs .master3150-loads-my-jobs{
   background:transparent;border:0;border-bottom:2px solid transparent;
   color:#12243e;font-size:12px;font-weight:700;white-space:nowrap;
-  min-height:42px;padding:9px 16px;
+  min-height:42px;padding:9px 16px;text-decoration:none;
+  display:inline-flex;align-items:center;cursor:pointer;
 }
 .master3150-production .master3150-loads-primary-tabs button[data-active="true"]{
   border-bottom-color:#ff7900;color:#0a346a;
+}
+.master3150-production .master3150-unified-loads .master3150-loads-service-selector{
+  display:inline-flex;align-items:center;gap:8px;color:#475569;
+  font-size:12px;font-weight:600;white-space:nowrap;
+}
+.master3150-production .master3150-unified-loads .master3150-loads-service-selector select{
+  border:1px solid #cbd5e1;border-radius:5px;padding:7px 8px;
+  font-size:12px;background:white;color:#10213e;
+}
+.master3150-production .master3150-unified-loads .cx-loads-toolbar__calendar{
+  color:#0e64a6;font-size:14px;
 }
 .master3150-production .master3150-loads-primary-tabs b{
   display:inline-flex;align-items:center;justify-content:center;
@@ -170,4 +183,96 @@
  .master3150-production .master3150-unified-loads .master3150-record{
    min-height:0;
  }
+}
+
+/* Approved Loads 3150 placement of the Driver desktop workspace.
+   Retains live exchange API, quoting, map and real statistics behind details. */
+.master3150-production .master3150-unified-loads.driver-loads-prototype>.master3150-driver-loads-heading{
+  margin:0 0 5px;padding:0;border:0;background:transparent;box-shadow:none;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype>.master3150-driver-loads-heading h1{
+  font-size:26px;line-height:1.22;font-weight:750;color:#10213e;
+  margin:0;letter-spacing:-.025em;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype>.master3150-loads-primary-tabs{
+  margin:0 0 15px;border-bottom:1px solid #d8e2ee;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype>.pagebody{
+  margin:0;align-items:start;
+}
+.master3150-production .master3150-unified-loads .master3150-driver-load-stats{
+  margin-bottom:10px;padding:0;color:#475569;font-size:12px;
+}
+.master3150-production .master3150-unified-loads .master3150-driver-load-stats summary{
+  display:inline-flex;align-items:center;cursor:pointer;border:1px solid #d8e2ee;
+  background:#fff;color:#174578;border-radius:5px;padding:5px 10px;
+  font-size:11px;font-weight:650;min-height:28px;
+}
+.master3150-production .master3150-unified-loads .master3150-driver-load-stats .xd-approved-board-kpis{
+  margin:9px 0;gap:8px;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .main .load-result-head{
+  min-height:46px;gap:8px;flex-wrap:wrap;align-items:center;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .main .load-nav-unified{
+  min-height:39px;gap:12px;flex-wrap:wrap;align-items:center;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .main .load-list{
+  display:grid;gap:13px;
+}
+@media(max-width:720px){
+  .master3150-production .master3150-unified-loads.driver-loads-prototype>.master3150-loads-primary-tabs{
+    overflow-x:auto;
+  }
+  .master3150-production .master3150-unified-loads.driver-loads-prototype>.pagebody>.left{
+    max-height:none;
+  }
+}
+
+/* Approved 3150 primary card actions for Company/Carrier, Fleet and Dispatcher. */
+.master3150-production .master3150-unified-loads .xdrive-cx-load-footer__details{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:34px;padding:7px 12px;
+  border:1px solid #377bfa;border-radius:6px;
+  color:#1450ab;background:#fff;
+  font-size:12px;font-weight:700;
+}
+.master3150-production .master3150-unified-loads .xdrive-cx-load-footer__quote{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:34px;padding:7px 12px;
+  border:1px solid #f77e00;border-radius:6px;
+  color:#fff;background:#ff8000;
+  font-size:12px;font-weight:700;
+}
+.master3150-production .master3150-unified-loads .xdrive-cx-load-footer__expander{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:32px;padding:6px 10px;
+  border:1px solid #d6e0eb;border-radius:6px;
+  color:#406181;background:#f7fafc;
+  font-size:11px;font-weight:650;
+}
+.master3150-production .master3150-unified-loads .xdrive-cx-load-footer__member{
+  font-size:11px;color:#64748b;
+}
+
+.master3150-production .master3150-unified-loads.driver-loads-prototype .xd-approved-live-footer{
+  display:flex!important;flex-wrap:nowrap!important;
+  justify-content:flex-end;align-items:center;gap:4px!important;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .xd-approved-live-footer button{
+  min-height:30px!important;padding:5px 6px!important;
+  font-size:10px!important;line-height:1.1!important;
+  white-space:nowrap;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .xd-approved-live-footer .load-expand{
+  flex:0 0 27px;max-width:27px;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .xd-approved-live-footer .load-quote-footer{
+  flex:0 1 auto;min-width:67px;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .xd-approved-live-footer .text-action{
+  flex:0 1 auto;min-width:80px;
+}
+.master3150-production .master3150-unified-loads.driver-loads-prototype .xd-card-company{
+  gap:3px!important;margin:9px 0!important;padding:0 9px!important;
 }

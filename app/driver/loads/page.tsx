@@ -12,6 +12,7 @@ import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
+import {usePublicPickupRadius} from '../../try-xdrive-demo/components/usePublicPickupRadius';
 import '../../components/workspace/master3150-unified-loads.css';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import ApprovedDriverLoadCard from '../_components/ApprovedDriverLoadCard';
@@ -94,6 +95,7 @@ type PageSize = 10 | 25 | 50;
 type SavedLoadFilters = {
   vehicleFilter: string;
   pickupFilter: string;
+  pickupRadiusMiles: string;
   deliveryFilter: string;
   cargoFilter: string;
   weightMinFilter: string;
@@ -189,6 +191,7 @@ export default function AvailableLoadsPage() {
   const [bidLoading, setBidLoading] = useState(false);
   const [vehicleFilter, setVehicleFilter] = useState('any');
   const [pickupFilter, setPickupFilter] = useState('');
+  const [pickupRadiusMiles, setPickupRadiusMiles] = useState('10');
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [cargoFilter, setCargoFilter] = useState('');
   const [weightMinFilter, setWeightMinFilter] = useState('');
@@ -199,6 +202,7 @@ export default function AvailableLoadsPage() {
   const [postedWithinFilter, setPostedWithinFilter] = useState<PostedWithinFilter>('any');
   const [jobTimingFilter, setJobTimingFilter] = useState<JobTimingFilter>('any');
   const [loadTypeFilter, setLoadTypeFilter] = useState<LoadTypeFilter>('all');
+  const [masterLoadsTab, setMasterLoadsTab] = useState<'all' | 'on_demand' | 'same_day' | 'next_day'>('all');
   const [sortBy, setSortBy] = useState<SortMode>('date_desc');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -240,13 +244,18 @@ export default function AvailableLoadsPage() {
     try {
       const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY); if (!raw) return;
       const saved = JSON.parse(raw) as Partial<SavedLoadFilters>;
-      setVehicleFilter(saved.vehicleFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
+      setVehicleFilter(saved.vehicleFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setPickupRadiusMiles(saved.pickupRadiusMiles ?? '10'); setDeliveryFilter(saved.deliveryFilter ?? '');
       setCargoFilter(saved.cargoFilter ?? ''); setWeightMinFilter(saved.weightMinFilter ?? ''); setDateFromFilter(saved.dateFromFilter ?? '');
       setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter ?? 'any');
       setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setLoadTypeFilter(saved.loadTypeFilter ?? 'all'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
     } catch { window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); }
   }, []);
 
+  const publicPickupLocations = useMemo(
+    () => loads.map(load => ({from: load.pickup_area + ' ' + (load.pickup_postcode_area ?? '')})),
+    [loads],
+  );
+  const pickupRadius = usePublicPickupRadius(publicPickupLocations, pickupFilter, Boolean(pickupFilter.trim()));
   const filteredLoads = useMemo(() => {
     const pickupNeedle = pickupFilter.trim().toLowerCase(); const deliveryNeedle = deliveryFilter.trim().toLowerCase();
     const cargoNeedle = cargoFilter.trim().toLowerCase(); const memberNeedle = memberFilter.trim().toLowerCase(); const minWeight = Number(weightMinFilter);
@@ -258,7 +267,8 @@ export default function AvailableLoadsPage() {
       const deliverySearch = `${load.delivery_area} ${load.delivery_postcode_area ?? ''}`.toLowerCase();
       const cargoSearch = `${load.cargo_type ?? ''} ${load.requested_cargo_label ?? ''} ${load.handling_requirements.join(' ')}`.toLowerCase();
       const memberSearch = `${load.member.name} ${load.member.memberId ?? ''} ${load.member.postedBy ?? ''} ${load.company_id} ${load.id}`.toLowerCase();
-      if (pickupNeedle && !pickupSearch.includes(pickupNeedle)) return false;
+      if (pickupNeedle && pickupRadius.centre && !pickupRadius.withinRadius(pickupSearch,Number(pickupRadiusMiles))) return false;
+      if (pickupNeedle && !pickupRadius.centre && !pickupSearch.includes(pickupNeedle)) return false;
       if (deliveryNeedle && !deliverySearch.includes(deliveryNeedle)) return false;
       if (cargoNeedle && !cargoSearch.includes(cargoNeedle)) return false;
       if (memberNeedle && !memberSearch.includes(memberNeedle)) return false;
@@ -285,19 +295,20 @@ export default function AvailableLoadsPage() {
       const priceA = a.budget_amount ?? 0; const priceB = b.budget_amount ?? 0;
       switch (sortBy) { case 'date_asc': return dateA - dateB; case 'price_desc': return priceB - priceA; case 'price_asc': return priceA - priceB; default: return dateB - dateA; }
     });
-  }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
+  }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, pickupRadius, pickupRadiusMiles, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
   useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
-  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
+  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, pickupRadiusMiles, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
   const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
-    setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
-    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    setVehicleFilter('any'); setPickupFilter(''); setPickupRadiusMiles('10'); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
+    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setMasterLoadsTab('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   useEffect(() => {
     const resetLoads = () => {
       setVehicleFilter('any');
       setPickupFilter('');
+      setPickupRadiusMiles('10');
       setDeliveryFilter('');
       setCargoFilter('');
       setWeightMinFilter('');
@@ -308,6 +319,7 @@ export default function AvailableLoadsPage() {
       setPostedWithinFilter('any');
       setJobTimingFilter('any');
       setLoadTypeFilter('all');
+      setMasterLoadsTab('all');
       setSortBy('date_desc');
       setVisibleCount(25);
       setPageSize(25);
@@ -369,14 +381,35 @@ export default function AvailableLoadsPage() {
     postedAt: load.exchange_posted_at,
   })), [filteredLoads]);
 
+  const selectMasterLoadsTab = (next: 'all' | 'on_demand' | 'same_day' | 'next_day') => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    if (next === 'next_day') date.setDate(date.getDate() + 1);
+    const localDate = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+    setMasterLoadsTab(next);
+    setLoadTypeFilter(next === 'on_demand' ? 'on_demand' : 'all');
+    setDateFromFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
+    setDateToFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
+    setVisibleCount(pageSize);
+    setViewMode('list');
+  };
+
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-loads-prototype xdrive-admin-marketplace-identity master3150-unified-loads">
+        <header className="xd-approved-board-header master3150-driver-loads-heading"><h1 className="xd-approved-board-title">Loads</h1></header>
+        <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads primary tabs">
+          {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={masterLoadsTab===item.id} aria-pressed={masterLoadsTab===item.id} onClick={()=>selectMasterLoadsTab(item.id)}>{item.label}</button>)}
+          <a className="master3150-loads-my-jobs" href="/driver/bookings">My Loads</a>
+        </nav>
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Loads</div>
             <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>UK & ROI</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
-            <div className="filter"><span className="label">From / Radius</span><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" /></div>
+            <div className="filter"><span className="label">From (Town/Postcode)</span><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn or BB1" /></div>
+            <div className="filter"><span className="label">Radius</span><select className="select" aria-label="Collection radius" value={pickupRadiusMiles} onChange={(event)=>setPickupRadiusMiles(event.target.value)}>{['5','10','20','30','50','100','200','300'].map(miles=><option key={miles} value={miles}>{miles} mile</option>)}</select></div>
+            {pickupRadius.locating && <div role="status">Locating public pickup areas...</div>}
+            {pickupRadius.unavailable && <div role="alert">Pickup postcode area could not be located.</div>}
             <div className="filter"><span className="label">To</span><input className="input" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Enter destination" /></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="any">Any exact / specialist</option>{Object.entries(VEHICLE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className="filter"><span className="label">Freight Type</span><input className="input" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)} placeholder="Pallets, cartons, machinery" /></div>
@@ -389,26 +422,28 @@ export default function AvailableLoadsPage() {
             <div className="filter"><button type="button" className="btn primary" onClick={applySearch}>Search</button> <button type="button" className="btn" onClick={clearFilters}>Clear</button></div>
           </aside>
           <main className="main">
-            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Loads</h1><p className="xd-approved-board-subtitle">Live Freight Exchange — authorised loads available to quote</p></div></header>
+            <details className="master3150-driver-load-stats"><summary>Live exchange statistics</summary>
             <div className="xd-approved-board-kpis" aria-label="Real freight exchange statistics">
               <div className="xd-approved-board-kpi"><strong>Available Loads</strong><b>{loads.length}</b><small>Live authorised records</small></div>
               <div className="xd-approved-board-kpi blue"><strong>Matching Loads</strong><b>{filteredLoads.length}</b><small>Current search</small></div>
               <div className="xd-approved-board-kpi green"><strong>Not Quoted</strong><b>{loads.filter(load => !load.myBid).length}</b><small>May request a quote</small></div>
               <div className="xd-approved-board-kpi amber"><strong>Already Quoted</strong><b>{loads.filter(load => Boolean(load.myBid)).length}</b><small>Existing quote records</small></div>
               <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
-            </div>
+            </div></details>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-result-head">
-              <div><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
+              <div><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading...' : `${filteredLoads.length} live results`}</span></div>
               <div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                 <OperationalExpandAllControl expanded={expandAll} disabled={!filteredLoads.length} onToggle={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} noun="loads" />
-                <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
+                <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
               </div>
             </div>
             <div className="load-nav-unified">
-              <div className="load-tabs"><button type="button" className={loadTypeFilter === 'all' ? 'active' : ''} onClick={() => setLoadTypeFilter('all')}>All Live</button><button type="button" className={loadTypeFilter === 'on_demand' ? 'active' : ''} onClick={() => setLoadTypeFilter('on_demand')}>On Demand</button><button type="button" className={loadTypeFilter === 'regular_load' ? 'active' : ''} onClick={() => setLoadTypeFilter('regular_load')}>Regular Load</button><button type="button" className={loadTypeFilter === 'daily_hire' ? 'active' : ''} onClick={() => setLoadTypeFilter('daily_hire')}>Daily Hire</button></div>
+              <label className="master3150-loads-service-selector">Service type <select aria-label="Service type" value={loadTypeFilter} onChange={(event)=>{setMasterLoadsTab('all');setLoadTypeFilter(event.target.value as LoadTypeFilter);setDateFromFilter('');setDateToFilter('');}}>
+                <option value="all">All Loads</option><option value="on_demand">On Demand</option><option value="regular_load">Regular Load</option><option value="daily_hire">Daily Hire</option>
+              </select></label>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
@@ -416,7 +451,7 @@ export default function AvailableLoadsPage() {
                 {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
               </div>
             </div>
-            {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (
+            {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads...</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (
               <MarketplaceLoadMap
                 loads={mapLoads}
                 onQuote={(loadId) => { setViewMode('list'); setExpandedLoadId(loadId); setBidLoadId(loadId); setBidAmount(''); setBidMessage(''); }}
@@ -442,8 +477,8 @@ export default function AvailableLoadsPage() {
                       pickup={cxTimeParts(load.pickup_datetime)}
                       delivery={cxTimeParts(load.delivery_datetime)}
                       band={serviceLabel}
-                      posted={<>Posted by {load.member.postedBy ?? load.member.name}</>}
-                      postedAt={fmtDate(load.exchange_posted_at)}
+                      posted={load.member.postedBy ?? load.member.name}
+                      postedAt={<>{fmtDate(load.exchange_posted_at)}{load.member.memberId ? <> · Member ID: {load.member.memberId}</> : null}</>}
                       loadId={load.id.slice(0,8).toUpperCase()}
                       vehicle={selectedVehicleLabel}
                       paymentTerms={load.payment_terms ?? 'Not supplied'}
@@ -463,9 +498,7 @@ export default function AvailableLoadsPage() {
                       footer={<>
                         <button type="button" className="load-expand xdrive-cx-load-footer__expander" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '▴' : '▾'}</button>
                         {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
-                        <span className="load-footer-spacer" />
                         <button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button>
-                        <span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span>
                       </>}
                     />
 
