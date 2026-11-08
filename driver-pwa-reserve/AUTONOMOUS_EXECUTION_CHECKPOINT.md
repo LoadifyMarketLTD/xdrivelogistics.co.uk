@@ -31,6 +31,15 @@ AUDIT UPDATE — 2026-11-08 screenshot 0 loads:
 - npm run build PASS; selected tests 12/12 PASS.
 - Real quote submission / real E2E remains NOT VERIFIED.
 
+VIDEO FIX — 2026-11-08 18:17:
+- User supplied 33.5-second screen recording: Bookings → DELIVERED job → POD Saved, no next action.
+- Root cause: flow() intentionally rendered no action for DELIVERED/POD_SUBMITTED with podDone or job.podRecorded. Thus an already recorded POD became a UI dead end.
+- Added Continue to Invoice → to recorded POD states; routes to new job-specific invoiceJob screen.
+- Implemented three distinct invoice preparation/review/send-confirmation stages (9/11 to 11/11), keeping recorded POD intact; no re-sign requirement and no fabricated issue/send.
+- Existing live invoices still available via authenticated LiveInvoices viewer.
+- Build PASS; regression tests selected 5/5; recorded POD navigation contract test PASS 4/4.
+- IMPORTANT: issue/send API not yet confirmed, remains visibly unavailable. Complete invoice E2E NOT PASS.
+
 OUTSTANDING:
 - No confirmed end-to-end production write across quote -> award -> delivery -> POD.
 - New front-end invoice create/issue/send is BLOCKED because audited live invoice module only supports reading existing PDF; must not fake.
