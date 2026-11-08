@@ -1,5 +1,16 @@
 # Reserve PWA checkpoint — 2026-11-08 19:42 GMT
 
+## 19:54 — Visual redesign against user-provided Courier Exchange screenshots
+- User requires difference in legibility, type hierarchy, spacing, information and action arrangement. Implemented only in independent reserve app; no changes to official XDrive PWA or GitHub main.
+- Loads card now flat (no heavy outer/nested route frame), dark larger sender typography, orange service type and vehicle, prominent uppercase collection/delivery localities joined by dotted vertical route, legible dates/times, genuine driver notes, compact inline weight/payment/distance.
+- Removed dominant full UUID from marketplace card; full ID remains in Load Details and canonical job data.
+- View on Map is a light text action, while Load Details / Quote Now are high-contrast primary bottom actions.
+- Real production API data unchanged; do not fabricate SmartPay, service types or route notifications from CX.
+- Pixel 7 Pro live Chrome screenshot VERIFIED at D:\XDrive-PWA-RESERVE-20261108-EVIDENCE\rv_visual_cards_v2.png. Card is compact and legible, shows real testing-only warning within genuine notes.
+- Build PASS; 20/20 targeted regression tests PASS, including 3 new visual hierarchy tests.
+- Local only; no live quote write, POD PDF/email E2E, main merge or Netlify deploy.
+
+
 ## 19:50 — User-confirmed cards-first Loads layout
 - User explicitly approved removing EVERYTHING above the Load job cards: title Loads, search input, All vehicle filter, refresh control and extra lines. Header stays; the first job card begins directly beneath it.
 - Implemented only for Loads tab in active ReserveApp.tsx. Quotes retains its functional Submitted/Awarded/History tabs; Bookings unchanged.

@@ -68,9 +68,10 @@ export default function ReserveApp() {
     const isWithdrawn=j.bidStatus==='withdrawn'||j.quoteOutcome==='CANCELLED';
     const status=offered?'NEW OFFER':tab==='Quotes'?(isWithdrawn?'WITHDRAWN':j.quoteOutcome==='UNSUCCESSFUL'?'UNSUCCESSFUL':j.quoteOutcome==='AWARDED'?'AWARDED':'SUBMITTED'):j.status==='OPEN'?(j.quote!=null&&j.quoteOutcome!=='CANCELLED'&&j.bidStatus!=='withdrawn'?'QUOTED':'AVAILABLE'):j.status.replaceAll('_',' ');
     return <article key={j.id} className="rv-card rv-job">
-      <div className="rv-jobhead"><div><strong>{j.company||'Transport buyer'}</strong><small>{j.yourRef||j.customerRef||j.id} · {friendlyService(j.service)}</small></div><span className={'rv-chip '+(offered?'rv-orange':status==='SUBMITTED'?'rv-green':'')}>{status}</span></div>
+      <div className="rv-jobhead"><div className="rv-job-identity"><strong>{j.company||'Transport buyer'}</strong><div className="rv-job-service"><span>{friendlyService(j.service)}</span><b>{j.vehicle}</b></div>{(j.yourRef||j.customerRef)&&<small>Ref: {j.yourRef||j.customerRef}</small>}</div><span className={'rv-chip '+(offered?'rv-orange':status==='SUBMITTED'?'rv-green':'')}>{status}</span></div>
       <Route job={j}/>
-      <div className="rv-chips"><span>{j.vehicle}</span><span>{j.weight} kg</span><span>{j.terms||'Terms not stated'}</span>{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div>
+      {j.notes?.trim()&&<p className="rv-job-notes"><strong>Notes:</strong> {j.notes}</p>}
+      <div className="rv-chips"><span><strong>{j.weight || '—'}</strong> kg</span>{j.terms&&<span>Payment: {j.terms}</span>}{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div>
       {tab==='Quotes'&&j.quote!=null&&<div className="rv-summary"><Fact name="Your submitted quote" value={gbp(j.quote)}/><Fact name="Collection ETA" value={j.quoteEtaMinutes==null?'Not provided':j.quoteEtaMinutes+' minutes'}/></div>}
       {tab!=='Quotes'&&<button className="rv-map-action" onClick={()=>openMap(j,'list')}>⌖ View on Map</button>}
       {tab==='Loads'?<div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>Load Details</button>{j.quote!=null&&j.quoteOutcome!=='CANCELLED'&&j.bidStatus!=='withdrawn'?<button className="rv-primary" onClick={()=>{setQuoteSection('Submitted');setTab('Quotes');open(j,'quoteDetails')}}>View Quote</button>:<button className="rv-primary" onClick={()=>open(j,'quote')}>Quote Now</button>}</div>
