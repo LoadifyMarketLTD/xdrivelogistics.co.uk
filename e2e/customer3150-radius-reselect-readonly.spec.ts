@@ -1,0 +1,33 @@
+import {test,expect} from '@playwright/test';
+import {loginWithCredentials} from './helpers/authLogin';
+
+test('Customer 3150 radius supports 200/300 miles and main Loads sidebar instantly resets board',async({page})=>{
+ test.setTimeout(120000);
+ const email=process.env.E2E_CUSTOMER_EMAIL||'';
+ const password=process.env.E2E_CUSTOMER_PASSWORD||'';
+ test.skip(!email||!password,'Missing approved Customer E2E test credentials');
+ await loginWithCredentials(page,email,password);
+ const r=await page.goto('/customer/loads',{waitUntil:'domcontentloaded'});
+ expect(r?.status()).toBe(200);
+ const board=page.locator('.xd-board');
+ await expect(board).toBeVisible({timeout:45000});
+ const radius=board.getByLabel('Radius');
+ await expect(radius.locator('option')).toHaveCount(8);
+ await radius.selectOption('200');
+ await expect(radius).toHaveValue('200');
+ await radius.selectOption('300');
+ await expect(radius).toHaveValue('300');
+ await board.getByPlaceholder('e.g. BB1 or Blackburn').fill('BN17');
+ await board.getByRole('button',{name:'My Loads'}).click();
+ await board.getByRole('button',{name:'Map view'}).click();
+ await board.getByLabel('Sort by:').selectOption('old');
+ const resetStarted=Date.now();
+ await page.locator('aside[aria-label="Master workspace sections"]').getByRole('button',{name:'Loads',exact:true}).click();
+ await expect(radius).toHaveValue('10');
+ await expect(board.getByPlaceholder('e.g. BB1 or Blackburn')).toHaveValue('');
+ await expect(board.getByRole('button',{name:/^All Loads/})).toHaveClass(/active/);
+ await expect(board.getByRole('button',{name:'List view'})).toHaveClass(/active/);
+ await expect(board.getByLabel('Sort by:')).toHaveValue('new');
+ expect(Date.now()-resetStarted).toBeLessThan(2500);
+ expect(new URL(page.url()).pathname).toBe('/customer/loads');
+});
