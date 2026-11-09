@@ -126,7 +126,12 @@ describe('workspace canonical handoff geometry', () => {
         expect(source).toContain('carrier-register-page');
       }
     }
-    for (const page of detailPages) expect(read(page)).toContain('carrier-detail-page');
+    for (const page of detailPages) {
+      const source = read(page);
+      expect(page === 'app/admin/invoices/new/page.tsx'
+        ? read('app/components/workspace/InvoiceCreateWorkflow.tsx')
+        : source).toContain('carrier-detail-page');
+    }
   });
 
   it('keeps Carrier create-job and empty-state surfaces compact', () => {

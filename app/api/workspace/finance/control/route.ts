@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { invoiceAgingBucket, type AgingBucket } from '../../../../../lib/finance/accounts';
+import { hasCompletePodEvidence } from '../../../../../lib/jobs/podCompletion';
 import { resolveWorkspaceRole } from '../../../../../lib/workspaceRole';
 import { hasWorkspaceCapabilityForContext } from '../../../../../lib/roleCapabilities';
 import {
@@ -188,7 +189,7 @@ export async function GET(request: NextRequest) {
     .filter((value): value is string => Boolean(value)));
   const jobQueries = await Promise.all(companyIds.map((companyId) => supabaseAdmin!
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, status, pickup_location, delivery_location, pickup_datetime, delivery_datetime, client_name, updated_at')
+    .select('id, company_id, assigned_company_id, awarded_carrier_company_id, status, current_status, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name, pickup_location, delivery_location, pickup_datetime, delivery_datetime, client_name, updated_at')
     .or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
     .order('updated_at', { ascending: false })
     .limit(500)));
@@ -197,8 +198,8 @@ export async function GET(request: NextRequest) {
   const jobMap = new Map<string, Record<string, unknown>>();
   for (const result of jobQueries) for (const row of result.data ?? []) jobMap.set(String(row.id), row as Record<string, unknown>);
   const readyToInvoice = [...jobMap.values()].filter((job) => {
-    const status = String(job.status ?? '').trim().toLowerCase();
-    if (!COMPLETED_JOB_STATUSES.has(status) || invoiceJobIds.has(String(job.id))) return false;
+    const status = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+    if (!COMPLETED_JOB_STATUSES.has(status) || !hasCompletePodEvidence(job) || invoiceJobIds.has(String(job.id))) return false;
     const awardedCarrier = text(job.awarded_carrier_company_id);
     const ownerCompany = text(job.company_id);
     return Boolean((awardedCarrier && companyIdSet.has(awardedCarrier)) || (!awardedCarrier && ownerCompany && companyIdSet.has(ownerCompany)));

@@ -6,7 +6,9 @@ const readRepoFile = (relativePath: string) =>
 
 describe('finance server-authority remediation', () => {
   it('creates Admin invoices through a server route, not browser table writes', () => {
-    const page = readRepoFile('app/admin/invoices/new/page.tsx');
+    const page = readRepoFile('app/components/workspace/InvoiceCreateWorkflow.tsx');
+    expect(readRepoFile('app/admin/invoices/new/page.tsx')).toContain('<InvoiceCreateWorkflow workspace="carrier" />');
+    expect(readRepoFile('app/broker/customer-invoices/new/page.tsx')).toContain('<InvoiceCreateWorkflow workspace="broker" />');
     const route = readRepoFile('app/api/admin/invoices/route.ts');
 
     expect(page).toContain("fetch('/api/admin/invoices'");
