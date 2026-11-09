@@ -40,8 +40,12 @@ type TrackingSnapshot = {
   } | null;
 };
 
-const route = (place: string | null, postcode: string | null) =>
-  [place, postcode].filter(Boolean).join(' ') || 'Not supplied';
+const route = (place: string | null, postcode: string | null) => {
+  const address=(place??'').trim();
+  const area=(postcode??'').trim();
+  if (!address) return area || 'Not supplied';
+  return area && !address.toUpperCase().includes(area.toUpperCase()) ? `${address} ${area}` : address;
+};
 
 const activeJob = (job: JobRow) => {
   const status = String(job.current_status ?? job.status ?? '').toLowerCase();

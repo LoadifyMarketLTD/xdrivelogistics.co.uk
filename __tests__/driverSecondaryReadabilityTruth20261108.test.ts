@@ -10,6 +10,9 @@ describe('Freight Vision truth and Return Journeys readability',()=>{
   expect(file).toContain('trackingByJob[job.id]?.location?.recorded_at');
   const css=read('app/driver/freight-vision/freight-vision-readability.css');
   expect(css).toContain('.driver-freight-vision-prototype .vision-kpis');
+  expect(css).toContain('.driver-freight-vision-prototype .vision-split{display:grid!important');
+  expect(css).toContain('.driver-freight-vision-prototype .vision-job{display:flex!important');
+  expect(file).toContain("address.toUpperCase().includes(area.toUpperCase())");
  });
  it('wraps toolbar controls without touching protected Post Load page',()=>{
   expect(read('app/driver/returns/layout.tsx')).toContain('return-toolbar-readability.css');
