@@ -50,3 +50,6 @@ Regression JSON baseline: 302 suite results, 36 failed suite results, 24 failed 
 
 ## 2026-11-09 11:28 UTC
 Continued autonomous test cleanup. Storyboard pages 2/3/4 test expectations migrated to still-used navigation, camera, document and collection components. Targeted 9/9 PASS. Do not suppress remaining genuine compliance/authorization failures. Prior verified test-only cleanup committed locally 120ae3f; no push until review.
+
+## 2026-11-09 12:01 UTC
+Retired outdated test expectations for approved 3150 card adapters, current finance register, diary tabs, GPS-null marketplace behavior, real compliance document retention, and broker Driver instructions. Repaired marketplace loads API bid lookup: carrier-company scoped quotes when company context exists, otherwise current user/driver scope. Targeted suites PASS (cards 6/6, prototype 13/13, compliance 6/6, company quote 4/4); TypeScript and ESLint PASS. Local HEAD f56351b. Full driver regression running; NOT PUSHED or DEPLOYED. Do not delete genuine compliance documents or weaken RLS. Next: inspect full suite result, fix any regressions, then publish validated main.
