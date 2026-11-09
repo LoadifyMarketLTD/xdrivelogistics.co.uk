@@ -180,7 +180,7 @@ export function mapAssigned(raw: unknown): LiveJob {
 export async function loadLive(token: string): Promise<LiveJob[]> {
   return (await loadLiveWithDiagnostics(token)).jobs;
 }
-export async function loadLiveWithDiagnostics(token: string, onProgress?: (snapshot: {jobs: LiveJob[]; warnings: string[]}) => void): Promise<{jobs: LiveJob[]; warnings: string[]}> {
+export async function loadLiveWithDiagnostics(token: string, onProgress?: (snapshot: {jobs: LiveJob[]; warnings: string[]; bookingsPending: boolean}) => void): Promise<{jobs: LiveJob[]; warnings: string[]}> {
   const feeds = [
     driverGet('/marketplace/loads', token),
     driverGet('/mobile/jobs?scope=bookings', token),
@@ -189,12 +189,16 @@ export async function loadLiveWithDiagnostics(token: string, onProgress?: (snaps
     bookingOffersGet(token),
   ];
   const partial: PromiseSettledResult<Json>[] = Array.from({ length: feeds.length }, () => ({ status: 'rejected', reason: new Error('Pending') }));
+  const settled = Array(feeds.length).fill(false);
   const responses = await Promise.all(feeds.map((feed, index) => Promise.resolve(feed).then(value => {
     partial[index] = { status: 'fulfilled', value };
-    if (onProgress) onProgress(mergeLiveResponses(partial));
+    settled[index] = true;
+    if (onProgress) onProgress({ ...mergeLiveResponses(partial), bookingsPending: ![1, 2, 4].every(i => settled[i]) });
     return { status: 'fulfilled', value } as PromiseFulfilledResult<Json>;
   }, reason => {
     partial[index] = { status: 'rejected', reason };
+    settled[index] = true;
+    if (onProgress) onProgress({ ...mergeLiveResponses(partial), bookingsPending: ![1, 2, 4].every(i => settled[i]) });
     return { status: 'rejected', reason } as PromiseRejectedResult;
   })));
   return mergeLiveResponses(responses);

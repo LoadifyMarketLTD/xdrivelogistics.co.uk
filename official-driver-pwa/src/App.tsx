@@ -132,6 +132,7 @@ function App() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [liveBusy, setLiveBusy] = useState(false);
+  const [bookingsPending, setBookingsPending] = useState(false);
   const [liveError, setLiveError] = useState("");
   const [liveWarning, setLiveWarning] = useState("");
   const [liveConnected, setLiveConnected] = useState(false);
@@ -141,6 +142,7 @@ function App() {
     const previous = savedLiveSession();
     if (!previous) return;
     setLiveBusy(true);
+    setBookingsPending(true);
     void (async () => {
       try {
         const session = await renewSession(previous);
@@ -148,9 +150,10 @@ function App() {
         setLiveSession(session);
         setLiveConnected(true);
         void syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ });
-        const records = await loadLiveWithDiagnostics(session.token, snapshot => { if (active && !statusOperationRef.current) setJobs(snapshot.jobs as Load[]); });
+        const records = await loadLiveWithDiagnostics(session.token, snapshot => { if (active && !statusOperationRef.current) setJobs(snapshot.jobs as Load[]); if (active) setBookingsPending(snapshot.bookingsPending); });
         if (!active) return;
         setJobs(records.jobs as Load[]);
+        setBookingsPending(false);
         setLiveWarning(records.warnings.join(" | "));
         setLiveError("");
       } catch (error) {
@@ -162,7 +165,7 @@ function App() {
           setLiveSession(null);
           setLiveError('Your session expired. Sign in again to receive your bookings.');
         } else setLiveError(message);
-      } finally { if (active) setLiveBusy(false); }
+      } finally { if (active) { setLiveBusy(false); setBookingsPending(false); } }
     })();
     return () => { active = false; };
   }, []);
@@ -175,8 +178,9 @@ function App() {
   const statusOperationRef = useRef(false);
   const refreshLive = async (token: string) => {
     void syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ });
-    const records = await loadLiveWithDiagnostics(token, snapshot => { if (!statusOperationRef.current) setJobs(snapshot.jobs as Load[]); });
+    const records = await loadLiveWithDiagnostics(token, snapshot => { if (!statusOperationRef.current) setJobs(snapshot.jobs as Load[]); setBookingsPending(snapshot.bookingsPending); });
     if (!statusOperationRef.current) setJobs(records.jobs as Load[]);
+    setBookingsPending(false);
     setLiveWarning(records.warnings.join(" | "));
     setLiveConnected(true);
   };
@@ -202,6 +206,7 @@ function App() {
   }, [liveConnected, liveSession?.token, liveSession?.expiresAt]);
   const connectLive = async () => {
     setLiveBusy(true);
+    setBookingsPending(true);
     setLiveError("");
     try {
       const session = await liveLogin(loginEmail.trim(), loginPassword);
@@ -215,7 +220,7 @@ function App() {
     } catch (error) {
       setLiveConnected(false);
       setLiveError(error instanceof Error ? error.message : "Live connection failed");
-    } finally { setLiveBusy(false); }
+    } finally { setLiveBusy(false); setBookingsPending(false); }
   };
   // Never present locally stored or seeded test records as production loads.
   // The approved TEST-1099 UI can still be loaded explicitly from the local test workspace.
@@ -732,7 +737,9 @@ function App() {
                 {liveBusy && jobs.length === 0 && <p role="status" className="notification-reason">Connecting to XDrive LIVE and loading records...</p>}
                 {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
                 {liveWarning && <p role="status" className="notification-reason">{liveWarning}</p>}
-                {listed.length === 0 ? (
+                {listed.length === 0 && tab === "Bookings" && bookingsPending ? (
+                  <p role="status" className="notification-reason">Loading your bookings from XDrive LIVE...</p>
+                ) : listed.length === 0 ? (
                   <div className="empty">
                     <span aria-hidden="true">&#128230;</span>
                     <h2>No {tab.toLowerCase()} available</h2>
