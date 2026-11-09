@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont } from 'pdf-lib';
 import type { InvoiceVatTreatment } from '../invoiceVat';
+import { drawOfficialXDrivePdfLogo } from './officialXDrivePdfLogo';
 
 type InvoiceEvidenceImage = {
   bytes: Uint8Array;
@@ -234,16 +235,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   // Platform identity: official uploaded logo, no improvised substitute.
   page.drawRectangle({ x: 0, y: 825, width: pageWidth, height: 17, color: navy });
   page.drawRectangle({ x: 0, y: 820, width: pageWidth, height: 5, color: orange });
-  let logoDrawn = false;
-  if (input.logoBytes?.length) {
-    const logo = await embedImage(pdf, input.logoBytes);
-    if (logo) {
-      const s = Math.min(188 / logo.width, 64 / logo.height);
-      page.drawImage(logo, { x: margin, y: 742, width: logo.width * s, height: logo.height * s });
-      logoDrawn = true;
-    }
-  }
-  if (!logoDrawn) fit(issuerName, margin, 781, 246, 19, true, navy);
+  await drawOfficialXDrivePdfLogo(pdf, page, { x: margin, y: 739, maxWidth: 210, maxHeight: 65 });
   fit('INVOICE', 380, 772, 175, 28, true, navy);
   page.drawRectangle({ x: 380, y: 755, width: 174, height: 3, color: orange });
   fit('FREIGHT TRANSPORT SERVICES', 381, 742, 173, 7.8, true, slate);
@@ -296,7 +288,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   // Operational handover fields are sourced from the signed POD and verified job events.
   // Long delivery notes remain available in the attached POD and are marked as shortened.
   const notes = pdfText(input.deliveryNotes);
-  const shortNotes = notes.length > 88 ? notes.slice(0, 82).trimEnd() + '... (full notes in POD)' : notes;
+  const shortNotes = notes.length > 88 ? notes.slice(0, 82).trimEnd() + '... (full note in XDrive job record)' : notes;
   const details = [
     input.orderedAt ? 'Ordered: ' + formatDateTime(input.orderedAt) : '',
     input.vehicleDescription ? 'Vehicle: ' + pdfText(input.vehicleDescription) : '',

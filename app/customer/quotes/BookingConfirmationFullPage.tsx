@@ -109,7 +109,7 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
         <header className={styles.hero}>
           <div className={styles.heroInner}>
             <div className={styles.heroTop}>
-              <div className={styles.logo}><Image src="/xdrive-logo-horizontal.png" alt="XDrive Logistics" width={204} height={52} priority /></div>
+              <div className={styles.logo}><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={204} height={52} priority /></div>
               <span className={styles.ref}>REVIEW &amp; CONFIRM BOOKING OFFER · XDL-{details.jobId.slice(0, 8).toUpperCase()}</span>
             </div>
             <div className={styles.heroBottom}>

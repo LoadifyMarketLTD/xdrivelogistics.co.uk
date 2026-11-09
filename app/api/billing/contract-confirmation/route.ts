@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { drawOfficialXDrivePdfLogo } from '../../../../lib/server/officialXDrivePdfLogo';
 
 import { COMPANY_CONFIG } from '../../../config/company';
 import { XDRIVE_STANDARD_PLANS, isStandardMembershipPlan } from '../../../../lib/commercialBilling';
@@ -66,7 +67,8 @@ export async function GET(request: NextRequest) {
   const orange = rgb(0.961, 0.639, 0);
   const dark = rgb(0.10, 0.12, 0.17);
 
-  let y = 790;
+  await drawOfficialXDrivePdfLogo(pdf, page, { x: 54, y: 737, maxWidth: 215, maxHeight: 56 });
+  let y = 720;
   const text = (value: string, size = 10, weight: 'regular' | 'bold' = 'regular', x = 54, colour = dark) => {
     page.drawText(value, { x, y, size, font: weight === 'bold' ? bold : regular, color: colour });
     y -= size + 8;

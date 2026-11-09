@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../../../_lib/supabaseAdmin';
 import { canonicalPodEvidence } from '../../../../../../../lib/pod/canonicalPodEvidence';
+import { drawOfficialXDrivePdfLogo } from '../../../../../../../lib/server/officialXDrivePdfLogo';
 
 const jsonError = (status: number, error: string) => NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
 
@@ -71,8 +72,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       page.drawText(display, { x: 180, y, size: 10, font: regular, color: navy });
     };
     page.drawRectangle({ x: 0, y: 831, width: 595.28, height: 11, color: orange });
-    page.drawText(safe(carrier.name, 65), { x: 40, y: 783, size: 18, font: bold, color: navy });
-    page.drawText('TRANSPORT CARRIER', { x: 40, y: 807, size: 9, font: bold, color: blue });
+    await drawOfficialXDrivePdfLogo(pdf, page, { x: 40, y: 773, maxWidth: 207, maxHeight: 55 });
+    page.drawText('EXECUTING CARRIER', { x: 300, y: 808, size: 9, font: bold, color: blue });
+    page.drawText(safe(carrier.name, 38), { x: 300, y: 782, size: 13, font: bold, color: navy });
     page.drawLine({ start: { x: 40, y: 769 }, end: { x: 555, y: 769 }, color: rgb(0.86, 0.89, 0.92), thickness: 1 });
     page.drawText('PROOF OF DELIVERY', { x: 40, y: 737, size: 23, font: bold, color: navy });
     page.drawText('DELIVERY CONFIRMATION', { x: 40, y: 718, size: 9, font: bold, color: blue });
@@ -114,8 +116,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       if (index % 2 === 0) photoPage = pdf.addPage([595.28, 841.89]);
       if (!photoPage) throw new Error('Photographic evidence page could not be created.');
       if (index % 2 === 0) photoPage.drawRectangle({ x: 0, y: 831, width: 595.28, height: 11, color: orange });
-      if (index % 2 === 0) photoPage.drawText(safe(carrier.name, 64), { x: 40, y: 805, size: 12, font: bold, color: navy });
-      if (index % 2 === 0) photoPage.drawText('DELIVERY PHOTOGRAPHIC RECORD', { x: 40, y: 779, size: 15, font: bold, color: blue });
+      if (index % 2 === 0) await drawOfficialXDrivePdfLogo(pdf, photoPage, { x: 40, y: 770, maxWidth: 195, maxHeight: 53 });
+      if (index % 2 === 0) photoPage.drawText('DELIVERY PHOTO EVIDENCE', { x: 303, y: 797, size: 12, font: bold, color: navy });
+      if (index % 2 === 0) photoPage.drawText(safe(carrier.name, 40), { x: 303, y: 780, size: 9, font: regular, color: blue });
       const slotTop = index % 2 === 0 ? 738 : 388;
       photoPage.drawText(`IMAGE ${index + 1} OF ${Math.min(evidence.deliveryPhotos.length, 10)}`, {
         x: 40, y: slotTop, size: 10, font: bold, color: blue,

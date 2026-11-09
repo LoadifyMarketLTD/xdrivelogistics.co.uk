@@ -28,7 +28,7 @@ describe('XDrive premium invoice PDF, real renderer', () => {
   });
   it('retains the real XDrive logo and robust financial calculation paths', () => {
     const src=fs.readFileSync('lib/server/invoicePdf.ts','utf8');
-    expect(src).toContain('input.logoBytes');
+    expect(src).toContain('drawOfficialXDrivePdfLogo(pdf, page');
     expect(src).toContain('const total=money(finiteMoney(input.totalAmount),input.currency)');
     expect(src).toContain('vatTreatment');
     expect(src).toContain('input.bankAccountNumber');

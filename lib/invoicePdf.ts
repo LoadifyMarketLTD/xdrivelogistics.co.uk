@@ -84,18 +84,18 @@ export async function downloadInvoicePdf({
   const bankSort = invoice.bankSortCode || companySettings.bankSortCode || '';
   const bankAccount = invoice.bankAccountNumber || companySettings.bankAccountNumber || '';
 
-  // Header
-  page.drawRectangle({ x: 0, y: height - 90, width, height: 90, color: color(NAVY) });
-  page.drawRectangle({ x: 0, y: height - 94, width, height: 4, color: color(ORANGE) });
-  page.drawText('XDRIVE', { x: M, y: height - 43, size: 22, font: bold, color: rgb(1, 1, 1) });
-  page.drawText('LOGISTICS', { x: M + 88, y: height - 43, size: 12, font: bold, color: color(ORANGE) });
-  page.drawText('Transport invoice', { x: M, y: height - 63, size: 9, font: regular, color: rgb(.9, .94, 1) });
-
-  const titleX = width - 205;
-  page.drawText('INVOICE', { x: titleX, y: height - 38, size: 18, font: bold, color: rgb(1,1,1) });
-  page.drawText(invoice.invoiceNumber || '—', { x: titleX, y: height - 57, size: 10, font: bold, color: rgb(1,1,1) });
-  page.drawText((invoice.status || 'Draft').toUpperCase(), { x: titleX, y: height - 73, size: 8, font: regular, color: rgb(.9,.94,1) });
-
+  // Standard official XDrive logo is mandatory for issued platform invoices.
+  const response = await fetch('/xdrive-logo-primary.png', { cache: 'force-cache' });
+  if (!response.ok) throw new Error('Official XDrive document logo could not be loaded.');
+  const logoBytes = new Uint8Array(await response.arrayBuffer());
+  const officialLogo = await pdf.embedPng(logoBytes);
+  const logoSize = officialLogo.scaleToFit(205, 59);
+  page.drawRectangle({ x: 0, y: height - 18, width, height: 18, color: color(NAVY) });
+  page.drawRectangle({ x: 0, y: height - 23, width, height: 5, color: color(ORANGE) });
+  page.drawImage(officialLogo, { x: M, y: height - 96, width: logoSize.width, height: logoSize.height });
+  page.drawText('INVOICE', { x: width - 205, y: height - 51, size: 20, font: bold, color: color(NAVY) });
+  page.drawText(invoice.invoiceNumber || 'Draft', { x: width - 205, y: height - 70, size: 10, font: bold, color: color(NAVY) });
+  page.drawText((invoice.status || 'Draft').toUpperCase(), { x: width - 205, y: height - 86, size: 8, font: regular, color: color(MUTED) });
   // Parties
   const top = height - 122;
   const colW = (width - M * 2 - 12) / 2;
