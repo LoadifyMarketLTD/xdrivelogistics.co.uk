@@ -1,4 +1,4 @@
-﻿import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import PodDetails, { type PodForm } from './PodDetails';
 import { driverPost, renewSession, type LiveSession } from './liveApi';
 
@@ -26,7 +26,7 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
     const photos = files.filter(f => f.type === 'image/jpeg' || f.type === 'image/png');
     const documents = files.filter(f => f.type === 'application/pdf');
     if (photos.length > 10 || documents.length > 10) { setError('Maximum 10 delivery photos and 10 documents per POD.'); return; }
-    if (details.items < 0 || details.items > 100000 || !Number.isInteger(details.items)) { setError('Enter a valid delivered item count.'); return; }
+    if (details.items < 1 || details.items > 100000 || !Number.isInteger(details.items)) { setError('Enter a valid delivered item count.'); return; }
     setBusy(true); setError('');
     try {
       const current = await renewSession(session); onSession(current);

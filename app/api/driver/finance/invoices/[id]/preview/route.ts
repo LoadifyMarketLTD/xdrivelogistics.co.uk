@@ -163,6 +163,7 @@ export async function GET(
       paypalEmail: pdfContext.paypalEmail,
       logoBytes: pdfContext.logoBytes,
       evidenceImages: pdfContext.evidenceImages,
+      signatureAttestation: pdfContext.signatureAttestation,
       netAmount,
       vatAmount,
       vatRate,
