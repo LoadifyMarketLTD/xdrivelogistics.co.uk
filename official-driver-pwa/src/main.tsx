@@ -11,7 +11,7 @@ createRoot(document.getElementById('root')!).render(
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch(error => {
+    void navigator.serviceWorker.register('/driver/official-pwa/sw.js', { scope: '/driver/official-pwa/' }).catch(error => {
       console.error('Local PWA offline registration failed', error)
     })
   })

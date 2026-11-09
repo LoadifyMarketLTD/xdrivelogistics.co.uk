@@ -147,7 +147,8 @@ function App() {
         if (!active) return;
         setLiveSession(session);
         setLiveConnected(true);
-        const [records] = await Promise.all([loadLiveWithDiagnostics(session.token), syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ })]);
+        void syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ });
+        const records = await loadLiveWithDiagnostics(session.token, snapshot => { if (active && !statusOperationRef.current) setJobs(snapshot.jobs as Load[]); });
         if (!active) return;
         setJobs(records.jobs as Load[]);
         setLiveWarning(records.warnings.join(" | "));
@@ -173,7 +174,8 @@ function App() {
   };
   const statusOperationRef = useRef(false);
   const refreshLive = async (token: string) => {
-    const [records] = await Promise.all([loadLiveWithDiagnostics(token), syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ })]);
+    void syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ });
+    const records = await loadLiveWithDiagnostics(token, snapshot => { if (!statusOperationRef.current) setJobs(snapshot.jobs as Load[]); });
     if (!statusOperationRef.current) setJobs(records.jobs as Load[]);
     setLiveWarning(records.warnings.join(" | "));
     setLiveConnected(true);
@@ -320,11 +322,7 @@ function App() {
     if (!apiStatus) { statusOperationRef.current = false; setLiveError('This status requires a separate evidence or POD workflow.'); return; }
     setStatusBusy(true);
     setLiveError('');
-    // Show the requested stage immediately while the authoritative API saves it.
-    setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: nextStatus, backendStatus: apiStatus } : row));
-    if (nextStatus === 'ON_SITE_PICKUP') setBookingScreen('pickup');
-    else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('delivery');
-    else setBookingScreen('status');
+    // Keep the server-confirmed stage visible until the status write succeeds.
     try {
       const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
       if (session !== liveSession) setLiveSession(session);
@@ -731,7 +729,7 @@ function App() {
                 {tab === "Quotes" && <div className="alert-tabs booking-section-tabs quote-section-tabs" role="group" aria-label="Quote sections">{(["Submitted", "Unsuccessful"] as const).map((x) => <button key={x} type="button" className={quoteSection === x ? "selected" : ""} aria-pressed={quoteSection === x} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
                 {tab === "Alerts" && <p role="status" className="notification-reason">Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</p>}
                 {tab === "Alerts" && <div className="alert-tabs">{(["Inbox","Saved","Deleted"] as const).map((x) => <button key={x} className={alertSection === x ? "selected" : ""} onClick={() => setAlertSection(x)}>{x}</button>)}</div>}
-                {liveBusy && <p role="status" className="notification-reason">Connecting to XDrive LIVE and loading records...</p>}
+                {liveBusy && jobs.length === 0 && <p role="status" className="notification-reason">Connecting to XDrive LIVE and loading records...</p>}
                 {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
                 {liveWarning && <p role="status" className="notification-reason">{liveWarning}</p>}
                 {listed.length === 0 ? (
@@ -739,7 +737,7 @@ function App() {
                     <span aria-hidden="true">&#128230;</span>
                     <h2>No {tab.toLowerCase()} available</h2>
                     <p>
-                      {liveBusy ? "Loading real records from XDrive LIVE..." : liveError ? "Unable to load your Driver records. Check the error above and your Driver account access." : liveConnected ? "No matching real records returned by XDrive LIVE." : mode === "unconfigured"
+                      {liveBusy && jobs.length === 0 ? "Loading real records from XDrive LIVE..." : liveError ? "Unable to load your Driver records. Check the error above and your Driver account access." : liveConnected ? "No matching real records returned by XDrive LIVE." : mode === "unconfigured"
                         ? "Sign in to see your available loads."
                         : "No matching records in the isolated test workspace."}
                     </p>
