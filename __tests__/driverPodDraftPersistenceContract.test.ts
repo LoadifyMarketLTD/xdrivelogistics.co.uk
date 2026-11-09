@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 const read = (p: string) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const api = read('app/api/driver/web/jobs/[id]/pod-draft/route.ts');
 const page = read('app/components/workspace/DriverJobExecutionPage.tsx');
-const screen = read('app/driver-pwa-fresh/bookings/[id]/pod/page.tsx');
+const liveDetail = read('app/driver/jobs/[id]/page.tsx');
 const migration = read('supabase/migrations/20261028035400_driver_pod_draft_persistence.sql');
 const podAction = read('app/api/driver/web/jobs/[id]/[action]/route.ts');
 
@@ -22,10 +22,9 @@ describe('driver PWA persistent mobile POD contract', () => {
     expect(migration).toContain("grant all on public.driver_pod_drafts to service_role");
     expect(api).toContain("onConflict: 'job_id'");
   });
-  it('provides a mobile-only POD route with server draft recovery', () => {
-    expect(screen).toContain('mobilePwa podOnly');
-    expect(screen).toContain('Back to booking');
-    expect(screen).not.toContain('Navigate');
+  it('provides the canonical authenticated Driver job route with server draft recovery', () => {
+    expect(liveDetail).toContain('DriverJobExecutionPage');
+    expect(liveDetail).toContain("allowedRoles={['driver']}");
     expect(page).toContain('Save Signature');
     expect(page).toContain("method: 'PUT'");
     expect(page).toContain('podDraftSaveQueue.current');

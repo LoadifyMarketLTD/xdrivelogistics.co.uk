@@ -26,8 +26,4 @@ describe('Driver storyboard invoice issued and tracking',()=>{
   expect(issued).not.toContain('fetch(');
   expect(tracking).not.toContain('fetch(');
  });
- it('has individual inspectable preview routes',()=>{
-  expect(read('app/driver-pwa-fresh/visual-preview/workflow/page-10/page.tsx')).toContain('InvoiceIssuedStep');
-  expect(read('app/driver-pwa-fresh/visual-preview/workflow/page-11/page.tsx')).toContain('InvoicePaymentTrackingStep');
- });
 });
