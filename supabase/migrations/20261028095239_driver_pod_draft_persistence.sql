@@ -1,6 +1,3 @@
--- Persist the in-progress driver POD across browser restarts and sign-ins.
--- Final POD remains authoritative in record_driver_pod_atomic; this table is
--- for drafts only and is never a parallel booking state machine.
 create table if not exists public.driver_pod_drafts (
   job_id uuid primary key references public.jobs(id) on delete cascade,
   driver_id uuid not null references public.drivers(id) on delete cascade,
