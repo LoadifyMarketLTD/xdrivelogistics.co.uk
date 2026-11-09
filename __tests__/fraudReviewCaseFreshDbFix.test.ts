@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) =>
@@ -7,8 +7,6 @@ const readRepoFile = (relativePath: string) =>
 describe('canonical fresh-DB fix: owner_decide_fraud_review_case audit target', () => {
   const MIGRATION =
     'supabase/migrations/20260801210000_canonical_fraud_review_audit_target_fresh_db.sql';
-  const WORKFLOW =
-    '.github/workflows/validate-identity-compliance-foundation.yml';
 
   it('migration inserts target_type = fraud_case into owner_audit_log', () => {
     const migration = readRepoFile(MIGRATION);
@@ -87,29 +85,14 @@ describe('canonical fresh-DB fix: owner_decide_fraud_review_case audit target', 
     expect(migration).not.toMatch(/CREATE\s+(OR\s+REPLACE\s+)?TRIGGER/i);
   });
 
-  it('migration is included in the CI validation workflow after MIGRATION_OWNER_AUDIT_TARGET_COLUMNS', () => {
-    const workflow = readRepoFile(WORKFLOW);
-
-    expect(workflow).toContain('20260801210000_canonical_fraud_review_audit_target_fresh_db.sql');
-    expect(workflow).toContain('MIGRATION_FRESH_DB_FRAUD_FIX');
-
-    // Must run after the target columns are created (080000)
-    const auditColumnsPos = workflow.indexOf(
-      'psql -v ON_ERROR_STOP=1 -f "${MIGRATION_OWNER_AUDIT_TARGET_COLUMNS}"',
-    );
-    const freshDbFixPos = workflow.indexOf(
-      'psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FRESH_DB_FRAUD_FIX}"',
-    );
-    expect(auditColumnsPos).toBeGreaterThan(-1);
-    expect(freshDbFixPos).toBeGreaterThan(-1);
-    expect(auditColumnsPos).toBeLessThan(freshDbFixPos);
-  });
-
-  it('migration is included in the CI workflow trigger paths', () => {
-    const workflow = readRepoFile(WORKFLOW);
-
-    expect(workflow).toContain(
-      '"supabase/migrations/20260801210000_canonical_fraud_review_audit_target_fresh_db.sql"',
-    );
+  it('runs after canonical audit target columns in ordered SQL migrations', () => {
+    const migrationNames = readdirSync(new URL('../supabase/migrations/', import.meta.url));
+    const auditColumns = '20260801080000_canonical_owner_audit_log_target_columns.sql';
+    const fraudFix = '20260801210000_canonical_fraud_review_audit_target_fresh_db.sql';
+    expect(migrationNames).toContain(auditColumns);
+    expect(migrationNames).toContain(fraudFix);
+    expect(auditColumns.localeCompare(fraudFix)).toBeLessThan(0);
+    expect(readRepoFile('supabase/migrations/' + auditColumns)).toContain('ADD COLUMN target_type text');
+    expect(readRepoFile('supabase/migrations/' + fraudFix)).toContain('owner_decide_fraud_review_case');
   });
 });
