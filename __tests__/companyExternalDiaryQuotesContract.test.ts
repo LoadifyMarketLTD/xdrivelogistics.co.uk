@@ -38,6 +38,8 @@ describe('Company Quotes and outsourced Diary use verified, separate ownership s
     const panel=source.slice(source.indexOf('data-diary-scope="externally-fulfilled"'),source.indexOf('className="workspace-record-meta workspace-list-controls cx-diary-toolbar"'));
     expect(panel).not.toContain('assignDriver(');
     expect(panel).not.toContain('cancelJob(');
-    expect(panel).not.toContain('onClick=');
+    expect(panel).toContain("onClick={()=>setViewMode('list')}");
+    expect(panel).toContain("onClick={()=>setViewMode('calendar')}");
+    expect((panel.match(/onClick=/g) ?? [])).toHaveLength(2);
   });
 });
