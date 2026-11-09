@@ -40,7 +40,7 @@ export default function LiveInvoices({ session, onSession }: Props) {
     finally { setPreviewBusy(null); }
   }  return <section className="settings" aria-label="Live invoices">
     <h2>Invoices</h2>
-    <p>Authenticated XDrive invoices. Existing invoice PDFs can be downloaded securely. Creating, issuing and emailing invoices remains unavailable until the complete delivery flow is verified.</p>
+    <p>Authenticated XDrive invoices. Download existing A4 invoice PDFs here. To create an eligible invoice, complete the delivery and POD first, then use Create Invoice in the booking. Issuing and emailing are separate operations.</p>
     {busy && <p role="status">Loading invoices...</p>}
     {error && <p role="alert">{error}</p>}
     {!busy && !error && rows.length === 0 && <p>No invoices found for this company.</p>}

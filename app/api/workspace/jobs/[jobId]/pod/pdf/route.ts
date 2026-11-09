@@ -34,6 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const evidence = canonicalPodEvidence(job);
   if (!evidence.complete) return jsonError(409, 'Complete delivery POD with a photo, handwritten signature and recipient name first.');
+  if (evidence.deliveryPhotoCount < 1) return jsonError(409, 'A delivery photograph is required for the POD PDF.');
   const storedSignature = job.delivery_signature_data;
   const signature = typeof storedSignature === 'string' ? storedSignature
     : storedSignature && typeof storedSignature === 'object' && !Array.isArray(storedSignature)
