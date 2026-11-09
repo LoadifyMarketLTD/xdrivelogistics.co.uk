@@ -1,6 +1,8 @@
 import { Buffer } from 'node:buffer';
 import { hasCompletePodEvidence } from '../jobs/podCompletion';
 import { officialXDriveLogoBytes } from './officialXDrivePdfLogo';
+import { isUnrelatedXDriveInvoicePdf } from './podEvidenceClassification';
+import type { ProfessionalPodDetails, HandoverDetails } from './professionalPodPdf';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type EvidenceImage = {
@@ -27,6 +29,10 @@ type InvoicePdfContext = {
   logoBytes: Uint8Array | null;
   evidenceImages: EvidenceImage[];
   signatureAttestation: string | null;
+  podDetails: ProfessionalPodDetails | null;
+  podHandover: HandoverDetails | null;
+  podSignatureDataUrl: string | null;
+  podDeliveryPhotoCount: number;
 };
 
 const clean = (value: unknown) =>
@@ -126,11 +132,15 @@ export async function loadInvoicePdfContext({
   let vehicleDescription: string | null = null;
   const evidenceImages: EvidenceImage[] = [];
   let signatureAttestation: string | null = null;
+  let podDetails: ProfessionalPodDetails | null = null;
+  let podHandover: HandoverDetails | null = null;
+  let podSignatureDataUrl: string | null = null;
+  let podDeliveryPhotoCount = 0;
 
   if (jobId) {
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, delivered_at, delivery_notes, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
+      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, delivered_at, delivery_notes, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name, pickup_location, delivery_location, pod_generated_at, collection_contact_name, delivery_contact_name, no_of_items, delivery_status')
       .eq('id', jobId)
       .maybeSingle();
 
@@ -141,6 +151,10 @@ export async function loadInvoicePdfContext({
       deliveredAt = clean(job.delivered_at);
       recipientName = clean(job.client_signature_name);
       signedPodConfirmed = hasCompletePodEvidence(job);
+      if (signedPodConfirmed) {
+        podDetails = { ...job, id: job.id };
+        podDeliveryPhotoCount = Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0;
+      }
       vehicleDescription = labelise(job.vehicle_type);
 
       const cargoParts: string[] = [];
@@ -174,6 +188,7 @@ export async function loadInvoicePdfContext({
           if (requirePod) throw new Error('POD evidence does not belong to this job and supplier.');
           continue;
         }
+        if (image.label === 'POD' && isUnrelatedXDriveInvoicePdf(image.path)) continue;
         const bytes = await downloadPodImage(supabase, image.path);
         if (bytes) evidenceImages.push({ bytes, label: image.label });
         else if (requirePod) throw new Error('POD evidence could not be downloaded. Retry before sending.');
@@ -182,7 +197,12 @@ export async function loadInvoicePdfContext({
       const record = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
       const value = record?.value ?? raw;
       const signature = dataUrlBytes(value);
-      if (signature) evidenceImages.push({ bytes: signature, label: 'Signature' });
+      if (signature) {
+        evidenceImages.push({ bytes: signature, label: 'Signature' });
+        if (signedPodConfirmed && typeof value === 'string' && /^data:image\/(?:png|jpeg);base64,/i.test(value)) {
+          podSignatureDataUrl = value;
+        }
+      }
       else if (record?.type === 'recipient_typed_name_attestation') {
         if (requirePod && (record.job_id !== jobId || record.recipient_name !== job.client_signature_name
           || !imagePaths.some(image => image.path === record.evidence_path))) throw new Error('Recipient attestation does not match the job evidence.');
@@ -208,6 +228,12 @@ export async function loadInvoicePdfContext({
       ? handover.form_data as Record<string, unknown> : null;
     leftAt = clean(draft?.leftAt);
     deliveryNotes = clean(draft?.notes) || deliveryNotes;
+    podHandover = {
+      leftAt: clean(draft?.leftAt),
+      itemCount: (typeof draft?.itemCount === 'string' || typeof draft?.itemCount === 'number') ? draft.itemCount : null,
+      deliveryStatus: clean(draft?.deliveryStatus),
+      notes: clean(draft?.notes),
+    };
   }
 
   return {
@@ -229,5 +255,9 @@ export async function loadInvoicePdfContext({
     logoBytes,
     evidenceImages,
     signatureAttestation,
+    podDetails,
+    podHandover,
+    podSignatureDataUrl,
+    podDeliveryPhotoCount,
   };
 }

@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont } from 'pdf-lib';
 import type { InvoiceVatTreatment } from '../invoiceVat';
-import { drawOfficialXDrivePdfLogo } from './officialXDrivePdfLogo';
+import { drawOfficialXDrivePdfLogo, officialXDriveLogoBytes } from './officialXDrivePdfLogo';
+import { drawOfficialPodCover, type ProfessionalPodDetails, type HandoverDetails } from './professionalPodPdf';
 
 type InvoiceEvidenceImage = {
   bytes: Uint8Array;
@@ -47,6 +48,10 @@ type InvoicePdfInput = {
   logoBytes?: Uint8Array | null;
   evidenceImages?: InvoiceEvidenceImage[];
   signatureAttestation?: string | null;
+  podDetails?: ProfessionalPodDetails | null;
+  podHandover?: HandoverDetails | null;
+  podSignatureDataUrl?: string | null;
+  podDeliveryPhotoCount?: number;
   netAmount: number;
   vatAmount: number;
   vatRate: number;
@@ -344,8 +349,18 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
 
   const evidenceItems = input.evidenceImages ?? [];
   const isPdfEvidence = (item: InvoiceEvidenceImage) => String.fromCharCode(...item.bytes.slice(0, 5)) === '%PDF-';
-  const imageEvidence = evidenceItems.filter((item) => !isPdfEvidence(item));
+  const includeOfficialPod = Boolean(input.podDetails && input.podSignatureDataUrl);
+  const imageEvidence = evidenceItems.filter((item) => !isPdfEvidence(item) && !(includeOfficialPod && item.label === 'Signature'));
   const pdfEvidence = evidenceItems.filter(isPdfEvidence);
+  // The official POD companion page uses the exact same approved A4
+  // renderer as the standalone PDF. Only verified handwritten evidence can
+  // produce it; without a complete POD the existing invoice stays unchanged.
+  if (input.podDetails && input.podSignatureDataUrl) {
+    await drawOfficialPodCover(pdf, await officialXDriveLogoBytes(), input.issuerName,
+      { ...input.podDetails, reference: input.jobReference || input.podDetails.reference || input.podDetails.id },
+      input.podSignatureDataUrl, input.podDeliveryPhotoCount ?? 0, input.podHandover ?? {});
+  }
+
   // Appendices
   if (input.signatureAttestation) {
     const attestation = pdf.addPage([595.28, 841.89]);

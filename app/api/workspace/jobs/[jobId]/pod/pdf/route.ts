@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { jobId } = await params;
   const { data: job, error: jobError } = await supabaseAdmin.from('jobs')
-    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime,collection_contact_name,delivery_contact_name,no_of_items,items,weight_kg,delivery_status,customer_reference,load_reference,booking_reference')
+    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime,collection_contact_name,delivery_contact_name,no_of_items,items,weight_kg,delivery_status,customer_reference,load_reference,booking_reference,delivered_at,delivery_notes,vehicle_type,cargo_type')
     .eq('id', jobId).maybeSingle();
   if (jobError) return jsonError(500, jobError.message);
   if (!job) return jsonError(404, 'Job not found.');
@@ -74,6 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       deliveryStatus: typeof handover.deliveryStatus === 'string' ? handover.deliveryStatus : undefined,
       notes: typeof handover.notes === 'string' ? handover.notes : undefined,
     });
+    const regular = await pdf.embedFont(StandardFonts.Helvetica);
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
     const navy = rgb(0.043, 0.184, 0.420);
     const orange = rgb(0.961, 0.639, 0);
