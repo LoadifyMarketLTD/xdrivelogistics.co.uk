@@ -250,7 +250,7 @@ export default function DriverJobsPage() {
                     loadId={job.id.slice(0, 8).toUpperCase()}
                     vehicle={vehicleLabel(job)}
                     statusLine={stage === 'cancelled' ? 'Cancelled booking' : stage === 'completed' ? (hasPod ? 'POD complete' : 'POD action required') : 'Assigned to you'}
-                    expandedMeta={<><span>{job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span><span>{hasPod ? 'Delivery evidence captured' : inExecution ? 'Execution in progress' : 'Awaiting execution'}</span></>}
+                    expandedMeta={<><span>{job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span><span>{hasPod ? 'Delivery evidence captured' : isDeliveredAwaitingPod(job) ? 'POD action required' : inExecution ? 'Execution in progress' : 'Awaiting execution'}</span></>}
                     state={status}
                     expanded={expanded}
                     footer={<>
