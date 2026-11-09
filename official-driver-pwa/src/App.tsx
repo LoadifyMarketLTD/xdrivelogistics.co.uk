@@ -20,6 +20,21 @@ import DeliverySignature from './DeliverySignature';
 import RouteMap from "./RouteMap";
 import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
 const LIVE_SESSION_KEY = "xdrive-driver-live-session-v1";
+function formatServiceLabel(service?: string): string {
+  const raw = service?.trim();
+  if (!raw || raw.toLowerCase() === "not provided") return "Not provided";
+  const labels: Record<string, string> = {
+    timed_direct: "Same Day - Timed",
+    asap_direct: "Deliver Direct",
+    direct: "Deliver Direct",
+    same_day_timed: "Same Day - Timed",
+    next_day: "Next Day",
+    regular_load: "Regular Load",
+    daily_hire: "Daily Hire",
+  };
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  return labels[key] || raw.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, char => char.toUpperCase());
+}
 function savedLiveSession(): LiveSession | null {
   try {
     const raw = localStorage.getItem(LIVE_SESSION_KEY);
@@ -639,7 +654,7 @@ function App() {
                 <span>{job.vehicle}</span>
                 <span>{job.weight} kg</span>
               </div>
-              <div className="mobile-job-facts"><div>Service: {(job.service || "Same Day").replaceAll("_", " ")}</div><div>Vehicle: {job.vehicle}</div><div>Weight: {job.weight} kg</div>{job.packages != null && <div>Packages: {job.packages}</div>}</div>
+              <div className="mobile-job-facts"><div>Service: {formatServiceLabel(job.service)}</div><div>Vehicle: {job.vehicle}</div><div>Weight: {job.weight} kg</div>{job.packages != null && <div>Packages: {job.packages}</div>}</div>
               <button className="map-action" onClick={() => setRouteJobId(job.id)}>View on Map</button>
 
               {tab === "Alerts" && job.status === "OPEN" && <p className="notification-reason">Notification Reason: {job.notificationReason || "Driver current location"}</p>}
@@ -862,7 +877,7 @@ function App() {
                             : j.status.replaceAll("_", " ")}
                         </span>}
                       </div>
-                      {tab === "Bookings" ? <div className="booking-card-heading"><div>Your Ref. {j.yourRef || j.id}</div><strong className={j.quoteOutcome === "CANCELLED" ? "booking-cancelled" : "booking-stage"}>{j.acceptanceRequired ? "Acceptance Required" : j.quoteOutcome === "CANCELLED" ? "Cancelled" : j.status === "ALLOCATED" ? "Accepted" : j.status.replaceAll("_"," ")}</strong>{j.zoneAlert && <div className="booking-zone-alert">{j.zoneAlert}</div>}<div className="job-posted-terms"><span>Terms: {j.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</span><span>Posted: {j.postedAt || "Not provided"}</span></div></div> : <small className="reference"><b>{j.service || "Same Day · Timed"}</b> · HOTSHOT · {j.vehicle}{j.quoteSubmittedAt ? ` · @ ${new Date(j.quoteSubmittedAt).toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"})}` : ""}</small>}
+                      {tab === "Bookings" ? <div className="booking-card-heading"><div>Your Ref. {j.yourRef || j.id}</div><strong className={j.quoteOutcome === "CANCELLED" ? "booking-cancelled" : "booking-stage"}>{j.acceptanceRequired ? "Acceptance Required" : j.quoteOutcome === "CANCELLED" ? "Cancelled" : j.status === "ALLOCATED" ? "Accepted" : j.status.replaceAll("_"," ")}</strong>{j.zoneAlert && <div className="booking-zone-alert">{j.zoneAlert}</div>}<div className="job-posted-terms"><span>Terms: {j.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</span><span>Posted: {j.postedAt || "Not provided"}</span></div></div> : <small className="reference"><b>{formatServiceLabel(j.service)}</b> · HOTSHOT · {j.vehicle}{j.quoteSubmittedAt ? ` · @ ${new Date(j.quoteSubmittedAt).toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"})}` : ""}</small>}
                       {tab === "Alerts" && <div className="alert-service"><b>HOTSHOT</b> {j.vehicle} {j.notificationAt && <small>@ {j.notificationAt}</small>}{j.zoneAlert && <div>{j.zoneAlert}</div>}</div>}
                       {tab !== "Bookings" && <div className="job-posted-terms"><span>Terms: {j.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</span><span>Posted: {j.postedAt || (j.quoteSubmittedAt ? new Date(j.quoteSubmittedAt).toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"}) : "Not provided")}</span></div>}
                       <div className="route">
