@@ -45,9 +45,9 @@ describe('CX-style live job tracking server contract', () => {
 
   it('exposes authorised live tracking to both customer and broker job surfaces', () => {
     expect(customer).toContain('import JobLiveTrackingPanel');
-    expect(customer).toContain('<JobLiveTrackingPanel jobId={job.id} />');
+    expect(customer).toContain('job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id} />');
     expect(broker).toContain('import JobLiveTrackingPanel');
-    expect(broker).toContain('<JobLiveTrackingPanel jobId={job.id} />');
+    expect(broker).toContain('job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id}/>');
   });
 
   it('keeps traffic-aware ETA economical and independent of viewer count', () => {
