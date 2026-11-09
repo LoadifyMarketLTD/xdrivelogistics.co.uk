@@ -304,6 +304,7 @@ export function mapJob(row: MobileJobRow) {
     clientPhone: row.client_phone || contactPhone || '',
     loadDetails: row.load_details || '',
     requirements: [row.load_details, row.special_requirements, row.access_restrictions].filter(Boolean).join('\n'),
+    createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }

@@ -957,8 +957,7 @@ function App() {
             onClick={() => {
               setTab(t);
               if (t === "Bookings" && unseenAllocations.length > 0) { setViewedBookingOfferIds(ids => [...new Set([...ids, ...pendingAllocations.map(j => j.offerId || j.id)])]); setBookingSection("Current"); openJob(unseenAllocations[0].id); setRouteJobId(null); return; }
-              setSelected(null);
-              setRouteJobId(null);
+              if (t !== tab) { setSelected(null); setRouteJobId(null); }
             }}
           >
             <span>{["\u{1F4E6}", "\u{1F4AC}", "\u{1F69A}", "\u{1F514}"][i]}</span>
