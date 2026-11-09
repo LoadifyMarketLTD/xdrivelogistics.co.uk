@@ -112,7 +112,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
   return {
     id: str(r.id), from: str(get(r, 'pickup_area', 'pickup_postcode_area')) || 'Collection area',
     to: str(get(r, 'delivery_area', 'delivery_postcode_area')) || 'Delivery area',
-    pickup: dateTime(r.pickup_datetime), delivery: dateTime(r.delivery_datetime),
+    pickup: dateTime(r.pickup_datetime) !== 'Not provided' ? dateTime(r.pickup_datetime) : (str(r.pickup_time_slot) || 'Collection time TBC'), delivery: dateTime(r.delivery_datetime) !== 'Not provided' ? dateTime(r.delivery_datetime) : (str(r.delivery_time_slot) || 'Delivery time TBC'),
     pickupDate: date(r.pickup_datetime), deliveryDate: date(r.delivery_datetime),
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
     weight: num(r.weight_kg) || 0, notes: str(r.public_quote_notes),
