@@ -230,3 +230,7 @@
 .rv-delivery-field .rv-signature-save:disabled{background:#e2e9ef;border-color:#c7d1d9;color:#5e7283;cursor:not-allowed;box-shadow:none}
 .rv-delivery-field .rv-signature-save:focus-visible{outline:3px solid #f6a35b;outline-offset:3px}
 .rv-delivery-field .rv-signature-confirm{margin:7px 0 0;color:#20734a;font-size:11px;font-weight:700;line-height:1.4}
+
+/* Verified saved-signature state: green only after server GET confirmation. */
+.rv-delivery-field .rv-signature-save.rv-signature-saved,
+.rv-delivery-field .rv-signature-save.rv-signature-saved:disabled{background:#168348;border-color:#0b6935;color:#fff;box-shadow:0 2px 7px rgba(12,115,62,.2);cursor:default;opacity:1}

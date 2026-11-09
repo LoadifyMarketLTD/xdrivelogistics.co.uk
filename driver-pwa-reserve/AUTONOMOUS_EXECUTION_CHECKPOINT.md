@@ -62,3 +62,8 @@ Next: inspect and test authenticated status-to-POD transition, upload/idempotenc
 - Button activates only for a captured signature. It performs authenticated read, merged PUT to /api/driver/web/jobs/{id}/pod-draft and subsequent GET equality verification via saveRecipientSignature() in ReserveApp.tsx; success and failure states are separate from finalise POD.
 - Live Edge UI Automation confirmed the Save Signature button visible directly under Signature captured and Clear, before Left At. Did not press with the open job's actual signature, avoiding unauthorised signing/alterations.
 - npm run build PASS; node tests 15/15 PASS; lint 0 errors / 29 existing warnings. Real signed save and PDF generation still require authentic user action and are unverified for XDL-090CD41C.
+
+## 2026-11-09 - Green signature-save confirmation
+- Save Signature remains orange before submitting and while awaiting confirmation. Only successful PUT plus subsequent GET comparison of signatureData activates the green `rv-signature-saved` CSS class and label `Signature Saved ✓`. A saved button is disabled against duplicate submission but retains green styling. Editing or clearing the signature resets the flag and returns the button to orange/disabled as appropriate.
+- Files: src/DeliveryHandover.tsx, src/ReserveApp.css, tests/reserve-entry.test.mjs.
+- Build PASS and tests 16/16 PASS. No fabricated recipient signature submitted in live environment. No POD/Invoice state altered.

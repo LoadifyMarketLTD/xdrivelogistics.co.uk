@@ -115,7 +115,7 @@ test('incoming offer loading is explicit and timeout does not block core booking
 
 test('recipient signature has a distinct save button below the pad wired to verified POD draft persistence',()=>{
  const handover=text('DeliveryHandover.tsx'),app=text('ReserveApp.tsx'),styles=text('ReserveApp.css');
- assert.match(handover,/<SignaturePad value={signature} onChange={changeSignature}\/>\s*<button type="button" className="rv-signature-save"/);
+ assert.match(handover,/<SignaturePad value={signature} onChange={changeSignature}\/>\s*<button type="button" className=\{[\s\S]*?rv-signature-save/);
  assert.match(handover,/Save Signature/);
  assert.match(handover,/Signature saved securely in the XDrive POD draft/);
  assert.ok(handover.includes('onSaveSignature:()=>Promise<void>'));
@@ -124,4 +124,14 @@ test('recipient signature has a distinct save button below the pad wired to veri
  assert.match(app,/confirmation\?\.draft\?\.signatureData!==signature/);
  assert.equal((app.match(/onSaveSignature=\{\(\)=>saveRecipientSignature\(job\)\}/g)||[]).length,2);
  assert.match(styles,/\.rv-delivery-field \.rv-signature-save/);
+});
+
+test('signature save button turns green only on server-verified success and resets on edit',()=>{
+ const component=text('DeliveryHandover.tsx'),styles=text('ReserveApp.css'),app=text('ReserveApp.tsx');
+ assert.ok(component.includes("signatureSaved?' rv-signature-saved':''"));
+ assert.match(component,/setSignatureSaved\(false\);setSignatureError\(''\);onSignature\(next\)/);
+ assert.match(component,/await onSaveSignature\(\);setSignatureSaved\(true\)/);
+ assert.match(component,/disabled=\{!signature\|\|savingSignature\|\|busy\|\|signatureSaved\}/);
+ assert.match(styles,/\.rv-signature-save\.rv-signature-saved:disabled\{background:#168348/);
+ assert.match(app,/confirmation\?\.draft\?\.signatureData!==signature/);
 });
