@@ -128,8 +128,9 @@ type Load = {
 };
 // Fictional, explicitly local-only sample data; never presented as live customer records.
 function App() {
-  const [tab, setTab] = useState<Tab>(() => savedLiveSession() ? "Loads" : "More");
+  const [tab, setTab] = useState<Tab>(() => { if (!savedLiveSession()) return "More"; const saved = localStorage.getItem("xdrive-driver-active-tab-v1"); return (["Loads", "Quotes", "Bookings", "Map", "Invoices", "More", "Alerts"] as string[]).includes(saved || "") ? saved as Tab : "Bookings"; });
   const [liveSession, setLiveSession] = useState<LiveSession | null>(savedLiveSession);
+  useEffect(() => { if (liveSession) localStorage.setItem('xdrive-driver-active-tab-v1', tab); }, [tab, liveSession]);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [liveBusy, setLiveBusy] = useState(false);

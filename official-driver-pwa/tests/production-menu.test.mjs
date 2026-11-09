@@ -12,6 +12,8 @@ test('role is resolved through authenticated driver profile', () => {
   assert.doesNotMatch(source, /setRole\(e\.target\.value/);
 });
 test('unauthenticated app starts on sign-in instead of test jobs', () => {
-  assert.match(source, /savedLiveSession\(\) \? "Loads" : "More"/);
+  assert.match(source, /if \(!savedLiveSession\(\)\) return "More"/);
+assert.match(source, /xdrive-driver-active-tab-v1/);
+assert.match(source, /: "Bookings"/);
   assert.match(source, /Sign in to XDrive Logistics/);
 });
