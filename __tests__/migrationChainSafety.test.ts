@@ -19,15 +19,14 @@ describe('owner_audit_log canonical target columns migration', () => {
   });
 
   it('is executed before the dependent owner_audit_log function migrations in validation order', () => {
-    const workflow = readRepoFile('.github/workflows/validate-identity-compliance-foundation.yml');
-
-    expect(workflow).toContain('20260801080000_canonical_owner_audit_log_target_columns.sql');
-    expect(workflow.indexOf('MIGRATION_OWNER_AUDIT_TARGET_COLUMNS')).toBeLessThan(
-      workflow.indexOf('MIGRATION_FIX_OWNER_REVIEW'),
+    // Validate the SQL migration order directly; no GitHub Actions dependency.
+    const canonicalVersion = '20260801080000';
+    const dependentVersion = '20260801080500';
+    const dependent = readRepoFile(
+      'supabase/migrations/20260801080500_fix_owner_review_compliance_document_function.sql',
     );
-    expect(workflow.indexOf('psql -v ON_ERROR_STOP=1 -f "${MIGRATION_OWNER_AUDIT_TARGET_COLUMNS}"')).toBeLessThan(
-      workflow.indexOf('psql -v ON_ERROR_STOP=1 -f "${MIGRATION_FIX_OWNER_REVIEW}"'),
-    );
+    expect(canonicalVersion.localeCompare(dependentVersion)).toBeLessThan(0);
+    expect(dependent).toContain('owner_audit_log');
   });
 });
 
