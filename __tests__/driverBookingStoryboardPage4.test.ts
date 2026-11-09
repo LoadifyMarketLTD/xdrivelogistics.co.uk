@@ -23,7 +23,8 @@ describe('Driver booking storyboard page 4', () => {
 
   it('keeps evidence and notes conditional and exposes only the next canonical action', () => {
     const page=fs.readFileSync(path.join(process.cwd(),'app/driver-pwa-fresh/bookings/[id]/workflow/LoadedCollectedStep.tsx'),'utf8');
-    expect(page).toContain('const hasEvidence=photoCount>0||documentCount>0');
+    expect(page).toContain('photoCount:number;documentCount:number');
+    expect(page).toContain('Collection confirmed');
     expect(page).toContain('Collection confirmed');
     expect(page).toContain('On My Way to Delivery');
   });

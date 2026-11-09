@@ -13,7 +13,8 @@ describe('Driver booking storyboard page 2', () => {
     const source=fs.readFileSync(path.join(process.cwd(),'app/driver-pwa-fresh/bookings/[id]/workflow/OnMyWayToPickupStep.tsx'),'utf8');
     expect(source).toContain('On My Way to Pickup');
     expect(source).toContain('Collection Details');
-    expect(source).toContain('Navigate');
+    expect(source).toContain('navigateHref');
+    expect(source).toContain('Waze');
     expect(source).toContain('On Site at Pickup');
   });
 

@@ -47,3 +47,6 @@ Migrated stale officialDriverHomeRoute expectations to canonical /driver/jobs (r
 
 ## 2026-11-09 11:20 UTC - test cleanup
 Regression JSON baseline: 302 suite results, 36 failed suite results, 24 failed assertions. Failure inventory includes current behavior contracts that MUST NOT be blindly excluded (compliance document retention, driver/company quoting scope, operational messages, GPS unknown distances). Updated approvedOwnerDriverAccess, driverStageNavigation and driverBookingStoryboardPage7 for canonical paths; 10 touched test suites / 46 tests PASS. Source runtime unchanged. Targeted ESLint and TypeScript previously PASS; final full regression still FAIL. Do not mark complete or deploy.
+
+## 2026-11-09 11:28 UTC
+Continued autonomous test cleanup. Storyboard pages 2/3/4 test expectations migrated to still-used navigation, camera, document and collection components. Targeted 9/9 PASS. Do not suppress remaining genuine compliance/authorization failures. Prior verified test-only cleanup committed locally 120ae3f; no push until review.
