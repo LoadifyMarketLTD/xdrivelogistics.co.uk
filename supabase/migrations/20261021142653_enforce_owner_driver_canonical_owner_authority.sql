@@ -1,5 +1,3 @@
-BEGIN;
-
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
@@ -404,4 +402,3 @@ END;
 $verify$;
 
 NOTIFY pgrst, 'reload schema';
-COMMIT;
