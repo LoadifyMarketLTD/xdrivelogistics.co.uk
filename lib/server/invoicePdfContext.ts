@@ -17,6 +17,9 @@ type InvoicePdfContext = {
   paypalEmail: string | null;
   pickupDateTime: string | null;
   deliveryDateTime: string | null;
+  deliveredAt: string | null;
+  leftAt: string | null;
+  deliveryNotes: string | null;
   recipientName: string | null;
   cargoDescription: string | null;
   vehicleDescription: string | null;
@@ -139,7 +142,11 @@ export async function loadInvoicePdfContext({
 
   let pickupDateTime: string | null = null;
   let deliveryDateTime: string | null = null;
+  let deliveredAt: string | null = null;
+  let leftAt: string | null = null;
+  let deliveryNotes: string | null = null;
   let recipientName: string | null = null;
+  let signedPodConfirmed = false;
   let cargoDescription: string | null = null;
   let vehicleDescription: string | null = null;
   const evidenceImages: EvidenceImage[] = [];
@@ -148,7 +155,7 @@ export async function loadInvoicePdfContext({
   if (jobId) {
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
+      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, delivered_at, delivery_notes, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
       .eq('id', jobId)
       .maybeSingle();
 
@@ -156,7 +163,9 @@ export async function loadInvoicePdfContext({
     if (job) {
       pickupDateTime = clean(job.pickup_datetime);
       deliveryDateTime = clean(job.delivery_datetime);
+      deliveredAt = clean(job.delivered_at);
       recipientName = clean(job.client_signature_name);
+      signedPodConfirmed = hasCompletePodEvidence(job);
       vehicleDescription = labelise(job.vehicle_type);
 
       const cargoParts: string[] = [];
@@ -214,6 +223,18 @@ export async function loadInvoicePdfContext({
     }
   }
 
+  // The signed POD draft is the authoritative record for handover metadata.
+  // A blank draft field never replaces a valid invoice/job snapshot.
+  if (jobId && signedPodConfirmed) {
+    const { data: handover } = await supabase.from('driver_pod_drafts')
+      .select('form_data').eq('job_id', jobId).order('updated_at', { ascending: false })
+      .limit(1).maybeSingle();
+    const draft = handover?.form_data && typeof handover.form_data === 'object' && !Array.isArray(handover.form_data)
+      ? handover.form_data as Record<string, unknown> : null;
+    leftAt = clean(draft?.leftAt);
+    deliveryNotes = clean(draft?.notes) || deliveryNotes;
+  }
+
   return {
     issuerEmail: clean(company?.email),
     issuerPhone: clean(company?.phone),
@@ -224,6 +245,9 @@ export async function loadInvoicePdfContext({
     paypalEmail: clean(settings?.paypal_email),
     pickupDateTime,
     deliveryDateTime,
+    deliveredAt,
+    leftAt,
+    deliveryNotes,
     recipientName,
     cargoDescription,
     vehicleDescription,

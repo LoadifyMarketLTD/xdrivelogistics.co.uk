@@ -34,6 +34,7 @@ type InvoicePdfInput = {
   pickupDateTime?: string | null;
   deliveryLocation?: string | null;
   deliveryDateTime?: string | null;
+  deliveredAt?: string | null;
   recipientName?: string | null;
   cargoDescription?: string | null;
   vehicleDescription?: string | null;
@@ -288,22 +289,29 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   fit('QTY',margin+11,tableTop-19,36,8.5,true,white);
   fit('SERVICE DESCRIPTION',margin+58,tableTop-19,295,8.5,true,white);
   fit('AMOUNT',464,tableTop-19,75,8.5,true,white);
-  page.drawRectangle({x:margin,y:tableTop-144,width:contentWidth,height:115,color:white,borderColor:border,borderWidth:.8});
-  page.drawRectangle({x:margin,y:tableTop-144,width:4,height:115,color:orange});
+  page.drawRectangle({x:margin,y:tableTop-155,width:contentWidth,height:126,color:white,borderColor:border,borderWidth:.8});
+  page.drawRectangle({x:margin,y:tableTop-155,width:4,height:126,color:orange});
   fit('1',margin+16,tableTop-54,30,11,true,navy);
   fit(pdfText(input.serviceDescription,'Freight transport service'),margin+58,tableTop-53,315,11,true);
-  const details=[
-    input.vehicleDescription?'Vehicle: '+pdfText(input.vehicleDescription):'',
-    input.cargoDescription?'Cargo: '+pdfText(input.cargoDescription):'',
-    input.deliveryDateTime||input.pickupDateTime?'Service date: '+formatDateTime(input.deliveryDateTime||input.pickupDateTime):'',
-    input.recipientName?'Received by: '+pdfText(input.recipientName):'',
+  // Operational handover fields are sourced from the signed POD and verified job events.
+  // Long delivery notes remain available in the attached POD and are marked as shortened.
+  const notes = pdfText(input.deliveryNotes);
+  const shortNotes = notes.length > 88 ? notes.slice(0, 82).trimEnd() + '... (full notes in POD)' : notes;
+  const details = [
+    input.orderedAt ? 'Ordered: ' + formatDateTime(input.orderedAt) : '',
+    input.vehicleDescription ? 'Vehicle: ' + pdfText(input.vehicleDescription) : '',
+    input.cargoDescription ? 'Cargo: ' + pdfText(input.cargoDescription) : '',
+    input.deliveredAt ? 'Delivered at: ' + formatDateTime(input.deliveredAt) : '',
+    input.recipientName ? 'Received by: ' + pdfText(input.recipientName) : '',
+    input.leftAt ? 'Left at: ' + pdfText(input.leftAt) : '',
+    shortNotes ? 'Delivery notes: ' + shortNotes : '',
   ].filter(Boolean);
-  details.slice(0,3).forEach((v,i)=>fit(v,margin+58,tableTop-74-i*16,314,8.5,false,slate));
+  details.forEach((value,index)=>fit(value,margin+58,tableTop-72-index*12.5,314,8.2,false,slate));
   const amount=money(finiteMoney(input.netAmount),input.currency);
   const aw=bold.widthOfTextAtSize(amount,11);
   page.drawText(amount,{x:555-14-aw,y:tableTop-54,font:bold,size:11,color:navy});
   // Bank transfer instruction and commercial totals.
-  const boxY=153,boxH=111;
+  const boxY=147,boxH=111;
   page.drawRectangle({x:margin,y:boxY,width:248,height:boxH,color:pale,borderColor:border,borderWidth:.7});
   fit('PAYMENT DETAILS',margin+14,boxY+boxH-22,215,9.5,true,navy);
   page.drawRectangle({x:margin+14,y:boxY+boxH-30,width:220,height:1.5,color:orange});
