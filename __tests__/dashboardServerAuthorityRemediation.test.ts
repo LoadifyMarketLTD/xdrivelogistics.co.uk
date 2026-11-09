@@ -6,7 +6,9 @@ const readRepoFile = (relativePath: string) =>
 
 describe('dashboard server-authority remediation contract', () => {
   it('routes destructive Fleet resource actions through authenticated server APIs', () => {
-    const drivers = readRepoFile('app/admin/drivers/page.tsx');
+    const drivers = readRepoFile('app/admin/drivers/LegacyDriversManagement.tsx');
+    const driverEntry = readRepoFile('app/admin/drivers/manage/page.tsx');
+    expect(driverEntry).toContain('LegacyDriversManagement');
     const vehicles = readRepoFile('app/admin/vehicles/page.tsx');
 
     expect(drivers).toContain('/api/admin/drivers/${encodeURIComponent(driver.id)}');
