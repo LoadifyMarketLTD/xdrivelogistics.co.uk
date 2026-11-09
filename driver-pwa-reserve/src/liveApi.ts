@@ -212,12 +212,12 @@ export function mapAssigned(raw: unknown): LiveJob {
 export async function loadLive(token: string): Promise<LiveJob[]> {
   return (await loadLiveWithDiagnostics(token)).jobs;
 }
-export async function loadLiveWithDiagnostics(token: string, offerData?: Json): Promise<{jobs: LiveJob[]; warnings: string[]}> {
+export async function loadLiveWithDiagnostics(token: string, offerData?: Json, includeBidHistory = true): Promise<{jobs: LiveJob[]; warnings: string[]}> {
   const responses = await Promise.allSettled([
     driverGet('/marketplace/loads', token, 18000),
     driverGet('/mobile/jobs?scope=bookings&compact=1', token, 18000),
     driverGet('/mobile/jobs?scope=completed&compact=1', token, 18000),
-    driverGet('/mobile/bids', token, 18000),
+    includeBidHistory ? driverGet('/mobile/bids', token, 30000) : Promise.resolve({}),
     Promise.resolve(offerData ?? {}),
   ]);
   const successful = responses.filter((response): response is PromiseFulfilledResult<Json> => response.status === 'fulfilled');
@@ -226,7 +226,7 @@ export async function loadLiveWithDiagnostics(token: string, offerData?: Json): 
     throw new Error('LIVE data unavailable: ' + errors.map(error => error.reason instanceof Error ? error.reason.message : 'Request failed').join('; '));
   }
   const warnings = responses.flatMap((response, index) => response.status === 'rejected' ? [(['Marketplace loads', 'Active bookings', 'Completed bookings', 'Quote history', 'Booking offers'][index]) + ': ' + (response.reason instanceof Error ? response.reason.message : 'Request failed')] : []);
-  const [marketplace, assigned, completed, bids, bookingOffers] = responses.map(response => response.status === 'fulfilled' ? response.value : {});
+  const [marketplace, assigned, completed, bids, bookingOffers] = responses.map(response => response.status === 'fulfilled' ? response.value : {}) as Json[];
   const result = new Map<string, LiveJob>();
   for (const row of Array.isArray(marketplace.loads) ? marketplace.loads : []) {
     const job = mapMarketplace(row); if (job.id) result.set(job.id, job);
@@ -235,6 +235,12 @@ export async function loadLiveWithDiagnostics(token: string, offerData?: Json): 
     if (isSimulatedLiveJob(row)) continue;
     const job = mapAssigned(row); if (job.id) result.set(job.id, job);
   }
+  const coreJobs=applyPersonalBids([...result.values()], bids);
+
+  return {jobs:offerData?applyBookingOffers(coreJobs,bookingOffers):coreJobs,warnings};
+}
+export function applyPersonalBids(jobs:LiveJob[], bids:Json):LiveJob[] {
+  const result=new Map(jobs.map(job=>[job.id,job]));
   for (const raw of Array.isArray(bids.bids) ? bids.bids : []) {
     const bid = obj(raw);
     const id = str(bid.jobId);
@@ -251,8 +257,7 @@ export async function loadLiveWithDiagnostics(token: string, offerData?: Json): 
       result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
     }
   }
-  const coreJobs=[...result.values()];
-  return {jobs:offerData?applyBookingOffers(coreJobs,bookingOffers):coreJobs,warnings};
+  return [...result.values()];
 }
 export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[] {
   const result=new Map(jobs.map(job=>[job.id,job]));
