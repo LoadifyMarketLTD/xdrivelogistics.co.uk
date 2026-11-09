@@ -11,6 +11,7 @@ type Props = {
  signature:string|null;
  onSignature:(image:string|null)=>void;
  onSaveSignature:()=>Promise<void>;
+ signatureVerified:boolean;
  photos:File[];
  onPhotos:(files:File[])=>void;
  onConfirm:()=>void;
@@ -50,12 +51,12 @@ function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string
  </div>;
 }
 
-export default function DeliveryHandover({job,value,onChange,signature,onSignature,onSaveSignature,photos,onPhotos,onConfirm,onBack,busy,mode='delivery'}:Props){
+export default function DeliveryHandover({job,value,onChange,signature,onSignature,onSaveSignature,signatureVerified,photos,onPhotos,onConfirm,onBack,busy,mode='delivery'}:Props){
  const [savingSignature,setSavingSignature]=useState(false);
- const [signatureSaved,setSignatureSaved]=useState(false);
+ const signatureSaved=signatureVerified;
  const [signatureError,setSignatureError]=useState('');
- const saveSignature=async()=>{if(!signature||savingSignature||busy)return;setSavingSignature(true);setSignatureError('');try{await onSaveSignature();setSignatureSaved(true);}catch(error){setSignatureSaved(false);setSignatureError(error instanceof Error?error.message:'Signature could not be saved.');}finally{setSavingSignature(false);}};
- const changeSignature=(next:string|null)=>{setSignatureSaved(false);setSignatureError('');onSignature(next);};
+ const saveSignature=async()=>{if(!signature||savingSignature||busy||signatureVerified)return;setSavingSignature(true);setSignatureError('');try{await onSaveSignature();}catch(error){setSignatureError(error instanceof Error?error.message:'Signature could not be saved.');}finally{setSavingSignature(false);}};
+ const changeSignature=(next:string|null)=>{setSignatureError('');onSignature(next);};
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
  const requiredItems=Number.isInteger(Number(value.items))&&value.items!==''&&Number(value.items)>0;
  const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&(photos.some(f=>f.type==='image/jpeg'||f.type==='image/png')||(mode==='pod'&&Boolean(job.deliveryPhotos?.length)));

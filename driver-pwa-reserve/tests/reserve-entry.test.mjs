@@ -129,9 +129,19 @@ test('recipient signature has a distinct save button below the pad wired to veri
 test('signature save button turns green only on server-verified success and resets on edit',()=>{
  const component=text('DeliveryHandover.tsx'),styles=text('ReserveApp.css'),app=text('ReserveApp.tsx');
  assert.ok(component.includes("signatureSaved?' rv-signature-saved':''"));
- assert.match(component,/setSignatureSaved\(false\);setSignatureError\(''\);onSignature\(next\)/);
- assert.match(component,/await onSaveSignature\(\);setSignatureSaved\(true\)/);
+ assert.match(component,/const changeSignature=\(next:string\|null\)=>\{setSignatureError\(''\);onSignature\(next\)/);
+ assert.match(component,/try\{await onSaveSignature\(\);\}catch/);
  assert.match(component,/disabled=\{!signature\|\|savingSignature\|\|busy\|\|signatureSaved\}/);
  assert.match(styles,/\.rv-signature-save\.rv-signature-saved:disabled\{background:#168348/);
  assert.match(app,/confirmation\?\.draft\?\.signatureData!==signature/);
+});
+
+test('green signature status rehydrates from authoritative saved POD draft after revisiting',()=>{
+ const app=text('ReserveApp.tsx'),component=text('DeliveryHandover.tsx');
+ assert.match(app,/const \[verifiedSignature,setVerifiedSignature\]=useState<string\|null>\(null\)/);
+ assert.match(app,/setVerifiedSignature\(saved\.signatureData\)/);
+ assert.match(app,/setVerifiedSignature\(signature\)/);
+ assert.match(app,/setVerifiedSignature\(null\);setError\(''\)/);
+ assert.equal((app.match(/signatureVerified=\{Boolean\(signature\)&&verifiedSignature===signature\}/g)||[]).length,2);
+ assert.match(component,/const signatureSaved=signatureVerified/);
 });
