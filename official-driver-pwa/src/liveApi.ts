@@ -29,7 +29,7 @@ const date = (value: unknown): string => {
 };
 const get = (row: Json, ...keys: string[]): unknown => keys.map(k => row[k]).find(v => v !== null && v !== undefined && v !== '');
 async function jsonFetch(url: string, init?: RequestInit): Promise<Json> {
-  const response = await fetch(url, { ...init, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
+  const response = await fetch(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(45000), headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
   const body = obj(await response.json().catch(() => ({})));
   if (!response.ok) throw new Error(str(body.error_description) || str(body.msg) || str(body.error) || 'API request failed (' + response.status + ')');
   return body;
@@ -180,14 +180,26 @@ export function mapAssigned(raw: unknown): LiveJob {
 export async function loadLive(token: string): Promise<LiveJob[]> {
   return (await loadLiveWithDiagnostics(token)).jobs;
 }
-export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: LiveJob[]; warnings: string[]}> {
-  const responses = await Promise.allSettled([
+export async function loadLiveWithDiagnostics(token: string, onProgress?: (snapshot: {jobs: LiveJob[]; warnings: string[]}) => void): Promise<{jobs: LiveJob[]; warnings: string[]}> {
+  const feeds = [
     driverGet('/marketplace/loads', token),
     driverGet('/mobile/jobs?scope=bookings', token),
     driverGet('/mobile/jobs?scope=completed', token),
     driverGet('/mobile/bids', token),
     bookingOffersGet(token),
-  ]);
+  ];
+  const partial: PromiseSettledResult<Json>[] = Array.from({ length: feeds.length }, () => ({ status: 'rejected', reason: new Error('Pending') }));
+  const responses = await Promise.all(feeds.map((feed, index) => Promise.resolve(feed).then(value => {
+    partial[index] = { status: 'fulfilled', value };
+    if (onProgress) onProgress(mergeLiveResponses(partial));
+    return { status: 'fulfilled', value } as PromiseFulfilledResult<Json>;
+  }, reason => {
+    partial[index] = { status: 'rejected', reason };
+    return { status: 'rejected', reason } as PromiseRejectedResult;
+  })));
+  return mergeLiveResponses(responses);
+}
+function mergeLiveResponses(responses: PromiseSettledResult<Json>[]): {jobs: LiveJob[]; warnings: string[]} {
   const successful = responses.filter((response): response is PromiseFulfilledResult<Json> => response.status === 'fulfilled');
   if (!successful.length) {
     const errors = responses.filter((response): response is PromiseRejectedResult => response.status === 'rejected');

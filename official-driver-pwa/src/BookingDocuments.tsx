@@ -11,7 +11,8 @@ export default function BookingDocuments({ jobId, session, live }: { jobId: stri
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
-  const url = `/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence?kind=collection&category=documents`;
+  const evidenceBase = `${import.meta.env.PROD ? "/api" : "/xdrive-api"}/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`;
+  const url = `${evidenceBase}?kind=collection&category=documents`;
   const refresh = async (token: string) => {
     setLoading(true);
     try {
@@ -34,7 +35,7 @@ export default function BookingDocuments({ jobId, session, live }: { jobId: stri
     try {
       for (const file of files) {
         const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${file.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-120)}`;
-        const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
+        const response = await fetch(evidenceBase, {
           method: "POST",
           headers: { Authorization: `Bearer ${session.token}`, "Content-Type": file.type,
             "x-xdrive-evidence-kind": "collection", "x-xdrive-evidence-category": "documents", "x-xdrive-evidence-name": safeName },
