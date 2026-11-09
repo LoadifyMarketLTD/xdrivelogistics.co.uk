@@ -182,10 +182,12 @@ export async function GET(request: NextRequest) {
 
   let quotedJobIds: string[] = [];
   if (quotedHistory) {
-    const { data: quotedRows, error: quotedRowsError } = await supabaseAdmin
+    const quotedHistoryQuery = supabaseAdmin
       .from('job_bids')
-      .select('job_id')
-      .or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)
+      .select('job_id');
+    const { data: quotedRows, error: quotedRowsError } = await (driver.companyId
+      ? quotedHistoryQuery.eq('company_id', driver.companyId)
+      : quotedHistoryQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`))
       .order('created_at', { ascending: false })
       .limit(LIST_LIMIT);
     if (quotedRowsError) {
@@ -276,7 +278,9 @@ export async function GET(request: NextRequest) {
       ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
       : Promise.resolve({ data: [], error: null }),
     bidQuery
-      ? bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)
+      ? (driver.companyId
+          ? bidQuery.eq('company_id', driver.companyId)
+          : bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`))
       : Promise.resolve({ data: [], error: null }),
   ]);
 
