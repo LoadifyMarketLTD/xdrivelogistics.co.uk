@@ -121,9 +121,9 @@ export async function bookingOffersGet(token: string): Promise<Json> {
 export async function bookingOfferRespond(token: string, offerId: string, action: 'accept' | 'decline'): Promise<Json> {
   return jsonFetch((import.meta.env.PROD ? '/api/booking-offers/' : '/xdrive-api/booking-offers/') + encodeURIComponent(offerId) + '/respond', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
 }
-export async function driverGet(path: string, token: string): Promise<Json> {
+export async function driverGet(path: string, token: string, timeoutMs?: number): Promise<Json> {
   if (!token) throw new Error('Driver authentication required');
-  return jsonFetch(base + path, { headers: { Authorization: 'Bearer ' + token } });
+  return jsonFetch(base + path, { headers: { Authorization: 'Bearer ' + token } }, timeoutMs);
 }
 export async function driverPost(path: string, token: string, body: Json): Promise<Json> {
   if (!token) throw new Error('Driver authentication required');
@@ -214,10 +214,10 @@ export async function loadLive(token: string): Promise<LiveJob[]> {
 }
 export async function loadLiveWithDiagnostics(token: string, offerData?: Json): Promise<{jobs: LiveJob[]; warnings: string[]}> {
   const responses = await Promise.allSettled([
-    driverGet('/marketplace/loads', token),
-    driverGet('/mobile/jobs?scope=bookings', token),
-    driverGet('/mobile/jobs?scope=completed', token),
-    driverGet('/mobile/bids', token),
+    driverGet('/marketplace/loads', token, 18000),
+    driverGet('/mobile/jobs?scope=bookings&compact=1', token, 18000),
+    driverGet('/mobile/jobs?scope=completed&compact=1', token, 18000),
+    driverGet('/mobile/bids', token, 18000),
     Promise.resolve(offerData ?? {}),
   ]);
   const successful = responses.filter((response): response is PromiseFulfilledResult<Json> => response.status === 'fulfilled');
