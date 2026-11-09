@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type Props = { recipient: string; onSave: (file: File) => void; onClear: () => void; saved: boolean };
 export default function DeliverySignature({ recipient, onSave, onClear, saved }: Props) {
