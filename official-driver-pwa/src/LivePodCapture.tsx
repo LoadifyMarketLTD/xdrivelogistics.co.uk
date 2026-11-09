@@ -2,12 +2,12 @@ import { useCallback, useRef, useState } from 'react';
 import PodDetails, { type PodForm } from './PodDetails';
 import { driverPost, renewSession, type LiveSession } from './liveApi';
 
-type Props = { jobId: string; reference: string; initialItems: number; alreadyDelivered: boolean; initialRecipient?: string; initialDelivery?: PodForm; session: LiveSession; onSession: (session: LiveSession) => void; onCompleted: (token: string) => Promise<void> };
+type Props = { jobId: string; reference: string; initialItems: number; alreadyDelivered: boolean; initialRecipient?: string; initialSignature?: File | null; initialPhotoUris?: string[]; initialDelivery?: PodForm; session: LiveSession; onSession: (session: LiveSession) => void; onCompleted: (token: string) => Promise<void> };
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
-export default function LivePodCapture({ jobId, reference, initialItems, alreadyDelivered, initialRecipient = "", initialDelivery, session, onSession, onCompleted }: Props) {
+export default function LivePodCapture({ jobId, reference, initialItems, alreadyDelivered, initialRecipient = "", initialSignature = null, initialPhotoUris = [], initialDelivery, session, onSession, onCompleted }: Props) {
   const [recipient, setRecipient] = useState(initialRecipient);
   const [details, setDetails] = useState<PodForm>(initialDelivery ?? { leftAt: 'Goods Inwards', condition: 'Good condition', items: initialItems, notes: '' });
-  const [signature, setSignature] = useState<File | null>(null);
+  const [signature, setSignature] = useState<File | null>(initialSignature);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -20,7 +20,7 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
   const onSignatureSaved = useCallback((file: File) => setSignature(file), []);
   async function submit() {
     if (busy || done) return;
-    if (!recipient.trim() || !signature || !files.some(f => f.type === 'image/jpeg' || f.type === 'image/png')) {
+    if (!recipient.trim() || !signature || !files.some(f => f.type === 'image/jpeg' || f.type === 'image/png') && initialPhotoUris.length === 0) {
       setError('Recipient name, signature and at least one delivery photo are required.'); return;
     }
     const photos = files.filter(f => f.type === 'image/jpeg' || f.type === 'image/png');
@@ -30,7 +30,7 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
     setBusy(true); setError('');
     try {
       const current = await renewSession(session); onSession(current);
-      const photoUris: string[] = []; const documentUris: string[] = [];
+      const photoUris: string[] = [...initialPhotoUris]; const documentUris: string[] = [];
       for (const file of files) {
         if (!['image/jpeg', 'image/png', 'application/pdf'].includes(file.type) || file.size > 10 * 1024 * 1024 || file.size === 0) throw new Error('Use JPEG, PNG or PDF up to 10 MB.');
         const category = file.type === 'application/pdf' ? 'documents' : 'photos';
@@ -57,7 +57,7 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
     finally { setBusy(false); }
   }
   return <section className="settings evidence-panel" aria-label="Live delivery POD">
-    <PodDetails jobId={jobId} reference={reference} initialItems={initialItems} initialDelivery={initialDelivery} recipient={recipient} onRecipient={setRecipient} onChange={onDetailsChange} onSignature={onSignatureSaved} />
+    <PodDetails jobId={jobId} reference={reference} initialItems={initialItems} initialDelivery={initialDelivery} recipient={recipient} onRecipient={setRecipient} onChange={onDetailsChange} onSignature={onSignatureSaved} initialSignatureSaved={!!initialSignature} />
     <label>Delivery photos / documents<input type="file" multiple accept="image/jpeg,image/png,application/pdf" onChange={event => setFiles(Array.from(event.target.files || []))} /></label>
     {files.length > 0 && <p>{files.map(file => file.name).join(', ')}</p>}
     <label><input type="checkbox" checked={hardCopyAcknowledged} onChange={event => setHardCopyAcknowledged(event.target.checked)} /> Hard-copy POD requirement acknowledged (if required by the job)</label>
