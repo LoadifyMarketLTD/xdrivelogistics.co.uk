@@ -17,7 +17,10 @@ describe('Fleet admin dashboard surface contract', () => {
   });
 
   it('keeps fleet-specific control in My Fleet instead of duplicating it on /admin', () => {
-    expect(fleetRoute).toContain('FleetControlDashboardHome');
-    expect(fleetRoute).toContain('<FleetControlDashboardHome />');
+    expect(fleetRoute).toContain('MemberFleetOverview');
+    expect(fleetRoute).toContain('section="fleet" canManage manageHref="/admin/fleet/vehicles"');
+    const overview = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/MemberFleetOverview.tsx'), 'utf8');
+    expect(overview).toContain('/api/workspace/fleet-overview?companyId=');
+    expect(overview).toContain('includeDocuments=true');
   });
 });
