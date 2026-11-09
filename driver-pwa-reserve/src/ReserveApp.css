@@ -222,3 +222,11 @@
 .rv-finance .rv-primary,.rv-finance .rv-outline{min-height:46px}
 .rv-finance{padding-bottom:34px}
 @media(min-width:760px){.rv-shell{box-shadow:0 8px 45px #112f4e19}}@media(max-width:380px){.rv-main{padding:13px 10px}.rv-brand strong{font-size:14px}.rv-brand small{font-size:9px}.rv-mark{height:36px;width:36px}}
+
+/* Explicit signature save: immediately beneath the recipient signature pad. */
+.rv-delivery-field .rv-signature-save{display:flex;width:100%;min-height:48px;align-items:center;justify-content:center;gap:9px;margin:9px 0 0;padding:12px 16px;border:1px solid #cb5708;border-radius:10px;background:#f47721;color:#fff;font-family:inherit;font-size:14px;font-weight:800;line-height:1.2;cursor:pointer;box-shadow:0 2px 7px rgba(185,83,17,.18)}
+.rv-delivery-field .rv-signature-save span{font-size:18px;line-height:1}
+.rv-delivery-field .rv-signature-save:hover:not(:disabled){background:#dc640f}
+.rv-delivery-field .rv-signature-save:disabled{background:#e2e9ef;border-color:#c7d1d9;color:#5e7283;cursor:not-allowed;box-shadow:none}
+.rv-delivery-field .rv-signature-save:focus-visible{outline:3px solid #f6a35b;outline-offset:3px}
+.rv-delivery-field .rv-signature-confirm{margin:7px 0 0;color:#20734a;font-size:11px;font-weight:700;line-height:1.4}

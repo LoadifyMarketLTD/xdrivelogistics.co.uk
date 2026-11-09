@@ -56,3 +56,9 @@ Next: inspect and test authenticated status-to-POD transition, upload/idempotenc
 - Existing authenticated invoice PDF INV-202611-002 was successfully downloaded via Edge to the laptop Downloads directory; PDF inspected: four pages Invoice, Collection, Delivery, Signature, including linked evidence. Demonstrates existing PDF download pipeline for another signed job only, not issuance for XDL-090CD41C.
 - npm run build PASS; node --test tests/reserve-entry.test.mjs 14/14 PASS; npm run lint 0 errors/29 preexisting or remaining warnings; Edge Bookings Received remains responsive and displays no current future offers. Live signed POD submission and new invoice generation not executed due absent authentic signature.
 - No changes to production database. No invoice generated or email sent. Keep GitHub main / Netlify unchanged until full transactional E2E is legitimately verified. No fake signature or financial creation permitted.
+
+## 2026-11-09 19:26 - Explicit Save Signature button
+- Added a high-visibility orange Save Signature button immediately below Recipient signature canvas for both On Site Delivery and POD phases in DeliveryHandover.tsx; Clear remains available.
+- Button activates only for a captured signature. It performs authenticated read, merged PUT to /api/driver/web/jobs/{id}/pod-draft and subsequent GET equality verification via saveRecipientSignature() in ReserveApp.tsx; success and failure states are separate from finalise POD.
+- Live Edge UI Automation confirmed the Save Signature button visible directly under Signature captured and Clear, before Left At. Did not press with the open job's actual signature, avoiding unauthorised signing/alterations.
+- npm run build PASS; node tests 15/15 PASS; lint 0 errors / 29 existing warnings. Real signed save and PDF generation still require authentic user action and are unverified for XDL-090CD41C.

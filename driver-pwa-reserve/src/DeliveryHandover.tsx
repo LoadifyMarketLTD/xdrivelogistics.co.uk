@@ -10,6 +10,7 @@ type Props = {
  onChange:(value:DeliveryHandoverDraft)=>void;
  signature:string|null;
  onSignature:(image:string|null)=>void;
+ onSaveSignature:()=>Promise<void>;
  photos:File[];
  onPhotos:(files:File[])=>void;
  onConfirm:()=>void;
@@ -49,7 +50,12 @@ function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string
  </div>;
 }
 
-export default function DeliveryHandover({job,value,onChange,signature,onSignature,photos,onPhotos,onConfirm,onBack,busy,mode='delivery'}:Props){
+export default function DeliveryHandover({job,value,onChange,signature,onSignature,onSaveSignature,photos,onPhotos,onConfirm,onBack,busy,mode='delivery'}:Props){
+ const [savingSignature,setSavingSignature]=useState(false);
+ const [signatureSaved,setSignatureSaved]=useState(false);
+ const [signatureError,setSignatureError]=useState('');
+ const saveSignature=async()=>{if(!signature||savingSignature||busy)return;setSavingSignature(true);setSignatureError('');try{await onSaveSignature();setSignatureSaved(true);}catch(error){setSignatureSaved(false);setSignatureError(error instanceof Error?error.message:'Signature could not be saved.');}finally{setSavingSignature(false);}};
+ const changeSignature=(next:string|null)=>{setSignatureSaved(false);setSignatureError('');onSignature(next);};
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
  const requiredItems=Number.isInteger(Number(value.items))&&value.items!==''&&Number(value.items)>0;
  const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&(photos.some(f=>f.type==='image/jpeg'||f.type==='image/png')||(mode==='pod'&&Boolean(job.deliveryPhotos?.length)));
@@ -104,7 +110,7 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
   <div className="rv-delivery-form">
     <div className="rv-delivery-section-head"><h2>Recipient handover</h2><span>* Required</span></div>
     <label className="rv-delivery-field rv-delivery-name"><span>Received By <em>*</em></span><input autoComplete="name" placeholder="Full name of recipient" value={value.recipient} onChange={e=>set('recipient',e.target.value)}/></label>
-    <div className="rv-delivery-field"><span>Recipient signature <em>*</em></span><SignaturePad value={signature} onChange={onSignature}/></div>
+    <div className="rv-delivery-field"><span>Recipient signature <em>*</em></span><SignaturePad value={signature} onChange={changeSignature}/><button type="button" className="rv-signature-save" disabled={!signature||savingSignature||busy} onClick={()=>void saveSignature()}><span aria-hidden="true">✓</span> {savingSignature?'Saving signature…':signatureSaved?'Signature Saved ✓':'Save Signature'}</button>{signatureSaved&&<p role="status" className="rv-signature-confirm">Signature saved securely in the XDrive POD draft. Complete the remaining delivery details to finalise POD.</p>}{signatureError&&<p role="alert" className="rv-delivery-file-error">{signatureError}</p>}</div>
     <div className="rv-delivery-split">
       <label className="rv-delivery-field"><span>Left At</span><select value={value.leftAt} onChange={e=>set('leftAt',e.target.value)}>{['Goods Inwards','Reception','Warehouse','Loading Bay','Handed to recipient','Other'].map(v=><option key={v}>{v}</option>)}</select></label>
       <label className="rv-delivery-field"><span>Items <em>*</em></span><input inputMode="numeric" type="number" min="1" step="1" placeholder="Qty" value={value.items} onChange={e=>set('items',e.target.value)}/></label>

@@ -112,3 +112,16 @@ test('incoming offer loading is explicit and timeout does not block core booking
  assert.match(api,/jsonFetch\(url: string, init\?: RequestInit, timeoutMs\?: number\)/);
  assert.match(api,/20000\);/);
 });
+
+test('recipient signature has a distinct save button below the pad wired to verified POD draft persistence',()=>{
+ const handover=text('DeliveryHandover.tsx'),app=text('ReserveApp.tsx'),styles=text('ReserveApp.css');
+ assert.match(handover,/<SignaturePad value={signature} onChange={changeSignature}\/>\s*<button type="button" className="rv-signature-save"/);
+ assert.match(handover,/Save Signature/);
+ assert.match(handover,/Signature saved securely in the XDrive POD draft/);
+ assert.ok(handover.includes('onSaveSignature:()=>Promise<void>'));
+ assert.match(app,/async function saveRecipientSignature\(j:LiveJob\):Promise<void>/);
+ assert.match(app,/method:'PUT'.*body:JSON.stringify\(body\)/);
+ assert.match(app,/confirmation\?\.draft\?\.signatureData!==signature/);
+ assert.equal((app.match(/onSaveSignature=\{\(\)=>saveRecipientSignature\(job\)\}/g)||[]).length,2);
+ assert.match(styles,/\.rv-delivery-field \.rv-signature-save/);
+});
