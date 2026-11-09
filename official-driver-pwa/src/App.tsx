@@ -152,7 +152,7 @@ function App() {
         setLiveSession(session);
         setLiveConnected(true);
         void syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ });
-        const records = await loadLiveWithDiagnostics(session.token, snapshot => { if (active && !statusOperationRef.current) setJobs(snapshot.jobs as Load[]); if (active) setBookingsPending(snapshot.bookingsPending); });
+        const records = await loadLiveWithDiagnostics(session.token, snapshot => { /* Keep the previous complete list until all feeds settle. */ if (active) setBookingsPending(snapshot.bookingsPending); });
         if (!active) return;
         setJobs(records.jobs as Load[]);
         setBookingsPending(false);
@@ -180,7 +180,7 @@ function App() {
   const statusOperationRef = useRef(false);
   const refreshLive = async (token: string) => {
     void syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ });
-    const records = await loadLiveWithDiagnostics(token, snapshot => { if (!statusOperationRef.current) setJobs(snapshot.jobs as Load[]); setBookingsPending(snapshot.bookingsPending); });
+    const records = await loadLiveWithDiagnostics(token, snapshot => { /* Avoid replacing the list with partial API responses. */ setBookingsPending(snapshot.bookingsPending); });
     if (!statusOperationRef.current) setJobs(records.jobs as Load[]);
     setBookingsPending(false);
     setLiveWarning(records.warnings.join(" | "));
