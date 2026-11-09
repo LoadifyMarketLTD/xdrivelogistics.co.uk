@@ -2,11 +2,11 @@ import { useCallback, useRef, useState } from 'react';
 import PodDetails, { type PodForm } from './PodDetails';
 import { driverPost, renewSession, type LiveSession } from './liveApi';
 
-type Props = { jobId: string; reference: string; initialItems: number; alreadyDelivered: boolean; session: LiveSession; onSession: (session: LiveSession) => void; onCompleted: (token: string) => Promise<void> };
+type Props = { jobId: string; reference: string; initialItems: number; alreadyDelivered: boolean; initialRecipient?: string; initialDelivery?: PodForm; session: LiveSession; onSession: (session: LiveSession) => void; onCompleted: (token: string) => Promise<void> };
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
-export default function LivePodCapture({ jobId, reference, initialItems, alreadyDelivered, session, onSession, onCompleted }: Props) {
-  const [recipient, setRecipient] = useState('');
-  const [details, setDetails] = useState<PodForm>({ leftAt: 'Goods Inwards', condition: 'Good condition', items: initialItems, notes: '' });
+export default function LivePodCapture({ jobId, reference, initialItems, alreadyDelivered, initialRecipient = "", initialDelivery, session, onSession, onCompleted }: Props) {
+  const [recipient, setRecipient] = useState(initialRecipient);
+  const [details, setDetails] = useState<PodForm>(initialDelivery ?? { leftAt: 'Goods Inwards', condition: 'Good condition', items: initialItems, notes: '' });
   const [signature, setSignature] = useState<File | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -57,7 +57,7 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
     finally { setBusy(false); }
   }
   return <section className="settings evidence-panel" aria-label="Live delivery POD">
-    <PodDetails jobId={jobId} reference={reference} initialItems={initialItems} recipient={recipient} onRecipient={setRecipient} onChange={onDetailsChange} onSignature={onSignatureSaved} />
+    <PodDetails jobId={jobId} reference={reference} initialItems={initialItems} initialDelivery={initialDelivery} recipient={recipient} onRecipient={setRecipient} onChange={onDetailsChange} onSignature={onSignatureSaved} />
     <label>Delivery photos / documents<input type="file" multiple accept="image/jpeg,image/png,application/pdf" onChange={event => setFiles(Array.from(event.target.files || []))} /></label>
     {files.length > 0 && <p>{files.map(file => file.name).join(', ')}</p>}
     <label><input type="checkbox" checked={hardCopyAcknowledged} onChange={event => setHardCopyAcknowledged(event.target.checked)} /> Hard-copy POD requirement acknowledged (if required by the job)</label>
