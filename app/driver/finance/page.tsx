@@ -71,8 +71,9 @@ type FinanceSummary = {
   cancelled: number;
 };
 
-type ValueSummary = { net: number; vat: number; gross: number; paid: number; outstanding: number };
+type ValueSummary = { net: number; vat: number; gross: number; paid: number; outstanding: number; issuedNet: number; issuedVat: number; issuedGross: number; issuedOutstanding: number };
 type FinanceSection = 'dashboard' | 'register' | 'ready' | 'customers' | 'statements';
+type FinanceRegisterFilter = InvoiceStatus | 'All' | 'AwaitingPayment';
 
 const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
   { id: 'All', label: 'All' },
@@ -118,7 +119,7 @@ export default function DriverFinancePage() {
   const { user } = useAuth();
   const financeView = searchParams.get('view') === 'payables' ? 'payables' : 'receivables';
   const canGenerateInvoices = (user?.membershipRole === 'owner' || user?.membershipRole === 'admin') && financeView === 'receivables';
-  const [activeTab, setActiveTab] = useState<InvoiceStatus | 'All'>('All');
+  const [activeTab, setActiveTab] = useState<FinanceRegisterFilter>('All');
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [values, setValues] = useState<ValueSummary | null>(null);
@@ -148,7 +149,8 @@ export default function DriverFinancePage() {
     try {
       const params = new URLSearchParams();
       params.set('view', financeView);
-      if (activeTab !== 'All') params.set('invoice_status', activeTab);
+      if (activeTab === 'AwaitingPayment') params.set('payment_scope', 'awaiting');
+      else if (activeTab !== 'All') params.set('invoice_status', activeTab);
       const response = await fetch(`/api/driver/finance/invoices?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -176,7 +178,7 @@ export default function DriverFinancePage() {
 
   useEffect(() => { void loadInvoices(); }, [loadInvoices]);
 
-  const loadEligibleJobs = async () => {
+  const loadEligibleJobs = useCallback(async () => {
     if (!canGenerateInvoices) return;
     setJobsLoading(true);
     setGenerateError('');
@@ -199,7 +201,13 @@ export default function DriverFinancePage() {
     } finally {
       setJobsLoading(false);
     }
-  };
+  }, [canGenerateInvoices]);
+
+  useEffect(() => {
+    if (canGenerateInvoices) void loadEligibleJobs();
+  }, [canGenerateInvoices, loadEligibleJobs]);
+
+  const uninvoicedJobs = useMemo(() => eligibleJobs.filter((job) => !job.invoice), [eligibleJobs]);
 
   const generateInvoice = async (jobId: string) => {
     if (!canGenerateInvoices) return;
@@ -239,7 +247,7 @@ export default function DriverFinancePage() {
     Cancelled: summary?.cancelled ?? 0,
   }), [summary]);
 
-  const selectSection = (next: FinanceSection, tab: InvoiceStatus | 'All' = 'All') => {
+  const selectSection = (next: FinanceSection, tab: FinanceRegisterFilter = 'All') => {
     setSection(next);
     setActiveTab(tab);
     if (next === 'ready' && canGenerateInvoices) void loadEligibleJobs();
@@ -251,8 +259,10 @@ export default function DriverFinancePage() {
       const key = invoice.client_name || 'Unknown customer';
       const current = map.get(key) ?? { name: key, invoices: 0, billed: 0, outstanding: 0 };
       current.invoices += 1;
-      current.billed += Number(invoice.amount || 0);
-      current.outstanding += Number(invoice.outstanding_amount || 0);
+      if (invoice.status !== 'Draft' && invoice.status !== 'Cancelled') {
+        current.billed += Number(invoice.amount || 0);
+        current.outstanding += Number(invoice.outstanding_amount || 0);
+      }
       map.set(key, current);
     }
     return [...map.values()].sort((a, b) => b.outstanding - a.outstanding || a.name.localeCompare(b.name));
@@ -269,7 +279,7 @@ export default function DriverFinancePage() {
             { id: 'dashboard', label: 'Dashboard', active: section === 'dashboard', onSelect: () => selectSection('dashboard') },
             { id: 'all', label: 'All', active: section === 'register' && activeTab === 'All', onSelect: () => selectSection('register', 'All') },
             ...(financeView === 'receivables' ? [{ id: 'ready', label: 'Ready To Invoice', active: section === 'ready', onSelect: () => selectSection('ready') }] : []),
-            { id: 'awaiting', label: 'Awaiting Payment', active: section === 'register' && activeTab === 'Sent', onSelect: () => selectSection('register', 'Sent') },
+            { id: 'awaiting', label: 'Awaiting Payment', active: section === 'register' && activeTab === 'AwaitingPayment', onSelect: () => selectSection('register', 'AwaitingPayment') },
             { id: 'paid', label: 'Paid', active: section === 'register' && activeTab === 'Paid', onSelect: () => selectSection('register', 'Paid') },
             { id: 'accounts', label: financeView === 'payables' ? 'Suppliers' : 'Customers', active: section === 'customers', onSelect: () => selectSection('customers', 'All') },
             { id: 'archive', label: 'Archive', active: section === 'register' && activeTab === 'Cancelled', onSelect: () => selectSection('register', 'Cancelled') },
@@ -292,12 +302,12 @@ export default function DriverFinancePage() {
           <InvoiceProMetrics aria-label="Finance summary">
             <article className={[styles.metric, styles.metricGold].join(' ')}>
               <div className={styles.metricLabel}>{financeView === 'receivables' ? 'Ready to invoice' : 'Open payables'}</div>
-              <div className={styles.metricValue}>{financeView === 'receivables' ? money(eligibleJobs.reduce((sum, job) => sum + Number(job.invoice?.amount ?? job.agreed_amount ?? job.direct_invoice_amount ?? 0), 0)) : money(values?.outstanding ?? 0)}</div>
-              <div className={styles.metricSub}>{financeView === 'receivables' ? eligibleJobs.length + ' jobs' : (counts.All - counts.Paid - counts.Cancelled) + ' invoices'}</div>
+              <div className={styles.metricValue}>{financeView === 'receivables' ? money(uninvoicedJobs.reduce((sum, job) => sum + Number(job.agreed_amount ?? job.direct_invoice_amount ?? 0), 0)) : money(values?.issuedOutstanding ?? 0)}</div>
+              <div className={styles.metricSub}>{financeView === 'receivables' ? uninvoicedJobs.length + ' jobs' : (counts.Sent + counts.Overdue + counts.Disputed) + ' invoices'}</div>
             </article>
             <article className={[styles.metric, styles.metricBlue].join(' ')}>
               <div className={styles.metricLabel}>Awaiting payment</div>
-              <div className={styles.metricValue}>{money(values?.outstanding ?? 0)}</div>
+              <div className={styles.metricValue}>{money(values?.issuedOutstanding ?? 0)}</div>
               <div className={styles.metricSub}>{counts.Sent + counts.Overdue + counts.Disputed} invoices</div>
             </article>
             <article className={[styles.metric, styles.metricGreen].join(' ')}>
@@ -320,13 +330,13 @@ export default function DriverFinancePage() {
                   <button className={styles.button} onClick={() => selectSection('register', 'All')}>Open register </button>
                 </div>
                 <div className={styles.flow}>
-                  <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>{financeView === 'receivables' ? 'Ready to invoice' : 'Open payables'}</div><div className={styles.flowSub}>{financeView === 'receivables' ? 'POD-complete work waiting to be billed' : 'Supplier invoices awaiting settlement'}</div></div><strong className={styles.flowValue}>{financeView === 'receivables' ? money(eligibleJobs.reduce((sum, job) => sum + Number(job.invoice?.amount ?? job.agreed_amount ?? job.direct_invoice_amount ?? 0), 0)) : money(values?.outstanding ?? 0)}</strong></div>
-                  <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Awaiting payment</div><div className={styles.flowSub}>Issued invoices still open</div></div><strong className={styles.flowValue}>{money(values?.outstanding ?? 0)}</strong></div>
+                  <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>{financeView === 'receivables' ? 'Ready to invoice' : 'Open payables'}</div><div className={styles.flowSub}>{financeView === 'receivables' ? 'POD-complete work waiting to be billed' : 'Supplier invoices awaiting settlement'}</div></div><strong className={styles.flowValue}>{financeView === 'receivables' ? money(uninvoicedJobs.reduce((sum, job) => sum + Number(job.agreed_amount ?? job.direct_invoice_amount ?? 0), 0)) : money(values?.issuedOutstanding ?? 0)}</strong></div>
+                  <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Awaiting payment</div><div className={styles.flowSub}>Issued invoices still open</div></div><strong className={styles.flowValue}>{money(values?.issuedOutstanding ?? 0)}</strong></div>
                   <div className={styles.flowRow}><span className={[styles.dot, styles.dotGreen].join(' ')} /><div><div className={styles.flowLabel}>Payments recorded</div><div className={styles.flowSub}>Includes partial settlements</div></div><strong className={styles.flowValue}>{money(values?.paid ?? 0)}</strong></div>
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',gap:12,marginTop:14,flexWrap:'wrap'}}>
-                  <span className={styles.registerMeta}>Gross {money(values?.gross ?? 0)}  Net {money(values?.net ?? 0)}  VAT {money(values?.vat ?? 0)}</span>
-                  <span className={styles.registerMeta}>Outstanding {money(values?.outstanding ?? 0)}</span>
+                  <span className={styles.registerMeta}>Gross {money(values?.issuedGross ?? 0)}  Net {money(values?.issuedNet ?? 0)}  VAT {money(values?.issuedVat ?? 0)}</span>
+                  <span className={styles.registerMeta}>Outstanding {money(values?.issuedOutstanding ?? 0)}</span>
                 </div>
               </article>
 
@@ -346,7 +356,7 @@ export default function DriverFinancePage() {
 
           {section === 'ready' && financeView === 'receivables' && (
             <InvoiceProRegister>
-              <div className={styles.registerHead}><div><div className={styles.panelKicker}>Direct settlements</div><div className={styles.registerTitle}>POD-complete jobs ready to invoice</div></div><button className={styles.button} onClick={() => void loadEligibleJobs()} disabled={jobsLoading}>Refresh</button></div>
+              <div className={styles.registerHead}><div><div className={styles.panelKicker}>Direct settlements</div><div className={styles.registerTitle}>POD-complete jobs: create or open invoice</div></div><button className={styles.button} onClick={() => void loadEligibleJobs()} disabled={jobsLoading}>Refresh</button></div>
               {jobsLoading ? <div className={styles.empty}><strong>Loading completed jobs</strong></div> : eligibleJobs.length === 0 ? (
                 <div className={styles.empty}><strong>No eligible invoices</strong><span>No delivered jobs with completed POD are currently available.</span></div>
               ) : (
@@ -371,9 +381,9 @@ export default function DriverFinancePage() {
             <section className={styles.panel}>
               <div className={styles.panelKicker}>Statements</div><h2 className={styles.panelTitle}>Finance statement</h2>
               <div className={styles.flow} style={{marginTop:14}}>
-                <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Gross invoiced</div><div className={styles.flowSub}>Current company finance view</div></div><strong className={styles.flowValue}>{money(values?.gross ?? 0)}</strong></div>
+                <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Gross invoiced</div><div className={styles.flowSub}>Current company finance view</div></div><strong className={styles.flowValue}>{money(values?.issuedGross ?? 0)}</strong></div>
                 <div className={styles.flowRow}><span className={[styles.dot, styles.dotGreen].join(' ')} /><div><div className={styles.flowLabel}>Recorded paid</div><div className={styles.flowSub}>Verified payment history</div></div><strong className={styles.flowValue}>{money(values?.paid ?? 0)}</strong></div>
-                <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>Outstanding</div><div className={styles.flowSub}>Open balance</div></div><strong className={styles.flowValue}>{money(values?.outstanding ?? 0)}</strong></div>
+                <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>Outstanding</div><div className={styles.flowSub}>Open balance</div></div><strong className={styles.flowValue}>{money(values?.issuedOutstanding ?? 0)}</strong></div>
               </div>
             </section>
           )}

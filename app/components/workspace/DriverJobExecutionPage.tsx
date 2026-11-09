@@ -1679,9 +1679,13 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
                   <label className="driver-detail-item"><span>No. of items</span><input type="number" min="0" value={podItemCount} onChange={(event) => setPodItemCount(event.target.value)} style={inputStyle} /></label>
                   <label className="driver-detail-item"><span>Left at</span><input value={podLeftAt} onChange={(event) => setPodLeftAt(event.target.value)} placeholder="Goods inwards / reception / safe place" style={inputStyle} /></label>
                 </div>
-                <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} />
-                <canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
-                <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton>
+                <label className="driver-detail-item"><span>Recipient full name (required)</span><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /></label>
+                <div className="driver-detail-item">
+                  <label htmlFor="driver-pod-recipient-signature">Recipient signature (required)</label>
+                  <small>Ask the recipient to sign inside the white box using a finger, stylus or mouse.</small>
+                  <canvas id="driver-pod-recipient-signature" ref={signatureRef} role="img" aria-label="Recipient signature drawing area" width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #94a3b8', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
+                  <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton>
+                </div>
                 {hardCopyRequired && (
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
                     <input type="checkbox" checked={hardCopyAcknowledged} onChange={(event) => setHardCopyAcknowledged(event.target.checked)} />
