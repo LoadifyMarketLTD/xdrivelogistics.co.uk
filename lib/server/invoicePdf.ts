@@ -284,7 +284,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   page.drawRectangle({x:margin,y:tableTop-155,width:contentWidth,height:126,color:white,borderColor:border,borderWidth:.8});
   page.drawRectangle({x:margin,y:tableTop-155,width:4,height:126,color:orange});
   fit('1',margin+16,tableTop-54,30,11,true,navy);
-  fit(pdfText(input.serviceDescription,'Freight transport service'),margin+58,tableTop-53,315,11,true);
+  const serviceTitleLines = wrapTextToWidth(bold, pdfText(input.serviceDescription, 'Freight transport service'), 310, 10, 2);
+  serviceTitleLines.forEach((line, index) => fit(line, margin + 58, tableTop - 52 - index * 11, 310, 10, true));
   // Operational handover fields are sourced from the signed POD and verified job events.
   // Long delivery notes remain available in the attached POD and are marked as shortened.
   const notes = pdfText(input.deliveryNotes);
@@ -298,7 +299,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     input.leftAt ? 'Left at: ' + pdfText(input.leftAt) : '',
     shortNotes ? 'Delivery notes: ' + shortNotes : '',
   ].filter(Boolean);
-  details.forEach((value,index)=>fit(value,margin+58,tableTop-72-index*12.5,314,8.2,false,slate));
+  const detailStartY = tableTop - 77 - (serviceTitleLines.length - 1) * 11;
+  details.forEach((value,index)=>fit(value,margin+58,detailStartY-index*10,314,8.2,false,slate));
   const amount=money(finiteMoney(input.netAmount),input.currency);
   const aw=bold.widthOfTextAtSize(amount,11);
   page.drawText(amount,{x:555-14-aw,y:tableTop-54,font:bold,size:11,color:navy});
