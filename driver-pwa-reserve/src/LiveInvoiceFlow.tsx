@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { renewSession, type LiveJob, type LiveSession } from './liveApi';
 
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
@@ -65,7 +65,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
      } else {
        setInvoice(null);
        if(candidate)setNotice('POD and accepted commercial terms were verified by XDrive. Job is ready to generate an official invoice.');
-       else setNotice('This job is not in Ready To Invoice. XDrive requires completed delivery, full signed POD evidence, a valid commercial agreement (or direct-job billing amount), and owner/admin permissions. The API does not identify which requirement is missing.');
+       else setNotice(job.podRecorded?'This job is not Ready To Invoice. Finance must verify the signed POD, accepted commercial terms and owner/admin permissions.':'The delivery is recorded, but the signed POD has not been finalised in XDrive. Return to POD, check the recipient name and signature, then select Save Signed POD. Already stored delivery photos can be reused.');
      }
    }catch(e){setError(e instanceof Error?e.message:'Unable to load XDrive Finance');}
    finally{setLoading(false)}
@@ -99,7 +99,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    const blob=await res.blob();if(blob.size<1000)throw new Error('PDF response is too small to be a valid invoice.');
    const url=URL.createObjectURL(blob);
    const anchor=document.createElement('a');anchor.href=url;anchor.download='XDrive-'+(invoice.invoice_number||invoice.id)+'-Invoice-POD-Complete.pdf';document.body.appendChild(anchor);anchor.click();anchor.remove();
-   window.setTimeout(()=>URL.revokeObjectURL(url),60000);setPdfReviewed(true);setNotice('Combined A4 PDF downloaded: invoice, completed POD, recipient signature and all available collection/delivery photographs.');
+   window.setTimeout(()=>URL.revokeObjectURL(url),60000);setPdfReviewed(true);setNotice('Official PDF downloaded. Inspect every page and verify POD, recipient signature and collection/delivery photographs before approving email delivery.');
  }); }
  async function send(){await action(async()=>{
    if(!invoice?.id||!pdfReviewed||!sendApproved)throw new Error('Review the generated invoice and explicitly approve the recipient before sending.');
@@ -169,3 +169,4 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
   </>}
  </section>;
 }
+

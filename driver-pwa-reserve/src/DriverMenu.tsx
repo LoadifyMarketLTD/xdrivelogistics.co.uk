@@ -5,14 +5,16 @@ import { asRecord, asRows, dateLabel, dateTimeLabel, expiryLabel, moneyLabel, po
 import './DriverMenu.css'
 
 type Role = 'Owner Driver' | 'Company Driver'
-type Section = 'My Profile' | 'My Vehicle' | 'Availability' | 'Notifications' | 'Load Alerts' | 'Invoices' | 'Settings'
+type Section = 'My Profile' | 'My Vehicle' | 'Documents' | 'Return Journeys' | 'Availability' | 'Notifications' | 'Load Alerts' | 'Invoices' | 'Settings'
 const routes: Partial<Record<Section,string>> = {
- 'My Profile':'/profile', 'My Vehicle':'/vehicles', 'Availability':'/availability-profile',
+ 'My Profile':'/profile', 'My Vehicle':'/vehicles', 'Documents':'/documents', 'Return Journeys':'/return-journeys?scope=mine&page_size=10', 'Availability':'/availability-profile',
  'Notifications':'/notifications', 'Load Alerts':'/load-alert-preferences', 'Invoices':'/finance/invoices',
 }
 const items: Array<{icon:string;title:Section|'Log Out';description:string}> = [
  {icon:'P',title:'My Profile',description:'Personal details and driver account'},
  {icon:'V',title:'My Vehicle',description:'Assigned vehicle and compliance documents'},
+ {icon:'D',title:'Documents',description:'Approved driver compliance documents'},
+ {icon:'R',title:'Return Journeys',description:'Your return journey availability'},
  {icon:'A',title:'Availability',description:'Availability and destination preference'},
  {icon:'N',title:'Notifications',description:'Job, booking and document updates'},
  {icon:'L',title:'Load Alerts',description:'Matching loads and alert channels'},
@@ -90,6 +92,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
    const driver=asRecord(result.driver)
    const pref=asRecord(result.preference)
    if(section==='My Profile'){setName(textValue(driver.display_name,''));setPhone(textValue(driver.phone,''))}
+   if(section==='Documents')setDocuments(asRows(result.documents))
    if(section==='Load Alerts'){
     setAlertEnabled(pref.enabled===true)
     setAlertRadius(positiveNumber(pref.radiusMiles,30))
@@ -185,15 +188,15 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      <button type="button" className="driver-menu-primary" disabled={busy} onClick={()=>void save('/profile',{displayName:name.trim(),phone:phone.trim()},'Profile saved to XDrive LIVE.')}>{busy?'Saving…':'Save profile'}</button>
     </Group>
    </>}
-   {section==='My Vehicle'&&!loading&&data&&<>
-    {vehicles.length?vehicles.map((vehicle,index)=><Group key={textValue(vehicle.id,String(index))} title={[textValue(vehicle.make,''),textValue(vehicle.model,'')].filter(Boolean).join(' ')||'Assigned vehicle'}>
+   {(section==='My Vehicle'||section==='Documents')&&!loading&&data&&<>
+    {section==='My Vehicle'&&(vehicles.length?vehicles.map((vehicle,index)=><Group key={textValue(vehicle.id,String(index))} title={[textValue(vehicle.make,''),textValue(vehicle.model,'')].filter(Boolean).join(' ')||'Assigned vehicle'}>
      <div className="driver-menu-card-top"><strong>{textValue(vehicle.reg_plate,'Registration not provided')}</strong>{vehicle.id===data.canonicalVehicleId&&<Status value="Primary vehicle" tone="good"/>}</div>
      <Details rows={[
       ['Vehicle type',readableLabel(vehicle.type)],['Payload',vehicle.payload_kg==null?'Not provided':String(vehicle.payload_kg)+' kg'],
       ['Pallet capacity',vehicle.pallets_capacity],['Tail lift',yesNo(vehicle.has_tail_lift)],
       ['Straps',yesNo(vehicle.has_straps)],['Blankets',yesNo(vehicle.has_blankets)]
      ]}/>
-    </Group>):<Group title="Assigned vehicle"><p className="driver-menu-empty">No vehicles available for your authenticated driver account.</p></Group>}
+    </Group>):<Group title="Assigned vehicle"><p className="driver-menu-empty">No vehicles available for your authenticated driver account.</p></Group>)}
     <Group title="Compliance documents" description="Document identifiers and private storage paths are not displayed.">
      {documentsError&&<p role="alert" className="driver-menu-notice error">{documentsError}</p>}
      {!documentsError&&!documents.length&&<p className="driver-menu-empty">No driver documents recorded.</p>}
@@ -211,6 +214,15 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      <p className="driver-menu-hint">Files open through short-lived, access-controlled document links. Internal storage paths are never displayed.</p>
     </Group>
    </>}
+   {section==='Return Journeys'&&!loading&&data&&<Group title="Your return journeys" description="Live return journey records associated with your authenticated driver account.">
+    {!asRows(data.journeys).length&&<p className="driver-menu-empty">No return journeys are recorded for this driver.</p>}
+    {asRows(data.journeys).map((journey,index)=><article className="driver-menu-record" key={textValue(journey.id,String(index))}>
+      <div className="driver-menu-card-top"><strong>{textValue(journey.from,'Origin not provided')} → {textValue(journey.to,'Any destination')}</strong><Status value={!journey.from||!journey.availableFrom||!journey.vehicleType?'Incomplete record':readableLabel(journey.status,'Unknown')} tone={!journey.from||!journey.availableFrom||!journey.vehicleType?'warn':'neutral'}/></div>
+      <Details rows={[['Vehicle',readableLabel(journey.vehicleType,'Not specified')],['Available from',dateTimeLabel(journey.availableFrom)],['Available to',dateTimeLabel(journey.availableTo)],['Journey type',readableLabel(journey.journeyKind,'Ad hoc')]]}/>
+      {(!journey.from||!journey.availableFrom||!journey.vehicleType)&&<p className="driver-menu-notice error">This saved journey is missing route, availability or vehicle information. It must be corrected before operational use.</p>}
+      {Boolean(journey.notes)&&<p className="driver-menu-hint">{textValue(journey.notes)}</p>}
+    </article>)}
+   </Group>}
    {section==='Availability'&&!loading&&data&&<>
     <Group title="Your current availability">
      <div className="driver-menu-card-top"><strong>{readableLabel(driver.availability_status)}</strong><Status value="LIVE" tone="good"/></div>

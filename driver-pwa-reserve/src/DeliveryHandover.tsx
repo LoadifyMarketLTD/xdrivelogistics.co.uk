@@ -4,6 +4,7 @@ import type { LiveJob } from './liveApi';
 export type DeliveryHandoverDraft = {recipient:string;leftAt:string;items:string;condition:string;notes:string};
 
 type Props = {
+ mode?: 'delivery' | 'pod';
  job:LiveJob;
  value:DeliveryHandoverDraft;
  onChange:(value:DeliveryHandoverDraft)=>void;
@@ -48,14 +49,42 @@ function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string
  </div>;
 }
 
-export default function DeliveryHandover({job,value,onChange,signature,onSignature,photos,onPhotos,onConfirm,onBack,busy}:Props){
+export default function DeliveryHandover({job,value,onChange,signature,onSignature,photos,onPhotos,onConfirm,onBack,busy,mode='delivery'}:Props){
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
  const requiredItems=Number.isInteger(Number(value.items))&&value.items!==''&&Number(value.items)>0;
- const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&photos.some(f=>f.type==='image/jpeg'||f.type==='image/png');
- const photosCount=photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length;
+ const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&(photos.some(f=>f.type==='image/jpeg'||f.type==='image/png')||(mode==='pod'&&Boolean(job.deliveryPhotos?.length)));
+ const photosCount=mode==='pod'?Math.max(photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length,job.deliveryPhotos?.length||0):photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length;
  const [fileError,setFileError]=useState('');
+ const [cameraOpen,setCameraOpen]=useState(false);
+ const [cameraBusy,setCameraBusy]=useState(false);
+ const videoRef=useRef<HTMLVideoElement>(null);
+ const streamRef=useRef<MediaStream|null>(null);
+ const stopCamera=()=>{streamRef.current?.getTracks().forEach(track=>track.stop());streamRef.current=null;setCameraOpen(false);};
+ useEffect(()=>()=>{streamRef.current?.getTracks().forEach(track=>track.stop());},[]);
+ useEffect(()=>{if(cameraOpen&&videoRef.current&&streamRef.current){videoRef.current.srcObject=streamRef.current;void videoRef.current.play().catch(()=>setFileError('Camera preview could not start. Check camera permissions.'));}},[cameraOpen]);
+ const openCamera=async()=>{
+  setCameraBusy(true);setFileError('');
+  try{
+   if(!navigator.mediaDevices?.getUserMedia)throw new Error('Live camera unavailable. Open the PWA on localhost or HTTPS and permit camera access.');
+   streamRef.current=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+   setCameraOpen(true);
+  }catch(error){setFileError(error instanceof Error?error.message:'Camera could not be opened. Check permissions.');stopCamera();}
+  finally{setCameraBusy(false);}
+ };
+ const capturePhoto=async()=>{
+  const video=videoRef.current;
+  if(!video?.videoWidth){setFileError('Camera is starting. Try again when the preview appears.');return;}
+  const canvas=document.createElement('canvas');canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+  const ctx=canvas.getContext('2d');if(!ctx){setFileError('Camera capture is unavailable.');return;}
+  ctx.drawImage(video,0,0);
+  const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
+  if(!blob){setFileError('Photo could not be captured.');return;}
+  const timestamp=new Date().getTime();
+  const file=new File([blob],'delivery-camera-'+timestamp+'.jpg',{type:'image/jpeg',lastModified:timestamp});
+  addFiles([file]);stopCamera();
+ };
  const docsCount=photos.filter(f=>f.type==='application/pdf').length;
- const addFiles=(incoming:FileList|null)=>{
+ const addFiles=(incoming:FileList|File[]|null)=>{
    const candidates=Array.from(incoming||[]);
    const bad=candidates.find(file=>!['image/png','image/jpeg','application/pdf'].includes(file.type)||file.size<=0||file.size>10*1024*1024);
    if(bad){setFileError('Only PNG, JPEG or PDF up to 10 MB per file. Check: '+bad.name);return;}
@@ -65,8 +94,8 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
    onPhotos(unique);
  };
  return <section className="rv-delivery-page">
-  <div className="rv-delivery-bar"><button type="button" className="rv-back" onClick={onBack}>← Bookings</button><span>07 / 11 · DELIVERY</span></div>
-  <div className="rv-delivery-title"><div><span className="rv-delivery-eyebrow">ON SITE DELIVERY</span><h1>Complete Delivery</h1></div><span className="rv-delivery-state">On site</span></div>
+  <div className="rv-delivery-bar"><button type="button" className="rv-back" onClick={onBack}>← Bookings</button><span>{mode==='pod'?'08 / 11 · POD':'07 / 11 · DELIVERY'}</span></div>
+  <div className="rv-delivery-title"><div><span className="rv-delivery-eyebrow">{mode === 'pod' ? 'DELIVERY EVIDENCE' : 'ON SITE DELIVERY'}</span><h1>{mode === 'pod' ? 'Complete Signed POD' : 'Complete Delivery'}</h1></div><span className="rv-delivery-state">{mode==='pod'?'Delivered':'On site'}</span></div>
   <div className="rv-delivery-route" aria-label="Collection and delivery">
     <div><span className="rv-collection-dot"/> <strong>{job.from}</strong><small>Collection · {job.pickup} {job.pickupDate}</small></div>
     <span className="rv-delivery-arrow" aria-hidden="true">→</span>
@@ -82,12 +111,13 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
     </div>
     <label className="rv-delivery-field"><span>Delivery condition</span><select value={value.condition} onChange={e=>set('condition',e.target.value)}>{['Good condition','Damaged','Shortage','Refused'].map(v=><option key={v}>{v}</option>)}</select></label>
     <div className="rv-delivery-upload"><div className="rv-delivery-upload-title"><strong>Delivery evidence</strong><span>{photosCount} photos · {docsCount} documents</span></div>
-      <div className="rv-delivery-attach-actions"><label className="rv-delivery-add"><span aria-hidden="true">◉</span> Take photo<input type="file" accept="image/*" capture="environment" onChange={e=>{addFiles(e.currentTarget.files);e.currentTarget.value='';}}/></label><label className="rv-delivery-add"><span aria-hidden="true">＋</span> Add files<input type="file" accept="image/png,image/jpeg,application/pdf" multiple onChange={e=>{addFiles(e.currentTarget.files);e.currentTarget.value='';}}/></label></div>
-      <p>At least one delivery photo is required. Selected evidence is kept for the signed POD and official invoice attachment.</p>{fileError&&<p className="rv-delivery-file-error" role="alert">{fileError}</p>}
+      <div className="rv-delivery-attach-actions"><button type="button" className="rv-delivery-add" disabled={cameraBusy} onClick={()=>void openCamera()}><span aria-hidden="true">◉</span> {cameraBusy?'Opening camera...':'Take photo'}</button><label className="rv-delivery-add"><span aria-hidden="true">＋</span> Add files<input type="file" accept="image/png,image/jpeg,application/pdf" multiple onChange={e=>{addFiles(e.currentTarget.files);e.currentTarget.value='';}}/></label></div>
+      {cameraOpen&&<section className="rv-camera-card" aria-label="Delivery camera"><div className="rv-camera-head"><strong>Delivery photo</strong><span>Capture a clear photograph as proof of delivery.</span></div><div className="rv-camera-preview-shell"><video ref={videoRef} autoPlay playsInline muted aria-label="Live delivery camera preview" className="rv-camera-preview"/></div><div className="rv-camera-actions"><button type="button" className="rv-primary rv-camera-action" onClick={()=>void capturePhoto()}><span aria-hidden="true">◉</span> Capture photo</button><button type="button" className="rv-outline rv-camera-action" onClick={stopCamera}>Cancel</button></div></section>}
+      <p>{photosCount>0?`${photosCount} delivery photo${photosCount===1?' is':'s are'} recorded. Complete the recipient signature to save the official POD.`:'At least one delivery photo is required. Photos and documents will be retained with the signed POD.'}</p>{fileError&&<p className="rv-delivery-file-error" role="alert">{fileError}</p>}
       {photos.length>0&&<ul className="rv-delivery-files">{photos.map((file,i)=><li key={file.name+'-'+i}><span>{file.type==='application/pdf'?'PDF':'PHOTO'} · {file.name}</span><button type="button" aria-label={'Remove '+file.name} onClick={()=>onPhotos(photos.filter((_,index)=>index!==i))}>×</button></li>)}</ul>}
     </div>
     <label className="rv-delivery-field"><span>Driver notes <small>Optional</small></span><textarea rows={2} placeholder="Access, shortages or delivery instructions…" value={value.notes} onChange={e=>set('notes',e.target.value)}/></label>
   </div>
-  <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy||!ready} onClick={onConfirm}>{busy?'Saving delivery…':'Confirm Delivery →'}</button><p>{ready?'Handover is ready. Your next step is to save the signed POD.':'Required: recipient name, signature, item count and at least one delivery photo.'}</p></div>
+  <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy||!ready} onClick={onConfirm}>{busy ? 'Saving...' : mode === 'pod' ? 'Save Signed POD' : 'Confirm Delivery'}</button><p>{ready?'Handover is ready. Your evidence will be verified by XDrive.':`Required: ${[!value.recipient.trim()&&'recipient name',!signature&&'recipient signature',!requiredItems&&'item count',photosCount===0&&'delivery photo'].filter(Boolean).join(', ')}.`}</p></div>
  </section>;
 }

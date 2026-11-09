@@ -8,9 +8,12 @@ const UK: L.LatLngBoundsExpression = [[49.8, -8.7], [59.1, 2.1]];
 const cache = new Map<string, Point>();
 async function geocode(address: string): Promise<Point | null> {
   if (cache.has(address)) return cache.get(address)!;
-  const cleaned = address.replace(/\s*\(TEST ADDRESS\)/gi, "").trim();
-  const town = cleaned.replace(/\s+[A-Z]{1,2}\d[A-Z\d]?\s*$/i, "").trim();
-  const queries = [...new Set([cleaned, town].filter(Boolean))];
+  const cleaned = address.replace(/\s*\(TEST ADDRESS\)/gi, "")
+    .replace(/,\s*(?:GB|United Kingdom)\s*,\s*([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i, "")
+    .replace(/,\s*(?:GB|United Kingdom)\s*$/i, "").trim();
+  const postcode = cleaned.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0] ?? "";
+  const town = cleaned.replace(/,\s*[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\s*$/i, "").trim();
+  const queries = [...new Set([cleaned, town, postcode].filter(Boolean))];
   for (const query of queries) {
     try {
       const response = await fetch("https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&limit=1&q=" + encodeURIComponent(query + ", United Kingdom"));
@@ -30,6 +33,7 @@ export default function RouteMap({from,to,stops,distanceMiles,travelMinutes,onBa
   const map = useRef<L.Map | null>(null);
   const overlays = useRef<L.LayerGroup | null>(null);
   const [position,setPosition] = useState<Point | null>(null);
+  const [locationRequested,setLocationRequested] = useState(false);
   const [locationError,setLocationError] = useState("");
   const [routeError,setRouteError] = useState("");
   const [distanceToPickup,setDistanceToPickup] = useState<number | null>(null);
@@ -43,10 +47,11 @@ export default function RouteMap({from,to,stops,distanceMiles,travelMinutes,onBa
     return ()=>{instance.remove();map.current=null;overlays.current=null};
   },[]);
   useEffect(()=>{
-    if(!navigator.geolocation)return;
+    if(!locationRequested)return;
+    if(!navigator.geolocation){setLocationError('GPS is not available in this browser.');return;}
     const id=navigator.geolocation.watchPosition(p=>{setPosition({lat:p.coords.latitude,lon:p.coords.longitude});setLocationError("")},e=>setLocationError(e.code===1?"Allow location access to display the driver.":"GPS position unavailable."),{enableHighAccuracy:true,maximumAge:15000,timeout:15000});
     return ()=>navigator.geolocation.clearWatch(id);
-  },[]);
+  },[locationRequested]);
   useEffect(()=>{
     const lifecycle={active:true};
     async function draw(){
@@ -93,7 +98,8 @@ export default function RouteMap({from,to,stops,distanceMiles,travelMinutes,onBa
     <div className="xroute-head"><button onClick={onBack} aria-label="Back">←</button><strong>Route</strong><span>⌖</span></div>
     <div className="xroute-map" ref={element} aria-label="Live driver, collection and delivery map" />
     <div className="xroute-info">
-      <strong>{position?"🚚 Driver location active":locationError||"Locating driver…"}</strong>
+      <strong>{position?"🚚 Driver location active":locationRequested?(locationError||"Locating driver…"):"Driver location not enabled"}</strong>
+      {!locationRequested&&!position&&<button type="button" className="rv-outline" onClick={()=>setLocationRequested(true)}>Show my GPS position</button>}
       {distanceToPickup!==null&&<div>Distance to pickup: {distanceToPickup.toFixed(1)} miles</div>}
       {distanceMiles!==undefined&&<div>Job distance: {distanceMiles.toFixed(2)} miles {travelMinutes!==undefined?`(${Math.floor(travelMinutes/60)}h ${travelMinutes%60}min)`:""}</div>}
       <div>{ordered.map((s,i)=><div key={i}>{i+1}. {s.kind==="PICKUP"?"Collection":"Delivery"}: {s.address}{s.completedAt?" ✓":""}</div>)}</div>

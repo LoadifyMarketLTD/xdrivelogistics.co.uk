@@ -35,10 +35,10 @@ const date = (value: unknown): string => {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString('en-GB', { timeZone: 'Europe/London' });
 };
 const get = (row: Json, ...keys: string[]): unknown => keys.map(k => row[k]).find(v => v !== null && v !== undefined && v !== '');
-async function jsonFetch(url: string, init?: RequestInit): Promise<Json> {
+async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): Promise<Json> {
   // Each feed must settle: one stalled endpoint must not freeze the entire app.
   const isWrite = init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase());
-  const deadlineMs = isWrite ? 25000 : 12000;
+  const deadlineMs = timeoutMs ?? (isWrite ? 25000 : 12000);
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), deadlineMs);
   const relayAbort = () => abort.abort();
@@ -50,7 +50,7 @@ async function jsonFetch(url: string, init?: RequestInit): Promise<Json> {
     return body;
   } catch (error) {
     if (abort.signal.aborted && !init?.signal?.aborted) {
-      throw new Error(isWrite ? 'Request timed out. Its result is unknown. Refresh before attempting the action again.' : 'Live service did not respond within 12 seconds.');
+      throw new Error(isWrite ? 'Request timed out. Its result is unknown. Refresh before attempting the action again.' : 'Live service did not respond within '+Math.round(deadlineMs/1000)+' seconds.');
     }
     throw error;
   } finally {
@@ -116,7 +116,7 @@ export async function revokeLiveSession(session: LiveSession): Promise<void> {
   if (!response.ok && response.status !== 401) throw new Error('Server session revocation failed (' + response.status + ')');
 }
 export async function bookingOffersGet(token: string): Promise<Json> {
-  return jsonFetch(import.meta.env.PROD ? '/api/booking-offers' : '/xdrive-api/booking-offers', { headers: { Authorization: 'Bearer ' + token } });
+  return jsonFetch(import.meta.env.PROD ? '/api/booking-offers' : '/xdrive-api/booking-offers', { headers: { Authorization: 'Bearer ' + token } }, 20000);
 }
 export async function bookingOfferRespond(token: string, offerId: string, action: 'accept' | 'decline'): Promise<Json> {
   return jsonFetch((import.meta.env.PROD ? '/api/booking-offers/' : '/xdrive-api/booking-offers/') + encodeURIComponent(offerId) + '/respond', { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) });
@@ -190,7 +190,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     items: num(get(r, 'itemCount', 'no_of_items')),
     hardCopyPodRequired: /^(required|yes|true|1)$/i.test(str(get(r, 'hardCopyPod', 'hard_copy_pod'))) || get(r, 'hardCopyPodRequired') === true,
     notes: details.notes || str(get(r, 'collectionNotes', 'driverNotes', 'driver_notes')),
-    status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus, podRecorded: r.podGenerated === true || Boolean(r.deliverySignatureData),
+    status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus, podRecorded: r.podGenerated === true && Boolean(r.deliverySignatureData) && Boolean(str(r.clientSignatureName)),
     company: str(get(r, 'companyName', 'clientName', 'client_name')) || 'Customer not provided',
     terms: str(get(r, 'paymentTerms', 'payment_terms')) || 'Not provided',
     postedAt: dateTime(get(r, 'exchangePostedAt', 'exchange_posted_at', 'createdAt', 'created_at', 'updatedAt')),
@@ -212,13 +212,13 @@ export function mapAssigned(raw: unknown): LiveJob {
 export async function loadLive(token: string): Promise<LiveJob[]> {
   return (await loadLiveWithDiagnostics(token)).jobs;
 }
-export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: LiveJob[]; warnings: string[]}> {
+export async function loadLiveWithDiagnostics(token: string, offerData?: Json): Promise<{jobs: LiveJob[]; warnings: string[]}> {
   const responses = await Promise.allSettled([
     driverGet('/marketplace/loads', token),
     driverGet('/mobile/jobs?scope=bookings', token),
     driverGet('/mobile/jobs?scope=completed', token),
     driverGet('/mobile/bids', token),
-    bookingOffersGet(token),
+    Promise.resolve(offerData ?? {}),
   ]);
   const successful = responses.filter((response): response is PromiseFulfilledResult<Json> => response.status === 'fulfilled');
   if (!successful.length) {
@@ -251,6 +251,11 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
       result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
     }
   }
+  const coreJobs=[...result.values()];
+  return {jobs:offerData?applyBookingOffers(coreJobs,bookingOffers):coreJobs,warnings};
+}
+export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[] {
+  const result=new Map(jobs.map(job=>[job.id,job]));
   for (const raw of Array.isArray(bookingOffers.offers) ? bookingOffers.offers : []) {
     const offer = obj(raw);
     const id = str(offer.job_id);
@@ -289,5 +294,5 @@ export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: Liv
       yourRef: str(offer.public_reference) || existing?.yourRef || id,
     });
   }
-  return { jobs: [...result.values()], warnings };
+  return [...result.values()];
 }
