@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer';
 import { hasCompletePodEvidence } from '../jobs/podCompletion';
+import { isUnrelatedXDriveInvoicePdf } from './podEvidenceClassification';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type EvidenceImage = {
@@ -190,6 +191,9 @@ export async function loadInvoicePdfContext({
           if (requirePod) throw new Error('POD evidence does not belong to this job and supplier.');
           continue;
         }
+        // A mistakenly uploaded old XDrive invoice is not POD evidence. Keep
+        // the original storage/database record but omit it from the new PDF.
+        if (image.label === 'POD' && isUnrelatedXDriveInvoicePdf(image.path)) continue;
         const bytes = await downloadPodImage(supabase, image.path);
         if (bytes) evidenceImages.push({ bytes, label: image.label });
         else if (requirePod) throw new Error('POD evidence could not be downloaded. Retry before sending.');
