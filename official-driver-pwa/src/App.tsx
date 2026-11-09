@@ -359,8 +359,27 @@ function App() {
       });
       const result = await response.json().catch(() => ({})) as { error?: string; invoice?: { id?: string } };
       if (!response.ok || !result.invoice?.id) throw new Error(result.error || 'Invoice generation was not confirmed by the server.');
+      // Invoice creation is persisted before downloading its independent A4 PDF.
       setTab('Invoices');
       setSelected(null);
+      try {
+        const pdfResponse = await fetch('/api/driver/finance/invoices/' + encodeURIComponent(result.invoice.id) + '/preview', {
+          headers: { Authorization: 'Bearer ' + session.token },
+        });
+        if (!pdfResponse.ok || !(pdfResponse.headers.get('content-type') || '').includes('application/pdf')) {
+          throw new Error('Invoice PDF not available');
+        }
+        const url = URL.createObjectURL(await pdfResponse.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'xdrive-invoice-' + result.invoice.id + '.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } catch {
+        setLiveWarning('Invoice created successfully. Download its A4 PDF from Invoices if the automatic download was unavailable.');
+      }
     } catch (error) {
       setLiveError('Invoice not created. ' + (error instanceof Error ? error.message : 'Please retry.'));
     } finally { setInvoiceBusy(false); }
