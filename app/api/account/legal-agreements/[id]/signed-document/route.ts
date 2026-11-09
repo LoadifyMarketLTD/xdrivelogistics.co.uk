@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { buildSignedLegalAgreementPdf } from '../../../../../../lib/legal/signedAgreementPdf';
+import { drawOfficialXDrivePdfLogo } from '../../../../../../lib/server/officialXDrivePdfLogo';
 import type { CurrentLegalEvidence } from '../../../../../../lib/legal/legalAgreementState';
 
 import {
@@ -95,8 +96,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       const font = await pdf.embedFont(StandardFonts.Helvetica);
       const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
       cover.setSize(595.28, 841.89);
-      cover.drawText('XDrive Logistics - READABLE RECONSTRUCTION', { x: 44, y: 762, size: 17, font: bold, color: rgb(0.05, 0.18, 0.4) });
-      cover.drawText('NOT THE ORIGINAL SIGNED PDF', { x: 44, y: 722, size: 13, font: bold, color: rgb(0.65, 0.15, 0.1) });
+      await drawOfficialXDrivePdfLogo(pdf, cover, { x: 44, y: 762, maxWidth: 212, maxHeight: 61 });
+      cover.drawText('READABLE LEGAL RECONSTRUCTION', { x: 44, y: 731, size: 16, font: bold, color: rgb(0.05, 0.18, 0.4) });
+      cover.drawText('NOT THE ORIGINAL SIGNED PDF', { x: 44, y: 697, size: 13, font: bold, color: rgb(0.65, 0.15, 0.1) });
       const notes = [
         'This document reproduces the legal texts and acceptance evidence recorded',
         'at the time of acceptance. It is a later readable reconstruction.',
@@ -110,7 +112,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         agreement.evidence_hash,
         'Reconstruction generated: ' + new Date().toISOString(),
       ];
-      notes.forEach((line, index) => cover.drawText(line, { x: 44, y: 675 - index * 27, size: line.length > 60 ? 9 : 10, font }));
+      notes.forEach((line, index) => cover.drawText(line, { x: 44, y: 655 - index * 27, size: line.length > 60 ? 9 : 10, font }));
       const bytes = await pdf.save();
       return json(200, {
         pdfBase64: Buffer.from(bytes).toString('base64'),

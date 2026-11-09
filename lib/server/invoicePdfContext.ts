@@ -1,5 +1,8 @@
 import { Buffer } from 'node:buffer';
 import { hasCompletePodEvidence } from '../jobs/podCompletion';
+import { officialXDriveLogoBytes } from './officialXDrivePdfLogo';
+import { isUnrelatedXDriveInvoicePdf } from './podEvidenceClassification';
+import type { ProfessionalPodDetails, HandoverDetails } from './professionalPodPdf';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type EvidenceImage = {
@@ -17,12 +20,19 @@ type InvoicePdfContext = {
   paypalEmail: string | null;
   pickupDateTime: string | null;
   deliveryDateTime: string | null;
+  deliveredAt: string | null;
+  leftAt: string | null;
+  deliveryNotes: string | null;
   recipientName: string | null;
   cargoDescription: string | null;
   vehicleDescription: string | null;
   logoBytes: Uint8Array | null;
   evidenceImages: EvidenceImage[];
   signatureAttestation: string | null;
+  podDetails: ProfessionalPodDetails | null;
+  podHandover: HandoverDetails | null;
+  podSignatureDataUrl: string | null;
+  podDeliveryPhotoCount: number;
 };
 
 const clean = (value: unknown) =>
@@ -73,32 +83,6 @@ const downloadPodImage = async (supabase: SupabaseClient, path: string) => {
   return bytes.byteLength ? bytes : null;
 };
 
-const loadCompanyLogo = async (supabase: SupabaseClient, value: unknown) => {
-  const raw = clean(value);
-  if (!raw) return null;
-
-  const inline = dataUrlBytes(raw);
-  if (inline?.byteLength) return inline;
-
-  try {
-    if (/^https:\/\//i.test(raw)) {
-      const response = await fetch(raw, { signal: AbortSignal.timeout(5000) });
-      if (!response.ok) return null;
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      return bytes.byteLength ? bytes : null;
-    }
-
-    const storagePath = raw.replace(/^company-docs\//, '').replace(/^\/+/, '');
-    if (!storagePath || storagePath.includes('..') || storagePath.includes('://')) return null;
-    const { data, error } = await supabase.storage.from('company-docs').download(storagePath);
-    if (error || !data) return null;
-    const bytes = new Uint8Array(await data.arrayBuffer());
-    return bytes.byteLength ? bytes : null;
-  } catch {
-    return null;
-  }
-};
-
 export async function loadInvoicePdfContext({
   supabase,
   companyId,
@@ -113,7 +97,7 @@ export async function loadInvoicePdfContext({
   const [companyResult, settingsResult] = await Promise.all([
     supabase
       .from('companies')
-      .select('email, phone, website, logo_url')
+      .select('email, phone, website')
       .eq('id', companyId)
       .maybeSingle(),
     supabase
@@ -129,7 +113,7 @@ export async function loadInvoicePdfContext({
     website?: string | null;
     logo_url?: string | null;
   } | null;
-  const logoBytes = await loadCompanyLogo(supabase, company?.logo_url);
+  const logoBytes = await officialXDriveLogoBytes();
   const settings = settingsResult.data as {
     bank_account_name?: string | null;
     bank_sort_code?: string | null;
@@ -139,16 +123,24 @@ export async function loadInvoicePdfContext({
 
   let pickupDateTime: string | null = null;
   let deliveryDateTime: string | null = null;
+  let deliveredAt: string | null = null;
+  let leftAt: string | null = null;
+  let deliveryNotes: string | null = null;
   let recipientName: string | null = null;
+  let signedPodConfirmed = false;
   let cargoDescription: string | null = null;
   let vehicleDescription: string | null = null;
   const evidenceImages: EvidenceImage[] = [];
   let signatureAttestation: string | null = null;
+  let podDetails: ProfessionalPodDetails | null = null;
+  let podHandover: HandoverDetails | null = null;
+  let podSignatureDataUrl: string | null = null;
+  let podDeliveryPhotoCount = 0;
 
   if (jobId) {
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
+      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, delivered_at, delivery_notes, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name, pickup_location, delivery_location, pod_generated_at, collection_contact_name, delivery_contact_name, no_of_items, delivery_status')
       .eq('id', jobId)
       .maybeSingle();
 
@@ -156,7 +148,13 @@ export async function loadInvoicePdfContext({
     if (job) {
       pickupDateTime = clean(job.pickup_datetime);
       deliveryDateTime = clean(job.delivery_datetime);
+      deliveredAt = clean(job.delivered_at);
       recipientName = clean(job.client_signature_name);
+      signedPodConfirmed = hasCompletePodEvidence(job);
+      if (signedPodConfirmed) {
+        podDetails = { ...job, id: job.id };
+        podDeliveryPhotoCount = Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0;
+      }
       vehicleDescription = labelise(job.vehicle_type);
 
       const cargoParts: string[] = [];
@@ -190,6 +188,7 @@ export async function loadInvoicePdfContext({
           if (requirePod) throw new Error('POD evidence does not belong to this job and supplier.');
           continue;
         }
+        if (image.label === 'POD' && isUnrelatedXDriveInvoicePdf(image.path)) continue;
         const bytes = await downloadPodImage(supabase, image.path);
         if (bytes) evidenceImages.push({ bytes, label: image.label });
         else if (requirePod) throw new Error('POD evidence could not be downloaded. Retry before sending.');
@@ -198,7 +197,12 @@ export async function loadInvoicePdfContext({
       const record = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
       const value = record?.value ?? raw;
       const signature = dataUrlBytes(value);
-      if (signature) evidenceImages.push({ bytes: signature, label: 'Signature' });
+      if (signature) {
+        evidenceImages.push({ bytes: signature, label: 'Signature' });
+        if (signedPodConfirmed && typeof value === 'string' && /^data:image\/(?:png|jpeg);base64,/i.test(value)) {
+          podSignatureDataUrl = value;
+        }
+      }
       else if (record?.type === 'recipient_typed_name_attestation') {
         if (requirePod && (record.job_id !== jobId || record.recipient_name !== job.client_signature_name
           || !imagePaths.some(image => image.path === record.evidence_path))) throw new Error('Recipient attestation does not match the job evidence.');
@@ -214,6 +218,24 @@ export async function loadInvoicePdfContext({
     }
   }
 
+  // The signed POD draft is the authoritative record for handover metadata.
+  // A blank draft field never replaces a valid invoice/job snapshot.
+  if (jobId && signedPodConfirmed) {
+    const { data: handover } = await supabase.from('driver_pod_drafts')
+      .select('form_data').eq('job_id', jobId).order('updated_at', { ascending: false })
+      .limit(1).maybeSingle();
+    const draft = handover?.form_data && typeof handover.form_data === 'object' && !Array.isArray(handover.form_data)
+      ? handover.form_data as Record<string, unknown> : null;
+    leftAt = clean(draft?.leftAt);
+    deliveryNotes = clean(draft?.notes) || deliveryNotes;
+    podHandover = {
+      leftAt: clean(draft?.leftAt),
+      itemCount: (typeof draft?.itemCount === 'string' || typeof draft?.itemCount === 'number') ? draft.itemCount : null,
+      deliveryStatus: clean(draft?.deliveryStatus),
+      notes: clean(draft?.notes),
+    };
+  }
+
   return {
     issuerEmail: clean(company?.email),
     issuerPhone: clean(company?.phone),
@@ -224,11 +246,18 @@ export async function loadInvoicePdfContext({
     paypalEmail: clean(settings?.paypal_email),
     pickupDateTime,
     deliveryDateTime,
+    deliveredAt,
+    leftAt,
+    deliveryNotes,
     recipientName,
     cargoDescription,
     vehicleDescription,
     logoBytes,
     evidenceImages,
     signatureAttestation,
+    podDetails,
+    podHandover,
+    podSignatureDataUrl,
+    podDeliveryPhotoCount,
   };
 }
