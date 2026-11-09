@@ -12,8 +12,9 @@ describe('Driver POD PDF generation contract', () => {
     expect(route).toContain('company_memberships');
     expect(route).toContain('canonicalPodEvidence(job)');
     expect(route).toContain('if (!evidence.complete)');
-    expect(route).toContain('pdf.embedPng(bytes)');
-    expect(route).toContain('pdf.embedJpg(bytes)');
+    expect(route).toContain('pdf.embedPng(photoBytes)');
+    expect(route).toContain('pdf.embedJpg(photoBytes)');
+    expect(route).toContain('drawOfficialPodCover(pdf, logoBytes');
     expect(route).toContain("'Content-Type': 'application/pdf'");
   });
 
