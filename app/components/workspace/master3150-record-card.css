@@ -338,3 +338,20 @@
 :is(.master3150-production,.xdrive-workspace-measured) .master3150-record--diary[data-state=completed]{
  border-left-color:#16a34a !important;
 }
+
+/* Quote actions span the full card width: never squeeze booking acceptance into the 230px company column. */
+.master3150-record--quote .master3150-record__full-footer.xd-card-actions {
+  grid-column:1 / -1;
+  display:flex !important;
+  justify-content:flex-start;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:10px 14px !important;
+  margin:0 !important;
+  border-top:1px solid #e6ecf4 !important;
+  min-width:0;
+}
+.master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__quote-state {flex:1 1 220px;white-space:normal;line-height:1.4}
+.master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__member {margin-left:auto;min-width:180px;max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__cancel {width:auto !important;min-width:160px !important;max-width:100%;height:auto !important;min-height:34px !important;line-height:1.3 !important;padding:7px 12px !important;white-space:normal;overflow-wrap:anywhere}
