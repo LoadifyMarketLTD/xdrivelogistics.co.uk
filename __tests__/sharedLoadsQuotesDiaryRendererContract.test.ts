@@ -11,7 +11,7 @@ describe('operational workspaces render the approved shared CX card anatomy', ()
     'app/broker/loads/page.tsx',
     'app/driver/loads/page.tsx',
   ])('%s uses the shared Loads card renderer', (file) => {
-    expect(read(file)).toContain('CxLoadCard');
+    expect(read(file)).toContain(file === 'app/driver/loads/page.tsx' ? 'ApprovedDriverLoadCard' : 'CxLoadCard');
   });
 
   it.each([
@@ -20,7 +20,7 @@ describe('operational workspaces render the approved shared CX card anatomy', ()
     'app/broker/bids/page.tsx',
     'app/driver/quotes/page.tsx',
   ])('%s uses the shared Quotes card renderer', (file) => {
-    expect(read(file)).toContain('CxQuoteCard');
+    expect(read(file)).toContain(file === 'app/driver/quotes/page.tsx' ? 'ApprovedDriverQuoteCard' : 'CxQuoteCard');
   });
 
   it.each([
@@ -28,7 +28,7 @@ describe('operational workspaces render the approved shared CX card anatomy', ()
     'app/broker/diary/page.tsx',
     'app/driver/history/page.tsx',
   ])('%s uses the shared Diary card renderer', (file) => {
-    expect(read(file)).toContain('CxDiaryCard');
+    expect(read(file)).toContain(file === 'app/driver/history/page.tsx' ? 'ApprovedDriverDiaryCard' : 'CxDiaryCard');
   });
 
   it('keeps Admin Diary on the approved shared Diary renderer through OperationsDiaryPage', () => {

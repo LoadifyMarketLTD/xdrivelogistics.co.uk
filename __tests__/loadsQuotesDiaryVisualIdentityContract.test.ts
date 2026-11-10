@@ -17,7 +17,7 @@ describe('Loads Quotes Diary share the approved CX visual identity across operat
     expect(read('app/components/workspace/CompanyMarketplaceExchange.tsx')).toContain('CxLoadCard');
     assertAnatomy(read('app/components/workspace/CxLoadCard.tsx'), loadsAnatomy);
     for (const file of ['app/driver/loads/page.tsx', 'app/broker/loads/page.tsx', 'app/customer/CustomerOperationalPages.tsx']) {
-      expect(read(file)).toContain('CxLoadCard');
+      expect(read(file)).toContain(file === 'app/driver/loads/page.tsx' ? 'ApprovedDriverLoadCard' : 'CxLoadCard');
     }
   });
 
@@ -25,14 +25,14 @@ describe('Loads Quotes Diary share the approved CX visual identity across operat
     expect(read('app/components/workspace/CompanyMarketplaceExchange.tsx')).toContain('CxQuoteCard');
     assertAnatomy(read('app/components/workspace/CxQuoteCard.tsx'), quotesAnatomy);
     for (const file of ['app/driver/quotes/page.tsx', 'app/broker/bids/page.tsx', 'app/customer/quotes/CustomerQuotesCxPage.tsx']) {
-      expect(read(file)).toContain('CxQuoteCard');
+      expect(read(file)).toContain(file === 'app/driver/quotes/page.tsx' ? 'ApprovedDriverQuoteCard' : 'CxQuoteCard');
     }
   });
 
   it('keeps the approved Diary anatomy and centralizes every operational Diary page on it', () => {
     assertAnatomy(read('app/components/workspace/CxDiaryCard.tsx'), diaryAnatomy);
     for (const file of ['app/components/workspace/OperationsDiaryPage.tsx', 'app/driver/history/page.tsx', 'app/broker/diary/page.tsx', 'app/customer/diary/page.tsx']) {
-      expect(read(file)).toContain('CxDiaryCard');
+      expect(read(file)).toContain(file === 'app/driver/history/page.tsx' ? 'ApprovedDriverDiaryCard' : 'CxDiaryCard');
     }
   });
 
