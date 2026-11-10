@@ -29,6 +29,7 @@ type InvoicePdfContext = {
   logoBytes: Uint8Array | null;
   evidenceImages: EvidenceImage[];
   signatureAttestation: string | null;
+  podSummary: { deliveredOn: string | null; receivedBy: string | null; leftAt: string | null; noOfItems: number | null; deliveryStatus: string | null; deliveryNotes: string | null } | null;
   podDetails: ProfessionalPodDetails | null;
   podHandover: HandoverDetails | null;
   podSignatureDataUrl: string | null;
@@ -132,6 +133,7 @@ export async function loadInvoicePdfContext({
   let vehicleDescription: string | null = null;
   const evidenceImages: EvidenceImage[] = [];
   let signatureAttestation: string | null = null;
+  let podSummary: InvoicePdfContext['podSummary'] = null;
   let podDetails: ProfessionalPodDetails | null = null;
   let podHandover: HandoverDetails | null = null;
   let podSignatureDataUrl: string | null = null;
@@ -151,6 +153,8 @@ export async function loadInvoicePdfContext({
       .eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (requirePod && (podError || !pod)) throw new Error('Complete signed POD record is missing or unavailable.');
     if (pod) {
+      if (requirePod && (!clean(pod.received_by) || !clean(pod.delivered_on) || !clean(pod.delivery_status) || pod.no_of_items == null || !Number.isFinite(Number(pod.no_of_items)))) throw new Error('POD handover record is incomplete.');
+      podSummary = { deliveredOn: clean(pod.delivered_on), receivedBy: clean(pod.received_by), leftAt: clean(pod.left_at), noOfItems: pod.no_of_items == null ? null : Number(pod.no_of_items), deliveryStatus: clean(pod.delivery_status), deliveryNotes: clean(pod.delivery_notes) };
       deliveredAt = clean(pod.delivered_on) || deliveredAt;
       recipientName = clean(pod.received_by) || recipientName;
       leftAt = clean(pod.left_at) || leftAt;
@@ -248,10 +252,10 @@ export async function loadInvoicePdfContext({
     leftAt = leftAt || clean(draft?.leftAt);
     deliveryNotes = clean(draft?.notes) || deliveryNotes;
     podHandover = {
-      leftAt: clean(draft?.leftAt),
-      itemCount: (typeof draft?.itemCount === 'string' || typeof draft?.itemCount === 'number') ? draft.itemCount : null,
-      deliveryStatus: clean(draft?.deliveryStatus),
-      notes: clean(draft?.notes),
+      leftAt: leftAt,
+      itemCount: podSummary?.noOfItems ?? ((typeof draft?.itemCount === 'string' || typeof draft?.itemCount === 'number') ? draft.itemCount : null),
+      deliveryStatus: podSummary?.deliveryStatus || clean(draft?.deliveryStatus),
+      notes: podSummary?.deliveryNotes || clean(draft?.notes),
     };
   }
 
@@ -274,6 +278,7 @@ export async function loadInvoicePdfContext({
     logoBytes,
     evidenceImages,
     signatureAttestation,
+    podSummary,
     podDetails,
     podHandover,
     podSignatureDataUrl,
