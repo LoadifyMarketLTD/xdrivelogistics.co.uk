@@ -575,9 +575,10 @@ export default function MyQuotesPage() {
                       <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${quoteStage}`}>{footerState}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>
                         <button type="button" className="xdrive-inline-link" title={fullDetailsRestricted ? 'Only your saved quotation is available; private job details remain protected' : undefined} onClick={() => {
-                          if (fullDetailsRestricted) setExpandedIds(previous => {const next=new Set(previous);if(next.has(bid.id))next.delete(bid.id);else next.add(bid.id);return next;});
+                          if (pendingBookingOffer) router.push('/driver/won-work');
+                          else if (fullDetailsRestricted) setExpandedIds(previous => {const next=new Set(previous);if(next.has(bid.id))next.delete(bid.id);else next.add(bid.id);return next;});
                           else router.push(view.access === 'assigned' || view.access === 'own' ? `/driver/jobs/${bid.job_id}` : `/driver/loads/${bid.job_id}`);
-                        }}>{fullDetailsRestricted ? (expanded?'Hide quote summary':'View saved quote') : 'View Details'}</button>
+                        }}>{pendingBookingOffer ? 'Review Booking Offer' : fullDetailsRestricted ? (expanded?'Hide quote summary':'View saved quote') : 'View Details'}</button>
                         {view.postingMemberId ? <span> ({view.postingMemberId})</span> : null}
                         <strong>{counterpartName}</strong>
                         {view.postingPhone ? <a href={`tel:${view.postingPhone.replace(/\s+/g, '')}`}>{view.postingPhone}</a> : null}
