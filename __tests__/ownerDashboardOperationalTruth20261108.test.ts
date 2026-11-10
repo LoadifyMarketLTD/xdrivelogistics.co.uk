@@ -11,6 +11,14 @@ describe('Owner Driver dashboard 3150 real performance and fleet truth',()=>{
   expect(dashboard).toContain('Availability not verified');
   expect(dashboard).toContain('real?{background:\'conic-gradient(#b9c6d4 0 100%)\'}');
  });
+ it('keeps Owner Driver dashboard ETA and visual status consistent with job lifecycle',()=>{
+  const dashboard=read('app/try-xdrive-demo/components/DemoCompanyDashboard.tsx');
+  expect(dashboard).toContain('j.status==="Completed"?"Delivered"');
+  expect(dashboard).toContain('status:j.status==="Completed"?"Completed"');
+  expect(dashboard).toContain('j.status==="In Progress"?"In transit"');
+  expect(dashboard).toContain('j.status==="In Progress"?"intransit"');
+  expect(dashboard).not.toContain('i===0?"intransit"');
+ });
  it('humanises recent operational status tokens without altering stored events',()=>{
   const dashboard=read('app/try-xdrive-demo/components/DemoCompanyDashboard.tsx');
   expect(dashboard).toContain("replaceAll('_',' ')");

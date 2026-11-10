@@ -7,7 +7,7 @@ const dateLabel=(value:string|null|undefined)=>{
  const date=new Date(value);
  return Number.isNaN(date.getTime())?'Not scheduled':date.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
 };
-const hasPOD=(job:WorkspaceJob)=>Boolean(job.pod_generated||job.pod_generated_at||job.has_delivery_evidence||job.delivery_signature_data||job.delivery_photos?.length||job.pod_photos?.length);
+const hasPOD=(job:WorkspaceJob)=>Boolean(job.pod_generated===true||job.pod_generated_at);
 const stage=(job:WorkspaceJob)=>classifyWorkspaceJobStage(job);
 const location=(first:string|null|undefined,second:string|null|undefined)=>first||second||'Location not recorded';
 const money=(n:number)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:'GBP'}).format(n);
@@ -49,7 +49,7 @@ export default function Master3150DashboardLayout({data,workspaceLabel,go,onOpen
   <div className="xd-dashboard-primary">
    <div className="xd-dash-panel xd-today"><div className="xd-dash-panel-head"><h2>Today's Operations ({scheduledToday.length})</h2><button onClick={()=>go(7)}>View Diary</button></div>
     <div className="xd-dash-rows">{scheduledToday.length===0?<p className="muted">No company jobs scheduled today.</p>:scheduledToday.map((j,i)=><article className="xd-dash-job" key={j.id}>
-     <div className={'xd-dash-date '+(i===0?'intransit':'awaiting')}><b>{dateLabel(j.pickup_datetime)}</b><span>{stage(j)}</span></div>
+     <div className={'xd-dash-date '+(stage(j)==='in_progress'?'intransit':'awaiting')}><b>{dateLabel(j.pickup_datetime)}</b><span>{stage(j)}</span></div>
      <div className="xd-dash-job-main"><strong>{location(j.pickup_location,j.pickup_postcode)} → {location(j.delivery_location,j.delivery_postcode)}</strong>
       <small>Ref: {j.id.slice(0,8).toUpperCase()} | {(j.requested_vehicle_label||j.vehicle_type||'Vehicle not recorded').replaceAll('_',' ')} | {j.pallets??'—'} pallets</small></div>
      <div className="xd-dash-assignee"><b>{j.assigned_driver_id?'Driver assigned':'Unallocated'}</b><small>{hasPOD(j)?'POD received':'POD pending'}</small></div>
