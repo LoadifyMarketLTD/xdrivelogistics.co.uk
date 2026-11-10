@@ -4,12 +4,18 @@ import { renewSession, type LiveSession } from './liveApi';
 
 type Invoice = { id: string; invoice_number?: string; job_ref?: string; client_name?: string; status?: string; payment_status?: string; amount?: number; currency?: string; due_date?: string };
 type Props = { session: LiveSession; onSession: (session: LiveSession) => void };
+type DeliveryEvidence = { provider_message_id?: string | null; provider_status?: string | null; provider_event_at?: string | null; first_provider_attempt_at?: string | null; completed_at?: string | null; last_error?: string | null };
+type DeliveryEvent = { event_type: string; created_at: string };
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 export default function LiveInvoices({ session, onSession }: Props) {
   const [rows, setRows] = useState<Invoice[]>([]);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState('');
   const [previewBusy, setPreviewBusy] = useState<string | null>(null);
+  const [evidenceBusy, setEvidenceBusy] = useState<string | null>(null);
+  const [evidenceId, setEvidenceId] = useState<string | null>(null);
+  const [evidence, setEvidence] = useState<DeliveryEvidence | null>(null);
+  const [events, setEvents] = useState<DeliveryEvent[]>([]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -26,6 +32,20 @@ export default function LiveInvoices({ session, onSession }: Props) {
     })();
     return () => { cancelled = true; };
   }, []);
+  async function showDeliveryEvidence(invoiceId: string) {
+    if (evidenceId === invoiceId) { setEvidenceId(null); return; }
+    setEvidenceBusy(invoiceId); setError('');
+    try {
+      const current = await renewSession(session); onSession(current);
+      const response = await fetch(`${base}/finance/invoices/${encodeURIComponent(invoiceId)}`, { headers: { Authorization: `Bearer ${current.token}` } });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || `Delivery evidence unavailable (${response.status})`);
+      setEvidence(result.deliveryEvidence ?? null);
+      setEvents(Array.isArray(result.deliveryEvents) ? result.deliveryEvents : []);
+      setEvidenceId(invoiceId);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load delivery evidence'); }
+    finally { setEvidenceBusy(null); }
+  }
   async function previewPdf(invoiceId: string) {
     if (previewBusy) return;
     setPreviewBusy(invoiceId); setError('');
@@ -53,6 +73,8 @@ export default function LiveInvoices({ session, onSession }: Props) {
       <div className="xdi-statuses"><span className={'xdi-status '+(row.status?.toLowerCase()==='sent'?'xdi-sent':'')}>{row.status||'Unknown status'}</span><span className={'xdi-status '+(row.payment_status?.toLowerCase()==='paid'?'xdi-paid':'xdi-unpaid')}>{row.payment_status?.toLowerCase()==='paid'?'Paid':row.payment_status||'Payment unknown'}</span></div>
       <div className="xdi-invoice-meta"><div><span>Customer</span><strong>{row.client_name||'Not provided'}</strong></div><div><span>Payment due</span><strong>{date(row.due_date)}</strong></div><div className="xdi-job"><span>Job reference</span><strong>{row.job_ref||'Not linked'}</strong></div></div>
       <button type="button" className="xdi-download" disabled={previewBusy!==null} onClick={()=>void previewPdf(row.id)}><span aria-hidden="true">↓</span> {previewBusy===row.id?'Preparing PDF…':'Download Invoice PDF'} <span aria-hidden="true">↗</span></button>
+      <button type="button" className="xdi-download" disabled={evidenceBusy!==null} onClick={()=>void showDeliveryEvidence(row.id)}>{evidenceBusy===row.id?'Loading email history…':evidenceId===row.id?'Hide email history':'View email delivery history'}</button>
+      {evidenceId===row.id&&<div className="xdi-invoice-meta" aria-label="Invoice email delivery evidence"><div><span>Provider status</span><strong>{evidence?.provider_status||'No provider confirmation recorded'}</strong></div><div><span>Provider message ID</span><strong>{evidence?.provider_message_id||'Not recorded'}</strong></div><div><span>First attempt</span><strong>{evidence?.first_provider_attempt_at?new Date(evidence.first_provider_attempt_at).toLocaleString('en-GB'):'Not recorded'}</strong></div><div><span>Provider event</span><strong>{evidence?.provider_event_at?new Date(evidence.provider_event_at).toLocaleString('en-GB'):'Not recorded'}</strong></div>{events.map((event,index)=><div key={index}><span>{event.event_type}</span><strong>{new Date(event.created_at).toLocaleString('en-GB')}</strong></div>)}<p>Provider acceptance does not prove recipient receipt.</p></div>}
     </article>)}</div>
   </section>;
 }
