@@ -236,3 +236,9 @@
 /* Verified saved-signature state: green only after server GET confirmation. */
 .rv-delivery-field .rv-signature-save.rv-signature-saved,
 .rv-delivery-field .rv-signature-save.rv-signature-saved:disabled{background:#168348;border-color:#0b6935;color:#fff;box-shadow:0 2px 7px rgba(12,115,62,.2);cursor:default;opacity:1}
+
+/* Driver dashboard legibility: emphasize actual pickup and delivery times. */
+.rv-job .rv-stop .rv-stop-schedule{display:block;font-size:15px;font-weight:600;line-height:1.5;color:#43566b;margin-top:4px}
+.rv-job .rv-stop .rv-stop-time{font-size:20px;font-weight:800;line-height:1.35;color:#172f49;font-variant-numeric:tabular-nums}
+.rv-job .rv-stop .rv-stop-date{font-size:15px;font-weight:600;color:#43566b}
+@media(max-width:400px){.rv-job .rv-stop .rv-stop-schedule{font-size:14px}.rv-job .rv-stop .rv-stop-time{font-size:19px}.rv-job .rv-stop .rv-stop-date{font-size:14px}}
