@@ -362,6 +362,28 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
       input.podSignatureDataUrl, input.podDeliveryPhotoCount ?? 0, input.podHandover ?? {});
   }
 
+  // Authoritative handover record accompanies the approved official POD cover.
+  if (input.podSummary) {
+    const handover = pdf.addPage([595.28, 841.89]);
+    handover.drawText('PROOF OF DELIVERY', { x: 42, y: 780, font: bold, size: 20, color: navy });
+    handover.drawLine({ start: { x: 42, y: 761 }, end: { x: 553, y: 761 }, color: orange, thickness: 2 });
+    const fields: Array<[string, string | number | null]> = [
+      ['Received By', input.podSummary.receivedBy],
+      ['Delivered On', input.podSummary.deliveredOn],
+      ['Left At', input.podSummary.leftAt],
+      ['Items delivered', input.podSummary.noOfItems],
+      ['Delivery status', input.podSummary.deliveryStatus],
+      ['Driver / delivery notes', input.podSummary.deliveryNotes],
+    ];
+    fields.forEach(([heading, value], index) => {
+      const y = 718 - index * 80;
+      handover.drawText(heading, { x: 48, y, font: bold, size: 11, color: navy });
+      const lines = wrapText(pdfText(value == null ? '' : String(value), 'Not recorded'), 90);
+      lines.slice(0, 3).forEach((line, lineIndex) => {
+        handover.drawText(line, { x: 48, y: y - 22 - lineIndex * 13, font: regular, size: 10, color: slate });
+      });
+    });
+  }
   // Appendices
   if (input.signatureAttestation) {
     const attestation = pdf.addPage([595.28, 841.89]);
