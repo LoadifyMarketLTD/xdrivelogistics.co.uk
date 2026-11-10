@@ -72,7 +72,7 @@
 .rv-nav button{background:transparent;color:#bdcbd9;border:0;font-size:12px;font-weight:750;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:80px}.rv-nav button span{font-size:22px}.rv-nav button.rv-active{color:#ffa66d}.rv-nav button.rv-active:after{content:'';background:#f47721;height:3px;width:22px;border-radius:3px}
 
 
-/* 2026-11-08 — CX information-density reference, XDrive brand retained.
+/* 2026-11-08 â€” CX information-density reference, XDrive brand retained.
    Flat, readable, operation-first job cards; no extra nested card frames. */
 .rv-main:has(.rv-job){padding:8px 10px 26px}
 .rv-job.rv-card{padding:15px 14px 16px;margin:0 0 10px;border:0;border-bottom:1px solid #d5dde5;border-radius:0;box-shadow:none;background:#fff}
@@ -124,7 +124,7 @@
 .rv-history-unavailable{padding:12px;background:#f5f8fa;border-radius:8px}
 .rv-history-unavailable p{font-size:12px;color:#617487;margin:7px 0 0}
 
-/* Premium mobile delivery handover — CX workflow clarity, XDrive visual identity. */
+/* Premium mobile delivery handover â€” CX workflow clarity, XDrive visual identity. */
 .rv-main:has(.rv-delivery-page){padding:0 0 92px;background:#fff;min-height:calc(100dvh - 170px)}
 .rv-delivery-page{color:#1b344c;font-size:14px;background:#fff}
 .rv-delivery-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 3px}
@@ -236,6 +236,7 @@
 /* Verified saved-signature state: green only after server GET confirmation. */
 .rv-delivery-field .rv-signature-save.rv-signature-saved,
 .rv-delivery-field .rv-signature-save.rv-signature-saved:disabled{background:#168348;border-color:#0b6935;color:#fff;box-shadow:0 2px 7px rgba(12,115,62,.2);cursor:default;opacity:1}
+
 /* Mobile navigation labels and menu entries remain legible at arm's length. */
 .rv-menuitem{font-size:18px;min-height:60px;align-items:center}
 .rv-heading p,.rv-sub{font-size:16px;line-height:1.5}
@@ -260,3 +261,16 @@
 .rv-main:not(:has(.rv-job)) .rv-chips span,.rv-main:not(:has(.rv-job)) .rv-chip{font-size:15px}
 .rv-main:not(:has(.rv-job)) .rv-jobhead small{font-size:16px}
 @media(max-width:400px){.rv-main:not(:has(.rv-job)) .rv-fact{font-size:16px}.rv-main:not(:has(.rv-job)) .rv-route .rv-stop span{font-size:18px}}
+
+
+/* Driver dashboard legibility: emphasize actual pickup and delivery times. */
+.rv-job .rv-stop .rv-stop-schedule{display:block;font-size:15px;font-weight:600;line-height:1.5;color:#43566b;margin-top:4px}
+.rv-job .rv-stop .rv-stop-time{font-size:20px;font-weight:800;line-height:1.35;color:#172f49;font-variant-numeric:tabular-nums}
+.rv-job .rv-stop .rv-stop-date{font-size:15px;font-weight:600;color:#43566b}
+@media(max-width:400px){.rv-job .rv-stop .rv-stop-schedule{font-size:14px}.rv-job .rv-stop .rv-stop-time{font-size:19px}.rv-job .rv-stop .rv-stop-date{font-size:14px}}
+
+
+/* Keep the live main schedule markup, with the approved larger date typography. */
+.rv-job .rv-stop .rv-stop-date{font-size:17px;font-weight:700}
+.rv-job .rv-stop .rv-stop-time{font-size:20px;font-weight:800}
+@media(max-width:400px){.rv-job .rv-stop .rv-stop-date{font-size:16px}}
