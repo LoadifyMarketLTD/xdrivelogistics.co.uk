@@ -351,7 +351,12 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const evidenceItems = input.evidenceImages ?? [];
   const isPdfEvidence = (item: InvoiceEvidenceImage) => String.fromCharCode(...item.bytes.slice(0, 5)) === '%PDF-';
   const includeOfficialPod = Boolean(input.podDetails && input.podSignatureDataUrl);
-  const imageEvidence = evidenceItems.filter((item) => !isPdfEvidence(item) && !(includeOfficialPod && item.label === 'Signature'));
+  // Signature first, then collection, delivery, damage and other evidence.
+  const evidenceOrder = (label: string | null | undefined) =>
+    label === 'Signature' ? 0 : label === 'Collection' ? 1 : label === 'Delivery' ? 2 : label === 'Damage evidence' ? 3 : 4;
+  const imageEvidence = evidenceItems
+    .filter((item) => !isPdfEvidence(item) && !(includeOfficialPod && item.label === 'Signature'))
+    .sort((a, b) => evidenceOrder(a.label) - evidenceOrder(b.label));
   const pdfEvidence = evidenceItems.filter(isPdfEvidence);
   // The official POD companion page uses the exact same approved A4
   // renderer as the standalone PDF. Only verified handwritten evidence can
