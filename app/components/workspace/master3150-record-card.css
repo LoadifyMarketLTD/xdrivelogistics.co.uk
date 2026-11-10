@@ -355,3 +355,57 @@
 .master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__quote-state {flex:1 1 220px;white-space:normal;line-height:1.4}
 .master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__member {margin-left:auto;min-width:180px;max-width:100%;overflow-wrap:anywhere;white-space:normal}
 .master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__cancel {width:auto !important;min-width:160px !important;max-width:100%;height:auto !important;min-height:34px !important;line-height:1.3 !important;padding:7px 12px !important;white-space:normal;overflow-wrap:anywhere}
+
+/* All operational cards use one three-column body and one full-width action rail. */
+.master3150-record.xd-board-card {
+  grid-template-columns:110px minmax(0,1fr) 230px !important;
+  grid-template-rows:minmax(174px,auto) auto;
+  align-items:stretch;
+}
+.master3150-record .xd-card-date {grid-column:1;grid-row:1;min-height:174px}
+.master3150-record .xd-card-main {grid-column:2;grid-row:1;min-width:0}
+.master3150-record .xd-card-company {grid-column:3;grid-row:1;min-width:0}
+.master3150-record .master3150-record__full-footer.xd-card-actions {
+  grid-column:1 / -1 !important;
+  grid-row:2;
+  display:flex !important;
+  align-items:center;
+  justify-content:flex-start !important;
+  flex-wrap:wrap;
+  gap:10px;
+  width:100%;
+  min-width:0;
+  margin:0 !important;
+  padding:10px 14px !important;
+  border-top:1px solid #e6ecf4 !important;
+  background:#fff !important;
+}
+.master3150-record .master3150-record__full-footer button,
+.master3150-record .master3150-record__full-footer a[role="button"] {
+  min-height:40px !important;
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  touch-action:manipulation;
+}
+.master3150-record .master3150-record__full-footer button:focus-visible,
+.master3150-record .master3150-record__full-footer a:focus-visible {
+  outline:3px solid #2563eb;
+  outline-offset:2px;
+}
+.master3150-record .xd-card-expanded {grid-row:auto;grid-column:1 / -1}
+@media(max-width:1100px) {
+  .master3150-record.xd-board-card {grid-template-columns:90px minmax(0,1fr) !important;grid-template-rows:auto auto auto}
+  .master3150-record .xd-card-date {grid-column:1;grid-row:1 / span 2}
+  .master3150-record .xd-card-main {grid-column:2;grid-row:1}
+  .master3150-record .xd-card-company {grid-column:2;grid-row:2}
+  .master3150-record .master3150-record__full-footer.xd-card-actions {grid-column:1 / -1 !important;grid-row:3}
+}
+@media(max-width:680px) {
+  .master3150-record.xd-board-card {grid-template-columns:74px minmax(0,1fr) !important}
+  .master3150-record .xd-card-date {grid-column:1;grid-row:1}
+  .master3150-record .xd-card-main {grid-column:2;grid-row:1}
+  .master3150-record .xd-card-company {grid-column:1 / -1;grid-row:2}
+  .master3150-record .master3150-record__full-footer.xd-card-actions {grid-column:1 / -1 !important;grid-row:3;padding:10px !important}
+  .master3150-record .master3150-record__full-footer button {min-height:44px !important}
+}

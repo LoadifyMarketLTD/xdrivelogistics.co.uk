@@ -1,4 +1,4 @@
-﻿import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 describe('Owner Driver Quotes booking offer action layout', () => {
@@ -6,8 +6,8 @@ describe('Owner Driver Quotes booking offer action layout', () => {
   const css = readFileSync('app/components/workspace/master3150-record-card.css', 'utf8');
   const page = readFileSync('app/driver/quotes/page.tsx', 'utf8');
   it('places quote actions outside the narrow posting-company column', () => {
-    expect(card).toContain("mode !== 'quote' && <div");
-    expect(card).toContain("mode === 'quote' && <div");
+    expect(card).not.toContain("mode !== 'quote' && <div");
+    expect(card).not.toContain("mode === 'quote' && <div");
     expect(card).toContain('master3150-record__full-footer');
     expect(css).toContain('grid-column:1 / -1');
   });

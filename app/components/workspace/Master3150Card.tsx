@@ -99,9 +99,9 @@ export default function Master3150Card({
         <strong>{posted}</strong>
         {postedAt && <span className="master3150-record__posted-at">{postedAt}</span>}
         {statusMeta}
-        {mode !== 'quote' && <div className={['xd-card-actions',footerClassName].filter(Boolean).join(' ')} role={footerRole} aria-label={footerAriaLabel}>{footer}</div>}
+
       </div>
-      {mode === 'quote' && <div className={['xd-card-actions','master3150-record__full-footer',footerClassName].filter(Boolean).join(' ')} role={footerRole} aria-label={footerAriaLabel}>{footer}</div>}
+      <div className={['xd-card-actions','master3150-record__full-footer',footerClassName].filter(Boolean).join(' ')} role={footerRole} aria-label={footerAriaLabel}>{footer}</div>
       {expanded && expandedContent && <div className="xd-card-expanded">{expandedContent}</div>}
       {extra}
     </article>
