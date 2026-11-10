@@ -1,3 +1,4 @@
+import './LiveInvoices.css';
 import { useEffect, useState } from 'react';
 import { renewSession, type LiveSession } from './liveApi';
 
@@ -38,19 +39,20 @@ export default function LiveInvoices({ session, onSession }: Props) {
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Invoice PDF could not be downloaded'); }
     finally { setPreviewBusy(null); }
-  }  return <section className="settings" aria-label="Live invoices">
-    <h2>Invoices</h2>
-    <p>Authenticated XDrive invoices. Existing invoice PDFs can be downloaded securely. Creating, issuing and emailing invoices remains unavailable until the complete delivery flow is verified.</p>
-    {busy && <p role="status">Loading invoices...</p>}
-    {error && <p role="alert">{error}</p>}
-    {!busy && !error && rows.length === 0 && <p>No invoices found for this company.</p>}
-    {!busy && !error && rows.map(row => <article key={row.id} className="booking-detail-group">
-      <h3>{row.invoice_number || 'Draft invoice'}</h3>
-      <p>Job: {row.job_ref || 'Not linked'} · Client: {row.client_name || 'Not provided'}</p>
-      <p>Amount: {new Intl.NumberFormat('en-GB', { style: 'currency', currency: row.currency || 'GBP' }).format(Number(row.amount || 0))}</p>
-      <p>Invoice status: {row.status || 'Unknown'} · Payment: {row.payment_status || 'Unknown'}</p>
-      {row.due_date && <p>Due: {row.due_date}</p>}
-      <button type="button" className="primary" disabled={previewBusy !== null} onClick={() => void previewPdf(row.id)}>{previewBusy === row.id ? "Preparing PDF..." : "Download A4 Invoice PDF"}</button>
-    </article>)}
+  }
+  const money=(row:Invoice)=>new Intl.NumberFormat('en-GB',{style:'currency',currency:row.currency||'GBP'}).format(Number(row.amount||0));
+  const date=(value?:string)=>value?new Date(value+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'Not set';
+  return <section className="xdi-finance" aria-label="Live invoices">
+    <header className="xdi-finance-header"><div><span className="xdi-eyebrow">XDRIVE FINANCE</span><h2>Invoices</h2><p>Invoice history and secure A4 documents</p></div><span className="xdi-count">{rows.length} invoices</span></header>
+    <div className="xdi-finance-notice">Existing invoice PDFs are available to download. Issuing and emailing new invoices will be enabled after delivery-flow verification.</div>
+    {busy&&<p role="status" className="xdi-message">Loading invoices…</p>}
+    {error&&<p role="alert" className="xdi-error">{error}</p>}
+    {!busy&&!error&&rows.length===0&&<p className="xdi-message">No invoices found for this account.</p>}
+    <div className="xdi-invoice-list">{!busy&&rows.map(row=><article key={row.id} className="xdi-invoice-card">
+      <div className="xdi-invoice-top"><div><span className="xdi-card-caption">INVOICE</span><h3>{row.invoice_number||'Draft invoice'}</h3></div><strong className="xdi-amount">{money(row)}</strong></div>
+      <div className="xdi-statuses"><span className={'xdi-status '+(row.status?.toLowerCase()==='sent'?'xdi-sent':'')}>{row.status||'Unknown status'}</span><span className={'xdi-status '+(row.payment_status?.toLowerCase()==='paid'?'xdi-paid':'xdi-unpaid')}>{row.payment_status?.toLowerCase()==='paid'?'Paid':row.payment_status||'Payment unknown'}</span></div>
+      <div className="xdi-invoice-meta"><div><span>Customer</span><strong>{row.client_name||'Not provided'}</strong></div><div><span>Payment due</span><strong>{date(row.due_date)}</strong></div><div className="xdi-job"><span>Job reference</span><strong>{row.job_ref||'Not linked'}</strong></div></div>
+      <button type="button" className="xdi-download" disabled={previewBusy!==null} onClick={()=>void previewPdf(row.id)}><span aria-hidden="true">↓</span> {previewBusy===row.id?'Preparing PDF…':'Download Invoice PDF'} <span aria-hidden="true">↗</span></button>
+    </article>)}</div>
   </section>;
 }

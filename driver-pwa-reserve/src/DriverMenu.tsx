@@ -63,6 +63,10 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
  const [notificationLimit,setNotificationLimit]=useState(20)
  const [name,setName]=useState('')
  const [phone,setPhone]=useState('')
+
+
+ const [editingJourney,setEditingJourney]=useState<string|null>(null)
+ const [journeyDraft,setJourneyDraft]=useState({from:'',to:'',vehicleType:'',availableFrom:'',availableTo:''})
  const [alertEnabled,setAlertEnabled]=useState(false)
  const [alertRadius,setAlertRadius]=useState(30)
  const [alertChannels,setAlertChannels]=useState({inApp:true,email:false,push:false})
@@ -129,6 +133,14 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
   }catch(reason){setError(reason instanceof Error?reason.message:'Save failed');return null}
   finally{setBusy(false)}
  }
+ async function updateJourney(){
+  if(!token||!editingJourney)return;
+  const start=new Date(journeyDraft.availableFrom).getTime();const end=journeyDraft.availableTo?new Date(journeyDraft.availableTo).getTime():null;
+  if(!journeyDraft.from.trim()||!journeyDraft.vehicleType.trim()||!Number.isFinite(start)||(end!==null&&(!Number.isFinite(end)||end<=start))){setError('Enter origin, vehicle and valid availability dates.');return}
+  setBusy(true);setError('');setSuccess('');
+  try{await send('/return-journeys','PATCH',token,{id:editingJourney,from:journeyDraft.from.trim(),to:journeyDraft.to.trim(),vehicleType:journeyDraft.vehicleType.trim(),availableFrom:new Date(start).toISOString(),availableTo:end===null?'':new Date(end).toISOString()});const path=routes['Return Journeys']!;const refreshed=await driverGet(path,token);setData(refreshed);cache.current.entries[path]=refreshed;setEditingJourney(null);setSuccess('Return journey updated.')}catch(reason){setError(reason instanceof Error?reason.message:'Could not update journey.')}finally{setBusy(false)}
+ }
+ function beginJourneyEdit(journey:DriverRecord){const local=(value:unknown)=>{const v=textValue(value,'');if(!v)return '';const date=new Date(v);if(Number.isNaN(date.getTime()))return '';return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16)};setEditingJourney(textValue(journey.id));setJourneyDraft({from:textValue(journey.from,''),to:textValue(journey.to,''),vehicleType:textValue(journey.vehicleType,''),availableFrom:local(journey.availableFrom),availableTo:local(journey.availableTo)});setError('');setSuccess('')}
  async function viewDocument(id:string){
   if(!token)return
   const windowRef=window.open('about:blank','_blank')
@@ -163,12 +175,16 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
  const unread=notifications.filter(item=>!item.read_at)
  const selectedNotifications=notificationsOnlyUnread?unread:notifications
  const shownNotifications=selectedNotifications.slice(0,notificationLimit)
- const alertValidation = alertEnabled && !matchCurrent && !matchHome && !matchFuture ? 'Choose at least one matching location.' : alertEnabled && !alertChannels.inApp && !alertChannels.email && !alertChannels.push ? 'Choose at least one notification channel.' : matchHome && !/^[A-Z]{1,2}\d[A-Z\d]?$/.test(homeOutcode) ? 'Enter a valid home postcode area, for example BB1.' : minimumBudget!=='' && (!Number.isFinite(Number(minimumBudget)) || Number(minimumBudget)<0 || Number(minimumBudget)>1000000) ? 'Minimum value must be between £0 and £1,000,000.' : ''
+ const postcodeInput=homeOutcode.toUpperCase().replace(/\s/g,'')
+ const validOutcode=/^[A-Z]{1,2}\d[A-Z\d]?$/.test(postcodeInput)
+ const validFullPostcode=/^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(postcodeInput)
+ const normalizedOutcode=validFullPostcode?postcodeInput.slice(0,-3):postcodeInput
+ const alertValidation = alertEnabled && !matchCurrent && !matchHome && !matchFuture ? 'Choose at least one matching location.' : alertEnabled && !alertChannels.inApp && !alertChannels.email && !alertChannels.push ? 'Choose at least one notification channel.' : matchHome && !validOutcode && !validFullPostcode ? 'Enter a valid postcode area (BB1) or full UK postcode (BB1 9QX).' : minimumBudget!=='' && (!Number.isFinite(Number(minimumBudget)) || Number(minimumBudget)<0 || Number(minimumBudget)>1000000) ? 'Minimum value must be between £0 and £1,000,000.' : ''
  const isSection=Boolean(section)
  return <div className="driver-menu-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
  <aside className="driver-menu-panel" role="dialog" aria-modal="true" aria-label="Driver Menu">
   <div className="driver-menu-heading">
-   <span className="driver-menu-avatar" aria-hidden="true">XD</span>
+   <img className="driver-menu-brand-logo" src={`${import.meta.env.BASE_URL}xdrive-logo-company-3150.png`} alt="XDrive Logistics" />
    <div><strong>{section||'Driver Menu'}</strong><small>{section?'Driver account and operations':'Your account and jobs'}</small></div>
    <button type="button" className="driver-menu-close" aria-label="Close menu" onClick={onClose}>×</button>
   </div>
@@ -221,6 +237,16 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
       <Details rows={[['Vehicle',readableLabel(journey.vehicleType,'Not specified')],['Available from',dateTimeLabel(journey.availableFrom)],['Available to',dateTimeLabel(journey.availableTo)],['Journey type',readableLabel(journey.journeyKind,'Ad hoc')]]}/>
       {(!journey.from||!journey.availableFrom||!journey.vehicleType)&&<p className="driver-menu-notice error">This saved journey is missing route, availability or vehicle information. It must be corrected before operational use.</p>}
       {Boolean(journey.notes)&&<p className="driver-menu-hint">{textValue(journey.notes)}</p>}
+
+      {editingJourney===textValue(journey.id)?<form className="driver-menu-journey-edit" onSubmit={e=>{e.preventDefault();void updateJourney()}}>
+       <label>Origin<input required value={journeyDraft.from} onChange={e=>setJourneyDraft(v=>({...v,from:e.target.value}))}/></label>
+       <label>Destination (optional)<input value={journeyDraft.to} onChange={e=>setJourneyDraft(v=>({...v,to:e.target.value}))}/></label>
+       <label>Vehicle type<input required value={journeyDraft.vehicleType} onChange={e=>setJourneyDraft(v=>({...v,vehicleType:e.target.value}))}/></label>
+       <label>Available from<input type="datetime-local" required value={journeyDraft.availableFrom} onChange={e=>setJourneyDraft(v=>({...v,availableFrom:e.target.value}))}/></label>
+       <label>Available to<input type="datetime-local" value={journeyDraft.availableTo} onChange={e=>setJourneyDraft(v=>({...v,availableTo:e.target.value}))}/></label>
+       <div className="driver-menu-journey-actions"><button type="submit" disabled={busy}>Save journey</button><button type="button" disabled={busy} onClick={()=>setEditingJourney(null)}>Cancel</button></div>
+      </form>:<button type="button" className="driver-menu-journey-edit-button" onClick={()=>beginJourneyEdit(journey)}>Edit journey</button>}
+
     </article>)}
    </Group>}
    {section==='Availability'&&!loading&&data&&<>
@@ -258,7 +284,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      <p className="driver-menu-hint">Default: 30 miles. Alert radius and Loads search radius are separate settings.</p>
      <label className="driver-menu-toggle"><input type="checkbox" checked={matchCurrent} onChange={e=>setMatchCurrent(e.target.checked)}/><span>Match near my current position</span></label>
      <label className="driver-menu-toggle"><input type="checkbox" checked={matchHome} onChange={e=>setMatchHome(e.target.checked)}/><span>Include jobs near my home area</span></label>
-     {matchHome&&<label>Home postcode area (outcode)<input placeholder="e.g. BB1" value={homeOutcode} maxLength={5} onChange={e=>setHomeOutcode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))}/></label>}
+     {matchHome&&<label>Home postcode area or full UK postcode<input placeholder="e.g. BB1 or BB1 9QX" value={homeOutcode} maxLength={9} onChange={e=>setHomeOutcode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,''))}/></label>}
      <label className="driver-menu-toggle"><input type="checkbox" checked={matchFuture} onChange={e=>setMatchFuture(e.target.checked)}/><span>Include my planned future location</span></label>
      <label className="driver-menu-toggle"><input type="checkbox" checked={matchVehicle} onChange={e=>setMatchVehicle(e.target.checked)}/><span>Match loads to my vehicle</span></label>
      <label>Minimum load value (£, optional)<input inputMode="decimal" type="number" min="0" step="0.01" value={minimumBudget} onChange={e=>setMinimumBudget(e.target.value)} placeholder="No minimum"/></label>
@@ -273,7 +299,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
       enabled:alertEnabled,radiusMiles:alertRadius,
       currentRadiusEnabled:matchCurrent,
       homeOutcodeEnabled:matchHome,
-      homeOutcode:homeOutcode.trim(),
+      homeOutcode:normalizedOutcode,
       futurePositionEnabled:matchFuture,
       currentLocationMaxAgeMinutes:positiveNumber(preference.currentLocationMaxAgeMinutes,120),
       requireVehicleMatch:matchVehicle,
@@ -294,11 +320,11 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
    </>}
    {section==='Settings'&&<Group title="Device preferences"><DriverSettings role={role}/><p className="driver-menu-hint">These settings apply on this device. Account availability and load alerts are saved separately in their LIVE sections.</p></Group>}
   </div>:
-  <div className="driver-menu-items">{items.filter(item=>item.title!=='Invoices'||role==='Owner Driver').map(item=><button type="button" key={item.title} className={'driver-menu-item'+(item.title==='Log Out'?' driver-menu-logout':'')} onClick={()=>item.title==='Log Out'?onLogout():setSection(item.title)}>
+  <div className="driver-menu-items"><p className="driver-menu-category">ACCOUNT & VEHICLE</p>{items.filter(item=>item.title!=='Invoices'||role==='Owner Driver').map((item,index)=><div key={item.title}>{index===3&&<p className="driver-menu-category">OPERATIONS</p>}{index===5&&<p className="driver-menu-category">UPDATES & FINANCE</p>}{item.title==='Settings'&&<p className="driver-menu-category">PREFERENCES</p>}{item.title==='Log Out'&&<div className="driver-menu-separator"/>}<button type="button" key={item.title} className={'driver-menu-item'+(item.title==='Log Out'?' driver-menu-logout':'')} onClick={()=>item.title==='Log Out'?onLogout():setSection(item.title)}>
    <span className="driver-menu-symbol" aria-hidden="true">{item.icon}</span>
    <span className="driver-menu-label"><strong>{item.title}</strong><small>{item.description}</small>{item.title==='Invoices'&&<em>Owner Driver only</em>}</span>
    <span className="driver-menu-arrow" aria-hidden="true">›</span>
-  </button>)}
+  </button></div>)}
   <p className="driver-menu-hint driver-menu-saved">Saved loads on this device: {savedCount}</p>
   </div>}
  </aside></div>
