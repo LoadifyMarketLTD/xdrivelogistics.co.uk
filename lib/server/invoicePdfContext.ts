@@ -140,16 +140,27 @@ export async function loadInvoicePdfContext({
   if (jobId) {
     const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, delivered_at, delivery_notes, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name, pickup_location, delivery_location, pod_generated_at, collection_contact_name, delivery_contact_name, no_of_items, delivery_status')
+      .select('id, pod_generated, pod_photos, damage_photos, pickup_photos, pickup_datetime, delivery_datetime, delivered_at, delivery_notes, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name, pickup_location, delivery_location, pod_generated_at, collection_contact_name, delivery_contact_name, no_of_items, delivery_status')
       .eq('id', jobId)
       .maybeSingle();
 
     if (requirePod && (jobError || !job || !hasCompletePodEvidence(job))) throw new Error('Complete POD is required before sending this invoice.');
+    // Recover authoritative signed handover metadata, retaining the official PDF renderer.
+    const { data: pod, error: podError } = await supabase.from('proof_of_delivery')
+      .select('delivered_on, received_by, left_at, no_of_items, delivery_status, delivery_notes, photo_urls')
+      .eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (requirePod && (podError || !pod)) throw new Error('Complete signed POD record is missing or unavailable.');
+    if (pod) {
+      deliveredAt = clean(pod.delivered_on) || deliveredAt;
+      recipientName = clean(pod.received_by) || recipientName;
+      leftAt = clean(pod.left_at) || leftAt;
+      deliveryNotes = clean(pod.delivery_notes) || deliveryNotes;
+    }
     if (job) {
       pickupDateTime = clean(job.pickup_datetime);
       deliveryDateTime = clean(job.delivery_datetime);
-      deliveredAt = clean(job.delivered_at);
-      recipientName = clean(job.client_signature_name);
+      deliveredAt = deliveredAt || clean(job.delivered_at);
+      recipientName = recipientName || clean(job.client_signature_name);
       signedPodConfirmed = hasCompletePodEvidence(job);
       if (signedPodConfirmed) {
         podDetails = { ...job, id: job.id };
@@ -177,11 +188,19 @@ export async function loadInvoicePdfContext({
       const imagePaths: Array<{ path: string; label: string }> = [];
       const collectionPath = clean(job.collection_photo_url);
       if (collectionPath) imagePaths.push({ path: collectionPath, label: 'Collection' });
-      for (const [paths, label] of [[job.delivery_photos, 'Delivery'], [job.pod_photos, 'POD']] as const) {
+      if (Array.isArray(job.pickup_photos)) for (const path of job.pickup_photos) {
+        const cleaned = clean(path);
+        if (cleaned && !imagePaths.some(image => image.path === cleaned)) imagePaths.push({ path: cleaned, label: 'Collection' });
+      }
+      for (const [paths, label] of [[job.delivery_photos, 'Delivery'], [job.pod_photos, 'POD'], [job.damage_photos, 'Damage evidence']] as const) {
         if (Array.isArray(paths)) for (const path of paths) {
           const cleaned = clean(path);
           if (cleaned && !imagePaths.some(image => image.path === cleaned)) imagePaths.push({ path: cleaned, label });
         }
+      }
+      if (pod && Array.isArray(pod.photo_urls)) for (const path of pod.photo_urls) {
+        const cleaned = clean(path);
+        if (cleaned && !imagePaths.some(image => image.path === cleaned)) imagePaths.push({ path: cleaned, label: 'POD document evidence' });
       }
       for (const image of imagePaths) {
         if (!image.path.startsWith(`${companyId}/${jobId}/`) || image.path.includes('..') || image.path.includes('://') || image.path.includes('\\')) {
@@ -226,7 +245,7 @@ export async function loadInvoicePdfContext({
       .limit(1).maybeSingle();
     const draft = handover?.form_data && typeof handover.form_data === 'object' && !Array.isArray(handover.form_data)
       ? handover.form_data as Record<string, unknown> : null;
-    leftAt = clean(draft?.leftAt);
+    leftAt = leftAt || clean(draft?.leftAt);
     deliveryNotes = clean(draft?.notes) || deliveryNotes;
     podHandover = {
       leftAt: clean(draft?.leftAt),
