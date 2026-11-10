@@ -48,6 +48,7 @@ type InvoicePdfInput = {
   logoBytes?: Uint8Array | null;
   evidenceImages?: InvoiceEvidenceImage[];
   signatureAttestation?: string | null;
+  podSummary?: { deliveredOn: string | null; receivedBy: string | null; leftAt: string | null; noOfItems: number | null; deliveryStatus: string | null; deliveryNotes: string | null } | null;
   podDetails?: ProfessionalPodDetails | null;
   podHandover?: HandoverDetails | null;
   podSignatureDataUrl?: string | null;
