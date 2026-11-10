@@ -48,7 +48,7 @@ export default function Master3150DashboardLayout({data,workspaceLabel,go,onOpen
   </button>)}</div>
   <div className="xd-dashboard-primary">
    <div className="xd-dash-panel xd-today"><div className="xd-dash-panel-head"><h2>Today's Operations ({scheduledToday.length})</h2><button onClick={()=>go(7)}>View Diary</button></div>
-    <div className="xd-dash-rows">{scheduledToday.length===0?<p className="muted">No company jobs scheduled today.</p>:scheduledToday.map((j,i)=><article className="xd-dash-job" key={j.id}>
+    <div className="xd-dash-rows">{scheduledToday.length===0?<p className="muted">No company jobs scheduled today.</p>:scheduledToday.map((j)=><article className="xd-dash-job" key={j.id}>
      <div className={'xd-dash-date '+(stage(j)==='in_progress'?'intransit':'awaiting')}><b>{dateLabel(j.pickup_datetime)}</b><span>{stage(j)}</span></div>
      <div className="xd-dash-job-main"><strong>{location(j.pickup_location,j.pickup_postcode)} → {location(j.delivery_location,j.delivery_postcode)}</strong>
       <small>Ref: {j.id.slice(0,8).toUpperCase()} | {(j.requested_vehicle_label||j.vehicle_type||'Vehicle not recorded').replaceAll('_',' ')} | {j.pallets??'—'} pallets</small></div>
