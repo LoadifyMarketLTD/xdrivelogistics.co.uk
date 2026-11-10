@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import DriverSettings from './DriverSettings'
 import { driverGet } from './liveApi'
 import { asRecord, asRows, dateLabel, dateTimeLabel, expiryLabel, moneyLabel, positiveNumber, readableLabel, textValue, yesNo, type DriverRecord } from './driverMenuView'
@@ -44,14 +44,15 @@ function Status({value,tone}:{value:string;tone?:'good'|'warn'|'neutral'}){
  return <span className={'driver-menu-status '+(tone||'neutral')}>{value}</span>
 }
 
-export default function DriverMenu({section,setSection,onClose,onNavigate,role,setAvailable,savedCount,onLogout,liveConnected,token}:{
+export default function DriverMenu({section,setSection,onClose,onNavigate,role,setAvailable,savedCount,onLogout,liveConnected,token,sharedCache}:{
  section:string|null;setSection:(s:string|null)=>void;onClose:()=>void;
  onNavigate:(s:'Invoices'|'Alerts'|'Loads'|'Notifications'|'Bookings'|'Quotes')=>void;role:Role;
  available:boolean;setAvailable:(v:boolean)=>void;savedCount:number;onLogout:()=>void;
- liveConnected:boolean;token:string|null
+ liveConnected:boolean;token:string|null;sharedCache?:React.MutableRefObject<{token:string;entries:Record<string,DriverRecord>}> 
 }){
  const [data,setData]=useState<DriverRecord|null>(null)
- const cache=useRef<{token:string;entries:Record<string,DriverRecord>}>({token:'',entries:{}})
+ const [localCache]=useState<{current:{token:string;entries:Record<string,DriverRecord>}}>(()=>({current:{token:'',entries:{}}}))
+ const cache=sharedCache||localCache
  const [documents,setDocuments]=useState<DriverRecord[]>([])
  const [documentsError,setDocumentsError]=useState('')
  const [loading,setLoading]=useState(false)
@@ -84,13 +85,14 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
   const path=routes[section as Section]
   if(cache.current.token!==token){cache.current={token:token||'',entries:{}}}
   const cached=path&&revision===0?cache.current.entries[path]:undefined
-  setData(cached||null);setError('');setSuccess('');setDocuments([]);setDocumentsError('')
+  setData(cached||null);setError('');setSuccess('');setDocuments(asRows(cache.current.entries['/documents']?.documents));setDocumentsError('')
   setNotificationLimit(20);setNotificationsOnlyUnread(false)
   if(!section||!path||!token||!liveConnected){setLoading(false);return}
   let active=true
   setLoading(!cached)
+  if(cached){const cachedDriver=asRecord(cached.driver);const cachedPref=asRecord(cached.preference);if(section==='My Profile'){setName(textValue(cachedDriver.display_name,''));setPhone(textValue(cachedDriver.phone,''))}if(section==='Load Alerts'){setAlertEnabled(cachedPref.enabled===true);setAlertRadius(positiveNumber(cachedPref.radiusMiles,30));setAlertChannels({inApp:cachedPref.inAppEnabled===true,email:cachedPref.emailEnabled===true,push:cachedPref.pushEnabled===true});setMatchCurrent(cachedPref.currentRadiusEnabled===true);setMatchHome(cachedPref.homeOutcodeEnabled===true);setHomeOutcode(textValue(cachedPref.homeOutcode,''));setMatchFuture(cachedPref.futurePositionEnabled===true);setMatchVehicle(cachedPref.requireVehicleMatch===true);setMinimumBudget(cachedPref.minimumBudgetGbp==null?'':String(cachedPref.minimumBudgetGbp))}if(section==='Availability'){setDestinationEnabled(cachedDriver.destination_priority_enabled===true);setDestinationRadius(positiveNumber(cachedDriver.destination_radius_miles,30))}}
   void driverGet(path,token).then(result=>{
-   cache.current.entries[path]=result
+   if(cache.current.token===token)cache.current.entries[path]=result
    if(!active)return
    setData(result)
    const driver=asRecord(result.driver)
@@ -115,7 +117,8 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
   }).catch(reason=>{if(active)setError(reason instanceof Error?reason.message:'Could not load account data')})
     .finally(()=>{if(active)setLoading(false)})
   if(section==='My Vehicle'){
-   void driverGet('/documents',token).then(result=>{if(active)setDocuments(asRows(result.documents))})
+   const docsCached=cache.current.entries['/documents'];if(docsCached)setDocuments(asRows(docsCached.documents));
+   void driverGet('/documents',token).then(result=>{if(cache.current.token===token)cache.current.entries['/documents']=result;if(active)setDocuments(asRows(result.documents))})
      .catch(reason=>{if(active)setDocumentsError(reason instanceof Error?reason.message:'Could not load documents')})
   }
   return()=>{active=false}
@@ -194,7 +197,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
    {loading&&<p role="status" className="driver-menu-notice">Loading your information…</p>}
    {error&&<p role="alert" className="driver-menu-notice error">{error} <button type="button" onClick={()=>setRevision(v=>v+1)}>Retry</button></p>}
    {success&&<p role="status" className="driver-menu-notice saved">{success}</p>}
-   {!loading&&data&&section==='My Profile'&&<>
+   {data&&section==='My Profile'&&<>
     <Group title="Account details"><Details rows={[
      ['Account type',role],['Email',driver.email],['Account status',readableLabel(driver.status)],
     ]}/></Group>
@@ -204,7 +207,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      <button type="button" className="driver-menu-primary" disabled={busy} onClick={()=>void save('/profile',{displayName:name.trim(),phone:phone.trim()},'Profile saved to XDrive LIVE.')}>{busy?'Saving…':'Save profile'}</button>
     </Group>
    </>}
-   {(section==='My Vehicle'||section==='Documents')&&!loading&&data&&<>
+   {(section==='My Vehicle'||section==='Documents')&&data&&<>
     {section==='My Vehicle'&&(vehicles.length?vehicles.map((vehicle,index)=><Group key={textValue(vehicle.id,String(index))} title={[textValue(vehicle.make,''),textValue(vehicle.model,'')].filter(Boolean).join(' ')||'Assigned vehicle'}>
      <div className="driver-menu-card-top"><strong>{textValue(vehicle.reg_plate,'Registration not provided')}</strong>{vehicle.id===data.canonicalVehicleId&&<Status value="Primary vehicle" tone="good"/>}</div>
      <Details rows={[
@@ -230,7 +233,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      <p className="driver-menu-hint">Files open through short-lived, access-controlled document links. Internal storage paths are never displayed.</p>
     </Group>
    </>}
-   {section==='Return Journeys'&&!loading&&data&&<Group title="Your return journeys" description="Live return journey records associated with your authenticated driver account.">
+   {section==='Return Journeys'&&data&&<Group title="Your return journeys" description="Live return journey records associated with your authenticated driver account.">
     {!asRows(data.journeys).length&&<p className="driver-menu-empty">No return journeys are recorded for this driver.</p>}
     {asRows(data.journeys).map((journey,index)=><article className="driver-menu-record" key={textValue(journey.id,String(index))}>
       <div className="driver-menu-card-top"><strong>{textValue(journey.from,'Origin not provided')} → {textValue(journey.to,'Any destination')}</strong><Status value={!journey.from||!journey.availableFrom||!journey.vehicleType?'Incomplete record':readableLabel(journey.status,'Unknown')} tone={!journey.from||!journey.availableFrom||!journey.vehicleType?'warn':'neutral'}/></div>
@@ -249,7 +252,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
 
     </article>)}
    </Group>}
-   {section==='Availability'&&!loading&&data&&<>
+   {section==='Availability'&&data&&<>
     <Group title="Your current availability">
      <div className="driver-menu-card-top"><strong>{readableLabel(driver.availability_status)}</strong><Status value="LIVE" tone="good"/></div>
      <label className="driver-menu-toggle"><input type="checkbox" checked={driver.availability_status==='available'} disabled={busy} onChange={e=>{const value=e.target.checked;void save('/availability-profile',{availabilityStatus:value?'available':'offline'},'Availability updated.').then(result=>{if(result)setAvailable(value)})}}/><span>Available for new loads</span></label>
@@ -261,7 +264,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      <button type="button" className="driver-menu-primary" disabled={busy} onClick={()=>void save('/availability-profile',{destinationPriorityEnabled:destinationEnabled,destinationRadiusMiles:destinationRadius},'Destination preferences saved.')}>{busy?'Saving…':'Save destination preferences'}</button>
     </Group>
    </>}
-   {section==='Notifications'&&!loading&&data&&<>
+   {section==='Notifications'&&data&&<>
     <Group title="Notification inbox">
      <div className="driver-menu-card-top"><span>{notifications.length} notifications · {unread.length} unread</span><button type="button" disabled={busy||unread.length===0} onClick={()=>void markRead()}>Mark all as read</button></div>
      <div className="driver-menu-filters" role="group" aria-label="Notification filter"><button type="button" aria-pressed={!notificationsOnlyUnread} onClick={()=>{setNotificationsOnlyUnread(false);setNotificationLimit(20)}}>All</button><button type="button" aria-pressed={notificationsOnlyUnread} onClick={()=>{setNotificationsOnlyUnread(true);setNotificationLimit(20)}}>Unread only</button></div>
@@ -277,7 +280,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      {selectedNotifications.length>shownNotifications.length&&<button type="button" className="driver-menu-more" onClick={()=>setNotificationLimit(n=>n+20)}>Show more notifications ({selectedNotifications.length-shownNotifications.length} remaining)</button>}
     </Group>
    </>}
-   {section==='Load Alerts'&&!loading&&data&&<>
+   {section==='Load Alerts'&&data&&<>
     <Group title="Matching load alerts" description="Real alert preferences saved to your Driver account.">
      <label className="driver-menu-toggle"><input type="checkbox" checked={alertEnabled} onChange={e=>setAlertEnabled(e.target.checked)}/><span>Enable load alerts</span></label>
      <label>Alert radius<select value={alertRadius} onChange={e=>setAlertRadius(Number(e.target.value))}>{[10,20,30,50,100,200,300].map(value=><option key={value} value={value}>{value} miles</option>)}</select></label>
@@ -308,7 +311,7 @@ export default function DriverMenu({section,setSection,onClose,onNavigate,role,s
      },'Load alert preferences saved to XDrive LIVE.')}>{busy?'Saving…':'Save alert preferences'}</button>
     </Group>
    </>}
-   {section==='Invoices'&&!loading&&data&&<>
+   {section==='Invoices'&&data&&<>
     <Group title="Invoice history" description="Real invoices for your authorised Owner Driver account.">
      {!invoices.length&&<p className="driver-menu-empty">No invoices found for this account.</p>}
      {invoices.map((invoice,index)=><article className="driver-menu-record" key={textValue(invoice.id,String(index))}>

@@ -66,3 +66,19 @@
 .driver-menu-brand-logo{width:90px;height:42px;object-fit:contain;flex-shrink:0} 
 
 .driver-menu-journey-edit{display:grid;gap:10px;margin:13px 0;padding:12px;background:#f3f7fb;border:1px solid #dce6f0;border-radius:10px}.driver-menu-journey-edit label{display:grid;gap:5px;font-size:11px;font-weight:750;color:#274260}.driver-menu-journey-edit input{box-sizing:border-box;width:100%;min-width:0;padding:10px;border:1px solid #cad8e5;border-radius:7px;font:inherit;font-size:13px;background:#fff;color:#193553}.driver-menu-journey-actions{display:flex;gap:8px}.driver-menu-journey-actions button,.driver-menu-journey-edit-button{padding:9px 13px;border-radius:7px;border:1px solid #173d65;background:#173d65;color:#fff;font-weight:750;font-size:12px;cursor:pointer}.driver-menu-journey-actions button+button{background:#fff;color:#173d65}.driver-menu-journey-edit-button{margin-top:10px}
+/* Accessible mobile typography: preserve the approved layout while making content readable. */
+.driver-menu-heading strong{font-size:20px;line-height:1.3}
+.driver-menu-heading small,.driver-menu-label small{font-size:14px;line-height:1.45}
+.driver-menu-label strong{font-size:17px;line-height:1.35}
+.driver-menu-category{font-size:13px}
+.driver-menu-item{min-height:62px}
+.driver-menu-back{font-size:16px;min-height:44px}
+.driver-menu-group h3{font-size:19px;line-height:1.35}
+.driver-menu-group>header p,.driver-menu-group>p,.driver-menu-record p{font-size:16px;line-height:1.5}
+.driver-menu-details>div,.driver-menu-card-top>strong,.driver-menu-card-top>span:first-child{font-size:16px;line-height:1.5}
+.driver-menu-card-top button,.driver-menu-card-foot button,.driver-menu-filters button,.driver-menu-more,.driver-menu-document-open,.driver-menu-journey-edit-button,.driver-menu-journey-actions button{font-size:15px;min-height:44px}
+.driver-menu-status,.driver-menu-card-foot small,.driver-menu-hint{font-size:14px!important;line-height:1.45}
+.driver-menu-content label:not(.driver-menu-toggle),.driver-menu-toggle,.driver-menu-notice,.driver-menu-empty{font-size:16px;line-height:1.5}
+.driver-menu-content label input:not([type=checkbox]),.driver-menu-content label select,.driver-menu-journey-edit input{font-size:16px;min-height:46px}
+.driver-menu-primary{font-size:17px;min-height:48px}
+.driver-menu-group .settings h3{font-size:18px}.driver-menu-group .settings p,.driver-menu-journey-edit label{font-size:15px}
