@@ -521,11 +521,29 @@ export async function submitInvoice(
       html: messageToHtml(resolvedMessage),
       attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
     };
-    if (emailBody.attachments.length !== 1) return failDelivery(409, 'Exactly one combined PDF attachment is required.');
-    const frozen = await PDFDocument.load(Buffer.from(emailBody.attachments[0].content, 'base64')).catch(() => null);
+    if (!Array.isArray(emailBody.attachments) || emailBody.attachments.length !== 1) return failDelivery(409, 'Exactly one combined PDF attachment is required.');
+    const frozenAttachment = emailBody.attachments[0] as { content: string };
+    const frozen = await PDFDocument.load(Buffer.from(frozenAttachment.content, 'base64')).catch(() => null);
     if (claimedInvoice.job_id && (!frozen || frozen.getPageCount() < 3)) return failDelivery(409, 'Frozen invoice attachment is incomplete.');
     const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
     if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
+  }
+  // Validate frozen payloads too: retries must not bypass the combined PDF rule.
+  const attachments = emailBody?.attachments;
+  if (!Array.isArray(attachments) || attachments.length !== 1) {
+    return failDelivery(409, 'Exactly one combined invoice and POD PDF attachment is required.');
+  }
+  const attachment = attachments[0];
+  if (!attachment || typeof attachment !== 'object' || typeof attachment.content !== 'string' || typeof attachment.filename !== 'string' || !attachment.filename.toLowerCase().endsWith('.pdf')) {
+    return failDelivery(409, 'The frozen invoice PDF attachment is invalid.');
+  }
+  const frozenBytes = Buffer.from(attachment.content, 'base64');
+  if (!frozenBytes.length || frozenBytes.length > 10 * 1024 * 1024) {
+    return failDelivery(409, 'The frozen invoice PDF attachment exceeds the allowed size or is empty.');
+  }
+  const verifiedPdf = await PDFDocument.load(frozenBytes).catch(() => null);
+  if (!verifiedPdf || (claimedInvoice.job_id && verifiedPdf.getPageCount() < 3)) {
+    return failDelivery(409, 'The frozen combined invoice and signed POD are incomplete.');
   }
   const attemptedAt = new Date().toISOString();
 
