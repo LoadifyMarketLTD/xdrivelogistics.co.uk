@@ -1,0 +1,17 @@
+{
+  "name": "XDrive Driver Reserve",
+  "short_name": "XDrive Reserve",
+  "id": "/driver/reserve-pwa/",
+  "start_url": "/driver/reserve-pwa/index.html",
+  "scope": "/driver/reserve-pwa/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#172b45",
+  "icons": [
+    {
+      "src": "/driver/reserve-pwa/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
