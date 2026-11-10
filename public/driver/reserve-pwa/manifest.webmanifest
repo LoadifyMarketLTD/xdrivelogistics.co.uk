@@ -1,6 +1,6 @@
 {
-  "name": "XDrive Driver Reserve",
-  "short_name": "XDrive Reserve",
+  "name": "XDrive Logistics Driver",
+  "short_name": "XDrive Driver",
   "id": "/driver/reserve-pwa/",
   "start_url": "/driver/reserve-pwa/index.html",
   "scope": "/driver/reserve-pwa/",
