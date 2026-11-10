@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { PDFDocument } from 'pdf-lib';
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from './invoicePdf';
@@ -426,6 +427,7 @@ export async function submitInvoice(
       logoBytes: pdfContext.logoBytes,
       evidenceImages: pdfContext.evidenceImages,
       signatureAttestation: pdfContext.signatureAttestation,
+      podSummary: pdfContext.podSummary,
       podDetails: pdfContext.podDetails,
       podHandover: pdfContext.podHandover,
       podSignatureDataUrl: pdfContext.podSignatureDataUrl,
@@ -445,6 +447,11 @@ export async function submitInvoice(
     );
   }
 
+  // Never send an invoice without the signed POD companion and its evidence.
+  const combined = await PDFDocument.load(pdfBytes).catch(() => null);
+  if (claimedInvoice.job_id && (!combined || combined.getPageCount() < 3 || !pdfContext.podSummary)) {
+    return failDelivery(409, 'Combined invoice and signed POD are incomplete; email was not sent.');
+  }
   if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
   }
@@ -514,6 +521,9 @@ export async function submitInvoice(
       html: messageToHtml(resolvedMessage),
       attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
     };
+    if (emailBody.attachments.length !== 1) return failDelivery(409, 'Exactly one combined PDF attachment is required.');
+    const frozen = await PDFDocument.load(Buffer.from(emailBody.attachments[0].content, 'base64')).catch(() => null);
+    if (claimedInvoice.job_id && (!frozen || frozen.getPageCount() < 3)) return failDelivery(409, 'Frozen invoice attachment is incomplete.');
     const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
     if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
   }
