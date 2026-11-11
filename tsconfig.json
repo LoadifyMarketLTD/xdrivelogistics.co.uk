@@ -43,7 +43,6 @@
   ],
   "exclude": [
     "node_modules",
-    "apps/driver-mobile/**",
     "official-driver-pwa/**",
     "driver-pwa-reserve/**",
     "standalone/driver-pwa-1099/**",
