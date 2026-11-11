@@ -122,7 +122,7 @@ export default function ReserveApp() {
       <Route job={j}/>
       {j.notes?.trim()&&<p className="rv-job-notes"><strong>Notes:</strong> {j.notes}</p>}
       <div className="rv-chips"><span><strong>{j.weight || '—'}</strong> kg</span>{j.terms&&<span>Payment: {j.terms}</span>}{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div>
-      {tab==='Quotes'&&j.quote!=null&&<div className="rv-summary"><Fact name="Your submitted quote" value={gbp(j.quote)}/><Fact name="Collection ETA" value={j.quoteEtaMinutes==null?'Not provided':j.quoteEtaMinutes+' minutes'}/></div>}
+      {tab==='Quotes'&&j.quote!=null&&<div className="rv-quote-inline"><span><strong>Quote:</strong> {gbp(j.quote)}</span><span><strong>ETA:</strong> {j.quoteEtaMinutes==null?'Not provided':j.quoteEtaMinutes+' min'}</span></div>}
 
       {tab==='Loads'?<div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>Load Details</button>{j.quote!=null&&j.quoteOutcome!=='CANCELLED'&&j.bidStatus!=='withdrawn'?<button className="rv-primary" onClick={()=>{setQuoteSection('Submitted');setTab('Quotes');open(j,'quoteDetails')}}>View Quote</button>:<button className="rv-primary" onClick={()=>open(j,'quote')}>Quote Now</button>}</div>
       :tab==='Quotes'?<>

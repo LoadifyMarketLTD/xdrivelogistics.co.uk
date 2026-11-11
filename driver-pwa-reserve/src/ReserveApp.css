@@ -283,6 +283,12 @@
 .rv-job .rv-route{gap:8px}
 @media(max-width:400px){.rv-job .rv-stop .rv-stop-schedule{gap:5px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-date{font-size:14px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:18px}}
 
+/* Quotes share the Loads card layout; only the commercial details differ. */
+.rv-job .rv-quote-inline{display:flex;align-items:center;flex-wrap:wrap;gap:5px 14px;margin:5px 0 3px;color:#354b61;font-size:13px;line-height:1.35}
+.rv-job .rv-quote-inline strong{color:#19324b;font-weight:800}
+.rv-job .rv-primary-quote-actions{margin-top:6px}
+.rv-job .rv-primary-quote-actions+.rv-actions{margin-top:6px}
+
 /* Space-saving chrome: keep 44px touch targets while showing more bookings. */
 .rv-header{height:58px;padding:6px 12px;border-bottom-width:2px}
 .rv-official-logo{height:36px;width:min(148px,calc(100vw - 110px))}
