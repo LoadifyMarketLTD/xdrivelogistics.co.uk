@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { calculateNetInvoicePaid } from '../_lib/netInvoicePayments';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   buildInvoiceStatusSummary,
@@ -149,8 +150,38 @@ export async function GET(request: NextRequest) {
       paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) ?? 0) + Number(payment.amount ?? 0));
     }
   }
+  // Stripe refunds and lost disputes reverse settled cash, but do not remove
+  // the original immutable payment ledger entry. Reconcile by attempt.
+  const netPaidByInvoice = new Map(paidByInvoice);
+  if (invoiceIds.length) {
+    const attemptsResult = await supabaseAdmin.from('invoice_stripe_attempts')
+      .select('id, invoice_id, amount_minor').in('invoice_id', invoiceIds);
+    if (attemptsResult.error) return respond(500, { error: attemptsResult.error.message });
+    const attempts = attemptsResult.data ?? [];
+    const attemptIds = attempts.map((attempt) => String(attempt.id));
+    if (attemptIds.length) {
+      const [refundResult, disputeResult] = await Promise.all([
+        supabaseAdmin.from('invoice_stripe_reversals').select('attempt_id, amount_minor').in('attempt_id', attemptIds),
+        supabaseAdmin.from('invoice_stripe_disputes').select('attempt_id, amount_minor, status').in('attempt_id', attemptIds),
+      ]);
+      if (refundResult.error) return respond(500, { error: refundResult.error.message });
+      if (disputeResult.error) return respond(500, { error: disputeResult.error.message });
+      for (const invoiceId of invoiceIds) {
+        const invoiceAttempts = attempts.filter((attempt) => String(attempt.invoice_id) === invoiceId);
+        const relevantIds = new Set(invoiceAttempts.map((attempt) => String(attempt.id)));
+        netPaidByInvoice.set(invoiceId, calculateNetInvoicePaid(
+          paidByInvoice.get(invoiceId) ?? 0,
+          invoiceAttempts.map((attempt) => ({ id: String(attempt.id), amount_minor: Number(attempt.amount_minor) })),
+          (refundResult.data ?? []).filter((item) => relevantIds.has(String(item.attempt_id)))
+            .map((item) => ({ attempt_id: String(item.attempt_id), amount_minor: Number(item.amount_minor) })),
+          (disputeResult.data ?? []).filter((item) => relevantIds.has(String(item.attempt_id)))
+            .map((item) => ({ attempt_id: String(item.attempt_id), amount_minor: Number(item.amount_minor), status: String(item.status) })),
+        ));
+      }
+    }
+  }
   const enrichedRows = allRows.map((row) => {
-    const paidAmount = paidByInvoice.get(String((row as Record<string, unknown>).id)) ?? 0;
+    const paidAmount = netPaidByInvoice.get(String((row as Record<string, unknown>).id)) ?? 0;
     const grossAmount = Number((row as Record<string, unknown>).amount ?? 0);
     const supplierCompanyId = String((row as Record<string, unknown>).supplier_company_id ?? '');
     return {

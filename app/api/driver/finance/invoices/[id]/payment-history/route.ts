@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { requireDriverFinanceAccess } from '../../../_lib/financeAccess';
+import { calculateNetInvoicePaid } from '../../../_lib/netInvoicePayments';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -42,7 +43,28 @@ export async function GET(
   if (error) return respond(500, { error: error.message });
 
   const payments = (data ?? []) as Array<{ amount: unknown; [key: string]: unknown }>;
-  const totalPaid = payments.reduce((sum: number, p) => sum + (Number(p.amount) || 0), 0);
+  const grossPaid = payments.reduce((sum: number, p) => sum + (Number(p.amount) || 0), 0);
+  const attemptsResult = await supabaseAdmin.from('invoice_stripe_attempts')
+    .select('id, amount_minor').eq('invoice_id', id);
+  if (attemptsResult.error) return respond(500, { error: attemptsResult.error.message });
+  const attempts = (attemptsResult.data ?? []).map((attempt) => ({
+    id: String(attempt.id), amount_minor: Number(attempt.amount_minor),
+  }));
+  let totalPaid = grossPaid;
+  if (attempts.length) {
+    const attemptIds = attempts.map((attempt) => attempt.id);
+    const [refundResult, disputeResult] = await Promise.all([
+      supabaseAdmin.from('invoice_stripe_reversals').select('attempt_id, amount_minor').in('attempt_id', attemptIds),
+      supabaseAdmin.from('invoice_stripe_disputes').select('attempt_id, amount_minor, status').in('attempt_id', attemptIds),
+    ]);
+    if (refundResult.error) return respond(500, { error: refundResult.error.message });
+    if (disputeResult.error) return respond(500, { error: disputeResult.error.message });
+    totalPaid = calculateNetInvoicePaid(
+      grossPaid, attempts,
+      (refundResult.data ?? []).map((row) => ({ attempt_id: String(row.attempt_id), amount_minor: Number(row.amount_minor) })),
+      (disputeResult.data ?? []).map((row) => ({ attempt_id: String(row.attempt_id), amount_minor: Number(row.amount_minor), status: String(row.status) })),
+    );
+  }
   const balance = Number(inv.amount) - totalPaid;
 
   return respond(200, {
