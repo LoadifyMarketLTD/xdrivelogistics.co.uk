@@ -283,6 +283,9 @@
 .rv-job .rv-route{gap:8px}
 @media(max-width:400px){.rv-job .rv-stop .rv-stop-schedule{gap:5px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-date{font-size:14px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:18px}}
 
+/* Detail page has one compact back arrow, aligned to the right. */
+.rv-details-back-icon{display:flex;align-items:center;justify-content:center;margin:0 0 4px auto;width:44px;height:44px;border:0;background:transparent;color:#274760;font-size:28px;font-weight:800;cursor:pointer}
+
 /* Official poster identity: company name, genuine public company ID, separate load reference. */
 .rv-poster-identity{display:flex;flex-direction:column;gap:3px;margin:5px 0 12px;color:#476079;font-size:13px;overflow-wrap:anywhere}
 .rv-poster-identity strong{color:#132f4b;font-size:16px;font-weight:800}
