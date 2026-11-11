@@ -333,3 +333,31 @@
 .rv-main:has(>.rv-details-back-icon) .rv-route .rv-stop .rv-stop-schedule>span{display:inline;margin:0;font-size:14px;line-height:1.35;white-space:nowrap}
 .rv-main:has(>.rv-details-back-icon) .rv-route .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:17px;line-height:1.35}
 @media(max-width:390px){.rv-main:has(>.rv-details-back-icon) .rv-route .rv-stop .rv-stop-schedule>span{font-size:12px}}
+
+
+/* Same visual identity across Loads, Quotes and their detail views. */
+.rv-detail-toolbar{display:flex;justify-content:flex-end;margin:0 0 5px}
+.rv-detail-back{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:86px;min-height:44px;border:1px solid #a9bfd0;background:#eaf2f8;border-radius:11px;color:#1b3d59;font-size:19px;font-weight:800;box-shadow:0 2px 5px #102d4219}
+.rv-detail-back span{font-size:14px}
+.rv-detail-summary{background:#fff;padding:13px 12px 8px;margin:0 -5px 10px;border-bottom:1px solid #d5dde5}
+.rv-detail-summary .rv-jobhead .rv-job-identity{min-width:0;flex:1}
+.rv-detail-summary .rv-jobhead .rv-job-identity>strong{display:block;font-size:19px;font-weight:850;color:#182c42;line-height:1.25}
+.rv-detail-summary .rv-job-service{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;margin:5px 0}
+.rv-detail-summary .rv-job-service span{color:#e57522;font-weight:850}
+.rv-detail-summary .rv-job-service b{color:#425566;font-size:14px}
+.rv-detail-summary .rv-chip{font-size:11px;border-radius:8px}
+.rv-detail-summary .rv-route{margin:11px 0 8px;padding:8px 0 4px 10px;gap:12px;border-radius:0;background:transparent;position:relative}
+.rv-detail-summary .rv-route:before{content:"";position:absolute;left:15px;top:25px;bottom:27px;border-left:2px dotted #b4bec8}
+.rv-detail-summary .rv-stop{gap:14px;position:relative}
+.rv-detail-summary .rv-stop i{z-index:1;position:relative}
+.rv-detail-summary .rv-stop b{font-size:21px;text-transform:uppercase;line-height:1.22}
+.rv-detail-summary .rv-stop-schedule{display:flex!important;align-items:baseline;flex-wrap:wrap;gap:5px;font-size:15px!important;line-height:1.3!important;margin-top:4px!important}
+.rv-detail-summary .rv-stop-schedule>span,.rv-detail-summary .rv-stop-schedule>strong{display:inline!important;margin:0!important;font-size:15px!important;line-height:1.3!important}
+.rv-detail-summary .rv-stop-schedule>.rv-stop-time{font-weight:850!important;color:#203d57}
+.rv-detail-summary .rv-stop-schedule>.rv-stop-date{font-weight:700!important}
+.rv-detail-summary .rv-job-notes{margin:9px 0}
+.rv-detail-summary .rv-chips{display:flex;flex-wrap:wrap;gap:8px;margin:9px 0}
+.rv-detail-summary .rv-chips span{font-size:13px;color:#526577;border-right:1px solid #ced6dc;padding-right:9px}
+.rv-detail-summary .rv-chips span:last-child{border:0}
+.rv-detail-summary .rv-jobhead small{font-size:12px}
+@media(max-width:400px){.rv-detail-summary .rv-stop b{font-size:19px}.rv-detail-summary .rv-stop-schedule>span,.rv-detail-summary .rv-stop-schedule>strong{font-size:13px!important}}
