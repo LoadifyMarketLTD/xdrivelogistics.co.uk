@@ -484,14 +484,7 @@ export default function MyQuotesPage() {
 
           <main className="main">
             <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Quotes</h1><p className="xd-approved-board-subtitle">Submitted &amp; Awarded — real quotation history</p></div></header>
-            <div className="xd-approved-board-kpis" aria-label="Real quote statistics">
-              <div className="xd-approved-board-kpi"><strong>Total Quotes</strong><b>{bids.length}</b><small>All quote records</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Submitted</strong><b>{bids.filter(bid => quoteBucket(bid) === 'submitted').length}</b><small>Active and historical quotation records</small></div>
-              <div className="xd-approved-board-kpi green"><strong>Awarded</strong><b>{bids.filter(bid => quoteBucket(bid) === 'awarded').length}</b><small>Accepted quotations</small></div>
-              <div className="xd-approved-board-kpi amber"><strong>Received</strong><b>{bids.filter(bid => bid.direction === 'incoming').length}</b><small>On posted loads</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
-            </div>
-            {error && <div className="vision-note">{error}</div>}
+             {error && <div className="vision-note">{error}</div>}
             <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Driver quote statuses">
               <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>({filteredBids.filter((bid) => quoteBucket(bid) === 'submitted').length})</span></button>
               <button type="button" role="tab" aria-selected={activeTab === 'awarded'} data-active={activeTab === 'awarded' ? 'true' : 'false'} className={activeTab === 'awarded' ? 'active' : ''} onClick={() => setActiveTab('awarded')}>Awarded <span>({filteredBids.filter((bid) => quoteBucket(bid) === 'awarded').length})</span></button>
