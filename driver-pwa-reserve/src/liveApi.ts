@@ -213,11 +213,11 @@ export function mapAssigned(raw: unknown): LiveJob {
 export async function loadLive(token: string): Promise<LiveJob[]> {
   return (await loadLiveWithDiagnostics(token)).jobs;
 }
-export async function loadLiveWithDiagnostics(token: string, offerData?: Json, includeBidHistory = true): Promise<{jobs: LiveJob[]; warnings: string[]}> {
+export async function loadLiveWithDiagnostics(token: string, offerData?: Json, includeBidHistory = true, onFeed?: (feed: "marketplace" | "bookings" | "completed", jobs: LiveJob[]) => void): Promise<{jobs: LiveJob[]; warnings: string[]}> {
   const responses = await Promise.allSettled([
-    driverGet('/marketplace/loads', token, 10000),
-    driverGet('/mobile/jobs?scope=bookings&compact=1', token, 10000),
-    driverGet('/mobile/jobs?scope=completed&compact=1', token, 10000),
+    driverGet('/marketplace/loads', token, 10000).then(data => { onFeed?.('marketplace', (Array.isArray(data.loads) ? data.loads : []).map(mapMarketplace).filter(job => Boolean(job.id))); return data; }),
+    driverGet('/mobile/jobs?scope=bookings&compact=1', token, 10000).then(data => { onFeed?.('bookings', (Array.isArray(data.jobs) ? data.jobs : []).filter(row => !isSimulatedLiveJob(row)).map(mapAssigned).filter(job => Boolean(job.id))); return data; }),
+    driverGet('/mobile/jobs?scope=completed&compact=1', token, 10000).then(data => { onFeed?.('completed', (Array.isArray(data.jobs) ? data.jobs : []).filter(row => !isSimulatedLiveJob(row)).map(mapAssigned).filter(job => Boolean(job.id))); return data; }),
     includeBidHistory ? driverGet('/mobile/bids', token, 30000) : Promise.resolve({}),
     Promise.resolve(offerData ?? {}),
   ]);
