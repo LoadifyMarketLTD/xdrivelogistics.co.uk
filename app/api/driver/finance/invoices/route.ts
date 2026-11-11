@@ -138,16 +138,23 @@ export async function GET(request: NextRequest) {
   const invoiceIds = allRows.map((row) => String((row as Record<string, unknown>).id)).filter(Boolean);
   const paidByInvoice = new Map<string, number>();
   if (invoiceIds.length) {
-    const paymentHistory = await supabaseAdmin
-      .from('invoice_payment_history')
-      .select('invoice_id, amount')
-      .in('invoice_id', invoiceIds)
-      .limit(2000);
-    if (paymentHistory.error) return respond(500, { error: paymentHistory.error.message });
-    for (const payment of paymentHistory.data ?? []) {
-      const invoiceId = String(payment.invoice_id ?? '');
-      if (!invoiceId) continue;
-      paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) ?? 0) + Number(payment.amount ?? 0));
+    // Supabase/PostgREST enforces a per-request row cap. Walk every ledger
+    // page so invoices with more than 2,000 payment records remain accurate.
+    const pageSize = 500;
+    for (let offset = 0; ; offset += pageSize) {
+      const paymentHistory = await supabaseAdmin
+        .from('invoice_payment_history')
+        .select('invoice_id, amount, id')
+        .in('invoice_id', invoiceIds)
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (paymentHistory.error) return respond(500, { error: paymentHistory.error.message });
+      for (const payment of paymentHistory.data ?? []) {
+        const invoiceId = String(payment.invoice_id ?? '');
+        if (!invoiceId) continue;
+        paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) ?? 0) + Number(payment.amount ?? 0));
+      }
+      if ((paymentHistory.data ?? []).length < pageSize) break;
     }
   }
   // Stripe refunds and lost disputes reverse settled cash, but do not remove
