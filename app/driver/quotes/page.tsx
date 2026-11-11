@@ -199,6 +199,7 @@ export default function MyQuotesPage() {
   // Keep the approved Submitted / Awarded split; completed and unsuccessful quotes
   // remain visible within Submitted, including received quotes awaiting award.
   const [activeTab, setActiveTab] = useState<TabId>('submitted');
+  const [quoteScope, setQuoteScope] = useState<'total' | 'submitted' | 'awarded' | 'received'>('submitted');
   const [submittedView, setSubmittedView] = useState<SubmittedQuoteView>('active');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(EMPTY_FILTERS);
@@ -443,12 +444,14 @@ export default function MyQuotesPage() {
   }), [appliedFilters, bids, companyNames, viewForBid]);
 
   const tabBids = useMemo(() => filteredBids.filter((bid) => {
+    if (quoteScope === 'total') return true;
+    if (quoteScope === 'received') return bid.direction === 'incoming';
     if (quoteBucket(bid) !== activeTab) return false;
     if (activeTab === 'awarded' || submittedView === 'all') return true;
     const stage=canonicalQuoteStage(bid,bid.direction==='incoming'?'poster':'bidder');
     const historic=isTerminalQuoteStage(stage);
     return submittedView === 'history' ? historic : !historic;
-  }), [activeTab, filteredBids, submittedView]);
+  }), [activeTab, filteredBids, submittedView, quoteScope]);
   const visibleBids = useMemo(() => tabBids.slice(0, visibleCount), [tabBids, visibleCount]);
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
   const canLoadMore = visibleCount < tabBids.length;
@@ -456,7 +459,7 @@ export default function MyQuotesPage() {
   useEffect(() => {
     setVisibleCount(pageSize);
     setExpandedIds(new Set());
-  }, [activeTab, appliedFilters, pageSize, submittedView]);
+  }, [activeTab, appliedFilters, pageSize, submittedView, quoteScope]);
   const toggleExpandAll = () => setExpandedIds((previous) => {
     const next = new Set(previous);
     visibleBids.forEach((bid) => { if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id); });
@@ -484,24 +487,19 @@ export default function MyQuotesPage() {
 
           <main className="main">
             <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Quotes</h1><p className="xd-approved-board-subtitle">Submitted &amp; Awarded — real quotation history</p></div></header>
-            <div className="xd-approved-board-kpis" aria-label="Real quote statistics">
-              <div className="xd-approved-board-kpi"><strong>Total Quotes</strong><b>{bids.length}</b><small>All quote records</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Submitted</strong><b>{bids.filter(bid => quoteBucket(bid) === 'submitted').length}</b><small>Active and historical quotation records</small></div>
-              <div className="xd-approved-board-kpi green"><strong>Awarded</strong><b>{bids.filter(bid => quoteBucket(bid) === 'awarded').length}</b><small>Accepted quotations</small></div>
-              <div className="xd-approved-board-kpi amber"><strong>Received</strong><b>{bids.filter(bid => bid.direction === 'incoming').length}</b><small>On posted loads</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
+            <div className="xd-approved-board-kpis xd-quote-kpi-navigation" role="group" aria-label="Quote filters and page size">
+              <button type="button" className="xd-approved-board-kpi" aria-pressed={quoteScope === 'total'} onClick={() => setQuoteScope('total')}><strong>Total Quotes</strong><b>{bids.length}</b><small>All quote records</small></button>
+              <button type="button" className="xd-approved-board-kpi blue" aria-pressed={quoteScope === 'submitted'} onClick={() => { setActiveTab('submitted'); setQuoteScope('submitted'); setSubmittedView('all'); }}><strong>Submitted</strong><b>{bids.filter(bid => quoteBucket(bid) === 'submitted').length}</b><small>Active and historical quotations</small></button>
+              <button type="button" className="xd-approved-board-kpi green" aria-pressed={quoteScope === 'awarded'} onClick={() => { setActiveTab('awarded'); setQuoteScope('awarded'); }}><strong>Awarded</strong><b>{bids.filter(bid => quoteBucket(bid) === 'awarded').length}</b><small>Accepted quotations</small></button>
+              <button type="button" className="xd-approved-board-kpi amber" aria-pressed={quoteScope === 'received'} onClick={() => setQuoteScope('received')}><strong>Received</strong><b>{bids.filter(bid => bid.direction === 'incoming').length}</b><small>Quotes on posted loads</small></button>
+              <label className="xd-approved-board-kpi blue xd-quote-page-size"><strong>Results Per Page</strong><select aria-label="Results Per Page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select><small>Choose 10, 25 or 50</small></label>
             </div>
             {error && <div className="vision-note">{error}</div>}
-            <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Driver quote statuses">
-              <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>({filteredBids.filter((bid) => quoteBucket(bid) === 'submitted').length})</span></button>
-              <button type="button" role="tab" aria-selected={activeTab === 'awarded'} data-active={activeTab === 'awarded' ? 'true' : 'false'} className={activeTab === 'awarded' ? 'active' : ''} onClick={() => setActiveTab('awarded')}>Awarded <span>({filteredBids.filter((bid) => quoteBucket(bid) === 'awarded').length})</span></button>
-              <span className="cx-quote-state-tabs__action" style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}><label>Items per Page <select aria-label="Items per Page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span>
-            </div>
-
-            {activeTab === 'submitted' && <div className="xd3150-quote-history-toggle" role="group" aria-label="Submitted quote activity">
+            <div className="xd-quote-list-tools"><span>{quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
+            {quoteScope === 'submitted' && <div className="xd3150-quote-history-toggle" role="group" aria-label="Submitted quote activity">
               {(['active','history','all'] as const).map(view=><button key={view} type="button" className={submittedView===view?'active':''} aria-pressed={submittedView===view} onClick={()=>setSubmittedView(view)}>{view==='active'?'Active quotes':view==='history'?'Withdrawn / expired / unsuccessful':'All submitted records'}</button>)}
             </div>}
-            {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
+            {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {quoteScope} quotes found.</span></div> : (
               <div className="xdrive-cx-quote-list">
                 {visibleBids.map((bid) => {
                   const view = viewForBid(bid);
