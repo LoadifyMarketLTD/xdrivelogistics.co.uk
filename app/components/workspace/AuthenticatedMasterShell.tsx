@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState,type ReactNode} from 'react';
+import {useEffect,useRef,useState,type ReactNode} from 'react';
 import {Menu} from 'lucide-react';
 import {usePathname,useRouter} from 'next/navigation';
 import ApprovedSidebar from '../../try-xdrive-demo/components/ApprovedSidebar';
@@ -31,7 +31,10 @@ export default function AuthenticatedMasterShell({role,activeTab,children}:{
  const router=useRouter();
  const pathname=usePathname();
  const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
+ const [pendingTab,setPendingTab]=useState<number|null>(null);
+ const pendingTarget=useRef<string|null>(null);
  useEffect(()=>setMobileMenuOpen(false),[activeTab]);
+ useEffect(()=>{pendingTarget.current=null;setPendingTab(null);},[pathname]);
  useEffect(()=>{if(!mobileMenuOpen)return;const close=(event:KeyboardEvent)=>{if(event.key==='Escape')setMobileMenuOpen(false);};const original=document.body.style.overflow;document.body.style.overflow='hidden';window.addEventListener('keydown',close);return()=>{window.removeEventListener('keydown',close);document.body.style.overflow=original;};},[mobileMenuOpen]);
  const {user}=useAuth();
  const driverQuoteBlocked=['Driver','Company Driver','Owner Driver'].includes(role)&&user?.canCommercialBid!==true;
@@ -40,16 +43,21 @@ export default function AuthenticatedMasterShell({role,activeTab,children}:{
  const navigate=(index:number)=>{
   const target=masterNavigationHref(role,index);
   if(!target||disabledIndices.includes(index))return;
+
+
   if(index===2&&pathname===target){window.dispatchEvent(new Event('xdrive:loads-reselect'));window.scrollTo({top:0,behavior:'instant'});setMobileMenuOpen(false);return;}
+  if(pathname===target){setPendingTab(null);pendingTarget.current=null;return;}
+  pendingTarget.current=target;
+  setPendingTab(index);
   router.push(target);
  };
  return <main className="demo-shell ops-demo xd-approved-sidebar-shell master3150-production" data-master-workspace="production">
   <button type="button" className={'xd-mobile-sidebar-backdrop'+(mobileMenuOpen?' is-open':'')} aria-label="Close workspace navigation" tabIndex={mobileMenuOpen?0:-1} onClick={()=>setMobileMenuOpen(false)}/>
-  <ApprovedSidebar items={tabs} activeIndex={activeTab} onSelect={navigate} disabledIndices={disabledIndices} mobileOpen={mobileMenuOpen} onMobileClose={()=>setMobileMenuOpen(false)} footerAction={<MasterLogoutButton/>}/>
-  <div className="content"><header className="topbar">
+  <ApprovedSidebar items={tabs} activeIndex={pendingTab??activeTab} onSelect={navigate} disabledIndices={disabledIndices} mobileOpen={mobileMenuOpen} onMobileClose={()=>setMobileMenuOpen(false)} footerAction={<MasterLogoutButton/>}/>
+  <div className="content" aria-busy={pendingTab!==null}><header className="topbar">
    <button type="button" className="xd-mobile-nav-toggle" aria-label="Open workspace menu" aria-controls="xdrive-master-mobile-navigation" aria-expanded={mobileMenuOpen} onClick={()=>setMobileMenuOpen(true)}><Menu size={21} aria-hidden="true"/> Menu</button>
    <div className="mobile-brand">XDRIVE <em>LOGISTICS</em></div>
    <div className="top-actions"><MasterLogoutButton/></div>
-  </header><div className="page">{children}</div></div>
+  </header>{pendingTab!==null&&<div className="master-navigation-loading" role="status" aria-live="polite">Opening {tabs[pendingTab]}...</div>}<div className="page">{children}</div></div>
  </main>;
 }
