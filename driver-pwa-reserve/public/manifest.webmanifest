@@ -1,0 +1,17 @@
+{
+  "name": "XDrive Logistics Driver",
+  "short_name": "XDrive Driver",
+  "id": "/driver/reserve-pwa/",
+  "start_url": "/driver/reserve-pwa/index.html",
+  "scope": "/driver/reserve-pwa/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#071a42",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

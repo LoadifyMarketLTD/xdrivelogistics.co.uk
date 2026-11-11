@@ -39,9 +39,12 @@ describe('workspace readability contract', () => {
 
   it('reuses the working Jobs tab family for the Driver Diary status strip', () => {
     const diary = fs.readFileSync(path.join(process.cwd(), 'app/driver/history/page.tsx'), 'utf8');
-    expect(diary).toContain('workspaceStyles.jobsStatusTabs');
-    expect(diary).toContain('workspaceStyles.jobsStatusTabActive');
-    expect(diary).toContain('workspace-tab-strip');
-    expect(diary).toContain('aria-selected={statusFilter === item.id}');
+    expect(diary).toContain('<Broker3150DiaryTabs');
+    expect(diary).toContain('tabs={historyFilters.map');
+    expect(diary).toContain('selected={statusFilter} onSelect={setStatusFilter}');
+    const tabs = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/Broker3150DiaryChrome.tsx'), 'utf8');
+    expect(tabs).toContain('role="tablist"');
+    expect(tabs).toContain('aria-selected={selected===item.id}');
+    expect(tabs).toContain('onClick={()=>onSelect(item.id)}');
   });
 });

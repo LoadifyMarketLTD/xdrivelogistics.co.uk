@@ -25,8 +25,10 @@ describe('fresh LOADS marketplace filtering', () => {
   it.each([15, 30, 45, 60, 90, 120])('applies collect within %i minutes', minutes => {
     expect(run([base], { collectWithin: String(minutes) })).toHaveLength(minutes >= 30 ? 1 : 0);
   });
-  it('does not guess pickup distance when GPS location is missing', () => {
-    expect(run([{ ...base, distance_to_pickup_miles: null }], { pickupRadius: '10' })).toHaveLength(0);
+  it('keeps loads visible without GPS and retains unknown pickup distance', () => {
+    const result = run([{ ...base, distance_to_pickup_miles: null }], { pickupRadius: '10' });
+    expect(result).toHaveLength(1);
+    expect(result[0].distance_to_pickup_miles).toBeNull();
   });
   it('fails closed for non-finite distance and invalid radius filters', () => {
     expect(run([{ ...base, distance_to_pickup_miles: Number.NaN }], { pickupRadius: '10' })).toHaveLength(0);
@@ -51,8 +53,10 @@ describe('fresh LOADS marketplace filtering', () => {
     expect(run([base], { destinationRadius: '10' })).toHaveLength(0);
     expect(run([base], { destinationRadius: '25' })).toHaveLength(1);
   });
-  it('does not invent destination distance when missing', () => {
-    expect(run([{ ...base, distance_to_delivery_miles: null }], { destinationRadius: '50' })).toHaveLength(0);
+  it('keeps loads visible without fabricating destination distance', () => {
+    const result = run([{ ...base, distance_to_delivery_miles: null }], { destinationRadius: '50' });
+    expect(result).toHaveLength(1);
+    expect(result[0].distance_to_delivery_miles).toBeNull();
   });
   it('requires a dated pickup when collect-within is selected', () => {
     expect(run([{ ...base, pickup_datetime: null }], { collectWithin: '60' })).toHaveLength(0);

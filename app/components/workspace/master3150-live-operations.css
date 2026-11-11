@@ -254,9 +254,9 @@
 .driver-quotes-prototype .xd-approved-board-header h1,
 .driver-diary-board .xd-diary-header h1 {
   color:#071a38;
-  font-size:30px;
+  font-size:20px;
   font-weight:800;
-  margin:0 0 8px;
+  margin:0 0 3px;
 }
 .driver-loads-prototype .load-tabs,
 .driver-quotes-prototype .workspace-tab-strip,
@@ -390,3 +390,13 @@
     grid-template-columns:minmax(0,1fr);
   }
 }
+
+/* Quotes: KPI cards are the sole status navigation; align the filter rail with them. */
+@media (min-width: 901px) {
+  .driver-quotes-prototype .pagebody > .carrier-exchange-rail { margin-top: 50px; }
+}
+.driver-quotes-prototype .xd-quote-kpi-navigation > button { cursor:pointer; text-align:left; font:inherit; transition:border-color .12s,box-shadow .12s; }
+.driver-quotes-prototype .xd-quote-kpi-navigation > button[aria-pressed="true"] { border-color:#ff7900; box-shadow:0 0 0 2px rgba(255,121,0,.16); }
+.driver-quotes-prototype .xd-quote-kpi-navigation > button:focus-visible { outline:2px solid #0b4fa3; outline-offset:2px; }
+.driver-quotes-prototype .xd-quote-page-size select { width:100%; max-width:140px; height:28px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px; background:#fff; }
+.driver-quotes-prototype .xd-quote-list-tools { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:4px 0 8px; font-size:12px; font-weight:700; }

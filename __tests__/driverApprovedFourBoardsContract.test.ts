@@ -7,7 +7,7 @@ const base='app/driver/';
 const pages=[
  ['loads/page.tsx','ApprovedDriverLoadCard'],
  ['quotes/page.tsx','ApprovedDriverQuoteCard'],
- ['jobs/page.tsx','ApprovedDriverOperationalCard'],
+ ['jobs/page.tsx','CxDiaryCard'],
  ['history/page.tsx','ApprovedDriverDiaryCard'],
 ] as const;
 
@@ -18,8 +18,9 @@ describe('approved Driver Master identity with real operational data',()=>{
  });
  it('uses shared approved 3118 card geometry, not demo transactions',()=>{
   const card=read(base+'_components/ApprovedDriverOperationalCard.tsx');
-  expect(card).toContain('xd-board-card xd-shared-job-card xd-approved-live-card');
-  expect(card).toContain('Payment Terms:');
+  expect(card).toContain('<Master3150Card');
+  expect(card).toContain('className={`xd-approved-live-card ${className}`}');
+  expect(card).toContain('terms={paymentTerms ??');
   expect(card).toContain('{footer}');
   expect(read(base+'layout.tsx')).toContain('driver-approved-boards.css');
  });

@@ -11,6 +11,7 @@ import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStag
 import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_components/DriverFreightVisionMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import DriverFleetIntegratedNav from '../_components/DriverFleetIntegratedNav';
+import './freight-vision-readability.css';
 
 type JobRow = {
   id: string;
@@ -39,8 +40,12 @@ type TrackingSnapshot = {
   } | null;
 };
 
-const route = (place: string | null, postcode: string | null) =>
-  [place, postcode].filter(Boolean).join(' ') || 'Not supplied';
+const route = (place: string | null, postcode: string | null) => {
+  const address=(place??'').trim();
+  const area=(postcode??'').trim();
+  if (!address) return area || 'Not supplied';
+  return area && !address.toUpperCase().includes(area.toUpperCase()) ? `${address} ${area}` : address;
+};
 
 const activeJob = (job: JobRow) => {
   const status = String(job.current_status ?? job.status ?? '').toLowerCase();
@@ -186,7 +191,7 @@ export default function DriverFreightVisionPage() {
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-freight-vision-prototype">
         <DriverFleetIntegratedNav />
-        <PageHeader eyebrow="Driver operations" title="Freight Vision" description="Live tracked jobs, ETA and operational exceptions." />
+        <PageHeader eyebrow="Driver operations" title="Freight Vision" description="Verified driver job status; live GPS and traffic ETA appear only when a trusted tracking source is available." />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Panel</div>
@@ -226,7 +231,8 @@ export default function DriverFreightVisionPage() {
                     <div className="grow">
                       <b>{job.id.slice(0, 8).toUpperCase()}</b>
                       <span className="meta">{route(job.pickup_location, job.pickup_postcode)} → {route(job.delivery_location, job.delivery_postcode)}</span>
-                      <span className="meta">ETA {job.delivery_datetime ? new Date(job.delivery_datetime).toLocaleString('en-GB') : 'Not supplied'}</span>
+                      <span className="meta">Scheduled delivery: {job.delivery_datetime ? new Date(job.delivery_datetime).toLocaleString('en-GB') : 'Not supplied'}</span>
+                      <span className="meta">{trackingByJob[job.id]?.location?.recorded_at ? `Verified position updated ${new Date(trackingByJob[job.id].location!.recorded_at!).toLocaleString('en-GB')}` : 'Verified live position not available'}</span>
                     </div>
                     <StatusBadge value={workspaceJobOperationalLabel(job)} />
                   </button>

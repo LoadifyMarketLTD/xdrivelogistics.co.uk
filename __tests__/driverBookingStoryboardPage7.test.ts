@@ -8,8 +8,8 @@ describe('Driver booking storyboard page 7', () => {
     expect(source).toContain("approvedScreen.number===7 && ['delivered','completed'].includes(currentStatus)");
     expect(source).toContain('<ProofOfDeliveryStep');
     expect(source).toContain('podOnly ||');
-    const route=fs.readFileSync(path.join(process.cwd(),'app/driver-pwa-fresh/bookings/[id]/pod/page.tsx'),'utf8');
-    expect(route).not.toContain('fresh-booking-detail-header');
+    const route=fs.readFileSync(path.join(process.cwd(),'app/driver/jobs/[id]/page.tsx'),'utf8');
+    expect(route).toContain('DriverJobExecutionPage');
   });
 
   it('restores and autosaves the persistent POD draft after a delivered-page refresh', () => {

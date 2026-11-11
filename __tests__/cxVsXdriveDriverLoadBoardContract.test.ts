@@ -21,7 +21,8 @@ describe('CX vs XDrive driver load board contract', () => {
 
   it('shows the active quote at carrier-company level when a company context exists', () => {
     expect(source).toContain("bidQuery.eq('company_id', driver.companyId)");
-    expect(source).toContain("bidQuery.eq('bidder_user_id', driver.userId)");
+    expect(source).toContain('bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)');
+    expect(source).toContain("quotedHistoryQuery.eq('company_id', driver.companyId)");
   });
 
   it('keeps exact pickup and delivery coordinates out of the pre-award response while allowing internal routing', () => {

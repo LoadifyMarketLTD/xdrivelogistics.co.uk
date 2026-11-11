@@ -29,7 +29,7 @@ const date = (value: unknown): string => {
 };
 const get = (row: Json, ...keys: string[]): unknown => keys.map(k => row[k]).find(v => v !== null && v !== undefined && v !== '');
 async function jsonFetch(url: string, init?: RequestInit): Promise<Json> {
-  const response = await fetch(url, { ...init, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
+  const response = await fetch(url, { ...init, signal: init?.signal ?? AbortSignal.timeout(45000), headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
   const body = obj(await response.json().catch(() => ({})));
   if (!response.ok) throw new Error(str(body.error_description) || str(body.msg) || str(body.error) || 'API request failed (' + response.status + ')');
   return body;
@@ -112,7 +112,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
   return {
     id: str(r.id), from: str(get(r, 'pickup_area', 'pickup_postcode_area')) || 'Collection area',
     to: str(get(r, 'delivery_area', 'delivery_postcode_area')) || 'Delivery area',
-    pickup: dateTime(r.pickup_datetime), delivery: dateTime(r.delivery_datetime),
+    pickup: dateTime(r.pickup_datetime) !== 'Not provided' ? dateTime(r.pickup_datetime) : (str(r.pickup_time_slot) || 'Collection time TBC'), delivery: dateTime(r.delivery_datetime) !== 'Not provided' ? dateTime(r.delivery_datetime) : (str(r.delivery_time_slot) || 'Delivery time TBC'),
     pickupDate: date(r.pickup_datetime), deliveryDate: date(r.delivery_datetime),
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
     weight: num(r.weight_kg) || 0, notes: str(r.public_quote_notes),
@@ -180,14 +180,30 @@ export function mapAssigned(raw: unknown): LiveJob {
 export async function loadLive(token: string): Promise<LiveJob[]> {
   return (await loadLiveWithDiagnostics(token)).jobs;
 }
-export async function loadLiveWithDiagnostics(token: string): Promise<{jobs: LiveJob[]; warnings: string[]}> {
-  const responses = await Promise.allSettled([
+export async function loadLiveWithDiagnostics(token: string, onProgress?: (snapshot: {jobs: LiveJob[]; warnings: string[]; bookingsPending: boolean}) => void): Promise<{jobs: LiveJob[]; warnings: string[]}> {
+  const feeds = [
     driverGet('/marketplace/loads', token),
     driverGet('/mobile/jobs?scope=bookings', token),
     driverGet('/mobile/jobs?scope=completed', token),
     driverGet('/mobile/bids', token),
     bookingOffersGet(token),
-  ]);
+  ];
+  const partial: PromiseSettledResult<Json>[] = Array.from({ length: feeds.length }, () => ({ status: 'rejected', reason: new Error('Pending') }));
+  const settled = Array(feeds.length).fill(false);
+  const responses = await Promise.all(feeds.map((feed, index) => Promise.resolve(feed).then(value => {
+    partial[index] = { status: 'fulfilled', value };
+    settled[index] = true;
+    if (onProgress) onProgress({ ...mergeLiveResponses(partial), bookingsPending: ![1, 2, 4].every(i => settled[i]) });
+    return { status: 'fulfilled', value } as PromiseFulfilledResult<Json>;
+  }, reason => {
+    partial[index] = { status: 'rejected', reason };
+    settled[index] = true;
+    if (onProgress) onProgress({ ...mergeLiveResponses(partial), bookingsPending: ![1, 2, 4].every(i => settled[i]) });
+    return { status: 'rejected', reason } as PromiseRejectedResult;
+  })));
+  return mergeLiveResponses(responses);
+}
+function mergeLiveResponses(responses: PromiseSettledResult<Json>[]): {jobs: LiveJob[]; warnings: string[]} {
   const successful = responses.filter((response): response is PromiseFulfilledResult<Json> => response.status === 'fulfilled');
   if (!successful.length) {
     const errors = responses.filter((response): response is PromiseRejectedResult => response.status === 'rejected');

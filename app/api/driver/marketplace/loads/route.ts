@@ -182,10 +182,12 @@ export async function GET(request: NextRequest) {
 
   let quotedJobIds: string[] = [];
   if (quotedHistory) {
-    const { data: quotedRows, error: quotedRowsError } = await supabaseAdmin
+    const quotedHistoryQuery = supabaseAdmin
       .from('job_bids')
-      .select('job_id')
-      .or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)
+      .select('job_id');
+    const { data: quotedRows, error: quotedRowsError } = await (driver.companyId
+      ? quotedHistoryQuery.eq('company_id', driver.companyId)
+      : quotedHistoryQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`))
       .order('created_at', { ascending: false })
       .limit(LIST_LIMIT);
     if (quotedRowsError) {
@@ -201,9 +203,28 @@ export async function GET(request: NextRequest) {
     if (quotedJobIds.length === 0) return respond(200, { loads: [] });
   }
 
+  // Do not fetch the full jobs row for a 150-record marketplace listing.
+  // Documents, signatures, photos and contact details are not required for
+  // quote-safe summary cards; transferring them delays the Reserve PWA.
+  const publicLoadColumns = [
+    'id','company_id','created_by','status','current_status',
+    'awarded_carrier_company_id','exchange_posted_at','exchange_expires_at',
+    'exchange_visibility','direct_invite_company_id','pickup_datetime','pickup_time_slot',
+    'pickup_city','pickup_postcode','pickup_country_code','pickup_lat','pickup_lng',
+    'collection_window_end','delivery_datetime','delivery_time_slot',
+    'delivery_city','delivery_postcode','delivery_country_code','delivery_lat','delivery_lng',
+    'vehicle_type','requested_vehicle_type','requested_vehicle_label',
+    'cargo_type','requested_cargo_label','weight_kg','pallets',
+    'length_cm','width_cm','height_cm','cargo_value_gbp','pallet_type','pallet_stackable',
+    'collection_forklift_available','collection_tail_lift_required','collection_handball_required',
+    'delivery_forklift_available','delivery_tail_lift_required','delivery_handball_required',
+    'service_mode','load_type','direct_delivery_required','distance_miles',
+    'job_distance_miles','job_distance_minutes','is_fixed_price','budget_amount',
+    'currency','hard_copy_pod','pod_required','payment_terms','load_details',
+  ].join(',');
   let query = supabaseAdmin
     .from('jobs')
-    .select('*')
+    .select(publicLoadColumns)
     .order('exchange_posted_at', { ascending: false });
 
   if (quotedHistory) {
@@ -239,7 +260,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const jobs = ((rawJobs ?? []) as JobRow[]).filter((job) => {
+  const jobs = ((rawJobs ?? []) as unknown as JobRow[]).filter((job) => {
     const companyId = marketplaceText(job.company_id);
     if (!companyId) return false;
     if (driver.companyId && companyId === driver.companyId) return false;
@@ -276,7 +297,9 @@ export async function GET(request: NextRequest) {
       ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
       : Promise.resolve({ data: [], error: null }),
     bidQuery
-      ? bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)
+      ? (driver.companyId
+          ? bidQuery.eq('company_id', driver.companyId)
+          : bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`))
       : Promise.resolve({ data: [], error: null }),
   ]);
 

@@ -5,5 +5,21 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   base: '/driver/official-pwa/',
   plugins: [react()],
-  server: { allowedHosts: ['quick-pumas-teach.loca.lt', 'hip-papers-type.loca.lt'] },
+  server: {
+    allowedHosts: ['quick-pumas-teach.loca.lt', 'hip-papers-type.loca.lt'],
+    proxy: {
+      '/api': {
+        target: 'https://www.xdrivelogistics.co.uk',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/xdrive-api': {
+        target: 'https://www.xdrivelogistics.co.uk',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => '/api' + path.slice('/xdrive-api'.length),
+      },
+    },
+  },
+
 })

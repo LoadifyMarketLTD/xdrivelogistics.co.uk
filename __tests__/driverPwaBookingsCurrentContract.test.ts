@@ -1,1 +1,21 @@
-import {readFileSync} from 'node:fs';import {describe,it,expect} from 'vitest';const read=(path:string)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');describe('driver PWA canonical booking flow',()=>{it('keeps delivered bookings in Current for mandatory POD',()=>{const page=read('app/driver-pwa-fresh/bookings/page.tsx');expect(page).toContain("job.canonicalStatus.toLowerCase()==='delivered'");expect(page).toContain('/driver-pwa-fresh/bookings/');expect(page).toContain('scope=all&limit=250');});it('uses server update timestamps for completed history instead of pickup schedules',()=>{expect(read('app/api/driver/jobs/route.ts')).toContain('updatedAt: row.updated_at');expect(read('app/driver-pwa-fresh/bookings/page.tsx')).toContain('new Date(job.updatedAt)');});it('requires POD before invoice and exposes single booking actions',()=>{const page=read('app/components/workspace/DriverJobExecutionPage.tsx');expect(page).toContain('Complete required POD');expect(page).toContain('hasCompletePodEvidence(job)');expect(page).toContain('Create Invoice');});});
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+const read = (p: string) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+describe('canonical Driver booking flow', () => {
+  it('keeps pending booking acceptance in the live won-work workspace', () => {
+    const page = read('app/driver/won-work/page.tsx');
+    expect(page).toContain('PendingBookingOffers');
+    expect(page).toContain('<PendingBookingOffers onChanged=');
+  });
+  it('keeps delivered bookings visible for mandatory POD in the canonical jobs workspace', () => {
+    const page = read('app/driver/jobs/page.tsx');
+    expect(page).toContain('isDeliveredAwaitingPod');
+    expect(page).toContain('hasCompletePodEvidence');
+  });
+  it('requires POD before invoice in live execution', () => {
+    const page = read('app/components/workspace/DriverJobExecutionPage.tsx');
+    expect(page).toContain('Complete required POD');
+    expect(page).toContain('hasCompletePodEvidence(job)');
+    expect(page).toContain('Create Invoice');
+  });
+});

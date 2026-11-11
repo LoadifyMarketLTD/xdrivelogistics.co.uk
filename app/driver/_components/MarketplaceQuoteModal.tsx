@@ -25,6 +25,14 @@ type QuoteTarget = {
   pickupAt?: string | null;
   deliveryAt?: string | null;
   vehicle: string;
+  pallets?: number | null;
+  weight?: string | null;
+  dimensions?: string | null;
+  cargo?: string | null;
+  service?: string | null;
+  notes?: string | null;
+  paymentTerms?: string | null;
+  hardPod?: string | null;
 };
 
 type QuoteExtraKind = 'congestion' | 'ferry' | 'tolls' | 'ulez';
@@ -103,6 +111,18 @@ export default function MarketplaceQuoteModal({
         delivery: target.delivery,
         pickupWhen: cxWhen(target.pickupAt),
         deliveryWhen: cxWhen(target.deliveryAt),
+        pickupDate: target.pickupAt ? cxWhen(target.pickupAt) : 'ASAP',
+        deliveryDate: target.deliveryAt ? cxWhen(target.deliveryAt) : 'TBC',
+        pickupStart: cxWhen(target.pickupAt),
+        deliveryTime: cxWhen(target.deliveryAt),
+        pallets: target.pallets,
+        weight: target.weight,
+        dimensions: target.dimensions,
+        cargo: target.cargo,
+        service: target.service,
+        notes: target.notes,
+        paymentTerms: target.paymentTerms,
+        hardPod: target.hardPod,
       }}
       working={working}
       errorContent={error ? (

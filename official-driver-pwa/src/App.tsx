@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import "./App.css";
 import {
   nextJobStatus,
@@ -16,9 +16,25 @@ import DriverMenu from "./DriverMenu";
 import BookingDocuments from "./BookingDocuments";
 import PodCapture from "./PodCapture";
 import LivePodCapture from "./LivePodCapture";
+import DeliverySignature from './DeliverySignature';
 import RouteMap from "./RouteMap";
 import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
 const LIVE_SESSION_KEY = "xdrive-driver-live-session-v1";
+function formatServiceLabel(service?: string): string {
+  const raw = service?.trim();
+  if (!raw || raw.toLowerCase() === "not provided") return "Not provided";
+  const labels: Record<string, string> = {
+    timed_direct: "Same Day - Timed",
+    asap_direct: "Deliver Direct",
+    direct: "Deliver Direct",
+    same_day_timed: "Same Day - Timed",
+    next_day: "Next Day",
+    regular_load: "Regular Load",
+    daily_hire: "Daily Hire",
+  };
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  return labels[key] || raw.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, char => char.toUpperCase());
+}
 function savedLiveSession(): LiveSession | null {
   try {
     const raw = localStorage.getItem(LIVE_SESSION_KEY);
@@ -127,11 +143,13 @@ type Load = {
 };
 // Fictional, explicitly local-only sample data; never presented as live customer records.
 function App() {
-  const [tab, setTab] = useState<Tab>(() => savedLiveSession() ? "Loads" : "More");
+  const [tab, setTab] = useState<Tab>(() => { if (!savedLiveSession()) return "More"; const saved = localStorage.getItem("xdrive-driver-active-tab-v1"); return (["Loads", "Quotes", "Bookings", "Map", "Invoices", "More", "Alerts"] as string[]).includes(saved || "") ? saved as Tab : "Bookings"; });
   const [liveSession, setLiveSession] = useState<LiveSession | null>(savedLiveSession);
+  useEffect(() => { if (liveSession) localStorage.setItem('xdrive-driver-active-tab-v1', tab); }, [tab, liveSession]);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [liveBusy, setLiveBusy] = useState(false);
+  const [bookingsPending, setBookingsPending] = useState(false);
   const [liveError, setLiveError] = useState("");
   const [liveWarning, setLiveWarning] = useState("");
   const [liveConnected, setLiveConnected] = useState(false);
@@ -141,16 +159,18 @@ function App() {
     const previous = savedLiveSession();
     if (!previous) return;
     setLiveBusy(true);
+    setBookingsPending(true);
     void (async () => {
       try {
         const session = await renewSession(previous);
         if (!active) return;
         setLiveSession(session);
         setLiveConnected(true);
-        await syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ });
-        const records = await loadLiveWithDiagnostics(session.token);
+        void syncAuthenticatedRole(session.token).catch(() => { /* Optional profile metadata must not block authorised job feeds. */ });
+        const records = await loadLiveWithDiagnostics(session.token, snapshot => { /* Keep the previous complete list until all feeds settle. */ if (active) setBookingsPending(snapshot.bookingsPending); });
         if (!active) return;
         setJobs(records.jobs as Load[]);
+        setBookingsPending(false);
         setLiveWarning(records.warnings.join(" | "));
         setLiveError("");
       } catch (error) {
@@ -162,7 +182,7 @@ function App() {
           setLiveSession(null);
           setLiveError('Your session expired. Sign in again to receive your bookings.');
         } else setLiveError(message);
-      } finally { if (active) setLiveBusy(false); }
+      } finally { if (active) { setLiveBusy(false); setBookingsPending(false); } }
     })();
     return () => { active = false; };
   }, []);
@@ -172,10 +192,12 @@ function App() {
     const type = String(driver?.driver_type || "").toLowerCase();
     setRole(type.includes("owner") ? "Owner Driver" : "Company Driver");
   };
+  const statusOperationRef = useRef(false);
   const refreshLive = async (token: string) => {
-    await syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ });
-    const records = await loadLiveWithDiagnostics(token);
-    setJobs(records.jobs as Load[]);
+    void syncAuthenticatedRole(token).catch(() => { /* API endpoints independently enforce driver access. */ });
+    const records = await loadLiveWithDiagnostics(token, snapshot => { /* Avoid replacing the list with partial API responses. */ setBookingsPending(snapshot.bookingsPending); });
+    if (!statusOperationRef.current) setJobs(records.jobs as Load[]);
+    setBookingsPending(false);
     setLiveWarning(records.warnings.join(" | "));
     setLiveConnected(true);
   };
@@ -201,6 +223,7 @@ function App() {
   }, [liveConnected, liveSession?.token, liveSession?.expiresAt]);
   const connectLive = async () => {
     setLiveBusy(true);
+    setBookingsPending(true);
     setLiveError("");
     try {
       const session = await liveLogin(loginEmail.trim(), loginPassword);
@@ -214,7 +237,7 @@ function App() {
     } catch (error) {
       setLiveConnected(false);
       setLiveError(error instanceof Error ? error.message : "Live connection failed");
-    } finally { setLiveBusy(false); }
+    } finally { setLiveBusy(false); setBookingsPending(false); }
   };
   // Never present locally stored or seeded test records as production loads.
   // The approved TEST-1099 UI can still be loaded explicitly from the local test workspace.
@@ -307,24 +330,88 @@ function App() {
   const pendingAllocations = jobs.filter(j => j.acceptanceRequired === true && j.status === "ALLOCATED");
   const unseenAllocations = pendingAllocations.filter(j => !viewedBookingOfferIds.includes(j.offerId || j.id));
   const next = job ? nextJobStatus(job.status) : undefined;
-  const openJob = (id: string) => { const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
+  const openJob = (id: string) => { setDeliveryPhotos([]); setDeliverySignature(null); setUploadedDeliveryPhotos([]); const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
   const [deliveryRecipient, setDeliveryRecipient] = useState('');
+  const [deliveryPhotos, setDeliveryPhotos] = useState<File[]>([]);
+  const [deliverySignature, setDeliverySignature] = useState<File | null>(null);
+  const [uploadedDeliveryPhotos, setUploadedDeliveryPhotos] = useState<string[]>([]);
   const [deliveryItems, setDeliveryItems] = useState('');
   const [deliveryCondition, setDeliveryCondition] = useState('Good condition');
   const [deliveryLeftAt, setDeliveryLeftAt] = useState('Goods Inwards');
   const [statusBusy, setStatusBusy] = useState(false);
-  const submitLiveStatus = async (booking: Load, nextStatus: JobStatus) => {
-    if (!liveSession || statusBusy) return;
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const downloadPodPdf = async (booking: Load) => {
+    if (!liveSession || !booking.podRecorded) return;
+    setLiveError('');
+    try {
+      const session = await renewSession(liveSession);
+      setLiveSession(session);
+      const response = await fetch('/api/workspace/jobs/' + encodeURIComponent(booking.id) + '/pod/pdf', {
+        headers: { Authorization: 'Bearer ' + session.token },
+      });
+      if (!response.ok) {
+        const details = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(details.error || 'POD PDF is unavailable (' + response.status + ').');
+      }
+      if (!(response.headers.get('content-type') || '').includes('application/pdf')) throw new Error('POD service did not return a PDF.');
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'xdrive-pod-' + booking.id + '.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (error) {
+      setLiveError('POD PDF not downloaded. ' + (error instanceof Error ? error.message : 'Please retry.'));
+    }
+  };  const createInvoiceAfterPod = async (booking: Load) => {
+    if (!liveSession || invoiceBusy || !booking.podRecorded) return;
+    setInvoiceBusy(true);
+    setLiveError('');
+    try {
+      const session = await renewSession(liveSession);
+      setLiveSession(session);
+      const response = await fetch('/api/driver/finance/jobs/' + encodeURIComponent(booking.id) + '/generate-invoice', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotency_key: 'driver-pwa-pod-' + booking.id }),
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string; invoice?: { id?: string } };
+      if (!response.ok || !result.invoice?.id) throw new Error(result.error || 'Invoice generation was not confirmed by the server.');
+      // Invoice creation is persisted before downloading its independent A4 PDF.
+      setTab('Invoices');
+      setSelected(null);
+      try {
+        const pdfResponse = await fetch('/api/driver/finance/invoices/' + encodeURIComponent(result.invoice.id) + '/preview', {
+          headers: { Authorization: 'Bearer ' + session.token },
+        });
+        if (!pdfResponse.ok || !(pdfResponse.headers.get('content-type') || '').includes('application/pdf')) {
+          throw new Error('Invoice PDF not available');
+        }
+        const url = URL.createObjectURL(await pdfResponse.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'xdrive-invoice-' + result.invoice.id + '.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      } catch {
+        setLiveWarning('Invoice created successfully. Download its A4 PDF from Invoices if the automatic download was unavailable.');
+      }
+    } catch (error) {
+      setLiveError('Invoice not created. ' + (error instanceof Error ? error.message : 'Please retry.'));
+    } finally { setInvoiceBusy(false); }
+  };  const submitLiveStatus = async (booking: Load, nextStatus: JobStatus) => {
+    if (!liveSession || statusOperationRef.current) return;
+    statusOperationRef.current = true;
     const apiStatuses: Partial<Record<JobStatus, string>> = { ON_WAY_TO_PICKUP: 'on_my_way', ON_SITE_PICKUP: 'on_site_pickup', LOADED: 'loaded', ON_WAY_TO_DELIVERY: 'in_transit', ON_SITE_DELIVERY: 'on_site_delivery', DELIVERED: 'delivered' };
     const apiStatus = apiStatuses[nextStatus];
-    if (!apiStatus) { setLiveError('This status requires a separate evidence or POD workflow.'); return; }
+    if (!apiStatus) { statusOperationRef.current = false; setLiveError('This status requires a separate evidence or POD workflow.'); return; }
     setStatusBusy(true);
     setLiveError('');
-    // Show the requested stage immediately while the authoritative API saves it.
-    setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: nextStatus, backendStatus: apiStatus } : row));
-    if (nextStatus === 'ON_SITE_PICKUP') setBookingScreen('pickup');
-    else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('delivery');
-    else setBookingScreen('status');
+    // Keep the server-confirmed stage visible until the status write succeeds.
     try {
       const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
       if (session !== liveSession) setLiveSession(session);
@@ -339,7 +426,7 @@ function App() {
       if (nextStatus === 'ON_SITE_PICKUP') setBookingScreen('pickup');
       else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('delivery');
       else if (nextStatus === 'LOADED') setBookingScreen('status');
-      try { await refreshLive(session.token); } catch { setLiveWarning('Status saved, but refreshing booking details failed.'); }
+      void refreshLive(session.token).catch(() => setLiveWarning('Status saved, but refreshing booking details failed.'));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not update booking status';
       // A stale client must recover from the server's authoritative lifecycle rather than replay acceptance.
@@ -357,10 +444,101 @@ function App() {
         setLiveError('Status not saved. Previous stage restored. ' + message);
       }
     }
-    finally { setStatusBusy(false); }
+    finally { statusOperationRef.current = false; setStatusBusy(false); }
   };
-  const saveLiveHandover = async (booking: Load) => {
+  const completeLiveDelivery = async (booking: Load) => {
+    if (!liveSession || statusBusy || statusOperationRef.current) return;
+    if (!deliveryRecipient.trim() || !deliveryLeftAt.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 1) {
+      setLiveError('Complete the recipient, delivered items and delivery location before confirming delivery.');
+      return;
+    }
+    statusOperationRef.current = true;
+    setStatusBusy(true);
+    setLiveError('');
+    try {
+      const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
+      if (session !== liveSession) setLiveSession(session);
+      const deliveryNotes = [
+        'Received by: ' + deliveryRecipient.trim(),
+        'Items delivered: ' + Number(deliveryItems),
+        'Condition: ' + deliveryCondition,
+        'Left at: ' + deliveryLeftAt.trim(),
+        driverNotes.trim() ? 'Driver notes: ' + driverNotes.trim() : '',
+      ].filter(Boolean).join(' | ');
+      const draftResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(booking.id) + '/pod-draft', {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientName: deliveryRecipient.trim(),
+          leftAt: deliveryLeftAt.trim(),
+          itemCount: String(Number(deliveryItems)),
+          deliveryStatus: deliveryCondition,
+          notes: deliveryNotes,
+        }),
+      });
+      if (!draftResponse.ok) {
+        const details = await draftResponse.json().catch(() => ({})) as { error?: string };
+        throw new Error(details.error || 'Delivery details could not be saved.');
+      }
+      if (!deliverySignature) throw new Error('Save the recipient signature before completing delivery.');
+      if (deliveryPhotos.length === 0) throw new Error('Attach at least one delivery photo before completing delivery.');
+      const savedPhotoPaths: string[] = [];
+      for (const photo of deliveryPhotos) {
+        if (!['image/jpeg', 'image/png'].includes(photo.type)) throw new Error('Delivery photos must be JPEG or PNG.');
+        if (photo.size === 0 || photo.size > 10 * 1024 * 1024) throw new Error('Each delivery photo must be between 1 byte and 10 MB.');
+        const extension = photo.type === 'image/png' ? 'png' : 'jpg';
+        const filename = `${crypto.randomUUID()}.${extension}`;
+        const uploaded = await fetch('/api/driver/mobile/jobs/' + encodeURIComponent(booking.id) + '/evidence', {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + session.token,
+            'Content-Type': photo.type,
+            'x-xdrive-evidence-kind': 'delivery',
+            'x-xdrive-evidence-category': 'photos',
+            'x-xdrive-evidence-name': filename,
+          },
+          body: photo,
+        });
+        const result = await uploaded.json().catch(() => ({})) as { error?: string; storagePath?: string };
+        if (!uploaded.ok || !result.storagePath) throw new Error(result.error || 'Delivery photo upload failed.');
+        savedPhotoPaths.push(result.storagePath);
+      }
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'delivered' });
+      setUploadedDeliveryPhotos(savedPhotoPaths);
+      setDeliveryPhotos([]);
+      setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'DELIVERED', backendStatus: 'delivered' } : row));
+      setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: 'DELIVERED', at: new Date().toISOString() }] }));
+      setBookingScreen('pod');
+      setLiveWarning('Delivery completed. Save POD signature and evidence to finish the booking.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Delivery saved; booking refresh is delayed.'); }
+    } catch (error) {
+      setLiveError('Delivery not completed. ' + (error instanceof Error ? error.message : 'Please retry.'));
+    } finally { statusOperationRef.current = false; setStatusBusy(false); }
+  };  const saveLivePickupDraft = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
+    setStatusBusy(true);
+    setLiveError('');
+    try {
+      const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
+      if (session !== liveSession) setLiveSession(session);
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
+        itemCount: itemCount === '' ? null : Number(itemCount),
+        weightKg: collectionWeight === '' ? null : Number(collectionWeight),
+        notes: driverNotes,
+      });
+      setBookingScreen('loaded');
+      setLiveWarning('Collection details saved to XDrive. Confirm Loaded when collection is complete.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Collection saved, but booking refresh is delayed.'); }
+    } catch (error) {
+      setLiveError('Collection details not saved. ' + (error instanceof Error ? error.message : 'Please retry.'));
+    } finally { setStatusBusy(false); }
+  };  const saveLiveHandover = async (booking: Load) => {
+    if (!liveSession || statusBusy || statusOperationRef.current) return;
+    if (itemCount === '' || !Number.isInteger(Number(itemCount)) || Number(itemCount) < 1 || (collectionWeight !== '' && (!Number.isFinite(Number(collectionWeight)) || Number(collectionWeight) < 0))) {
+      setLiveError('Enter a valid positive number of collected items and a non-negative weight.');
+      return;
+    }
+    statusOperationRef.current = true;
     setStatusBusy(true);
     setLiveError('');
     try {
@@ -381,10 +559,10 @@ function App() {
         setBookingScreen('status');
         setLiveWarning('Collection handover saved to XDrive.');
       }
-      await refreshLive(session.token);
+      try { await refreshLive(session.token); } catch { setLiveWarning('Collection saved successfully; booking synchronization is delayed. Retry when connected.'); }
     } catch (error) {
       setLiveError(error instanceof Error ? error.message : 'Could not save collection handover');
-    } finally { setStatusBusy(false); }
+    } finally { statusOperationRef.current = false; setStatusBusy(false); }
   };
   const undoLiveStatus = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
@@ -476,7 +654,7 @@ function App() {
                 <span>{job.vehicle}</span>
                 <span>{job.weight} kg</span>
               </div>
-              <div className="mobile-job-facts"><div>Service: {(job.service || "Same Day").replaceAll("_", " ")}</div><div>Vehicle: {job.vehicle}</div><div>Weight: {job.weight} kg</div>{job.packages != null && <div>Packages: {job.packages}</div>}</div>
+              <div className="mobile-job-facts"><div>Service: {formatServiceLabel(job.service)}</div><div>Vehicle: {job.vehicle}</div><div>Weight: {job.weight} kg</div>{job.packages != null && <div>Packages: {job.packages}</div>}</div>
               <button className="map-action" onClick={() => setRouteJobId(job.id)}>View on Map</button>
 
               {tab === "Alerts" && job.status === "OPEN" && <p className="notification-reason">Notification Reason: {job.notificationReason || "Driver current location"}</p>}
@@ -521,18 +699,19 @@ function App() {
 </div>}{job.pickupAdditionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{job.pickupAdditionalAddress}</span></div>}{job.pickupInstructions && <p><strong>Collection instructions:</strong> {job.pickupInstructions}</p>}{Object.entries(job.pickupDetails || {}).filter(([,v]) => v !== undefined && v !== null && v !== "").map(([k,v]) => <div className="booking-info-row" key={k}>
 <b>{k}</b>
 <span>{String(v)}</span>
-</div>)}<button className="booking-detail-nav" type="button" aria-expanded={navigationChoiceOpen} onClick={() => setNavigationChoiceOpen(open => !open)}>Navigate to Collection</button>{navigationChoiceOpen && <div className="navigation-app-picker" aria-label="Choose navigation application">
+</div>)}<button className="booking-detail-nav" type="button" aria-expanded={navigationChoiceOpen} onClick={() => setNavigationChoiceOpen(open => !open)}>{["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? "Navigate to Collection" : "Navigate to Delivery"}</button>{navigationChoiceOpen && <div className="navigation-app-picker" aria-label="Choose navigation application">
 <p>Choose navigation app</p>
-<a href={"https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(job.pickupAddress || job.from) + "&travelmode=driving"} target="_blank" rel="noopener noreferrer"><img src="https://www.google.com/maps/favicon.ico" alt="" /><span>Google Maps</span></a>
-<a href={"https://waze.com/ul?q=" + encodeURIComponent(job.pickupAddress || job.from) + "&navigate=yes"} target="_blank" rel="noopener noreferrer"><img src="https://www.waze.com/favicon.ico" alt="" /><span>Waze</span></a>
-<a href={"https://maps.apple.com/?daddr=" + encodeURIComponent(job.pickupAddress || job.from) + "&dirflg=d"} target="_blank" rel="noopener noreferrer"><img src="https://maps.apple.com/favicon.ico" alt="" /><span>Apple Maps</span></a>
+<a href={"https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? (job.pickupAddress || job.from) : (job.deliveryAddress || job.to)) + "&travelmode=driving"} target="_blank" rel="noopener noreferrer"><img src="https://www.google.com/maps/favicon.ico" alt="" /><span>Google Maps</span></a>
+<a href={"https://waze.com/ul?q=" + encodeURIComponent(["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? (job.pickupAddress || job.from) : (job.deliveryAddress || job.to)) + "&navigate=yes"} target="_blank" rel="noopener noreferrer"><img src="https://www.waze.com/favicon.ico" alt="" /><span>Waze</span></a>
+<a href={"https://maps.apple.com/?daddr=" + encodeURIComponent(["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP"].includes(job.status) ? (job.pickupAddress || job.from) : (job.deliveryAddress || job.to)) + "&dirflg=d"} target="_blank" rel="noopener noreferrer"><img src="https://maps.apple.com/favicon.ico" alt="" /><span>Apple Maps</span></a>
 </div>}</section>
                 <section className="booking-detail-group"><h3>Delivery Details</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company:job.deliveryCompany,address:job.deliveryAddress || job.to,reference:job.customerRef,instructions:job.deliveryInstructions}]).map((dest,i) => <div key={i + "-" + dest.address}><h4>{i+1}. {dest.address} · {dest.time || job.delivery}</h4><div className="booking-info-row"><b>Company</b><span>{dest.company || "Not provided in Post Load"}</span></div><div className="booking-info-row"><b>Full address</b><span>{dest.address !== job.to ? dest.address : "Full address not provided in Post Load"}</span></div>{dest.reference && <div className="booking-info-row"><b>Reference</b><span>{dest.reference}</span></div>}{dest.instructions && <p>{dest.instructions}</p>}{dest.date && <div className="booking-info-row"><b>Delivery date</b><span>{dest.date}</span></div>}{dest.time && <div className="booking-info-row"><b>Delivery time</b><span>{dest.time}</span></div>}{dest.timeMode && <div className="booking-info-row"><b>Time mode</b><span>{dest.timeMode}</span></div>}{dest.contactName && <div className="booking-info-row"><b>Contact</b><span>{dest.contactName}</span></div>}{dest.contactPhone && <div className="booking-info-row"><b>Phone</b><a href={"tel:" + dest.contactPhone}>{dest.contactPhone}</a></div>}{dest.additionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{dest.additionalAddress}</span></div>}</div>)}{job.deliveryDate && <div className="booking-info-row"><b>Delivery date</b><span>{job.deliveryDate}</span></div>}{job.deliveryTimeMode && <div className="booking-info-row"><b>Delivery time mode</b><span>{job.deliveryTimeMode}</span></div>}{job.deliveryAdditionalAddress && <div className="booking-info-row"><b>Additional address information</b><span>{job.deliveryAdditionalAddress}</span></div>}{job.deliveryContactName && <div className="booking-info-row"><b>Contact</b><span>{job.deliveryContactName}</span></div>}{job.deliveryContactPhone && <div className="booking-info-row"><b>Phone</b><a href={"tel:" + job.deliveryContactPhone}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div className="booking-info-row"><b>Email</b><span>{job.deliveryContactEmail}</span></div>}{Object.entries(job.deliveryDetails || {}).filter(([,v]) => v !== undefined && v !== null && v !== "").map(([k,v]) => <div className="booking-info-row" key={k}><b>{k}</b><span>{String(v)}</span></div>)}</section>
-                <section className="booking-detail-group"><h3>Cargo & Job Details</h3>{job.jobDescription && <div className="booking-info-row"><b>Job description</b><span>{job.jobDescription}</span></div>}<div className="booking-info-row"><b>Vehicle</b><span>{job.vehicle}</span></div><div className="booking-info-row"><b>Items / packages</b><span>{job.items ?? job.packages ?? "Not provided"}</span></div><div className="booking-info-row"><b>Weight</b><span>{job.weight ? job.weight + " kg" : "Not provided"}</span></div><div className="booking-info-row"><b>Service</b><span>{job.service || "Not provided"}</span></div>{([['Packaging',job.packaging],['Body type',job.bodyType],['Job type',job.jobType],['Freight type',job.freightType],['Loading metres',job.loadMetres],['Cubic metres',job.cubicMetres],['Length',job.cargoLength],['Width',job.cargoWidth],['Height',job.cargoHeight],['Dimension units',job.cargoDimensionUnit]] as [string,string | number | undefined][]).filter(([,v])=>v!==undefined && v!=='').map(([k,v])=><div className="booking-info-row" key={k}><b>{k}</b><span>{v}</span></div>)}{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).length>0 && <><h4>Handling requirements</h4><p>{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).map(([name])=>name).join(' · ')}</p></>}<h4>Job instructions</h4><p>{job.notes || "No instructions supplied"}</p></section>
+                <section className="booking-detail-group"><h3>Cargo & Job Details</h3>{job.jobDescription && <div className="booking-info-row"><b>Job description</b><span>{job.jobDescription}</span></div>}<div className="booking-info-row"><b>Vehicle</b><span>{job.vehicle}</span></div><div className="booking-info-row"><b>Items / packages</b><span>{job.items ?? job.packages ?? "Not provided"}</span></div><div className="booking-info-row"><b>Weight</b><span>{job.weight ? job.weight + " kg" : "Not provided"}</span></div><div className="booking-info-row"><b>Service</b><span>{job.service ? job.service.replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase()) : "Not provided"}</span></div>{([['Packaging',job.packaging],['Body type',job.bodyType],['Job type',job.jobType],['Freight type',job.freightType],['Loading metres',job.loadMetres],['Cubic metres',job.cubicMetres],['Length',job.cargoLength],['Width',job.cargoWidth],['Height',job.cargoHeight],['Dimension units',job.cargoDimensionUnit]] as [string,string | number | undefined][]).filter(([,v])=>v!==undefined && v!=='').map(([k,v])=><div className="booking-info-row" key={k}><b>{k}</b><span>{v}</span></div>)}{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).length>0 && <><h4>Handling requirements</h4><p>{Object.entries(job.handlingRequirements || {}).filter(([,enabled])=>enabled).map(([name])=>name).join(' · ')}</p></>}<h4>Job instructions</h4><p>{job.notes || "No instructions supplied"}</p></section>
                 <div className="booking-detail-metrics"><div><small>AGREED RATE</small><strong>{job.quote !== undefined ? "£" + job.quote.toFixed(2) : "Not provided"}</strong></div><div><small>DISTANCE</small><strong>{job.distanceMiles !== undefined ? job.distanceMiles.toFixed(2) + " miles" : "Not provided"}</strong></div><div><small>VEHICLE</small><strong>{job.vehicle}</strong></div><div><small>PAYMENT TERMS</small><strong>{job.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</strong></div></div>
-                <section className="booking-detail-group"><h3>Documents</h3>{job.hardCopyPodRequired && <p><strong>Hard copy POD required</strong></p>}<BookingDocuments key={job.id} jobId={job.id} session={liveSession} live={liveConnected} />{job.attachmentDocuments?.length ? job.attachmentDocuments.map(doc=><p key={doc.name}>{doc.url ? <a href={doc.url} target="_blank" rel="noopener noreferrer">{doc.name}</a> : doc.name}</p>) : job.attachmentNames?.length ? job.attachmentNames.map(n => <p key={n}>{n}</p>) : <p>No documents attached in Post Load</p>}</section>
+                <section className="booking-detail-group"><h3>Documents</h3>{job.hardCopyPodRequired && <p><strong>Hard copy POD required</strong></p>}{job.acceptanceRequired ? <p>Booking documents become available after you accept the booking and it is assigned to you.</p> : <BookingDocuments key={job.id} jobId={job.id} session={liveSession} live={liveConnected} />}{job.attachmentDocuments?.length ? job.attachmentDocuments.map(doc=><p key={doc.name}>{doc.url ? <a href={doc.url} target="_blank" rel="noopener noreferrer">{doc.name}</a> : doc.name}</p>) : job.attachmentNames?.length ? job.attachmentNames.map(n => <p key={n}>{n}</p>) : <p>No documents attached in Post Load</p>}</section>
                 {!job.acceptanceRequired && <button className="booking-history-action" type="button" onClick={() => setBookingScreen("history")}>Booking Status History</button>}
               </section>}
+              {job.status === "ON_SITE_DELIVERY" && bookingScreen === "history" && <button type="button" className="booking-yellow booking-approved-save" onClick={() => setBookingScreen("delivery")}>Continue Delivery - Signature, Photos and POD</button>}
               {job.status !== "OPEN" && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "history") && <section className="booking-timeline" aria-label="Booking status"><h2>{bookingScreen === "history" ? "Booking Status History" : "Booking Status"}</h2><div className="timeline-step current"><span className="timeline-dot" /><button type="button" className="timeline-current-label" onClick={() => { if (job.status === "ON_WAY_TO_PICKUP") { if (liveConnected) void submitLiveStatus(job, "ON_SITE_PICKUP"); else { update(job.id, { status: "ON_SITE_PICKUP" }); setBookingScreen("pickup"); } } else if (job.status === "ON_SITE_PICKUP") { setBookingScreen("pickup"); } else if (job.status === "LOADED") { if (liveConnected) void submitLiveStatus(job, "ON_WAY_TO_DELIVERY"); else update(job.id, { status: "ON_WAY_TO_DELIVERY" }); } else if (job.status === "ON_WAY_TO_DELIVERY") { if (liveConnected) void submitLiveStatus(job, "ON_SITE_DELIVERY"); else { update(job.id, { status: "ON_SITE_DELIVERY" }); setBookingScreen("delivery"); } } else if (job.status === "ON_SITE_DELIVERY") { setBookingScreen("delivery"); } }}>{({ ALLOCATED: job.acceptanceRequired ? "Acceptance Required" : "On my Way to Pickup", ON_WAY_TO_PICKUP: "On Site (Pickup)", ON_SITE_PICKUP: "Loaded", LOADED: "On my Way to Delivery", ON_WAY_TO_DELIVERY: "On Site (Delivery)", ON_SITE_DELIVERY: "POD / Delivered", POD_SUBMITTED: "Delivered", DELIVERED: "Delivery Completed" } as Record<string, string>)[job.status]}</button></div>{["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].filter(status => status !== "ALLOCATED" || !job.acceptanceRequired).filter(status => ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(status) <= ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(job.status)).filter(status => !liveConnected || status === job.status || (bookingHistory[job.id] || []).some(entry => entry.status === status)).reverse().map((status, index) => { const event = bookingHistory[job.id]?.find(entry => entry.status === status); const title = ({ ALLOCATED: "Accepted", ON_WAY_TO_PICKUP: "On my Way to Pickup", ON_SITE_PICKUP: "On Site (Pickup)", LOADED: "Loaded", ON_WAY_TO_DELIVERY: "On my Way to Delivery", ON_SITE_DELIVERY: "On Site (Delivery)", POD_SUBMITTED: "POD Submitted", DELIVERED: "Delivered" } as Record<string, string>)[status]; return <div key={status} className="timeline-step done"><span className="timeline-dot">&#10003;</span><div className="timeline-copy"><strong>{title}</strong>{event && <small>at {new Date(event.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</small>}{status === "LOADED" && <div className="timeline-loaded-details"><div>Your Ref: {job.yourRef || job.id}</div><div>Customer Ref: {job.customerRef || "Not provided"}</div><div>Items: {job.items ?? "Not provided"}</div></div>}</div>{index === 0 && status !== "ALLOCATED" && status !== "POD_SUBMITTED" && status !== "DELIVERED" && <button className="timeline-undo" type="button" onClick={() => { if (liveConnected) { void undoLiveStatus(job); return; } const history = bookingHistory[job.id] || []; const previous = history[history.length - 2]; if (!previous) return; setBookingHistory(h => ({ ...h, [job.id]: history.slice(0, -1) })); setJobs(js => js.map(j => j.id === job.id ? { ...j, status: previous.status as JobStatus } : j)); }}>Undo</button>}</div>; })}</section>}
               {job.status === "OPEN" ? (
                 <>
@@ -575,11 +754,11 @@ function App() {
                 <>
                   {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
                   {statusBusy && <p role="status" className="notification-reason">Saving booking status to XDrive...</p>}
-                  {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-pickup-form"><h2>On Site (Pickup)</h2><div className="pickup-location-details"><h3>Collection Details</h3><div><b>Company:</b> {job.pickupCompany || "Not provided in Post Load"}</div><div><b>Collection address:</b> {job.pickupAddress || job.from}</div><div><b>Collection time:</b> {job.pickup}</div>{job.pickupContactName && <div><b>Contact:</b> {job.pickupContactName}</div>}{job.pickupContactPhone && <div><b>Telephone:</b> <a href={`tel:${job.pickupContactPhone}`}>{job.pickupContactPhone}</a></div>}{job.pickupContactEmail && <div><b>Email:</b> {job.pickupContactEmail}</div>}{job.customerRef && <div><b>Customer reference:</b> {job.customerRef}</div>}{job.pickupInstructions && <div><b>Collection instructions:</b> {job.pickupInstructions}</div>}{Object.entries(job.pickupDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}<h3>Delivery Destination</h3>{(job.deliveryDestinations?.length ? job.deliveryDestinations : [{company: job.deliveryCompany, address: job.deliveryAddress || job.to, reference: job.customerRef, instructions: job.deliveryInstructions}]).map((destination,index) => <div className="pickup-destination" key={`${index}-${destination.address}`}><div><b>Destination {index + 1}:</b> {destination.company || "Company not provided"}</div><div><b>Address:</b> {destination.address}</div>{destination.reference && <div><b>Reference:</b> {destination.reference}</div>}{destination.instructions && <div><b>Delivery instructions:</b> {destination.instructions}</div>}</div>)}{job.deliveryContactName && <div><b>Delivery contact:</b> {job.deliveryContactName}</div>}{job.deliveryContactPhone && <div><b>Delivery telephone:</b> <a href={`tel:${job.deliveryContactPhone}`}>{job.deliveryContactPhone}</a></div>}{job.deliveryContactEmail && <div><b>Delivery email:</b> {job.deliveryContactEmail}</div>}{Object.entries(job.deliveryDetails || {}).filter(([,value]) => value !== undefined && value !== null && value !== "").map(([key,value]) => <div key={key}><b>{key}:</b> {String(value)}</div>)}</div><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref.<input value={job.customerRef || ""} readOnly /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Delivery ETA (optional)<div className="eta-quarter-hour"><input aria-label="ETA delivery date (optional)" type="date" value={etaDateTime ? etaDateTime.split("T")[0] : ""} onChange={e => setEtaDateTime(e.target.value ? e.target.value + "T" + (etaDateTime.split("T")[1] || "10:30") : "")} /><select aria-label="ETA delivery time in 15-minute intervals (optional)" value={etaDateTime ? etaDateTime.split("T")[1] : ""} onChange={e => { const date = etaDateTime.split("T")[0] || new Date().toLocaleDateString("en-CA"); setEtaDateTime(e.target.value ? date + "T" + e.target.value : ""); }}><option value="">No ETA selected</option>{Array.from({length:96},(_,i)=>{const hh=String(Math.floor(i/4)).padStart(2,"0");const mm=String((i%4)*15).padStart(2,"0");const t=hh+":"+mm;return <option key={t} value={t}>{hh+"."+mm}</option>;})}</select><button type="button" onClick={()=>setEtaDateTime("")}>Clear ETA</button></div></label><h3>Job Details</h3><p>{job.vehicle}</p><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} placeholder="Driver's Notes" /></label>{!liveConnected && <PodCapture key={'pickup-' + job.id} jobId={job.id} recipient="" initialStage="ARRIVED_PICKUP" onSaved={() => setPodEvidence(true)} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { setBookingScreen("loaded"); setLiveError(""); } else { update(job.id, { yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, driverNotes }); setBookingScreen("loaded"); } }}>Save</button></section>}
-                  {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Delivery ETA (optional)<div className="eta-quarter-hour"><input aria-label="ETA delivery date (optional)" type="date" value={etaDateTime ? etaDateTime.split("T")[0] : ""} onChange={e => setEtaDateTime(e.target.value ? e.target.value + "T" + (etaDateTime.split("T")[1] || "10:30") : "")} /><select aria-label="ETA delivery time in 15-minute intervals (optional)" value={etaDateTime ? etaDateTime.split("T")[1] : ""} onChange={e => { const date = etaDateTime.split("T")[0] || new Date().toLocaleDateString("en-CA"); setEtaDateTime(e.target.value ? date + "T" + e.target.value : ""); }}><option value="">No ETA selected</option>{Array.from({length:96},(_,i)=>{const hh=String(Math.floor(i/4)).padStart(2,"0");const mm=String((i%4)*15).padStart(2,"0");const t=hh+":"+mm;return <option key={t} value={t}>{hh+"."+mm}</option>;})}</select><button type="button" onClick={()=>setEtaDateTime("")}>Clear ETA</button></div></label><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label>{!liveConnected && <PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => setPodEvidence(true)} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { void saveLiveHandover(job); } else { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); } }}>Save</button></div>}
+                  {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-approved-onsite"><header className="booking-approved-heading"><h2>On Site (Pickup)</h2></header><div className="booking-approved-route"><div><strong>{job.pickupAddress || job.from}</strong><span>{job.pickup}</span></div><div><strong>{job.deliveryAddress || job.to}</strong><span>{job.delivery}</span></div></div><div className="booking-approved-details"><h3>Job Details</h3><p>{job.vehicle}</p>{job.pickupInstructions && <p>{job.pickupInstructions}</p>}</div><label className="booking-approved-notes">Driver's Notes<textarea rows={4} value={driverNotes} onChange={e=>setDriverNotes(e.target.value)} placeholder="Please add any notes regarding arrival at the pickup location if required" /></label><button type="button" className="booking-yellow booking-approved-save" disabled={statusBusy} onClick={()=>{if(liveConnected){void saveLivePickupDraft(job)}else{update(job.id,{yourRef:yourRef||job.id,driverNotes});setBookingScreen("loaded")}}}>{statusBusy?"Saving...":"Save"}</button></section>}
+                  {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<input type="datetime-local" step={900} value={etaDateTime} onChange={e => { const v=e.target.value; if (!v) {setEtaDateTime("");return;} const [date,time]=v.split("T"); const [h,m]=time.split(":").map(Number); const total=h*60+Math.round(m/15)*15; const next=new Date(date+"T00:00:00"); next.setMinutes(total); const pad=(n:number)=>String(n).padStart(2,"0"); setEtaDateTime(next.getFullYear()+"-"+pad(next.getMonth()+1)+"-"+pad(next.getDate())+"T"+pad(next.getHours())+":"+pad(next.getMinutes())); }} /></label><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label>{!liveConnected && <PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => { setPodEvidence(true); update(job.id, { podRecorded: true, podReceivedBy: podReceivedBy || podName }); setBookingScreen("status"); }} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { void saveLiveHandover(job); } else { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); } }}>Save</button></div>}
                   
-                  {job.status === "ON_SITE_DELIVERY" && bookingScreen === "delivery" && <section className="settings booking-delivery-form"><h2>On Site Delivery</h2><p><strong>Delivery address:</strong> {job.deliveryAddress || job.to}</p><p><strong>Customer reference:</strong> {job.customerRef || 'Not provided'}</p><p><strong>Items:</strong> {job.items ?? 'Not provided'}</p><label>Received by<input required value={deliveryRecipient} onChange={e => setDeliveryRecipient(e.target.value)} placeholder="Name of person receiving goods" /></label><label>Items delivered<input required type="number" min="0" value={deliveryItems} onChange={e => setDeliveryItems(e.target.value)} placeholder={String(job.items ?? '')} /></label><label>Condition<select value={deliveryCondition} onChange={e => setDeliveryCondition(e.target.value)}><option>Good condition</option><option>Damaged</option><option>Shortage</option><option>Refused</option></select></label><label>Left at<input value={deliveryLeftAt} onChange={e => setDeliveryLeftAt(e.target.value)} /></label><label>Delivery notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label><button className="primary" type="button" disabled={statusBusy || !deliveryRecipient.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 0 || !deliveryLeftAt.trim()} onClick={() => { if (liveConnected) void submitLiveStatus(job, 'DELIVERED'); else { update(job.id, { status: 'DELIVERED' }); setBookingScreen('status'); } }}>Complete Delivery</button></section>}
-                  {job.status === "DELIVERED" && bookingScreen === "status" && (job.podRecorded ? <p className="success">POD already recorded for this booking.</p> : <button className="primary" type="button" onClick={() => setBookingScreen('pod')}>Open POD</button>)}
+                  {job.status === "ON_SITE_DELIVERY" && bookingScreen === "delivery" && <section className="booking-approved-onsite booking-delivery-form"><header className="booking-approved-heading"><h2>On Site (Delivery)</h2></header><div className="booking-approved-route"><div><strong>{job.pickupAddress || job.from}</strong><span>Collection</span></div><div><strong>{job.deliveryAddress || job.to}</strong><span>Delivery</span></div></div><div className="booking-approved-details"><h3>Job Details</h3><p>{job.vehicle}</p><p>Customer Ref: {job.customerRef || 'Not provided'}</p><p>Items: {job.items ?? 'Not provided'}</p></div><label className="booking-approved-notes">Received By (Full Name)<input required value={deliveryRecipient} onChange={e => setDeliveryRecipient(e.target.value)} placeholder="Person receiving goods" /></label><DeliverySignature recipient={deliveryRecipient} saved={!!deliverySignature} onSave={setDeliverySignature} onClear={() => setDeliverySignature(null)} /><label className="booking-approved-notes">Number Of Items Delivered<input required type="number" min="1" value={deliveryItems} onChange={e => setDeliveryItems(e.target.value)} placeholder={String(job.items ?? '')} /></label><label className="booking-approved-notes">Delivery Condition<select value={deliveryCondition} onChange={e => setDeliveryCondition(e.target.value)}><option>Good condition</option><option>Damaged</option><option>Shortage</option><option>Refused</option></select></label><label className="booking-approved-notes">Left At<input value={deliveryLeftAt} onChange={e => setDeliveryLeftAt(e.target.value)} placeholder="Goods Inwards / Reception" /></label><label className="booking-approved-notes">Driver's Notes<textarea rows={4} value={driverNotes} onChange={e => setDriverNotes(e.target.value)} placeholder="Delivery observations and exceptions" /></label><label className="booking-approved-notes">Delivery Photos (required)<input type="file" accept="image/jpeg,image/png" multiple capture="environment" onChange={e => setDeliveryPhotos(Array.from(e.target.files || []))} /><span>{deliveryPhotos.length ? `${deliveryPhotos.length} photo(s) selected` : 'Take a photo or select images from your gallery'}</span></label><button className="booking-yellow booking-approved-save" type="button" disabled={statusBusy || (liveConnected && (deliveryPhotos.length === 0 || !deliverySignature)) || !deliveryRecipient.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 1 || !deliveryLeftAt.trim()} onClick={() => { if (liveConnected) void completeLiveDelivery(job); else { update(job.id, { status: 'DELIVERED', podReceivedBy: deliveryRecipient.trim(), podLeftAt: deliveryLeftAt.trim(), items: Number(deliveryItems), driverNotes: [deliveryCondition, driverNotes].filter(Boolean).join(' | ') }); setBookingScreen('pod'); } }}>Complete Delivery</button><p className="notification-reason">POD and recipient signature are recorded separately after delivery.</p></section>}
+                  {job.status === "DELIVERED" && bookingScreen === "status" && (job.podRecorded ? <><p className="success">POD already recorded for this booking.</p>{role === "Owner Driver" && <button className="primary" type="button" disabled={invoiceBusy || !liveConnected} onClick={() => void createInvoiceAfterPod(job)}>{invoiceBusy ? "Creating invoice..." : "Create Invoice"}</button>}<button type="button" onClick={() => void downloadPodPdf(job)}>Download POD PDF</button><button type="button" onClick={() => setTab("Invoices")}>View Invoices</button></> : <button className="primary" type="button" onClick={() => setBookingScreen('pod')}>Open POD</button>)}
                   {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && (
                     <label>
                       Recipient / POD reference
@@ -595,9 +774,9 @@ function App() {
                   )}
                   {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && <div className="settings"><label>Received by<input value={podReceivedBy} onChange={e => { setPodReceivedBy(e.target.value); setPodEvidence(false); }} /></label><label>Left at<input value={podLeftAt} onChange={e => setPodLeftAt(e.target.value)} /></label></div>}
                   {job.status === "DELIVERED" && bookingScreen === "pod" && liveConnected && liveSession && (
-                    <LivePodCapture key={job.id} jobId={job.id} alreadyDelivered={job.backendStatus === 'delivered'} reference={job.customerRef || job.yourRef || job.id} initialItems={job.items || 1} session={liveSession} onSession={setLiveSession} onCompleted={async token => { await refreshLive(token); setBookingScreen("status"); setAvailabilityPrompt(true); }} />
+                    <LivePodCapture key={job.id} jobId={job.id} alreadyDelivered={job.status === 'DELIVERED' && ['delivered', 'completed'].includes(job.backendStatus || '')} reference={job.customerRef || job.yourRef || job.id} initialItems={Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1} initialRecipient={deliveryRecipient} initialSignature={deliverySignature} initialPhotoUris={uploadedDeliveryPhotos} initialDelivery={{ leftAt: deliveryLeftAt, condition: deliveryCondition, items: Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1, notes: driverNotes }} session={liveSession} onSession={setLiveSession} onCompleted={async token => { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); setBookingScreen("status"); setAvailabilityPrompt(true); try { await refreshLive(token); } catch { setLiveWarning("POD saved successfully. Booking synchronization is delayed; retry when connected."); } finally { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); } }} />
                   )}
-                  {next === "POD_SUBMITTED" && bookingScreen === "pod" && !liveConnected && (
+                  {job.status === "DELIVERED" && bookingScreen === "pod" && !liveConnected && (
                     <PodCapture
                       key={job.id}
                       jobId={job.id}
@@ -606,12 +785,12 @@ function App() {
                       initialItems={job.items || 1}
                       onRecipient={name => { setPodReceivedBy(name); setPodEvidence(false); }}
                       onFormChange={data => { setPodLeftAt(data.leftAt); }}
-                      initialStage={next === "POD_SUBMITTED" ? "DELIVERED_POD" : job.status === "ON_SITE_PICKUP" ? "ARRIVED_PICKUP" : "LOADED"}
-                      onSaved={() => setPodEvidence(true)}
+                      initialStage="DELIVERED_POD"
+                      onSaved={() => { setPodEvidence(true); update(job.id, { podRecorded: true, podReceivedBy: podReceivedBy || podName }); setBookingScreen("status"); }}
                     />
                   )}
-                  {next === "POD_SUBMITTED" && bookingScreen === "status" && !liveConnected && <button type="button" className="primary" onClick={() => setBookingScreen("pod")}>Create POD</button>}
-                  {next && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "pod") && next !== "LOADED" && !(liveConnected && next === "POD_SUBMITTED") && (
+                  
+                  {next && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "pod") && next !== "LOADED" && !(liveConnected && next === "POD_SUBMITTED") && (bookingScreen !== "pod" || next !== "POD_SUBMITTED") && (
                     <button
                       className="primary"
                       disabled={
@@ -670,18 +849,21 @@ function App() {
                 {tab === "Quotes" && <div className="alert-tabs booking-section-tabs quote-section-tabs" role="group" aria-label="Quote sections">{(["Submitted", "Unsuccessful"] as const).map((x) => <button key={x} type="button" className={quoteSection === x ? "selected" : ""} aria-pressed={quoteSection === x} onClick={() => setQuoteSection(x)}>{x}</button>)}</div>}
                 {tab === "Alerts" && <p role="status" className="notification-reason">Road radius: {searchRadius} miles from GPS{activeDelivery ? ` or delivery destination (${activeDelivery.to})` : ""} to collection. {roadRadius.message}</p>}
                 {tab === "Alerts" && <div className="alert-tabs">{(["Inbox","Saved","Deleted"] as const).map((x) => <button key={x} className={alertSection === x ? "selected" : ""} onClick={() => setAlertSection(x)}>{x}</button>)}</div>}
-                {liveBusy && <p role="status" className="notification-reason">Connecting to XDrive LIVE and loading records...</p>}
+                {liveBusy && jobs.length === 0 && <p role="status" className="notification-reason">Connecting to XDrive LIVE and loading records...</p>}
                 {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
                 {liveWarning && <p role="status" className="notification-reason">{liveWarning}</p>}
-                {listed.length === 0 ? (
+                {listed.length === 0 && tab === "Bookings" && bookingsPending ? (
+                  <p role="status" className="notification-reason">Loading your bookings from XDrive LIVE...</p>
+                ) : listed.length === 0 ? (
                   <div className="empty">
                     <span aria-hidden="true">&#128230;</span>
-                    <h2>No {tab.toLowerCase()} available</h2>
+                    <h2>{tab === "Bookings" && /(?:Booking offers|Active bookings|Completed bookings):/i.test(liveWarning) ? "Booking synchronization incomplete" : `No ${tab.toLowerCase()} available`}</h2>
                     <p>
-                      {liveBusy ? "Loading real records from XDrive LIVE..." : liveError ? "Unable to load your Driver records. Check the error above and your Driver account access." : liveConnected ? "No matching real records returned by XDrive LIVE." : mode === "unconfigured"
+                      {liveBusy && jobs.length === 0 ? "Loading real records from XDrive LIVE..." : liveError ? "Unable to load your Driver records. Check the error above and your Driver account access." : liveConnected ? tab === "Bookings" && /(?:Booking offers|Active bookings|Completed bookings):/i.test(liveWarning) ? "The booking service did not finish loading. This does not mean your offers are missing. Retry synchronization." : "No matching real records returned by XDrive LIVE." : mode === "unconfigured"
                         ? "Sign in to see your available loads."
                         : "No matching records in the isolated test workspace."}
                     </p>
+                    {tab === "Bookings" && liveConnected && !bookingsPending && /(?:Booking offers|Active bookings|Completed bookings):/i.test(liveWarning) && liveSession && <button className="primary" type="button" onClick={() => { setBookingsPending(true); void refreshLive(liveSession.token).catch(error => { setBookingsPending(false); setLiveWarning("Booking refresh failed: " + (error instanceof Error ? error.message : "Request failed")); }); }}>Retry bookings</button>}
                     {!liveConnected && mode === "unconfigured" && <button className="primary" type="button" onClick={() => setTab("More")}>Sign in</button>}
                   </div>
                 ) : (
@@ -695,7 +877,7 @@ function App() {
                             : j.status.replaceAll("_", " ")}
                         </span>}
                       </div>
-                      {tab === "Bookings" ? <div className="booking-card-heading"><div>Your Ref. {j.yourRef || j.id}</div><strong className={j.quoteOutcome === "CANCELLED" ? "booking-cancelled" : "booking-stage"}>{j.acceptanceRequired ? "Acceptance Required" : j.quoteOutcome === "CANCELLED" ? "Cancelled" : j.status === "ALLOCATED" ? "Accepted" : j.status.replaceAll("_"," ")}</strong>{j.zoneAlert && <div className="booking-zone-alert">{j.zoneAlert}</div>}<div className="job-posted-terms"><span>Terms: {j.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</span><span>Posted: {j.postedAt || "Not provided"}</span></div></div> : <small className="reference"><b>{j.service || "Same Day · Timed"}</b> · HOTSHOT · {j.vehicle}{j.quoteSubmittedAt ? ` · @ ${new Date(j.quoteSubmittedAt).toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"})}` : ""}</small>}
+                      {tab === "Bookings" ? <div className="booking-card-heading"><div>Your Ref. {j.yourRef || j.id}</div><strong className={j.quoteOutcome === "CANCELLED" ? "booking-cancelled" : "booking-stage"}>{j.acceptanceRequired ? "Acceptance Required" : j.quoteOutcome === "CANCELLED" ? "Cancelled" : j.status === "ALLOCATED" ? "Accepted" : j.status.replaceAll("_"," ")}</strong>{j.zoneAlert && <div className="booking-zone-alert">{j.zoneAlert}</div>}<div className="job-posted-terms"><span>Terms: {j.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</span><span>Posted: {j.postedAt || "Not provided"}</span></div></div> : <small className="reference"><b>{formatServiceLabel(j.service)}</b> · HOTSHOT · {j.vehicle}{j.quoteSubmittedAt ? ` · @ ${new Date(j.quoteSubmittedAt).toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"})}` : ""}</small>}
                       {tab === "Alerts" && <div className="alert-service"><b>HOTSHOT</b> {j.vehicle} {j.notificationAt && <small>@ {j.notificationAt}</small>}{j.zoneAlert && <div>{j.zoneAlert}</div>}</div>}
                       {tab !== "Bookings" && <div className="job-posted-terms"><span>Terms: {j.terms?.replace(/\s*EOM\b/gi, "").trim() || "Not provided"}</span><span>Posted: {j.postedAt || (j.quoteSubmittedAt ? new Date(j.quoteSubmittedAt).toLocaleTimeString("en-GB", {hour:"2-digit",minute:"2-digit"}) : "Not provided")}</span></div>}
                       <div className="route">
@@ -722,7 +904,7 @@ function App() {
                       {tab !== "Loads" && <button className="map-action" onClick={() => setRouteJobId(j.id)}>View on Map</button>}
                       <div className={tab === "Bookings" ? "actions booking-card-actions" : "actions"}>
                         <button onClick={() => openJob(j.id)}>
-                          {tab === "Bookings" ? "View Booking Details" : "View Details"}
+                          {tab === "Bookings" ? "View Booking" : "View Details"}
                         </button>
                         {(tab === "Loads" || tab === "Alerts") && (
                           <button
@@ -790,8 +972,7 @@ function App() {
             onClick={() => {
               setTab(t);
               if (t === "Bookings" && unseenAllocations.length > 0) { setViewedBookingOfferIds(ids => [...new Set([...ids, ...pendingAllocations.map(j => j.offerId || j.id)])]); setBookingSection("Current"); openJob(unseenAllocations[0].id); setRouteJobId(null); return; }
-              setSelected(null);
-              setRouteJobId(null);
+              if (t !== tab) { setSelected(null); setRouteJobId(null); }
             }}
           >
             <span>{["\u{1F4E6}", "\u{1F4AC}", "\u{1F69A}", "\u{1F514}"][i]}</span>

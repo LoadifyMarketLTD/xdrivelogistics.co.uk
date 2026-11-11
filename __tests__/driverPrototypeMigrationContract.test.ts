@@ -84,7 +84,7 @@ describe('Driver prototype migration contract', () => {
     expect(css).not.toContain('.xdrive-driver-workspace .driver-reference-dashboard');
     // Quotes/finance are real routes, not obsolete generic board selectors.
     expect(read('app/driver/quotes/page.tsx')).toContain('driver-quotes-prototype');
-    expect(read('app/driver/finance/page.tsx')).toContain('driver-finance-register');
+    expect(read('app/driver/finance/page.tsx')).toContain('/api/driver/finance/invoices');
   });
 
   it('does not touch the navbar in the prototype parity layer', () => {
@@ -132,7 +132,7 @@ describe('Driver prototype migration contract', () => {
     expect(baseline).toContain('.xdrive-workspace-measured .driver-tab-strip');
     expect(baseline).toContain('min-height: var(--ws-tab-h) !important;');
     expect(css).toContain('.xdrive-driver-workspace .driver-finance-register .finance-tabs');
-    expect(read('app/driver/finance/page.tsx')).toContain('driver-finance-register');
+    expect(read('app/driver/finance/page.tsx')).toContain('/api/driver/finance/invoices');
     expect(css).not.toMatch(/driver-finance-board[\s\S]{0,180}min-height:\s*38px/i);
     expect(css).not.toMatch(/driver-quotes-board[\s\S]{0,180}min-height:\s*38px/i);
     expect(css).toContain('grid-template-columns: var(--driver-prototype-rail) minmax(0, 1fr) !important;');
@@ -274,7 +274,7 @@ describe('Driver prototype migration contract', () => {
     const routeLayout = read('app/driver/history/layout.tsx');
     const diaryCss = read('app/driver/history/diary-exchange.css');
     expect(page).toContain('className="driver-board-main main diary-main"');
-    expect(page).toContain('diary-tabs workspace-tab-strip');
+    expect(page).toContain('tabs={historyFilters.map');
     expect(routeLayout).toContain('driver-diary-route');
     expect(routeLayout).toContain("import './diary-exchange.css'");
     expect(page).toContain('className="driver-diary-controlbar"');

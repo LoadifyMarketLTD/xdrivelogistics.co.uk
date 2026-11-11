@@ -50,19 +50,19 @@ describe('Driver compliance upload contract', () => {
     expect(documentsPage).toContain('File must be 10 MB or smaller.');
   });
 
-  test('automatically removes expired documents before returning the register', () => {
+  test('retains real expired documents in the authenticated compliance register for audit', () => {
     expect(uploadRoute).toContain('export async function GET(request: NextRequest)');
-    expect(uploadRoute).toContain('purgeExpiredDriverDocuments(driver.driverId)');
-    expect(uploadRoute).toContain(".lt('expiry_date', today)");
-    expect(uploadRoute).toContain("storage.from('driver-docs').remove(storagePaths)");
+    expect(uploadRoute).toContain(".eq('driver_id', driver.driverId)");
+    expect(uploadRoute).toContain('expiry_date, status, rejection_reason, created_at');
+    expect(uploadRoute).toContain('documents: data ?? []');
+    expect(uploadRoute).not.toContain('purgeExpiredDriverDocuments');
     expect(documentsPage).toContain("fetch('/api/driver/documents'");
-    expect(documentsPage).not.toContain(".from('driver_documents')\n      .select('id, doc_type, file_path");
   });
 
-  test('automatically removes older records when a same-type document is replaced', () => {
-    expect(uploadRoute).toContain('purgeReplacedDriverDocuments(driver.driverId, docType, record.id)');
-    expect(uploadRoute).toContain(".eq('doc_type', docType)");
-    expect(uploadRoute).toContain(".neq('id', keepId)");
-    expect(uploadRoute).toContain('replacedDeleted: replacedCleanup.deleted');
+  test('preserves replacement history instead of deleting authentic driver evidence', () => {
+    expect(uploadRoute).toContain(".eq('file_path', storagePath)");
+    expect(uploadRoute).toContain('idempotent: true');
+    expect(uploadRoute).not.toContain('purgeReplacedDriverDocuments');
+    expect(uploadRoute).toContain('replacedDeleted: 0');
   });
 });

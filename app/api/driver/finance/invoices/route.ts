@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
   buildInvoiceStatusSummary,
+  isAwaitingPaymentInvoiceStatus,
+  summarizeInvoiceValueScopes,
   toCanonicalInvoiceStatus,
   toCanonicalInvoiceStatusWithDueDate,
   toCanonicalPaymentStatus,
@@ -76,6 +78,7 @@ export async function GET(request: NextRequest) {
   // invoice lifecycle only; payment filtering has its own explicit dimension.
   const invoiceStatusFilter = searchParams.get('invoice_status') || searchParams.get('status');
   const paymentStatusFilter = searchParams.get('payment_status');
+  const awaitingPaymentScope = searchParams.get('payment_scope') === 'awaiting';
   const view = searchParams.get('view') === 'payables' ? 'payables' : 'receivables';
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 500);
 
@@ -161,13 +164,10 @@ export async function GET(request: NextRequest) {
   });
   const invoiceSummary = buildInvoiceStatusSummary(enrichedRows.map((row) => row.status as CanonicalInvoiceStatus));
   const payments = paymentSummary(enrichedRows.map((row) => row.payment_status as CanonicalPaymentStatus));
-  const valueSummary = enrichedRows.reduce((acc, row) => {
-    acc.net += Number((row as Record<string, unknown>).net_amount ?? 0); acc.vat += Number((row as Record<string, unknown>).vat_amount ?? 0); acc.gross += Number((row as Record<string, unknown>).amount ?? 0);
-    acc.paid += Number(row.paid_amount ?? 0); acc.outstanding += Number(row.outstanding_amount ?? 0);
-    return acc;
-  }, { net: 0, vat: 0, gross: 0, paid: 0, outstanding: 0 });
+  const valueSummary = summarizeInvoiceValueScopes(enrichedRows);
 
   const rows = enrichedRows.filter((row) => {
+    if (awaitingPaymentScope && !isAwaitingPaymentInvoiceStatus(row.status as CanonicalInvoiceStatus)) return false;
     if (invoiceStatusFilter && invoiceStatusFilter !== 'All') {
       const expected = toCanonicalInvoiceStatus(invoiceStatusFilter, 'Draft');
       if (row.status !== expected) return false;

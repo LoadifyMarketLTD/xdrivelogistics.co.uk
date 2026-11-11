@@ -6,6 +6,7 @@ import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 
 import { COMPANY_CONFIG } from '../../app/config/company';
+import { drawOfficialXDrivePdfLogo } from '../server/officialXDrivePdfLogo';
 import { buildControlledLegalDocument, type ControlledLegalDocumentCode, type LegalLanguage } from './controlledLegalDocuments';
 import type { CurrentLegalEvidence } from './legalAgreementState';
 import { isSupplementalLegalLanguage } from './supplementalControlledLegalDocuments';
@@ -98,7 +99,8 @@ const wrapText = (font: PDFFont, text: string, size: number, maxWidth: number) =
 
 const addWriter = (pdf: PDFDocument, regular: PDFFont, bold: PDFFont) => {
   let page: PDFPage = pdf.addPage(A4);
-  let y = A4[1] - MARGIN;
+  // The first page reserves its masthead for the canonical XDrive wordmark.
+  let y = A4[1] - MARGIN - 80;
   const ensure = (height: number) => {
     if (y - height >= MARGIN) return;
     page = pdf.addPage(A4);
@@ -186,6 +188,7 @@ export const buildSignedLegalAgreementPdf = async (input: SignedLegalAgreementPd
     creationDate: new Date(input.evidence.acceptedAt),
   });
   const w = addWriter(pdf, regular, bold);
+  await drawOfficialXDrivePdfLogo(pdf, pdf.getPage(0), { x: MARGIN, y: 722, maxWidth: 232, maxHeight: 69 });
 
   w.line(COMPANY_CONFIG.legalName, { size: 18, bold: true, color: NAVY });
   w.line(pdfCopy.packageTitle, { size: 15, bold: true, color: ORANGE, gap: 5 });

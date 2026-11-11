@@ -8,9 +8,9 @@ describe('Driver execution dashboard contract', () => {
   const page = read('app/driver/page.tsx');
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
 
-  it('keeps the home screen focused on current execution', () => {
+  it('preserves company driver execution and switches owner to Master 3150', () => {
     for (const marker of ['Current assignment','NEXT ACTION','Next booking','Driver readiness']) expect(page).toContain(marker);
-    expect(page).toContain('Your current job, next action and next booking.');
+    expect(page).toContain('OwnerDriver3150LiveDashboard');
   });
 
   it('uses the canonical shared lifecycle and mutation authority', () => {

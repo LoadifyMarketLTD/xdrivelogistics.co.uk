@@ -13,8 +13,9 @@ describe('Driver booking storyboard page 3', () => {
     const page=fs.readFileSync(path.join(process.cwd(),'app/driver-pwa-fresh/bookings/[id]/workflow/OnSitePickupStep.tsx'),'utf8');
     const handover=fs.readFileSync(path.join(process.cwd(),'app/api/driver/web/jobs/[id]/handover/route.ts'),'utf8');
     expect(page).toContain('Collection Evidence (optional)');
-    expect(page).toContain('Camera / Photos');
-    expect(page).toContain('Add Document');
+    expect(page).toContain('Take collection photo (camera)');
+    expect(page).toContain('Add saved collection photos');
+    expect(page).toContain('Add saved document / image');
     expect(handover).not.toContain('At least one collection photo');
   });
 

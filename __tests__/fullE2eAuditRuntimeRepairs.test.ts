@@ -21,7 +21,7 @@ describe('full E2E runtime repairs', () => {
     expect(brokerDiary).toContain("const [diaryClock, setDiaryClock] = useState('')");
     expect(brokerDiary).toContain('const updateClock = () => setDiaryClock(');
     expect(brokerDiary).toContain('window.setInterval(updateClock, 60_000)');
-    expect(brokerDiary).toContain("{diaryClock ? `Diary at ${diaryClock}` : 'Diary'}");
+    expect(brokerDiary).toContain("{diaryClock ? 'Updated at ' + diaryClock : 'Diary records'}");
     expect(brokerDiary).not.toContain("<strong>Diary at {new Date().toLocaleTimeString");
   });
 });

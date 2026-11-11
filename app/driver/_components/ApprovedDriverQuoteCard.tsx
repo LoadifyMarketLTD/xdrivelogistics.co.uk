@@ -1,7 +1,7 @@
 'use client';
 import type {ReactNode} from 'react';
 import type {CxDateParts} from '../../components/workspace/CxLoadCard';
-import ApprovedDriverOperationalCard from './ApprovedDriverOperationalCard';
+import CxQuoteCard from '../../components/workspace/CxQuoteCard';
 
 export default function ApprovedDriverQuoteCard({
  routeFrom,routeTo,pickup,delivery,band,sold=false,postedAt,service,loadId,vehicle,stage,
@@ -12,12 +12,9 @@ export default function ApprovedDriverQuoteCard({
  loadId:ReactNode;vehicle:string;stage?:string;expanded?:boolean;
  expandedContent?:ReactNode;footer:ReactNode;paymentTerms?:ReactNode;
 }) {
- return <ApprovedDriverOperationalCard mode="quote"
-  from={routeFrom} to={routeTo} pickup={pickup} delivery={delivery}
-  band={sold?'SOLD':band} member={service} postedAt={postedAt}
-  loadId={loadId} vehicle={vehicle} paymentTerms={paymentTerms}
-  facts={<span>Quote: {stage??'Submitted'}</span>} state={stage}
-  footer={footer} expanded={expanded} expandedContent={expandedContent}
-  className="xd-approved-quote-card"
- />;
-}
+ return <CxQuoteCard
+  routeFrom={routeFrom} routeTo={routeTo} pickup={pickup} delivery={delivery}
+  band={band} sold={sold} postedAt={postedAt} service={service}
+  loadId={loadId} vehicle={vehicle} stage={stage} expanded={expanded}
+  expandedContent={expandedContent} footer={footer} paymentTerms={paymentTerms}
+ />;}

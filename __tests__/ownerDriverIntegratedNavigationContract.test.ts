@@ -46,8 +46,8 @@ describe('owner-driver navigation integration contract', () => {
     }
 
     const quotes = read('app/driver/quotes/page.tsx');
-    expect(quotes).toContain("if (stage === 'archived' || stage === 'accepted') return 'archived'");
-    expect(quotes).toContain("type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful'");
+    expect(quotes).toContain("return stage === 'accepted' ? 'awarded' : 'submitted'");
+    expect(quotes).toContain("type TabId = 'submitted' | 'awarded'");
   });
 
   it('labels finance, search, won work and dynamic detail shells instead of the generic My Work fallback', () => {

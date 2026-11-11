@@ -432,9 +432,9 @@ export default function AvailableLoadsPage() {
             </div></details>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
-            <div className="load-result-head">
-              <div><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading...' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
+            <div className="load-result-head" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', height: 'auto', minHeight: 42, paddingTop: 6, paddingBottom: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
+              <div className="load-view-switch" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginLeft: 10 }}><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                 <OperationalExpandAllControl expanded={expandAll} disabled={!filteredLoads.length} onToggle={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} noun="loads" />
                 <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
@@ -523,6 +523,14 @@ export default function AvailableLoadsPage() {
               pickupAt: load.pickup_datetime,
               deliveryAt: load.delivery_datetime,
               vehicle,
+              pallets: load.pallets,
+              weight: load.weight_kg != null ? `${load.weight_kg} kg` : null,
+              dimensions: dimensions(load),
+              cargo: load.requested_cargo_label ?? load.cargo_type,
+              service: load.service_mode?.replace(/_/g, ' ') ?? 'On Demand',
+              notes: load.public_quote_notes,
+              paymentTerms: load.payment_terms,
+              hardPod: load.hard_copy_pod,
             };
           })()}
           amount={bidAmount}

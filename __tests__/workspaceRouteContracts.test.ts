@@ -146,7 +146,8 @@ describe('workspace route contracts', () => {
     expect(getProtectedRouteRequirement('/driver/network')?.prefix).toBe('/driver/network');
 
     const read = (relative: string) => readFileSync(resolve(process.cwd(), relative), 'utf8');
-    expect(read('app/driver/network/page.tsx')).toContain("redirect('/driver/directory')");
+    expect(read('app/driver/network/page.tsx')).toContain("href:'/driver/directory'");
+    expect(read('app/driver/network/page.tsx')).not.toContain("redirect('/driver/directory')");
     expect(read('app/driver/loads/directory/page.tsx')).toContain("redirect('/driver/directory')");
     expect(read('app/driver/account/page.tsx')).toContain("redirect('/driver/profile')");
     expect(read('app/driver/account/profile/page.tsx')).toContain("redirect('/driver/profile')");

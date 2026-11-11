@@ -20,9 +20,13 @@ const REPUTATION_INVOICE_LIMIT = 5000;
 type Coordinates = { lat: number; lng: number };
 
 function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
+  if (lat === null || lat === undefined || lng === null || lng === undefined || lat === '' || lng === '') return null;
   const parsedLat = Number(lat);
   const parsedLng = Number(lng);
-  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
+  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+    && parsedLat >= -90 && parsedLat <= 90 && parsedLng >= -180 && parsedLng <= 180
+    ? { lat: parsedLat, lng: parsedLng }
+    : null;
 }
 
 function postcodeKey(value: unknown) {

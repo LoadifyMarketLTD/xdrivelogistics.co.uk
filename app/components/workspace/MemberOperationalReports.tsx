@@ -1,31 +1,56 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { AlertBanner } from './WorkspaceUI';
+import {readRouteAuthAccessToken} from '../../../lib/routeAuthCookie';
 import '../../try-xdrive-demo/components/demo-reports-board.css';
 
 type ReportTab = 'Overview' | 'Loads' | 'Quotes' | 'Bookings' | 'Invoices';
+type VerifiedFinanceInvoice={id:string;job_id:string|null;invoice_number:string|null;status:string;amount:number;currency:string;invoice_date:string|null};
 const sectionTabs: ReportTab[] = ['Overview','Loads','Quotes','Bookings','Invoices'];
 const labelDate = (value: string | null) => value ? new Date(value).toLocaleDateString('en-GB') : 'Not supplied';
 
-export default function MemberOperationalReports({ role }: { role:'carrier'|'customer'|'broker' }) {
+export default function MemberOperationalReports({ role,includeDriverFinance=false }: { role:'carrier'|'customer'|'broker';includeDriverFinance?:boolean }) {
   const data = useCompanyWorkspaceData();
   const [section,setSection] = useState<ReportTab>('Overview');
   const [period,setPeriod] = useState('30');
+  const [driverFinance,setDriverFinance]=useState<VerifiedFinanceInvoice[]|null>(null);
+  const [driverFinancePartial,setDriverFinancePartial]=useState(true);
+  useEffect(()=>{
+    if(!includeDriverFinance||!data.companyId){setDriverFinance(null);return;}
+    let active=true;
+    const load=async()=>{
+      const token=readRouteAuthAccessToken();
+      if(!token)return;
+      try{
+        const response=await fetch('/api/driver/finance/invoices?view=receivables&limit=500',{headers:{Authorization:`Bearer ${token}`},cache:'no-store'});
+        if(!response.ok)return;
+        const body=await response.json() as {rows?:VerifiedFinanceInvoice[];invoiceSummary?:{total?:number}};
+        if(active&&Array.isArray(body.rows)&&body.rows.length===body.invoiceSummary?.total){
+          setDriverFinance(body.rows);setDriverFinancePartial(false);
+        }
+      }catch{/* Unverified data stays unavailable; no fabricated totals. */}
+    };
+    setDriverFinance(null);setDriverFinancePartial(true);void load();
+    return()=>{active=false;};
+  },[includeDriverFinance,data.companyId]);
   const cutoff = useMemo(() => period === 'all' ? null : Date.now() - Number(period)*86_400_000, [period]);
 
   const jobs = useMemo(() => data.jobs.filter((job) => !cutoff || (Date.parse(job.created_at) >= cutoff)), [data.jobs,cutoff]);
   const jobIds = useMemo(() => new Set(jobs.map((job) => job.id)),[jobs]);
   const bids = useMemo(() => data.bids.filter((bid) => jobIds.has(bid.job_id)),[data.bids,jobIds]);
-  const invoices = useMemo(() => data.invoices.filter((invoice) => invoice.job_id && jobIds.has(invoice.job_id)),[data.invoices,jobIds]);
+  const invoices = useMemo(() => {
+    if(includeDriverFinance && driverFinance)return driverFinance.filter(invoice=>!cutoff || (invoice.invoice_date!=null && Date.parse(invoice.invoice_date)>=cutoff));
+    return data.invoices.filter((invoice) => invoice.job_id && jobIds.has(invoice.job_id));
+  },[includeDriverFinance,driverFinance,cutoff,data.invoices,jobIds]);
 
   const verified = (key:'jobs'|'bids'|'invoices') => data.companyId != null && data.datasets[key].availability === 'available'
     && !data.datasets[key].partialData && !data.datasets[key].limitedData && !data.error && !data.loading;
   const jobsVerified = verified('jobs');
   const bidsVerified = verified('bids');
-  const invoicesVerified = verified('invoices');
+  const invoicesVerified = includeDriverFinance ? driverFinance!==null && !driverFinancePartial : verified('invoices');
   const assigned = jobs.filter((job) => ['awarded','allocated','in_progress','completed'].includes(classifyWorkspaceJobStage(job)));
   const completed = jobs.filter((job) => classifyWorkspaceJobStage(job)==='completed');
   const open = jobs.filter((job) => classifyWorkspaceJobStage(job)==='open');
@@ -54,7 +79,7 @@ export default function MemberOperationalReports({ role }: { role:'carrier'|'cus
 
   return <section className="xd-reports" data-source="verified-company-workspace">
     <header className="xd-reports-head">
-      <div><h1>Reports</h1><p>{role==='broker'?'Broker':role==='customer'?'Customer':'Company / Carrier'} · verified company records</p></div>
+      <div><h1>Reports</h1><p>{includeDriverFinance?'Owner Driver':role==='broker'?'Broker':role==='customer'?'Customer':'Company / Carrier'} · verified company records</p></div>
       <div className="xd-reports-actions">
         <label>Reporting period <select aria-label="Reporting period" value={period} onChange={(event)=>setPeriod(event.target.value)}>
           <option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="all">All available records</option>

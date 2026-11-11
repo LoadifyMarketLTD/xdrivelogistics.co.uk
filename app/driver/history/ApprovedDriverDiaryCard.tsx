@@ -1,6 +1,6 @@
 'use client';
 import type { ReactNode } from 'react';
-import ApprovedDriverOperationalCard from '../_components/ApprovedDriverOperationalCard';
+import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 
 type DateParts={primary:ReactNode;meta?:ReactNode};
 export default function ApprovedDriverDiaryCard({
@@ -16,15 +16,20 @@ export default function ApprovedDriverDiaryCard({
  footerRole?:string;footerAriaLabel?:string;footerClassName?:string;
  onDetails:()=>void;
 }){
- return <ApprovedDriverOperationalCard mode="diary" from={from} to={to} pickup={pickup} delivery={delivery}
-   band={band} member={statusLine} vehicle={vehicle} loadId={loadId}
-   state={dataState??state??stage} className={`xd-approved-diary-card ${className}`}
-   facts={<span>{statusStamp}</span>} expanded={expanded}
-   footer={<div className="xd-approved-diary-footer" role={footerRole} aria-label={footerAriaLabel}>
+ return <CxDiaryCard
+   from={from} to={to} pickup={pickup} delivery={delivery}
+   band={band} statusLine={statusLine} statusStamp={statusStamp}
+   vehicle={vehicle} loadId={loadId}
+   state={dataState??state??stage} stage={stage}
+   className={`xd-approved-diary-card ${className}`}
+   expanded={expanded}
+   footerRole={footerRole} footerAriaLabel={footerAriaLabel}
+   footer={<div className="xd-approved-diary-footer" role="toolbar" aria-label={footerAriaLabel}>
      <button type="button" className="xd-approved-view-details" onClick={onDetails}
        aria-expanded={expanded}>{expanded?'Hide Details':'View Details'}</button>
      {footer}
    </div>}
-   expandedContent={<>{expandedMeta}{expandedContent}{secondaryContent}</>}
- >{children}</ApprovedDriverOperationalCard>;
-}
+   expandedMeta={expandedMeta}
+   expandedContent={expandedContent}
+   secondaryContent={secondaryContent}
+ >{children}</CxDiaryCard>;}

@@ -1,1 +1,16 @@
-import {readFileSync} from 'node:fs';import {describe,it,expect} from 'vitest';const api=readFileSync(new URL('../app/api/driver/marketplace/loads/route.ts',import.meta.url),'utf8');const page=readFileSync(new URL('../app/driver-pwa-fresh/quotes/page.tsx',import.meta.url),'utf8');describe('driver PWA quote history visibility',()=>{it('includes the bid identifier required by quotes page',()=>{expect(api).toContain("select('id, job_id, status, bid_price_gbp, amount, message')");expect(api).toContain('id: bid.id');expect(page).toContain('load.myBid?.id');});it('uses quoting user identity for historical bids',()=>{expect(api).toContain('bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)');expect(api).toContain('quotedHistory');expect(api).toContain('bidder_driver_id.eq.');});});
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+const read = (p: string) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
+describe('canonical Driver quote history visibility', () => {
+  it('retains real quote identifiers and lifecycle statuses', () => {
+    const page = read('app/driver/quotes/page.tsx');
+    expect(page).toContain('bid.id');
+    expect(page).toContain('canonicalQuoteStage');
+    expect(page).toContain('isTerminalQuoteStage');
+  });
+  it('verifies live booking offer status for submitted quotes', () => {
+    const page = read('app/driver/quotes/page.tsx');
+    expect(page).toContain('fetchAllBookingOfferPages');
+    expect(page).toContain("'/api/booking-offers'");
+  });
+});

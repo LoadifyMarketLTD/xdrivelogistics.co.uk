@@ -1,0 +1,8 @@
+/* Scoped Return Journeys controls; does not affect Post Load page styles. */
+.driver-returns-exchange .driver-returns-prototype .return-tabs{display:flex!important;align-items:center!important;align-content:center!important;flex-wrap:wrap!important;gap:7px!important;padding:9px!important;min-height:54px!important;overflow:visible!important;background:#fff!important}
+.driver-returns-exchange .driver-returns-prototype .return-tabs>button{min-height:34px!important;height:auto!important;border:1px solid #d5deeb!important;border-radius:5px!important;padding:7px 10px!important;font-size:12px!important;line-height:1.25!important;white-space:nowrap!important}
+.driver-returns-exchange .driver-returns-prototype .return-tabs>label{display:flex!important;align-items:center!important;gap:7px!important;min-width:max-content!important;line-height:1.35!important;font-size:11px!important}
+.driver-returns-exchange .driver-returns-prototype .return-tabs>label select{min-width:60px!important;min-height:32px!important}
+.driver-returns-exchange .driver-returns-prototype .return-tabs>.return-view{display:flex!important;gap:5px!important;align-items:center!important;flex-wrap:wrap!important}
+.driver-returns-exchange .driver-returns-prototype .return-tabs .spacer{flex:1 1 16px!important;min-width:0!important}
+@media(max-width:1100px){.driver-returns-exchange .driver-returns-prototype .return-tabs .spacer{flex-basis:100%!important}}

@@ -184,3 +184,71 @@ body:has(.shell.no-empty-scroll){overflow:hidden}
 .card .alert-actions button:last-child{background:#f47716!important;border:1px solid #f47716!important;color:#fff!important}
 .card .alert-actions button:last-child:hover{background:#db650d!important;border-color:#db650d!important}
 .card>button.primary.quote-now-green{background:var(--job-green,#159b45)!important;border-color:var(--job-green,#159b45)!important;color:#fff!important}
+
+/* Immediate tactile feedback for operational booking controls on Android. */
+.booking-next,.booking-yellow,.booking-detail-sheet button,.booking-delivery-form button,.booking-pickup-form button{touch-action:manipulation;-webkit-tap-highlight-color:rgba(21,159,80,.18)}
+.booking-next:active,.booking-yellow:active,.booking-detail-sheet button:active,.booking-delivery-form button:active,.booking-pickup-form button:active{filter:brightness(.9);transform:scale(.995)}
+.booking-next:disabled,.booking-yellow:disabled{opacity:.65;cursor:wait}
+
+
+/* Fast and consistent interaction feedback throughout the driver PWA. */
+button,a,[role='button'],select,input[type='checkbox'],input[type='radio'],summary{touch-action:manipulation}
+button:not(:disabled):active,[role='button']:active,a:active{filter:brightness(.92)}
+button:focus-visible,a:focus-visible,[role='button']:focus-visible{outline:2px solid #159f50;outline-offset:2px}
+button:disabled{cursor:wait}
+/* Keep scrollable controls clear of the fixed driver navigation and Android gesture area. */
+
+/* Approved 1099 pickup screen: route, job details, notes, Save. */
+.booking-approved-onsite{background:#fff;padding:0 14px 95px;display:flex;flex-direction:column;gap:22px;color:#20252d}
+.booking-approved-heading{background:#ffc400;padding:15px;margin:0 -14px}
+.booking-approved-heading h2{font-size:20px;margin:0;font-weight:800;color:#182b45}
+.booking-approved-route{padding:16px 4px 5px 28px;display:grid;gap:21px;border-left:4px dotted #b4b8bf;margin-left:8px}
+.booking-approved-route div{display:flex;flex-direction:column;gap:5px;position:relative}
+.booking-approved-route div:before{content:'●';position:absolute;left:-37px;top:0;color:#9aa4ae;font-size:17px}
+.booking-approved-route strong{font-size:19px;line-height:1.3;color:#20252d}
+.booking-approved-route span{font-size:14px;color:#66717d;font-weight:650}
+.booking-approved-details h3{font-size:17px;color:#6a7179;border-bottom:1px solid #b7bdc4;margin:0 0 8px}
+.booking-approved-details p{font-size:16px;line-height:1.5;margin:5px 0}
+.booking-approved-notes{font-size:17px;font-weight:800;color:#656b73}
+.booking-approved-notes textarea{display:block;width:100%;box-sizing:border-box;border:1px solid #bfc4ca;border-radius:5px;padding:12px;margin-top:9px;min-height:120px;font-size:16px;resize:vertical;color:#20252d}
+.booking-approved-save{min-height:55px;width:100%;font-size:18px!important;border-radius:5px!important}
+
+/* PWA 1099 approved mobile delivery form reference, 2026-11-08. */
+@media(max-width:700px){
+.booking-collection-form{display:flex;flex-direction:column;gap:13px;background:#fff;padding:12px 10px 80px;border-radius:0;box-shadow:none;border:0}
+.booking-collection-form .collection-pair{display:flex;flex-direction:column;gap:13px}
+.booking-collection-form label{display:block;width:100%;box-sizing:border-box;margin:0!important;font-size:15px!important;font-weight:750;color:#676767;line-height:1.35}
+.booking-collection-form input,.booking-collection-form textarea,.booking-collection-form select{display:block;width:100%;box-sizing:border-box;margin-top:5px!important;padding:10px 9px!important;min-height:44px;font-size:16px!important;font-weight:600;border:1px solid #bcbcbc;border-radius:3px;overflow:visible;text-overflow:clip}
+.booking-collection-form input[readonly]{font-size:14px!important;white-space:normal;overflow-wrap:anywhere}
+.booking-collection-form textarea{min-height:112px;font-weight:400!important}
+.booking-collection-form .booking-yellow,.booking-collection-form button[type=submit]{background:#ffc400!important;color:#161616!important;border:0!important;border-radius:3px!important;min-height:51px;font-size:17px!important;font-weight:800!important;width:100%}
+.booking-collection-form .eta-quarter-hour{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px}
+.booking-collection-form .eta-quarter-hour>*{min-width:0}
+}/* Approved five-stage Booking / Collection / Delivery / POD / Invoice visual system. */
+.xdrive-approved-progress{display:flex;gap:6px;overflow-x:auto;margin:10px 0 18px;padding:3px 0 8px;scrollbar-width:thin}
+.xdrive-approved-progress span{display:flex;align-items:center;justify-content:center;gap:5px;flex:1;min-width:79px;border:1px solid #dee4ea;border-radius:9px;background:#fff;padding:11px 7px;font-size:11px;font-weight:750;color:#788594;white-space:nowrap}
+.xdrive-approved-progress b{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:#edf0f3;color:#637181;font-size:10px}
+.xdrive-approved-progress .current{border-color:#f47721;background:#fff7f1;color:#b7570e}
+.xdrive-approved-progress .current b{background:#f47721;color:white}
+.xdrive-approved-progress .complete{border-color:#b8e3d2;background:#f4fbf7;color:#16845a}
+.xdrive-approved-progress .complete b{background:#16845a;color:white}
+.booking-approved-onsite,.booking-collection-form{background:#fff;border:1px solid #e1e5ea;border-radius:14px;padding:20px!important;box-shadow:0 3px 14px #19233108}
+.booking-approved-onsite input,.booking-approved-onsite textarea,.booking-approved-onsite select,.booking-collection-form input,.booking-collection-form textarea,.booking-collection-form select{border:1px solid #d9e0e7!important;border-radius:8px!important;background:#fff!important;padding:11px 12px!important;color:#283647!important}
+.booking-approved-onsite .booking-approved-save,.booking-collection-form .booking-yellow{background:#f47721!important;color:#fff!important;border:1px solid #f47721!important;border-radius:9px!important;font-size:12px!important;font-weight:800!important}
+@media(max-width:480px){.xdrive-approved-progress{gap:4px}.xdrive-approved-progress span{min-width:76px;flex-direction:column;padding:9px 5px}.booking-approved-onsite,.booking-collection-form{padding:16px!important;border-radius:11px}}
+
+/* Recipient handover signature: visible card and dedicated full-screen signing surface. */
+.delivery-signature-card{display:flex;align-items:center;gap:14px;width:100%;padding:18px 16px;text-align:left;background:#fff8ed;border:2px solid #f47721;border-radius:13px;color:#172b46;cursor:pointer;min-height:86px}
+.delivery-signature-card .delivery-signature-icon{font-size:30px}.delivery-signature-card span:nth-child(2){flex:1;display:grid;gap:5px}.delivery-signature-card strong{font-size:17px}.delivery-signature-card small{font-size:13px;color:#5c6878}
+.delivery-signature-overlay{position:fixed;inset:0;z-index:9999;background:rgba(9,19,34,.82);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.delivery-signature-dialog{width:min(900px,100%);max-height:95dvh;overflow:auto;background:#fff;color:#172b46;border-radius:16px;padding:20px;box-sizing:border-box;box-shadow:0 20px 65px #0006}
+.delivery-signature-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px}.delivery-signature-dialog h2{margin:0;font-size:21px}.delivery-signature-dialog header button{background:#edf1f5;color:#263748;border:0;border-radius:9px;padding:10px 15px}
+.delivery-signature-dialog p{font-size:15px;color:#506176}.delivery-signature-dialog canvas{display:block;width:100%;height:min(43dvh,310px);border:2px solid #aeb9c5;border-radius:10px;background:#fff;touch-action:none;box-sizing:border-box}
+.delivery-signature-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}.delivery-signature-actions button{padding:13px 16px;border:1px solid #cdd6df;border-radius:9px;background:#f3f6f9;color:#172b46;font-weight:750}.delivery-signature-actions .signature-save{background:#17824e;color:#fff;border-color:#17824e}.delivery-signature-actions .signature-save:disabled{opacity:.5}
+@media(max-width:600px){.delivery-signature-dialog{padding:14px}.delivery-signature-actions{display:grid;grid-template-columns:1fr 1fr}.delivery-signature-actions .signature-save{grid-column:1/-1}}
+
+/* Keep the approved fixed tab bar opaque and reserve its full height for every scrollable card. */
+.shell:not(.route-view){padding-bottom:calc(124px + env(safe-area-inset-bottom, 0px));box-sizing:border-box}
+.shell:not(.route-view)>main{padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px))!important}
+.shell:not(.route-view)>nav{background:#fff!important;isolation:isolate;z-index:100;box-shadow:0 -4px 12px rgba(18,36,60,.10)}
+.shell:not(.route-view)>nav::before{content:'';position:absolute;inset:0;background:#fff;z-index:-1;pointer-events:none}

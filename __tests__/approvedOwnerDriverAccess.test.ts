@@ -53,7 +53,7 @@ describe('approved owner-driver access uses canonical records, not missing signu
     expect(result.reason).toBeNull(); if(!result.user)throw Error('Expected resolved user');
     expect(result.user.workspaceRole).toBe('owner_driver');
     expect(result.user.ownerDriverWorkspace).toBe(true);
-    expect(getPostLoginRoute(result.user)).toBe('/driver');
+    expect(getPostLoginRoute(result.user)).toBe('/driver/jobs');
     expect(roleCanAccessPath(result.user,'/driver')).toBe(true);
     expect(roleCanAccessPath(result.user,'/super-admin')).toBe(false);
     expect(state.rpc).not.toHaveBeenCalled();
