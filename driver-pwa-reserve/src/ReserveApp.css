@@ -274,3 +274,22 @@
 .rv-job .rv-stop .rv-stop-date{font-size:17px;font-weight:700}
 .rv-job .rv-stop .rv-stop-time{font-size:20px;font-weight:800}
 @media(max-width:400px){.rv-job .rv-stop .rv-stop-date{font-size:16px}}
+
+/* Compact card schedule: pickup/delivery date stays beside its time. */
+.rv-job .rv-stop .rv-stop-schedule{display:flex;align-items:baseline;flex-wrap:nowrap;gap:6px;white-space:nowrap;line-height:1.3;margin-top:2px}
+.rv-job .rv-stop .rv-stop-schedule>span{display:inline;margin:0;white-space:nowrap}
+.rv-job .rv-stop .rv-stop-schedule>.rv-stop-time{flex:0 0 auto;line-height:1.3}
+.rv-job .rv-stop .rv-stop-schedule>.rv-stop-date{flex:0 0 auto;line-height:1.3;font-size:15px}
+.rv-job .rv-route{gap:8px}
+@media(max-width:400px){.rv-job .rv-stop .rv-stop-schedule{gap:5px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-date{font-size:14px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:18px}}
+
+/* Space-saving chrome: keep 44px touch targets while showing more bookings. */
+.rv-header{height:58px;padding:6px 12px;border-bottom-width:2px}
+.rv-official-logo{height:36px;width:min(148px,calc(100vw - 110px))}
+.rv-header button{min-width:44px;min-height:44px;padding:6px 10px}
+.rv-nav{padding:3px 0 max(3px,env(safe-area-inset-bottom))}
+.rv-nav button{min-height:48px;gap:0;font-size:13px;justify-content:center}
+.rv-nav button span{font-size:18px;line-height:1.15}
+.rv-shell{padding-bottom:62px}
+.rv-main.rv-card-first-list{min-height:calc(100dvh - 120px)}
+.rv-main:has(.rv-delivery-page){min-height:calc(100dvh - 120px)}

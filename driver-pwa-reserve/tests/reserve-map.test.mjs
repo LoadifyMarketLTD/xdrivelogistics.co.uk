@@ -9,9 +9,9 @@ test('Reserve uses the real Leaflet RouteMap reused from main',()=>{
  assert.match(map,/nominatim\.openstreetmap\.org/);
  assert.match(map,/router\.project-osrm\.org/);
 });
-test('View on Map is wired from job cards and Load Details',()=>{
+test('View on Map is available only from Load Details',()=>{
  assert.match(app,/function openMap\(j:LiveJob/);
- assert.match(app,/rv-map-action.*openMap\(j,'list'\).*View on Map/);
+ assert.doesNotMatch(app,/rv-map-action.*openMap\(j,'list'\).*View on Map/);
  assert.match(app,/rv-map-action rv-wide.*openMap\(job,'details'\).*View on Map/);
  assert.match(app,/view==='map'&&job&&<RouteMap/);
  assert.match(app,/onBack=\{\(\)=>setView\(mapReturnView\)\}/);
@@ -48,8 +48,8 @@ test('Bookings tabs and cards are immediately beneath the navbar without heading
 });
 test('Every View on Map button shares the colored teal treatment',()=>{
  const card=app.split('  function card(j:LiveJob)')[1].split('  async function withdrawQuote')[0];
- assert.match(card,/tab!=='Quotes'&&<button className="rv-map-action"/);
- assert.match(card,/className="rv-map-action" onClick=\{\(\)=>openMap\(j,'list'\)\}>⌖ View on Map/);
+ assert.doesNotMatch(card,/tab!=='Quotes'&&<button className="rv-map-action"/);
+ assert.doesNotMatch(card,/className="rv-map-action" onClick=/);
  assert.match(app,/className="rv-map-action rv-wide" onClick=\{\(\)=>openMap\(job,'details'\)\}/);
  const css=fs.readFileSync(new URL('../src/ReserveApp.css',import.meta.url),'utf8');
  assert.match(css,/\.rv-job \.rv-actions \.rv-map-action/);

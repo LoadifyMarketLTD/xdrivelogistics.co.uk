@@ -23,9 +23,10 @@ test('Booking history originates from live backend statusHistory and never fabri
  assert.match(app,/<BookingStatusTimeline job=\{job\}\/>/);
  assert.doesNotMatch(app,/<details className="rv-history"><summary>Booking Status History/);
 });
-test('Booking cards retain real map and recipient-offer review without committing operations',()=>{
+test('Booking cards keep recipient-offer review and details-only map without committing operations',()=>{
  const app=src('ReserveApp.tsx');
- assert.match(app,/openMap\(j,'list'\)/);
+ assert.doesNotMatch(app,/openMap\(j,'list'\)/);
+ assert.match(app,/openMap\(job,'details'\)/);
  assert.match(app,/bookingOfferRespond\(s\.token,job\.offerId!,'accept'\)/);
  assert.match(app,/bookingOfferRespond\(s\.token,job\.offerId!,'decline'\)/);
 });

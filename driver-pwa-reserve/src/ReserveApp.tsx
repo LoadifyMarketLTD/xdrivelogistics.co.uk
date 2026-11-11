@@ -123,7 +123,7 @@ export default function ReserveApp() {
       {j.notes?.trim()&&<p className="rv-job-notes"><strong>Notes:</strong> {j.notes}</p>}
       <div className="rv-chips"><span><strong>{j.weight || '—'}</strong> kg</span>{j.terms&&<span>Payment: {j.terms}</span>}{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div>
       {tab==='Quotes'&&j.quote!=null&&<div className="rv-summary"><Fact name="Your submitted quote" value={gbp(j.quote)}/><Fact name="Collection ETA" value={j.quoteEtaMinutes==null?'Not provided':j.quoteEtaMinutes+' minutes'}/></div>}
-      {tab!=='Quotes'&&<button className="rv-map-action" onClick={()=>openMap(j,'list')}>⌖ View on Map</button>}
+
       {tab==='Loads'?<div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>Load Details</button>{j.quote!=null&&j.quoteOutcome!=='CANCELLED'&&j.bidStatus!=='withdrawn'?<button className="rv-primary" onClick={()=>{setQuoteSection('Submitted');setTab('Quotes');open(j,'quoteDetails')}}>View Quote</button>:<button className="rv-primary" onClick={()=>open(j,'quote')}>Quote Now</button>}</div>
       :tab==='Quotes'?<>
         {canWithdraw&&<div className="rv-actions rv-primary-quote-actions">
@@ -131,7 +131,7 @@ export default function ReserveApp() {
           <button className="rv-danger" onClick={()=>setWithdrawId(j.id)} disabled={busy}>Withdraw Quote</button>
         </div>}
         {canWithdraw&&!canEdit&&<p className="rv-sub">Editing is unavailable because the job has progressed. Your submitted quote can still be withdrawn.</p>}
-        <div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'quoteDetails')}>View Quote</button><button className="rv-map-action" onClick={()=>openMap(j,'list')}>⌖ View on Map</button></div>
+        <div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'quoteDetails')}>View Quote</button></div>
         {withdrawId===j.id&&<section className="rv-withdraw-confirm" role="alertdialog" aria-label="Confirm quote withdrawal"><strong>Withdraw this quotation?</strong><p>The quote will be withdrawn from XDrive. You will no longer be considered for this job unless you submit a new quote while it remains available. Your history is preserved.</p><div className="rv-actions"><button className="rv-outline" onClick={()=>setWithdrawId(null)} disabled={busy}>Keep Quote</button><button className="rv-danger" disabled={busy} onClick={()=>void withdrawQuote(j)}>{busy?'Withdrawing…':'Confirm Withdraw'}</button></div></section>}
       </>:<div className="rv-booking-actions">
         <div className="rv-actions"><button className="rv-outline" onClick={()=>open(j,'details')}>View Booking Details</button><button className="rv-primary" onClick={()=>open(j,offered?'incoming':'statusHistory')}>{offered?(expired?'View Expired Offer':'Review Incoming Job'):j.status==='DELIVERED'||j.status==='POD_SUBMITTED'?'View POD & Status':'Booking Status'}</button></div>
