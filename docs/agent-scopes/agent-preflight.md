@@ -9,8 +9,8 @@ Every agent or automated task that modifies files in this repository **must** de
 ```
 AGENT PREFLIGHT
 ───────────────────────────────────────────────────────────────────
-Target product:      <WEB | EXPO_DRIVER | ANDROID_NATIVE_DRIVER | SUPABASE | CROSS>
-Scope document:      docs/agent-scopes/<web|expo-driver|android-driver|supabase>.md
+Target product:      <WEB | DRIVER_PWA | RESERVE_PWA | SUPABASE | CROSS>
+Scope document:      docs/agent-scopes/<web|driver-pwa|reserve-pwa|supabase>.md
 Base branch:         main
 HEAD SHA:            <sha>
 ───────────────────────────────────────────────────────────────────
@@ -62,6 +62,6 @@ Production safety:
 | Product | Scope document |
 |---|---|
 | WEB | `docs/agent-scopes/web.md` |
-| EXPO_DRIVER | `docs/agent-scopes/expo-driver.md` |
-| ANDROID_NATIVE_DRIVER | `docs/agent-scopes/android-driver.md` |
+| DRIVER_PWA | `docs/agent-scopes/driver-pwa.md` |
+| RESERVE_PWA | `docs/agent-scopes/reserve-pwa.md` |
 | SUPABASE | `docs/agent-scopes/supabase.md` |

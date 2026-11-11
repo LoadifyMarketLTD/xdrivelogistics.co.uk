@@ -3,8 +3,8 @@
 <!-- Select exactly one. Remove the others. -->
 
 - [ ] **WEB** — Next.js website / server API (`app/`, `lib/`, `middleware.ts`, `public/`, `e2e/`)
-- [ ] **EXPO_DRIVER** — Expo React Native driver app (`apps/driver-mobile/`)
-- [ ] **ANDROID_NATIVE_DRIVER** — Kotlin Android driver app (`android-native/`)
+- [ ] **DRIVER_PWA** — Approved driver PWA (`official-driver-pwa/`, `app/driver/`)
+- [ ] **RESERVE_PWA** — Reserve driver PWA (`driver-pwa-reserve/`)
 - [ ] **SUPABASE** — Migrations, RLS, edge functions (`supabase/`, `database/`)
 - [ ] **CROSS** — Affects more than one product (requires explicit Platform Owner approval)
 
