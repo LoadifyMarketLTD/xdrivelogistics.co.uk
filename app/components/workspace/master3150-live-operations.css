@@ -254,9 +254,9 @@
 .driver-quotes-prototype .xd-approved-board-header h1,
 .driver-diary-board .xd-diary-header h1 {
   color:#071a38;
-  font-size:30px;
+  font-size:20px;
   font-weight:800;
-  margin:0 0 8px;
+  margin:0 0 3px;
 }
 .driver-loads-prototype .load-tabs,
 .driver-quotes-prototype .workspace-tab-strip,
