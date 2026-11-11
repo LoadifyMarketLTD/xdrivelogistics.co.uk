@@ -34,7 +34,12 @@ export async function GET(request: NextRequest) {
   let memberships;
   try {memberships=await getBuyerViewMemberships(supabaseAdmin,authData.user.id)}
   catch{return json(503,{error:'Unable to verify buyer access.'})}
-  const companyIds=[...new Set(memberships.map(row=>row.company_id).filter(Boolean))];
+  // Bidder identities are part of the commercial quote decision surface.
+  // Read-only buyer visibility must not grant bidder profile access.
+  const decisionMemberships = memberships.filter((row) => BID_DECISION_MEMBERSHIP_ROLES.has(
+    String(row.role_in_company ?? '').toLowerCase(),
+  ));
+  const companyIds=[...new Set(decisionMemberships.map(row=>row.company_id).filter(Boolean))];
   if (!companyIds.length) return json(200, { identities: [] });
 
   const targetBidId = request.nextUrl.searchParams.get('bidId');
@@ -58,7 +63,7 @@ export async function GET(request: NextRequest) {
     const {data:vehicleQuotes,error:vehicleQuoteError}=bidIds.length?await supabaseAdmin.from('job_bids').select('id,quote_vehicle_id').in('id',bidIds):{data:[],error:null};
     if(vehicleQuoteError)return json(503,{error:'Quoted vehicle references could not be retrieved.'});
     const vehicleByQuote=new Map((vehicleQuotes??[]).map(q=>[q.id,q.quote_vehicle_id]));
-    const decisionCompanyIds = new Set((memberships ?? []).filter(row => BID_DECISION_MEMBERSHIP_ROLES.has(String(row.role_in_company ?? '').toLowerCase())).map(row => String(row.company_id)));
+    const decisionCompanyIds = new Set(decisionMemberships.map(row => String(row.company_id)));
     const selectedBid = targetBidId ? (bidData??[]).find(row => row.id === targetBidId) : null;
     const allowSensitiveCompliance=Boolean(selectedBid && decisionCompanyIds.has(String(selectedBid.owner_company_id)));
     const identities = await enrichBidderDecisionIdentities(supabaseAdmin, bids.map((bid) => ({
