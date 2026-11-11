@@ -203,3 +203,56 @@
  .master3150-production .driver-diary-board .left,
  .master3150-production .driver-jobs-board .driver-filter-rail{width:100%}
 }
+
+/* Master 3150: consistent filter-panel visual language across authenticated workspaces. */
+.master3150-production :is(.carrier-exchange-rail,.workspace-filter-rail,.driver-filter-rail,.driver-loads-prototype .left,.driver-quotes-prototype .left,.driver-diary-board .left) {
+  background:#fff;
+  border:1px solid #cbd5e1;
+  border-radius:8px;
+  box-shadow:0 2px 8px rgba(7,27,59,.09);
+  overflow:hidden;
+}
+.master3150-production :is(.driver-loads-prototype .left-title,.driver-quotes-prototype .left-title,.driver-diary-board .diary-filter-head,.driver-filter-rail__header,.carrier-exchange-rail .workspace-panel__header,.workspace-filter-rail .workspace-panel__header) {
+  background:#071b3b;
+  color:#fff;
+  border-bottom:3px solid #ff7900;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.15px;
+  line-height:1.35;
+  padding:11px 12px;
+}
+.master3150-production :is(.carrier-exchange-rail,.workspace-filter-rail,.driver-filter-rail,.driver-loads-prototype .left,.driver-quotes-prototype .left,.driver-diary-board .left) :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  box-sizing:border-box;
+  max-width:100%;
+  border:1px solid #b9c8da;
+  border-radius:5px;
+  background:#fff;
+  color:#14233d;
+  font-size:12px;
+}
+.master3150-production :is(.carrier-exchange-rail,.workspace-filter-rail,.driver-filter-rail,.driver-loads-prototype .left,.driver-quotes-prototype .left,.driver-diary-board .left) :is(input,select,textarea):focus-visible {
+  outline:2px solid #ff7900;
+  outline-offset:1px;
+  border-color:#ff7900;
+}
+.master3150-production :is(.driver-loads-prototype .left,.driver-quotes-prototype .left) .filter > .btn.primary {
+  background:#ff7900;
+  color:#fff;
+  border:1px solid #ff7900;
+  border-radius:5px;
+  font-weight:800;
+  min-height:38px;
+}
+.master3150-production :is(.driver-loads-prototype .left,.driver-quotes-prototype .left) .filter > .btn:not(.primary) {
+  background:transparent;
+  color:#071b3b;
+  border:1px solid transparent;
+  border-radius:5px;
+  font-weight:750;
+  min-height:32px;
+}
+.master3150-production :is(.driver-loads-prototype .left,.driver-quotes-prototype .left) .filter > .btn:not(.primary):hover {
+  background:#edf2f9;
+  border-color:#cbd5e1;
+}
