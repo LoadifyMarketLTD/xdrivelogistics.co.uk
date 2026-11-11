@@ -45,15 +45,34 @@ test('PDF has complete POD handover page plus signature and evidence appendices'
  for(const k of ['PROOF OF DELIVERY','Received By','Left At','Items delivered','Delivery status','Driver / delivery notes','input.signatureAttestation','for (const item of imageEvidence)','for (const item of pdfEvidence)'])
  assert.ok(pdf.includes(k),'Missing '+k);
 });
-test('invoice email contains ONE combined PDF with signed POD, not separate files',()=>{
+test('invoice email contains separate invoice and signed POD PDF attachments',()=>{
  const send=src('lib/server/invoiceDelivery.ts');
  assert.match(send,/combined\.getPageCount\(\) < 3/);
  assert.match(send,/podSummary: pdfContext\.podSummary/);
- assert.match(send,/attachments:\s*\[\{ filename: fileName, content: Buffer\.from\(pdfBytes\)\.toString\('base64'\) \}\]/);
- assert.doesNotMatch(send,/Complete-POD\.pdf|invoicePageBytes|fullPodBytes|podOnly\s*=|invoiceOnly\s*=/);
- assert.match(send,/return failDelivery\(409/);
- assert.match(send,/attachments.length !== 1/);
- assert.match(send,/frozen.getPageCount\(\) < 3/);
+ assert.match(send,/const invoiceDocument = await PDFDocument\.create\(\)/);
+ assert.match(send,/const podDocument = await PDFDocument\.create\(\)/);
+ assert.match(send,/Buffer\.from\(invoiceBytes\)\.toString\('base64'\)/);
+ assert.match(send,/Buffer\.from\(podBytes\)\.toString\('base64'\)/);
+ assert.match(send,/attachments\.length !== \(claimedInvoice\.job_id \? 2 : 1\)/);
+ assert.match(send,/podDocument\.getPageCount\(\) < 2/);
+});
+test('separate POD is persisted and official PDF types cannot be uploaded manually',()=>{
+ const delivery=src('lib/server/invoiceDelivery.ts');
+ const documents=src('app/api/driver/finance/invoices/[id]/documents/route.ts');
+ const migration=src('supabase/migrations/20261111111500_invoice_pod_separate_documents.sql');
+ assert.match(delivery,/doc_type: 'pod_pdf'/);
+ assert.match(delivery,/content_sha256: createHash\('sha256'\)\.update\(podBytes\)/);
+ assert.match(delivery,/POD document registration failed/);
+ assert.match(documents,/doc_type === 'invoice_pdf' \|\| doc_type === 'pod_pdf'/);
+ assert.match(migration,/invoice_documents_doc_type_check/);
+ assert.match(migration,/'pod_pdf'/);
+});
+test('invoice and POD preview select independent pages',()=>{
+ const preview=src('app/api/driver/finance/invoices/[id]/preview/route.ts');
+ assert.match(preview,/searchParams\.get\('document'\)/);
+ assert.match(preview,/combined\.getPageIndices\(\)\.slice\(1\)/);
+ assert.match(preview,/\[0\]/);
+ assert.match(preview,/selected\.copyPages\(combined, pageIndexes\)/);
 });
 test('all linked collection, delivery and POD images are loaded from storage',()=>{
  const context=src('lib/server/invoicePdfContext.ts');

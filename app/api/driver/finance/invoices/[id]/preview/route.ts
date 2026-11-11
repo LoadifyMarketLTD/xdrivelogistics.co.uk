@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { PDFDocument } from 'pdf-lib';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
 import { loadInvoicePdfContext } from '../../../../../../../lib/server/invoicePdfContext';
@@ -187,11 +188,20 @@ export async function GET(
     return respond(500, { error: 'Generated preview is empty or exceeds the 10 MB limit.' });
   }
 
-  return new NextResponse(Buffer.from(pdfBytes), {
+  const combined = await PDFDocument.load(pdfBytes).catch(() => null);
+  if (!combined || combined.getPageCount() < (invoice.job_id ? 3 : 1)) return respond(409, { error: 'Invoice or POD preview is incomplete.' });
+  const previewKind = request.nextUrl.searchParams.get('document') === 'pod' ? 'pod' : 'invoice';
+  if (previewKind === 'pod' && !invoice.job_id) return respond(404, { error: 'This invoice has no associated POD.' });
+  const selected = await PDFDocument.create();
+  const pageIndexes = previewKind === 'pod' ? combined.getPageIndices().slice(1) : [0];
+  const selectedPages = await selected.copyPages(combined, pageIndexes);
+  selectedPages.forEach((page) => selected.addPage(page));
+  const selectedBytes = await selected.save();
+  return new NextResponse(Buffer.from(selectedBytes), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${cleanFileName(invoiceNumber)}-preview.pdf"`,
+      'Content-Disposition': `inline; filename="${cleanFileName(invoiceNumber)}-${previewKind}-preview.pdf"`,
       'Cache-Control': 'no-store, max-age=0',
       'X-Content-Type-Options': 'nosniff',
     },

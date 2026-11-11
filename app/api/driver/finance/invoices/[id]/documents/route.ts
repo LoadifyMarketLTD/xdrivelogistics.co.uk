@@ -79,11 +79,11 @@ export async function POST(
     return respond(403, { error: 'Document path must belong to this company and invoice.' });
   }
 
-  if (doc_type === 'invoice_pdf') {
+  if (doc_type === 'invoice_pdf' || doc_type === 'pod_pdf') {
     return respond(403, { error: 'Official invoice PDFs are created only by the controlled invoice delivery service.' });
   }
 
-  const validDocTypes = ['invoice_pdf', 'pod_photo', 'pod_signature', 'other'] as const;
+  const validDocTypes = ['invoice_pdf', 'pod_pdf', 'pod_photo', 'pod_signature', 'other'] as const;
   const resolvedDocType =
     typeof doc_type === 'string' && (validDocTypes as readonly string[]).includes(doc_type)
       ? (doc_type as typeof validDocTypes[number])
