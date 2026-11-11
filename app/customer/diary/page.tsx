@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import './customer-diary-approved.css';
 import { useRouter } from 'next/navigation';
 import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
@@ -222,7 +223,7 @@ export default function CustomerDiaryPage() {
             <div className={viewMode==='calendar'?'workspace-record-list xd3150-diary-calendar-view':'workspace-record-list'}>
               {visibleRows.map((job) => {
                 const quoteInfo = quoteInfoByJob.get(job.id);
-                const open = expandAll || expanded === job.id;
+                const open = expandAll || expanded === job.id || (expanded === null && !expandAll && job.id === visibleRows[0]?.id);
                 const deliveryPhotoAvailable = (job.delivery_photos?.length ?? 0) > 0;
                 const carrierCompanyId = quoteInfo?.acceptedCompanyId ?? job.awarded_carrier_company_id ?? null;
                 const awardedDriverId = quoteInfo?.acceptedDriverId ?? null;
@@ -251,7 +252,7 @@ export default function CustomerDiaryPage() {
                     stage={stage}
                     expanded={open}
                     footer={<div className="xd3150-diary-card-actions">
-                      <button type="button" onClick={() => { setExpandAll(false); setExpanded(open && !expandAll ? null : job.id); setDetailTabs(current => ({ ...current, [job.id]: 'agreement' })); }} aria-expanded={open}>{open ? 'Collapse Details' : 'View Details'}</button>
+                      <button type="button" onClick={() => { setExpandAll(false); setExpanded(open && !expandAll ? '__closed__' : job.id); setDetailTabs(current => ({ ...current, [job.id]: 'agreement' })); }} aria-expanded={open}>{open ? 'Collapse Details' : 'View Details'}</button>
                       <button type="button" className="xd3150-diary-booking-action" onClick={() => { setExpandAll(false); setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: 'agreement' })); }}>Booking Details</button>
                       <details className="xd3150-diary-more-actions"><summary>More actions</summary>
                       <CxDiaryActions
@@ -270,7 +271,7 @@ export default function CustomerDiaryPage() {
                       <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
                       <div><span>Updated:</span><strong>{when(job.updated_at)}</strong></div>
                     </>}
-                    expandedContent={<CompanyJobSheetPanel key={`${job.id}:${detailTabs[job.id] ?? 'agreement'}`} jobId={job.id} mode="customer" initialTab={detailTabs[job.id] ?? 'agreement'} />}
+                    expandedContent={<CompanyJobSheetPanel key={`${job.id}:${detailTabs[job.id] ?? 'agreement'}`} jobId={job.id} mode="customer" presentation="diary" initialTab={detailTabs[job.id] ?? 'agreement'} />}
                   />
                 );
               })}

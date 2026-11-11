@@ -207,7 +207,7 @@ const OPERATOR_STATUS_ACTION: Record<string, string> = {
   completed: 'Complete job',
 };
 
-export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: { jobId: string; mode: SheetMode; initialTab?: JobSheetTabInput }) {
+export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement', presentation = 'standard' }: { jobId: string; mode: SheetMode; initialTab?: JobSheetTabInput; presentation?: 'standard' | 'diary' }) {
   const [sheet, setSheet] = useState<JobSheet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -364,6 +364,50 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
       setOperatorWorking(false);
     }
   };
+
+  if (presentation === 'diary' && tab === 'agreement') {
+    const diaryFields = (items: Array<[string, ReactNode]>) => <dl className="xd-diary-fields">{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
+    const diaryTabs: Array<{ label: string; id: JobSheetTab }> = [
+      { label: 'Order', id: 'agreement' }, { label: 'POD', id: 'pod' },
+      { label: 'Notes', id: 'progress' }, { label: 'History', id: 'event-log' },
+      { label: `Documents (${sheet.documents.length})`, id: 'evidence' },
+      { label: 'Invoice', id: 'invoice' }, { label: 'Payments', id: 'payment' },
+      { label: 'Dispute', id: 'dispute' },
+    ];
+    return <div className="xd-diary-detail" aria-label="Expanded booking details">
+      {sheet.partial && <AlertBanner tone="warning">Some booking information is unavailable. Only verified values are displayed.</AlertBanner>}
+      <div className="xd-diary-detail-grid">
+        <section>{diaryFields([
+          ['Booked by', sheet.ownerCompany.name],
+          ['Phone', sheet.ownerCompany.phone ?? 'Not recorded'],
+          ['Agreed Rate', money(customerAgreedPrice, sheet.commercial.currency)],
+          ['Ref', sheet.references.customer ?? sheet.references.booking ?? sheet.references.xdrive],
+        ])}</section>
+        <section>{diaryFields([
+          ['Pickup', formatScheduleDetail(sheet.route.pickup.dateTime, sheet.route.pickup.slot)],
+          ['Delivery', formatScheduleDetail(sheet.route.delivery.dateTime, sheet.route.delivery.slot)],
+          ['Distance', sheet.route.distanceMiles != null ? `${sheet.route.distanceMiles} miles` : 'Not recorded'],
+          ['Weight', sheet.load.weightKg != null ? `${sheet.load.weightKg} kg` : 'Not recorded'],
+          ['Packaging', sheet.load.pallets != null ? `${sheet.load.pallets} pallets` : 'Not recorded'],
+          ['Dims', dimensions],
+        ])}</section>
+        <section>{diaryFields([
+          ['Requested', human(sheet.load.requestedVehicle)],
+          ['Vehicle Ref', sheet.vehicle?.registration ?? 'Not assigned'],
+          ['Payment Terms', sheet.commercial.paymentTerms ?? 'Not recorded'],
+          ['Hard copy POD', sheet.pod.hardCopy ?? 'Not recorded'],
+          ['POD', sheet.pod.generated ? 'Generated' : 'Not generated'],
+        ])}</section>
+      </div>
+      <div className="xd-diary-load-notes"><strong>Load Notes:</strong><span>{sheet.notes.executionInstructions ?? sheet.notes.publicQuoteNotes ?? 'No load notes recorded'}</span></div>
+      <div className="xd-diary-detail-grid xd-diary-evidence-grid">
+        <section><h4>Job timeline</h4>{sheet.timeline.length ? <ol className="xd-diary-timeline">{[...sheet.timeline].sort((a,b)=>String(a.createdAt??'').localeCompare(String(b.createdAt??''))).map((event,index)=><li key={event.id??index}><strong>{human(event.eventType)}:</strong> {when(event.createdAt)}{event.message ? <span> — {event.message}</span> : null}</li>)}</ol> : <p>No recorded timeline events</p>}</section>
+        <section><h4>Driver Notes</h4><p>{sheet.notes.driver ?? 'No driver notes recorded'}</p></section>
+        <section><h4>Evidence ({sheet.documents.length})</h4><div className="xd-diary-evidence-counts">Collection photos: {sheet.evidence.collectionPhotoCount} · Delivery photos: {sheet.evidence.deliveryPhotoCount} · POD photos: {sheet.evidence.podPhotoCount}</div>{sheet.documents.length ? <ul>{sheet.documents.slice(0,5).map((document,index)=><li key={document.id??index}>{document.fileName ?? human(document.type)}</li>)}</ul> : <p>No documents recorded</p>}</section>
+      </div>
+      <nav className="xd-diary-detail-tabs" aria-label="Booking sections">{diaryTabs.map(item=><button type="button" key={item.id} className={item.id===tab?'active':''} onClick={()=>setTab(item.id)}>{item.label}</button>)}</nav>
+    </div>;
+  }
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
