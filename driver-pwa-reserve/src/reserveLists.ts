@@ -34,5 +34,5 @@ export function reserveJobs(jobs:LiveJob[], tab:ReserveTab, search='', vehicle='
       : j.status!=='OPEN' && j.quoteOutcome!=='CANCELLED'
   ).filter(j=>vehicle==='All'||j.vehicle===vehicle
   ).filter(j=>!needle||[j.from,j.to,j.company,j.vehicle,j.id]
-    .filter(Boolean).join(' ').toLocaleLowerCase().includes(needle));
+    .filter(Boolean).join(' ').toLocaleLowerCase().includes(needle)).sort((a,b)=>a.id.localeCompare(b.id));
 }

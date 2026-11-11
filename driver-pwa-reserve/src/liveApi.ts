@@ -144,7 +144,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     status: 'OPEN', marketplaceListed: true, company: str(member.name) || 'Marketplace member',
     companyPublicId: str(member.memberId) || undefined,
     terms: str(r.payment_terms) || 'Not provided',
-    postedAt: dateTime(r.exchange_posted_at),
+    postedAt: str(r.exchange_posted_at) || undefined,
     distanceMiles: num(r.distance_miles), travelMinutes: num(r.distance_minutes),
     service: str(r.service_mode) || 'Not provided',
     ...(bidAmount !== undefined ? { quote: bidAmount, quoteOutcome: status === 'accepted' ? 'AWARDED' as const : status === 'cancelled' || status === 'withdrawn' ? 'CANCELLED' as const : undefined, bidStatus: status, bidId: str(bid.id), quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message) } : {}),

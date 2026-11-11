@@ -125,7 +125,7 @@ export default function ReserveApp() {
       <div className="rv-jobhead"><div className="rv-job-identity"><strong>{j.company||'Transport buyer'}</strong><div className="rv-job-service"><span>{friendlyService(j.service)}</span><b>{j.vehicle}</b></div>{(j.yourRef||j.customerRef)&&<small>Ref: {j.yourRef||j.customerRef}</small>}</div><span className={'rv-chip '+(offered?'rv-orange':status==='SUBMITTED'?'rv-green':'')}>{status}</span></div>
       <Route job={j} onOpen={()=>open(j,'details')}/>
       {j.notes?.trim()&&<p className="rv-job-notes"><strong>Notes:</strong> {j.notes}</p>}
-      {j.postedAt&&<div className="rv-posted-at">Posted: {new Date(j.postedAt).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</div>}
+      {j.postedAt&&!Number.isNaN(Date.parse(j.postedAt))&&<div className="rv-posted-at">Posted: {new Date(j.postedAt).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</div>}
       <div className="rv-chips"><span><strong>{j.weight || '—'}</strong> kg</span>{j.terms&&<span>Payment: {j.terms}</span>}{j.distanceMiles!=null&&<span>{j.distanceMiles} miles</span>}</div>
       {tab==='Quotes'&&j.quote!=null&&<div className="rv-quote-inline"><span><strong>Quote:</strong> {gbp(j.quote)}</span><span><strong>ETA:</strong> {j.quoteEtaMinutes==null?'Not provided':j.quoteEtaMinutes+' min'}</span></div>}
 
