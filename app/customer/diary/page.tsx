@@ -11,7 +11,7 @@ import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 import { Broker3150DiaryHeader, Broker3150DiaryTabs } from '../../components/workspace/Broker3150DiaryChrome';
 import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
-import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
+import { AlertBanner, EmptyState, PageFrame } from '../../components/workspace/WorkspaceUI';
 import { classifyWorkspaceJobStage, isDiaryBookingJob, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { supabase } from '../../../lib/supabaseClient';
@@ -58,7 +58,6 @@ export default function CustomerDiaryPage() {
   const [vehicleFilter, setVehicleFilter] = useState('');
   const [sortBy, setSortBy] = useState<'earliest'|'latest'>('earliest');
   const [viewMode, setViewMode] = useState<'list'|'calendar'>('list');
-  const [detailsJobId, setDetailsJobId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [detailTabs, setDetailTabs] = useState<Record<string, JobSheetTab>>({});
   const [expandAll, setExpandAll] = useState(false);
@@ -252,16 +251,16 @@ export default function CustomerDiaryPage() {
                     stage={stage}
                     expanded={open}
                     footer={<div className="xd3150-diary-card-actions">
-                      <button type="button" onClick={()=>setDetailsJobId(job.id)}>View Details</button>
-                      <button type="button" className="xd3150-diary-booking-action" onClick={()=>setDetailsJobId(job.id)}>Booking Details</button>
+                      <button type="button" onClick={() => { setExpandAll(false); setExpanded(open && !expandAll ? null : job.id); setDetailTabs(current => ({ ...current, [job.id]: 'agreement' })); }} aria-expanded={open}>{open ? 'Collapse Details' : 'View Details'}</button>
+                      <button type="button" className="xd3150-diary-booking-action" onClick={() => { setExpandAll(false); setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: 'agreement' })); }}>Booking Details</button>
                       <details className="xd3150-diary-more-actions"><summary>More actions</summary>
                       <CxDiaryActions
                       expanded={open}
                       onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
-                      onOpenTab={(tab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
+                      onOpenTab={(tab) => { setExpandAll(false); setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
                       feedback={canManageFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
                     >
-                      {stage !== 'open' ? <button type="button" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</button> : null}
+                      {stage !== 'open' ? <button type="button" onClick={() => { setExpandAll(false); setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: 'agreement' })); }}>Open booking</button> : null}
                       <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
                     </CxDiaryActions></details></div>}
                     expandedMeta={<>
@@ -271,7 +270,7 @@ export default function CustomerDiaryPage() {
                       <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
                       <div><span>Updated:</span><strong>{when(job.updated_at)}</strong></div>
                     </>}
-                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="customer" initialTab={detailTabs[job.id] ?? 'agreement'} />}
+                    expandedContent={<CompanyJobSheetPanel key={`${job.id}:${detailTabs[job.id] ?? 'agreement'}`} jobId={job.id} mode="customer" initialTab={detailTabs[job.id] ?? 'agreement'} />}
                   />
                 );
               })}
@@ -281,9 +280,6 @@ export default function CustomerDiaryPage() {
 
         </main>
       </div>
-      {detailsJobId && <WorkspaceDialog ariaLabel="Verified 3150 transport details" title="Transport Details" width={1024} maxHeight={820} onDismiss={()=>setDetailsJobId(null)} actions={<ActionButton tone="secondary" onClick={()=>setDetailsJobId(null)}>Close Details</ActionButton>}>
-        <CompanyJobSheetPanel jobId={detailsJobId} mode="customer" initialTab="agreement"/>
-      </WorkspaceDialog>}
       {feedbackJobId && companyId ? (() => {
         const job = data.jobs.find((item) => item.id === feedbackJobId);
         const quoteInfo = job ? quoteInfoByJob.get(job.id) : null;
