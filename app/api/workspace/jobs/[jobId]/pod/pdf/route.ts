@@ -13,9 +13,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return jsonError(503, 'POD service is not configured.');
   const token = getBearerToken(request);
   if (!token) return jsonError(401, 'Unauthorized.');
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: auth, error: authError } = await validator.auth.getUser(token);
-  if (authError || !auth.user) return jsonError(401, 'Unauthorized.');
+  // The trusted POD notification worker needs the exact same official PDF as the UI.
+  // It authenticates with the server-only service key; browser users still require a valid session.
+  const internalServiceRequest = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY) &&
+    token === process.env.SUPABASE_SERVICE_ROLE_KEY;
+  let authenticatedUserId = '';
+  if (!internalServiceRequest) {
+    const validator = supabaseValidator ?? supabaseAdmin;
+    const { data: auth, error: authError } = await validator.auth.getUser(token);
+    if (authError || !auth.user) return jsonError(401, 'Unauthorized.');
+    authenticatedUserId = auth.user.id;
+  }
 
   const { jobId } = await params;
   const { data: job, error: jobError } = await supabaseAdmin.from('jobs')
@@ -26,10 +34,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const companies = [job.company_id, job.awarded_carrier_company_id, job.assigned_company_id]
     .filter((id): id is string => typeof id === 'string' && id.length > 0);
-  let authorised = job.created_by === auth.user.id;
+  let authorised = internalServiceRequest || job.created_by === authenticatedUserId;
   if (!authorised && companies.length) {
     const { data: membership, error } = await supabaseAdmin.from('company_memberships')
-      .select('id').eq('user_id', auth.user.id).eq('status', 'active')
+      .select('id').eq('user_id', authenticatedUserId).eq('status', 'active')
       .in('company_id', companies).limit(1).maybeSingle();
     if (error) return jsonError(500, error.message);
     authorised = Boolean(membership?.id);

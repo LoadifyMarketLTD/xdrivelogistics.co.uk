@@ -18,7 +18,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parseFirebaseServiceAccount, sendFcmMessage } from './fcm.ts';
-import { binaryToBase64, buildBookingAttachments, buildPodSummaryAttachment, buildRemittanceAdviceAttachment, type EmailAttachment } from './documentPdf.ts';
+import { binaryToBase64, buildBookingAttachments, buildRemittanceAdviceAttachment, type EmailAttachment } from './documentPdf.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -186,6 +186,7 @@ const humanJobReference = (row: Record<string, unknown> | null, payload: Record<
     payload.job_reference,
     row?.booking_reference,
     row?.customer_reference,
+    row?.load_reference,
     row?.load_id,
   ];
   for (const value of candidates) {
@@ -193,7 +194,8 @@ const humanJobReference = (row: Record<string, unknown> | null, payload: Record<
     const trimmed = value.trim();
     if (trimmed && !isUuid(trimmed)) return trimmed;
   }
-  return 'your booking';
+  const jobId = String(payload.job_id ?? row?.id ?? '').trim();
+  return isUuid(jobId) ? `XDL-${jobId.replace(/-/g, '').slice(0, 8).toUpperCase()}` : 'Booking reference unavailable';
 };
 
 async function getPublicJobContext(event: NotificationEvent): Promise<PublicJobContext> {
@@ -203,7 +205,7 @@ async function getPublicJobContext(event: NotificationEvent): Promise<PublicJobC
   if (isUuid(rawJobId)) {
     const { data } = await supabase
       .from('jobs')
-      .select('id, load_id, customer_reference, booking_reference, pickup_location, delivery_location, delivered_at, completed_at')
+      .select('id, load_id, load_reference, customer_reference, booking_reference, pickup_location, delivery_location, delivered_at, completed_at')
       .eq('id', rawJobId)
       .maybeSingle();
     row = (data as Record<string, unknown> | null) ?? null;
@@ -488,17 +490,25 @@ async function loadPodEmailBundle(event: NotificationEvent) {
     });
   }
 
-  const summary = buildPodSummaryAttachment({
-    reference: job.reference,
-    pickup: job.pickup,
-    delivery: job.delivery,
-    deliveredOn,
-    receivedBy,
-    leftAt,
-    deliveryStatus,
-    itemCount,
-    deliveryNotes,
+  // Use the canonical A4 POD generator. Never email the legacy text-only summary.
+  // A missing signed POD is retryable: the notification must not claim success.
+  const appBase = 'https://www.xdrivelogistics.co.uk';
+  const officialResponse = await fetch(`${appBase}/api/workspace/jobs/${encodeURIComponent(job.id)}/pod/pdf`, {
+    headers: { Authorization: `Bearer ${serviceRoleKey}` },
   });
+  if (!officialResponse.ok) {
+    throw new Error(`Official signed POD PDF unavailable (HTTP ${officialResponse.status}); notification will retry.`);
+  }
+  const officialBytes = new Uint8Array(await officialResponse.arrayBuffer());
+  if (officialBytes.length < 4000 || String.fromCharCode(...officialBytes.slice(0, 5)) !== '%PDF-') {
+    throw new Error('Official signed POD PDF was invalid; notification will retry.');
+  }
+  const safeReference = job.reference.replace(/[^A-Za-z0-9._-]/g, '-').slice(0, 80) || 'booking';
+  const summary: EmailAttachment = {
+    filename: `${safeReference}_POD.pdf`,
+    content: binaryToBase64(officialBytes),
+    content_type: 'application/pdf',
+  };
 
   return {
     job,
