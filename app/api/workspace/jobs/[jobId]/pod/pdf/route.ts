@@ -64,7 +64,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const pdf = await PDFDocument.create();
-    const logoBytes = await readFile(path.join(process.cwd(), 'public', 'xdrive-logo-primary.png'));
+    const logoBytes = await readFile(path.join(process.cwd(), 'public', 'xdrive-logo-company-3150.png'));
     const { data: savedDraft, error: draftError } = await supabaseAdmin.from('driver_pod_drafts')
       .select('form_data').eq('job_id', job.id).order('updated_at', { ascending: false })
       .limit(1).maybeSingle();

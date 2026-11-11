@@ -7,7 +7,7 @@ import type { PDFDocument, PDFPage } from 'pdf-lib';
  * Never replace with a company logo, alternate wordmark or text-only fallback.
  * Historical signed documents must remain byte-for-byte immutable.
  */
-export const OFFICIAL_XDRIVE_LOGO_FILENAME = 'xdrive-logo-primary.png';
+export const OFFICIAL_XDRIVE_LOGO_FILENAME = 'xdrive-logo-company-3150.png';
 
 export const officialXDriveLogoBytes = async (): Promise<Uint8Array> =>
   new Uint8Array(await readFile(path.join(process.cwd(), 'public', OFFICIAL_XDRIVE_LOGO_FILENAME)));

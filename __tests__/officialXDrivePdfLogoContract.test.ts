@@ -6,7 +6,7 @@ import { buildInvoicePdf } from '../lib/server/invoicePdf';
 
 describe('one official XDrive logo across newly generated documents', () => {
   it('uses the exact approved platform asset and embeds it proportionally in an A4 PDF', async () => {
-    expect(OFFICIAL_XDRIVE_LOGO_FILENAME).toBe('xdrive-logo-primary.png');
+    expect(OFFICIAL_XDRIVE_LOGO_FILENAME).toBe('xdrive-logo-company-3150.png');
     const source=fs.readFileSync('public/xdrive-logo-primary.png');
     const loaded=await officialXDriveLogoBytes();
     expect(Buffer.from(loaded)).toEqual(source);

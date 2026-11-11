@@ -36,6 +36,6 @@ describe('XDrive professional official POD A4',()=>{
    expect(route).toContain('canonicalPodEvidence(job)');
    expect(route).toContain('if (!evidence.complete)');
    expect(route).toContain('drawOfficialPodCover(pdf, logoBytes');
-   expect(route).toContain("'xdrive-logo-primary.png'");
+   expect(route).toContain("'xdrive-logo-company-3150.png'");
  });
 });
