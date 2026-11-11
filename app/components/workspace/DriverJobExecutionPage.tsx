@@ -1613,7 +1613,10 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
             </ActionButton>
           )}
           {podComplete && (
-            <ActionButton tone="secondary" onClick={() => void openPodDetails()}>View POD</ActionButton>
+            <>
+              <ActionButton tone="secondary" onClick={() => void viewPodPdf()}>View official POD PDF</ActionButton>
+            <ActionButton tone="secondary" onClick={() => openPodDetails()}>View POD evidence</ActionButton>
+            </>
           )}
           {podComplete && !sheet?.invoices[0]?.id && canGenerateInvoices && (
             <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>
@@ -1717,7 +1720,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
               <div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? (podComplete ? 'Ready to create' : 'Locked until POD')}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? (podComplete ? 'POD complete' : 'POD pending')}</small></div>
             </div>
             {podComplete && <div className="driver-row-actions" style={{ marginTop: 8 }}>
-              <ActionButton tone="secondary" onClick={() => void openPodDetails()}>View POD</ActionButton>
+              <ActionButton tone="secondary" onClick={() => void viewPodPdf()}>View official POD PDF</ActionButton>
               {sheet?.invoices[0]?.id ? <ActionButton tone="primary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View Invoice</ActionButton> : canGenerateInvoices ? <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>{working ? 'Creating...' : 'Create Invoice'}</ActionButton> : null}
             </div>}
           </Panel>
