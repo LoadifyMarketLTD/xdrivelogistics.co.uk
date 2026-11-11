@@ -6,7 +6,7 @@ export type LiveSession = { token: string; refreshToken: string; expiresAt: numb
 export type LiveJob = {
   id: string; from: string; to: string; fromOutcode?: string; toOutcode?: string; pickup: string; delivery: string;
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
-  company?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
+  company?: string; companyPublicId?: string; terms?: string; postedAt?: string; distanceMiles?: number; travelMinutes?: number;
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
   bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
   personalBid?: boolean; // true only for records returned by authenticated /mobile/bids personal quote history
@@ -142,6 +142,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
     weight: num(r.weight_kg) || 0, notes: str(r.public_quote_notes),
     status: 'OPEN', marketplaceListed: true, company: str(member.name) || 'Marketplace member',
+    companyPublicId: str(member.memberId) || undefined,
     terms: str(r.payment_terms) || 'Not provided',
     postedAt: dateTime(r.exchange_posted_at),
     distanceMiles: num(r.distance_miles), travelMinutes: num(r.distance_minutes),
