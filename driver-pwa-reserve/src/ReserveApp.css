@@ -283,6 +283,24 @@
 .rv-job .rv-route{gap:8px}
 @media(max-width:400px){.rv-job .rv-stop .rv-stop-schedule{gap:5px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-date{font-size:14px}.rv-job .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:18px}}
 
+/* Approved load card actions and tap-to-open route. */
+.rv-job .rv-load-details-action{background:#f47721;color:#fff;border-color:#f47721}
+.rv-job .rv-quote-now-action{background:#188362;color:#fff;border-color:#188362}
+.rv-job .rv-route-clickable{cursor:pointer;touch-action:manipulation}
+.rv-job .rv-route-clickable:focus-visible{outline:3px solid #188362;outline-offset:2px}
+.rv-job .rv-posted-at{font-size:12px;color:#536c81;font-weight:700;margin:3px 0}
+/* Details: route and poster start directly beneath the navbar, dates beside times. */
+.rv-main:has(>.rv-details-back-icon){position:relative;padding-top:8px}
+.rv-main:has(>.rv-details-back-icon)>.rv-details-back-icon{position:absolute;right:12px;top:4px;z-index:1;margin:0}
+.rv-main:has(>.rv-details-back-icon)>h1{padding-right:50px;margin:2px 0 6px;font-size:25px}
+.rv-main:has(>.rv-details-back-icon)>.rv-poster-identity{margin:2px 0 8px}
+.rv-main:has(>.rv-details-back-icon)>.rv-route{margin:7px 0 10px;padding:9px 11px;gap:9px}
+.rv-main:has(>.rv-details-back-icon) .rv-stop .rv-stop-schedule{display:flex;align-items:baseline;gap:5px;flex-wrap:nowrap;white-space:nowrap;margin-top:2px}
+.rv-main:has(>.rv-details-back-icon) .rv-stop .rv-stop-schedule>span{display:inline;white-space:nowrap;margin:0;font-size:14px;line-height:1.35}
+.rv-main:has(>.rv-details-back-icon) .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:17px;line-height:1.35}
+.rv-main:has(>.rv-details-back-icon) .rv-stop .rv-stop-schedule>.rv-stop-date{font-size:14px}
+@media(max-width:390px){.rv-main:has(>.rv-details-back-icon) .rv-stop .rv-stop-schedule{gap:3px}.rv-main:has(>.rv-details-back-icon) .rv-stop .rv-stop-schedule>span{font-size:12px}.rv-main:has(>.rv-details-back-icon) .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:16px}}
+
 /* Detail page has one compact back arrow, aligned to the right. */
 .rv-details-back-icon{display:flex;align-items:center;justify-content:center;margin:0 0 4px auto;width:44px;height:44px;border:0;background:transparent;color:#274760;font-size:28px;font-weight:800;cursor:pointer}
 
