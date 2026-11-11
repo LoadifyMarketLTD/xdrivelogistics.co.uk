@@ -60,6 +60,10 @@ export default function ReserveApp() {
   const clearInvalidSession=()=>{localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
   useLayoutEffect(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view,tab,id]);
   useEffect(()=>{if('scrollRestoration' in history)history.scrollRestoration='manual';},[]);
+  const browserBackRef=useRef(false);
+  useEffect(()=>{const pop=(event:PopStateEvent)=>{const st=event.state as {rvView?:View;rvTab?:Tab;rvId?:string|null}|null;browserBackRef.current=true;setView(st?.rvView??'list');setTab(st?.rvTab??'Loads');setId(st?.rvId??null);};window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[]);
+  const historyInitialized=useRef(false);
+  useEffect(()=>{const st={rvView:view,rvTab:tab,rvId:id};if(!historyInitialized.current){historyInitialized.current=true;window.history.replaceState({...window.history.state,...st},'');return;}if(browserBackRef.current){browserBackRef.current=false;return;}window.history.pushState(st,'');},[view,tab,id]);
   const offersFetchRef=useRef(0);
   const offersPendingRef=useRef(false);
   const [offersLoading,setOffersLoading]=useState(false);
@@ -175,9 +179,9 @@ export default function ReserveApp() {
     const editing = tab==='Quotes' && job.personalBid===true && job.quote != null && job.bidStatus==='submitted' && Boolean(job.bidId);
     const minutes = quoteEta===''?null:Number(quoteEta);
     return <>
-      <button className="rv-back" onClick={()=>setView(editing?'quoteDetails':'details')}>← {editing?'My Quote':'Load Details'}</button>
-      <span className="rv-over">{editing?'EDIT EXISTING QUOTE':'SUBMIT NEW QUOTE'} · XDRIVE</span>
-      <h1>{editing?'Edit Quote':'Your Quotation'}</h1>
+      <button className="rv-details-back-icon" type="button" aria-label="Back to load details" onClick={()=>setView(editing?'quoteDetails':'details')}>←</button>
+      
+      
       <Route job={job}/>
       <section className="rv-card">
         <h3>Quote & Availability</h3>

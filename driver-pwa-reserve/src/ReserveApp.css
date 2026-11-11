@@ -324,3 +324,12 @@
 .rv-shell{padding-bottom:62px}
 .rv-main.rv-card-first-list{min-height:calc(100dvh - 120px)}
 .rv-main:has(.rv-delivery-page){min-height:calc(100dvh - 120px)}
+
+/* Compact quote page: visible right-aligned Back, route directly below. */
+.rv-main:has(>.rv-details-back-icon){padding-top:54px}
+.rv-main:has(>.rv-details-back-icon)>.rv-details-back-icon{top:4px;right:8px;width:49px;height:44px;border-radius:10px;background:#e6eef5;border:1px solid #9dafc1;color:#153550;font-size:28px;box-shadow:0 1px 4px #1233}
+.rv-main:has(>.rv-details-back-icon)>.rv-route{margin-top:0}
+.rv-main:has(>.rv-details-back-icon) .rv-route .rv-stop .rv-stop-schedule{display:flex;align-items:baseline;flex-wrap:nowrap;gap:4px;white-space:nowrap}
+.rv-main:has(>.rv-details-back-icon) .rv-route .rv-stop .rv-stop-schedule>span{display:inline;margin:0;font-size:14px;line-height:1.35;white-space:nowrap}
+.rv-main:has(>.rv-details-back-icon) .rv-route .rv-stop .rv-stop-schedule>.rv-stop-time{font-size:17px;line-height:1.35}
+@media(max-width:390px){.rv-main:has(>.rv-details-back-icon) .rv-route .rv-stop .rv-stop-schedule>span{font-size:12px}}
