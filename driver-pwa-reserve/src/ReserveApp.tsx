@@ -203,6 +203,31 @@ export default function ReserveApp() {
   }
   function incoming(){if(!job)return null;return <><button className="rv-back" onClick={()=>setView('list')}>← Bookings</button><span className="rv-over">BOOKINGS / INCOMING JOB</span><h1>{job.offerExpired?'Expired Booking Offer':'New Job Received'}</h1><div className="rv-attention">{job.offerExpired?'This offer refers to a collection time that has passed. Accept/Decline is disabled until the booking is reconciled.':'Booking awarded. Your response is required.'}</div><section className="rv-card rv-offer"><div className="rv-jobhead"><div><strong>{job.company}</strong><small>{job.yourRef||job.id}</small></div><span className="rv-chip rv-orange">{job.offerExpired?'EXPIRED':'AWARDED'}</span></div><Route job={job} full/><Fact name="Vehicle" value={job.vehicle}/><Fact name="Your agreed rate" value={job.quote!=null?gbp(job.quote):'Not supplied'}/><Fact name="Payment terms" value={job.terms||'Not supplied'}/><Fact name="Collection" value={(job.pickupDate||'')+' '+job.pickup}/><Fact name="Delivery" value={(job.deliveryDate||'')+' '+job.delivery}/><button className="rv-outline rv-wide" onClick={()=>setView('details')}>View Booking Details →</button></section>{job.offerExpired?<div className="rv-warning">Booking is not actionable because its collection time has passed. Open Booking Details for the record; an authorised dispatcher must resolve the offer.</div>:<div className="rv-actions"><button className="rv-danger" disabled={busy} onClick={()=>void run(s=>bookingOfferRespond(s.token,job.offerId!,'decline'),()=>navigate('Bookings'))}>Decline Job</button><button className="rv-primary" disabled={busy} onClick={()=>void run(s=>bookingOfferRespond(s.token,job.offerId!,'accept'),()=>setView('flow'))}>Accept Job</button></div>}</>}
   async function transition(j:LiveJob) {const step=nextStates[j.status];if(!step)return;await run(async s=>{if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(j.backendStatus||'allocated'))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});if(j.status==='ON_SITE_PICKUP')await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/handover',s.token,{itemCount:items===''?null:Number(items),weightKg:weight===''?null:Number(weight),notes:pickupNotes});await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:step.backend});},()=>{setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:step.status}:x));});}
+  async function prepareDeliveryUpload(file:File):Promise<File> {
+    if(file.type==='application/pdf')return file;
+    if(!['image/jpeg','image/png'].includes(file.type))throw new Error('Unsupported photo format: '+file.name);
+    // Mobile camera originals can exceed the hosting provider's request-body limit.
+    // Keep the original on the device and upload a readable, bounded JPEG copy.
+    if(file.size<=2*1024*1024)return file;
+    const image=await createImageBitmap(file).catch(()=>null);
+    if(!image)throw new Error('Photo cannot be decoded: '+file.name+'. Select a JPEG or PNG.');
+    try {
+      const scale=Math.min(1,1800/Math.max(image.width,image.height));
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.max(1,Math.round(image.width*scale));
+      canvas.height=Math.max(1,Math.round(image.height*scale));
+      const ctx=canvas.getContext('2d');
+      if(!ctx)throw new Error('Photo processing is unavailable.');
+      ctx.drawImage(image,0,0,canvas.width,canvas.height);
+      let blob:Blob|null=null;
+      for(const quality of [0.82,0.68,0.5]) {
+        blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',quality));
+        if(blob&&blob.size<=2*1024*1024)break;
+      }
+      if(!blob||blob.size>2*1024*1024)throw new Error('Photo is too large to upload after optimisation: '+file.name);
+      return new File([blob],file.name.replace(/\.[^.]+$/, '')+'-upload.jpg',{type:'image/jpeg',lastModified:file.lastModified});
+    } finally { image.close(); }
+  }
   async function uploadDeliveryEvidence(j:LiveJob, token:string) {
     const photos:string[]=[];
     const documents:string[]=[];
@@ -211,13 +236,14 @@ export default function ReserveApp() {
       const category=file.type==='application/pdf'?'documents':'photos';
       let storagePath=uploadedEvidence.current.get(file);
       if(!storagePath){
+        const uploadFile=await prepareDeliveryUpload(file);
         const res=await fetch(driverApi+'/mobile/jobs/'+encodeURIComponent(j.id)+'/evidence',{
           method:'POST',
-          headers:{Authorization:'Bearer '+token,'Content-Type':file.type,'x-xdrive-evidence-kind':'delivery','x-xdrive-evidence-category':category,'x-xdrive-evidence-name':crypto.randomUUID()+'-'+file.name.replace(/[^A-Za-z0-9._-]/g,'_').slice(0,130)},
-          body:file
+          headers:{Authorization:'Bearer '+token,'Content-Type':uploadFile.type,'x-xdrive-evidence-kind':'delivery','x-xdrive-evidence-category':category,'x-xdrive-evidence-name':crypto.randomUUID()+'-'+uploadFile.name.replace(/[^A-Za-z0-9._-]/g,'_').slice(0,130)},
+          body:uploadFile
         });
         const out=await res.json().catch(()=>({}));
-        if(!res.ok||typeof out.storagePath!=='string')throw new Error(out.error||'Evidence upload failed');
+        if(!res.ok||typeof out.storagePath!=='string')throw new Error(out.error||('Evidence upload failed (HTTP '+res.status+'). '+(res.status===413?'Photo exceeds the server request limit.':'Please retry or check your connection.')));
         const confirmedPath=out.storagePath as string;
         storagePath=confirmedPath;
         uploadedEvidence.current.set(file,confirmedPath);
