@@ -91,8 +91,11 @@ export async function POST(
 
   const { amount, currency, paid_at, settlement_method, external_reference, note, idempotency_key } = body;
 
-  if (!amount || Number(amount) <= 0) {
-    return respond(400, { error: 'amount must be a positive number.' });
+  // Reject non-finite, non-numeric and sub-penny values before writing the ledger.
+  // Number(NaN) and Number(Infinity) bypass a simple <= 0 check.
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 ||
+      Math.abs(Math.round(amount * 100) - amount * 100) > 1e-7) {
+    return respond(400, { error: 'amount must be a finite positive number with at most two decimal places.' });
   }
 
   // idempotency_key is mandatory at the API level to prevent duplicate payments.
