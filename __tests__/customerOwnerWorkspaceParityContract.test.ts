@@ -21,7 +21,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
       "['customer-bookings-primary', 'Bookings', '/customer/bookings']",
       "['customer-diary-primary', 'Diary', '/customer/diary']",
       "['customer-tracking-primary', 'Tracking', '/customer/tracking']",
-      "['customer-network-primary', 'Network', '/customer/network']",
+      "['customer-directory-primary', 'Directory', '/customer/network/directory']",
       "['customer-settings-primary', 'Settings', '/customer/settings']",
     ]) expect(customer).toContain(primary);
 
@@ -65,7 +65,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
   });
 
   it('gives Customer the frozen PR675 two-column control-desk geometry without requiring Owner Driver to adopt shared classes', () => {
-    expect(ownerDashboard).toContain('gridTemplateColumns: "minmax(360px, .84fr) minmax(0, 1.16fr)"');
+    expect(ownerDashboard).toContain('driver-owner-parity-grid xdrive-owner-dashboard-grid');
     expect(customerDashboard).toContain('customer-owner-parity-grid xdrive-owner-dashboard-grid');
     expect(customerDashboard).toContain('customer-owner-parity-column xdrive-owner-dashboard-column');
     expect(customerDashboard).toContain('customer-owner-parity-subgrid xdrive-owner-dashboard-subgrid');
@@ -92,7 +92,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(customerDashboard).not.toContain('tracked %');
   });
   it('surfaces pending carrier acceptance consistently instead of reporting Driver Assigned too early', () => {
-    expect(customerDashboard).toContain("fetch('/api/customer/booking-offers'");
+    expect(customerDashboard).toContain("fetchAllBookingOfferPages<BuyerBookingOffer>('/api/customer/booking-offers', token)");
     expect(customerDashboard).toContain('Awaiting Carrier Acceptance');
     expect(customerDashboard).toContain('Awaiting carrier acceptance');
     expect(customerDashboard).toContain("if (pendingOffer) return 'orange' as const");

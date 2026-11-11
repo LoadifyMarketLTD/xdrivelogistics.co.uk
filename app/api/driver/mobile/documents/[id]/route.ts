@@ -30,7 +30,8 @@ function response(body: Record<string, unknown>, status = 200) {
 async function signedPresentation(document: DocumentRecord, isVehicleDocument: boolean) {
   const storagePath = String(document.file_path ?? '').trim();
   if (!storagePath) return response({ error: 'The secure document file is not available.' }, 404);
-  const { data, error } = await supabaseAdmin!.storage.from('driver-docs').createSignedUrl(storagePath, 300);
+  const storageBucket = isVehicleDocument ? 'vehicle-docs' : 'driver-docs';
+  const { data, error } = await supabaseAdmin!.storage.from(storageBucket).createSignedUrl(storagePath, 300);
   if (error || !data?.signedUrl) return response({ error: 'The secure document file could not be opened.' }, 503);
   return response({
     document: {

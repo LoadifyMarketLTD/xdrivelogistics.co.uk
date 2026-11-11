@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isValidTargetPriceGbp } from '../../../../lib/smartReadLoad';
 import { z } from 'zod';
 import { labelToCargoType, labelToVehicleType } from '../../../../lib/vehicleTypes';
 import {
@@ -10,6 +11,7 @@ import {
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
+import { publicTown } from '../../driver/_lib/mobilePublicArea';
 import { areCompaniesBlocked } from '../../_lib/companyBlocks';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../_lib/commercialLegalReadiness';
@@ -68,12 +70,14 @@ const bodySchema = z.object({
   clientPhone: optionalText,
   pickupDateTime: z.string().trim().min(1),
   pickupTimeSlot: z.string().trim().max(50),
+  pickupTown: z.string().trim().max(80).optional().nullable(),
   pickupAddress: z.string().trim().min(3).max(1000),
   pickupPostcode: z.string().trim().min(2).max(20),
   collectionContact: optionalText,
   collectionPhone: optionalText,
   deliveryDateTime: z.string().trim().optional().nullable(),
   deliveryTimeSlot: z.string().trim().max(50),
+  deliveryTown: z.string().trim().max(80).optional().nullable(),
   deliveryAddress: z.string().trim().min(3).max(1000),
   deliveryPostcode: z.string().trim().min(2).max(20),
   deliveryContact: optionalText,
@@ -111,6 +115,27 @@ const bodySchema = z.object({
   specialRequirementsList: z.array(z.string().trim().max(300)).max(30).optional().default([]),
   isFixedPrice: z.boolean().optional().default(false),
   publicQuoteNotes: optionalText,
+  operationalDetails: z.object({
+    jobDescription: z.string().trim().max(100).optional(),
+    bodyType: z.string().trim().max(100).optional(),
+    jobType: z.enum(['Hotshot','Backload']).optional(),
+    pickupMode: z.enum(['Between','At','Before','ASAP']).optional(),
+    pickupWindowEnd: z.string().trim().max(10).optional(),
+    deliveryMode: z.enum(['ASAP','At','By','Between']).optional(),
+    deliveryWindowEnd: z.string().trim().max(10).optional(),
+    loadingMetres: optionalNumber,
+    cubicMetres: optionalNumber,
+    waitReturn: z.boolean().optional(),
+    hiab: z.boolean().optional(),
+    trailer: z.boolean().optional(),
+    moffett: z.boolean().optional(),
+    trackedDriverPreferred: z.boolean().optional(),
+    electronicQuotes: z.boolean().optional(),
+    smartPayOnly: z.boolean().optional(),
+    allowEuMembers: z.boolean().optional(),
+    notifyRadiusMiles: z.number().int().min(1).max(100).optional(),
+    repeatable: z.boolean().optional(),
+  }).optional(),
   executionInstructions: optionalText,
   // Legacy input remains accepted so older clients do not break. Legacy notes
   // are execution-private by default and are never promoted to Marketplace.
@@ -157,6 +182,9 @@ export async function POST(request: NextRequest) {
     });
   }
   const input = parsed.data;
+  if (input.publish && input.isFixedPrice && !isValidTargetPriceGbp(input.customerPrice)) {
+    return respond(400, { error: 'Fixed-price posts require a positive GBP price with no more than 2 decimal places (ex VAT).' });
+  }
   if (input.loadType === 'regular_load' && !input.regularSchedule?.days.length) {
     return respond(400, { error: 'Regular Load requires at least one operating day.' });
   }
@@ -191,7 +219,7 @@ export async function POST(request: NextRequest) {
 
   const membershipRole = String(membership?.role_in_company ?? '').trim().toLowerCase();
   let canPostForCompany = ['owner', 'admin', 'dispatcher'].includes(membershipRole);
-  if (!canPostForCompany && input.mode === 'broker' && membershipRole === 'member') {
+  if (!canPostForCompany && (input.mode === 'broker' || input.mode === 'customer') && membershipRole === 'member') {
     const { data: brokerProfile, error: brokerProfileError } = await supabaseAdmin
       .from('profiles')
       .select('role,status,company_id')
@@ -200,14 +228,14 @@ export async function POST(request: NextRequest) {
     if (brokerProfileError) {
       return operationalError({
         status: 500,
-        message: 'We could not verify your broker workspace access. Please try again.',
+        message: 'We could not verify your workspace access. Please try again.',
         context: `jobs.create.broker-profile.company:${input.companyId}.user:${authData.user.id}`,
         cause: brokerProfileError,
         retryable: true,
       });
     }
     canPostForCompany =
-      String(brokerProfile?.role ?? '').trim().toLowerCase() === 'broker'
+      String(brokerProfile?.role ?? '').trim().toLowerCase() === input.mode
       && String(brokerProfile?.status ?? '').trim().toLowerCase() === 'active'
       && String(brokerProfile?.company_id ?? '') === input.companyId;
   }
@@ -664,6 +692,7 @@ export async function POST(request: NextRequest) {
       height: input.heightCm ?? null,
     },
     publicQuoteNotes: input.publicQuoteNotes || null,
+    operationalDetails: input.operationalDetails ?? null,
     additionalStopCount: input.additionalStops.length,
     // `notes` is retained as the backwards-compatible execution-private key.
     notes: executionInstructions,
@@ -685,10 +714,12 @@ export async function POST(request: NextRequest) {
     status,
     current_status: status,
     pickup_location: `${input.pickupAddress}, ${input.pickupPostcode.toUpperCase()}`,
+    pickup_city: publicTown(input.pickupTown) || null,
     pickup_postcode: input.pickupPostcode.toUpperCase(),
     pickup_datetime: input.pickupDateTime,
     pickup_time_slot: input.pickupTimeSlot,
     delivery_location: `${input.deliveryAddress}, ${input.deliveryPostcode.toUpperCase()}`,
+    delivery_city: publicTown(input.deliveryTown) || null,
     delivery_postcode: input.deliveryPostcode.toUpperCase(),
     delivery_datetime: input.deliveryDateTime || null,
     delivery_time_slot: input.deliveryTimeSlot,
@@ -721,7 +752,7 @@ export async function POST(request: NextRequest) {
     width_cm: input.widthCm ?? null,
     height_cm: input.heightCm ?? null,
     cargo_value_gbp: input.cargoValueGbp ?? null,
-    budget_amount: input.customerPrice ?? null,
+    budget_amount: input.isFixedPrice ? input.customerPrice ?? null : null,
     collection_tail_lift_required: input.tailLift,
     collection_forklift_available: input.forklift,
     collection_handball_required: input.handball,

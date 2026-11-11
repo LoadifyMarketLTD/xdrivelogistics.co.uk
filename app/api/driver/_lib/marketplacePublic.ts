@@ -10,6 +10,18 @@ export function marketplaceNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Missing GPS coordinates must never be coerced into (0, 0). */
+export function marketplaceCoordinates(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
+  const validInput = (value: unknown) =>
+    typeof value === 'number' || (typeof value === 'string' && value.trim().length > 0);
+  if (!validInput(lat) || !validInput(lng)) return null;
+  const parsedLat = marketplaceNumber(lat);
+  const parsedLng = marketplaceNumber(lng);
+  if (parsedLat === null || parsedLng === null ||
+      parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) return null;
+  return { lat: parsedLat, lng: parsedLng };
+}
+
 export function publicOutcode(value: unknown) {
   const raw = marketplaceText(value)?.toUpperCase().replace(/\s+/g, ' ');
   if (!raw) return null;

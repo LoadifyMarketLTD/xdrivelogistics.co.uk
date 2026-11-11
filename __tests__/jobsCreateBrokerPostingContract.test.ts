@@ -12,9 +12,9 @@ describe('jobs create broker posting authorization', () => {
     expect(source).toContain("['owner', 'admin', 'dispatcher'].includes(membershipRole)");
   });
 
-  it('allows member posting only for an active broker profile in the same company', () => {
-    expect(source).toContain("input.mode === 'broker' && membershipRole === 'member'");
-    expect(source).toContain("String(brokerProfile?.role ?? '').trim().toLowerCase() === 'broker'");
+  it('allows member posting only for an active customer or broker profile in the same company', () => {
+    expect(source).toContain("(input.mode === 'broker' || input.mode === 'customer') && membershipRole === 'member'");
+    expect(source).toContain("String(brokerProfile?.role ?? '').trim().toLowerCase() === input.mode");
     expect(source).toContain("String(brokerProfile?.status ?? '').trim().toLowerCase() === 'active'");
     expect(source).toContain("String(brokerProfile?.company_id ?? '') === input.companyId");
   });

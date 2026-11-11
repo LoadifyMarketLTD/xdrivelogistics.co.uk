@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../lib/legal/paymentObligationClient';
+import BookingConfirmationFullPage from './quotes/BookingConfirmationFullPage';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import {
   isCustomerVisibleWorkspaceInvoice,
@@ -38,9 +39,11 @@ export function CustomerJobPage({jobId}:{jobId:string}){
   const [openingPod,setOpeningPod]=useState<string|null>(null);
   const [podError,setPodError]=useState('');
   const [awarding,setAwarding]=useState<string|null>(null);
+  const [selectedBidId,setSelectedBidId]=useState<string|null>(null);
   const [actionMsg,setActionMsg]=useState('');
   const job=data.jobs.find(j=>j.id===jobId);
   const jobQuotes=data.bids.filter(b=>b.job_id===jobId&&b.status==='submitted');
+  const selectedBid=jobQuotes.find(b=>b.id===selectedBidId);
   const jobInvoice=data.invoices.find(i=>i.job_id===jobId);
 
   useEffect(()=>{
@@ -64,7 +67,6 @@ export function CustomerJobPage({jobId}:{jobId:string}){
   };
 
   const awardQuote=async(bidId:string)=>{
-    if(!confirmBookingPaymentObligation())return;
     setAwarding(bidId);
     setActionMsg('');
     const {data:session}=await supabase.auth.getSession();
@@ -73,6 +75,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
     setAwarding(null);
     if(!response.ok){setActionMsg(payload.error??'Unable to award quote.');return;}
     setActionMsg('Booking offer sent - awaiting carrier acceptance.');
+    setSelectedBidId(null);
     await data.refresh();
   };
 
@@ -81,7 +84,8 @@ export function CustomerJobPage({jobId}:{jobId:string}){
 
   const podPaths=Array.isArray(job.delivery_photos)?job.delivery_photos.filter((p):p is string=>typeof p==='string'&&p.length>0):[];
 
-  return <PageFrame>
+  return <>
+  <PageFrame>
     <PageHeader
       eyebrow={`Job ${job.id.slice(0,8).toUpperCase()}`}
       title={`${job.pickup_postcode??'Collection'} → ${job.delivery_postcode??'Delivery'}`}
@@ -146,7 +150,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
                   <strong>{bid.companies?.name??'Carrier'}</strong>
                   <div style={{color:'#64748b'}}>{money(Number(bid.bid_price_gbp??bid.amount??0))}{bid.message?` · ${bid.message}`:''}</div>
                 </div>
-                <ActionButton tone="success" disabled={awarding===bid.id} onClick={()=>void awardQuote(bid.id)}>
+                <ActionButton tone="success" disabled={awarding!==null} onClick={()=>setSelectedBidId(bid.id)}>
                   {awarding===bid.id?'Awarding…':'Accept'}
                 </ActionButton>
               </div>
@@ -162,5 +166,33 @@ export function CustomerJobPage({jobId}:{jobId:string}){
         </Panel>
       </div>
     </TwoColumn>
-  </PageFrame>;
+  </PageFrame>
+  {selectedBid && <BookingConfirmationFullPage
+    key={selectedBid.id}
+    working={awarding===selectedBid.id}
+    onCancel={()=>{if(!awarding)setSelectedBidId(null);}}
+    onConfirm={()=>void awardQuote(selectedBid.id)}
+    details={{
+      jobId:job.id,
+      bidId:selectedBid.id,
+      amount:Number(selectedBid.bid_price_gbp??selectedBid.amount??0),
+      currency:selectedBid.currency??'GBP',
+      pickup:job.pickup_postcode??job.pickup_location??'Collection not specified',
+      delivery:job.delivery_postcode??job.delivery_location??'Delivery not specified',
+      pickupDate:job.pickup_datetime,
+      deliveryDate:job.delivery_datetime,
+      vehicle:(job.requested_vehicle_label??job.vehicle_type??'Vehicle not specified').replaceAll('_',' '),
+      pallets:job.pallets??null,
+      tailLift:false,
+      paymentTerms:job.payment_terms??null,
+      carrierName:selectedBid.companies?.name??'Carrier identity unavailable',
+      companyName:selectedBid.companies?.name??null,
+      memberId:null,
+      phone:null,
+      availability:null,
+      ownerDriver:false,
+      message:selectedBid.message??null,
+    }}
+  />}
+  </>;
 }

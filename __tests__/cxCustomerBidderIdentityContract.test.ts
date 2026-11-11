@@ -14,7 +14,19 @@ describe('CX-close customer bidder identity resolution', () => {
 
   it('keeps quote-decision identity access restricted to approved company roles', () => {
     expect(route).toContain("const BID_DECISION_MEMBERSHIP_ROLES = new Set(['owner', 'admin', 'dispatcher'])");
-    expect(route).toContain(".eq('status', 'active')");
+    expect(route).toContain('getBuyerViewMemberships(supabaseAdmin,authData.user.id)');
+  });
+
+  it('scopes per-quote compliance lookups to one authorised bidder', () => {
+    expect(route).toContain("request.nextUrl.searchParams.get('bidId')");
+    expect(route).toContain("bidQuery = bidQuery.eq('id', targetBidId)");
+    expect(route).toContain('includeCompliance:allowSensitiveCompliance');
+    expect(route).toContain('getBuyerViewMemberships');
+    expect(route).toContain('BID_DECISION_MEMBERSHIP_ROLES');
+    expect(identityHelper).toContain("options.includeCompliance");
+    expect(identityHelper).toContain("driversByUser");
+    expect(identityHelper).toContain("vehicleRegistration");
+    expect(identityHelper).toContain("driverDocumentStatuses");
   });
 
   it('resolves carrier company and person display names through the canonical helper', () => {

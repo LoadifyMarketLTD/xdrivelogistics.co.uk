@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { resolvePostcodeTown } from '../../../../lib/postcodeTown';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,7 +45,12 @@ export async function GET(request: NextRequest) {
     const parts = [district, payload.result?.region, payload.result?.country]
       .filter((value): value is string => Boolean(value));
 
+    const town = request.nextUrl.searchParams.get('town') === '1' && location.kind === 'postcode'
+      ? await resolvePostcodeTown(location.compact, payload.result?.latitude, payload.result?.longitude)
+      : null;
+
     return NextResponse.json({
+      ...(request.nextUrl.searchParams.get('town') === '1' ? { town } : {}),
       query: location.compact,
       kind: location.kind,
       area: [...new Set(parts)].join(' · '),

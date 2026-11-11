@@ -110,6 +110,7 @@ type PhotonFeature = {
     city?: string | null;
     district?: string | null;
     postcode?: string | null;
+    housenumber?: string | null;
     type?: string | null;
   };
   geometry?: {
@@ -146,8 +147,9 @@ function photonAddressLabel(feature: PhotonFeature, requiredPostcodePrefix = '')
   const street = clean(props.street)
     || (clean(props.type).toLowerCase() === 'street' ? clean(props.name) : '');
   if (!street) return '';
+  const premise = clean(props.housenumber);
   const locality = clean(props.city) || clean(props.district);
-  return formatAddress([street, locality, postcode, 'GB']);
+  return formatAddress([premise && street ? `${premise} ${street}` : street, locality, postcode, 'GB']);
 }
 
 async function lookupPhotonAutocomplete(query: string) {
@@ -192,7 +194,8 @@ async function lookupPhotonAutocomplete(query: string) {
       reverse.searchParams.set('lon', String(coordinates[0]));
       reverse.searchParams.set('lat', String(coordinates[1]));
       reverse.searchParams.set('limit', '5');
-      reverse.searchParams.set('lang', 'en');
+      // Native OSM names preserve settlements (Erith); lang=en can substitute
+      // an enclosing administrative borough for the settlement's city name.
       return photonFeatures(reverse);
     }));
 
@@ -294,6 +297,7 @@ async function lookupIdealPostcodes(postcode: string, apiKey: string) {
         row.post_town,
         row.county,
       ])).filter(Boolean)),
+      towns: Object.fromEntries(rows.map(row => [formatAddress([row.line_1,row.line_2,row.line_3,row.dependant_locality,row.post_town,row.county]),clean(row.post_town)]).filter(item=>item[0]&&item[1])),
       notFound: false,
     };
   } catch {
@@ -326,8 +330,46 @@ async function lookupGetAddress(postcode: string, apiKey: string) {
         row.town_or_city,
         row.county,
       ])).filter(Boolean)),
+      towns: Object.fromEntries(rows.map(row => [formatAddress([row.line_1,row.line_2,row.line_3,row.line_4,row.locality,row.town_or_city,row.county]),clean(row.town_or_city)]).filter(item=>item[0]&&item[1])),
       notFound: false,
     };
+  } catch {
+    return null;
+  }
+}
+
+async function lookupOpenPostcodeSuggestions(query: string) {
+  const url = new URL('https://api.postcodes.io/postcodes');
+  url.searchParams.set('q', query);
+  url.searchParams.set('limit', '20');
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(4_000),
+      cache: 'no-store',
+    });
+    if (!response.ok) return [] as string[];
+    const payload = await response.json() as { result?: Array<{ postcode?: string | null }> | null };
+    const prefix = postcodeFragment(query);
+    return dedupe((Array.isArray(payload.result) ? payload.result : [])
+      .map(row => normalizePostcode(clean(row.postcode)))
+      .filter(value => value && postcodeFragment(value).startsWith(prefix)))
+      .slice(0, 12);
+  } catch {
+    return [] as string[];
+  }
+}
+
+async function verifyPostcodeWithOpenData(postcode: string) {
+  const url = new URL(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`);
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(4_000),
+      cache: 'no-store',
+    });
+    if (response.status === 404) return false;
+    if (!response.ok) return null;
+    const payload = await response.json() as { result?: { postcode?: string | null } | null };
+    return Boolean(payload.result?.postcode && postcodeFragment(clean(payload.result.postcode)) === postcodeFragment(postcode));
   } catch {
     return null;
   }
@@ -346,7 +388,9 @@ export async function GET(request: NextRequest) {
   const rawQuery = clean(request.nextUrl.searchParams.get('q') ?? '');
   const postcode = normalizePostcode(request.nextUrl.searchParams.get('postcode') ?? '');
   const autocompleteQuery = rawQuery || postcode;
-  const exactPostcode = isFullUkPostcode(postcode);
+  const exactPostcode = isFullUkPostcode(postcode)
+    ? postcode
+    : isFullUkPostcode(rawQuery) ? normalizePostcode(rawQuery) : '';
 
   if (!autocompleteQuery || autocompleteQuery.length < 2) {
     return NextResponse.json({ error: 'Enter at least 2 characters.' }, { status: 400, headers: NO_STORE_HEADERS });
@@ -355,6 +399,8 @@ export async function GET(request: NextRequest) {
   const idealKey = process.env.IDEAL_POSTCODES_API_KEY?.trim();
   const getAddressKey = process.env.GETADDRESS_API_KEY?.trim();
   const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+  // Paid services are opt-in so a configured credential cannot silently spend credits.
+  const paidFallbackEnabled = process.env.ADDRESS_LOOKUP_PAID_FALLBACK_ENABLED?.trim().toLowerCase() === 'true';
   const compactAutocompleteQuery = postcodeFragment(autocompleteQuery);
   const postcodeLikeQuery = /^[A-Z]{1,2}\d[A-Z\d]?\d?[A-Z]{0,2}$/.test(compactAutocompleteQuery);
 
@@ -363,19 +409,28 @@ export async function GET(request: NextRequest) {
   // queries, while a misconfigured commercial provider can otherwise consume
   // its full timeout before we reach the useful result. Resolve postcode-like
   // input first so interactive filters remain responsive during React rerenders.
-  if (postcodeLikeQuery) {
+  if (postcodeLikeQuery && !exactPostcode) {
     const suggestions = await lookupPhotonAutocomplete(autocompleteQuery);
     if (suggestions.length) {
       return NextResponse.json({
         suggestions,
         configured: true,
         provider: 'photon-openstreetmap',
-        ...(exactPostcode ? { postcodeFound: true } : {}),
+      }, { headers: NO_STORE_HEADERS });
+    }
+
+    const postcodeSuggestions = await lookupOpenPostcodeSuggestions(autocompleteQuery);
+    if (postcodeSuggestions.length) {
+      return NextResponse.json({
+        suggestions: postcodeSuggestions,
+        configured: true,
+        provider: 'postcodes-io',
+        postcodeSuggestions: true,
       }, { headers: NO_STORE_HEADERS });
     }
   }
 
-  if (idealKey && !exactPostcode) {
+  if (paidFallbackEnabled && idealKey && !exactPostcode) {
     const suggestions = await lookupIdealAutocomplete(autocompleteQuery, idealKey);
     if (suggestions?.length) {
       return NextResponse.json({
@@ -386,7 +441,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (getAddressKey && !exactPostcode) {
+  if (paidFallbackEnabled && getAddressKey && !exactPostcode) {
     const suggestions = await lookupGetAddressAutocomplete(autocompleteQuery, getAddressKey);
     if (suggestions.length) {
       return NextResponse.json({
@@ -397,7 +452,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (mapboxToken && !exactPostcode) {
+  if (paidFallbackEnabled && mapboxToken && !exactPostcode) {
     const suggestions = await lookupMapboxAutocomplete(autocompleteQuery, mapboxToken);
     if (suggestions.length) {
       return NextResponse.json({
@@ -419,11 +474,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (idealKey && exactPostcode) {
-    const result = await lookupIdealPostcodes(postcode, idealKey);
+  if (paidFallbackEnabled && idealKey && exactPostcode) {
+    const result = await lookupIdealPostcodes(exactPostcode, idealKey);
     if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
+        towns: result.towns,
         configured: true,
         provider: 'ideal-postcodes',
         postcodeFound: !result.notFound,
@@ -431,11 +487,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (getAddressKey && exactPostcode) {
-    const result = await lookupGetAddress(postcode, getAddressKey);
+  if (paidFallbackEnabled && getAddressKey && exactPostcode) {
+    const result = await lookupGetAddress(exactPostcode, getAddressKey);
     if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
+        towns: result.towns,
         configured: true,
         provider: 'getaddress',
         postcodeFound: !result.notFound,
@@ -443,9 +500,34 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Search open map data for exact-postcode address points, then validate the
+  // postcode against the free public postcode dataset. These sources do not
+  // provide a complete premises list, so the form keeps manual entry available.
+  if (exactPostcode) {
+    const fallback = await lookupPhotonAutocomplete(exactPostcode);
+    const compact = postcodeFragment(exactPostcode);
+    const matching = fallback.filter(label => {
+      const found = label.toUpperCase().match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/g) ?? [];
+      return found.some(value => postcodeFragment(value) === compact);
+    });
+    if (matching.length) return NextResponse.json({
+      suggestions: matching, configured: true,
+      provider: 'photon-openstreetmap', postcodeFound: true,
+    }, { headers: NO_STORE_HEADERS });
+
+    const postcodeFound = await verifyPostcodeWithOpenData(exactPostcode);
+    return NextResponse.json({
+      suggestions: [],
+      configured: true,
+      provider: 'postcodes-io',
+      postcodeFound,
+    }, { headers: NO_STORE_HEADERS });
+  }
   return NextResponse.json({
     suggestions: [],
     configured: true,
-    provider: idealKey ? 'ideal-postcodes-autocomplete' : getAddressKey ? 'getaddress' : mapboxToken ? 'mapbox-geocoding-autocomplete' : null,
+    provider: paidFallbackEnabled
+      ? idealKey ? 'ideal-postcodes-autocomplete' : getAddressKey ? 'getaddress' : mapboxToken ? 'mapbox-geocoding-autocomplete' : 'photon-openstreetmap'
+      : 'photon-openstreetmap',
   }, { headers: NO_STORE_HEADERS });
 }

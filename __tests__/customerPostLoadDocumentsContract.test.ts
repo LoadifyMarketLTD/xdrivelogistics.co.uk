@@ -9,8 +9,8 @@ const documentsRoute = read('app/api/admin/jobs/[id]/documents/route.ts');
 describe('Customer Post Load document contract', () => {
   it('keeps browser upload limits aligned with server verification', () => {
     expect(form).toContain('MAX_DOCUMENT_FILES = 12');
-    expect(form).toContain('MAX_DOCUMENT_BYTES = 20 * 1024 * 1024');
-    expect(documentsRoute).toContain('MAX_DOCUMENT_BYTES = 20 * 1024 * 1024');
+    expect(form).toContain('MAX_DOCUMENT_BYTES = 12 * 1024 * 1024');
+    expect(documentsRoute).toContain('MAX_DOCUMENT_BYTES = 12 * 1024 * 1024');
     expect(documentsRoute).toContain('documents: z.array');
     expect(documentsRoute).toContain('.min(1).max(12)');
   });

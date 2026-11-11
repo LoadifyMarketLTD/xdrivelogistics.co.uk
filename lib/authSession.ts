@@ -658,6 +658,22 @@ export const getPostLoginRoute = (
   });
 };
 
+/** Driver-only mobile landing: retain desktop workspaces for non-drivers. */
+export const getResponsivePostLoginRoute = (
+  user: Parameters<typeof getPostLoginRoute>[0],
+  isMobile: boolean
+): string => {
+  const canonical = getPostLoginRoute(user);
+  if (user.mustChangePassword) return canonical;
+
+  // Dedicated Driver accounts must enter the approved PWA even when Android
+  // requests a desktop site or reports a desktop-width viewport.
+  // Company/carrier workspaces retain their desktop landing route.
+  if (isMobile && user.canAccessDriverMode && user.role === 'driver') return '/driver/official-pwa-live';
+  if (isMobile && user.canAccessDriverMode && (user.workspaceRole === 'owner_driver' || user.ownerDriverWorkspace === true)) return '/driver/official-pwa-live';
+  return canonical;
+};
+
 export const roleCanAccessPath = (
   currentUser: Pick<ResolvedAuthUser, 'role'> & {
     canAccessDriverMode?: boolean;

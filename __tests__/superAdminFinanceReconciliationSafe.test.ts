@@ -83,9 +83,9 @@ describe('Platform Owner finance reconciliation', () => {
     expect(page).toContain('Payment ledger');
     expect(page).toContain('Ledger integrity');
     expect(page).toContain('Verify against payment ledger');
-    expect(list).toContain('/super-admin/finance/invoices/${encodeURIComponent(row.id)}');
-    expect(list).toContain('Reconcile →');
-    expect(list).toContain('endpoint="/api/super-admin/finance?section=invoices"');
-    expect(list).toContain('pageSize={100}');
+    expect(list).toContain('router.push(`/super-admin/finance/invoices/${encodeURIComponent(id)}`)');
+    expect(list).toContain('>Reconcile</button>');
+    expect(list).toContain('/api/super-admin/finance?section=invoices&page=${page}&limit=100');
+    expect(list).toContain("<ProtectedRoute allowedRoles={['owner']}>");
   });
 });

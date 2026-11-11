@@ -7,12 +7,17 @@ const ACTIVE_STATUSES = new Set([
   'accepted',
   'on_my_way',
   'on_my_way_to_pickup',
+  'on_my_way_pickup',
   'on_site_pickup',
+  'arrived_pickup',
   'loaded',
   'collected',
   'in_transit',
   'on_my_way_to_delivery',
+  'on_my_way_delivery',
   'on_site_delivery',
+  'arrived_delivery',
+  'on_route_delivery',
 ]);
 
 /**

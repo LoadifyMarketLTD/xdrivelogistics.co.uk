@@ -3,8 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../app/components/workspace/CxDiaryActions';
 
-function buttons(node: ReactNode): ReactElement<any>[] {
-  return Children.toArray(node).flatMap(child => !isValidElement<{ children?: ReactNode }>(child) ? [] : child.type === 'button' ? [child] : buttons(child.props.children));
+type TestButtonProps = { children?: ReactNode; type?: string; onClick: () => void; disabled?: boolean; 'aria-expanded'?: boolean };
+function buttons(node: ReactNode): ReactElement<TestButtonProps>[] {
+  return Children.toArray(node).flatMap(child => !isValidElement<TestButtonProps>(child) ? [] : child.type === 'button' ? [child] : buttons(child.props.children));
 }
 
 describe('shared Diary actions', () => {

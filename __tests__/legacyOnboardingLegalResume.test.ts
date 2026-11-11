@@ -4,8 +4,8 @@ import { buildCurrentLegalEvidence, buildCurrentLegalRequirement } from '../lib/
 import { getRegistrationLegalConfig, LEGAL_VERSION, PRIVACY_VERSION } from '../lib/legal/registrationAgreements';
 
 const state = vi.hoisted(() => ({
-  user: null as Record<string, any> | null,
-  tables: {} as Record<string, Array<Record<string, any>>>,
+  user: null as ({ user_metadata: Record<string, unknown>; app_metadata: Record<string, unknown> } & Record<string, unknown>) | null,
+  tables: {} as Record<string, Array<Record<string, unknown>>>,
   writes: [] as Array<{ table: string; operation: string; value: unknown }>,
   queries: [] as Array<{ table: string; filters: unknown[][] }>,
   errorTable: '', persist: vi.fn(), rpc: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => {
     rpc: state.rpc,
     from(table: string) {
       const filters: unknown[][] = []; state.queries.push({ table, filters });
-      let resultOverride: Record<string, any> | undefined;
+      let resultOverride: Record<string, unknown> | undefined;
       const result = (single: boolean) => {
         const found = (state.tables[table] ?? []).filter(row => filters.every(([op,key,value]) =>
           op === 'eq' ? row[String(key)] === value : op === 'neq' ? row[String(key)] !== value : true));
@@ -29,7 +29,7 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => {
         eq: (k: string, v: unknown) => { filters.push(['eq',k,v]); return chain; },
         neq: (k: string, v: unknown) => { filters.push(['neq',k,v]); return chain; },
         insert: (value: unknown) => { state.writes.push({table,operation:'insert',value}); return chain; },
-        upsert: (value: Record<string, any>) => { state.writes.push({table,operation:'upsert',value}); resultOverride={id:'new-app',...value}; return chain; },
+        upsert: (value: Record<string, unknown>) => { state.writes.push({table,operation:'upsert',value}); resultOverride={id:'new-app',...value}; return chain; },
         update: (value: unknown) => { state.writes.push({table,operation:'update',value}); return chain; },
         maybeSingle: async () => result(true), single: async () => result(true),
         then: (resolve: (value: unknown) => unknown) => Promise.resolve(result(false)).then(resolve),

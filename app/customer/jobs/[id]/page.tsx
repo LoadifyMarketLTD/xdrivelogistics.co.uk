@@ -4,7 +4,8 @@ import { use, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../../../lib/legal/paymentObligationClient';
+import BookingConfirmationFullPage from '../../quotes/BookingConfirmationFullPage';
 import JobLiveTrackingPanel from '../../../components/tracking/JobLiveTrackingPanel';
 import { CompanyJobSheetPanel } from '../../../components/workspace/CompanyJobSheetPanel';
 import DriverInstructionPanel from '../../../components/workspace/DriverInstructionPanel';
@@ -40,6 +41,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
   const router = useRouter();
   const data = useCompanyWorkspaceData();
   const [working, setWorking] = useState<string | null>(null);
+  const [selectedAwardId, setSelectedAwardId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [ownerCapabilities, setOwnerCapabilities] = useState<OwnerEditCapabilities | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
@@ -52,6 +54,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
     [data.bids, id],
   );
   const lowestQuote = useMemo(() => quotes.map(quoteAmount).filter((value): value is number => value != null)[0] ?? null, [quotes]);
+  const selectedAward = quotes.find((bid) => bid.id === selectedAwardId) ?? null;
   const invoice = data.invoices.find((row) => row.job_id === id) ?? null;
 
   useEffect(() => {
@@ -77,7 +80,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
   }, [id]);
 
   const award = async (bidId: string) => {
-    if (!confirmBookingPaymentObligation()) return;
+    if (selectedAwardId !== bidId || working) return;
     setWorking(bidId);
     setMessage('');
     try {
@@ -92,9 +95,11 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'The quote could not be awarded.');
       setMessage('Booking offer sent - awaiting carrier acceptance.');
+      setSelectedAwardId(null);
       setDeleteArmed(false);
       await data.refresh();
     } catch (reason) {
+      setSelectedAwardId(null);
       setMessage(reason instanceof Error ? reason.message : 'The quote could not be awarded.');
     } finally {
       setWorking(null);
@@ -187,7 +192,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
                         : <span key="delta-none" style={{ color: '#64748b' }}>Comparison unavailable</span>,
                     bid.message ?? 'No message supplied',
                     when(bid.created_at),
-                    <ActionButton key="award" tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award / Book'}</ActionButton>,
+                    <ActionButton key="award" tone="success" disabled={working === bid.id || amount == null} onClick={() => { if (amount != null) setSelectedAwardId(bid.id); }}>{working === bid.id ? 'Awarding…' : 'Award / Book'}</ActionButton>,
                   ];
                 })}
               />
@@ -208,6 +213,33 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
           </Panel>
         </div>
       )}
+      {selectedAward && job && <BookingConfirmationFullPage
+        key={selectedAward.id}
+        working={working === selectedAward.id}
+        onCancel={() => { if (!working) setSelectedAwardId(null); }}
+        onConfirm={() => void award(selectedAward.id)}
+        details={{
+          jobId: job.id,
+          bidId: selectedAward.id,
+          amount: quoteAmount(selectedAward) ?? 0,
+          currency: selectedAward.currency ?? 'GBP',
+          pickup: job.pickup_postcode || job.pickup_location || 'Collection not recorded',
+          delivery: job.delivery_postcode || job.delivery_location || 'Delivery not recorded',
+          pickupDate: job.pickup_datetime ?? null,
+          deliveryDate: job.delivery_datetime ?? null,
+          vehicle: (job.requested_vehicle_label || job.vehicle_type || 'Vehicle not recorded').replaceAll('_',' '),
+          pallets: job.pallets ?? null,
+          tailLift: false,
+          paymentTerms: job.payment_terms ?? null,
+          carrierName: selectedAward.companies?.name || 'Carrier',
+          companyName: selectedAward.companies?.name ?? null,
+          memberId: null,
+          phone: null,
+          availability: null,
+          ownerDriver: Boolean(selectedAward.bidder_driver_id && !selectedAward.company_id),
+          message: selectedAward.message ?? null,
+        }}
+      />}
     </PageFrame>
   );
 }

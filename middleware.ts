@@ -614,7 +614,7 @@ function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string
     `style-src ${styleSrc}`,
     "img-src 'self' data: blob: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://maps.googleapis.com https://mapsresources-pa.googleapis.com https://maps.gstatic.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://maps.googleapis.com https://mapsresources-pa.googleapis.com https://maps.gstatic.com https://api.postcodes.io https://nominatim.openstreetmap.org https://router.project-osrm.org",
     allowNetlifyPreviewFrame ? "frame-src 'self' https://app.netlify.com" : "frame-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",
@@ -640,6 +640,11 @@ function buildNonceResponse(request: NextRequest, nonce: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  // The standalone Driver PWA authenticates its API requests using bearer tokens.
+  // Its HTML, manifest, icons and service worker must remain publicly fetchable.
+  if (request.nextUrl.pathname.startsWith('/driver/official-pwa/') || request.nextUrl.pathname.startsWith('/driver/reserve-pwa/')) {
+    return NextResponse.next();
+  }
   const canonicalRedirect = buildCanonicalHostRedirect(request);
   if (canonicalRedirect) {
     return canonicalRedirect;

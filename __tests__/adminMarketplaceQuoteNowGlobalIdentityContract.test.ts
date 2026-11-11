@@ -15,21 +15,21 @@ const baselineCss = read('app/components/workspace/workspace-measured-cx-baselin
 
 describe('Admin Marketplace Quote Now global visual identity contract', () => {
   it('keeps one shared Admin Marketplace Quote Now renderer as the canonical visual model', () => {
-    expect(adminMarketplace).toContain("import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog'");
+    expect(adminMarketplace).toContain("import MarketplaceQuoteNowDialog, { type Canonical3150QuoteMeta } from './MarketplaceQuoteNowDialog'");
     expect(adminMarketplace).toContain('<MarketplaceQuoteNowDialog');
     expect(driverQuoteModal).toContain("import MarketplaceQuoteNowDialog");
     expect(driverQuoteModal).toContain('<MarketplaceQuoteNowDialog');
 
     for (const token of [
-      'title="Quote Now"',
-      'xdrive-quote-modal__member',
-      'xdrive-quote-modal__route',
-      'xdrive-quote-modal__field-row',
-      'Choose currency:',
-      'My Quote:',
-      'xdrive-quote-modal__extras-trigger',
-      'xdrive-quote-modal__total',
-      'xdrive-quote-modal__notes',
+      'CANONICAL_3150_QUOTE_TABS.map',
+      'className="xd-quote-panel"',
+      'className="xd-quote-route"',
+      'className="xd-quote-form"',
+      'Currency<select',
+      '<h3>Your Quote</h3>',
+      'xd-quote-commercial-extras',
+      'total.toFixed(2)',
+      'Notes to Customer (Optional)',
       'Submit Quote',
     ]) {
       expect(sharedQuoteDialog).toContain(token);
@@ -44,10 +44,10 @@ describe('Admin Marketplace Quote Now global visual identity contract', () => {
     expect(driverLoads).not.toContain('driver-inline-quote--marketplace"><div className="driver-filter-field"><label>Your quote');
     expect(driverLoadDetail).not.toContain('id="marketplace-quote-amount"');
 
-    expect(sharedQuoteDialog).toContain('width={468}');
-    expect(sharedQuoteDialog).toContain('maxHeight={760}');
-    expect(sharedQuoteDialog).toContain('className="xdrive-quote-modal__requested-vehicle"');
-    expect(sharedQuoteDialog).toContain('className="xdrive-quote-modal__currency"');
+    expect(sharedQuoteDialog).toContain('className="xd-quote-panel"');
+    expect(sharedQuoteDialog).toContain('CANONICAL_3150_QUOTE_TABS.map');
+    expect(sharedQuoteDialog).toContain('id="marketplace-quote-vehicle"');
+    expect(sharedQuoteDialog).toContain('onCurrencyChange(event.target.value)');
   });
 
   it('keeps the measured Admin Marketplace styling authoritative for the shared quote modal', () => {

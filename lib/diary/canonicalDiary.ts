@@ -53,18 +53,7 @@ const BASE_OPERATIONAL_TABS: CanonicalDiaryTab[] = [
 ];
 
 export const CANONICAL_DIARY_TABS_BY_ROLE: Record<CanonicalDiaryRole, CanonicalDiaryTab[]> = {
-  customer: [
-    { id: 'all', label: 'All' },
-    { id: 'open', label: 'Open' },
-    { id: 'awaiting_award', label: 'Awaiting Award' },
-    { id: 'awarded', label: 'Awarded' },
-    { id: 'in_progress', label: 'In Progress' },
-    { id: 'completed', label: 'Completed' },
-    { id: 'cancelled', label: 'Cancelled' },
-    { id: 'expired', label: 'Expired' },
-    { id: 'awaiting_feedback', label: 'Awaiting Feedback' },
-    { id: 'recent_feedback', label: 'Recent Feedback' },
-  ],
+  customer: BASE_OPERATIONAL_TABS,
   broker: BASE_OPERATIONAL_TABS,
   carrier: BASE_OPERATIONAL_TABS,
   fleet_manager: BASE_OPERATIONAL_TABS,

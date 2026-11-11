@@ -3,7 +3,7 @@ import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/su
 import { isWebDriverContext, requireActiveWebDriver, type WebDriverContext } from '../../../../_lib/webDriverContext';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 import { getFeatureFlag, getGlobalSettingNumber } from '../../../../../_lib/platformFlags';
-import { hasCompletePodEvidence } from '../../../../../../../lib/jobs/podCompletion';
+import { hasCompletePodEvidence, isPodApprovedForInvoicing } from '../../../../../../../lib/jobs/podCompletion';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -113,7 +113,7 @@ export async function POST(
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name, broker_pod_review_status')
     .eq('id', jobId)
     .or(`company_id.eq.${actor.companyId},assigned_company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
     .maybeSingle();
@@ -132,6 +132,10 @@ export async function POST(
       error: 'Complete POD before creating an invoice. POD is mandatory for every job and must include evidence, recipient signature and recipient name.',
       code: 'POD_REQUIRED_BEFORE_INVOICE',
     });
+  }
+
+  if (!isPodApprovedForInvoicing(job.broker_pod_review_status)) {
+    return respond(409, { error: 'POD was rejected or resubmission was requested. Resolve POD review before creating an invoice.', code: 'POD_REVIEW_BLOCKS_INVOICE' });
   }
 
   const marketplace = job.exchange_visibility === 'exchange' || job.exchange_visibility === 'direct';
@@ -297,6 +301,16 @@ export async function POST(
     buyer_company_id: buyerCompanyId,
     supplier_company_id: supplierCompanyId,
     invoice_origin: marketplace ? 'marketplace' : 'direct',
+    // Persist immutable delivery evidence alongside the invoice for A4 PDF rendering.
+    pod_required: true,
+    pod_generated: job.pod_generated === true,
+    pod_generated_at: cleanText(job.pod_generated_at) || null,
+    pod_photos: Array.from(new Set([
+      ...(Array.isArray(job.delivery_photos) ? job.delivery_photos : []),
+      ...(Array.isArray(job.pod_photos) ? job.pod_photos : []),
+    ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0))),
+    recipient_name: cleanText(job.client_signature_name) || null,
+    delivery_recipient: cleanText(job.client_signature_name) || null,
   };
 
   if (marketplace && agreementId) {

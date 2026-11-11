@@ -9,7 +9,7 @@ describe('CX-close Driver Diary persistent action contract', () => {
   const preview = read('app/driver/_components/DriverInvoicePreviewModal.tsx');
 
   it('keeps operational actions visible before the expanded detail panel', () => {
-    const railIndex = diary.indexOf('footer={<CxDiaryActions');
+    const railIndex = diary.indexOf('footer={<div className="xd3150-diary-card-actions">');
     const companyExpandedIndex = diary.indexOf('{expanded && !isOwnAssignedJob && (', railIndex);
     const ownExpandedIndex = diary.indexOf('{expanded && isOwnAssignedJob && (', railIndex);
     expect(railIndex).toBeGreaterThan(0);

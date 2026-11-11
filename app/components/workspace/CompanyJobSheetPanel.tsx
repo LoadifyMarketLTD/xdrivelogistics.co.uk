@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import { formatPublicOutcode } from '../../../lib/jobs/formatPublicOutcode';
 import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
@@ -9,6 +10,8 @@ import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceU
 import CommercialAmendmentControls from './CommercialAmendmentControls';
 import { JobSmartAlertsPanel } from './JobSmartAlertsPanel';
 import { JobOperationalExceptionsPanel } from './JobOperationalExceptionsPanel';
+import './canonical3150-transport-summary.css';
+import Canonical3150TransportSummary from './Canonical3150TransportSummary';
 
 type JobSheet = {
   jobId: string;
@@ -294,7 +297,7 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
   const agreementReference = sheet.commercial.agreementId
     ? `AGR-${sheet.commercial.agreementId.slice(0, 8).toUpperCase()}`
     : 'Not available';
-  const customerAgreedPrice = sheet.commercial.agreedGross ?? sheet.commercial.carrierCost;
+  const customerAgreedPrice = sheet.commercial.agreedGross ?? sheet.commercial.customerPrice;
   const allocatedVehicleLabel = sheet.vehicle
     ? [sheet.vehicle.registration, sheet.vehicle.make, sheet.vehicle.model].filter(Boolean).join(' · ') || human(sheet.vehicle.type)
     : 'Not assigned';
@@ -307,6 +310,14 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
         sheet.vehicle.hasTailLift === true ? 'Tail lift' : null,
       ].filter(Boolean).join(' · ') || undefined
     : undefined;
+  const privateStopAccess = mode !== 'carrier' || Boolean(
+    sheet.viewerCompanyId && (
+      sheet.viewerCompanyId === sheet.ownerCompany.companyId ||
+      sheet.viewerCompanyId === sheet.carrier?.companyId
+    )
+  );
+  const collectionPublicLocation = privateStopAccess ? sheet.route.pickup.postcode ?? 'Not recorded' : formatPublicOutcode(sheet.route.pickup.postcode);
+  const deliveryPublicLocation = privateStopAccess ? sheet.route.delivery.postcode ?? 'Not recorded' : formatPublicOutcode(sheet.route.delivery.postcode);
   const acceptedBidderDriverLabel = sheet.acceptedBidderDriver
     ? sheet.acceptedBidderDriver.name ?? `Driver ${sheet.acceptedBidderDriver.id.slice(0, 8).toUpperCase()}`
     : sheet.acceptedBidRecorded
@@ -361,6 +372,55 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
         <span><strong>Booking Detail</strong> · {sheet.references.xdrive}</span>
         <ActionButton tone="secondary" onClick={() => { window.location.href = messagesHref; }}>Messages for this job</ActionButton>
       </div>
+      {tab === 'agreement' && <Canonical3150TransportSummary
+        reference={sheet.references.xdrive}
+        route={`${collectionPublicLocation} → ${deliveryPublicLocation}`}
+        status={presentationStatus}
+        sections={[
+          { title: 'Booking & Customer', fields: [
+            { label: 'Booking Reference', value: sheet.references.xdrive },
+            { label: 'Customer', value: sheet.ownerCompany.name },
+            { label: mode === 'carrier' ? 'Agreed Carrier Rate' : 'Agreed Price',
+              value: money(mode === 'carrier' ? sheet.commercial.carrierCost :
+                mode === 'broker' ? sheet.commercial.customerPrice : customerAgreedPrice, sheet.commercial.currency) },
+            { label: 'Payment Terms', value: sheet.commercial.paymentTerms ?? 'Not recorded' },
+          ] },
+          { title: 'Collection', fields: [
+            { label: 'Collection Location', value: collectionPublicLocation },
+            { label: 'Collection Date / Time', value: formatScheduleDetail(sheet.route.pickup.dateTime, sheet.route.pickup.slot) },
+            { label: 'Full Address', value: !privateStopAccess ?
+                'Available after award to authorised carriers' : formatExecutionAddress(sheet.route.pickup.address, sheet.route.pickup.postcode) },
+            { label: 'Collection Contact', value: !privateStopAccess ?
+                'Private until award' : sheet.route.pickup.contactName ?? 'Not recorded' },
+          ] },
+          { title: 'Delivery', fields: [
+            { label: 'Delivery Location', value: deliveryPublicLocation },
+            { label: 'Delivery Date / Time', value: formatScheduleDetail(sheet.route.delivery.dateTime, sheet.route.delivery.slot) },
+            { label: 'Full Address', value: !privateStopAccess ?
+                'Available after award to authorised carriers' : formatExecutionAddress(sheet.route.delivery.address, sheet.route.delivery.postcode) },
+            { label: 'Delivery Contact', value: !privateStopAccess ?
+                'Private until award' : sheet.route.delivery.contactName ?? 'Not recorded' },
+          ] },
+          { title: 'Cargo & Vehicle Requirements', fields: [
+            { label: 'Vehicle', value: human(sheet.load.requestedVehicle) },
+            { label: 'Packaging / Cargo', value: human(sheet.load.cargoType) },
+            { label: 'Total Weight', value: sheet.load.weightKg == null ? 'Not recorded' : `${sheet.load.weightKg} kg` },
+            { label: 'Special Handling', value: sheet.load.requirements.length ? sheet.load.requirements.join(' · ') : 'Not recorded' },
+          ] },
+          { title: 'Assignment & Tracking', fields: [
+            { label: 'Driver', value: sheet.driver?.name ?? 'Not assigned' },
+            { label: 'Vehicle Registration', value: sheet.vehicle?.registration ?? 'Not assigned' },
+            { label: 'Current Status', value: presentationStatus },
+            { label: 'Acceptance', value: agreementStatus },
+          ] },
+          { title: 'Documents & Proof of Delivery', fields: [
+            { label: 'Uploaded Documents', value: String(sheet.documents.length) },
+            { label: 'POD Status', value: podState.label },
+            { label: 'Invoice', value: sheet.invoices.length ? `${sheet.invoices.length} invoice record(s)` : 'Not issued' },
+            { label: 'Delivery Evidence', value: `${sheet.evidence.deliveryPhotoCount + sheet.evidence.podPhotoCount} file(s)` },
+          ] },
+        ]}
+      />}
       <div className="workspace-tab-strip" role="tablist" aria-label="Booking detail sections" style={{ display: 'flex', overflowX: 'auto', marginBottom: 6 }}>
         {TABS.map((item) => {
           const count = item.id === 'evidence' ? sheet.documents.length
@@ -374,7 +434,9 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
       </div>
 
       {tab === 'agreement' && (
-        <div style={{ display: 'grid', gap: 8 }}>
+        <details className="xdrive3150-real-transport__extended">
+          <summary>Full commercial agreement, amendments and adjustments</summary>
+          <div style={{ display: 'grid', gap: 8, padding: 14 }}>
           <div className="workspace-detail-grid">
             <Detail label="XDrive reference" value={sheet.references.xdrive} detail={sheet.references.booking ? `Customer booking ref ${sheet.references.booking}` : undefined} />
             <Detail label="Transport status" value={<StatusBadge value={presentationStatus} />} detail={sheet.updatedAt ? `Last updated ${when(sheet.updatedAt)}` : undefined} />
@@ -430,7 +492,8 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
               </div>
             )) : <EmptyState compact title="No execution extras recorded" description={sheet.unavailable.extras ?? undefined} />}
           </div>
-        </div>
+          </div>
+        </details>
       )}
 
       {tab === 'route' && (

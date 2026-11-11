@@ -1,11 +1,11 @@
 .shell {
-  --sa-v3-sidebar: 284px;
-  --sa-v3-sidebar-collapsed: 84px;
+  --sa-v3-sidebar: 224px;
+  --sa-v3-sidebar-collapsed: 68px;
   --sa-v3-topbar: 68px;
-  --sa-v3-navy: #0B2F6B;
+  --sa-v3-navy: #071D43;
   --sa-v3-blue: #1D57D8;
-  --sa-v3-orange: #F5A300;
-  --sa-v3-bg: #F1F5FB;
+  --sa-v3-orange: #FF7900;
+  --sa-v3-bg: #F4F6F8;
   --sa-v3-surface: #FFFFFF;
   --sa-v3-text: #1A1F2B;
   --sa-v3-muted: #667085;
@@ -40,11 +40,10 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(circle at 14% 0%, rgba(29, 87, 216, 0.34), transparent 31%),
-    linear-gradient(180deg, #0B2F6B 0%, #09265A 58%, #071F4A 100%);
+    #071D43;
   color: #FFFFFF;
   border-right: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: 10px 0 30px rgba(7, 31, 74, 0.16);
+  box-shadow: none;
 }
 
 .sidebarBrand {
@@ -161,7 +160,7 @@
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 9px 11px;
+  padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 9px;
   color: rgba(255, 255, 255, 0.76);
@@ -203,9 +202,9 @@
 }
 
 .sidebarLinkActive {
-  background: linear-gradient(135deg, #F5A300 0%, #FFB625 100%);
-  border-color: rgba(255, 216, 128, 0.96);
-  color: #071F4A;
+  background: #FF7900;
+  border-color: #FF7900;
+  color: #FFFFFF;
   box-shadow:
     0 8px 22px rgba(4, 22, 56, 0.28),
     0 0 0 1px rgba(245, 163, 0, 0.18);
@@ -766,3 +765,16 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* Master visual parity */
+.shell{--sa-v3-topbar:64px}
+.sidebarBrand{padding:5px 8px;border-bottom:0;background:#071D43;box-shadow:none;justify-content:center}
+.sidebarBrand img{width:196px;height:64px;max-width:100%;object-fit:contain;border-radius:0;background:transparent;box-shadow:none}
+.sidebarBrandCopy{display:none}
+.sidebarCollapsed .sidebarBrand img{width:50px;height:42px}
+.sidebarLink{min-height:39px;height:auto;font-size:13px;font-weight:600;border-radius:8px;transition:background 150ms ease,color 150ms ease}
+.sidebarLink svg{filter:none;color:currentColor}
+.sidebarLink:hover{background:#17365F;border-color:transparent;color:#fff;transform:none}
+.sidebarLink:hover svg{transform:none}
+.sidebarLinkActive,.sidebarLinkActive:hover{background:#FF7900;border-color:#FF7900;color:#fff;box-shadow:none;transform:none;font-weight:700}
+.sidebarLinkActive svg{color:#fff}
+.sidebarLinkActive::after{display:none}

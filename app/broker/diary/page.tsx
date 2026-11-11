@@ -7,9 +7,11 @@ import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspa
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import '../../components/workspace/broker-3150-diary.css';
+import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
-import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import { brokerDiaryStage, classifyWorkspaceJobStage, isDiaryBookingJob, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 
@@ -37,14 +39,17 @@ const cxTimeParts = (value: string | null | undefined) => {
 const postcodeOrLocation = (postcode: string | null | undefined, location: string | null | undefined) => postcode || location || 'Not set';
 
 const hasRecentFeedback = (reviews: ReviewRow[]) => reviews.length > 0;
+const verifiedBrokerBookingStage = (job: WorkspaceJob) =>
+  classifyWorkspaceJobStage(job) === 'awarded' ? 'unallocated' as const : brokerDiaryStage(job);
 const isAwaitingFeedback = (job: WorkspaceJob, reviews: ReviewRow[], companyId: string | null) =>
-  brokerDiaryStage(job) === 'completed' && isCompanyFeedbackEligible(job, companyId) && !hasRecentFeedback(reviews);
+  verifiedBrokerBookingStage(job) === 'completed' && isCompanyFeedbackEligible(job, companyId) && !hasRecentFeedback(reviews);
 
 function matchesTab(job: WorkspaceJob, tab: DiaryTab, reviews: ReviewRow[], companyId: string | null) {
+  if (!isDiaryBookingJob(job)) return false;
   if (tab === 'all') return true;
   if (tab === 'awaiting_feedback') return isAwaitingFeedback(job, reviews, companyId);
   if (tab === 'recent_feedback') return hasRecentFeedback(reviews);
-  return brokerDiaryStage(job) === tab;
+  return verifiedBrokerBookingStage(job) === tab;
 }
 
 export default function BrokerDiaryPage() {
@@ -58,6 +63,11 @@ export default function BrokerDiaryPage() {
   const [pickup, setPickup] = useState('');
   const [delivery, setDelivery] = useState('');
   const [date, setDate] = useState('');
+  const [driverFilter, setDriverFilter] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState('');
+  const [selectedDetailsJobId, setSelectedDetailsJobId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'earliest' | 'latest'>('earliest');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [detailTabs, setDetailTabs] = useState<Record<string, JobSheetTab>>({});
   const [expandAll, setExpandAll] = useState(false);
@@ -137,6 +147,7 @@ export default function BrokerDiaryPage() {
     const pickupTerm = pickup.trim().toLowerCase();
     const deliveryTerm = delivery.trim().toLowerCase();
     return data.jobs
+      .filter((job) => isDiaryBookingJob(job))
       .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? [], companyId))
       .filter((job) => !refTerm || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refTerm))
       .filter((job) => !customerTerm || String(job.client_name || '').toLowerCase().includes(customerTerm))
@@ -147,17 +158,30 @@ export default function BrokerDiaryPage() {
       })
       .filter((job) => !pickupTerm || `${job.pickup_postcode || ''} ${job.pickup_location || ''}`.toLowerCase().includes(pickupTerm))
       .filter((job) => !deliveryTerm || `${job.delivery_postcode || ''} ${job.delivery_location || ''}`.toLowerCase().includes(deliveryTerm))
+      .filter((job) => !driverFilter || job.assigned_driver_id === driverFilter)
+      .filter((job) => !vehicleFilter || job.vehicle_id === vehicleFilter)
       .filter((job) => !date || String(job.pickup_datetime || '').slice(0, 10) === date)
-      .sort((a, b) => String(b.pickup_datetime || b.created_at).localeCompare(String(a.pickup_datetime || a.created_at)));
-  }, [acceptedCarrierByJob, carrier, companyId, customer, data.jobs, date, delivery, pickup, reference, reviewsByJob, tab]);
+      .sort((a, b) => sortBy === 'earliest'
+        ? String(a.pickup_datetime || a.created_at).localeCompare(String(b.pickup_datetime || b.created_at))
+        : String(b.pickup_datetime || b.created_at).localeCompare(String(a.pickup_datetime || a.created_at)));
+  }, [acceptedCarrierByJob, carrier, companyId, customer, data.jobs, date, delivery, pickup, reference, reviewsByJob, tab, driverFilter, vehicleFilter, sortBy]);
 
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visibleRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
-  useEffect(() => { setPage(1); setExpanded(null); setExpandAll(false); }, [tab, reference, customer, carrier, pickup, delivery, date, pageSize]);
+  useEffect(() => { setPage(1); setExpanded(null); setExpandAll(false); }, [tab, reference, customer, carrier, pickup, delivery, date, pageSize, driverFilter, vehicleFilter, sortBy]);
 
-  const reset = () => { setReference(''); setCustomer(''); setCarrier(''); setPickup(''); setDelivery(''); setDate(''); };
+  const reset = () => { setReference(''); setCustomer(''); setCarrier(''); setPickup(''); setDelivery(''); setDate(''); setDriverFilter(''); setVehicleFilter(''); setTab('all'); };
+  const changeDay = (delta: number) => {
+    const base = date || new Date().toISOString().slice(0, 10);
+    const value = new Date(base + 'T12:00:00');
+    value.setDate(value.getDate() + delta);
+    setDate(value.toISOString().slice(0, 10));
+  };
+  const tabCount = (value: DiaryTab) => data.jobs.filter((job) => isDiaryBookingJob(job) && matchesTab(job, value, reviewsByJob[job.id] ?? [], companyId)).length;
+  const sortedDrivers = [...data.drivers].sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''));
+  const sortedVehicles = [...data.vehicles].sort((a, b) => (a.reg_plate || '').localeCompare(b.reg_plate || ''));
   const tabs: Array<{ id: DiaryTab; label: string }> = [
     { id: 'all', label: 'All' },
     { id: 'unallocated', label: 'Unallocated' },
@@ -219,45 +243,66 @@ export default function BrokerDiaryPage() {
 
   return (
     <PageFrame>
+      <section className="xd3150-broker-diary">
+        <header className="xd3150-diary-header">
+          <div><h1>Diary</h1><p>Bookings & Operations Schedule</p></div>
+          <nav className="xd3150-diary-date-nav" aria-label="Diary date navigation">
+            <button type="button" aria-label="Previous day" onClick={() => changeDay(-1)}>‹</button>
+            <input type="date" aria-label="Selected diary date" value={date} onChange={(event) => setDate(event.target.value)} />
+            <button type="button" aria-label="Next day" onClick={() => changeDay(1)}>›</button>
+            <button type="button" className="xd3150-diary-today" onClick={() => setDate(new Date().toISOString().slice(0, 10))}>Today</button>
+            {date && <button type="button" onClick={() => setDate('')}>All dates</button>}
+          </nav>
+        </header>
+        <div className="xd3150-diary-status-tabs" role="tablist" aria-label="Broker diary states">
+          {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}>{item.label}<span>{tabCount(item.id)}</span></button>)}
+        </div>
+      <Master3150OperationsKpis jobs={data.jobs} view="diary" />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {feedbackError && <AlertBanner tone="warning">{feedbackError}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
-        <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary filters">
-          <div className="cx-diary-rail-nav">
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network/directory')}>Contacts</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Payment Report</ActionButton>
-          </div>
-          <div className="workspace-filter-rail__header">Search Panel</div>
+        <aside className="workspace-filter-rail cx-diary-filter-rail xd3150-diary-rail" aria-label="Diary filters">
+          <div className="workspace-filter-rail__header">Find Bookings</div>
           <div className="workspace-filter-rail__body">
-            <label>Date:<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-            <label>Pickup:<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label>
-            <label>Delivery:<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label>
+
+            <label>From (Town/Postcode)<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="e.g. BB1 or Blackburn" /></label>
+            <label>To (Town/Postcode)<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="e.g. DA8 or Erith" /></label>
+            <label>Driver<select value={driverFilter} onChange={(event) => setDriverFilter(event.target.value)}><option value="">Any Driver</option>{sortedDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name || driver.id.slice(0, 8)}</option>)}</select></label>
+            <label>Vehicle<select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="">Any Vehicle</option>{sortedVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.reg_plate || vehicle.type || vehicle.id.slice(0, 8)}</option>)}</select></label>
+            <label>Status<select value={tab} onChange={(event) => setTab(event.target.value as DiaryTab)}>{tabs.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+            <label>Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+            <button type="button" className="xd3150-diary-clear" onClick={reset}>↻ Clear Filters</button>
+            <button type="button" className="xd3150-diary-search" onClick={() => setPage(1)}>⌕ Search Diary</button>
+            <details className="xd3150-diary-extra-filters"><summary>Additional search & tools</summary><div className="xd3150-diary-extra-body">
             <label>Load ID / Ref:<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Job, booking or customer ref" /></label>
             <label>Customer:<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
             <label>Carrier / Member:<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Carrier name / company ID" /></label>
-            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Customer and executing carrier remain separate operational relationships.</span><div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setPage(1)}>Search</ActionButton><ActionButton tone="secondary" onClick={reset}>Clear</ActionButton></div></div>
+            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Customer and executing carrier remain separate operational relationships.</span><button type="button" onClick={() => router.push('/broker/carrier-network/directory')}>Contacts</button><button type="button" onClick={() => router.push('/broker/finance')}>Payment Report</button></div>
+            </div></details>
           </div>
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
-            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>{diaryClock ? `Diary at ${diaryClock}` : 'Diary'}</strong></span>
-            <span className="workspace-list-controls__right">
-              <button type="button" className="cx-expand-entries-control" disabled={!visibleRows.length} onClick={() => { setExpandAll((current) => !current); setExpanded(null); }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button>
-              <ActionButton tone="secondary" onClick={() => { void data.refresh(); void loadReviews(); }}>Refresh</ActionButton>
-            </span>
+          <div className="xd3150-diary-results-head">
+            <h2>{date ? 'Selected Day’s Diary' : 'Diary Bookings'} <small>({rows.length} bookings)</small></h2>
+            <div className="xd3150-diary-result-tools">
+              <label>Sort by <select value={sortBy} onChange={(event) => setSortBy(event.target.value as 'earliest' | 'latest')}><option value="earliest">Collection Time (Earliest)</option><option value="latest">Collection Time (Latest)</option></select></label>
+              <button type="button" aria-label="List view" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')}>☷</button>
+              <button type="button" aria-label="Calendar view" aria-pressed={viewMode === 'calendar'} onClick={() => setViewMode('calendar')}>▦</button>
+            </div>
           </div>
-          <div className="workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Broker diary states">
-            {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}</button>)}
-            <span className="cx-diary-pagination">
-              <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
-              <span>{rows.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, rows.length)} of ${rows.length}`}</span>
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
-            </span>
-          </div>
+          <details className="xd3150-diary-paging">
+            <summary>{diaryClock ? 'Updated at ' + diaryClock : 'Diary records'} · {rows.length ? ((safePage - 1) * pageSize + 1) : 0}–{Math.min(safePage * pageSize, rows.length)} of {rows.length} · More tools</summary>
+            <div>
+              <button type="button" disabled={!visibleRows.length} onClick={() => {setExpandAll((current) => !current);setExpanded(null);}}>{expandAll ? 'Collapse all' : 'Expand all'}</button>
+              <button type="button" onClick={() => {void data.refresh();void loadReviews();}}>Refresh</button>
+              <label>Items per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</button>
+            </div>
+          </details>
 
           {feedbackLoading && (tab === 'awaiting_feedback' || tab === 'recent_feedback') ? (
             <div className="workspace-panel"><EmptyState compact title="Loading feedback..." /></div>
@@ -266,7 +311,7 @@ export default function BrokerDiaryPage() {
           ) : visibleRows.length === 0 ? (
             <div className="workspace-panel"><EmptyState title="No diary records" description="Adjust the filters or select another operational status." /></div>
           ) : (
-            <div className="workspace-record-list">
+            <div className={viewMode === 'calendar' ? 'workspace-record-list xd3150-diary-calendar-view' : 'workspace-record-list'}>
               {visibleRows.map((job) => {
                 const open = expandAll || expanded === job.id;
                 const deliveryPhotoAvailable = (job.delivery_photos?.length || 0) > 0;
@@ -276,7 +321,7 @@ export default function BrokerDiaryPage() {
                 const reviews = reviewsByJob[job.id] ?? [];
                 const review = reviews[0];
                 const feedbackAvailable = isCompanyFeedbackEligible(job, companyId);
-                const stage = brokerDiaryStage(job);
+                const stage = verifiedBrokerBookingStage(job);
                 const pickupWhen = cxTimeParts(job.pickup_datetime);
                 const deliveryWhen = cxTimeParts(job.delivery_datetime);
                 const vehicle = (job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ');
@@ -296,15 +341,22 @@ export default function BrokerDiaryPage() {
                     state={normalizedJobStatus(job)}
                     stage={stage}
                     expanded={open}
-                    footer={<CxDiaryActions
-                      expanded={open}
-                      onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
-                      onOpenTab={(tab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
-                      feedback={canLeaveCompanyFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
-                    >
-                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open booking</button>
-                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
-                    </CxDiaryActions>}
+                    footer={<div className="xd3150-diary-card-actions">
+                      <button type="button" onClick={() => setSelectedDetailsJobId(job.id)}>View Details</button>
+                      <button type="button" className="xd3150-diary-booking-action" onClick={() => setSelectedDetailsJobId(job.id)}>Booking Details</button>
+                      <details className="xd3150-diary-more-actions">
+                        <summary>More actions</summary>
+                        <CxDiaryActions
+                          expanded={open}
+                          onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
+                          onOpenTab={(actionTab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[actionTab] })); }}
+                          feedback={canLeaveCompanyFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                        >
+                          <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open booking</button>
+                          <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
+                        </CxDiaryActions>
+                      </details>
+                    </div>}
                     expandedMeta={<>
                       {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
                       {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
@@ -319,6 +371,15 @@ export default function BrokerDiaryPage() {
           )}
         </main>
       </div>
+
+      {selectedDetailsJobId && <WorkspaceDialog
+        ariaLabel="Verified 3150 transport details"
+        title="Transport Details"
+        width={1024}
+        maxHeight={820}
+        onDismiss={() => setSelectedDetailsJobId(null)}
+        actions={<ActionButton tone="secondary" onClick={() => setSelectedDetailsJobId(null)}>Close Details</ActionButton>}
+      ><CompanyJobSheetPanel jobId={selectedDetailsJobId} mode="broker" initialTab="agreement" /></WorkspaceDialog>}
 
       {feedbackJobId && <WorkspaceDialog
         ariaLabel="Carrier feedback"
@@ -337,6 +398,7 @@ export default function BrokerDiaryPage() {
         </div>
         <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" /></label>
       </WorkspaceDialog>}
+      </section>
     </PageFrame>
   );
 }

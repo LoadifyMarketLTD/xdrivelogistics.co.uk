@@ -93,3 +93,14 @@
     grid-template-columns:1fr;
   }
 }
+
+/* Keep validation visible when workspace theme rules override normal control borders. */
+.xdrive-post-load-form.xdrive-post-load-form :is(input, select, textarea, [role="group"])[aria-invalid="true"] {
+  border: 2px solid #dc2626 !important;
+  background: #fff1f2 !important;
+  box-shadow: 0 0 0 1px rgba(220,38,38,.2) !important;
+  outline-color: #dc2626 !important;
+}
+.xdrive-post-load-form label:has([aria-invalid="true"]) {
+  color: #b91c1c !important;
+}

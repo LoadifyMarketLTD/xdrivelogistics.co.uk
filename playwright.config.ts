@@ -27,9 +27,10 @@ export default defineConfig({
         reuseExistingServer: process.env.E2E_REUSE_EXISTING_SERVER === 'true',
         timeout: 120_000,
         env: {
-          NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key',
-          EXPECTED_NEXT_PUBLIC_SUPABASE_URL: process.env.EXPECTED_NEXT_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
+          // Let Next.js load real local .env.development.local values when available.
+          ...(process.env.NEXT_PUBLIC_SUPABASE_URL ? { NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL } : {}),
+          ...(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? { NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY } : {}),
+          ...(process.env.EXPECTED_NEXT_PUBLIC_SUPABASE_URL ? { EXPECTED_NEXT_PUBLIC_SUPABASE_URL: process.env.EXPECTED_NEXT_PUBLIC_SUPABASE_URL } : {}),
           E2E_VISUAL_FIXTURE: process.env.E2E_VISUAL_FIXTURE ?? '',
           NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? `.next-playwright-${localServerPort}`,
         },

@@ -1,0 +1,12 @@
+
+/* Reference-informed mobile load details: original XDrive navigation and live data retained. */
+.fresh-driver-pwa .cx-load-facts{background:#fff;color:#222;font-size:15px;line-height:1.4}
+.fresh-driver-pwa .cx-load-type{padding:13px 12px;border-bottom:1px solid #e5e5e5;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.fresh-driver-pwa .cx-load-type strong{font-size:17px}
+.fresh-driver-pwa .cx-fact-lines,.fresh-driver-pwa .cx-load-company{padding:5px 12px;border-bottom:7px solid #e5e5e5}
+.fresh-driver-pwa .cx-fact-lines>div,.fresh-driver-pwa .cx-load-company>div{display:grid;grid-template-columns:80px minmax(0,1fr);gap:10px;padding:9px 0;border-bottom:1px solid #ececec}
+.fresh-driver-pwa .cx-fact-lines>div:last-child,.fresh-driver-pwa .cx-load-company>div:last-child{border-bottom:0}
+.fresh-driver-pwa .cx-fact-lines span,.fresh-driver-pwa .cx-load-company span{color:#666;font-size:13px;font-weight:600}
+.fresh-driver-pwa .cx-fact-lines strong,.fresh-driver-pwa .cx-load-company strong{font-size:15px;overflow-wrap:anywhere}
+.fresh-driver-pwa .cx-load-notes{padding:12px;border-bottom:7px solid #e5e5e5;display:grid;grid-template-columns:60px minmax(0,1fr);gap:10px}
+.fresh-driver-pwa .cx-load-notes p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-weight:600}

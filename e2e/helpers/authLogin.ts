@@ -5,6 +5,8 @@ export async function loginWithCredentials(page: Page, email: string, password: 
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
+    // The login form can redirect to an existing valid session before the test fills it.
+    if (!new URL(page.url()).pathname.startsWith('/login')) return;
     const emailInput = page.locator('input[type="email"]');
     const passwordInput = page.locator('input[type="password"]');
     await expect(emailInput).toBeVisible({ timeout: 15_000 });
@@ -15,9 +17,17 @@ export async function loginWithCredentials(page: Page, email: string, password: 
     // and can consume the entire Playwright test timeout. Give the client a
     // short settle window, then rely on navigation as the real success signal.
     await page.waitForTimeout(1_250);
+    if (!new URL(page.url()).pathname.startsWith('/login')) return;
 
-    await emailInput.fill(email);
-    await passwordInput.fill(password);
+    // If an asynchronous redirect removes the form, treat arrival at the
+    // authenticated route as success instead of hanging in locator.fill().
+    try {
+      await emailInput.fill(email, { timeout: 5_000 });
+      await passwordInput.fill(password, { timeout: 5_000 });
+    } catch (error) {
+      if (!new URL(page.url()).pathname.startsWith('/login')) return;
+      throw error;
+    }
     const submit = page.locator('button[type="submit"], button:has-text("Sign In"), button:has-text("Sign in"), button:has-text("Login")').first();
     await expect(submit).toBeVisible({ timeout: 10_000 });
     await expect(submit).toBeEnabled({ timeout: 10_000 });

@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute';
-import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
+import MobileDriverWorkspaceRedirect from './MobileDriverWorkspaceRedirect';
+import DriverMasterLayoutGate from './DriverMasterLayoutGate';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-light-guard.css';
 import './driver-operational.css';
@@ -22,6 +23,10 @@ import '../admin/carrier-workspace-canonical.css';
 import '../components/workspace/dashboard-compact-global.css';
 import '../components/workspace/admin-marketplace-identity.css';
 import '../components/workspace/workspace-readable-typography.css';
+import './driver-mobile-readability-blueprint.css';
+// Reuse the already approved 3118 Master card geometry in real Driver pages.
+import '../try-xdrive-demo/components/xdrive-unified-board.css';
+import './driver-approved-boards.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.
@@ -38,7 +43,7 @@ export default function DriverLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-carrier-workspace xdrive-driver-workspace xdrive-canonical-workspace">
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
-        <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>
+        <MobileDriverWorkspaceRedirect><DriverMasterLayoutGate>{children}</DriverMasterLayoutGate></MobileDriverWorkspaceRedirect>
       </ProtectedRoute>
     </div>
   );

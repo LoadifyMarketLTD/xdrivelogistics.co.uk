@@ -108,7 +108,7 @@ describe('cross-workspace dashboard consistency', () => {
     const brokerLoads = read('app/broker/loads/page.tsx');
     expect(brokerDiary).toContain('<CxDiaryActions');
     expect(read('app/components/workspace/CxDiaryActions.tsx')).toContain("aria-label={expanded ? 'Collapse booking' : 'Expand booking'}");
-    expect(brokerJobs).toContain("{open ? 'Collapse' : 'Expand'}");
+    expect(brokerJobs).toContain("{open ? 'Collapse' : 'View Details'}");
     expect(brokerLoads).toContain('OperationalExpandAllControl');
     expect(brokerLoads).toContain('expandedAllIds.has(job.id)');
     expect(brokerJobs).toContain('normalizedJobStatus(job)');

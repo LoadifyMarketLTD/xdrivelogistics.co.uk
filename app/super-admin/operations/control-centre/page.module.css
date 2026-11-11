@@ -52,7 +52,7 @@
 .linkButton,
 .disabledButton,
 .secondaryButton {
-  min-height: 40px;
+  min-height: 44px;
   padding: 12px 18px;
   border-radius: 8px;
   box-shadow: var(--x-shadow);
@@ -68,7 +68,7 @@
 .button { border: 1px solid var(--x-blue); background: var(--x-white); color: var(--x-blue); }
 .secondaryButton, .linkButton { border: 1px solid var(--x-border); background: var(--x-white); color: var(--x-blue); }
 .disabledButton { border: 1px solid var(--x-border); background: var(--x-white); color: var(--x-text); opacity: .58; cursor: not-allowed; }
-.button:focus-visible, .linkButton:focus-visible, .quickLink:focus-visible { outline: 2px solid var(--x-blue); outline-offset: 2px; }
+.button:focus-visible, .linkButton:focus-visible, .quickLink:focus-visible, .secondaryButton:focus-visible { outline: 3px solid rgba(29, 87, 216, 0.32); outline-offset: 2px; }
 .button svg, .linkButton svg, .disabledButton svg, .secondaryButton svg { width: 24px; height: 24px; }
 
 .alert { margin-bottom: 24px; padding: 24px; border: 1px solid var(--x-red); border-radius: 8px; background: var(--x-white); color: var(--x-red); box-shadow: var(--x-shadow); }
@@ -109,7 +109,7 @@
 
 .quickList { display: grid; gap: 24px; margin-top: 24px; }
 .quickLink {
-  min-height: 40px;
+  min-height: 44px;
   padding: 12px 18px;
   border: 1px solid var(--x-border);
   border-radius: 8px;
@@ -137,7 +137,7 @@
 .feedItem span { display: block; margin-top: 24px; font-size: 14px; color: var(--x-text); }
 
 .filters { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: 24px; margin-bottom: 24px; }
-.filters select, .filters input { min-height: 40px; border: 1px solid var(--x-border); border-radius: 8px; background: var(--x-white); padding: 24px; box-shadow: var(--x-shadow); color: var(--x-text); font: 14px Inter, Arial, sans-serif; }
+.filters select, .filters input { min-height: 44px; border: 1px solid var(--x-border); border-radius: 8px; background: var(--x-white); padding: 24px; box-shadow: var(--x-shadow); color: var(--x-text); font: 14px Inter, Arial, sans-serif; }
 
 .jobGrid { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 24px; overflow-x: auto; }
 .jobCard, .driverCard, .vehicleCard, .metricCard, .adminCard {
@@ -222,7 +222,7 @@
 .footerBrand { color: var(--x-blue); }
 .footerTagline { margin-top: 24px; font-family: Inter, Arial, sans-serif; font-size: 14px; color: var(--x-text); }
 .footerLinks { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; font-size: 14px; color: var(--x-text); }
-.footerLinks a { min-height: 40px; padding: 12px 18px; border-radius: 8px; box-shadow: var(--x-shadow); color: var(--x-blue); text-decoration: none; font-family: Inter, Arial, sans-serif; font-size: 16px; font-weight: 500; }
+.footerLinks a { min-height: 44px; padding: 12px 18px; border-radius: 8px; box-shadow: var(--x-shadow); color: var(--x-blue); text-decoration: none; font-family: Inter, Arial, sans-serif; font-size: 16px; font-weight: 500; }
 
 @media (max-width: 1280px) {
   .kpiGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -234,5 +234,10 @@
   .filters { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
-  .kpiGrid, .financeGrid, .adminGrid, .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page { padding: 12px; }
+  .kpiGrid, .financeGrid, .adminGrid, .filters,
+  .jobGrid, .driverGrid, .fleetGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .jobGrid, .driverGrid, .fleetGrid { overflow-x: visible; }
 }

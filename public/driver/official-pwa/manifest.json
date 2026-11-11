@@ -1,0 +1,29 @@
+{
+    "name":  "XDrive Driver",
+    "short_name":  "XDrive Driver",
+    "start_url":  "/driver/official-pwa/index.html?live=1",
+    "scope":  "/driver/official-pwa/",
+    "display":  "standalone",
+    "background_color":  "#f8f9fb",
+    "theme_color":  "#0A2239",
+    "icons":  [
+                  {
+                      "purpose":  "any",
+                      "type":  "image/png",
+                      "sizes":  "192x192",
+                      "src":  "/driver/official-pwa/icon-192.png"
+                  },
+                  {
+                      "purpose":  "any",
+                      "type":  "image/png",
+                      "sizes":  "512x512",
+                      "src":  "/driver/official-pwa/icon-512.png"
+                  },
+                  {
+                      "purpose":  "maskable",
+                      "type":  "image/png",
+                      "sizes":  "512x512",
+                      "src":  "/driver/official-pwa/maskable-icon-512.png"
+                  }
+              ]
+}

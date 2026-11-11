@@ -301,7 +301,7 @@ export default function AvailabilityPage() {
         <div className="driver-availability-board">
           <aside className="driver-availability-rail" aria-label="Availability context">
             <div className="driver-availability-section">
-              <div className="driver-availability-section__head"><strong>Update Current Status</strong><StatusBadge value={availabilityLabel} tone={availability === 'available' ? 'green' : availability === 'busy' ? 'orange' : 'grey'} /></div>
+              <div className="driver-availability-section__head"><strong>Available Now (manual status)</strong><StatusBadge value={availabilityLabel} tone={availability === 'available' ? 'green' : availability === 'busy' ? 'orange' : 'grey'} /></div>
               <div className="driver-availability-status-list">
                 {AVAILABILITY_OPTIONS.map((option) => (
                   <button key={option.value} type="button" className="driver-availability-status" data-active={availability === option.value ? 'true' : 'false'} onClick={() => void handleAvailabilityChange(option.value)} disabled={loading || availabilitySaving}>
@@ -348,7 +348,7 @@ export default function AvailabilityPage() {
             </section>
 
             <section className="driver-availability-panel">
-              <div className="driver-availability-panel__head"><div><strong>Weekly schedule</strong><span>Only explicitly saved AM, PM and evening slots are treated as available for marketplace matching.</span></div>{!scheduleUnavailable && <StatusBadge value={hasSavedSchedule ? 'Saved pattern' : 'No saved pattern'} tone={hasSavedSchedule ? 'blue' : 'grey'} />}</div>
+              <div className="driver-availability-panel__head"><div><strong>Scheduled availability (separate from Available Now)</strong><span>Only explicitly saved AM, PM and evening slots are treated as available for marketplace matching.</span></div>{!scheduleUnavailable && <StatusBadge value={hasSavedSchedule ? 'Saved pattern' : 'No saved pattern'} tone={hasSavedSchedule ? 'blue' : 'grey'} />}</div>
               {scheduleUnavailable ? <div className="driver-availability-empty">Schedule editing is unavailable in this database build.</div> : loading ? <div className="driver-availability-empty">Loading weekly schedule…</div> : (
                 <div className="driver-availability-schedule" role="grid" aria-label="Weekly availability">
                   {DAYS.map((day, dayIndex) => <div key={day} className="driver-availability-day" role="row"><strong>{day}</strong>{SLOTS.map((slot) => {

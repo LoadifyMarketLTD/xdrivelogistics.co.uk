@@ -10,18 +10,10 @@ describe('Driver mobile device-bound server contract', () => {
   const evidenceRoute = read('app/api/driver/mobile/jobs/[id]/evidence/route.ts');
   const confirmationRoute = read('app/api/driver/mobile/jobs/[id]/confirmation/route.ts');
 
-  test('legacy fallback ends permanently after first native registration', () => {
-    expect(mobileLib).toContain(".from('driver_mobile_device_sessions')");
-    expect(mobileLib).toContain('nativeHistory');
-    expect(mobileLib).toContain('No active native device session is authorised.');
-    expect(mobileLib).toContain('if (nativeHistory) return respond(401');
-  });
-
-  test('active binding requires installation id and validated auth session id', () => {
-    expect(mobileLib).toContain("request.headers.get('x-xdrive-installation-id')");
-    expect(mobileLib).toContain('validatedSessionId(token)');
-    expect(mobileLib).toContain('activeBinding.auth_session_id');
-    expect(mobileLib).toContain('revoked or replaced by another device');
+  test('mobile job access requires authentication but no device registration', () => {
+    expect(mobileLib).toContain('supabaseAdmin.auth.getUser(token)');
+    expect(mobileLib).not.toContain('enforceActiveNativeDeviceBinding');
+    expect(mobileLib).not.toContain('driver_mobile_device_sessions');
   });
 
   test('status, POD evidence and recipient confirmation all cross the same driver gate', () => {

@@ -4,7 +4,6 @@ import './globals.css'
 import { AuthProvider } from './components/AuthContext'
 import OnboardingAccessGuard from './components/OnboardingAccessGuard'
 import { COMPANY_CONFIG } from './config/company'
-import ServiceWorkerRegistration from './components/ServiceWorkerRegistration'
 import { getCanonicalSiteOrigin, getCanonicalSiteUrl } from '../lib/siteUrl'
 
 const canonicalSiteUrl = getCanonicalSiteUrl()
@@ -15,7 +14,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#0A2239',
+  themeColor: '#0B2F6B',
 }
 
 export const metadata: Metadata = {
@@ -44,8 +43,13 @@ export const metadata: Metadata = {
   metadataBase: canonicalSiteUrl,
   manifest: '/manifest.webmanifest',
   icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icons/icon-192x192.png', type: 'image/png', sizes: '192x192' },
+      { url: '/icons/icon-512x512.png', type: 'image/png', sizes: '512x512' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
   openGraph: {
     type: 'website',
@@ -56,7 +60,9 @@ export const metadata: Metadata = {
     siteName: 'XDrive Logistics',
     images: [
       {
-        url: '/xdrive-logo-primary.png',
+        url: '/og-xdrive-1200x630.png',
+        width: 1200,
+        height: 630,
         alt: 'XDrive Logistics',
       },
     ],
@@ -65,7 +71,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'XDrive Logistics | Courier & Freight Exchange Platform',
     description: platformDescription,
-    images: ['/xdrive-logo-primary.png'],
+    images: ['/og-xdrive-1200x630.png'],
   },
   robots: {
     index: true,
@@ -142,6 +148,8 @@ export default async function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
+        <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#0B2F6B" />
+        <meta name="msapplication-config" content="/browserconfig.xml" />
         <script
           id="xdrive-structured-data"
           nonce={nonce}
@@ -155,7 +163,7 @@ export default async function RootLayout({
           <OnboardingAccessGuard />
           {children}
         </AuthProvider>
-        <ServiceWorkerRegistration />
+
       </body>
     </html>
   )

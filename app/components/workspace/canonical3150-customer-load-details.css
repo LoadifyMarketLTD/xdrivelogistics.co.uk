@@ -1,0 +1,17 @@
+/* Original 3150 Transport Details styles, scoped to Customer Loads. */
+.master3150-production .xd-detail-overlay{position:fixed;inset:0;z-index:1100;background:#071a36a8;display:flex;align-items:center;justify-content:center;padding:22px}
+.master3150-production .xd-detail-dialog{width:min(1020px,100%);max-height:92vh;display:flex;flex-direction:column;background:#f4f6f8;border-radius:14px;overflow:hidden;box-shadow:0 20px 75px #0005}
+.master3150-production .xd-detail-header{display:flex;align-items:center;justify-content:space-between;gap:15px;background:#fff;border-bottom:3px solid #ff7900;padding:18px 23px}
+.master3150-production .xd-detail-header small{color:#1266e7;font-size:11px;font-weight:850;letter-spacing:1px}
+.master3150-production .xd-detail-header h2{font-size:25px;margin:3px 0;color:#0b1736}.master3150-production .xd-detail-header p{font-size:15px;font-weight:750;color:#344563;margin:0}
+.master3150-production .xd-detail-header>div:last-child{display:flex;align-items:center;gap:16px}.master3150-production .xd-detail-status{background:#e8f1ff;color:#0b2f6b;border-radius:20px;padding:7px 13px;font-size:12px;font-weight:800}
+.master3150-production .xd-detail-header button{border:0;background:transparent;font-size:30px;cursor:pointer;color:#0b1736}
+.master3150-production .xd-detail-content{overflow-y:auto;padding:18px 22px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.master3150-production .xd-detail-section{border:1px solid #dce5f0;border-radius:10px;background:#fff;overflow:hidden}
+.master3150-production .xd-detail-section h3{font-size:15px;margin:0;padding:12px 14px;background:#edf3fa;color:#0b2f6b;border-bottom:1px solid #dce5f0}
+.master3150-production .xd-detail-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:14px}
+.master3150-production .xd-detail-field{display:grid;align-content:start;gap:5px;min-width:0}.master3150-production .xd-detail-field small{font-size:11px;text-transform:uppercase;letter-spacing:.25px;color:#64748b}.master3150-production .xd-detail-field strong{font-size:13px;overflow-wrap:anywhere;color:#0b1736}
+.master3150-production .xd-detail-footer{display:flex;justify-content:flex-end;align-items:center;gap:10px;background:#fff;border-top:1px solid #dce5f0;padding:12px 20px}
+.master3150-production .xd-detail-footer>button{border:1px solid #1266e7;background:#fff;color:#1266e7;border-radius:7px;padding:10px 15px;font-weight:800;cursor:pointer}
+.master3150-production .xd-detail-footer>.panel{max-height:180px;overflow:auto}
+@media(max-width:720px){.master3150-production .xd-detail-overlay{padding:8px}.master3150-production .xd-detail-dialog{max-height:97vh}.master3150-production .xd-detail-content{grid-template-columns:1fr;padding:10px}.master3150-production .xd-detail-header{padding:12px}.master3150-production .xd-detail-header h2{font-size:20px}.master3150-production .xd-detail-fields{gap:10px}}

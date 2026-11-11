@@ -1,9 +1,13 @@
 import { ImageResponse } from 'next/og';
+import { getCanonicalSiteOrigin } from '../../../lib/siteUrl';
 
 export const runtime = 'edge';
 export const alt = 'XDrive Logistics';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
+
+const BRAND_ORIGIN = getCanonicalSiteOrigin();
+const BRAND_LOGO = `${BRAND_ORIGIN}/xdrive-logo-primary.png`;
 
 type PagePreview = {
   kicker: string;
@@ -39,28 +43,25 @@ export default async function Image({ params }: { params: Promise<{ page: string
   const cards = p.cards.slice(0, 3);
 
   return new ImageResponse(
-    <div style={{ width: '1200px', height: '630px', display: 'flex', flexDirection: 'column', background: '#F4F6FA', color: '#102447', fontFamily: 'Arial,sans-serif' }}>
-      <div style={{ height: '76px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 58px', background: '#fff', borderBottom: '1px solid #DDE5EF' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#F5A300', color: '#102B55', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '19px', fontWeight: 900 }}>XD</div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}><div style={{ fontSize: '24px', fontWeight: 900, color: '#163568' }}>XDrive Logistics</div><div style={{ fontSize: '13px', fontWeight: 700, color: '#60758F' }}>Courier & Freight Exchange Platform</div></div>
-        </div>
-        <div style={{ display: 'flex', gap: '22px', fontSize: '14px', fontWeight: 900, color: '#163568' }}><span style={{ color: p.nav === 'Platform' ? '#F5A300' : '#163568' }}>Platform</span><span style={{ color: p.nav === 'Brokers' ? '#F5A300' : '#163568' }}>Brokers</span><span style={{ color: p.nav === 'Couriers' ? '#F5A300' : '#163568' }}>Couriers</span><span style={{ color: p.nav === 'Pricing' ? '#F5A300' : '#163568' }}>Pricing</span><span style={{ color: p.nav === 'Access' ? '#F5A300' : '#163568' }}>Access</span></div>
+    <div style={{ width: '1200px', height: '630px', display: 'flex', flexDirection: 'column', background: '#F4F6F8', color: '#1A1F2B', fontFamily: 'Arial,sans-serif' }}>
+      <div style={{ height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 58px', background: '#fff', borderBottom: '1px solid #DDE5EF' }}>
+        <img src={BRAND_LOGO} alt="XDrive Logistics" width="300" height="84" style={{ width: '300px', height: '84px', objectFit: 'contain' }} />
+        <div style={{ display: 'flex', gap: '22px', fontSize: '14px', fontWeight: 900, color: '#0B2F6B' }}><span style={{ color: p.nav === 'Platform' ? '#F5A300' : '#0B2F6B' }}>Platform</span><span style={{ color: p.nav === 'Brokers' ? '#F5A300' : '#0B2F6B' }}>Brokers</span><span style={{ color: p.nav === 'Couriers' ? '#F5A300' : '#0B2F6B' }}>Couriers</span><span style={{ color: p.nav === 'Pricing' ? '#F5A300' : '#0B2F6B' }}>Pricing</span><span style={{ color: p.nav === 'Access' ? '#F5A300' : '#0B2F6B' }}>Access</span></div>
       </div>
 
-      <div style={{ height: '292px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '32px 62px', background: 'linear-gradient(135deg,#163568 0%,#102B55 100%)', color: '#fff' }}>
+      <div style={{ height: '292px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '32px 62px', background: 'linear-gradient(135deg,#0B2F6B 0%,#1D57D8 100%)', color: '#fff' }}>
         <div style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '0.16em', color: '#F5A300' }}>EARLY ACCESS · FIRST 3 MONTHS FREE</div>
         <div style={{ marginTop: '8px', fontSize: '14px', fontWeight: 900, letterSpacing: '0.15em', color: '#F5A300' }}>{p.kicker}</div>
         <div style={{ marginTop: '13px', maxWidth: '1060px', fontSize: p.title.length > 54 ? '46px' : '52px', lineHeight: 0.98, fontWeight: 900, letterSpacing: '-0.035em' }}>{p.title}</div>
-        <div style={{ marginTop: '14px', maxWidth: '980px', fontSize: '17px', lineHeight: 1.35, fontWeight: 700, color: '#D8E4F3' }}>{p.intro}</div>
+        <div style={{ marginTop: '14px', maxWidth: '980px', fontSize: '17px', lineHeight: 1.35, fontWeight: 700, color: '#F4F6F8' }}>{p.intro}</div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', gap: '14px', padding: '24px 48px 28px', background: 'linear-gradient(180deg,#F8FAFD 0%,#EEF3F8 100%)' }}>
+      <div style={{ flex: 1, display: 'flex', gap: '14px', padding: '24px 48px 28px', background: 'linear-gradient(180deg,#FFFFFF 0%,#F4F6F8 100%)' }}>
         {cards.map((card, index) => (
-          <div key={card.title} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '190px', borderRadius: '18px', border: '1px solid #1B3D6B', background: 'linear-gradient(135deg,#163568 0%,#102B55 100%)', padding: '19px', color: '#fff' }}>
+          <div key={card.title} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '190px', borderRadius: '18px', border: '1px solid #0B2F6B', background: 'linear-gradient(135deg,#0B2F6B 0%,#1D57D8 100%)', padding: '19px', color: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 900, letterSpacing: '0.12em', color: '#F5A300' }}>XDRIVE FLOW <span>0{index + 1}</span></div>
             <div style={{ marginTop: '15px', fontSize: '22px', lineHeight: 1.1, fontWeight: 900 }}>{card.title}</div>
-            <div style={{ marginTop: '11px', fontSize: '14px', lineHeight: 1.4, fontWeight: 700, color: '#D8E4F3' }}>{card.copy}</div>
+            <div style={{ marginTop: '11px', fontSize: '14px', lineHeight: 1.4, fontWeight: 700, color: '#F4F6F8' }}>{card.copy}</div>
           </div>
         ))}
       </div>

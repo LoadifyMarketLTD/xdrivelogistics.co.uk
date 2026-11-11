@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
     .from('jobs')
     .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes,${driverJobOperationalSelect}`)
     .eq('assigned_driver_id', driver.driverId)
-    .order(completedHistory ? 'updated_at' : 'pickup_datetime', { ascending: !completedHistory })
+    .order(completedHistory || scope === 'bookings' ? 'updated_at' : 'pickup_datetime', { ascending: !(completedHistory || scope === 'bookings') })
     .limit(limit);
 
   if (completedHistory && historyDays !== null) {

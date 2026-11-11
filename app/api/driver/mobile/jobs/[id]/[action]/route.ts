@@ -48,7 +48,7 @@ const isMissingJobStopsRelation = (
 async function requireMultiDropFinalizationReady(jobId: string) {
   const { data, error } = await supabaseAdmin!
     .from('job_stops')
-    .select('id, status')
+    .select('id, sequence, stop_type, status')
     .eq('job_id', jobId);
 
   if (error) {
@@ -56,8 +56,16 @@ async function requireMultiDropFinalizationReady(jobId: string) {
     return respond(503, { error: 'Multi-drop completion could not be verified. Please retry.' });
   }
 
-  const stops = (data ?? []) as Array<{ id: string; status: string | null }>;
+  const stops = (data ?? []) as Array<{ id: string; sequence: number; stop_type: string; status: string | null }>;
   if (stops.length === 0) return null;
+
+  // A basic collection + delivery is not a multi-drop route. Its completion is
+  // governed by the canonical job lifecycle; legacy jobs may have unsynchronised
+  // pending stop rows even after the delivery was confirmed.
+  const standardRoute = stops.length === 2 &&
+    stops.some((stop) => stop.sequence === 1 && stop.stop_type === 'collection') &&
+    stops.some((stop) => stop.sequence === 2 && stop.stop_type === 'delivery');
+  if (standardRoute) return null;
 
   const incompleteStops = stops.filter((stop) => !terminalStopStatuses.has(String(stop.status ?? 'pending').toLowerCase()));
   if (incompleteStops.length > 0) {

@@ -1,4 +1,5 @@
 'use client';
+import { isMobileDriverBrowser } from '../../lib/isMobileDriverBrowser';
 
 import { useState, type FormEvent, useEffect } from 'react';
 import Link from 'next/link';
@@ -6,7 +7,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
-import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
+import { getResponsivePostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
 import styles from './login.module.css';
 import heroStyles from './loginHeroFix.module.css';
 
@@ -48,8 +49,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    const canonicalRoute = getPostLoginRoute(user);
-    const destination = safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
+    const canonicalRoute = getResponsivePostLoginRoute(user, isMobileDriverBrowser());
+    const mobileDriver = canonicalRoute === '/driver/official-pwa-live';
+    const destination = mobileDriver ? '/driver/official-pwa-live' : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
@@ -65,7 +67,7 @@ export default function LoginPage() {
       } else if (result.route) {
         const selfServiceDocuments = safeNextPath === '/onboarding/documents' || safeNextPath?.startsWith('/onboarding/documents?')
           || safeNextPath === '/settings/payments' || safeNextPath?.startsWith('/settings/payments?');
-        router.replace(selfServiceDocuments ? safeNextPath! : result.route);
+        router.replace(selfServiceDocuments ? safeNextPath! : result.route === '/driver-pwa-fresh/jobs' ? (isMobileDriverBrowser() ? '/driver/official-pwa-live' : '/driver/jobs') : result.route);
       }
     } finally {
       setIsLoading(false);
@@ -103,6 +105,7 @@ export default function LoginPage() {
   };
 
   const showResetSuccess = searchParams.get('reset') === 'success';
+  const serviceUnavailableRedirect = searchParams.get('reason') === 'service_unavailable';
 
   return (
     <main className={styles.loginPage}>
@@ -141,6 +144,13 @@ export default function LoginPage() {
                 Password updated successfully. Sign in with your new password.
               </div>
             )}
+
+            {!showReset && serviceUnavailableRedirect && !error ? (
+              <div className={`${styles.loginMessage} ${styles.error}`} role="alert">
+                Sign-in is temporarily unavailable. XDrive could not verify account access.
+                This is a service issue; there is no need to reset your password.
+              </div>
+            ) : null}
 
             {!showReset ? (
               <form onSubmit={handleSubmit} className={styles.loginForm}>
@@ -198,7 +208,7 @@ export default function LoginPage() {
                   Need an account? <Link href="/register">Register</Link>
                 </p>
                 <div className={styles.registerRow} aria-label="Legal documents">
-                  <Link href="/legal">Legal Centre</Link> · <Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/cookies">Cookies</Link>
+                  <Link href="/legal">Legal Centre</Link> | <Link href="/terms">Terms</Link> | <Link href="/privacy">Privacy</Link> | <Link href="/cookies">Cookies</Link>
                 </div>
               </form>
             ) : (

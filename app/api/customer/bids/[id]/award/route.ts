@@ -11,6 +11,7 @@ import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
+import { inspectBookingReadiness } from '../../../../_lib/bookingReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -108,6 +109,9 @@ export async function POST(request: NextRequest, { params }: Params) {
       pendingBidId: pendingOffer.bid_id,
     });
   }
+
+  const readiness = await inspectBookingReadiness(supabaseAdmin, String(bid.job_id), bidId);
+  if (!readiness.ok) return json(409, {error:readiness.error,code:readiness.code});
 
   const blockState = await areCompaniesBlocked(supabaseAdmin, job.company_id as string, bid.company_id as string | null);
   if (blockState.error) return json(503, { error: 'Member block status could not be verified. Please retry.' });

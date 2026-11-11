@@ -9,6 +9,9 @@ import type { WorkspaceShellFixtureOverrides } from '../../components/workspace/
 import SuperAdminSidebar from './SuperAdminSidebar';
 import SuperAdminTopbar from './SuperAdminTopbar';
 import styles from './SuperAdminCardNavigationShell.module.css';
+import '../../components/workspace/master3150-production.css';
+import '../../components/workspace/master3150-design-system.css';
+import '../../components/workspace/master3150-operations-shell.css';
 
 export default function SuperAdminCardNavigationShell({
   children,
@@ -40,7 +43,7 @@ export default function SuperAdminCardNavigationShell({
   };
 
   return (
-    <div className={`${styles.shell} ${collapsed ? styles.shellCollapsed : ''}`}>
+    <div className={`${styles.shell} master3150-production ${collapsed ? styles.shellCollapsed : ''}`}>
       <SuperAdminSidebar
         definition={definition}
         pathname={pathname}

@@ -25,9 +25,8 @@ describe('Driver mobile device-session server contract', () => {
     expect(server).toContain('revoked_at: now');
   });
 
-  it('enforces the active binding on protected mobile APIs', () => {
-    expect(mobileAuth).toContain('enforceActiveNativeDeviceBinding');
-    expect(mobileAuth).toContain('No active native device session is authorised.');
-    expect(mobileAuth).toContain('This mobile session has been revoked or replaced by another device.');
+  it('does not require device binding on authenticated mobile APIs', () => {
+    expect(mobileAuth).toContain('supabaseAdmin.auth.getUser(token)');
+    expect(mobileAuth).not.toContain('enforceActiveNativeDeviceBinding');
   });
 });

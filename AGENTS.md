@@ -35,3 +35,13 @@ npm run build
 ```
 
 If the invariant gate fails, stop and repair the regression. Do not bypass or delete the guard to make a change pass.
+
+## Current execution policy (2026-11-04)
+
+Read `docs/CURRENT_AGENT_EXECUTION_POLICY_2026-11-04.md` before acting on any historical blueprint, checkpoint, E2E runbook or handoff. Historical instructions are not permission to undo current `main` behavior. In particular: do not reconnect production to obsolete staging, do not enable production mutation testing by default, do not replace the shared Master Workspace with old demo layouts, and do not restart the approved Driver PWA from an October prototype. Preserve real data, permissions, current workflows and PowerShell-only local release gates.
+
+## Active owner scope: Master Workspace 3150 (2026-11-08)
+
+For tasks concerning the approved Master Workspace, FIRST read `docs/blueprints/MASTER3150_SEVEN_WORKSPACES_EIGHT_TABS_EXECUTION_BLUEPRINT_2026-11-08.md`, then inspect the latest `origin/main` and worktree checkpoint. This is the owner's current task-specific inspection/replacement/test/release method and must be followed together with the protections in this file and the current execution policy.
+
+The permitted scope is exactly eight shared desktop tabs: Dashboard, Post Load, Loads, Quotes, Bookings, My Fleet, Drivers and Diary, across seven desktop workspaces. The standalone Driver PWA 1099 and the nine other sidebar tabs are OUT OF SCOPE and must not be edited. Approved original 3150 visuals, nested components and behaviors must be reused, adapted to real secure APIs; never treat a visually similar reimplementation, source-only contract test, preview deployment or passing build as full acceptance. Required: Opera visual and functional comparison AFTER 2-4 seconds of loading, PowerShell source/backend audit, role-specific authenticated acceptance, protected local gates and Netlify production SHA verification. Do not modify the root protections or widen authorization based on this paragraph.

@@ -31,6 +31,30 @@ function evidenceCategory(request: NextRequest, kind: 'collection' | 'delivery')
   return category === 'photos' || category === 'damage' || category === 'documents' ? category : null;
 }
 
+// Recover private, previously uploaded collection documents after refresh or device change.
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  if (!(await getFeatureFlag(supabaseAdmin, 'pod_capture'))) return respond(503, { error: 'POD capture is currently disabled.' });
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
+  if (!driver.companyId) return respond(403, { error: 'Driver company is required for collection evidence.' });
+  const { id } = await params;
+  const { data: job, error: jobError } = await supabaseAdmin.from('jobs').select('id')
+    .eq('id', id).eq('assigned_driver_id', driver.driverId).maybeSingle();
+  if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
+  if (!job) return respond(404, { error: 'Job not found.' });
+  const folder = `${driver.companyId}/${id}/collection-documents`;
+  const { data, error } = await supabaseAdmin.storage.from('pod-photos').list(folder, { limit: 100 });
+  if (error) return respond(500, { error: 'Collection documents could not be recovered.' });
+  const paths = (data ?? []).filter(entry => SAFE_NAME.test(entry.name) && Boolean(entry.id))
+    .map(entry => `${folder}/${entry.name}`);
+  const signed = await Promise.all(paths.map(async path => {
+    const { data: link, error: linkError } = await supabaseAdmin!.storage.from('pod-photos').createSignedUrl(path, 300);
+    return linkError || !link?.signedUrl ? null : { name: path.split('/').pop() ?? 'Document', signedUrl: link.signedUrl };
+  }));
+  return respond(200, { ok: true, paths, documents: signed.filter((item): item is NonNullable<typeof item> => item !== null) });
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
@@ -129,7 +153,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (upload.error) {
     const text = upload.error.message.toLowerCase();
     const duplicate = text.includes('already exists') || text.includes('duplicate');
-    if (!duplicate) return respond(500, { error: upload.error.message });
+    if (duplicate) {
+      return respond(409, { error: 'An evidence file with this name already exists. Select a new filename and retry.' });
+    }
+    return respond(500, { error: upload.error.message });
   }
 
   // Job-level evidence gates the next physical lifecycle transition and is
@@ -147,8 +174,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('assigned_driver_id', driver.driverId)
       .select('id')
       .maybeSingle();
-    if (error) return respond(500, { error: error.message });
-    if (!updated) return respond(409, { error: 'Collection evidence could not be linked to this assignment.' });
+    if (error || !updated) {
+      const cleanup = await supabaseAdmin.storage.from('pod-photos').remove([storagePath]);
+      if (cleanup.error) console.error('POD evidence rollback failed:', cleanup.error.message);
+      return respond(error ? 500 : 409, { error: error?.message ?? 'Collection evidence could not be linked to this assignment.' });
+    }
   }
 
   if (kind === 'delivery' && !stopId) {
@@ -164,8 +194,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('assigned_driver_id', driver.driverId)
       .select('id')
       .maybeSingle();
-    if (error) return respond(500, { error: error.message });
-    if (!updated) return respond(409, { error: 'Delivery evidence could not be linked to this assignment.' });
+    if (error || !updated) {
+      const cleanup = await supabaseAdmin.storage.from('pod-photos').remove([storagePath]);
+      if (cleanup.error) console.error('POD evidence rollback failed:', cleanup.error.message);
+      return respond(error ? 500 : 409, { error: error?.message ?? 'Delivery evidence could not be linked to this assignment.' });
+    }
   }
 
   return respond(200, { ok: true, storagePath });

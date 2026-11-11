@@ -7,7 +7,7 @@ import { buildCurrentLegalRequirement } from '../lib/legal/legalAgreementState';
 // Worker-owned requests bypass Playwright page routing. Block them only in
 // this fixture suite so simulated evidence never falls through to real data.
 test.use({ serviceWorkers: 'block' });
-let session:Record<string,any>;
+let session: { access_token: string; user: { id: string }; [key: string]: unknown };
 let storageKey:string;
 test.beforeAll(async({request})=>{
   const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

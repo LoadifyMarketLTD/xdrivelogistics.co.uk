@@ -13,7 +13,7 @@ import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import CxLoadCard from '../../components/workspace/CxLoadCard';
+import ApprovedDriverLoadCard from '../_components/ApprovedDriverLoadCard';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -344,7 +344,7 @@ export default function AvailableLoadsPage() {
           <aside className="left">
             <div className="left-title">Search Loads</div>
             <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>UK & ROI</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
-            <div className="filter"><span className="label">From / Radius</span><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" /></div>
+            <div className="filter"><span className="label">From (town / postcode)</span><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" /></div>
             <div className="filter"><span className="label">To</span><input className="input" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Enter destination" /></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="any">Any exact / specialist</option>{Object.entries(VEHICLE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className="filter"><span className="label">Freight Type</span><input className="input" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)} placeholder="Pallets, cartons, machinery" /></div>
@@ -357,11 +357,19 @@ export default function AvailableLoadsPage() {
             <div className="filter"><button type="button" className="btn primary" onClick={applySearch}>Search</button> <button type="button" className="btn" onClick={clearFilters}>Clear</button></div>
           </aside>
           <main className="main">
+            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Loads</h1><p className="xd-approved-board-subtitle">Live Freight Exchange — authorised loads available to quote</p></div></header>
+            <div className="xd-approved-board-kpis" aria-label="Real freight exchange statistics">
+              <div className="xd-approved-board-kpi"><strong>Available Loads</strong><b>{loads.length}</b><small>Live authorised records</small></div>
+              <div className="xd-approved-board-kpi blue"><strong>Matching Loads</strong><b>{filteredLoads.length}</b><small>Current search</small></div>
+              <div className="xd-approved-board-kpi green"><strong>Not Quoted</strong><b>{loads.filter(load => !load.myBid).length}</b><small>May request a quote</small></div>
+              <div className="xd-approved-board-kpi amber"><strong>Already Quoted</strong><b>{loads.filter(load => Boolean(load.myBid)).length}</b><small>Existing quote records</small></div>
+              <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
+            </div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
-            <div className="load-result-head">
-              <div><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
+            <div className="load-result-head" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', height: 'auto', minHeight: 42, paddingTop: 6, paddingBottom: 6 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
+              <div className="load-view-switch" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginLeft: 10 }}><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                 <OperationalExpandAllControl expanded={expandAll} disabled={!filteredLoads.length} onToggle={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} noun="loads" />
                 <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
@@ -395,7 +403,7 @@ export default function AvailableLoadsPage() {
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
                   return <Fragment key={load.id}>
-                    <CxLoadCard
+                    <ApprovedDriverLoadCard
                       className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}
                       from={load.pickup_area}
                       to={load.delivery_area}
@@ -406,9 +414,10 @@ export default function AvailableLoadsPage() {
                       postedAt={fmtDate(load.exchange_posted_at)}
                       loadId={load.id.slice(0,8).toUpperCase()}
                       vehicle={selectedVehicleLabel}
+                      paymentTerms={load.payment_terms ?? 'Not supplied'}
                       expanded={expanded}
                       freight={<>
-                        <div><span>Dist:</span><strong>{jobDistance}</strong></div>
+                        <div><span>Job Distance:</span><strong>{jobDistance}</strong></div>
                         <div><span>Weight:</span><strong>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</strong></div>
                         <div><span>Packaging:</span><strong>{cargoLabel}</strong></div>
                         <div><span>Dims:</span><strong>{dim ?? 'Not supplied'}</strong></div>
@@ -449,6 +458,14 @@ export default function AvailableLoadsPage() {
               pickupAt: load.pickup_datetime,
               deliveryAt: load.delivery_datetime,
               vehicle,
+              pallets: load.pallets,
+              weight: load.weight_kg != null ? `${load.weight_kg} kg` : null,
+              dimensions: dimensions(load),
+              cargo: load.requested_cargo_label ?? load.cargo_type,
+              service: load.service_mode?.replace(/_/g, ' ') ?? 'On Demand',
+              notes: load.public_quote_notes,
+              paymentTerms: load.payment_terms,
+              hardPod: load.hard_copy_pod,
             };
           })()}
           amount={bidAmount}

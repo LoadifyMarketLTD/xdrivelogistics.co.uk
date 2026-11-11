@@ -68,7 +68,7 @@ describe('load posting operational contract', () => {
     expect(form).toContain('Complete the fields highlighted in red.');
     expect(form).toContain("aria-invalid={errors?.postcode ? 'true' : undefined}");
     expect(addressField).toContain("aria-invalid={error ? 'true' : undefined}");
-    expect(form).toContain("document.querySelector<HTMLElement>('[aria-invalid=\"true\"]')");
+    expect(form).toContain("document.querySelector<HTMLElement>('.xdrive-post-load-form [aria-invalid=\"true\"]:not(:disabled)')");
     expect(form).toContain("'#dc2626'");
   });
 

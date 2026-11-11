@@ -2,16 +2,33 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import type { DbJob } from '../../../lib/types/database';
 import { getLoadDetailSections } from '../../../lib/loadPostingDetails';
 import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
+import { isAreaOnlyStop, navigationDestination, navigationUrl } from '../../../lib/jobs/driverNavigationLinks';
+import { driverBookingScreen } from '../../../lib/jobs/driverBookingScreens';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
-import { sendGeneratedInvoice } from '../../../lib/client/invoiceDelivery';
 import { useAuth } from '../AuthContext';
+import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
+import BookingDetailsStep from '../../driver-pwa-fresh/bookings/[id]/workflow/BookingDetailsStep';
+import OnMyWayToPickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnMyWayToPickupStep';
+import OnSitePickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSitePickupStep';
+import LoadedCollectedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/LoadedCollectedStep';
+import InTransitDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InTransitDeliveryStep';
+import OnSiteDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnSiteDeliveryStep';
+import ProofOfDeliveryStep from '../../driver-pwa-fresh/bookings/[id]/workflow/ProofOfDeliveryStep';
+import PodRecordedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/PodRecordedStep';
+import InvoiceDraftStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InvoiceDraftStep';
+import InvoiceIssuedStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InvoiceIssuedStep';
+import InvoicePaymentTrackingStep from '../../driver-pwa-fresh/bookings/[id]/workflow/InvoicePaymentTrackingStep';
+import { bookingAreaLabel } from '../../driver-pwa-fresh/bookings/[id]/workflow/workflowPresentation';
+
+const BookingRouteMap = dynamic(() => import('../../driver-pwa-fresh/BookingRouteMap'), { ssr: false });
 
 const statusLabel: Record<string, string> = {
   awarded: 'Awarded', allocated: 'Allocated', accepted: 'Accepted', on_my_way: 'On my way to pickup',
@@ -28,6 +45,15 @@ const nextActionLabel: Record<string, string> = {
   on_site_delivery: 'On Site (Delivery)',
   delivered: 'Confirm Delivered',
   completed: 'Complete Job',
+};
+
+type DeliveryRouteMetrics = {
+  distanceMiles: number;
+  durationMinutes: number;
+  recordedAt: string | null;
+  origin: { lat: number; lng: number };
+  destination: { lat: number; lng: number };
+  geometry?: Array<{lat:number;lng:number}> | null;
 };
 
 type JobSheet = {
@@ -120,7 +146,17 @@ type JobSheet = {
   documentChecklist: string[];
   timeline: Array<{ id: string | null; eventType: string; message: string | null; meta: unknown; createdAt: string | null }>;
   documents: Array<{ id: string | null; type: string; fileName: string | null; filePath: string | null; createdAt: string | null }>;
-  invoices: Array<{ id: string | null; number: string | null; status: string | null; paymentStatus: string | null; amount: number | null; currency: string; dueDate: string | null }>;
+  invoices: Array<{
+    id: string | null; number: string | null; status: string | null; paymentStatus: string | null;
+    amount: number | null; netAmount: number | null; vatRate: number | null; vatAmount: number | null; currency: string;
+    dueDate: string | null; invoiceDate: string | null; paymentTerms: string | null;
+    clientName: string | null; clientEmail: string | null; clientAddress: string | null;
+    serviceDescription: string | null; jobRef: string | null; issuerName: string | null; issuerXdId: string | null; customerXdId: string | null;
+    submittedAt: string | null; approvedAt: string | null; paidAt: string | null;
+    deliveryState: string | null; deliveryProvider: string | null; deliveryMessageId: string | null;
+    deliveryRecipientEmail: string | null; deliveryAttemptedAt: string | null; deliveryError: string | null;
+    createdAt: string | null; updatedAt: string | null;
+  }>;
   partial: boolean;
   unavailable: {
     bodyType: string;
@@ -139,11 +175,15 @@ const money = (amount: number | null | undefined, currency = 'GBP') => amount ==
   ? 'Not supplied'
   : new Intl.NumberFormat('en-GB', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
 
-const mapsUrl = (address: string, postcode?: string | null) =>
-  `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(postcode ? `${address}, ${postcode}` : address)}`;
+const formatDateOnly = (value: string | null | undefined) => {
+  if (!value) return null;
+  const date=new Date(value.length===10?`${value}T00:00:00.000Z`:value);
+  return Number.isNaN(date.getTime())?null:date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+};
 
-const wazeUrl = (address: string, postcode?: string | null) =>
-  `https://www.waze.com/ul?q=${encodeURIComponent(postcode ? `${address}, ${postcode}` : address)}&navigate=yes`;
+const mapsUrl = (address: string, postcode?: string | null) => navigationUrl(address,postcode,'navigate') ?? 'https://www.google.com/maps';
+
+const wazeUrl = (address: string, postcode?: string | null) => 'https://www.waze.com/ul?q='+encodeURIComponent(navigationDestination(address,postcode))+'&navigate=yes';
 
 const routeMapUrl = (job: DbJob) => {
   const params = new URLSearchParams({ api: '1' });
@@ -164,7 +204,7 @@ const requiresHardCopyPod = (value: string | null | undefined) => {
   return true;
 };
 
-export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
+export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOnly = false }: { jobId: string; mobilePwa?: boolean; podOnly?: boolean }) {
   const router = useRouter();
   const { user } = useAuth();
   const driverId = user?.driverId?.trim() ?? '';
@@ -172,20 +212,40 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [job, setJob] = useState<DbJob | null>(null);
   const [sheet, setSheet] = useState<JobSheet | null>(null);
+  const [multiStops, setMultiStops] = useState<Array<{id:string;sequence:number;type:string;address:string;status:string}>>([]);
+  const [multiStopsReady, setMultiStopsReady] = useState(false);
+  const [stopPhotoPaths, setStopPhotoPaths] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [deliveryRoute, setDeliveryRoute] = useState<DeliveryRouteMetrics | null>(null);
+  const [deliveryRouteLoading, setDeliveryRouteLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
+  const [collectionDocuments, setCollectionDocuments] = useState<string[]>([]);
+  const [collectionDocumentsLoaded, setCollectionDocumentsLoaded] = useState(false);
+  const [collectionDocumentsRecoveryFailed, setCollectionDocumentsRecoveryFailed] = useState(false);
+  const [collectedItemCount, setCollectedItemCount] = useState('');
+  const [collectionCondition, setCollectionCondition] = useState('Good');
+  const [collectionDiscrepancy, setCollectionDiscrepancy] = useState('');
   const [deliveryPhotos, setDeliveryPhotos] = useState<string[]>([]);
+  const [deliveryPhotoUrls, setDeliveryPhotoUrls] = useState<string[]>([]);
   const [pendingPodPhotos, setPendingPodPhotos] = useState<string[]>([]);
+  const [pendingPodDocuments, setPendingPodDocuments] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
   const [hardCopyAcknowledged, setHardCopyAcknowledged] = useState(false);
   const [podDeliveryStatus, setPodDeliveryStatus] = useState('Completed Delivery');
   const [podLeftAt, setPodLeftAt] = useState('');
-  const [podItemCount, setPodItemCount] = useState('');
+  const [podItemCount, setPodItemCount] = useState('1');
+  const [podWeight, setPodWeight] = useState('');
+  const mobilePodOpen = podOnly;
   const [podDeliveredOn, setPodDeliveredOn] = useState('');
+  const [podDraftLoaded, setPodDraftLoaded] = useState(false);
+  const [podDraftSaving, setPodDraftSaving] = useState(false);
+  const [podDraftError, setPodDraftError] = useState('');
+  const [savedSignatureData, setSavedSignatureData] = useState('');
+  const podDraftSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [showPodDetails, setShowPodDetails] = useState(false);
   const [podPhotoUrls, setPodPhotoUrls] = useState<string[]>([]);
   const [signing, setSigning] = useState(false);
@@ -194,14 +254,23 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const collectionGalleryInput = useRef<HTMLInputElement>(null);
   const deliveryInput = useRef<HTMLInputElement>(null);
 
+  useDriverLocationPublisher(job?.current_status ?? job?.status, mobilePwa && !podOnly, job?.id ?? jobId);
+  const liveExecutionStatus=job ? canonicalExecutionStatus(job.current_status ?? job.status) : null;
+
   const authHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ? `Bearer ${data.session.access_token}` : null;
   }, []);
 
   const loadJob = useCallback(async () => {
-    if (!jobId || !driverId) return;
+    if (!jobId || !driverId) {
+      setError(!jobId ? 'Booking reference is missing.' : 'Driver account is not ready. Refresh your session or sign in again.');
+      setJob(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setMultiStopsReady(false);
     setError('');
     const { data, error: loadError } = await supabase.from('jobs').select('*').eq('id', jobId).eq('assigned_driver_id', driverId).maybeSingle();
     if (loadError || !data) {
@@ -212,7 +281,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       return;
     }
 
-    const row = data as DbJob;
+    const row = data as DbJob & { no_of_items?: number | null };
     setJob(row);
     setNotes(row.driver_notes ?? '');
     const pickupPhotos = Array.isArray(row.pickup_photos)
@@ -221,10 +290,14 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         ? [row.collection_photo_url]
         : [];
     setCollectionPhotos([...new Set(pickupPhotos)].slice(0, 10));
+    if (row.no_of_items != null) setCollectedItemCount(String(row.no_of_items));
+    if (row.collection_handover?.itemCount != null) setPodItemCount(String(row.collection_handover.itemCount));
+    if (row.collection_handover?.weightKg != null) setPodWeight(String(row.collection_handover.weightKg));
     setDeliveryPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos : []);
-    setPendingPodPhotos([]);
+    setPendingPodPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos.filter((v): v is string => typeof v === 'string') : []);
+    setPendingPodDocuments(Array.isArray(row.pod_photos) ? row.pod_photos.filter((v): v is string => typeof v === 'string') : []);
     setRecipientName(row.client_signature_name ?? '');
-    setHardCopyAcknowledged(false);
+    // Preserve the current hard-copy acknowledgement during evidence refresh.
 
     const auth = await authHeader();
     if (auth) {
@@ -237,31 +310,226 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
           if (nextSheet?.pod) {
             setPodDeliveryStatus(nextSheet.pod.deliveryStatus ?? 'Completed Delivery');
             setPodLeftAt(nextSheet.pod.leftAt ?? '');
-            setPodItemCount(nextSheet.pod.itemCount == null ? '' : String(nextSheet.pod.itemCount));
-            setPodDeliveredOn(nextSheet.pod.deliveredOn ?? '');
+            if (nextSheet.pod.itemCount != null) setPodItemCount(String(nextSheet.pod.itemCount));
+            if (nextSheet.pod.deliveredOn) {
+              setPodDeliveredOn(nextSheet.pod.deliveredOn);
+            } else {
+              const deliveredEvent=nextSheet.timeline.find(entry=>entry.eventType==='delivered'&&entry.createdAt);
+              if(deliveredEvent?.createdAt){
+                const deliveredDate=new Date(deliveredEvent.createdAt);
+                if(!Number.isNaN(deliveredDate.getTime()))setPodDeliveredOn(deliveredDate.toISOString().slice(0,10));
+              }
+            }
           }
         }
       } catch {
         // Execution remains usable if enrichment is temporarily unavailable.
       }
     }
+    if (auth) {
+      try {
+        const stopResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId), { headers: { Authorization: auth }, cache: 'no-store' });
+        const stopPayload = await stopResponse.json().catch(() => ({})) as { job?: { stops?: Array<{id?:string;sequence?:number;type?:string;address?:string;status?:string}> }; multiDropPartial?:boolean };
+        if (!stopResponse.ok || stopPayload.multiDropPartial) throw new Error('Stops unavailable');
+        setMultiStops((stopPayload.job?.stops ?? []).filter((stop): stop is {id:string;sequence:number;type:string;address:string;status:string} => Boolean(stop.id && typeof stop.sequence === 'number' && stop.type && stop.address && stop.status)).sort((a,b)=>a.sequence-b.sequence));
+        setMultiStopsReady(true);
+      } catch { setMultiStopsReady(false); }
+    }
     setLoading(false);
   }, [authHeader, driverId, jobId]);
 
   useEffect(() => { void loadJob(); }, [loadJob]);
+  useEffect(() => {
+    if(!mobilePwa || podOnly || liveExecutionStatus!=='in_transit'){
+      setDeliveryRoute(null);
+      setDeliveryRouteLoading(false);
+      return;
+    }
+    let cancelled=false;
+    let timer:ReturnType<typeof setInterval>|null=null;
+    const refresh=async()=>{
+      setDeliveryRouteLoading(true);
+      try{
+        const auth=await authHeader();
+        if(!auth)throw new Error('Session unavailable.');
+        const response=await fetch('/api/driver/web/jobs/'+encodeURIComponent(jobId)+'/delivery-route',{
+          headers:{Authorization:auth},
+          cache:'no-store',
+        });
+        const payload=await response.json().catch(()=>({})) as {route?:DeliveryRouteMetrics|null};
+        if(cancelled)return;
+        setDeliveryRoute(response.ok ? (payload.route??null) : null);
+      }catch{
+        if(!cancelled)setDeliveryRoute(null);
+      }finally{
+        if(!cancelled)setDeliveryRouteLoading(false);
+      }
+    };
+    void refresh();
+    timer=setInterval(()=>{void refresh();},60_000);
+    return ()=>{cancelled=true;if(timer)clearInterval(timer);};
+  }, [authHeader, jobId, liveExecutionStatus, mobilePwa, podOnly]);
+  useEffect(() => {
+    if(!mobilePwa || !job?.id || deliveryPhotos.length===0){
+      setDeliveryPhotoUrls([]);
+      return;
+    }
+    let cancelled=false;
+    void (async()=>{
+      const auth=await authHeader();
+      if(!auth){if(!cancelled)setDeliveryPhotoUrls([]);return;}
+      const urls=await Promise.all(deliveryPhotos.slice(0,10).map(async path=>{
+        try{
+          const response=await fetch('/api/pod/signed-url?jobId='+encodeURIComponent(job.id)+'&path='+encodeURIComponent(path),{
+            headers:{Authorization:auth},cache:'no-store',
+          });
+          const payload=await response.json().catch(()=>({})) as {signedUrl?:string};
+          return response.ok&&payload.signedUrl?payload.signedUrl:'';
+        }catch{return '';}
+      }));
+      if(!cancelled)setDeliveryPhotoUrls(urls);
+    })();
+    return()=>{cancelled=true;};
+  },[authHeader,deliveryPhotos,job?.id,mobilePwa]);
 
-  const uploadImage = async (file: File, kind: 'collection' | 'delivery') => {
-    if (!companyId) throw new Error('Company context is missing.');
-    if (!file.type.startsWith('image/')) throw new Error('Only image files can be uploaded here.');
-    if (file.size > 15 * 1024 * 1024) throw new Error('Images must be 15 MB or smaller.');
-    const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
-    const evidenceFolder = kind === 'delivery' ? 'photos' : 'collection';
-    const path = `${companyId}/${jobId}/${evidenceFolder}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from('pod-photos').upload(path, file, { upsert: false, contentType: file.type });
-    if (uploadError) throw new Error(uploadError.message);
-    return path;
+  useEffect(() => {
+    if (!jobId || !driverId) return;
+    let cancelled = false;
+    setCollectionDocumentsLoaded(false);
+    setCollectionDocumentsRecoveryFailed(false);
+    void (async () => {
+      try {
+        const auth = await authHeader();
+        if (!auth) throw new Error('Driver session unavailable.');
+        const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
+          headers: { Authorization: auth }, cache: 'no-store',
+        });
+        if (!response.ok) throw new Error('Collection documents could not be recovered.');
+        const payload = await response.json() as { paths?: string[] };
+        if (!cancelled) setCollectionDocuments((current) => [...new Set([...(Array.isArray(payload.paths) ? payload.paths : []), ...current])].slice(0, 10));
+      } catch {
+        // A temporary recovery failure must not erase documents already uploaded in this session.
+        if (!cancelled) {
+          setCollectionDocumentsRecoveryFailed(true);
+          setError('Collection documents could not be recovered. Check your connection before confirming collection.');
+        }
+      } finally {
+        if (!cancelled) setCollectionDocumentsLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authHeader, driverId, jobId]);
+  const podJobId = job?.id ?? '';
+  const podAlreadyComplete = job ? hasCompletePodEvidence(job) : false;
+  const podDraftStatus = job ? canonicalExecutionStatus(job.current_status ?? job.status) : null;
+  const podDraftActive = podOnly || Boolean(podDraftStatus && ['on_site_delivery','delivered','completed'].includes(podDraftStatus));
+
+  // Restore the server-owned POD draft only after the job and its sheet are loaded.
+  useEffect(() => {
+    if (!podDraftActive || loading || !podJobId || podAlreadyComplete) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const auth = await authHeader();
+        if (!auth) throw new Error('Your session is not available.');
+        const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(podJobId) + '/pod-draft', {
+          headers: { Authorization: auth }, cache: 'no-store',
+        });
+        const payload = await response.json() as { draft?: Record<string, unknown>; error?: string };
+        if (!response.ok) throw new Error(payload.error || 'POD draft could not be loaded.');
+        if (cancelled) return;
+        const draft = payload.draft;
+        if (draft) {
+          const field = (key: string) => typeof draft[key] === 'string' ? draft[key] as string : null;
+          setRecipientName(field('recipientName') ?? '');
+          setPodLeftAt(field('leftAt') ?? '');
+          setPodDeliveryStatus(field('deliveryStatus') ?? 'Completed Delivery');
+          setPodItemCount(field('itemCount') ?? '1');
+          setPodWeight(field('weight') ?? '');
+          setPodDeliveredOn(field('deliveredOn') ?? '');
+          setNotes(field('notes') ?? '');
+          setHardCopyAcknowledged(draft.hardCopyAcknowledged === true);
+          const signature = field('signatureData') ?? '';
+          setSavedSignatureData(signature);
+          if (signature) {
+            const img = new Image();
+            img.onload = () => {
+              if (cancelled) return;
+              const canvas = signatureRef.current;
+              const ctx = canvas?.getContext('2d');
+              if (canvas && ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.src = signature;
+          }
+        }
+        setPodDraftLoaded(true);
+      } catch (reason) {
+        if (!cancelled) setPodDraftError(reason instanceof Error ? reason.message : 'POD draft unavailable.');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [podDraftActive, loading, podJobId, podAlreadyComplete, authHeader]);
+
+  // Serialize debounced writes: an older draft must never overwrite a newer one.
+  useEffect(() => {
+    if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete) return;
+    const id = podJobId;
+    const data = {
+      recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
+      itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
+      notes, signatureData: savedSignatureData, hardCopyAcknowledged,
+      photoUris: pendingPodPhotos, documentUris: pendingPodDocuments,
+    };
+    const timer = setTimeout(() => {
+      podDraftSaveQueue.current = podDraftSaveQueue.current.catch(() => undefined).then(async () => {
+        setPodDraftSaving(true);
+        const auth = await authHeader();
+        if (!auth) throw new Error('Sign in again to save the POD draft.');
+        const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(id) + '/pod-draft', {
+          method: 'PUT', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const body = await response.json().catch(() => ({})) as { error?: string };
+        if (!response.ok) throw new Error(body.error || 'POD draft was not saved.');
+        setPodDraftError('');
+      }).catch(reason => {
+        setPodDraftError(reason instanceof Error ? reason.message : 'POD draft was not saved.');
+      }).finally(() => setPodDraftSaving(false));
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [podDraftActive, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,
+      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
+      savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments]);
+
+  const savePodDraftNow = async () => {
+    if (!podJobId || !podDraftLoaded || podAlreadyComplete) { setPodDraftError('POD draft is not ready. Retry after it loads.'); return false; }
+    setPodDraftSaving(true);
+    setPodDraftError('');
+    try {
+      const snapshot = {
+        recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
+        itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
+        notes, signatureData: savedSignatureData || signatureData(),
+        hardCopyAcknowledged, photoUris: pendingPodPhotos, documentUris: pendingPodDocuments,
+      };
+      await podDraftSaveQueue.current.catch(() => undefined);
+      const auth = await authHeader();
+      if (!auth) throw new Error('Sign in again to save the POD draft.');
+      const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(podJobId) + '/pod-draft', {
+        method: 'PUT', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify(snapshot),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'POD draft could not be saved.');
+      setMessage('POD draft saved to XDrive.');
+      return true;
+    } catch (reason) {
+      setPodDraftError(reason instanceof Error ? reason.message : 'POD draft could not be saved.');
+      return false;
+    } finally {
+      setPodDraftSaving(false);
+    }
   };
-
   const uploadCollectionEvidence = async (file: File) => {
     if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
     if (file.size > 10 * 1024 * 1024) throw new Error('Each collection photo must be 10 MB or smaller.');
@@ -284,7 +552,71 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Collection photo upload failed.');
     return payload.storagePath;
   };
+  const uploadCollectionDocument = async (file: File) => {
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection documents must be PDF, JPEG or PNG files.');
+    if (file.size > 10 * 1024 * 1024) throw new Error('Each collection document must be 10 MB or smaller.');
+    const auth = await authHeader();
+    if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
+    const extension = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
+    const objectName = `collection-document-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
+      method: 'POST',
+      headers: {
+        Authorization: auth,
+        'Content-Type': file.type,
+        'x-xdrive-evidence-kind': 'collection',
+        'x-xdrive-evidence-category': 'documents',
+        'x-xdrive-evidence-name': objectName,
+      },
+      body: file,
+    });
+    const payload = await response.json().catch(() => ({})) as { storagePath?: string; error?: string };
+    if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Collection document upload failed.');
+    return payload.storagePath;
+  };
 
+  const uploadPodEvidence = async (file: File, category: 'photos' | 'documents') => {
+    const allowed = category === 'photos' ? ['image/jpeg', 'image/png'] : ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowed.includes(file.type)) throw new Error('Use JPEG or PNG photos, or PDF documents.');
+    if (file.size > 10 * 1024 * 1024) throw new Error('Maximum file size is 10 MB.');
+    const auth = await authHeader();
+    if (!auth) throw new Error('Session expired. Sign in again.');
+    const ext = file.type === 'application/pdf' ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
+    const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId) + '/evidence', {
+      method: 'POST',
+      headers: {Authorization: auth, 'Content-Type': file.type, 'x-xdrive-evidence-kind': 'delivery',
+        'x-xdrive-evidence-category': category, 'x-xdrive-evidence-name': 'pod-' + Date.now() + '-' + crypto.randomUUID() + '.' + ext},
+      body: file,
+    });
+    const payload = await response.json().catch(() => ({})) as {storagePath?: string; error?: string};
+    if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Upload failed.');
+    return payload.storagePath;
+  };
+
+  const verifySavedEvidence = async (paths: string[], column: 'delivery_photos' | 'pod_photos') => {
+    const {data, error} = await supabase.from('jobs').select(column).eq('id', jobId).eq('assigned_driver_id', driverId).single();
+    if (error || !data) throw new Error('Upload finished, but saving to the booking could not be verified. Refresh and retry.');
+    const saved = (data as unknown as Record<string, unknown>)[column];
+    if (!Array.isArray(saved) || paths.some(path => !saved.includes(path))) {
+      throw new Error('Files were uploaded but not linked to this booking. Please retry.');
+    }
+  };
+  const selectPodDocuments = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+    if (files.length + pendingPodDocuments.length > 10) {setError('A maximum of 10 POD documents can be attached.'); return;}
+    setWorking(true); setError(''); setMessage('');
+    try {
+      const savedPaths: string[] = [];
+      for (const file of files) savedPaths.push(await uploadPodEvidence(file, 'documents'));
+      await verifySavedEvidence(savedPaths, 'pod_photos');
+      setPendingPodDocuments(current => [...new Set([...current, ...savedPaths])].slice(0, 10));
+      await loadJob();
+      setMessage(files.length + ' POD document(s) verified and saved.');
+    } catch (reason) {setError(reason instanceof Error ? reason.message : 'Document upload failed.');}
+    finally {setWorking(false);}
+  };
   const selectCollectionPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
@@ -303,6 +635,23 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       await loadJob();
     } finally { setWorking(false); }
   };
+  const selectCollectionDocuments = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+    const remaining = Math.max(0, 10 - collectionDocuments.length);
+    if (remaining === 0) { setError('A maximum of 10 collection documents can be attached.'); return; }
+    if (files.length > remaining) { setError(`You can add up to ${remaining} more collection document${remaining === 1 ? '' : 's'}.`); return; }
+    setWorking(true); setError(''); setMessage('');
+    try {
+      const uploaded: string[] = [];
+      for (const file of files) uploaded.push(await uploadCollectionDocument(file));
+      setCollectionDocuments((current) => [...new Set([...current, ...uploaded])].slice(0, 10));
+      setMessage(`${uploaded.length} collection document${uploaded.length === 1 ? '' : 's'} added.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Collection document upload failed.');
+    } finally { setWorking(false); }
+  };
   const selectDeliveryPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
@@ -313,10 +662,12 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     setWorking(true); setError(''); setMessage('');
     try {
       const paths: string[] = [];
-      for (const file of files) paths.push(await uploadImage(file, 'delivery'));
+      for (const file of files) paths.push(await uploadPodEvidence(file, 'photos'));
       setDeliveryPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
       setPendingPodPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
-      setMessage(`${paths.length} POD photo${paths.length === 1 ? '' : 's'} added.`);
+      await verifySavedEvidence(paths, 'delivery_photos');
+      await loadJob();
+      setMessage(`${paths.length} POD photo${paths.length === 1 ? '' : 's'} verified and saved.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Delivery photo upload failed.'); }
     finally { setWorking(false); }
   };
@@ -326,7 +677,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const source = 'touches' in event ? event.touches[0] : event;
-    return { x: source.clientX - rect.left, y: source.clientY - rect.top };
+    return { x: (source.clientX - rect.left) * (canvas.width / rect.width), y: (source.clientY - rect.top) * (canvas.height / rect.height) };
   };
 
   const startSignature = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -373,20 +724,27 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       setError('At least one delivery photo is required to complete POD.');
       return;
     }
+    if (mobilePwa && !pendingPodDocuments.length) {
+      setError('At least one delivery document or scanned image is required to complete POD.');
+      return;
+    }
     if (!recipientName.trim()) {
       setError('Recipient name is required to complete POD.');
       return;
     }
+    if (mobilePwa && (!Number.isInteger(Number(podItemCount)) || Number(podItemCount) < 1)) { setError('Number of items must be at least 1.'); return; }
     const newSignature = signatureData();
     const storedSignature = job.delivery_signature_data;
     const hasStoredSignature = typeof storedSignature === 'string'
       ? storedSignature.trim().length > 0
       : Boolean(storedSignature && typeof storedSignature === 'object');
-    if (!newSignature && !hasStoredSignature) {
+    if (!newSignature && !savedSignatureData && !hasStoredSignature) {
       setError('Recipient signature is required to complete POD.');
       return;
     }
 
+    if (mobilePwa && !podLeftAt.trim()) { setError('Left At is required.'); return; }
+    if (mobilePwa && podDeliveryStatus !== 'Completed Delivery') { setError('Resolve delivery exception before completed POD.'); return; }
     const hardCopyRequired = requiresHardCopyPod(sheet?.hardCopyPod ?? job.hard_copy_pod);
     if (hardCopyRequired && !hardCopyAcknowledged) {
       setError('Confirm the hard-copy POD requirement before completing POD.');
@@ -402,23 +760,24 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           recipientName: recipientName.trim(),
-          signatureData: newSignature ?? '',
+          signatureExceptionReason: '',
+          signatureData: newSignature ?? savedSignatureData ?? '',
           photoUris: pendingPodPhotos,
           damagePhotoUris: [],
-          documentUris: [],
+          documentUris: pendingPodDocuments,
           deliveryStatus: podDeliveryStatus,
           leftAt: podLeftAt.trim() || undefined,
           itemCount: podItemCount.trim() ? Number(podItemCount) : undefined,
           deliveredOn: podDeliveredOn || undefined,
           hardCopyAcknowledged: hardCopyRequired ? hardCopyAcknowledged : false,
-          notes: notes.trim() || undefined,
+          notes: [notes.trim(), podWeight.trim() ? 'Weight: '+podWeight.trim()+' kg' : ''].filter(Boolean).join(' | ') || undefined,
         }),
       });
-      const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'POD could not be completed.');
-      setMessage('POD completed. Invoice creation is now available.');
-      clearSignature();
+      const payload = await response.json().catch(() => ({})) as { error?: string; ok?: boolean; alreadySubmitted?: boolean };
+      if (!response.ok || payload.ok !== true) throw new Error(payload.error || `POD submission was not confirmed by the server (HTTP ${response.status}).`);
       await loadJob();
+      setMessage(payload.alreadySubmitted ? 'POD was already recorded. No duplicate was created.' : 'POD submitted and recorded. Invoice creation is now available.');
+      clearSignature();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'POD could not be completed.');
     } finally {
@@ -426,10 +785,91 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     }
   };
 
-  const createInvoice = async () => {
+  const viewPodPdf = async () => {
+    if (!job || !hasCompletePodEvidence(job)) return;
+    const viewer=window.open('about:blank','_blank');
+    if(viewer) viewer.opener=null;
+    setWorking(true); setError('');
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('Please sign in again.');
+      const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(job.id)}/pod/pdf`, {
+        headers: { Authorization: auth }, cache: 'no-store',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || 'POD PDF could not be generated.');
+      }
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      if(viewer){
+        viewer.location.href=url;
+        window.setTimeout(()=>URL.revokeObjectURL(url),120000);
+      }else{
+        const link=document.createElement('a');
+        link.href=url;
+        link.download='Proof-of-Delivery.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(url),30000);
+      }
+      setMessage('Proof of Delivery PDF opened.');
+    } catch (reason) {
+      viewer?.close();
+      setError(reason instanceof Error ? reason.message : 'POD PDF could not be opened.');
+    } finally { setWorking(false); }
+  };
+
+  const downloadPodPdf = async () => {
+    if (!job || !hasCompletePodEvidence(job)) return;
+    setWorking(true); setError('');
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('Please sign in again.');
+      const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(job.id)}/pod/pdf`, {
+        headers: { Authorization: auth }, cache: 'no-store',
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || 'POD PDF could not be generated.');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Proof-of-Delivery-${(sheet?.bookingReference??sheet?.reference??'booking').replace(/[^a-zA-Z0-9-]/g,'')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+      setMessage('Your carrier-branded Proof of Delivery PDF is ready to open or share.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'POD PDF could not be downloaded.');
+    } finally { setWorking(false); }
+  };
+
+  const openInvoicePreview = async (invoiceId:string) => {
+    const viewer=window.open('about:blank','_blank');
+    if(viewer)viewer.opener=null;
+    setWorking(true);setError('');
+    try{
+      const auth=await authHeader();
+      if(!auth)throw new Error('Please sign in again.');
+      const response=await fetch(`/api/driver/finance/invoices/${encodeURIComponent(invoiceId)}/preview`,{headers:{Authorization:auth},cache:'no-store'});
+      if(!response.ok){const payload=await response.json().catch(()=>({})) as {error?:string};throw new Error(payload.error||'Invoice preview could not be generated.');}
+      const blob=await response.blob();
+      const url=URL.createObjectURL(blob);
+      if(viewer){viewer.location.href=url;window.setTimeout(()=>URL.revokeObjectURL(url),120000);}else{const link=document.createElement('a');link.href=url;link.download='invoice-preview.pdf';document.body.appendChild(link);link.click();link.remove();window.setTimeout(()=>URL.revokeObjectURL(url),30000);}
+      setMessage('Invoice preview opened.');
+    }catch(reason){viewer?.close();setError(reason instanceof Error?reason.message:'Invoice preview could not be opened.');}
+    finally{setWorking(false);}
+  };
+
+  const createInvoice = async (stayInWorkflow=false) => {
     if (!job || !canGenerateInvoices) return;
     if (!hasCompletePodEvidence(job)) {
-      setError('Complete POD before creating an invoice. POD must include delivery evidence, recipient name and signature.');
+      setError('Complete POD before creating an invoice. POD must be submitted and recorded.');
       return;
     }
 
@@ -444,9 +884,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       });
       const payload = await response.json().catch(() => ({})) as { invoice?: { id?: string }; error?: string };
       if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
-      await sendGeneratedInvoice(payload.invoice.id, auth);
-      setMessage('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
-      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+      setMessage('Draft invoice created. Review it before sending to the buyer.');
+      if(stayInWorkflow) await loadJob(); else router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
@@ -464,13 +903,19 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     }
     const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
-      if (!collectionPhotos.length) { setError('At least one collection photo is required before the job can be marked loaded.'); setWorking(false); return; }
+      if (mobilePwa && (!collectionDocumentsLoaded || collectionDocumentsRecoveryFailed)) {
+        setError('Collection documents have not been verified. Reopen this booking with a working connection before confirming Loaded.');
+        setWorking(false);
+        return;
+      }
+      if (mobilePwa && (!collectedItemCount.trim() || !Number.isInteger(Number(collectedItemCount)) || Number(collectedItemCount) < 0)) { setError('Enter the actual number of items collected before confirming Loaded.'); setWorking(false); return; }
+      if (mobilePwa && collectionCondition !== 'Good' && !collectionDiscrepancy.trim()) { setError('Describe the collection issue before confirming Loaded.'); setWorking(false); return; }
       const auth = await authHeader();
       if (!auth) { setError('Your XDrive session is not available. Please sign in again.'); setWorking(false); return; }
       const handoverResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/handover`, {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoPaths: collectionPhotos, notes: notes.trim() || undefined }),
+        body: JSON.stringify({ photoPaths: collectionPhotos, documentPaths: collectionDocuments, itemCount: collectedItemCount.trim() ? Number(collectedItemCount) : null, packaging: sheet?.cargo.palletType ?? undefined, weightKg: sheet?.cargo.weightKg ?? undefined, notes: [`Cargo condition: ${collectionCondition}`, collectionDiscrepancy.trim(), notes.trim()].filter(Boolean).join(' | ') }),
       });
       const handoverPayload = await handoverResponse.json().catch(() => ({})) as { error?: string };
       if (!handoverResponse.ok) { setError(handoverPayload.error || 'Collection handover could not be saved.'); setWorking(false); return; }
@@ -483,17 +928,16 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       const loadedPayload = await loadedResponse.json().catch(() => ({})) as { error?: string };
       if (!loadedResponse.ok) { setError(loadedPayload.error || 'Job could not be marked loaded.'); setWorking(false); return; }
       setMessage('Job updated: Loaded.');
+      // Persisted collection documents remain available from private Storage for later verification.
+      setCollectionDocumentsLoaded(true);
       await loadJob();
       setWorking(false);
       return;
-    }    if (nextStatus === 'delivered') {
-      const signature = signatureData();
-      if (!deliveryPhotos.length) { setError('At least one delivery photo is required.'); setWorking(false); return; }
-      if (!recipientName.trim()) { setError('Recipient name is required.'); setWorking(false); return; }
-      if (!signature) { setError('Recipient signature is required.'); setWorking(false); return; }
+    }
+    // Delivery arrival and POD submission are separate operations.
+    if (nextStatus === 'delivered') {
       fields.p_delivery_photos = deliveryPhotos;
-      fields.p_delivery_signature_data = signature;
-      fields.p_client_signature_name = recipientName.trim();
+      if (recipientName.trim()) fields.p_client_signature_name = recipientName.trim();
     }
     const { error: transitionError } = await supabase.rpc('driver_update_job_status_atomic', {
       p_driver_id: driverId, p_job_id: job.id, p_next_status: nextStatus, p_driver_notes: notes.trim() || null, ...fields,
@@ -503,6 +947,64 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     setWorking(false);
   };
 
+  const updateMultiStop = async (stopId: string, status: 'arrived' | 'completed', photoPaths: string[] = []) => {
+    const auth = await authHeader();
+    if (!auth) { setError('Please sign in again.'); return; }
+    setWorking(true); setError('');
+    try {
+      const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId) + '/stop-status', {
+        method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stop_id: stopId, status, ...(status === 'completed' && photoPaths.length ? { handover: { photoPaths, documentPaths: [] } } : {}) }),
+      });
+      const payload = await response.json().catch(() => ({})) as {error?:string};
+      if (!response.ok) { setError(payload.error || 'Stop could not be updated.'); return; }
+      await loadJob();
+      setMessage(status === 'arrived' ? 'Arrived at stop.' : 'Stop completed. Continue to the next stop.');
+    } catch { setError('Connection failed. Stop was not changed. Please retry.'); }
+    finally { setWorking(false); }
+  };
+
+  const uploadStopCollectionPhoto = async (stopId: string, file: File) => {
+    if (!['image/jpeg', 'image/png'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setError('Select a JPEG or PNG photo no larger than 10 MB.'); return;
+    }
+    const auth = await authHeader();
+    if (!auth) { setError('Please sign in again.'); return; }
+    setWorking(true); setError('');
+    try {
+      const ext = file.type === 'image/png' ? 'png' : 'jpg';
+      const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': file.type,
+          'x-xdrive-evidence-kind': 'collection', 'x-xdrive-evidence-category': 'photos',
+          'x-xdrive-stop-id': stopId, 'x-xdrive-evidence-name': `stop-${crypto.randomUUID()}.${ext}` },
+        body: file,
+      });
+      const payload = await response.json().catch(() => ({})) as { storagePath?: string; error?: string };
+      if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Photo upload failed.');
+      setStopPhotoPaths(previous => ({ ...previous, [stopId]: [...(previous[stopId] ?? []), payload.storagePath!] }));
+      setMessage('Collection photo saved. You can now complete this stop.');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Photo upload failed.'); }
+    finally { setWorking(false); }
+  };
+  const confirmDeliveredFromPage6 = async () => {
+    if (!Number.isInteger(Number(podItemCount)) || Number(podItemCount) < 1) {
+      setError('Number of items must be at least 1 before confirming delivery.');
+      return;
+    }
+    if (podWeight.trim() && (!Number.isFinite(Number(podWeight)) || Number(podWeight) < 0)) {
+      setError('Enter a valid delivery weight.');
+      return;
+    }
+    if (deliveryPhotos.length === 0) {
+      setError('Take at least one delivery photo before confirming delivery.');
+      return;
+    }
+    const saved=await savePodDraftNow();
+    if(!saved)return;
+    await moveStatus('delivered');
+  };
+
   if (loading) return <PageFrame><EmptyState title="Loading assigned job…" /></PageFrame>;
   if (!job) return <PageFrame><AlertBanner tone="danger">{error || 'Job not found.'}</AlertBanner></PageFrame>;
 
@@ -510,6 +1012,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const nextStatus = nextDriverExecutionStatus(currentStatus);
   const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
   const podComplete = hasCompletePodEvidence(job);
+  const deliveredStage = ['delivered','completed','invoiced'].includes(currentStatus);
+  const invoiceRecorded = Boolean(sheet?.invoices[0]?.id);
+  const closeoutLabel = !podComplete ? 'POD required' : !invoiceRecorded ? 'POD complete - invoice pending' : 'POD and invoice recorded';
   const hardCopyRequired = requiresHardCopyPod(sheet?.hardCopyPod ?? job.hard_copy_pod);
   const canShowLifecycleAction = !(nextStatus === 'completed' && !podComplete);
   const navigationStage = currentStatus === 'on_my_way' ? 'pickup' : currentStatus === 'in_transit' ? 'delivery' : null;
@@ -557,6 +1062,462 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const stopInstructions = [sheet?.pickup.notes, sheet?.delivery.notes].filter((value): value is string => Boolean(value?.trim()));
   const paperworkInstructions = sheet?.documentChecklist ?? [];
 
+
+  if (mobilePwa) {
+    const stops = [
+      {name:'Collection',place:sheet?.pickup.address??job.pickup_location,postcode:sheet?.pickup.postcode??job.pickup_postcode,at:sheet?.pickup.dateTime??job.pickup_datetime,phone:sheet?.pickup.contactPhone,contactName:sheet?.pickup.contactName,notes:sheet?.pickup.notes},
+      {name:'Delivery',place:sheet?.delivery.address??job.delivery_location,postcode:sheet?.delivery.postcode??job.delivery_postcode,at:sheet?.delivery.dateTime??job.delivery_datetime,phone:sheet?.delivery.contactPhone,contactName:sheet?.delivery.contactName,notes:sheet?.delivery.notes}
+    ];
+    const executionSteps = [
+      ['accepted', 'Accepted'], ['on_my_way', 'On my way to pickup'],
+      ['on_site_pickup', 'On site at collection'], ['loaded', 'Loaded'],
+      ['in_transit', 'On my way to delivery'], ['on_site_delivery', 'On site at delivery'],
+      ['delivered', 'Delivered'], ['completed', 'Completed'],
+    ] as const;
+    const activeStep = executionSteps.findIndex(([key]) => key === currentStatus);
+    const approvedScreen=driverBookingScreen(currentStatus,podComplete,invoiceRecorded?sheet?.invoices[0]?.status:null,invoiceRecorded?sheet?.invoices[0]?.paymentStatus:null);
+    if (podOnly && (!multiStopsReady || multiStops.some(stop => !['completed','skipped'].includes(stop.status)))) {
+      return <PageFrame><section className="fresh-mobile-booking-card"><h1>Complete delivery stops first</h1><p>{multiStopsReady ? 'Finish the remaining stops in your booking before final POD.' : 'Stop status could not be verified. Please retry.'}</p><button type="button" onClick={() => router.push('/driver/official-pwa-live?booking=' + encodeURIComponent(jobId))}>Return to booking stops</button><button type="button" onClick={() => void loadJob()}>Retry</button></section></PageFrame>;
+    }
+    const paymentRecordedState=(sheet?.invoices[0]?.paymentStatus??"").toLowerCase();
+    const paymentFlowCurrent=(["paid","partially_paid","overdue"].includes(paymentRecordedState)?paymentRecordedState:sheet?.invoices[0]?.status??"").toLowerCase().replace(/_/g," ");
+    if (!podOnly && approvedScreen.number===1 && currentStatus==='accepted') {
+      const pickupAddress=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryAddress=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <BookingDetailsStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupAddress} → ${deliveryAddress}`}
+        statusLabel={statusLabel[currentStatus]??currentStatus}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        customerName={sheet?.bookedBy??null}
+        memberCode={sheet?.memberCode??null}
+        memberPhone={sheet?.memberPhone??null}
+        stops={stops.map((stop)=>({
+          key:stop.name==='Collection'?'collection' as const:'delivery' as const,
+          label:stop.name,
+          address:navigationDestination(stop.place,stop.postcode) || 'Address unavailable',
+          schedule:stop.at?formatDateTime(stop.at):'Time not supplied',
+          contactName:stop.contactName,
+          phone:stop.phone,
+          navigateHref:navigationUrl(stop.place,stop.postcode,'navigate'),
+        }))}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onMessage={()=>router.push('/driver/messages?jobId='+encodeURIComponent(job.id))}
+        onNext={()=>void moveStatus('on_my_way')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===2 && currentStatus==='on_my_way') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <OnMyWayToPickupStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        map={<BookingRouteMap pickup={stops[0].postcode} delivery={stops[1].postcode} focus="pickup"/>}
+        address={navigationDestination(stops[0].place,stops[0].postcode) || 'Collection address unavailable'}
+        schedule={stops[0].at?formatDateTime(stops[0].at):'Collection time not supplied'}
+        contactName={stops[0].contactName}
+        phone={stops[0].phone}
+        instructions={stops[0].notes??sheet?.executionInstructions??null}
+        navigateHref={navigationUrl(stops[0].place,stops[0].postcode,'navigate')}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onNext={()=>void moveStatus('on_site_pickup')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===3 && currentStatus==='on_site_pickup') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const persistedItemCount=(job as DbJob & { no_of_items?: number | null }).no_of_items;
+      const cargoRows=[
+        ...(persistedItemCount!=null?[{label:'Items',value:String(persistedItemCount)}]:[]),
+        ...(sheet?.cargo.pallets!=null?[{label:'Pallets',value:String(sheet.cargo.pallets)}]:[]),
+        ...(sheet?.cargo.weightKg!=null?[{label:'Weight',value:`${sheet.cargo.weightKg} kg`}]:[]),
+        ...(cargoDimensions!=='Not supplied'?[{label:'Dimensions',value:cargoDimensions}]:[]),
+        ...(sheet?.cargo.type?[{label:'Cargo type',value:sheet.cargo.type}]:[]),
+        ...(sheet?.cargo.cargoValueGbp!=null?[{label:'Value',value:money(sheet.cargo.cargoValueGbp,sheet.currency??job.currency)}]:[]),
+        ...(sheet?.cargo.palletType?[{label:'Packaging',value:sheet.cargo.palletType}]:[]),
+        ...(sheet?.requirements?.length?[{label:'Handling / Requirements',value:sheet.requirements.join(', ')}]:[]),
+      ];
+      return <OnSitePickupStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        cargoRows={cargoRows}
+        collectionPhotoCount={collectionPhotos.length}
+        collectionDocumentCount={collectionDocuments.length}
+        actualItems={collectedItemCount}
+        condition={collectionCondition}
+        discrepancy={collectionDiscrepancy}
+        notes={notes}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onActualItems={setCollectedItemCount}
+        onCondition={setCollectionCondition}
+        onDiscrepancy={setCollectionDiscrepancy}
+        onNotes={setNotes}
+        onPhotos={e=>void selectCollectionPhotos(e)}
+        onDocuments={e=>void selectCollectionDocuments(e)}
+        onConfirmLoaded={()=>void moveStatus('loaded')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===4 && currentStatus==='loaded') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const handover=job.collection_handover;
+      const collectionEvent=sheet?.timeline.find(entry=>entry.eventType==='collection_handover')
+        ?? sheet?.timeline.find(entry=>entry.eventType.toLowerCase().includes('loaded'));
+      const collectedRows=[
+        ...(handover?.itemCount!=null?[{label:'Items',value:String(handover.itemCount)}]:[]),
+        ...(handover?.packaging?[{label:'Packaging',value:handover.packaging}]:[]),
+        ...(handover?.weightKg!=null?[{label:'Weight',value:handover.weightKg+' kg'}]:[]),
+      ];
+      const photoCount=handover?.photoPaths?.length ?? (Array.isArray(job.pickup_photos)?job.pickup_photos.length:0);
+      const documentCount=handover?.documentPaths?.length ?? 0;
+      const rawCollectionNotes=handover?.notes?.trim() ?? '';
+      const cleanCollectionNotes=rawCollectionNotes
+        .replace(/^Cargo condition:\s*Good\s*\|\s*/i,'')
+        .replace(/^Cargo condition:\s*Good\s*$/i,'')
+        .trim();
+      return <LoadedCollectedStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        confirmedAt={(handover?.capturedAt??collectionEvent?.createdAt)?formatDateTime(handover?.capturedAt??collectionEvent?.createdAt):null}
+        driverName={sheet?.driverName??null}
+        collectedRows={collectedRows}
+        photoCount={photoCount}
+        documentCount={documentCount}
+        notes={cleanCollectionNotes||null}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onNext={()=>void moveStatus('in_transit')}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===5 && currentStatus==='in_transit' && multiStopsReady && multiStops.length === 0) {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <InTransitDeliveryStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        map={<BookingRouteMap pickup={stops[0].postcode} delivery={stops[1].postcode} focus="delivery"/>}
+        routeMetrics={deliveryRoute}
+        routeLoading={deliveryRouteLoading}
+        address={navigationDestination(stops[1].place,stops[1].postcode) || 'Delivery address unavailable'}
+        schedule={stops[1].at?formatDateTime(stops[1].at):(sheet?.delivery.slot??'Delivery time not supplied')}
+        contactName={stops[1].contactName}
+        phone={stops[1].phone}
+        instructions={stops[1].notes??sheet?.executionInstructions??null}
+        navigateHref={navigationUrl(stops[1].place,stops[1].postcode,'navigate')}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onNext={()=>void moveStatus('on_site_delivery')}
+      />;
+    }
+    if (!podOnly && ['in_transit','on_site_delivery'].includes(currentStatus) && !multiStopsReady) {
+      return <PageFrame><section className="fresh-mobile-booking-card"><h1>Checking delivery stops</h1><p>Stop details are unavailable. Do not confirm final delivery until all stops are verified.</p><button type="button" onClick={() => void loadJob()}>Retry loading stops</button></section></PageFrame>;
+    }
+    if (!podOnly && ['in_transit','on_site_delivery'].includes(currentStatus) && multiStops.length > 0 && multiStops.some(stop => !['completed','skipped'].includes(stop.status))) {
+      const nextStop = multiStops.find(stop => !['completed','skipped'].includes(stop.status))!;
+      const finished = multiStops.filter(stop => ['completed','skipped'].includes(stop.status)).length;
+      return <PageFrame><section className="fresh-mobile-booking-card" aria-label="Multi-stop delivery progress">
+        <h1>Stops - {finished} of {multiStops.length} completed</h1>
+        <p>Complete each stop in sequence. Final POD is available only after all stops are completed.</p>
+        {error && <p role="alert">{error}</p>}{message && <p role="status">{message}</p>}
+        <ol>{multiStops.map(stop => <li key={stop.id}><strong>{stop.type === 'collection' ? 'Collection' : 'Delivery'} {stop.sequence}</strong> - {stop.address} - {stop.status}</li>)}</ol>
+        <h2>Next stop: {nextStop.address}</h2>
+        <p>{nextStop.type === 'collection' ? 'Collection' : 'Delivery'} stop {nextStop.sequence}</p>
+        <a href={navigationUrl(nextStop.address,'','navigate') ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nextStop.address)}`} target="_blank" rel="noopener noreferrer">Navigate to next stop</a>
+        {nextStop.status === 'pending' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'arrived')}>On Site at Stop</button>}
+        {nextStop.status === 'arrived' && nextStop.type === 'delivery' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'completed')}>Complete Delivery Stop</button>}
+        {nextStop.status === 'arrived' && nextStop.type === 'collection' && <div>
+          <label>Collection photo (camera or gallery)<input type="file" accept="image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopCollectionPhoto(nextStop.id, file); event.currentTarget.value = ''; }} /></label>
+          <p>{(stopPhotoPaths[nextStop.id] ?? []).length} photo(s) saved for this stop.</p>
+          <button type="button" className="fresh-mobile-booking-primary" disabled={working || !(stopPhotoPaths[nextStop.id]?.length)} onClick={() => void updateMultiStop(nextStop.id, 'completed', stopPhotoPaths[nextStop.id])}>Complete Collection Stop</button>
+        </div>}
+        <button type="button" onClick={() => void loadJob()} disabled={working}>Refresh stops</button>
+      </section></PageFrame>;
+    }
+    if (!podOnly && approvedScreen.number===6 && currentStatus==='on_site_delivery') {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <OnSiteDeliveryStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        address={navigationDestination(stops[1].place,stops[1].postcode) || 'Delivery address unavailable'}
+        schedule={stops[1].at?formatDateTime(stops[1].at):(sheet?.delivery.slot??'Delivery time not supplied')}
+        contactName={stops[1].contactName}
+        phone={stops[1].phone}
+        itemCount={podItemCount}
+        weight={podWeight}
+        photoPaths={deliveryPhotos}
+        photoUrls={deliveryPhotoUrls}
+        notes={notes}
+        draftLoaded={podDraftLoaded}
+        draftSaving={podDraftSaving}
+        draftError={podDraftError}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onItemCount={setPodItemCount}
+        onWeight={setPodWeight}
+        onNotes={setNotes}
+        onPhotos={e=>void selectDeliveryPhotos(e)}
+        onConfirm={()=>void confirmDeliveredFromPage6()}
+      />;
+    }
+    if (!podComplete && (podOnly || (approvedScreen.number===7 && ['delivered','completed'].includes(currentStatus)))) {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const storedSignature=job.delivery_signature_data;
+      const signatureReady=Boolean(savedSignatureData || (typeof storedSignature==='string'?storedSignature.trim():storedSignature));
+      return <ProofOfDeliveryStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        deliveryConfirmed={['delivered','completed','invoiced'].includes(currentStatus)}
+        deliveryStatus={podDeliveryStatus}
+        itemCount={podItemCount}
+        weight={podWeight}
+        photoPaths={deliveryPhotos}
+        photoUrls={deliveryPhotoUrls}
+        documentPaths={pendingPodDocuments}
+        recipientName={recipientName}
+        leftAt={podLeftAt}
+        deliveredOn={podDeliveredOn}
+        notes={notes}
+        signatureRef={signatureRef}
+        signatureReady={signatureReady}
+        hardCopyRequired={hardCopyRequired}
+        hardCopyAcknowledged={hardCopyAcknowledged}
+        draftLoaded={podDraftLoaded}
+        draftSaving={podDraftSaving}
+        draftError={podDraftError}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live?booking='+encodeURIComponent(job.id))}
+        onDeliveryStatus={setPodDeliveryStatus}
+        onItemCount={setPodItemCount}
+        onWeight={setPodWeight}
+        onRecipientName={setRecipientName}
+        onLeftAt={setPodLeftAt}
+        onDeliveredOn={setPodDeliveredOn}
+        onNotes={setNotes}
+        onPhotos={e=>void selectDeliveryPhotos(e)}
+        onDocuments={e=>void selectPodDocuments(e)}
+        onSignatureStart={startSignature}
+        onSignatureMove={drawSignature}
+        onSignatureEnd={()=>setSigning(false)}
+        onSaveSignature={()=>{const next=signatureData();if(next){setSavedSignatureData(next);setPodDraftError('');setMessage('Signature captured. Saving to XDrive draft...');}else setPodDraftError('Please draw the recipient signature before saving.');}}
+        onClearSignature={()=>{clearSignature();setSavedSignatureData('');setMessage('Signature cleared.');}}
+        onHardCopyAcknowledged={setHardCopyAcknowledged}
+        onSaveDraft={()=>void savePodDraftNow()}
+        onSubmit={()=>void completePod()}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===8 && podComplete && sheet?.pod) {
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      const rawPodNotes=sheet.pod.notes?.trim()??'';
+      const podNoteSegments=rawPodNotes?rawPodNotes.split(/\s*\|\s*/).map(value=>value.trim()).filter(Boolean):[];
+      const weightSegment=podNoteSegments.find(value=>/^Weight:\s*[0-9.]+\s*kg$/i.test(value));
+      const recordedWeight=weightSegment?.replace(/^Weight:\s*/i,'')??null;
+      const cleanedPodNotes=podNoteSegments
+        .filter(value=>!/^Weight:\s*[0-9.]+\s*kg$/i.test(value))
+        .filter(value=>!/^Hard-copy POD requirement acknowledged/i.test(value))
+        .join(' | ');
+      return <PodRecordedStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
+        paymentTerms={sheet?.paymentTerms??null}
+        generatedAt={sheet.pod.generatedAt?formatDateTime(sheet.pod.generatedAt):null}
+        receiverName={sheet.pod.receiverName}
+        leftAt={sheet.pod.leftAt}
+        itemCount={sheet.pod.itemCount}
+        weight={recordedWeight}
+        photoCount={sheet.pod.photoCount}
+        signatureRecorded={sheet.pod.signatureRecorded}
+        notes={cleanedPodNotes||null}
+        canCreateInvoice={canGenerateInvoices}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onViewPdf={()=>void viewPodPdf()}
+        onCreateInvoice={()=>void createInvoice(true)}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===9 && sheet?.invoices[0]?.id) {
+      const invoice=sheet.invoices[0];
+      const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
+      const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
+      return <InvoiceDraftStep
+        bookingReference={sheet?.bookingReference??null}
+        routeLabel={`${pickupArea} → ${deliveryArea}`}
+        invoiceNumber={invoice.number}
+        clientName={invoice.clientName}
+        customerXdId={invoice.customerXdId}
+        issuerName={invoice.issuerName}
+        issuerXdId={invoice.issuerXdId}
+        jobRef={invoice.jobRef}
+        netAmount={invoice.netAmount!=null?money(invoice.netAmount,invoice.currency):null}
+        vatRate={invoice.vatRate}
+        vatAmount={invoice.vatAmount!=null?money(invoice.vatAmount,invoice.currency):null}
+        totalAmount={invoice.amount!=null?money(invoice.amount,invoice.currency):null}
+        paymentTerms={invoice.paymentTerms}
+        invoiceDate={formatDateOnly(invoice.invoiceDate)}
+        dueDate={formatDateOnly(invoice.dueDate)}
+        serviceDescription={invoice.serviceDescription}
+        working={working}
+        error={error}
+        message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onPreview={()=>void openInvoicePreview(invoice.id!)}
+        onEdit={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!)+'/edit')}
+        onReview={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!))}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===10 && sheet?.invoices[0]?.id) {
+      const invoice=sheet.invoices[0];
+      return <InvoiceIssuedStep
+        bookingReference={sheet.bookingReference??null}
+        routeLabel={`${bookingAreaLabel(stops[0].place,stops[0].postcode)} → ${bookingAreaLabel(stops[1].place,stops[1].postcode)}`}
+        invoiceNumber={invoice.number}
+        clientName={invoice.clientName}
+        issuerName={invoice.issuerName}
+        totalAmount={invoice.amount!=null?money(invoice.amount,invoice.currency):null}
+        invoiceDate={formatDateOnly(invoice.invoiceDate)}
+        dueDate={formatDateOnly(invoice.dueDate)}
+        paymentTerms={invoice.paymentTerms}
+        invoiceStatus={invoice.status??'Issued'}
+        paymentStatus={invoice.paymentStatus}
+        working={working} error={error} message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onPreview={()=>void openInvoicePreview(invoice.id!)}
+        onReviewAndSend={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!))}
+      />;
+    }
+    if (!podOnly && approvedScreen.number===11 && sheet?.invoices[0]?.id) {
+      const invoice=sheet.invoices[0];
+      return <InvoicePaymentTrackingStep
+        bookingReference={sheet.bookingReference??null}
+        routeLabel={`${bookingAreaLabel(stops[0].place,stops[0].postcode)} → ${bookingAreaLabel(stops[1].place,stops[1].postcode)}`}
+        invoiceNumber={invoice.number}
+        clientName={invoice.clientName}
+        totalAmount={invoice.amount!=null?money(invoice.amount,invoice.currency):null}
+        dueDate={formatDateOnly(invoice.dueDate)}
+        paymentTerms={invoice.paymentTerms}
+        invoiceStatus={invoice.status??'Recorded'}
+        paymentStatus={invoice.paymentStatus}
+        working={working} error={error} message={message}
+        onBack={()=>router.push('/driver/official-pwa-live')}
+        onPreview={()=>void openInvoicePreview(invoice.id!)}
+        onViewInvoice={()=>router.push('/driver/finance/invoices/'+encodeURIComponent(invoice.id!))}
+      />;
+    }
+    return <div className="fresh-mobile-booking" data-testid={podOnly ? 'mobile-pod-form' : 'mobile-booking-details'}>
+      {!podOnly && <>
+      <header className="fresh-booking-detail-header" aria-label="Approved booking workflow screen"><button type="button" onClick={()=>router.push("/driver/official-pwa-live")} aria-label="Back to Bookings">‹</button><strong>{approvedScreen.number===1?"Booking Details":approvedScreen.number===4?"Loaded":approvedScreen.number===5?"On My Way to Delivery":approvedScreen.number===7?"Proof of Delivery":approvedScreen.number===11?"Invoice Sent":approvedScreen.title}</strong></header>
+      <section className="fresh-mobile-booking-card fresh-booking-hero">
+        <div className="fresh-booking-hero-top"><small>BOOKING {sheet?.bookingReference??sheet?.reference??'Reference pending'}</small><span className="fresh-booking-status">{approvedScreen.number>=9?(sheet?.invoices[0]?.status??statusLabel[currentStatus]??currentStatus):approvedScreen.number===8?'POD Completed':statusLabel[currentStatus]??currentStatus}</span></div>
+        <h1>{[navigationDestination(job.pickup_location||sheet?.pickup.postcode||job.pickup_postcode,job.pickup_postcode),navigationDestination(job.delivery_location||sheet?.delivery.postcode||job.delivery_postcode,job.delivery_postcode)].filter(Boolean).join(' → ') || 'Booking details'}</h1>
+        <div className="fresh-booking-financials">{sheet?.agreedRate!=null&&<div><small>Agreed Rate</small><strong>{money(sheet.agreedRate,sheet.currency??job.currency)}</strong></div>}{sheet?.paymentTerms&&<div><small>Payment Terms</small><strong>{sheet.paymentTerms}</strong></div>}</div>
+        {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
+      </section>
+      {[2,5].includes(approvedScreen.number)&&<section className="fresh-mobile-booking-card fresh-booking-map-card"><BookingRouteMap pickup={stops[0].postcode} delivery={stops[1].postcode} focus={approvedScreen.number===2?"pickup":"delivery"}/><small>Postcode location only. No calculated route or ETA.</small>{navigationUrl(stops[approvedScreen.number===2?0:1].place,stops[approvedScreen.number===2?0:1].postcode,"navigate")&&<a className="fresh-booking-map-navigate" target="_blank" rel="noopener noreferrer" href={navigationUrl(stops[approvedScreen.number===2?0:1].place,stops[approvedScreen.number===2?0:1].postcode,"navigate")!}>Navigate</a>}</section>}
+      {approvedScreen.number===1&&(sheet?.bookedBy||sheet?.memberCode||sheet?.memberPhone)&&<section className="fresh-mobile-booking-card fresh-booking-customer"><h2>Customer</h2><strong>{sheet?.bookedBy??'Company name not supplied'}</strong>{sheet?.memberCode&&<small>{sheet.memberCode}</small>}{sheet?.memberPhone&&<a href={'tel:'+sheet.memberPhone}>Call</a>}<button type="button" className="fresh-booking-message" onClick={()=>router.push('/driver/messages?jobId='+encodeURIComponent(job.id))}>Message</button></section>}
+      {approvedScreen.number===4&&<section className="fresh-mobile-booking-card fresh-booking-success"><h2>Collection confirmed</h2><strong>Loaded / Collected</strong>{sheet?.driverName&&<p>By: {sheet.driverName}</p>}{timelineRows.find(([event])=>String(event).toLowerCase().includes("loaded"))?.[1]&&<p>{timelineRows.find(([event])=>String(event).toLowerCase().includes("loaded"))?.[1]}</p>}</section>}
+      {[1,2,5,6].includes(approvedScreen.number)&&<section className="fresh-mobile-booking-card fresh-booking-stops"><h2>{approvedScreen.number===2?'Collection Details':approvedScreen.number===5||approvedScreen.number===6?'Delivery Details':'Stops'}</h2><div className="fresh-booking-stops-list">{stops.filter(stop=>approvedScreen.number===2?stop.name==='Collection':[5,6].includes(approvedScreen.number)?stop.name==='Delivery':true).map(stop=><div className="fresh-booking-stop" key={stop.name}>
+        <span className={'fresh-booking-stop-pin '+(stop.name==='Collection'?'collection':'delivery')} aria-hidden="true"/>
+        <div className="fresh-booking-stop-body"><h3>{stop.name}</h3>{stop.contactName&&<p><strong>{stop.contactName}</strong></p>}{(stop.place||stop.postcode)&&<strong>{navigationDestination(stop.place,stop.postcode)}</strong>}{isAreaOnlyStop(stop.place,stop.postcode)&&<small className="fresh-booking-area-warning">Approximate postcode area only. Exact street address unavailable.</small>}{stop.at&&<p>{formatDateTime(stop.at)}</p>}{stop.notes&&<p>{stop.notes}</p>}
+        <div className="fresh-mobile-booking-actions">{navigationUrl(stop.place,stop.postcode,'navigate')?<a target="_blank" rel="noopener noreferrer" href={mapsUrl(stop.place??'',stop.postcode)}>Navigate</a>:<span className="fresh-booking-no-address">Address unavailable</span>}{stop.phone&&<a href={'tel:'+stop.phone}>Call</a>}{navigationUrl(stop.place,stop.postcode,'view')&&<a target="_blank" rel="noopener noreferrer" href={navigationUrl(stop.place,stop.postcode,'view')!}>View Map</a>}</div>
+        </div></div>)}</div></section>}
+      {[1,3,4].includes(approvedScreen.number)&&(sheet?.cargo.pallets!=null||sheet?.cargo.weightKg!=null||sheet?.cargo.type||cargoDimensions!=='Not supplied'||sheet?.cargo.palletType||Boolean(sheet?.requirements?.length))&&<section className="fresh-mobile-booking-card fresh-booking-cargo"><h2>Cargo Summary</h2><div className="fresh-booking-cargo-grid">
+        {sheet?.cargo.pallets!=null&&<div><small>Pallets</small><strong>{sheet.cargo.pallets}</strong></div>}
+        {sheet?.cargo.cargoValueGbp!=null&&<div><small>Value</small><strong>{money(sheet.cargo.cargoValueGbp)}</strong></div>}
+        {sheet?.cargo.type&&<div><small>Cargo type</small><strong>{sheet.cargo.type}</strong></div>}
+        {sheet?.cargo.weightKg!=null&&<div><small>Weight</small><strong>{sheet.cargo.weightKg} kg</strong></div>}
+        {cargoDimensions!=='Not supplied'&&<div><small>Dimensions</small><strong>{cargoDimensions}</strong></div>}
+        {sheet?.cargo.palletType&&<div><small>Packaging</small><strong>{sheet.cargo.palletType}</strong></div>}
+        {Boolean(sheet?.requirements?.length)&&<div><small>Handling / Requirements</small><strong>{sheet?.requirements?.join(', ')}</strong></div>}
+      </div></section>}
+      {currentStatus==='on_site_pickup'&&<section className="fresh-mobile-booking-card" aria-label="Collection verification"><h2>Collection confirmation</h2><p>Verify actual items and condition before confirming Loaded. Differences must be recorded, not assumed.</p><label>Items actually collected<input type="number" min="0" step="1" value={collectedItemCount} onChange={e=>setCollectedItemCount(e.target.value)} placeholder={sheet?.cargo.pallets!=null?String(sheet.cargo.pallets):'Enter actual count'}/></label><label>Cargo condition<select value={collectionCondition} onChange={e=>setCollectionCondition(e.target.value)}><option>Good</option><option>Damaged</option><option>Incomplete</option><option>Not ready</option></select></label><label>Collection discrepancies / notes<textarea value={collectionDiscrepancy} onChange={e=>setCollectionDiscrepancy(e.target.value)} placeholder="Record shortages, damage or loading problems"/></label><label>Collection photographs<input type="file" accept="image/jpeg,image/png" capture="environment" multiple disabled={working} onChange={e=>void selectCollectionPhotos(e)}/></label><small>{collectionPhotos.length} collection photograph(s) saved</small></section>}
+      {approvedScreen.number===6&&<section className="fresh-mobile-booking-card fresh-booking-delivery-count"><h2>Items to Deliver</h2><label>Number of items<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodItemCount(String(Math.max(1,(Number(podItemCount)||1)-1)))}>−</button><input type="number" min="1" value={podItemCount} onChange={e=>setPodItemCount(e.target.value)}/><button type="button" onClick={()=>setPodItemCount(String((Number(podItemCount)||0)+1))}>+</button></div></label><label>Weight (kg)<input type="number" min="0" value={podWeight} onChange={e=>setPodWeight(e.target.value)}/></label><p>Delivery quantities are confirmed when you submit the POD.</p>{podDraftError&&<p role="alert">Draft not saved: {podDraftError}</p>}{podDraftSaving&&<p role="status">Saving delivery details to XDrive...</p>}</section>}
+      {!podOnly && <section className="fresh-mobile-booking-card fresh-booking-event-history" aria-label="Recorded booking status history">
+        <h2>Booking Status History</h2>
+        {timelineRows.length ? <ol className="fresh-booking-event-list">{timelineRows.map(([event,time,details],index)=><li key={index}><strong>{event}</strong><time>{time}</time>{details && details !== '—' ? <small>{details}</small> : null}</li>)}</ol> : <p>No status events recorded yet.</p>}
+      </section>}
+      {approvedScreen.number<=7&&<section className="fresh-mobile-booking-card fresh-booking-next-action"><h2>Status &amp; Next Action</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong><div className="fresh-booking-progress"><h3>Booking progress</h3><ol aria-label="Booking journey stages">{executionSteps.map(([key,label],index)=><li key={key} aria-current={index===activeStep?'step':undefined}><span aria-hidden="true">{activeStep>=0&&index<activeStep?'✓':index===activeStep?'●':'○'}</span> {label}</li>)}</ol></div>{currentStatus==='on_site_delivery'&&<div><label>Delivery evidence required before confirming delivery<input type="file" accept="image/jpeg,image/png" capture="environment" multiple disabled={working} onChange={e=>void selectDeliveryPhotos(e)}/></label><small>{deliveryPhotos.length} delivery photograph(s) saved</small>{deliveryPhotos.length===0&&<p>Please take a delivery photograph before confirming the handover.</p>}</div>}{nextStatus&&canShowLifecycleAction&&<button className="fresh-mobile-booking-primary" disabled={working} onClick={async()=>{if(currentStatus==='on_site_delivery'&&!(await savePodDraftNow()))return;await moveStatus(nextStatus);}}>{nextLabel}</button>}</section>}
+      <section className="fresh-mobile-booking-card fresh-booking-secondary"><details><summary>More booking information</summary><h2>Booking information</h2><dl>{(sheet?.bookingReference??sheet?.reference)&&<><dt>Booking ID</dt><dd>{sheet?.bookingReference??sheet?.reference}</dd></>}{sheet?.bookedAt&&<><dt>Awarded at</dt><dd>{formatDateTime(sheet.bookedAt)}</dd></>}{sheet?.bookedBy&&<><dt>Company</dt><dd>{sheet?.bookedBy}</dd></>}{sheet?.memberCode&&<><dt>XD Member ID</dt><dd>{sheet?.memberCode}</dd></>}{sheet?.memberPhone&&<><dt>Company phone</dt><dd>{sheet?.memberPhone}</dd></>}{sheet?.allocatedVehicle?.source==='job'&&<><dt>Vehicle</dt><dd>{allocatedVehicleSummary}</dd></>}{sheet?.agreedRate!=null&&<><dt>Agreed rate</dt><dd>{money(sheet.agreedRate,sheet.currency??job.currency)}</dd></>}{sheet?.vatAmount!=null&&<><dt>VAT</dt><dd>{money(sheet.vatAmount,sheet.currency??job.currency)}</dd></>}{sheet?.paymentTerms&&<><dt>Payment terms</dt><dd>{sheet?.paymentTerms}</dd></>}{sheet?.distanceMiles!=null&&<><dt>Route distance</dt><dd>{sheet.distanceMiles+' miles'}</dd></>}{sheet?.cargo.type&&<><dt>Cargo</dt><dd>{sheet?.cargo.type}</dd></>}{sheet?.cargo.pallets!=null&&<><dt>Pallets</dt><dd>{sheet.cargo.pallets}</dd></>}{sheet?.cargo.weightKg!=null&&<><dt>Weight</dt><dd>{sheet.cargo.weightKg+' kg'}</dd></>}{cargoDimensions!=='Not supplied'&&<><dt>Dimensions</dt><dd>{cargoDimensions}</dd></>}{sheet?.cargo.cargoValueGbp!=null&&<><dt>Goods value</dt><dd>{money(sheet.cargo.cargoValueGbp)}</dd></>}{sheet?.cargo.palletType&&<><dt>Packaging</dt><dd>{sheet?.cargo.palletType}</dd></>}{Boolean(sheet?.requirements?.length)&&<><dt>Requirements</dt><dd>{sheet?.requirements?.join(', ')}</dd></>}{sheet?.pickup.contactName&&<><dt>Collection contact</dt><dd>{sheet?.pickup.contactName}</dd></>}{sheet?.pickup.contactPhone&&<><dt>Collection phone</dt><dd>{sheet?.pickup.contactPhone}</dd></>}{sheet?.delivery.contactName&&<><dt>Delivery contact</dt><dd>{sheet?.delivery.contactName}</dd></>}{sheet?.delivery.contactPhone&&<><dt>Delivery phone</dt><dd>{sheet?.delivery.contactPhone}</dd></>}{sheet?.pickup.dateTime&&<><dt>Collection date</dt><dd>{formatDateTime(sheet.pickup.dateTime)}</dd></>}{sheet?.delivery.dateTime&&<><dt>Delivery date</dt><dd>{formatDateTime(sheet.delivery.dateTime)}</dd></>}{sheet?.customerReference&&<><dt>Customer reference</dt><dd>{sheet?.customerReference}</dd></>}{sheet?.purchaseOrderNumber&&<><dt>PO number</dt><dd>{sheet?.purchaseOrderNumber}</dd></>}</dl>{bookingNotes.map(([k,v])=><p key={k}><strong>{k}</strong> {v}</p>)}</details></section>
+
+{approvedScreen.number>=7&&<section className="fresh-mobile-booking-card"><h2>{approvedScreen.number===7?"Proof of Delivery":approvedScreen.number===8?"POD Recorded":approvedScreen.number===9?"Invoice Draft":approvedScreen.number===10?"Invoice Issued":"Invoice Sent / Payment Tracking"}</h2><strong>{statusLabel[currentStatus]??currentStatus}</strong>{deliveredStage&&!podComplete&&<button type="button" className="fresh-mobile-booking-primary" onClick={()=>router.push('/driver/official-pwa-live?booking='+encodeURIComponent(job.id)+'&step=pod')}>Complete required POD</button>}{deliveredStage&&podComplete&&<p role="status">POD complete and recorded.</p>}{podComplete&&!invoiceRecorded&&canGenerateInvoices&&<button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={()=>void createInvoice()}>Create Invoice</button>}{sheet?.invoices[0]?.id&&<><p>Invoice recorded: {sheet.invoices[0].number??'Draft invoice'} · {sheet.invoices[0].paymentStatus??sheet.invoices[0].status??'Draft'}</p><button type="button" className="fresh-mobile-booking-primary" onClick={()=>router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>{approvedScreen.number===9?"Review & Issue Invoice":approvedScreen.number===10?"Review & Send Invoice":"View Payment Status"}</button></>}{podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}{podComplete&&!invoiceRecorded&&<p>Delivery evidence is recorded. A new invoice must be reviewed by an authorised user before it is issued or sent.</p>}</section>}
+      {approvedScreen.number===8&&sheet?.pod&&<section className="fresh-mobile-booking-card fresh-booking-pod-receipt"><h2>POD saved successfully</h2>{sheet.pod.generatedAt&&<p>{formatDateTime(sheet.pod.generatedAt)}</p>}<dl>{sheet.pod.receiverName&&<><dt>Received by</dt><dd>{sheet.pod.receiverName}</dd></>}{sheet.pod.leftAt&&<><dt>Left at</dt><dd>{sheet.pod.leftAt}</dd></>}{sheet.pod.itemCount!=null&&<><dt>Items</dt><dd>{sheet.pod.itemCount}</dd></>}{sheet.pod.photoCount>0&&<><dt>Photos</dt><dd>{sheet.pod.photoCount}</dd></>}{sheet.pod.signatureRecorded&&<><dt>Signature</dt><dd>Recorded</dd></>}{sheet.pod.notes&&<><dt>Driver notes</dt><dd>{sheet.pod.notes}</dd></>}</dl></section>}
+      {[9,10].includes(approvedScreen.number)&&sheet?.invoices[0]?.id&&<section className="fresh-mobile-booking-card fresh-booking-invoice-review"><h2>{approvedScreen.number===9?"Invoice Details":"Invoice Summary"}</h2><dl>{sheet.bookedBy&&<><dt>Invoice to</dt><dd>{sheet.bookedBy}</dd></>}{sheet.invoices[0].number&&<><dt>Invoice No.</dt><dd>{sheet.invoices[0].number}</dd></>}{sheet.agreedRate!=null&&<><dt>Agreed rate</dt><dd>{money(sheet.agreedRate,sheet.currency)}</dd></>}{sheet.vatAmount!=null&&<><dt>VAT</dt><dd>{money(sheet.vatAmount,sheet.currency)}</dd></>}{sheet.invoices[0].amount!=null&&<><dt>Total</dt><dd>{money(sheet.invoices[0].amount,sheet.invoices[0].currency)}</dd></>}{sheet.paymentTerms&&<><dt>Payment terms</dt><dd>{sheet.paymentTerms}</dd></>}{sheet.invoices[0].dueDate&&<><dt>Due date</dt><dd>{formatDateTime(sheet.invoices[0].dueDate)}</dd></>}</dl></section>}
+      {sheet?.invoices[0]?.id&&podComplete&&approvedScreen.number===11&&<section className="fresh-mobile-booking-card fresh-booking-payment-tracking" aria-label="Payment Tracking"><h2>Invoice Sent / Payment Tracking</h2><ol className="fresh-booking-payment-steps">{(["Draft","Issued","Sent","Partially Paid","Paid","Overdue"] as const).map(stage=><li key={stage}><span className={paymentFlowCurrent===stage.toLowerCase()?"current":""} aria-hidden="true"/><strong>{stage}</strong><small>{paymentFlowCurrent===stage.toLowerCase()?"Recorded":"—"}</small></li>)}</ol><dl><dt>Invoice</dt><dd>{sheet.invoices[0].number??'Invoice recorded'}</dd><dt>Invoice status</dt><dd>{sheet.invoices[0].status??'Not provided'}</dd>{sheet.invoices[0].paymentStatus&&<><dt>Payment status</dt><dd>{sheet.invoices[0].paymentStatus}</dd></>}{sheet.invoices[0].amount!=null&&<><dt>Invoice amount</dt><dd>{money(sheet.invoices[0].amount,sheet.invoices[0].currency)}</dd></>}{sheet.invoices[0].dueDate&&<><dt>Due date</dt><dd>{formatDateTime(sheet.invoices[0].dueDate)}</dd></>}</dl><p>Amounts and status come from the recorded invoice; no payment is simulated.</p></section>}
+      </>}
+      {podOnly && <section className="fresh-mobile-booking-card"><h1>Proof of Delivery</h1><p>{stops[0].place} → {stops[1].place}</p><p>{formatDateTime(stops[0].at)} / {formatDateTime(stops[1].at)}</p>{error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}</section>}
+{(mobilePodOpen||podOnly)&&<section className="fresh-mobile-booking-card fresh-mobile-pod">
+<h2>POD</h2>
+{podOnly&&<p role="status">{podDraftError ? 'Draft not saved: '+podDraftError : podDraftSaving ? 'Saving draft to XDrive...' : podDraftLoaded ? 'Draft connected to XDrive' : 'Loading saved draft...'}</p>}
+<label>Delivery status<select value={podDeliveryStatus} onChange={e=>setPodDeliveryStatus(e.target.value)}><option>Completed Delivery</option><option>Partial Delivery</option><option>Failed Delivery</option><option>Refused</option><option>Left Safe</option></select></label>
+<label>Number of Items *<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodItemCount(String(Math.max(1,(Number(podItemCount)||1)-1)))}>−</button><input type="number" min="1" required value={podItemCount} onChange={e=>setPodItemCount(e.target.value)}/><button type="button" onClick={()=>setPodItemCount(String((Number(podItemCount)||0)+1))}>+</button></div></label>
+<label>Weight (kg)<div className="fresh-pod-stepper"><button type="button" onClick={()=>setPodWeight(String(Math.max(0,(Number(podWeight)||0)-1)))}>−</button><input type="number" min="0" step="0.1" value={podWeight} onChange={e=>setPodWeight(e.target.value)}/><button type="button" onClick={()=>setPodWeight(String((Number(podWeight)||0)+1))}>+</button></div></label>
+<div><strong>Job Details</strong><p>{requestedVehicle}</p></div>
+<label>Driver's Notes<textarea rows={4} maxLength={500} value={notes} onChange={e=>setNotes(e.target.value)}/><small>{notes.length}/500</small></label>
+<label>Photo * (required) — {deliveryPhotos.length}/10<input type="file" accept="image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectDeliveryPhotos(e)}/></label>
+{deliveryPhotos.length>0&&<ul aria-label="Saved POD photos">{deliveryPhotos.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Photo")} — saved</li>)}</ul>}
+<label>Add Document (optional)<input type="file" accept="application/pdf,image/jpeg,image/png" multiple disabled={working||podComplete} onChange={e=>void selectPodDocuments(e)}/></label>
+{pendingPodDocuments.length>0&&<ul aria-label="Saved POD documents">{pendingPodDocuments.map(path=><li key={path}>{decodeURIComponent(path.split("/").pop()??"Document")} — saved</li>)}</ul>}
+<label>Signature * (required)<canvas ref={signatureRef} width={300} height={120} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={()=>setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={()=>setSigning(false)} style={{touchAction:'none',width:'100%',maxWidth:300,border:'1px solid #94a3b8'}}/></label>
+<div className="fresh-mobile-booking-actions"><button type="button" onClick={()=>{const next=signatureData();if(next){setSavedSignatureData(next);setPodDraftError('');setMessage('Signature captured. Saving to XDrive draft...');}else setPodDraftError('Please draw your signature before saving.');}}>Save Signature</button><button type="button" onClick={()=>{clearSignature();setSavedSignatureData('');setMessage('Signature cleared.');}}>Clear Signature</button></div>{savedSignatureData&&<p role="status">Signature captured — {podDraftSaving?'saving draft...':podDraftError?'draft save failed':'included in saved POD draft'}.</p>}
+<div className="fresh-pod-left-at">
+  <label htmlFor="pod-left-at">Left At *</label>
+  <p>Tap the location where the goods were actually handed over:</p>
+  <div className="fresh-pod-left-at-options" role="group" aria-label="Delivery handover location">
+    {['Goods Inwards', 'Reception', 'Recipient', 'Warehouse', 'Loading Bay', 'Delivery Office', 'Authorised Safe Place'].map(option => (
+      <button key={option} type="button" aria-pressed={podLeftAt === option}
+        className={podLeftAt === option ? 'fresh-pod-left-at-selected' : ''}
+        onClick={() => setPodLeftAt(option)}>{option}</button>
+    ))}
+  </div>
+  <label htmlFor="pod-left-at">Other location / exact details</label>
+  <input id="pod-left-at" required value={podLeftAt} onChange={e => setPodLeftAt(e.target.value)}
+    placeholder="Select above or enter exact location" autoComplete="off" />
+  <small>Only select an authorised safe place when delivery instructions permit it. The selected value is saved in the POD draft.</small>
+</div>
+<label>Delivered On<input type="date" value={podDeliveredOn} onChange={e=>setPodDeliveredOn(e.target.value)}/></label>
+<label>Received By (Full Name) *<input required value={recipientName} onChange={e=>setRecipientName(e.target.value)}/></label>
+{hardCopyRequired&&<label><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> Hard-copy POD acknowledged</label>}
+{!podComplete&&currentStatus==='on_site_delivery'&&<div role="status"><p>Delivery arrival is recorded, but the job has not yet been marked Delivered. Confirm the handover before sending POD.</p>{deliveryPhotos.length===0&&<p>Take at least one delivery photo before confirming the handover.</p>}<button type="button" className="fresh-mobile-booking-primary" disabled={working||deliveryPhotos.length===0} onClick={()=>void moveStatus('delivered')}>{working?'Saving...':'Confirm Delivered'}</button></div>}{!podComplete&&<div role="status" aria-label="POD submission checklist"><strong>Before sending POD</strong><ul><li>{deliveryPhotos.length>0?'✓':'○'} At least one saved delivery photo</li><li>{recipientName.trim()?'✓':'○'} Recipient full name</li><li>{savedSignatureData||job.delivery_signature_data?'✓':'○'} Saved recipient signature</li><li>{podLeftAt.trim()?'✓':'○'} Left At location</li>{hardCopyRequired&&<li>{hardCopyAcknowledged?'✓':'○'} Hard-copy POD acknowledged</li>}</ul>{error&&<p role="alert">POD not sent: {error}</p>}</div>}{!podComplete?<button type="button" className="fresh-mobile-booking-primary fresh-pod-send" disabled={working||!['delivered','completed','invoiced'].includes(currentStatus)} onClick={()=>void completePod()}>{working?'Saving...':'Send POD'}</button>:<p>POD recorded</p>}
+{podOnly && (!podComplete ? <button type="button" className="fresh-mobile-booking-primary" disabled={working||podDraftSaving||!podDraftLoaded} onClick={()=>void savePodDraftNow()}>{podDraftSaving?"Saving POD...":"Save POD Draft"}</button> : <p role="status">POD saved and recorded. This completed POD cannot be overwritten.</p>)}
+{podComplete&&<button type="button" disabled={working} onClick={()=>void downloadPodPdf()}>Download POD PDF</button>}
+</section>}
+{!podOnly&&<section className="fresh-mobile-booking-card" aria-label="Delivery closeout and documents"><h2>Delivery closeout &amp; documents</h2><p role="status">{closeoutLabel}</p><dl><dt>Delivery</dt><dd>{['delivered','completed','invoiced'].includes(currentStatus)?'Delivered':'In progress'}</dd><dt>Proof of Delivery</dt><dd>{podComplete?'Recorded and available':'Awaiting completed recipient evidence'}</dd><dt>Invoice</dt><dd>{sheet?.invoices[0]?.id?`${sheet.invoices[0].number??'Recorded invoice'} — ${sheet.invoices[0].status??'Draft'}`:podComplete?'Ready for authorised carrier owner/admin':'Available after POD'}</dd></dl>{podComplete&&!sheet?.invoices[0]?.id&&!canGenerateInvoices&&<p>Invoice generation is managed by the carrier company owner or administrator.</p>}</section>}
+    </div>;
+  }
   return (
     <PageFrame>
       <PageHeader
@@ -571,7 +1532,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
       <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'flex-end', marginBottom: 6 }}>
         <span className="workspace-list-controls__right">
-          <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>← Back</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push(mobilePwa ? '/driver/official-pwa-live' : '/driver/jobs')}>← Back</ActionButton>
           <ActionButton tone="secondary" onClick={() => void loadJob()}>Refresh</ActionButton>
         </span>
       </div>
@@ -690,7 +1651,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
               <input ref={collectionCameraInput} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={selectCollectionPhotos} />
               <input ref={collectionGalleryInput} type="file" accept="image/jpeg,image/png" multiple hidden onChange={selectCollectionPhotos} />
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                <StatusBadge value={collectionPhotos.length ? `${collectionPhotos.length} photo${collectionPhotos.length === 1 ? '' : 's'} ready` : 'Photo required'} tone={collectionPhotos.length ? 'green' : 'orange'} />
+                <StatusBadge value={collectionPhotos.length ? `${collectionPhotos.length} photo${collectionPhotos.length === 1 ? '' : 's'} ready` : 'Photo optional'} tone={collectionPhotos.length ? 'green' : 'orange'} />
                 <ActionButton tone="secondary" disabled={working || collectionPhotos.length >= 10} onClick={() => collectionCameraInput.current?.click()}>Take photo</ActionButton>
                 <ActionButton tone="secondary" disabled={working || collectionPhotos.length >= 10} onClick={() => collectionGalleryInput.current?.click()}>Add photos</ActionButton>
               </div>
@@ -718,9 +1679,13 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
                   <label className="driver-detail-item"><span>No. of items</span><input type="number" min="0" value={podItemCount} onChange={(event) => setPodItemCount(event.target.value)} style={inputStyle} /></label>
                   <label className="driver-detail-item"><span>Left at</span><input value={podLeftAt} onChange={(event) => setPodLeftAt(event.target.value)} placeholder="Goods inwards / reception / safe place" style={inputStyle} /></label>
                 </div>
-                <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} />
-                <canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
-                <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton>
+                <label className="driver-detail-item"><span>Recipient full name (required)</span><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /></label>
+                <div className="driver-detail-item">
+                  <label htmlFor="driver-pod-recipient-signature">Recipient signature (required)</label>
+                  <small>Ask the recipient to sign inside the white box using a finger, stylus or mouse.</small>
+                  <canvas id="driver-pod-recipient-signature" ref={signatureRef} role="img" aria-label="Recipient signature drawing area" width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #94a3b8', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
+                  <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton>
+                </div>
                 {hardCopyRequired && (
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
                     <input type="checkbox" checked={hardCopyAcknowledged} onChange={(event) => setHardCopyAcknowledged(event.target.checked)} />

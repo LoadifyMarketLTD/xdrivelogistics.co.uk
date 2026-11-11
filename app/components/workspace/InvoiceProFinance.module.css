@@ -58,3 +58,8 @@
 .empty{padding:28px 18px;text-align:center;color:#6e7d90}.empty strong{display:block;color:#223750;font-size:13px;margin-bottom:5px}
 @media(max-width:1100px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.dashboard{grid-template-columns:1fr}}
 @media(max-width:680px){.metrics{grid-template-columns:1fr}.title{font-size:25px}.hero{align-items:flex-start}.heroActions{width:100%}.button{flex:1}.nav{width:100%;overflow:auto;flex-wrap:nowrap}.navButton{white-space:nowrap}}
+
+/* Keep the finance action title, description and arrow in separate readable columns. */
+.actionButton>span:nth-child(2){display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
+.actionButton .actionLabel,.actionButton .actionSub{display:block;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
+.actionButton .arrow{display:block;justify-self:end}

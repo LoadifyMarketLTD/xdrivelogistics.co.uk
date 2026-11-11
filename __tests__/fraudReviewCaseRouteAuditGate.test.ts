@@ -56,7 +56,7 @@ beforeEach(() => {
     return {
       select: () => ({
         eq: () => ({
-          maybeSingle: async () => ({ data: { role: 'owner' }, error: null }),
+          maybeSingle: async () => ({ data: { role: 'owner', status: 'active' }, error: null }),
         }),
       }),
     };
@@ -64,6 +64,27 @@ beforeEach(() => {
 });
 
 describe('PATCH /api/super-admin/compliance/fraud-cases — audited deployment gate', () => {
+  it('rejects a suspended platform owner before calling the audited RPC', async () => {
+    mocks.from.mockImplementationOnce((table: string) => {
+      expect(table).toBe('profiles');
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: { role: 'owner', status: 'suspended' }, error: null }),
+          }),
+        }),
+      };
+    });
+
+    const response = await PATCH(requestFor({
+      caseId: CASE_ID,
+      action: 'clear',
+      reason: 'Reviewed identity evidence',
+    }));
+
+    expect(response.status).toBe(403);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
   it('calls only the versioned audited RPC and returns its complete result', async () => {
     mocks.rpc.mockResolvedValue({
       data: [{ case_id: CASE_ID, old_status: 'open', new_status: 'investigating' }],

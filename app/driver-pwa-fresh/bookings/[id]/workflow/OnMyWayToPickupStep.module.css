@@ -1,0 +1,17 @@
+.mapCard{padding:0 0 14px}
+.map{height:210px;background:#e8eef4;overflow:hidden}
+.map :global(.leaflet-container){height:100%;min-height:210px}
+.mapActions{display:flex;justify-content:flex-end;padding:10px 14px 0}
+.details{padding-bottom:0}
+.locationRow{display:grid;grid-template-columns:24px 1fr;gap:10px;padding:0 14px 12px}
+.pin{width:16px;height:16px;margin:4px auto 0;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#16a34a}
+.locationRow>div{display:grid;gap:4px}
+.locationRow strong{font-size:15px;line-height:21px}
+.locationRow span{color:#6b7280;font-size:12px;font-weight:600}
+.contactRow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 14px 12px;padding-top:10px;border-top:1px solid #edf0f3}
+.contactRow>div{display:grid;gap:2px}
+.contactRow span,.instructions>span{color:#6b7280;font-size:11px;font-weight:750;text-transform:uppercase}
+.contactRow strong{font-size:14px}
+.contactRow a{min-height:36px;display:inline-flex;align-items:center;padding:0 12px;border-radius:9px;background:#eef6fd;color:#0b57a5;text-decoration:none;font-size:12px;font-weight:800}
+.instructions{margin:0 14px 12px;padding:10px;border-radius:10px;background:#f7f9fb}
+.instructions p{margin:4px 0 0;font-size:13px;line-height:18px}

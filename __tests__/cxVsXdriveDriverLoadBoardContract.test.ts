@@ -21,14 +21,20 @@ describe('CX vs XDrive driver load board contract', () => {
 
   it('shows the active quote at carrier-company level when a company context exists', () => {
     expect(source).toContain("bidQuery.eq('company_id', driver.companyId)");
-    expect(source).toContain("bidQuery.eq('bidder_user_id', driver.userId)");
+    expect(source).toContain('bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`)');
+    expect(source).toContain("quotedHistoryQuery.eq('company_id', driver.companyId)");
   });
 
   it('keeps exact pickup and delivery coordinates out of the pre-award response while allowing internal routing', () => {
-    expect(source).toContain("pickup_area: publicAreaLabel(job.pickup_postcode");
-    expect(source).toContain("delivery_area: publicAreaLabel(job.delivery_postcode");
-    expect(source).toContain('distance_to_pickup_miles: marketplaceNumber(job.distance_to_pickup_miles)');
-    expect(source).toContain('pickup_eta_minutes: marketplaceNumber(job.pickup_eta_minutes)');
+    expect(source).toContain("pickup_area: marketplaceText(job.pickup_city) ?? publicAreaLabel(job.pickup_postcode");
+    expect(source).toContain("delivery_area: marketplaceText(job.delivery_city) ?? publicAreaLabel(job.delivery_postcode");
+    expect(source).toContain('pickup_postcode_area: publicOutcode(job.pickup_postcode)');
+    expect(source).toContain('delivery_postcode_area: publicOutcode(job.delivery_postcode)');
+    expect(source).toContain('pickup_postcode_full: null');
+    expect(source).toContain('delivery_postcode_full: null');
+    expect(source).toContain('const validCoordinates = marketplaceCoordinates;');
+    expect(source).toContain('distance_to_pickup_miles: null');
+    expect(source).toContain('pickup_eta_minutes: null');
     expect(source).not.toContain('pickup_lat: marketplaceNumber(job.pickup_lat)');
     expect(source).not.toContain('pickup_lng: marketplaceNumber(job.pickup_lng)');
     expect(source).not.toContain('delivery_lat: marketplaceNumber(job.delivery_lat)');

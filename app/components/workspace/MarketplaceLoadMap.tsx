@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css';
 import './MarketplaceLoadMap.css';
 
 import { ActionButton } from './WorkspaceUI';
+import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 
 export type MarketplaceLoadMapItem = {
   id: string;
@@ -69,6 +70,7 @@ export default function MarketplaceLoadMap({
   const [locating, setLocating] = useState(false);
   const [providerWarning, setProviderWarning] = useState('');
   const [selectedClusterKey, setSelectedClusterKey] = useState<string | null>(null);
+  const [routeNotice, setRouteNotice] = useState('');
 
   const outcodes = useMemo(
     () => [...new Set(loads.flatMap((load) => [publicOutcodeFor(load), publicDeliveryOutcodeFor(load)]).filter(Boolean))],
@@ -194,6 +196,51 @@ export default function MarketplaceLoadMap({
         marker.on('click', () => setSelectedClusterKey(cluster.key));
       }
 
+      // Fit the actual job areas, not a continent-wide default view.
+      // The road geometry is retrieved only for the selected/single load;
+      // never request routing for every marketplace result.
+      const focusId = new URLSearchParams(window.location.search).get('load');
+      const focusedLoad = locatedLoads.find(load => load.id === focusId)
+        ?? (locatedLoads.length === 1 ? locatedLoads[0] : null);
+      if (focusedLoad?.deliveryCoordinates) {
+        const from = focusedLoad.coordinates;
+        const to = focusedLoad.deliveryCoordinates;
+        const auth = await readRouteAuthHeader();
+        if (!mounted) return;
+        if (auth) {
+          try {
+            const params = new URLSearchParams({
+              aLat: String(from.lat), aLng: String(from.lng),
+              bLat: String(to.lat), bLng: String(to.lng),
+            });
+            const response = await fetch('/api/driver/web/public-route?' + params, {
+              headers: { Authorization: auth }, cache: 'no-store',
+              signal: AbortSignal.timeout(11000),
+            });
+            if (response.ok) {
+              const result = await response.json() as {
+                geometry?: { type?: string; coordinates?: number[][] };
+                distanceMiles?: number;
+              };
+              const points = result.geometry?.type === 'LineString'
+                ? (result.geometry.coordinates ?? [])
+                    .filter(pair => Array.isArray(pair) && pair.length >= 2 && Number.isFinite(pair[0]) && Number.isFinite(pair[1]))
+                    .map(pair => [pair[1], pair[0]] as [number, number])
+                : [];
+              if (!mounted) return;
+              if (points.length > 1) {
+                const road = L.polyline(points, { color: '#1D57D8', weight: 5, opacity: 0.92 }).addTo(map);
+                map.fitBounds(road.getBounds(), { padding: [28, 28], maxZoom: 11 });
+                setRouteNotice('Driving route between approximate collection and delivery areas.');
+                return;
+              }
+            }
+          } catch { /* Keep public area markers as a safe fallback. */ }
+        }
+        setRouteNotice('Road routing unavailable; showing approximate collection and delivery areas.');
+      } else {
+        setRouteNotice('');
+      }
       const boundsCoordinates = locatedLoads.flatMap((load) => [
         [load.coordinates.lat, load.coordinates.lng] as [number, number],
         ...(load.deliveryCoordinates ? [[load.deliveryCoordinates.lat, load.deliveryCoordinates.lng] as [number, number]] : []),
@@ -231,6 +278,7 @@ export default function MarketplaceLoadMap({
         <span>Dashed arrow = pickup → delivery direction using public outcodes</span>
       </div>
       {providerWarning && <div className="marketplace-radar-warning" role="status">{providerWarning}</div>}
+      {routeNotice && <div className="marketplace-radar-warning" role="status">{routeNotice}</div>}
       <div ref={containerRef} className="marketplace-radar-map" aria-label="Interactive Freight Radar Map" />
 
       {selectedCluster && (

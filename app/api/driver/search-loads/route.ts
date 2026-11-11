@@ -35,12 +35,14 @@ type SearchLoadRow = Record<string, unknown> & {
   status: string | null;
   current_status: string | null;
   pickup_location: string | null;
+  pickup_city: string | null;
   pickup_postcode: string | null;
   pickup_lat: number | string | null;
   pickup_lng: number | string | null;
   pickup_datetime: string | null;
   pickup_time_slot: string | null;
   delivery_location: string | null;
+  delivery_city: string | null;
   delivery_postcode: string | null;
   delivery_lat: number | string | null;
   delivery_lng: number | string | null;
@@ -78,8 +80,8 @@ type SearchLoadRow = Record<string, unknown> & {
 // spread into the response DTO.
 const SEARCH_SELECT = [
   'id', 'company_id', 'status', 'current_status',
-  'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot',
-  'delivery_location', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
+  'pickup_location', 'pickup_city', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot',
+  'delivery_location', 'delivery_city', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
   'pickup_country_code', 'delivery_country_code',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label',
   'cargo_type', 'requested_cargo_label', 'pallets', 'weight_kg',
@@ -342,11 +344,11 @@ export async function GET(request: NextRequest) {
       company_id: row.company_id,
       status: row.status,
       current_status: row.current_status,
-      pickup_location: publicAreaLabel(row.pickup_postcode, row.pickup_country_code, 'Collection area TBC'),
+      pickup_location: [marketplaceText(row.pickup_city), publicOutcode(row.pickup_postcode)].filter(Boolean).join(', ') || publicAreaLabel(row.pickup_postcode, row.pickup_country_code, 'Collection area TBC'),
       pickup_postcode: publicOutcode(row.pickup_postcode),
       pickup_datetime: row.pickup_datetime,
       pickup_time_slot: row.pickup_time_slot,
-      delivery_location: publicAreaLabel(row.delivery_postcode, row.delivery_country_code, 'Delivery area TBC'),
+      delivery_location: [marketplaceText(row.delivery_city), publicOutcode(row.delivery_postcode)].filter(Boolean).join(', ') || publicAreaLabel(row.delivery_postcode, row.delivery_country_code, 'Delivery area TBC'),
       delivery_postcode: publicOutcode(row.delivery_postcode),
       delivery_datetime: row.delivery_datetime,
       delivery_time_slot: row.delivery_time_slot,

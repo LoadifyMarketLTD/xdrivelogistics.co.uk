@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { PDFDocument } from 'pdf-lib';
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from './invoicePdf';
@@ -408,11 +409,12 @@ export async function submitInvoice(
       customerReference: cleanHeader(claimedInvoice.customer_ref) || null,
       loadId: cleanHeader(claimedInvoice.load_id) || null,
       orderedAt: cleanHeader(claimedInvoice.ordered_at) || null,
-      leftAt: cleanHeader(claimedInvoice.left_at) || null,
-      deliveryNotes: cleanTemplateText(claimedInvoice.delivery_notes, 500) || null,
+      leftAt: pdfContext.leftAt || cleanHeader(claimedInvoice.left_at) || null,
+      deliveryNotes: pdfContext.deliveryNotes || cleanTemplateText(claimedInvoice.delivery_notes, 500) || null,
       pickupLocation: claimedInvoice.pickup_location as string | null,
       pickupDateTime: pdfContext.pickupDateTime ?? claimedInvoice.pickup_datetime as string | null,
       deliveryLocation: claimedInvoice.delivery_location as string | null,
+      deliveredAt: pdfContext.deliveredAt || cleanHeader(claimedInvoice.delivered_at) || null,
       deliveryDateTime: pdfContext.deliveryDateTime || cleanHeader(claimedInvoice.delivered_at) || cleanHeader(claimedInvoice.delivery_datetime) || null,
       recipientName: pdfContext.recipientName || cleanHeader(claimedInvoice.delivery_recipient) || cleanHeader(claimedInvoice.recipient_name) || null,
       cargoDescription: pdfContext.cargoDescription || cleanHeader(claimedInvoice.cargo_summary) || null,
@@ -425,6 +427,11 @@ export async function submitInvoice(
       logoBytes: pdfContext.logoBytes,
       evidenceImages: pdfContext.evidenceImages,
       signatureAttestation: pdfContext.signatureAttestation,
+      podSummary: pdfContext.podSummary,
+      podDetails: pdfContext.podDetails,
+      podHandover: pdfContext.podHandover,
+      podSignatureDataUrl: pdfContext.podSignatureDataUrl,
+      podDeliveryPhotoCount: pdfContext.podDeliveryPhotoCount,
       netAmount,
       vatAmount,
       vatRate,
@@ -440,6 +447,11 @@ export async function submitInvoice(
     );
   }
 
+  // Never send an invoice without the signed POD companion and its evidence.
+  const combined = await PDFDocument.load(pdfBytes).catch(() => null);
+  if (claimedInvoice.job_id && (!combined || combined.getPageCount() < 3 || !pdfContext.podSummary)) {
+    return failDelivery(409, 'Combined invoice and signed POD are incomplete; email was not sent.');
+  }
   if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
   }
@@ -509,8 +521,29 @@ export async function submitInvoice(
       html: messageToHtml(resolvedMessage),
       attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
     };
+    if (!Array.isArray(emailBody.attachments) || emailBody.attachments.length !== 1) return failDelivery(409, 'Exactly one combined PDF attachment is required.');
+    const frozenAttachment = emailBody.attachments[0] as { content: string };
+    const frozen = await PDFDocument.load(Buffer.from(frozenAttachment.content, 'base64')).catch(() => null);
+    if (claimedInvoice.job_id && (!frozen || frozen.getPageCount() < 3)) return failDelivery(409, 'Frozen invoice attachment is incomplete.');
     const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
     if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
+  }
+  // Validate frozen payloads too: retries must not bypass the combined PDF rule.
+  const attachments = emailBody?.attachments;
+  if (!Array.isArray(attachments) || attachments.length !== 1) {
+    return failDelivery(409, 'Exactly one combined invoice and POD PDF attachment is required.');
+  }
+  const attachment = attachments[0];
+  if (!attachment || typeof attachment !== 'object' || typeof attachment.content !== 'string' || typeof attachment.filename !== 'string' || !attachment.filename.toLowerCase().endsWith('.pdf')) {
+    return failDelivery(409, 'The frozen invoice PDF attachment is invalid.');
+  }
+  const frozenBytes = Buffer.from(attachment.content, 'base64');
+  if (!frozenBytes.length || frozenBytes.length > 10 * 1024 * 1024) {
+    return failDelivery(409, 'The frozen invoice PDF attachment exceeds the allowed size or is empty.');
+  }
+  const verifiedPdf = await PDFDocument.load(frozenBytes).catch(() => null);
+  if (!verifiedPdf || (claimedInvoice.job_id && verifiedPdf.getPageCount() < 3)) {
+    return failDelivery(409, 'The frozen combined invoice and signed POD are incomplete.');
   }
   const attemptedAt = new Date().toISOString();
 

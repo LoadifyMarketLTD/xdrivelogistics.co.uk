@@ -65,8 +65,8 @@ describe('global operational postcode autocomplete', () => {
 
   it('prioritises the fast postcode-fragment provider before commercial provider timeouts', () => {
     const route = read('app/api/location/postcode-addresses/route.ts');
-    const fastBranch = route.indexOf('if (postcodeLikeQuery)');
-    const idealBranch = route.indexOf('if (idealKey && !exactPostcode)');
+    const fastBranch = route.indexOf('if (postcodeLikeQuery && !exactPostcode)');
+    const idealBranch = route.indexOf('if (paidFallbackEnabled && idealKey && !exactPostcode)');
     expect(fastBranch).toBeGreaterThanOrEqual(0);
     expect(idealBranch).toBeGreaterThan(fastBranch);
     expect(route).toContain("provider: 'photon-openstreetmap'");
@@ -80,5 +80,16 @@ describe('global operational postcode autocomplete', () => {
 
   it('keeps the shared resolver mounted in the common workspace shell', () => {
     expect(read('app/components/workspace/TopWorkspaceShell.tsx')).toContain('<OperationalPostcodeAreaResolver />');
+  });
+});
+
+describe('non-duplicating address labels', () => {
+  it('does not append postcode and GB when the provider already includes them', () => {
+    expect(operationalAddressSuggestionLabel('13 Sandcliff Road, Erith, DA8 1NY, GB', 'DA81NY'))
+      .toBe('13 Sandcliff Road, Erith, DA8 1NY, GB');
+  });
+  it('deduplicates compact/spaced postcodes and country suffixes case-insensitively', () => {
+    expect(operationalAddressSuggestionLabel('Erith, DA81NY, GB, gb', 'DA8 1NY'))
+      .toBe('Erith, DA81NY, GB');
   });
 });

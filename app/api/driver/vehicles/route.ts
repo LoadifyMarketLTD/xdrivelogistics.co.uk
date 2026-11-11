@@ -193,7 +193,9 @@ export async function POST(request: NextRequest) {
   }
 
   let assignToSelf = false;
-  if (isOwnerDriver && !canManageCompanyVehicles) {
+  // Owner-drivers must own their active vehicle assignment even when their
+  // account also carries the company owner/admin membership.
+  if (isOwnerDriver) {
     const existing = await admin
       .from('vehicles')
       .select('id')
@@ -218,7 +220,7 @@ export async function POST(request: NextRequest) {
 
   const { data: inserted, error: insertError } = await admin
     .from('vehicles')
-    .insert({ ...parsed.data, company_id: companyId, ...(assignToSelf ? { assigned_driver_id: driverId } : {}) })
+    .insert({ ...parsed.data, vehicle_type: parsed.data.type, registration: parsed.data.reg_plate ?? null, company_id: companyId, ...(assignToSelf ? { assigned_driver_id: driverId } : {}) })
     .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
     .maybeSingle();
 
@@ -327,7 +329,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: updated, error: updateError } = await admin
     .from('vehicles')
-    .update(updateFields)
+    .update({ ...updateFields, ...(updateFields.type ? { vehicle_type: updateFields.type } : {}), ...(updateFields.reg_plate ? { registration: updateFields.reg_plate } : {}) })
     .eq('id', vehicleId)
     .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
     .maybeSingle();

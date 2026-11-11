@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { operationalError } from '../../../_lib/operationalError';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import {
+  marketplaceCoordinates,
   marketplaceNumber,
   marketplaceText,
   proposedPriceAmount,
@@ -49,13 +50,8 @@ type CompanyRow = {
   created_at: string | null;
 };
 
-type ProfileRow = {
-  user_id: string;
-  full_name: string | null;
-  xd_id: string | null;
-};
-
 type BidRow = {
+  id: string;
   job_id: string;
   status: string | null;
   bid_price_gbp: number | string | null;
@@ -72,6 +68,8 @@ function visibilityAllows(job: JobRow, driverCompanyId: string | null) {
 }
 
 function exchangePostActive(job: JobRow, nowMs = Date.now()) {
+  const collectionAt=marketplaceText(job.pickup_datetime);
+  if(!collectionAt || !Number.isFinite(Date.parse(collectionAt)) || Date.parse(collectionAt)<=nowMs) return false;
   const expiresAt = marketplaceText(job.exchange_expires_at);
   if (!expiresAt) return true;
   const expires = new Date(expiresAt).getTime();
@@ -81,14 +79,10 @@ function exchangePostActive(job: JobRow, nowMs = Date.now()) {
 function publicLoad(
   job: JobRow,
   companyById: Map<string, CompanyRow>,
-  profileByUserId: Map<string, ProfileRow>,
   bidByJobId: Map<string, BidRow>,
 ) {
   const companyId = marketplaceText(job.company_id) ?? '';
   const company = companyById.get(companyId) ?? null;
-  const createdBy = marketplaceText(job.created_by);
-  const posterProfile = createdBy ? profileByUserId.get(createdBy) ?? null : null;
-  const postedBy = posterProfile?.full_name ?? null;
   const memberId = company?.xd_id ?? null;
   const bid = bidByJobId.get(String(job.id)) ?? null;
 
@@ -96,14 +90,14 @@ function publicLoad(
     id: String(job.id),
     company_id: companyId,
     status: marketplaceText(job.status) ?? 'posted',
-    pickup_area: publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area TBC'),
+    pickup_area: marketplaceText(job.pickup_city) ?? publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area TBC'),
     pickup_postcode_area: publicOutcode(job.pickup_postcode),
     // Pre-award marketplace privacy: never expose the exact pickup postcode to quoting drivers.
     pickup_postcode_full: null,
     pickup_datetime: marketplaceText(job.pickup_datetime),
     pickup_time_slot: marketplaceText(job.pickup_time_slot),
     collection_window_end: marketplaceText(job.collection_window_end),
-    delivery_area: publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area TBC'),
+    delivery_area: marketplaceText(job.delivery_city) ?? publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area TBC'),
     delivery_postcode_area: publicOutcode(job.delivery_postcode),
     // Pre-award marketplace privacy: never expose the exact delivery postcode to quoting drivers.
     delivery_postcode_full: null,
@@ -137,10 +131,11 @@ function publicLoad(
     direct_delivery_required: job.direct_delivery_required === true,
     distance_miles: marketplaceNumber(job.job_distance_miles ?? job.distance_miles),
     distance_minutes: marketplaceNumber(job.job_distance_minutes),
-    distance_to_pickup_miles: marketplaceNumber(job.distance_to_pickup_miles),
-    pickup_eta_minutes: marketplaceNumber(job.pickup_eta_minutes),
+    // Driver-specific pickup proximity is added only after verified GPS lookup.
+    distance_to_pickup_miles: null,
+    pickup_eta_minutes: null,
     is_fixed_price: job.is_fixed_price === true,
-    budget_amount: proposedPriceAmount(job.budget_amount),
+    budget_amount: job.is_fixed_price === true ? proposedPriceAmount(job.budget_amount) : null,
     currency: marketplaceText(job.currency) ?? 'GBP',
     exchange_posted_at: marketplaceText(job.exchange_posted_at),
     hard_copy_pod: marketplaceText(job.hard_copy_pod),
@@ -151,12 +146,13 @@ function publicLoad(
       companyId,
       name: company?.name ?? 'Marketplace member',
       memberId,
-      phone: company?.phone ?? null,
+      phone: null, // Company telephone is shared only after accepted booking.
       memberType: company?.company_type ?? null,
       memberSince: company?.created_at ?? null,
-      postedBy,
+      postedBy: null, // Named poster contact remains private pre-booking.
     },
     myBid: bid ? {
+      id: bid.id,
       status: bid.status,
       amount: marketplaceNumber(bid.bid_price_gbp ?? bid.amount),
       message: bid.message,
@@ -186,10 +182,12 @@ export async function GET(request: NextRequest) {
 
   let quotedJobIds: string[] = [];
   if (quotedHistory) {
-    const { data: quotedRows, error: quotedRowsError } = await supabaseAdmin
+    const quotedHistoryQuery = supabaseAdmin
       .from('job_bids')
-      .select('job_id')
-      .eq('bidder_user_id', driver.userId)
+      .select('job_id');
+    const { data: quotedRows, error: quotedRowsError } = await (driver.companyId
+      ? quotedHistoryQuery.eq('company_id', driver.companyId)
+      : quotedHistoryQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`))
       .order('created_at', { ascending: false })
       .limit(LIST_LIMIT);
     if (quotedRowsError) {
@@ -205,9 +203,28 @@ export async function GET(request: NextRequest) {
     if (quotedJobIds.length === 0) return respond(200, { loads: [] });
   }
 
+  // Do not fetch the full jobs row for a 150-record marketplace listing.
+  // Documents, signatures, photos and contact details are not required for
+  // quote-safe summary cards; transferring them delays the Reserve PWA.
+  const publicLoadColumns = [
+    'id','company_id','created_by','status','current_status',
+    'awarded_carrier_company_id','exchange_posted_at','exchange_expires_at',
+    'exchange_visibility','direct_invite_company_id','pickup_datetime','pickup_time_slot',
+    'pickup_city','pickup_postcode','pickup_country_code','pickup_lat','pickup_lng',
+    'collection_window_end','delivery_datetime','delivery_time_slot',
+    'delivery_city','delivery_postcode','delivery_country_code','delivery_lat','delivery_lng',
+    'vehicle_type','requested_vehicle_type','requested_vehicle_label',
+    'cargo_type','requested_cargo_label','weight_kg','pallets',
+    'length_cm','width_cm','height_cm','cargo_value_gbp','pallet_type','pallet_stackable',
+    'collection_forklift_available','collection_tail_lift_required','collection_handball_required',
+    'delivery_forklift_available','delivery_tail_lift_required','delivery_handball_required',
+    'service_mode','load_type','direct_delivery_required','distance_miles',
+    'job_distance_miles','job_distance_minutes','is_fixed_price','budget_amount',
+    'currency','hard_copy_pod','pod_required','payment_terms','load_details',
+  ].join(',');
   let query = supabaseAdmin
     .from('jobs')
-    .select('*')
+    .select(publicLoadColumns)
     .order('exchange_posted_at', { ascending: false });
 
   if (quotedHistory) {
@@ -243,7 +260,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const jobs = ((rawJobs ?? []) as JobRow[]).filter((job) => {
+  const jobs = ((rawJobs ?? []) as unknown as JobRow[]).filter((job) => {
     const companyId = marketplaceText(job.company_id);
     if (!companyId) return false;
     if (driver.companyId && companyId === driver.companyId) return false;
@@ -266,31 +283,23 @@ export async function GET(request: NextRequest) {
       .map((job) => marketplaceText(job.company_id))
       .filter((value): value is string => Boolean(value)),
   )];
-  const createdByIds = [...new Set(
-    jobs
-      .map((job) => marketplaceText(job.created_by))
-      .filter((value): value is string => Boolean(value)),
-  )];
 
   const bidQuery = jobIds.length
     ? supabaseAdmin
         .from('job_bids')
-        .select('job_id, status, bid_price_gbp, amount, message')
+        .select('id, job_id, status, bid_price_gbp, amount, message')
         .in('job_id', jobIds)
         .order('created_at', { ascending: false })
     : null;
 
-  const [companiesResult, profilesResult, bidsResult] = await Promise.all([
+  const [companiesResult, bidsResult] = await Promise.all([
     companyIds.length
       ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
       : Promise.resolve({ data: [], error: null }),
-    createdByIds.length
-      ? supabaseAdmin.from('profiles').select('user_id, full_name, xd_id').in('user_id', createdByIds)
-      : Promise.resolve({ data: [], error: null }),
     bidQuery
-      ? driver.companyId
-        ? bidQuery.eq('company_id', driver.companyId)
-        : bidQuery.eq('bidder_user_id', driver.userId)
+      ? (driver.companyId
+          ? bidQuery.eq('company_id', driver.companyId)
+          : bidQuery.or(`bidder_user_id.eq.${driver.userId},bidder_driver_id.eq.${driver.driverId}`))
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -307,11 +316,15 @@ export async function GET(request: NextRequest) {
   const companyById = new Map(
     ((companiesResult.data ?? []) as CompanyRow[]).map((row) => [row.id, row]),
   );
-  const profileByUserId = new Map(
-    profilesResult.error
-      ? []
-      : ((profilesResult.data ?? []) as ProfileRow[]).map((row) => [row.user_id, row]),
-  );
+  if (bidsResult.error) {
+    return operationalError({
+      status: 500,
+      message: quotedHistory ? 'Your quote history could not be loaded. Please retry.' : 'Marketplace quote information could not be loaded. Please retry.',
+      context: quotedHistory ? 'driver.marketplace.loads.quote-history-bid-details' : 'driver.marketplace.loads.bid-details',
+      cause: bidsResult.error,
+      retryable: true,
+    });
+  }
   const bidByJobId = new Map<string, BidRow>();
   if (!bidsResult.error) {
     for (const bid of (bidsResult.data ?? []) as BidRow[]) {
@@ -334,11 +347,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
   ]);
 
-  const validCoordinates = (lat: unknown, lng: unknown) => {
-    const parsedLat = Number(lat);
-    const parsedLng = Number(lng);
-    return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
-  };
+  const validCoordinates = marketplaceCoordinates;
   const latestPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
   const recordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
   const jobLocationFresh = latestPosition !== null
@@ -365,10 +374,16 @@ export async function GET(request: NextRequest) {
 
   const loads = await Promise.all(jobs.map(async (job) => {
     const pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
+    const delivery = validCoordinates(job.delivery_lat, job.delivery_lng);
+    const distanceToDeliveryMiles = driverPosition && delivery
+      ? Number(distanceMiles(driverPosition, delivery).toFixed(1))
+      : null;
+    // These are driver-specific metrics. Never re-use a generic job distance or ETA
+    // as if it had been measured from a driver whose GPS position is unknown.
     let distanceToPickupMiles = driverPosition && pickup
       ? Number(distanceMiles(driverPosition, pickup).toFixed(1))
-      : marketplaceNumber(job.distance_to_pickup_miles);
-    let pickupEtaMinutes = marketplaceNumber(job.pickup_eta_minutes);
+      : null;
+    let pickupEtaMinutes: number | null = null;
 
     // The list endpoint must not wait on external routing/geocoding per job.
     // A single Load Detail request may enrich exact road distance/ETA on demand.
@@ -381,8 +396,9 @@ export async function GET(request: NextRequest) {
     }
 
     return {
-      ...publicLoad(job, companyById, profileByUserId, bidByJobId),
+      ...publicLoad(job, companyById, bidByJobId),
       distance_to_pickup_miles: distanceToPickupMiles,
+      distance_to_delivery_miles: distanceToDeliveryMiles,
       pickup_eta_minutes: pickupEtaMinutes,
     };
   }));

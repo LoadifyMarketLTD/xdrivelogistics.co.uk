@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { townFromPostingAddress, validPostingTown } from '../../../lib/loadPostingTown';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 const fieldStyle = {
@@ -43,70 +44,146 @@ export const normalizeOperationalPostcode = (value: string) => {
 const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizeOperationalPostcode(value));
 
 export const operationalAddressSuggestionLabel = (address: string, postcode: string) => {
-  const normalized = normalizeOperationalPostcode(postcode);
-  return [address.trim(), normalized, 'GB'].filter(Boolean).join(', ');
+  const parts = [...address.split(',').map(part => part.trim()), normalizeOperationalPostcode(postcode), 'GB'];
+  const seen = new Set<string>();
+  return parts.filter(part => {
+    const key = part.toUpperCase().replace(/\s/g, '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).join(', ');
 };
 
 export default function PostcodeAddressField({
   postcode,
   address,
   onAddress,
+  onTown,
+  onPostcodeResolved,
   error,
 }: {
   postcode: string;
   address: string;
   onAddress: (value: string) => void;
+  onTown?: (value: string) => void;
+  onPostcodeResolved?: (value: string) => void;
   error?: string;
 }) {
   const onAddressRef = useRef(onAddress);
+  const onTownRef = useRef(onTown);
   const addressRef = useRef(address);
+  const addressPostcodeRef = useRef({ address, postcode: normalizeOperationalPostcode(postcode) });
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [towns,setTowns]=useState<Record<string,string>>({});
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const [lookupComplete, setLookupComplete] = useState(false);
+  const [postcodeFound, setPostcodeFound] = useState<boolean | null>(null);
 
   useEffect(() => {
     onAddressRef.current = onAddress;
   }, [onAddress]);
 
   useEffect(() => {
+    onTownRef.current = onTown;
+  }, [onTown]);
+
+  useEffect(() => {
     addressRef.current = address;
-  }, [address]);
+    if (addressPostcodeRef.current.address !== address) {
+      addressPostcodeRef.current = { address, postcode: normalizeOperationalPostcode(postcode) };
+    }
+  }, [address, postcode]);
+
+  // Town resolution must not depend on finding or selecting a street address.
+  useEffect(() => {
+    const normalized = normalizeOperationalPostcode(postcode);
+    if (!onTownRef.current || !isFullUkPostcode(normalized)) return;
+    const controller = new AbortController();
+    let retryTimer: number | undefined;
+    const resolveTown = async (attempt: number) => {
+      try {
+        const response = await fetch('/api/location/postcode-area?' + new URLSearchParams({ q: normalized, town: '1' }), {
+          cache: 'no-store',
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]),
+        });
+        const payload = await response.json() as { town?: string | null };
+        if (controller.signal.aborted) return;
+        if (response.ok && payload.town && validPostingTown(payload.town)) {
+          onTownRef.current?.(payload.town);
+          return;
+        }
+        if (response.status === 404 || response.status === 400) return;
+      } catch { if (controller.signal.aborted) return; }
+      if (attempt === 0) retryTimer = window.setTimeout(() => void resolveTown(1), 750);
+    };
+    const timer = window.setTimeout(() => void resolveTown(0), 180);
+    return () => { controller.abort(); window.clearTimeout(timer); window.clearTimeout(retryTimer); };
+  }, [postcode]);
 
   useEffect(() => {
     const normalized = normalizeOperationalPostcode(postcode);
     setSuggestions([]);
+    setTowns({});
     setOpen(false);
+    setLookupComplete(false);
+    setPostcodeFound(null);
 
-    if (!isFullUkPostcode(normalized)) {
+    if (postcode.replace(/\s/g, "").length < 3) {
       setLoading(false);
       return;
     }
 
     let cancelled = false;
+    const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
         const token = readRouteAuthAccessToken();
         if (!token) return;
 
-        const params = new URLSearchParams({ postcode: normalized });
+        const params = isFullUkPostcode(normalized) ? new URLSearchParams({postcode:normalized}) : new URLSearchParams({q:postcode.trim()});
         const response = await fetch(`/api/location/postcode-addresses?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
+          signal: AbortSignal.any([controller.signal,AbortSignal.timeout(15000)]),
         });
-        if (!response.ok) return;
+        if (!response.ok) {
+          if (!cancelled) setLookupComplete(true);
+          return;
+        }
 
-        const payload = await response.json() as { suggestions?: unknown; configured?: boolean };
+        const payload = await response.json() as { suggestions?: unknown; towns?: Record<string,string>; configured?: boolean; provider?: string | null; postcodeFound?: boolean | null };
         if (payload.configured === false) return;
 
+        const expected = normalized.replace(/\s/g, '').toUpperCase();
+        const verifiedExactProvider = isFullUkPostcode(normalized) && ['ideal-postcodes', 'getaddress'].includes(payload.provider || '');
         const next = Array.isArray(payload.suggestions)
-          ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).filter(item => { const matches=item.toUpperCase().match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/g) || []; return matches.some(match=>match.replace(/\s/g,'').startsWith(expected)) || (verifiedExactProvider && matches.length === 0); })
           : [];
         if (cancelled) return;
 
         setSuggestions(next);
-        if (!addressRef.current.trim() && next.length === 1) {
+        setTowns(payload.towns ?? {});
+        setPostcodeFound(payload.postcodeFound ?? null);
+        setLookupComplete(true);
+        // Auto-resolve only when every suggestion agrees on the same verified town.
+        // Never mistake administrative districts such as London Borough of Bexley for a post town.
+        const candidates = next.map(label => {
+          const supplied = payload.towns?.[label]?.trim();
+          if (supplied && validPostingTown(supplied)) return supplied;
+          const parts = label.split(',').map(part => part.trim());
+          const postcodeIndex = parts.findIndex(part => isFullUkPostcode(part));
+          const candidate = postcodeIndex >= 2 ? parts[postcodeIndex - 1] : '';
+          return validPostingTown(candidate) ? candidate : '';
+        });
+        const resolved = candidates.length > 0 && candidates.every(town => town && town.toLowerCase() === candidates[0].toLowerCase()) ? candidates[0] : '';
+        const sourceTown = addressPostcodeRef.current.postcode === normalized ? townFromPostingAddress(addressRef.current, normalized) : '';
+        if ((sourceTown || resolved) && isFullUkPostcode(normalized)) onTownRef.current?.(sourceTown || resolved);
+        if (isFullUkPostcode(normalized) && !addressRef.current.trim() && next.length === 1) {
           onAddressRef.current(next[0]);
+          const confirmedTown=payload.towns?.[next[0]];
+          if (confirmedTown && validPostingTown(confirmedTown)) onTownRef.current?.(confirmedTown);
           setOpen(false);
         } else {
           setOpen(next.length > 0);
@@ -114,7 +191,9 @@ export default function PostcodeAddressField({
       } catch {
         if (!cancelled) {
           setSuggestions([]);
+          setTowns({});
           setOpen(false);
+          setLookupComplete(true);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -123,6 +202,7 @@ export default function PostcodeAddressField({
 
     return () => {
       cancelled = true;
+      controller.abort();
       window.clearTimeout(timer);
     };
   }, [postcode]);
@@ -189,14 +269,34 @@ export default function PostcodeAddressField({
               }}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
+                if (isFullUkPostcode(suggestion)) {
+                  onPostcodeResolved?.(normalizeOperationalPostcode(suggestion));
+                  setOpen(false);
+                  return;
+                }
                 onAddress(suggestion);
+                const found = suggestion.match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/i);
+                if (found) onPostcodeResolved?.(normalizeOperationalPostcode(found[0]));
+                const town=townFromPostingAddress(suggestion, found?.[0] ?? postcode) || towns[suggestion];
+                if(town && validPostingTown(town)) onTown?.(town);
                 setOpen(false);
               }}
             >
-              {operationalAddressSuggestionLabel(suggestion, postcode)}
+              {isFullUkPostcode(suggestion)
+                ? `${normalizeOperationalPostcode(suggestion)}, GB`
+                : operationalAddressSuggestionLabel(suggestion, postcode)}
             </button>
           ))}
         </div>
+      ) : null}
+      {lookupComplete && visibleSuggestions.length === 0 ? (
+        <span aria-live="polite" style={{ color: '#475569', fontSize: '14px', lineHeight: '18px' }}>
+          {isFullUkPostcode(normalizeOperationalPostcode(postcode)) && postcodeFound === true
+            ? 'Postcode confirmed. Enter the property number and street manually.'
+            : isFullUkPostcode(normalizeOperationalPostcode(postcode)) && postcodeFound === false
+              ? 'Postcode not recognised. Check it, then enter the full address manually.'
+              : 'No address suggestions found. You can enter the full address manually.'}
+        </span>
       ) : null}
       {error ? <span style={validationMessageStyle}>{error}</span> : null}
     </label>

@@ -36,7 +36,7 @@ describe('Driver operational message contract', () => {
     expect(customerJobPage).toContain('DriverInstructionPanel');
     expect(customerJobPage).toContain('<DriverInstructionPanel jobId={job.id} />');
     expect(brokerJobsPage).toContain('DriverInstructionPanel');
-    expect(brokerJobsPage).toContain('<DriverInstructionPanel jobId={job.id} />');
+    expect(brokerJobsPage).toMatch(/<DriverInstructionPanel jobId=\{job\.id\}\s*\/>/);
     expect(instructionPanel).toContain('Messages / changes for Driver');
     expect(instructionPanel).toContain('Job details can still be corrected from Edit Job');
   });

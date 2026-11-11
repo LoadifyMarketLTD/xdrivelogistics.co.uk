@@ -317,6 +317,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/live-availability', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'fleet_manager', 'dispatcher'] },
   { prefix: '/admin/freight-vision', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
   { prefix: '/admin/messages', workspace: 'carrier_fleet' },
+  { prefix: '/admin/reports', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
   { prefix: '/admin/event-log', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
   { prefix: '/admin/post-load', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },
   { prefix: '/admin/bulk-import', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },
@@ -378,6 +379,12 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/jobs', workspace: 'broker', anyOf: ['jobs.track'] },
   { prefix: '/broker/diary', workspace: 'broker', anyOf: ['jobs.track'] },
   { prefix: '/broker/messages', workspace: 'broker' },
+  { prefix: '/broker/fleet', workspace: 'broker', anyOf: ['jobs.view'] },
+  { prefix: '/broker/drivers', workspace: 'broker', anyOf: ['jobs.view'] },
+  { prefix: '/broker/directory', workspace: 'broker', anyOf: ['quotes.receive'] },
+  { prefix: '/broker/live-availability', workspace: 'broker', anyOf: ['jobs.track'] },
+  { prefix: '/broker/returns', workspace: 'broker', anyOf: ['jobs.track'] },
+  { prefix: '/broker/freight-vision', workspace: 'broker', anyOf: ['jobs.track'] },
   { prefix: '/broker/event-log', workspace: 'broker', anyOf: ['jobs.view'] },
   { prefix: '/broker/pod-review', workspace: 'broker', anyOf: ['jobs.review_pod'] },
   { prefix: '/broker/finance', workspace: 'broker', anyOf: ['margins.view', 'invoices.customer.manage', 'invoices.carrier.manage'] },
@@ -403,6 +410,13 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/tracking', workspace: 'shipper', anyOf: ['jobs.track'] },
   { prefix: '/customer/diary', workspace: 'shipper', anyOf: ['jobs.view'] },
   { prefix: '/customer/network', workspace: 'shipper', anyOf: ['quotes.receive'] },
+  { prefix: '/customer/fleet', workspace: 'shipper', anyOf: ['jobs.view'] },
+  { prefix: '/customer/drivers', workspace: 'shipper', anyOf: ['jobs.view'] },
+  { prefix: '/customer/directory', workspace: 'shipper', anyOf: ['loads.view.own'] },
+  { prefix: '/customer/live-availability', workspace: 'shipper', anyOf: ['jobs.track'] },
+  { prefix: '/customer/returns', workspace: 'shipper', anyOf: ['jobs.track'] },
+  { prefix: '/customer/freight-vision', workspace: 'shipper', anyOf: ['jobs.track'] },
+  { prefix: '/customer/reports', workspace: 'shipper', anyOf: ['jobs.view'] },
   { prefix: '/customer/disputes', workspace: 'shipper', anyOf: ['jobs.view'] },
   { prefix: '/customer/messages', workspace: 'shipper' },
   { prefix: '/customer/event-log', workspace: 'shipper', anyOf: ['jobs.view'] },
@@ -421,7 +435,10 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/settings', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
-  // owner_operator (/driver)
+  // owner_operator (/driver): the approved PWA is a protected driver entrypoint.
+  // Driver identity, active status and app_access are enforced below before this route is allowed.
+  { prefix: '/driver/official-pwa-live', workspace: 'owner_operator', exact: true },
+  { prefix: '/driver/official-pwa', workspace: 'owner_operator' },
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/support', workspace: 'owner_operator' },
@@ -434,6 +451,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/loads/directory', workspace: 'owner_operator' },
   { prefix: '/driver/nearby', workspace: 'owner_operator' },
   { prefix: '/driver/freight-vision', workspace: 'owner_operator', anyOf: ['jobs.track'] },
+  { prefix: '/driver/reports', workspace: 'owner_operator', anyOf: ['jobs.view'] },
   { prefix: '/driver/fleet', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/drivers-vehicles', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/drivers', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['drivers.manage'] },
@@ -486,7 +504,12 @@ export const isCapabilityAllowedForPath = (
   if (pathMatches(path, '/super-admin')) return workspaceRole === 'platform_owner';
 
   if (pathMatches(path, '/m')) {
-    return workspaceRole === 'driver' || workspaceRole === 'owner_driver';
+    if (!pathMatches(path, '/m/driver')) return false;
+    if (workspaceRole !== 'driver' && workspaceRole !== 'owner_driver') return false;
+    if (!context.driverId || context.appAccess !== true) return false;
+    return isExplicitActiveStatus(context.accountStatus)
+      && isExplicitActiveStatus(context.companyStatus)
+      && isExplicitActiveStatus(context.driverStatus);
   }
 
   if (!isActiveStatus(context.accountStatus) || !isActiveStatus(context.companyStatus)) {

@@ -1,0 +1,56 @@
+/* XDrive Driver Reserve — isolated visual system. Original PWA untouched. */
+:root{--reserve-navy:#172b45;--reserve-orange:#f47721;--reserve-bg:#eef2f7;--reserve-ink:#243850;--reserve-border:#dbe5ef}
+body:has(.reserve-pwa){background:#e7edf5;color:var(--reserve-ink)}
+.reserve-pwa.shell{max-width:720px;background:#f5f7fb;min-height:100dvh;padding-bottom:92px;box-shadow:0 8px 48px #15305016}
+.reserve-pwa:not(.route-view)>header{background:var(--reserve-navy)!important;color:#fff;box-shadow:0 4px 18px #11284025;min-height:78px;padding:14px 18px;border-bottom:3px solid var(--reserve-orange)}
+.reserve-pwa .reserve-identity{gap:11px;letter-spacing:.25px;min-width:0}
+.reserve-pwa .reserve-identity strong{display:block;font-size:16px;line-height:1.1;font-weight:850;color:#fff}
+.reserve-pwa .reserve-identity small{font-size:10px;font-weight:800;color:#c0d0e0;letter-spacing:1.2px;line-height:1.7}
+.reserve-pwa .reserve-brand-mark{height:40px;width:40px;display:grid;place-items:center;background:var(--reserve-orange);color:#fff;font-weight:900;font-size:26px;border-radius:11px;flex-shrink:0}
+.reserve-pwa .headbtn{background:#ffffff17!important;border:1px solid #ffffff2e!important;border-radius:9px!important;padding:10px 12px!important;font-size:13px!important;font-weight:800;white-space:nowrap;color:white!important}
+.reserve-pwa:not(.route-view)>main{padding:18px 14px 26px;background:#f5f7fb}
+.reserve-pwa .heading{margin-bottom:14px;gap:10px}
+.reserve-pwa .heading h1{font-size:25px;line-height:1.2;font-weight:850;color:#1e344e;letter-spacing:-.6px}
+.reserve-pwa .eyebrow{font-size:11px;letter-spacing:1.2px;color:#74879c}
+.reserve-pwa .sandbox{background:#e9f5ee;color:#25774f;border-radius:20px;padding:8px 11px;font-size:10px;max-width:155px}
+.reserve-pwa .card.unified-job-card,.reserve-pwa .card.unified-job-card:has(.booking-card-heading){background:#fff!important;border:1px solid var(--reserve-border)!important;border-radius:14px!important;box-shadow:0 4px 15px #153b5e0b!important;margin-bottom:13px;padding:16px}
+.reserve-pwa .unified-job-card .cardtop>strong,.reserve-pwa .card.unified-job-card:has(.booking-card-heading) .cardtop>strong{font-size:17px!important;line-height:1.3!important;color:#182f4b!important}
+.reserve-pwa .unified-job-card .route,.reserve-pwa .card.unified-job-card:has(.booking-card-heading) .route{background:#f3f7fb!important;border-radius:10px!important;margin:11px 0!important;padding:14px 13px 14px 40px!important}
+.reserve-pwa .unified-job-card .route strong,.reserve-pwa .card.unified-job-card:has(.booking-card-heading) .route strong{font-size:19px!important;line-height:1.2!important;color:#1a3654!important}
+.reserve-pwa .unified-job-card .route small{font-size:13px!important;color:#6d8094!important}
+.reserve-pwa .unified-job-card .route i{background:white!important;border:3px solid #ef7c32!important}
+.reserve-pwa .unified-job-card .route>div:last-child i{border-color:#228763!important}
+.reserve-pwa .job-posted-terms,.reserve-pwa .reference{font-size:12px;color:#6c7f93}
+.reserve-pwa .pill{background:#e8f3eb;color:#19734e;border-radius:20px;padding:7px 10px;font-size:10px;font-weight:850}
+.reserve-pwa .unified-job-card .map-action,.reserve-pwa .card.unified-job-card:has(.booking-card-heading) .map-action{background:#edf3f9!important;color:#234765!important;border:1px solid #d8e5f0!important;border-radius:9px!important;font-size:13px!important;font-weight:800!important;padding:12px!important}
+.reserve-pwa .unified-job-card .booking-card-actions>button,.reserve-pwa .card.unified-job-card:has(.booking-card-heading) .booking-card-actions>button,.reserve-pwa .unified-job-card .actions>button{background:var(--reserve-orange)!important;color:#fff!important;border:1px solid var(--reserve-orange)!important;border-radius:9px!important;font-weight:850!important;padding:12px 10px!important;font-size:13px!important}
+.reserve-pwa .unified-job-card .booking-decision .danger{background:#fff0ee!important;color:#ad4033!important;border-color:#f1cdc7!important}
+.reserve-pwa .unified-job-card .booking-decision .accept-action{background:#1c875e!important;color:#fff!important;border-color:#1c875e!important}
+.reserve-pwa .booking-next,.reserve-pwa .accept-action{background:#1c875e!important;color:#fff!important;border:0!important;border-radius:9px!important;padding:13px!important}
+.reserve-pwa .primary,.reserve-pwa .booking-yellow{background:var(--reserve-orange)!important;color:#fff!important;border-color:var(--reserve-orange)!important;border-radius:9px!important;font-weight:850!important}
+.reserve-pwa .alert-tabs{gap:8px;padding:3px;background:#edf2f8;border-radius:10px}
+.reserve-pwa .alert-tabs button{font-size:13px;border-radius:8px;background:transparent;color:#55708a;padding:11px}
+.reserve-pwa .alert-tabs button.selected{background:#203d5d;color:white}
+.reserve-pwa .booking-detail-sheet,.reserve-pwa .booking-details-root{background:white;border:1px solid #e0e7ef;border-radius:14px;padding:14px}
+.reserve-pwa .booking-detail-hero{border-radius:11px;background:#f3f7fb;padding:15px;margin-bottom:13px}
+.reserve-pwa .booking-detail-hero h2{font-size:19px;color:#1c3653}
+.reserve-pwa .booking-detail-group{border-bottom:1px solid #e9eef4;padding-bottom:14px;margin-bottom:13px}
+.reserve-pwa .booking-detail-group h3{font-size:17px;color:#1e3c5d}
+.reserve-pwa .booking-info-row{font-size:13px;line-height:1.45}
+.reserve-pwa .booking-info-row b{font-size:12px;color:#62778d}
+.reserve-pwa .booking-timeline{background:white;border:1px solid #e1e9f2;border-radius:13px}
+.reserve-pwa .timeline-current-label{font-size:17px;color:#18344f;border-color:#f47721;border-radius:9px}
+.reserve-pwa input,.reserve-pwa select,.reserve-pwa textarea{font-size:14px;line-height:1.5;border-radius:9px;border-color:#d2dfea}
+.reserve-pwa label{font-size:13px;color:#425c75}
+.reserve-pwa .modal{border-radius:22px 22px 0 0;background:#fff}
+.reserve-pwa .quote-form{background:#fff}
+.reserve-pwa .quote-form h2{font-size:22px;color:#1a3653}
+.reserve-pwa .quote-form .quote-job-summary{background:#f3f6fa;border-radius:11px;padding:13px}
+.reserve-pwa>nav{background:var(--reserve-navy);border-top:2px solid #2a4664;max-width:720px;box-shadow:0 -7px 20px #112a4320}
+.reserve-pwa>nav button{color:#bdcbda;font-size:11px;padding:9px 5px}
+.reserve-pwa>nav button span{font-size:20px}
+.reserve-pwa>nav button.active{color:#ff9b5b}
+.reserve-pwa>nav button.active:after{content:"";width:22px;height:3px;background:var(--reserve-orange);border-radius:4px}
+.reserve-pwa .empty{background:white;border:1px solid #dbe5ee;box-shadow:0 4px 12px #15334f0b}
+.reserve-pwa .notification-reason{font-size:13px;line-height:1.6}
+@media(max-width:390px){.reserve-pwa:not(.route-view)>main{padding:13px 10px 20px}.reserve-pwa .reserve-identity strong{font-size:14px}.reserve-pwa .reserve-identity small{font-size:9px}.reserve-pwa .reserve-brand-mark{width:36px;height:36px}.reserve-pwa .heading h1{font-size:23px}}

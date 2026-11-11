@@ -1,0 +1,173 @@
+.xdrive3150-real-transport {
+  border:1px solid #d6e1ee;
+  background:#f5f8fc;
+  border-radius:12px;
+  overflow:hidden;
+  margin:0 0 15px;
+  color:#09214a;
+  font-family:Inter,Arial,sans-serif;
+}
+.xdrive3150-real-transport__header {
+  background:#fff;
+  border-bottom:3px solid #ff7900;
+  min-height:130px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:20px;
+}
+.xdrive3150-real-transport__header small {
+  display:block;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:1.5px;
+  color:#145be4;
+}
+.xdrive3150-real-transport__header h2 {
+  font-size:25px;
+  font-weight:500;
+  color:#0b214b;
+  margin:13px 0 8px;
+}
+.xdrive3150-real-transport__header p {
+  font-size:13px;
+  font-weight:750;
+  margin:0;
+  color:#17375f;
+}
+.xdrive3150-real-transport__status {
+  border-radius:22px;
+  color:#092f68;
+  background:#e7f0fd;
+  font-size:12px;
+  font-weight:800;
+  padding:9px 15px;
+  white-space:nowrap;
+}
+.xdrive3150-real-transport__sections {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  padding:16px;
+}
+.xdrive3150-real-transport__section {
+  border:1px solid #d8e4f2;
+  border-radius:11px;
+  overflow:hidden;
+  background:#fff;
+  min-width:0;
+}
+.xdrive3150-real-transport__section h3 {
+  margin:0;
+  padding:14px 16px;
+  min-height:48px;
+  display:flex;
+  align-items:center;
+  background:#edf3fa;
+  font-size:14px;
+  font-weight:500;
+  border-bottom:1px solid #d8e4f2;
+  color:#234f85;
+}
+.xdrive3150-real-transport__fields {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px 14px;
+  padding:16px;
+}
+.xdrive3150-real-transport__field {
+  min-width:0;
+  overflow-wrap:anywhere;
+}
+.xdrive3150-real-transport__field small {
+  display:block;
+  font-size:10px;
+  text-transform:uppercase;
+  color:#647c9b;
+  margin-bottom:8px;
+  line-height:1.35;
+}
+.xdrive3150-real-transport__field strong {
+  font-size:12px;
+  color:#061b3a;
+  font-weight:750;
+  line-height:1.55;
+}
+@media(max-width:720px){
+ .xdrive3150-real-transport__header {min-height:0;padding:14px;align-items:flex-start}
+ .xdrive3150-real-transport__header h2 {font-size:21px}
+ .xdrive3150-real-transport__sections {grid-template-columns:1fr;gap:10px;padding:10px}
+ .xdrive3150-real-transport__fields {padding:12px}
+}
+
+.xdrive3150-real-transport__extended {
+  background:#fff;
+  border:1px solid #d8e4f2;
+  border-radius:9px;
+  margin:0 0 14px;
+  overflow:hidden;
+}
+.xdrive3150-real-transport__extended>summary {
+  cursor:pointer;
+  padding:13px 16px;
+  font-size:12px;
+  font-weight:800;
+  color:#0b2b55;
+  background:#edf3fa;
+  list-style-position:inside;
+}
+.xdrive3150-real-transport__extended>summary:focus-visible {
+  outline:2px solid #1268d6;
+  outline-offset:-3px;
+}
+
+.xdrive3150-marketplace-detail-overlay {
+  position:fixed;
+  inset:0;
+  z-index:1100;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  overflow:auto;
+  background:rgba(6,22,48,.64);
+  padding:20px;
+}
+.xdrive3150-marketplace-detail-dialog {
+  width:min(1015px,100%);
+  max-height:calc(100dvh - 40px);
+  overflow:auto;
+  border-radius:14px;
+  background:#f5f8fc;
+  box-shadow:0 24px 60px rgba(0,0,0,.25);
+}
+.xdrive3150-marketplace-detail-dialog .xdrive3150-real-transport {
+  margin:0;
+  border:0;
+  border-radius:0;
+}
+.xdrive3150-marketplace-detail-actions {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:13px 18px;
+  background:#fff;
+  border-top:1px solid #dde6f0;
+}
+.xdrive3150-marketplace-detail-actions small {color:#63718a;font-size:11px;}
+.xdrive3150-marketplace-detail-actions button {
+  background:#fff;
+  color:#1155c9;
+  border:1px solid #1155c9;
+  border-radius:7px;
+  padding:10px 15px;
+  font-weight:750;
+  cursor:pointer;
+  white-space:nowrap;
+}
+@media(max-width:650px) {
+  .xdrive3150-marketplace-detail-overlay {padding:0;}
+  .xdrive3150-marketplace-detail-dialog {width:100%;max-height:100dvh;border-radius:0;}
+  .xdrive3150-marketplace-detail-actions {align-items:stretch;flex-direction:column;}
+}

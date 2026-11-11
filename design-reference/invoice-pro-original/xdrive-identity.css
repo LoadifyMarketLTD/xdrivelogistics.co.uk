@@ -1,0 +1,214 @@
+/* XDrive Invoice Pro visual identity — functionally CX-parity, visually independent */
+:root{
+  --xd-navy:#071b33;
+  --xd-navy-2:#0c2c50;
+  --xd-blue:#1f6feb;
+  --xd-blue-2:#4f8fff;
+  --xd-ink:#142033;
+  --xd-muted:#6e7b8f;
+  --xd-line:#dfe6ef;
+  --xd-soft:#f4f7fb;
+  --xd-card:#ffffff;
+  --xd-good:#14864b;
+  --xd-warn:#c47a00;
+  --xd-danger:#bd3845;
+  --xd-radius:16px;
+  --xd-shadow:0 12px 30px rgba(10,35,66,.08);
+}
+html,body{background:#f4f7fb!important;color:var(--xd-ink)!important}
+body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif!important}
+.cxSide{display:none!important}
+.appbar{
+  position:sticky!important;top:0!important;left:auto!important;right:auto!important;height:auto!important;
+  background:linear-gradient(120deg,var(--xd-navy),var(--xd-navy-2))!important;
+  border:0!important;box-shadow:0 8px 20px rgba(7,27,51,.16)!important;z-index:80!important
+}
+.cxTitleBar{height:72px!important;padding:0 34px!important;max-width:1480px;margin:0 auto}
+.cxTitleBar h1{color:#fff!important;font-size:21px!important;font-weight:800!important;letter-spacing:-.01em}
+.cxTitleBar h1 span{color:#bcd2eb!important;font-weight:500!important;font-size:15px!important}
+.cxTitleActions button{
+  width:38px!important;height:38px!important;border-radius:12px!important;
+  background:rgba(255,255,255,.09)!important;color:#fff!important;border:1px solid rgba(255,255,255,.13)!important
+}
+.wrap{padding:0 32px 90px!important;max-width:1480px!important;margin:0 auto!important}
+.cxTop{
+  height:auto!important;padding:18px 0 14px!important;background:transparent!important;
+  border:0!important;align-items:center!important;overflow:visible!important
+}
+.cxTabs{
+  height:auto!important;display:flex!important;gap:8px!important;align-items:center!important;
+  border:0!important;overflow-x:auto!important;padding:3px!important;background:#eaf0f7!important;
+  border-radius:14px!important;max-width:max-content!important
+}
+.cxTabs .tab{
+  height:38px!important;padding:0 16px!important;border:0!important;border-radius:11px!important;
+  font-size:12px!important;font-weight:700!important;color:#617086!important;background:transparent!important
+}
+.cxTabs .tab.active{
+  background:#fff!important;color:var(--xd-navy)!important;
+  box-shadow:0 3px 10px rgba(10,35,66,.10)!important;border:0!important
+}
+.cxTabs .tab:focus,.cxTabs .tab:focus-visible{outline:2px solid rgba(31,111,235,.25)!important}
+.view{padding:0!important}
+.cxDashboardGrid{width:auto!important;max-width:none!important;margin-top:8px!important;gap:18px!important}
+.cxDashboardGrid .panel,.cxStatementPanel,.panel{
+  border:1px solid var(--xd-line)!important;border-radius:var(--xd-radius)!important;
+  box-shadow:var(--xd-shadow)!important;background:var(--xd-card)!important
+}
+.cxDashboardGrid .panel{padding:20px!important}
+.cxPanelHeader{margin-bottom:16px!important}
+.cxPanelHeader strong{font-size:15px!important;color:var(--xd-ink)!important}
+.cxPanelHeader>span{color:var(--xd-muted)!important}
+.cxCurrencyPill{
+  background:#eaf2ff!important;color:var(--xd-blue)!important;border:1px solid #d7e6ff!important;
+  font-weight:800!important
+}
+.cxSummaryCards{gap:14px!important}
+.cxSummaryCards .card{
+  background:linear-gradient(180deg,#fbfdff,#f6f9fd)!important;border:1px solid #e4ebf3!important;
+  border-radius:14px!important;min-height:105px!important;padding:18px!important
+}
+.cxSummaryCards .metric .label{font-size:12px!important;font-weight:800!important;color:#546277!important}
+.cxSummaryCards .metric .sub{font-size:11px!important;color:#7d8999!important}
+.cxSummaryCards .metric .num{font-size:24px!important;font-weight:850!important}
+.cxOrange{color:var(--xd-warn)!important}.cxBlue{color:var(--xd-blue)!important}.cxGreen{color:var(--xd-good)!important}
+.cxSettlementPanel{min-height:auto!important}
+.cxSettlementBody{
+  background:linear-gradient(135deg,#f6f9fe,#eef5ff)!important;border:1px solid #dce9fb!important;
+  border-radius:14px!important;height:130px!important
+}
+.cxSettlementAmount{color:var(--xd-navy)!important;font-size:28px!important}
+.cxDisabledBtn{
+  width:auto!important;min-width:280px!important;background:#dde5ef!important;color:#7f8b9b!important;
+  border-radius:11px!important
+}
+.cxAttentionBody{
+  border-radius:12px!important;background:#f7fbf8!important;border:1px solid #dfeee4!important;
+  min-height:58px!important
+}
+.cxShortcutRow{
+  border:1px solid #e4eaf1!important;border-radius:12px!important;background:#fbfdff!important;
+  padding:0 12px!important
+}
+.cxShortcutRow:hover{border-color:#bfd4ef!important;background:#f3f8ff!important}
+.cxShortcutArrow{border-radius:10px!important;background:#fff!important}
+.cxFloatCreate{
+  right:32px!important;bottom:32px!important;width:56px!important;height:56px!important;
+  background:linear-gradient(135deg,var(--xd-blue),var(--xd-blue-2))!important;
+  box-shadow:0 14px 28px rgba(31,111,235,.28)!important
+}
+.cxAllTop,.cxReadyTop,.cxCustomersTop{background:transparent!important}
+.cxAllDateSearch,.cxReadyDateSearch,.cxCustomersSearch,
+.cxAllToggleRow,.cxReadyToggleRow,.cxCustomersFilterRow{
+  border:0!important;background:#fff!important;border-radius:14px!important;padding:10px 12px!important;
+  margin-bottom:10px!important;min-height:58px!important;height:auto!important;box-shadow:0 6px 18px rgba(10,35,66,.05)!important
+}
+.cxDateMode,.cxSearchBox,.cxAllDateControls input,.cxStatementLabel select,.cxStatementLabel input{
+  border:1px solid #d9e2ec!important;border-radius:10px!important;background:#fff!important
+}
+.cxSearchBox:focus,.cxDateMode:focus,.cxStatementLabel select:focus,.cxStatementLabel input:focus{
+  border-color:#88b2ef!important;box-shadow:0 0 0 3px rgba(31,111,235,.10)!important;outline:none!important
+}
+.cxSwitch{background:#c7d0da!important}.cxSwitchLabel input:checked + .cxSwitch{background:var(--xd-blue)!important}
+.cxGreenSwitch input:checked + .cxSwitch{background:var(--xd-blue)!important}
+.cxFilterChip{
+  background:#edf4ff!important;color:var(--xd-blue)!important;border:1px solid #d7e5fb!important;
+  border-radius:999px!important;height:28px!important;font-weight:800!important
+}
+.cxFilterButton{border-radius:9px!important;color:var(--xd-navy)!important;font-weight:800!important}
+.cxAllDateControls{
+  border:1px solid var(--xd-line)!important;background:#fff!important;border-radius:14px!important;
+  padding:12px!important;margin-bottom:10px!important
+}
+.cxToolbar{
+  min-height:42px!important;height:auto!important;border:1px solid var(--xd-line)!important;
+  border-radius:12px!important;background:#fff!important;margin:10px 0!important;padding:5px 10px!important;
+  box-shadow:0 5px 14px rgba(10,35,66,.04)!important
+}
+.cxToolbar .btn{
+  min-height:30px!important;color:#4f6075!important;font-weight:800!important;padding:0 8px!important
+}
+.cxToolbar .btn:hover{background:#f1f6fd!important;color:var(--xd-blue)!important;border-radius:8px!important}
+.cxToolbar .btn:before{color:var(--xd-blue)!important}
+.cxTable{
+  background:#fff!important;border:1px solid var(--xd-line)!important;border-radius:14px!important;
+  overflow:auto!important;box-shadow:0 8px 22px rgba(10,35,66,.05)!important
+}
+.cxGrid{background:#fff!important;border-collapse:separate!important;border-spacing:0!important}
+.cxGrid th{
+  background:#f6f8fb!important;color:#5a687b!important;border:0!important;border-bottom:1px solid var(--xd-line)!important;
+  font-size:10px!important;text-transform:none!important
+}
+.cxGrid td{
+  border:0!important;border-bottom:1px solid #edf1f5!important;color:#263449!important
+}
+.cxGrid tbody tr:last-child td{border-bottom:0!important}
+.cxGrid tr:hover td{background:#f8fbff!important}
+.cxViewBtn{
+  border:1px solid #b9d3f5!important;background:#f5f9ff!important;color:var(--xd-blue)!important;
+  border-radius:9px!important;font-weight:800!important
+}
+.cxStatus{border-radius:999px!important;padding:4px 8px!important}
+.cxStatus.paid{background:#e7f6ee!important}.cxStatus.awaiting{background:#fff4df!important}.cxStatus.overdue{background:#fdebed!important}.cxStatus.draft{background:#edf0ff!important}
+.cxEmptyTable,.cxEmpty{color:#7f8b9c!important;background:#fbfcfe!important}
+.cxCustomerToolbar{border-radius:12px!important}
+.cxCustomersGrid thead tr:first-child th{background:#eef4fb!important;color:#3e4e64!important}
+#arStatements{padding-top:8px!important}
+#arStatements .cxStatementPanel{
+  width:100%!important;max-width:none!important;margin:0!important;padding:22px 24px!important
+}
+#arStatements .cxStatementPanel h1{font-size:24px!important;color:var(--xd-navy)!important}
+.cxStatementDateBox{
+  background:#f7f9fc!important;border:1px solid #e4eaf1!important;border-radius:14px!important;
+  display:grid!important;grid-template-columns:minmax(260px,.9fr) minmax(420px,1.6fr)!important;
+  gap:18px 24px!important;align-items:start!important
+}
+.cxStatementDateBox>strong{grid-column:1 / -1!important}
+.cxStatementDateBox>.cxStatementLabel{grid-column:1!important}
+.cxStatementDates{grid-column:2!important;grid-row:2!important;margin-top:0!important}
+.cxHmrcLink{grid-column:1!important;color:var(--xd-blue)!important}
+.cxStatementActions{grid-column:2!important;justify-content:flex-end!important}
+.cxGenerateBtn{
+  border-radius:11px!important;background:linear-gradient(135deg,var(--xd-blue),var(--xd-blue-2))!important;color:#fff!important;
+  box-shadow:0 8px 18px rgba(31,111,235,.18)!important
+}
+.cxGenerateBtn:disabled{background:#dce3ec!important;color:#8b96a5!important;box-shadow:none!important}
+#new,#review,#settings,#invoices,#customers{
+  width:100%!important;max-width:none!important;margin:8px 0 0!important
+}
+#new .sectionTitle,#settings .sectionTitle,#invoices .sectionTitle,#customers .sectionTitle{
+  color:var(--xd-navy)!important;font-size:26px!important;letter-spacing:-.02em!important;margin-bottom:14px!important
+}
+#new .panel,#settings .panel,#customers .panel,#invoices .panel,#review .invoice{
+  width:100%!important;max-width:none!important;border-radius:16px!important;border:1px solid var(--xd-line)!important;
+  box-shadow:var(--xd-shadow)!important;background:#fff!important
+}
+#new .formGrid,#settings .formGrid,#customers .formGrid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px 16px!important
+}
+#new label,#settings label,#customers label{font-size:12px!important}
+#new input,#new select,#new textarea,#settings input,#settings select,#settings textarea,#customers input,#customers select,#customers textarea{
+  border:1px solid #d9e2ec!important;border-radius:10px!important;background:#fff!important;min-height:44px!important
+}
+#new input:focus,#new select:focus,#new textarea:focus,#settings input:focus,#settings select:focus,#settings textarea:focus,
+#customers input:focus,#customers select:focus,#customers textarea:focus{
+  border-color:#88b2ef!important;box-shadow:0 0 0 3px rgba(31,111,235,.10)!important;outline:none!important
+}
+#review .invoice{padding:24px!important}
+@media(max-width:980px){
+  #new .formGrid,#settings .formGrid,#customers .formGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .cxStatementDateBox{grid-template-columns:1fr!important}
+  .cxStatementDateBox>.cxStatementLabel,.cxStatementDates,.cxHmrcLink,.cxStatementActions{grid-column:1!important;grid-row:auto!important}
+}
+@media(max-width:620px){
+  #new .formGrid,#settings .formGrid,#customers .formGrid{grid-template-columns:1fr!important}
+}
+.btn.primary{
+  background:linear-gradient(135deg,var(--xd-blue),var(--xd-blue-2))!important;border-color:transparent!important
+}
+@media(max-width:900px){
+  .wrap{padding:0 14px 78px!important}.cxTitleBar{padding:0 16px!important}
+  .cxTitleBar h1{font-size:17px!important}.cxTitleBar h1 span{display:none!important}
+  .cxTabs{max-width:100%!important}.cxSummaryCards{grid-template-columns:1fr!important}
+  .cxFloatCreate{right:18px!important;bottom:18px!important}
+}

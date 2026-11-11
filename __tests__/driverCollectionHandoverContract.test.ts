@@ -14,7 +14,7 @@ describe('driver collection handover contract', () => {
   it('persists structured job and stop handover snapshots', () => {
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS collection_handover jsonb');
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS handover jsonb');
-    expect(handoverRoute).toContain('At least one collection photo is required.');
+    expect(handoverRoute).not.toContain('At least one collection photo is required.');
     expect(handoverRoute).toContain('collection_handover: handover');
     expect(handoverRoute).toContain('pickup_photos: [...new Set');
   });

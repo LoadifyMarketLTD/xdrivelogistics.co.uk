@@ -47,3 +47,16 @@ export async function PUT(request: NextRequest) {
 
   return json(200, { driver: data });
 }
+
+/** Authenticated self-service driver profile; never expose another company's driver. */
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Driver profile is temporarily unavailable.' });
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
+  const { data, error } = await supabaseAdmin.from('drivers')
+    .select('display_name,email,phone,driver_type,status')
+    .eq('id', driver.driverId).eq('user_id', driver.userId).maybeSingle();
+  if (error) return json(500, { error: 'Driver profile could not be loaded.' });
+  if (!data) return json(404, { error: 'Driver profile was not found.' });
+  return json(200, { driver: data });
+}

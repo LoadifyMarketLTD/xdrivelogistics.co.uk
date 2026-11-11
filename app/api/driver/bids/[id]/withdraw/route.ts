@@ -40,6 +40,13 @@ export async function POST(
     return json(409, { error: `Only submitted quotes can be withdrawn. Current status: ${status || 'unknown'}.` });
   }
 
+  // An award sent to the carrier is a pending commercial offer. It must be
+  // declined through the offer workflow, not silently withdrawn as a quote.
+  const {data:pendingOffers,error:pendingError}=await supabaseAdmin
+    .from('job_booking_offers').select('id').eq('bid_id',bidId).eq('status','pending').limit(1);
+  if(pendingError)return json(503,{error:'Pending booking offers could not be verified.'});
+  if(pendingOffers?.length)return json(409,{code:'PENDING_BOOKING_OFFER',error:'A booking offer is awaiting your response. Accept or decline it in Bookings before changing this quotation.'});
+
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select('id, awarded_carrier_company_id, assigned_company_id, assigned_driver_id, status, current_status')

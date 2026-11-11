@@ -50,11 +50,17 @@ describe('buyer payment obligation acknowledgement',()=>{
     expect(obligation).toContain('responsible for paying the awarded carrier');
     expect(clientHelper).toContain('window.confirm');
     for (const ui of nativeConfirmUiFiles) {
-      expect(ui).toContain('confirmBookingPaymentObligation');
+      expect(ui).toContain('BookingConfirmationFullPage');
       expect(ui).toContain('bookingPaymentObligationRequestBody');
+      expect(ui).not.toContain('confirmBookingPaymentObligation');
     }
-    expect(customerQuotesUi).toContain('BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT');
-    expect(customerQuotesUi).toContain('Payment obligation acknowledgement');
+    const bookingConfirmation = readFileSync(join(process.cwd(),'app/customer/quotes/BookingConfirmationFullPage.tsx'),'utf8');
+    expect(customerQuotesUi).toContain('<BookingConfirmationFullPage');
+    expect(nativeConfirmUiFiles.every(ui=>ui.includes('BookingConfirmationFullPage'))).toBe(true);
+    expect(bookingConfirmation).toContain('BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT');
+    expect(bookingConfirmation).toContain('Payment &amp; Legal Agreement');
+    expect(bookingConfirmation).toContain('Both acknowledgements required before sending');
+    expect(bookingConfirmation).toContain('detailsAccepted && paymentAccepted && !working');
     expect(customerQuotesUi).toContain('bookingPaymentObligationRequestBody');
     expect(customerQuotesUi).not.toContain('confirmBookingPaymentObligation');
   });

@@ -1,0 +1,258 @@
+/* Approved 3150 board identity across every authenticated role.
+   Changes presentation only; no demo handlers or synthetic data. */
+.master3150-production{
+ --xd3150-orange:#ff7900;
+ --xd3150-navy:#071b3b;
+ --xd3150-border:#d9e2ee;
+ --xd3150-bg:#f7f9fc;
+}
+.master3150-production .master3150-operational-title{
+ color:var(--xd3150-navy);
+ font-size:30px;
+ font-weight:850;
+ line-height:1.25;
+ margin:1px 0 15px;
+}
+.master3150-production .driver-loads-prototype .pagebody,
+.master3150-production .driver-quotes-prototype .pagebody,
+.master3150-production .driver-diary-board,
+.master3150-production .driver-jobs-board{
+ display:grid;
+ grid-template-columns:220px minmax(0,1fr);
+ align-items:start;
+ gap:18px;
+ background:transparent;
+}
+.master3150-production .driver-loads-prototype .main,
+.master3150-production .driver-quotes-prototype .main,
+.master3150-production .driver-board-main{
+ min-width:0;
+ background:transparent;
+}
+.master3150-production .driver-loads-prototype .left,
+.master3150-production .driver-quotes-prototype .left,
+.master3150-production .driver-diary-board .left,
+.master3150-production .driver-jobs-board .driver-filter-rail{
+ display:block;
+ width:220px;
+ min-width:0;
+ max-width:none;
+ background:#fff;
+ border:1px solid var(--xd3150-border);
+ border-radius:9px;
+ box-shadow:0 2px 6px rgba(11,47,107,.08);
+ overflow:hidden;
+ padding:0;
+}
+.master3150-production .driver-loads-prototype .left-title,
+.master3150-production .driver-quotes-prototype .left-title,
+.master3150-production .driver-diary-board .left-title,
+.master3150-production .driver-filter-rail__header{
+ background:#eef2f8;
+ border:0;
+ margin:0;
+ padding:12px 13px;
+ font-size:16px;
+ line-height:1.3;
+ font-weight:850;
+ color:#0b2f6b;
+}
+.master3150-production .driver-loads-prototype .left .filter,
+.master3150-production .driver-quotes-prototype .left .filter,
+.master3150-production .driver-diary-board .diary-filter-body .filter,
+.master3150-production .driver-jobs-board .driver-filter-rail__body{
+ border:0;
+ background:#fff;
+ padding:8px 12px 5px;
+ margin:0;
+ color:#14233d;
+}
+.master3150-production :is(.driver-loads-prototype,.driver-quotes-prototype,.driver-diary-board) .left :is(input,select,textarea){
+ min-height:34px;
+ width:100%;
+ max-width:100%;
+ font-size:12px;
+ background:#fff;
+ border:1px solid #cbd5e1;
+ border-radius:5px;
+ color:#14233d;
+ padding:5px 8px;
+}
+.master3150-production :is(.driver-loads-prototype,.driver-quotes-prototype,.driver-diary-board) .left .label{
+ display:block;
+ font-size:11px;
+ font-weight:800;
+ color:#17233a;
+ line-height:1.3;
+ margin:0 0 5px;
+}
+.master3150-production :is(.driver-loads-prototype,.driver-quotes-prototype,.driver-diary-board) .left .btn.primary,
+.master3150-production .driver-diary-board .driver-filter-actions button[data-tone=success]{
+ background:var(--xd3150-orange);
+ border-color:var(--xd3150-orange);
+ color:#fff;
+ border-radius:6px;
+ min-height:40px;
+ width:100%;
+ font-size:12px;
+ font-weight:850;
+}
+.master3150-production .driver-loads-prototype .load-result-head{
+ display:flex;
+ align-items:center;
+ gap:12px;
+ flex-wrap:wrap;
+ min-height:45px;
+ margin:0 0 5px;
+ border:0;
+ background:transparent;
+}
+.master3150-production .driver-loads-prototype .load-result-head b{
+ font-weight:700;
+ font-size:13px;
+}
+.master3150-production .driver-loads-prototype .load-nav-unified{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:10px;
+ margin-bottom:16px;
+ border-bottom:1px solid var(--xd3150-border);
+ background:transparent;
+}
+.master3150-production .driver-loads-prototype .load-tabs,
+.master3150-production .driver-quotes-prototype .workspace-tab-strip,
+.master3150-production .driver-diary-board .driver-tab-strip,
+.master3150-production .driver-jobs-board .driver-tab-strip{
+ display:flex;
+ gap:4px;
+ flex-wrap:wrap;
+ background:transparent;
+ border:0;
+}
+.master3150-production .driver-loads-prototype .load-tabs button,
+.master3150-production .driver-quotes-prototype .workspace-tab-strip button,
+.master3150-production .driver-jobs-board .driver-tab-strip button{
+ border:0 !important;
+ border-bottom:3px solid transparent !important;
+ background:transparent !important;
+ color:#14233d !important;
+ border-radius:0 !important;
+ padding:10px 13px 12px;
+ min-height:42px;
+ font-size:12px;
+ font-weight:750;
+}
+.master3150-production .driver-loads-prototype .load-tabs button.active,
+.master3150-production .driver-quotes-prototype .workspace-tab-strip button.active,
+.master3150-production .driver-jobs-board .driver-tab-strip button[data-active=true]{
+ border-bottom-color:var(--xd3150-orange) !important;
+ color:var(--xd3150-navy) !important;
+}
+.master3150-production .driver-diary-board .diary-main .driver-diary-controlbar{
+ border:0;
+ background:transparent;
+}
+.master3150-production .driver-diary-board .diary-head{
+ background:transparent;
+ border:0;
+}
+.master3150-production .driver-diary-board .diary-tab-strip,
+.master3150-production .driver-diary-board .diary-tabs{
+ background:transparent;
+ border-bottom:1px solid var(--xd3150-border);
+}
+.master3150-production .driver-diary-board .diary-tabs button[aria-selected=true]{
+ background:#1266e7 !important;
+ color:#fff !important;
+ border-radius:4px;
+}
+.master3150-production :is(.driver-loads-prototype,.driver-quotes-prototype,.driver-diary-board,.driver-jobs-board) .load-list,
+.master3150-production :is(.driver-loads-prototype,.driver-quotes-prototype,.driver-diary-board,.driver-jobs-board) .xdrive-cx-quote-list{
+ display:block;
+ background:transparent;
+ min-width:0;
+}
+.master3150-production .driver-jobs-board .driver-board-summary{background:transparent;border:0}
+.master3150-production .xd-diary-kpis{margin:12px 0 16px}
+.master3150-production .xd-quotes-stats{margin:12px 0 16px}
+.master3150-production .xd-bookings-heading,
+.master3150-production .xd-diary-header{margin:0 0 14px}
+.master3150-production .xd-bookings-heading h1,
+.master3150-production .xd-diary-header h1{font-size:30px}
+@media(max-width:1050px){
+ .master3150-production .driver-loads-prototype .pagebody,
+ .master3150-production .driver-quotes-prototype .pagebody,
+ .master3150-production .driver-diary-board,
+ .master3150-production .driver-jobs-board{
+  grid-template-columns:185px minmax(0,1fr);
+  gap:10px;
+ }
+ .master3150-production .driver-loads-prototype .left,
+ .master3150-production .driver-quotes-prototype .left,
+ .master3150-production .driver-diary-board .left,
+ .master3150-production .driver-jobs-board .driver-filter-rail{width:185px}
+}
+@media(max-width:680px){
+ .master3150-production .driver-loads-prototype .pagebody,
+ .master3150-production .driver-quotes-prototype .pagebody,
+ .master3150-production .driver-diary-board,
+ .master3150-production .driver-jobs-board{grid-template-columns:minmax(0,1fr)}
+ .master3150-production .driver-loads-prototype .left,
+ .master3150-production .driver-quotes-prototype .left,
+ .master3150-production .driver-diary-board .left,
+ .master3150-production .driver-jobs-board .driver-filter-rail{width:100%}
+}
+
+/* Master 3150: consistent filter-panel visual language across authenticated workspaces. */
+.master3150-production :is(.carrier-exchange-rail,.workspace-filter-rail,.driver-filter-rail,.driver-loads-prototype .left,.driver-quotes-prototype .left,.driver-diary-board .left) {
+  background:#fff;
+  border:1px solid #cbd5e1;
+  border-radius:8px;
+  box-shadow:0 2px 8px rgba(7,27,59,.09);
+  overflow:hidden;
+}
+.master3150-production :is(.driver-loads-prototype .left-title,.driver-quotes-prototype .left-title,.driver-diary-board .diary-filter-head,.driver-filter-rail__header,.carrier-exchange-rail .workspace-panel__header,.workspace-filter-rail .workspace-panel__header) {
+  background:#071b3b;
+  color:#fff;
+  border-bottom:3px solid #ff7900;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.15px;
+  line-height:1.35;
+  padding:11px 12px;
+}
+.master3150-production :is(.carrier-exchange-rail,.workspace-filter-rail,.driver-filter-rail,.driver-loads-prototype .left,.driver-quotes-prototype .left,.driver-diary-board .left) :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  box-sizing:border-box;
+  max-width:100%;
+  border:1px solid #b9c8da;
+  border-radius:5px;
+  background:#fff;
+  color:#14233d;
+  font-size:12px;
+}
+.master3150-production :is(.carrier-exchange-rail,.workspace-filter-rail,.driver-filter-rail,.driver-loads-prototype .left,.driver-quotes-prototype .left,.driver-diary-board .left) :is(input,select,textarea):focus-visible {
+  outline:2px solid #ff7900;
+  outline-offset:1px;
+  border-color:#ff7900;
+}
+.master3150-production :is(.driver-loads-prototype .left,.driver-quotes-prototype .left) .filter > .btn.primary {
+  background:#ff7900;
+  color:#fff;
+  border:1px solid #ff7900;
+  border-radius:5px;
+  font-weight:800;
+  min-height:38px;
+}
+.master3150-production :is(.driver-loads-prototype .left,.driver-quotes-prototype .left) .filter > .btn:not(.primary) {
+  background:transparent;
+  color:#071b3b;
+  border:1px solid transparent;
+  border-radius:5px;
+  font-weight:750;
+  min-height:32px;
+}
+.master3150-production :is(.driver-loads-prototype .left,.driver-quotes-prototype .left) .filter > .btn:not(.primary):hover {
+  background:#edf2f9;
+  border-color:#cbd5e1;
+}

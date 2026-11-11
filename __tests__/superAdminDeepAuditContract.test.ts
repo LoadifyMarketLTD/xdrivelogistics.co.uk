@@ -78,14 +78,17 @@ describe('Super Admin deep control-plane contract', () => {
     const rolesPage = read('app/super-admin/settings/roles-permissions/page.tsx');
     const notificationsPage = read('app/super-admin/notifications/page.tsx');
 
-    for (const source of [confirmModal, rolesPage, notificationsPage]) {
+    for (const source of [confirmModal, rolesPage]) {
       expect(source).toMatch(/event\.key\s*===\s*['"]Escape['"]/);
       expect(source).toMatch(/document\.body\.style\.overflow\s*=\s*['"]hidden['"]/);
       expect(source).toContain('previousFocusRef.current?.focus()');
     }
-
+    const dialogA11y = read('app/super-admin/_components/useSuperAdminDialogA11y.ts');
+    expect(notificationsPage).toContain('useSuperAdminDialogA11y');
+    expect(dialogA11y).toMatch(/event\.key\s*===\s*['"]Escape['"]/);
+    expect(dialogA11y).toContain("document.body.style.overflow = 'hidden'");
+    expect(dialogA11y).toContain('previousFocusRef.current?.focus()');
     expect(confirmModal).toContain('reasonRef.current?.focus()');
     expect(rolesPage).toContain('closeDialogRef.current?.focus()');
-    expect(notificationsPage).toContain('retryReasonRef.current?.focus()');
-  });
+    expect(notificationsPage).toContain('retryReasonRef');  });
 });

@@ -1,0 +1,5 @@
+.details{display:grid;margin:0;padding:0 12px 10px}.details div{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.35fr);gap:10px;padding:6px 0;border-bottom:1px solid #edf0f3}.details div:last-child{border-bottom:0}
+.details dt{color:#6b7280;font-size:11px;font-weight:650}.details dd{margin:0;text-align:right;color:#1a1f2b;font-size:11px;line-height:16px;font-weight:800;overflow-wrap:anywhere}
+.notes{margin:0;padding:0 12px 12px;color:#1a1f2b;font-size:12px;line-height:17px}
+.secondary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 12px 9px}.secondary button{min-height:40px;border:1px solid #c9dced;border-radius:9px;background:#eef6fd;color:#0b57a5;font-size:11px;font-weight:800}
+@media(max-width:350px){.details div{grid-template-columns:1fr}.details dd{text-align:left}.secondary{grid-template-columns:1fr}}

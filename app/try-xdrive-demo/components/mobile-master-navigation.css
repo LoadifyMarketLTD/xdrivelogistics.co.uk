@@ -1,0 +1,148 @@
+/* Mobile adaptation of the approved Master sidebar. Desktop styling remains unchanged. */
+.demo-shell.xd-approved-sidebar-shell .xd-mobile-nav-toggle,
+.demo-shell.xd-approved-sidebar-shell .xd-mobile-sidebar-backdrop {
+  display: none !important;
+}
+.demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .xd-approved-footer > .xd-mobile-sidebar-close {
+  display: none !important;
+}
+@media (max-width:850px) {
+  .demo-shell.xd-approved-sidebar-shell {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .content {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+  .demo-shell.xd-approved-sidebar-shell .xd-mobile-nav-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: none;
+    padding: 7px 10px;
+    min-height: 42px;
+    border: 1px solid #b9c7db;
+    background: #fff;
+    border-radius: 7px;
+    color: #0b2f6b;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .demo-shell.xd-approved-sidebar-shell .topbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .demo-shell.xd-approved-sidebar-shell .topbar .mobile-brand {
+    min-width: 0;
+    flex: 1;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-mobile-sidebar-backdrop.is-open {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 180;
+    background: rgba(5, 20, 42, 0.62);
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar {
+    display: flex !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    z-index: 181 !important;
+    flex-direction: column !important;
+    width: min(84vw, 298px) !important;
+    min-width: 0 !important;
+    max-width: 298px !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    padding: 10px 8px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain;
+    background: #071d43 !important;
+    transform: translateX(-105%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    transition: transform .18s ease, visibility .18s ease;
+    box-shadow: 6px 0 22px rgba(0,0,0,.2);
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar.is-mobile-open {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .brand {
+    flex: none;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar > button {
+    display: flex !important;
+    width: 100% !important;
+    min-height: 44px !important;
+    align-items: center !important;
+    gap: 10px;
+    color: #eef4ff !important;
+    background: transparent !important;
+    border: 0;
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-weight: 650;
+    text-align: left;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar.is-collapsed > button span {
+    display: inline !important;
+    font-size: 14px !important;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar.is-collapsed > button {
+    font-size: 14px !important;
+    justify-content: flex-start !important;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar > button.active {
+    background: #ff7900 !important;
+    color: #fff !important;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .xd-approved-footer {
+    display: flex;
+    margin-top: auto;
+    background: #071d43;
+    position: sticky;
+    bottom: 0;
+    min-height: 48px;
+    align-items: center;
+    gap: 8px;
+  }
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .xd-approved-footer > .xd-mobile-sidebar-close {
+    display: inline-flex !important;
+    color: #fff !important;
+    background: #17365f !important;
+    min-width: 62px !important;
+    min-height: 38px !important;
+    font-weight: 700;
+    border-radius: 6px;
+  }
+  .demo-shell.xd-approved-sidebar-shell .xd-approved-footer > button[aria-label="Collapse sidebar"],
+  .demo-shell.xd-approved-sidebar-shell .xd-approved-footer > button[aria-label="Expand sidebar"] {
+    display: none !important;
+  }
+  .demo-shell.xd-approved-sidebar-shell .page {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar {
+    transition: none !important;
+  }
+}

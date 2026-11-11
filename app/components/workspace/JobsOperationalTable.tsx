@@ -26,6 +26,9 @@ import { Fragment, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import styles from './WorkspaceUI.module.css';
 import { OperationalExpandAllControl } from './OperationalExpandAllControl';
+import CxLoadCard from './CxLoadCard';
+import './master-jobs-cards.css';
+import './master3150-admin-loads.css';
 
 /*
  * Business logic is owned by the canonical contract module.
@@ -52,6 +55,7 @@ export {
 } from '../../../lib/jobs/jobOperationalContract';
 
 export interface JobsOperationalTableProps {
+  cardLayout?: boolean;
   /** Filtered + paginated jobs to render in table */
   filteredJobs: JobRow[];
   page: number;
@@ -135,6 +139,7 @@ function fmtDate(iso: string): string {
 
 export function JobsOperationalTable({
   filteredJobs,
+  cardLayout = false,
   page,
   perPage,
   totalFiltered,
@@ -211,11 +216,11 @@ export function JobsOperationalTable({
   }
 
   return (
-    <div className={styles.jobsPageShell}>
+    <div className={`${styles.jobsPageShell} ${cardLayout ? 'master3150-admin-loads-page' : ''}`}>
       <div className={styles.jobsPageHeader}>
         <div className={styles.jobsPageHeaderText}>
-          <h1 className={styles.jobsPageTitle}>Jobs</h1>
-          <p className={styles.jobsPageSubtitle}>Assign, track and complete operational work.</p>
+          <h1 className={styles.jobsPageTitle}>Loads</h1>
+          <p className={styles.jobsPageSubtitle}>Posted freight, awarded jobs and delivery operations.</p>
         </div>
         <div className={styles.jobsPageHeaderActions}>
           {canCreateJob && <button type="button" className={styles.jobsNewBtn} onClick={onNewJob} disabled={newJobDisabled} aria-label="Create new job">
@@ -249,7 +254,7 @@ export function JobsOperationalTable({
         </div>
       )}
 
-      <div className={styles.jobsStatusTabs} role="tablist" aria-label="Filter jobs by status">
+      <div className={`${styles.jobsStatusTabs} ${cardLayout ? 'master3150-admin-load-tabs' : ''}`} role="tablist" aria-label="Filter jobs by status">
         {JOBS_STATUS_FILTER_OPTIONS.map((tab) => {
           const selected = statusFilter === tab.value;
           return (
@@ -267,7 +272,7 @@ export function JobsOperationalTable({
         })}
       </div>
 
-      <div className={styles.jobsToolbar} role="search" aria-label="Filter jobs">
+      <div className={`${styles.jobsToolbar} ${cardLayout ? 'master3150-admin-filters' : ''}`} role="search" aria-label="Filter jobs">
         <input type="search" placeholder="Search ref, client, location…" value={searchTerm} onChange={(e) => { onSearchTermChange(e.target.value); onPageChange(0); }} className={`${styles.jobsToolbarInput} ${styles.jobsToolbarSearch}`} aria-label="Search jobs" />
         <select value={statusFilter} onChange={(e) => { onStatusFilterChange(resolveJobStatusFilter(e.target.value)); onPageChange(0); }} className={`${styles.jobsToolbarInput} ${styles.jobsToolbarStatus}`} aria-label="Filter by status">
           <option value="All">All statuses</option>
@@ -288,8 +293,8 @@ export function JobsOperationalTable({
         <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!filteredJobs.length} onToggle={toggleExpandAll} noun="jobs" />
       </div>
 
-      <div className={styles.jobsTableSection} data-testid="jobs-desktop-table">
-      {!isMobileViewport && (
+      <div className={`${styles.jobsTableSection} ${cardLayout ? 'master3150-admin-hidden-table' : ''}`} data-testid="jobs-desktop-table">
+      {!isMobileViewport && !cardLayout && (
       <div className={styles.operationalTableContainer}>
         <div className={styles.operationalTableScroll}>
           <table className={`${styles.operationalTable} ${styles.operationalTableMinWidth} ${styles.jobsOperationalTable}`}>
@@ -413,7 +418,64 @@ export function JobsOperationalTable({
       )}
       </div>
 
-      <div className={styles.jobsMobileCardList} data-testid="jobs-mobile-cards" aria-label="Jobs list">
+      {cardLayout ? (
+        <div className="master3150-admin-loads-list" data-testid="jobs-approved3150-cards" aria-label="Approved 3150 Loads">
+          {filteredJobs.length === 0 ? (
+            <div className={styles.jobsEmptyMobileState}>No loads match the current filters.</div>
+          ) : filteredJobs.map((job) => {
+            const expanded = expandedRows.has(job.id);
+            const transitions = allowedStatusTransitions(job.status);
+            return <CxLoadCard
+              key={job.id}
+              from={[job.pickup.location, job.pickup.postcode].filter(Boolean).join(', ') || 'Collection not supplied'}
+              to={[job.delivery.location, job.delivery.postcode].filter(Boolean).join(', ') || 'Delivery not supplied'}
+              pickup={{primary: job.pickup.time || 'ASAP', meta: job.pickup.date}}
+              delivery={{primary: job.delivery.time || 'ASAP', meta: job.delivery.date}}
+              band={statusLabel(job.status)}
+              posted={job.client.name || 'Customer not supplied'}
+              postedAt={job.createdAt ? `Posted ${fmtDate(job.createdAt)}` : undefined}
+              loadId={job.jobRef}
+              vehicle={job.vehicleType || 'Not supplied'}
+              paymentTerms={job.paymentTerms || 'Not supplied'}
+              dataState={job.status}
+              expanded={expanded}
+              freight={<>
+                {job.cargo?.type && <div><span>Cargo:</span><strong>{job.cargo.quantity > 0 ? `${job.cargo.quantity}× ` : ''}{job.cargo.type}</strong></div>}
+                {job.distanceMiles && <div><span>Distance:</span><strong>{job.distanceMiles}</strong></div>}
+                <div><span>Driver:</span><strong>{resolveDriverName(job.assignedDriverId)}</strong></div>
+              </>}
+              commercial={<>
+                <div><span>Status:</span><strong>{statusLabel(job.status)}</strong></div>
+                <div><span>Visibility:</span><strong>{job.exchange_visibility || 'Private'}</strong></div>
+                {job.awarded_carrier_company_id && <div><span>Carrier:</span><strong>{job.awarded_carrier_company_id.slice(0,13)}…</strong></div>}
+                {job.clientEmail && <div><span>Client Email:</span><strong>{job.clientEmail}</strong></div>}
+                {job.clientPhone && <div><span>Client Phone:</span><strong>{job.clientPhone}</strong></div>}
+              </>}
+              notes={<>
+                {job.cargo?.notes && <div><span>Cargo notes:</span><strong>{job.cargo.notes}</strong></div>}
+                {job.loadDetailSummary?.length ? <div><span>Load Details:</span><strong>{job.loadDetailSummary.map(item => `${item.label}: ${item.value}`).join(' · ')}</strong></div> : null}
+              </>}
+              footer={<>
+                <button type="button" onClick={() => toggleRowExpanded(job.id)} aria-expanded={expanded}>{expanded ? 'Collapse' : 'View Details'}</button>
+                <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => onViewJob(job.id)}>Open Load</button>
+                {onEditJob && (canEditJob?.(job) ?? true) && <button type="button" onClick={() => onEditJob(job.id)}>Edit Job</button>}
+                {(canManageJob?.(job) ?? true) && job.status === 'draft' && <button type="button" onClick={() => onPostJob(job.id)}>Post Load</button>}
+                {(canManageJob?.(job) ?? true) && job.status !== 'draft' && transitions.length > 0 && (
+                  <select defaultValue="" aria-label={`Update status for job ${job.jobRef}`} onChange={event => {
+                    const next = event.target.value;
+                    if(next){onStatusChange(job.id,next);event.target.value='';}
+                  }}>
+                    <option value="" disabled>Update Status</option>
+                    {transitions.map(next=><option key={next} value={next}>{statusLabel(next)}</option>)}
+                  </select>
+                )}
+                {(canManageJob?.(job) ?? true) && isDirectInviteEligible(job) && <button type="button" onClick={() => onDirectInvite(job)}>Invite Carrier</button>}
+              </>}
+            />;
+          })}
+        </div>
+      ) : (
+      <div className={`${styles.jobsMobileCardList} ${cardLayout ? 'master-jobs-card-layout' : ''}`} data-testid="jobs-mobile-cards" aria-label="Jobs list">
         {isMobileViewport ? (
           filteredJobs.length === 0 ? (
             <div className={styles.jobsEmptyMobileState}>No jobs match the current filters.</div>
@@ -473,6 +535,15 @@ export function JobsOperationalTable({
           )
         ) : null}
       </div>
+      )}
+      {cardLayout && totalFiltered > perPage && (
+        <nav className="master-jobs-pagination" aria-label="Jobs pagination">
+          <span>{start}–{end} of {totalFiltered.toLocaleString('en-GB')} jobs</span>
+          <button type="button" disabled={page === 0} onClick={() => onPageChange(Math.max(0, page-1))}>Previous</button>
+          <span>Page {page+1} / {totalPages}</span>
+          <button type="button" disabled={page >= totalPages-1} onClick={() => onPageChange(Math.min(totalPages-1,page+1))}>Next</button>
+        </nav>
+      )}
     </div>
   );
 }

@@ -112,11 +112,8 @@ export default function InvoiceTemplate({
 
       <div className="invoice-no-break" style={{ display: 'grid', gridTemplateColumns: '1fr .88fr', gap: '18mm', alignItems: 'start', marginBottom: '11mm' }}>
         <section>
-          {invoice.issuerLogoUrl ? (
-            <img src={invoice.issuerLogoUrl} alt="" style={{ display: 'block', maxWidth: 180, maxHeight: 62, objectFit: 'contain', marginBottom: 16 }} />
-          ) : (
-            <h2 style={{ fontSize: 26, lineHeight: 1.05, margin: '0 0 14px', color: '#101827' }}>{issuerName}</h2>
-          )}
+          <img src="/xdrive-logo-primary.png" alt="XDrive Logistics – official platform logo" style={{ display: 'block', maxWidth: 205, maxHeight: 68, objectFit: 'contain', marginBottom: 13 }} />
+          <h2 style={{ fontSize: 17, lineHeight: 1.1, margin: '0 0 10px', color: '#101827' }}>{issuerName}</h2>
           <p style={{ margin: '0 0 10px', lineHeight: 1.45 }}>{issuerAddress || 'Address not supplied'}</p>
           {issuerMeta && <p style={{ margin: '0 0 10px', color: muted }}>{issuerMeta}</p>}
           {(invoice.issuerEmail || companySettings.email) && <p style={{ margin: '0 0 5px' }}><b>Email:</b> {invoice.issuerEmail || companySettings.email}</p>}

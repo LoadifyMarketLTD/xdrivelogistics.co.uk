@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../components/AuthContext';
 
 import MarketplaceQuoteNowDialog, {
   type MarketplaceQuoteNowExtra,
@@ -24,6 +25,14 @@ type QuoteTarget = {
   pickupAt?: string | null;
   deliveryAt?: string | null;
   vehicle: string;
+  pallets?: number | null;
+  weight?: string | null;
+  dimensions?: string | null;
+  cargo?: string | null;
+  service?: string | null;
+  notes?: string | null;
+  paymentTerms?: string | null;
+  hardPod?: string | null;
 };
 
 type QuoteExtraKind = 'congestion' | 'ferry' | 'tolls' | 'ulez';
@@ -71,6 +80,7 @@ export default function MarketplaceQuoteModal({
   onSubmit: (payload: MarketplaceQuoteSubmitPayload) => void;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const [extras, setExtras] = useState<MarketplaceQuoteNowExtra[]>([]);
 
   useEffect(() => {
@@ -101,6 +111,18 @@ export default function MarketplaceQuoteModal({
         delivery: target.delivery,
         pickupWhen: cxWhen(target.pickupAt),
         deliveryWhen: cxWhen(target.deliveryAt),
+        pickupDate: target.pickupAt ? cxWhen(target.pickupAt) : 'ASAP',
+        deliveryDate: target.deliveryAt ? cxWhen(target.deliveryAt) : 'TBC',
+        pickupStart: cxWhen(target.pickupAt),
+        deliveryTime: cxWhen(target.deliveryAt),
+        pallets: target.pallets,
+        weight: target.weight,
+        dimensions: target.dimensions,
+        cargo: target.cargo,
+        service: target.service,
+        notes: target.notes,
+        paymentTerms: target.paymentTerms,
+        hardPod: target.hardPod,
       }}
       working={working}
       errorContent={error ? (
@@ -115,7 +137,7 @@ export default function MarketplaceQuoteModal({
       currencyValue="GBP"
       currencyOptions={[{ value: 'GBP', label: 'GBP - Pounds' }]}
       onCurrencyChange={() => undefined}
-      currencySymbol="£"
+      currencySymbol={'\u00a3'}
       amount={amount}
       onAmountChange={onAmountChange}
       extras={extras}
@@ -136,11 +158,12 @@ export default function MarketplaceQuoteModal({
       message={message}
       onMessageChange={onMessageChange}
       onClose={onClose}
-      onSubmit={() => onSubmit({
+      draftOwnerId={user?.id}
+      onSubmit={(meta) => onSubmit({
         totalAmount: total,
         baseAmount: safeBaseAmount,
         additionalExtrasGbp: extrasTotal,
-        message: message.trim(),
+        message: [message.trim(), `Service: ${meta.service}`, `ETA to Collection: ${meta.etaToCollection === 'ONTIME' ? 'On Time' : meta.etaToCollection === 'ASAP' ? 'ASAP' : `${meta.etaToCollection} minutes`}`, `Quote valid for: ${meta.validityHours} hours`].filter(Boolean).join('\n'),
       })}
     />
   );

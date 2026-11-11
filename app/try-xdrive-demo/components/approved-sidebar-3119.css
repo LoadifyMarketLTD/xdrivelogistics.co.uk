@@ -1,0 +1,102 @@
+﻿/* Visual contract: approved Fleet 3119 sidebar, reused in the six other DEMO roles. */
+@media(min-width:851px){
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar{
+position:fixed!important;left:0!important;top:0!important;bottom:0!important;
+display:flex!important;flex-direction:column!important;z-index:100!important;
+width:224px!important;min-width:224px!important;max-width:224px!important;
+height:100vh!important;min-height:100vh!important;max-height:100vh!important;
+padding:10px 8px 8px!important;overflow-x:hidden!important;overflow-y:auto!important;
+transform:none!important;transition:width .18s ease!important;
+scrollbar-width:thin;background:#071d43!important;color:#fff!important;box-shadow:none!important;
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar::after{content:none!important;display:none!important}
+.demo-shell.xd-approved-sidebar-shell>.content{
+margin:0 0 0 224px!important;width:calc(100% - 224px)!important;
+max-width:none!important;min-width:0!important;display:block;flex:none!important
+}
+.demo-shell.xd-approved-sidebar-shell:has(>.xd-approved-sidebar.is-collapsed)>.content{
+margin-left:68px!important;width:calc(100% - 68px)!important
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar.is-collapsed{
+width:68px!important;min-width:68px!important;max-width:68px!important
+}
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar .brand{
+display:block!important;flex:none;width:196px;height:64px;min-height:64px;
+padding:0!important;margin:5px auto 13px!important;font-size:0!important;
+color:transparent!important;line-height:0!important;letter-spacing:0!important;
+background:url("/xdrive-logo-company-3150.png") center center/contain no-repeat!important
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar.is-collapsed .brand{
+width:50px!important;height:42px!important;min-height:42px!important;
+background-position:center!important;background-size:cover!important
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar>button{
+width:100%!important;min-height:39px!important;height:39px!important;flex:none;
+margin:0 0 1px!important;padding:8px 10px!important;
+display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:11px!important;
+border:0!important;border-radius:8px!important;background:transparent!important;
+box-shadow:none!important;color:#e5edf9!important;font-family:Inter,Arial,sans-serif!important;
+font-size:14px!important;font-weight:600!important;line-height:21px!important;
+white-space:nowrap!important;text-align:left!important;cursor:pointer
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar>button svg{
+width:19px!important;min-width:19px!important;height:19px!important;display:block;flex:none;
+color:currentColor;stroke:currentColor
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar>button span{font-size:inherit!important}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar>button:hover{background:#17365f!important;color:white!important}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar>button.active,
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar>button.active:hover{
+background:#ff7900!important;color:white!important
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar.is-collapsed>button{
+font-size:0!important;justify-content:center!important;padding:7px!important
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar.is-collapsed>button span{display:none!important}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar .xd-approved-footer{
+margin-top:auto;min-height:40px;padding:3px 10px 0;
+position:sticky;bottom:0;display:flex;justify-content:flex-end;
+background:#071d43;flex:none;z-index:3
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar .xd-approved-footer button{
+border:0!important;background:transparent!important;color:#fff!important;
+display:flex!important;justify-content:center!important;align-items:center!important;
+width:34px!important;height:34px!important;min-height:34px!important;padding:4px!important;
+border-radius:6px!important;cursor:pointer!important
+}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar .xd-approved-footer button:hover{background:#163b73!important}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar button:focus-visible{outline:3px solid #f5a300!important;outline-offset:2px}
+@media(max-width:850px){
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar{display:none!important}
+.demo-shell.xd-approved-sidebar-shell>.content{margin:0!important;width:100%!important;min-width:0!important}
+}
+@media(prefers-reduced-motion:reduce){.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar{transition:none!important}}
+
+/* Shared semantic brand image used by every Master role. */
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar .brand{background:none!important}
+.demo-shell.xd-approved-sidebar-shell>.xd-approved-sidebar .brand img{display:block;width:100%;height:100%;object-fit:contain}
+
+/* Driver Dashboard audit: keep Log out readable beside the collapse control. */
+.demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .xd-approved-footer > .xd-master-logout {
+  width: auto !important;
+  min-width: 0 !important;
+  flex: 1 1 auto;
+  justify-content: flex-start !important;
+  gap: 6px;
+  white-space: nowrap !important;
+  overflow: hidden;
+}
+.demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .xd-approved-footer > .xd-master-logout span {
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  flex-shrink: 0;
+}
+.demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .xd-approved-footer > button[aria-label="Collapse sidebar"],
+.demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar .xd-approved-footer > button[aria-label="Expand sidebar"] {
+  flex: 0 0 34px;
+}
+.demo-shell.xd-approved-sidebar-shell > .xd-approved-sidebar.is-collapsed .xd-approved-footer > .xd-master-logout span {
+  display: none;
+}

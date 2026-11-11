@@ -10,12 +10,22 @@ const roles = [
   ['company-driver','E2E_COMPANY_DRIVER','/driver'],
 ];
 
+type TypographyAuditReport = {
+  role: string;
+  pages: unknown[];
+  menus: unknown[];
+  status: string;
+  loginAttempts?: Array<{ attempt: number; outcome: string }>;
+  sessionRedirects?: Array<{ route: string }>;
+  workspaceLabel?: string | null;
+};
+
 for (const [role, prefix, home] of roles) test(`${role} shared readable workspace typography`, async ({ page }) => {
   test.setTimeout(480000);
   const email=process.env[prefix+'_EMAIL'], password=process.env[prefix+'_PASSWORD'];
   if(!email||!password) throw new Error(`${role}: E2E credentials required`);
   const output=process.env.DIARY_E2E_OUTPUT;
-  const report: any = {role,pages:[],menus:[],status:'running'};
+  const report: TypographyAuditReport = {role,pages:[],menus:[],status:'running'};
   const inspect = async () => page.evaluate(() => {
     const scope=document.querySelector('.xdrive-workspace-measured');
     if(!scope) return {count:0,small:[{element:'missing-workspace-scope'}],families:[]};
@@ -88,7 +98,7 @@ for (const [role, prefix, home] of roles) test(`${role} shared readable workspac
       console.log(role+': '+route);
       await page.setViewportSize({width:1680,height:1000});
       if(route!==home) {
-        let link=nav.locator(`a[href=${JSON.stringify(route)}]`);
+        const link=nav.locator(`a[href=${JSON.stringify(route)}]`);
         if(!await link.count()) {
           for(const trigger of await nav.locator('button[aria-haspopup=menu]').all()) {
             if(await trigger.getAttribute('aria-expanded')!=='true') await trigger.click();

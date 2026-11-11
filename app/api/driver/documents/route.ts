@@ -26,16 +26,6 @@ type UploadRecordRequest = {
   mimeType?: unknown;
 };
 
-type DriverDocumentRow = {
-  id: string;
-  doc_type: string;
-  file_path: string | null;
-  issued_date?: string | null;
-  expiry_date?: string | null;
-  status?: string | null;
-  rejection_reason?: string | null;
-  created_at?: string | null;
-};
 
 function json(status: number, body: Record<string, unknown>) {
   return NextResponse.json(body, { status });
@@ -71,54 +61,6 @@ async function removeStoredObject(storagePath: string) {
   return supabaseAdmin!.storage.from('driver-docs').remove([storagePath]);
 }
 
-async function deleteDriverDocumentRows(rows: DriverDocumentRow[]) {
-  if (rows.length === 0) return { deleted: 0, error: null as string | null };
-
-  const storagePaths = rows.map((row) => cleanText(row.file_path, 500)).filter(Boolean);
-  if (storagePaths.length > 0) {
-    const { error: storageError } = await supabaseAdmin!.storage.from('driver-docs').remove(storagePaths);
-    if (storageError) {
-      return { deleted: 0, error: 'The old document file could not be removed from secure storage.' };
-    }
-  }
-
-  const ids = rows.map((row) => row.id).filter(Boolean);
-  const { error: deleteError } = await supabaseAdmin!
-    .from('driver_documents')
-    .delete()
-    .in('id', ids);
-
-  if (deleteError) {
-    return { deleted: 0, error: 'The old document record could not be removed.' };
-  }
-  return { deleted: ids.length, error: null as string | null };
-}
-
-async function purgeExpiredDriverDocuments(driverId: string) {
-  const today = new Date().toISOString().slice(0, 10);
-  const { data, error } = await supabaseAdmin!
-    .from('driver_documents')
-    .select('id, doc_type, file_path, expiry_date')
-    .eq('driver_id', driverId)
-    .not('expiry_date', 'is', null)
-    .lt('expiry_date', today);
-
-  if (error) return { deleted: 0, error: 'Expired documents could not be checked.' };
-  return deleteDriverDocumentRows((data ?? []) as DriverDocumentRow[]);
-}
-
-async function purgeReplacedDriverDocuments(driverId: string, docType: string, keepId: string) {
-  const { data, error } = await supabaseAdmin!
-    .from('driver_documents')
-    .select('id, doc_type, file_path, expiry_date')
-    .eq('driver_id', driverId)
-    .eq('doc_type', docType)
-    .neq('id', keepId);
-
-  if (error) return { deleted: 0, error: 'Replaced documents could not be checked.' };
-  return deleteDriverDocumentRows((data ?? []) as DriverDocumentRow[]);
-}
-
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return json(503, { error: 'Document service is temporarily unavailable.' });
@@ -126,9 +68,6 @@ export async function GET(request: NextRequest) {
 
   const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
-
-  const cleanup = await purgeExpiredDriverDocuments(driver.driverId);
-  if (cleanup.error) return json(500, { error: cleanup.error });
 
   const { data, error } = await supabaseAdmin
     .from('driver_documents')
@@ -140,7 +79,9 @@ export async function GET(request: NextRequest) {
 
   return json(200, {
     documents: data ?? [],
-    cleanup: { expiredDeleted: cleanup.deleted },
+    driverId: driver.driverId,
+    companyId: driver.companyId,
+    cleanup: { expiredDeleted: 0 },
   });
 }
 
@@ -151,9 +92,6 @@ export async function POST(request: NextRequest) {
 
   const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
-
-  const expiredCleanup = await purgeExpiredDriverDocuments(driver.driverId);
-  if (expiredCleanup.error) return json(500, { error: expiredCleanup.error });
 
   const body = await request.json().catch(() => null) as UploadRecordRequest | null;
   if (!body) return json(400, { error: 'The document upload request is invalid.' });
@@ -191,15 +129,13 @@ export async function POST(request: NextRequest) {
 
   if (existingError) return json(500, { error: 'The existing document record could not be checked.' });
   if (existing) {
-    const replacedCleanup = await purgeReplacedDriverDocuments(driver.driverId, docType, existing.id);
-    if (replacedCleanup.error) return json(500, { error: replacedCleanup.error });
     return json(200, {
       ok: true,
       document: existing,
       idempotent: true,
       cleanup: {
-        expiredDeleted: expiredCleanup.deleted,
-        replacedDeleted: replacedCleanup.deleted,
+        expiredDeleted: 0,
+        replacedDeleted: 0,
       },
     });
   }
@@ -237,21 +173,13 @@ export async function POST(request: NextRequest) {
     return json(500, { error: 'The document record could not be created. The uploaded file was removed safely.' });
   }
 
-  const replacedCleanup = await purgeReplacedDriverDocuments(driver.driverId, docType, record.id);
-  if (replacedCleanup.error) {
-    return json(500, {
-      error: `${replacedCleanup.error} The new document was saved, but automatic cleanup needs attention.`,
-      document: record,
-    });
-  }
-
   return json(201, {
     ok: true,
     document: record,
     idempotent: false,
     cleanup: {
-      expiredDeleted: expiredCleanup.deleted,
-      replacedDeleted: replacedCleanup.deleted,
+      expiredDeleted: 0,
+      replacedDeleted: 0,
     },
   });
 }

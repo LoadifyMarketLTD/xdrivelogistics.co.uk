@@ -1,0 +1,23 @@
+.deliveryInfo{display:grid;gap:8px;padding:0 12px 12px}
+.deliveryInfo label{display:grid;grid-template-columns:minmax(0,1fr) minmax(120px,1.2fr);gap:10px;align-items:center}
+.deliveryInfo span,.recipient label>span,.leftAt>span,.final label>span{color:#526d90;font-size:11px;font-weight:800}
+.deliveryInfo input,.deliveryInfo select,.recipient input,.final input,.final textarea{width:100%;box-sizing:border-box;min-height:40px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;padding:7px 9px;color:#1a1f2b;font:inherit;font-size:12px;font-weight:700}
+.gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;padding:0 12px 7px}
+.photo,.add{position:relative;aspect-ratio:1/1;min-height:58px;overflow:hidden;border:1px solid #d7dde5;border-radius:9px;background:#eef2f6;display:grid;place-items:center;color:#526d90;font-size:10px;font-weight:750;text-align:center}
+.photo img{width:100%;height:100%;object-fit:cover}
+.photo b{position:absolute;inset:0;display:grid;place-items:center;background:rgba(11,47,107,.66);color:#fff;font-size:18px}
+.add{cursor:pointer;background:#eef6fd;color:#0b57a5}.add span{font-size:23px}.add small{font-size:9px;font-weight:750}.add input{position:absolute;inset:0;opacity:0;width:100%}
+.evidenceMeta{margin:0;padding:0 12px 7px;color:#7b8492;font-size:10px;line-height:14px}
+.documentRow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 12px 10px;border-top:1px solid #edf0f3;color:#526d90;font-size:10px;font-weight:700}
+.documentRow label{position:relative;cursor:pointer;color:#0b57a5}.documentRow input{position:absolute;inset:0;opacity:0;width:100%}
+.recipient{display:grid;gap:10px;padding:0 12px 12px}
+.recipient label{display:grid;gap:5px}
+.leftAt{display:grid;gap:6px}.leftAt>div{display:flex;flex-wrap:wrap;gap:6px}.leftAt button{min-height:32px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#526d90;font-size:10px;font-weight:750}.leftAt button[aria-pressed='true']{border-color:#1d57d8;background:#eef6fd;color:#0b57a5}
+.recipient canvas{width:100%;height:112px;box-sizing:border-box;border:1px solid #94a3b8;border-radius:9px;background:#fff;touch-action:none}
+.signatureActions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.signatureActions button{min-height:34px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0b57a5;font-size:11px;font-weight:750}.signatureActions span{color:#6b7280;font-size:10px;font-weight:700}
+.final{display:grid;gap:9px;padding:0 12px 12px}.final label{display:grid;gap:5px}.final textarea{min-height:66px;resize:vertical;font-weight:500;line-height:17px}.final label small{text-align:right;color:#7b8492;font-size:10px}
+.hardCopy{grid-template-columns:auto 1fr!important;align-items:center;gap:7px!important}.hardCopy input{width:auto;min-height:auto}
+.warning{margin:0;padding:7px 8px;border-radius:8px;background:#fff4e5;color:#8a4b08;font-size:10px;line-height:14px;font-weight:700}
+.draftState{margin:0;color:#526d90;font-size:10px;line-height:14px}
+.actions{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.5fr);gap:8px;align-items:stretch}.actions>button:first-child{min-height:46px;border:1px solid #c9dced;border-radius:10px;background:#eef6fd;color:#0b57a5;font-size:12px;font-weight:800}.actions :global(button:last-child){width:100%;margin:0}
+@media(max-width:360px){.gallery{grid-template-columns:repeat(3,minmax(0,1fr))}.deliveryInfo label{grid-template-columns:1fr}.actions{grid-template-columns:1fr}}

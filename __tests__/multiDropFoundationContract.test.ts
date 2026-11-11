@@ -72,5 +72,13 @@ describe('Multi-drop foundation server contract', () => {
     expect(actionRoute).toContain("if (action === 'pod')");
     expect(actionRoute).toContain("if (action === 'delivered')");
     expect(actionRoute).toContain('Complete all multi-drop stops before capturing POD or marking the job delivered.');
+    // The standard two-stop route must not be mistaken for multi-drop: its
+    // canonical job state already controls whether delivery/POD can proceed.
+    expect(actionRoute).toContain(".select('id, sequence, stop_type, status')");
+    expect(actionRoute).toContain('stops.length === 2');
+    expect(actionRoute).toContain("stop.sequence === 1 && stop.stop_type === 'collection'");
+    expect(actionRoute).toContain("stop.sequence === 2 && stop.stop_type === 'delivery'");
+    expect(actionRoute).toContain('if (standardRoute) return null;');
+    expect(actionRoute).toContain('const incompleteStops = stops.filter');
   });
 });

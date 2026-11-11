@@ -1,38 +1,47 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+const root = process.cwd();
+const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
+const page = read('app/admin/invoices/page.tsx');
+const finance = read('app/components/workspace/WorkspaceFinanceControl.tsx');
+const css = read('app/components/workspace/InvoiceProFinance.module.css');
 
-const page = fs.readFileSync(path.join(process.cwd(), 'app/admin/invoices/page.tsx'), 'utf8');
-const css = fs.readFileSync(path.join(process.cwd(), 'app/admin/invoices/invoice-register-exchange.css'), 'utf8');
-
-describe('CX-close finance invoice register', () => {
-  it('uses role-specific accounting signals rather than summary cards', () => {
-    expect(page).toContain('OperationalSignalStrip');
-    for (const label of ['All invoices', 'Draft', 'Awaiting payment', 'Overdue', 'Disputed', 'Paid', 'Outstanding']) {
-      expect(page).toContain(`label: '${label}'`);
+describe('approved Customer finance register reused by Company/Carrier', () => {
+  it('uses the approved Customer finance model, not the retired CX summary register', () => {
+    expect(page).toContain('<WorkspaceFinanceControl role="carrier" />');
+    expect(read('app/customer/invoices/page.tsx')).toContain('<WorkspaceFinanceControl role="customer" />');
+    expect(finance).toContain("import styles from './InvoiceProFinance.module.css'");
+    for (const label of ['Dashboard', 'All', 'Ready to Invoice', 'Awaiting Payment', 'Paid', 'Statements']) {
+      expect(finance).toContain(label);
     }
   });
 
-  it('keeps the verified invoice lifecycle and payment-detail route', () => {
-    expect(page).toContain("['All', 'Draft', 'Sent', 'Overdue', 'Paid', 'Disputed', 'Cancelled']");
-    expect(page).toContain('Record Payment');
-    expect(page).toContain('toCanonicalPaymentStatus');
-    expect(page).toContain("router.push(`/admin/invoices/${invoice.id}`)");
+  it('preserves account direction, invoice lifecycle, payment drill-down and real backend authorization', () => {
+    expect(finance).toContain("invoice.direction === 'receivable'");
+    expect(finance).toContain("invoice.direction === 'payable'");
+    expect(finance).toContain('invoice.lifecycle ===');
+    expect(finance).toContain('router.push(detailHref(role, invoice))');
+    expect(finance).toContain('`/admin/invoices/${invoice.id}`');
+    expect(finance).toContain("'/api/workspace/finance/control'");
+    expect(read('app/api/workspace/finance/control/route.ts')).toContain('hasWorkspaceCapabilityForContext');
   });
 
-  it('does not fabricate unverified SmartPay/CX accounting actions', () => {
+  it('never fabricates unverified accounting actions or demo invoices', () => {
     expect(page).not.toContain('Ready to Invoice / external invoice parity');
-    expect(page).not.toContain('current invoice schema');
-    expect(page).not.toContain('parity-ledger');
+    expect(finance).not.toContain('publishDemoLoad');
+    expect(finance).not.toContain('mockInvoices');
   });
 
-  it('uses the measured workspace geometry', () => {
-    expect(css).toContain('var(--ws-tab-h, 28px)');
-    expect(css).toContain('var(--ws-control-h, 32px)');
-    expect(css).toContain('var(--ws-radius, 4px)');
+  it('uses the same approved responsive geometry for Customer, Broker and Company', () => {
+    expect(css).toContain('.surface');
+    expect(css).toContain('.nav');
+    expect(css).toContain('.hero');
+    expect(css).toContain('.register');
   });
 
-  it('does not couple finance to Super Admin', () => {
+  it('keeps tenant finance separate from global Super Admin finance', () => {
     expect(page).not.toContain('/super-admin');
-    expect(css).not.toContain('/super-admin');
+    expect(finance).not.toContain('/api/super-admin');
   });
 });

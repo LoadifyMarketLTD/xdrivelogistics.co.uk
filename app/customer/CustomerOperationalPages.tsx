@@ -10,6 +10,8 @@ import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPan
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
 import { useVisibleRefresh } from '../components/workspace/useVisibleRefresh';
 import CxLoadCard from '../components/workspace/CxLoadCard';
+import { compactRouteLocation } from '../../lib/jobs/compactRouteLocation';
+import Master3150OperationsKpis from '../components/workspace/Master3150OperationsKpis';
 import {
   ActionButton,
   AlertBanner,
@@ -33,17 +35,6 @@ const cxTimeParts = (value: string | null | undefined) => {
     primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
     meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}`,
   };
-};
-
-const routeLocationLabel = (location: string | null | undefined, postcode: string | null | undefined, fallback: string) => {
-  const place = location?.trim() ?? '';
-  const code = postcode?.trim() ?? '';
-  if (place && code) {
-    const placeUpper = place.toUpperCase();
-    const codeUpper = code.toUpperCase();
-    return placeUpper.includes(codeUpper) ? place : place + ', ' + code;
-  }
-  return place || code || fallback;
 };
 
 function quoteCounts(data: ReturnType<typeof useCompanyWorkspaceData>) {
@@ -99,8 +90,8 @@ function CustomerOperationalRow({
   return (
     <>
       <CxLoadCard
-        from={routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}
-        to={routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}
+        from={compactRouteLocation(job.pickup_location, job.pickup_postcode, 'Collection')}
+        to={compactRouteLocation(job.delivery_location, job.delivery_postcode, 'Delivery')}
         pickup={cxTimeParts(job.pickup_datetime)}
         delivery={cxTimeParts(job.delivery_datetime)}
         band={presentationStatus}
@@ -108,13 +99,11 @@ function CustomerOperationalRow({
         postedAt={job.booking_reference ? `Booking ${job.booking_reference}` : job.customer_reference ? `Customer ref ${job.customer_reference}` : 'XDrive transport'}
         loadId={job.id.slice(0, 8).toUpperCase()}
         vehicle={vehicle}
+        paymentTerms={job.payment_terms ?? 'Not supplied'}
         expanded={open}
         dataState={presentationState}
         freight={<>
           <div><span>{middleLabel}:</span><strong>{middleValue}</strong></div>
-          <div><span>Vehicle:</span><strong>{vehicle}</strong></div>
-          <div><span>Booking:</span><strong>{job.booking_reference || 'Not supplied'}</strong></div>
-          <div><span>Customer ref:</span><strong>{job.customer_reference || 'Not supplied'}</strong></div>
         </>}
         commercial={<>
           <div><span>Status:</span><strong>{presentationStatus}</strong></div>
@@ -244,6 +233,7 @@ export function CustomerAwardsOperationalPage() {
   return (
     <PageFrame>
       <PageHeader eyebrow="Customer operations" title="Bookings" description="Awarded transport from carrier award through allocation, execution, POD and completion." />
+      <Master3150OperationsKpis jobs={data.jobs} view="bookings" />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Booking filters"><div className="workspace-filter-rail__header">Search Bookings</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive, customer booking or customer ref" /></label><div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Awarded means the carrier has won the work. Allocated means a driver and canonical vehicle have been assigned. Expand any booking for the authorised Order, route, contacts, POD, history, documents and invoice data.</div><ActionButton tone="secondary" onClick={() => setReference('')}>Clear</ActionButton></div></aside>

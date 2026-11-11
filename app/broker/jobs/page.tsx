@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Master3150OperationsKpis from '../../components/workspace/Master3150OperationsKpis';
+import CxLoadCard, { cxDateParts } from '../../components/workspace/CxLoadCard';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
@@ -49,7 +51,7 @@ export default function BrokerJobsPage() {
   const canEditOwnedJobs = ['owner', 'admin', 'dispatcher'].includes((user?.membershipRole ?? '').trim().toLowerCase());
   const deepJob = searchParams.get('job');
 
-  const [tab, setTab] = useState<JobsTab>('all');
+  const [tab, setTab] = useState<JobsTab>(() => searchParams.get('view') === 'awarded' ? 'awarded' : 'all');
   const [customer, setCustomer] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -94,12 +96,12 @@ export default function BrokerJobsPage() {
     if (deepJob) router.push('/broker/jobs');
   };
 
-  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
   return (
     <PageFrame>
       <PageHeader eyebrow="Broker operations" title="Jobs" description="Monitor awarded carrier work from allocation through execution and completion." />
+      <Master3150OperationsKpis jobs={data.jobs} view="bookings" />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
@@ -133,44 +135,51 @@ export default function BrokerJobsPage() {
                 const stage = classifyWorkspaceJobStage(job);
 
                 return (
-                  <article className="workspace-operational-row" key={job.id} data-state={statusOf(job)}>
-                    <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>JOB</div><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS</div><StatusBadge value={workspaceJobOperationalLabel(job)} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Expand'}</ActionButton></div></div>
-                    </div>
-
-                    <div className="workspace-record-meta">
-                      <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
-                      <span>{job.awarded_carrier_company_id ? 'Carrier awarded' : 'Carrier not recorded'}</span>
-                      <span>{job.assigned_driver_id ? 'Driver allocated' : 'Driver not allocated'}</span>
-                      <span>Delivery evidence: {deliveryEvidenceAvailable ? `${job.delivery_photos?.length || 0} photo(s)` : 'Not recorded'}</span>
-                    </div>
-
-                    {open && (
-                      <div className="workspace-record-details" style={{ display: 'grid', gap: 8 }}>
-                        {job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id} />}
-                        <DriverInstructionPanel jobId={job.id} />
-                        <div className="workspace-detail-grid">
-                          <div className="workspace-detail-item"><strong>Customer</strong><div>{job.client_name || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Pickup</strong><div>{job.pickup_location || job.pickup_postcode || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Delivery</strong><div>{job.delivery_location || job.delivery_postcode || '—'}</div></div>
-                          <div className="workspace-detail-item"><strong>Vehicle</strong><div>{(job.vehicle_type || 'Not specified').replaceAll('_', ' ')}</div></div>
-                          <div className="workspace-detail-item"><strong>Pickup time</strong><div>{when(job.pickup_datetime)}</div></div>
-                          <div className="workspace-detail-item"><strong>Delivery time</strong><div>{when(job.delivery_datetime)}</div></div>
-                          <div className="workspace-detail-item"><strong>Operational status</strong><div>{statusOf(job).replaceAll('_', ' ')}</div></div>
-                          <div className="workspace-detail-item"><strong>Delivery evidence</strong><div>{deliveryEvidenceAvailable ? `${job.delivery_photos?.length || 0} photo(s) recorded` : 'Not recorded in this feed'}</div></div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
-                          <ActionButton tone="primary" onClick={() => router.push(`/broker/loads?job=${job.id}`)}>Open load</ActionButton>
-                          {canEditOwnedJobs && job.company_id === data.companyId && <ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</ActionButton>}
-                          <ActionButton tone="secondary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Commercial</ActionButton>
-                          {stage === 'completed' && <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD review</ActionButton>}
-                        </div>
+                  <CxLoadCard
+                    key={job.id}
+                    from={job.pickup_postcode || job.pickup_location || 'Collection not recorded'}
+                    to={job.delivery_postcode || job.delivery_location || 'Delivery not recorded'}
+                    pickup={cxDateParts(job.pickup_datetime)}
+                    delivery={cxDateParts(job.delivery_datetime)}
+                    band={workspaceJobOperationalLabel(job)}
+                    posted={job.client_name || 'Customer'}
+                    postedAt={job.awarded_carrier_company_id ? 'Carrier awarded' : 'Carrier not recorded'}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={(job.vehicle_type || 'Vehicle not recorded').replaceAll('_',' ')}
+                    dataState={statusOf(job)}
+                    paymentTerms={job.payment_terms || 'Not supplied'}
+                    expanded={open}
+                    freight={<>
+                      <div><span>Driver:</span><strong>{job.assigned_driver_id ? 'Allocated' : 'Unallocated'}</strong></div>
+                      <div><span>Status:</span><strong><StatusBadge value={workspaceJobOperationalLabel(job)} /></strong></div>
+                      <div><span>POD:</span><strong>{deliveryEvidenceAvailable ? 'Delivery evidence available' : 'Not recorded'}</strong></div>
+                    </>}
+                    commercial={<>
+                      <div><span>Customer:</span><strong>{job.client_name || 'Not supplied'}</strong></div>
+                      <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
+                      <div><span>Delivery:</span><strong>{when(job.delivery_datetime)}</strong></div>
+                      <div><span>Carrier:</span><strong>{job.awarded_carrier_company_id ? 'Awarded' : 'Not awarded'}</strong></div>
+                    </>}
+                    notes={<>
+                      {job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id}/>}
+                      <DriverInstructionPanel jobId={job.id}/>
+                      <div className="workspace-detail-grid">
+                        <div className="workspace-detail-item"><strong>Pickup</strong><div>{job.pickup_location || job.pickup_postcode || 'Not recorded'}</div></div>
+                        <div className="workspace-detail-item"><strong>Delivery</strong><div>{job.delivery_location || job.delivery_postcode || 'Not recorded'}</div></div>
+                        <div className="workspace-detail-item"><strong>Delivery evidence</strong><div>{deliveryEvidenceAvailable ? `${job.delivery_photos?.length || 0} photo(s) recorded` : 'Not recorded in this feed'}</div></div>
                       </div>
-                    )}
-                  </article>
+                      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                        <ActionButton tone="primary" onClick={() => router.push(`/broker/loads?job=${job.id}`)}>Open load</ActionButton>
+                        {canEditOwnedJobs && job.company_id === data.companyId && <ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</ActionButton>}
+                        <ActionButton tone="secondary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Commercial</ActionButton>
+                        {stage === 'completed' && <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD review</ActionButton>}
+                      </div>
+                    </>}
+                    footer={<>
+                      <button type="button" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'View Details'}</button>
+                      <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(`/broker/loads?job=${job.id}`)}>Open booking</button>
+                    </>}
+                  />
                 );
               })}
             </div>

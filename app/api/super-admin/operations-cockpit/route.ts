@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
+import { finiteNumberOrNull, isTimestampFresh } from '../_lib/operationalMapTruth';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -18,10 +19,7 @@ const MAX_LOCATION_ROWS = 2_000;
 const MAX_JOB_ROWS = 100;
 const MAX_FINANCE_ROWS = 2_000;
 
-const num = (value: unknown) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-};
+const num = finiteNumberOrNull;
 const text = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
 const iso = (value: unknown) => {
   const raw = text(value);
@@ -141,18 +139,11 @@ export async function GET(request: NextRequest) {
     const executionLat = coordinate(latest?.lat, legacyPoint?.lat);
     const executionLng = coordinate(latest?.lng, legacyPoint?.lng);
     const executionRecordedAt = iso(latest?.recorded_at);
-    const executionAgeMs = executionRecordedAt ? nowMs - Date.parse(executionRecordedAt) : Number.POSITIVE_INFINITY;
     const presenceRecordedAt = iso(presence?.recorded_at) ?? iso(presence?.updated_at);
     const presenceUntil = iso(presence?.available_until);
-    const presenceAgeMs = presenceRecordedAt ? nowMs - Date.parse(presenceRecordedAt) : Number.POSITIVE_INFINITY;
-    const presenceActive = Boolean(
-      presenceUntil
-      && Date.parse(presenceUntil) > nowMs
-      && presenceAgeMs <= ONLINE_LOCATION_MAX_AGE_MS
-      && num(presence?.exact_lat) !== null
-      && num(presence?.exact_lng) !== null
-    );
-    const executionFresh = executionLat !== null && executionLng !== null && executionAgeMs <= ONLINE_LOCATION_MAX_AGE_MS;
+    const presenceFresh = isTimestampFresh(presenceRecordedAt, nowMs, ONLINE_LOCATION_MAX_AGE_MS);
+    const presenceActive = Boolean(presenceFresh && presenceUntil && Date.parse(presenceUntil) > nowMs && num(presence?.exact_lat) !== null && num(presence?.exact_lng) !== null);
+    const executionFresh = executionLat !== null && executionLng !== null && isTimestampFresh(executionRecordedAt, nowMs, ONLINE_LOCATION_MAX_AGE_MS);
     const useAvailabilityPresence = presenceActive && (!executionRecordedAt || (presenceRecordedAt && Date.parse(presenceRecordedAt) >= Date.parse(executionRecordedAt)));
     const baseAvailability = text(driver.availability_status) ?? 'offline';
     const online = Boolean(driver.is_active !== false && baseAvailability !== 'offline' && (executionFresh || presenceActive));
@@ -305,8 +296,25 @@ export async function GET(request: NextRequest) {
     return ['unpaid', 'partially_paid', 'overdue', 'disputed'].includes(paymentStatus ?? '') && !['paid', 'void', 'cancelled'].includes(status ?? '');
   });
 
+  const coverageLimits = [
+    { source: 'driver_locations', returned: locations.length, limit: MAX_LOCATION_ROWS },
+    { source: 'driver_availability_presence', returned: availabilityPresence.length, limit: MAX_LOCATION_ROWS },
+    { source: 'vehicles', returned: vehicles.length, limit: 500 },
+    { source: 'jobs', returned: jobs.length, limit: MAX_JOB_ROWS },
+    { source: 'invoice_payment_history', returned: payments.length, limit: MAX_FINANCE_ROWS },
+    { source: 'invoices', returned: invoices.length, limit: MAX_FINANCE_ROWS },
+  ];
+  const limitedSources = coverageLimits.filter((entry) => entry.returned >= entry.limit);
+
   return respond(200, {
     refreshedAt: now.toISOString(),
+    coverage: {
+      complete: limitedSources.length === 0,
+      limitedSources,
+      note: limitedSources.length
+        ? 'One or more cockpit sources reached their snapshot cap. KPIs derived from those sources are lower-bound or recent-snapshot values, not complete platform totals.'
+        : 'No cockpit source reached its configured snapshot cap.',
+    },
     definitions: {
       driversOnline: 'Active driver with AVAILABLE presence from driver_availability_presence or fresh execution tracking no older than 30 minutes.',
       fleetHealth: 'Operational readiness: active vehicle with no rejected/expired vehicle-compliance document. This is not a mechanical telemetry score.',

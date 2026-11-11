@@ -80,7 +80,7 @@ beforeEach(() => {
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: async () => ({ data: { role: mocks.profileRole }, error: null }),
+            maybeSingle: async () => ({ data: { role: mocks.profileRole, status: 'active' }, error: null }),
           }),
         }),
       };

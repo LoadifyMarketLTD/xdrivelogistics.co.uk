@@ -1,27 +1,23 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const readRepoFile = (relativePath: string) =>
-  readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8');
+const root = process.cwd();
 
-const extractJob = (workflow: string, jobName: string, nextJobName: string) => {
-  const start = workflow.indexOf(`  ${jobName}:`);
-  const end = workflow.indexOf(`\n  ${nextJobName}:`, start);
+describe('local validation gate while GitHub Actions remain disabled', () => {
+  it('does not recreate GitHub Actions workflows', () => {
+    const workflows = join(root, '.github', 'workflows');
+    expect(existsSync(workflows) ? readdirSync(workflows).filter((name) => /\.ya?ml$/i.test(name)) : []).toEqual([]);
+  });
 
-  if (start === -1 || end === -1) return '';
-  return workflow.slice(start, end);
-};
-
-describe('CI workflow Expo gating', () => {
-  it('runs Expo validation on main or explicitly mobile and cross-scope pull requests', () => {
-    const workflow = readRepoFile('.github/workflows/ci.yml');
-    const expoJob = extractJob(workflow, 'expo-driver-typecheck', 'codeql-web');
-
-    expect(expoJob).toContain("needs.detect-expo-driver-changes.outputs.driver_changed == 'true'");
-    expect(expoJob).toContain('scope:expo');
-    expect(expoJob).toContain('scope:android');
-    expect(expoJob).toContain('scope:cross');
-    expect(expoJob).not.toContain('scope:web');
-    expect(expoJob).not.toContain('scope:supabase');
+  it('retains the protected local PowerShell gate and production build', () => {
+    const agents = readFileSync(join(root, 'AGENTS.md'), 'utf8');
+    const gate = readFileSync(join(root, 'scripts', 'verify-protected-workspace-invariants.ps1'), 'utf8');
+    const packageJson = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { scripts: Record<string, string> };
+    expect(agents).toContain('GitHub Actions remain disabled');
+    expect(agents).toContain('verify-protected-workspace-invariants.ps1');
+    expect(agents).toContain('npm run build');
+    expect(gate).toContain('# GitHub Actions must stay disabled.');
+    expect(packageJson.scripts.build).toBeTruthy();
   });
 });

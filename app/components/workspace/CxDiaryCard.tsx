@@ -1,34 +1,17 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
+import Master3150Card from './Master3150Card';
 
 export type CxDiaryDateParts = { primary: ReactNode; meta?: ReactNode };
 
+/** Approved 3150 Diary/Booking card with original POD, invoice and feedback controls. */
 export default function CxDiaryCard({
-  from,
-  to,
-  pickup,
-  delivery,
-  band,
-  statusLine,
-  statusStamp,
-  loadId,
-  vehicle,
-  footer,
-  children,
-  expanded = false,
-  expandedMeta,
-  expandedContent,
-  secondaryContent,
-  className = '',
-  footerClassName = '',
-  footerRole,
-  footerAriaLabel,
-  state,
-  stage,
-  dataState,
-  dataStage,
+  from, to, pickup, delivery, band, statusLine, statusStamp,
+  loadId, vehicle, footer, children, expanded = false,
+  expandedMeta, expandedContent, secondaryContent,
+  className = '', footerClassName = '', footerRole, footerAriaLabel,
+  state, stage, dataState, dataStage, paymentTerms,
 }: {
   from: ReactNode;
   to: ReactNode;
@@ -53,36 +36,37 @@ export default function CxDiaryCard({
   stage?: string;
   dataState?: string;
   dataStage?: string;
+  paymentTerms?: ReactNode;
 }) {
-  return (
-    <article className={`workspace-operational-row xdrive-cx-diary-card${className ? ` ${className}` : ''}`} data-state={dataState ?? state} data-stage={dataStage ?? stage}>
-      <div className="xdrive-cx-diary-card__main">
-        <section className="cx-diary-route xdrive-cx-diary-card__route">
-          <div><span>From:</span><strong>{from}</strong></div>
-          <div><span>To:</span><strong>{to}</strong></div>
-        </section>
-        <section className="xdrive-cx-diary-card__times">
-          <div><span>Pickup:</span><span className="cx-diary-datetime"><strong>{pickup.primary}</strong>{pickup.meta ? <span>{pickup.meta}</span> : null}</span></div>
-          <div><span>Deliver:</span><span className="cx-diary-datetime"><strong>{delivery.primary}</strong>{delivery.meta ? <span>{delivery.meta}</span> : null}</span></div>
-        </section>
-        <section className="xdrive-cx-diary-card__status">
-          <div className="xdrive-cx-diary-card__band">{band}</div>
-          <div className="xdrive-cx-diary-card__status-line">{statusLine}</div>
-          {statusStamp ? <div className="xdrive-cx-diary-card__status-stamp">{statusStamp}</div> : null}
-          <div className="xdrive-cx-diary-card__status-meta">
-            <span>Load ID: {loadId}</span>
-            <span className="xdrive-cx-load-card__vehicle xdrive-cx-diary-card__vehicle">
-              <img className="xdrive-cx-load-card__vehicle-image xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} onError={(event) => recoverWorkspaceVehicleImage(event.currentTarget)} alt="" aria-hidden="true" />
-              <strong>{vehicle}</strong>
-            </span>
-          </div>
-        </section>
-      </div>
-      <div className={`xdrive-cx-diary-card__footer${footerClassName ? ` ${footerClassName}` : ''}`} role={footerRole} aria-label={footerAriaLabel}>{footer}</div>
-      {expanded && expandedMeta ? <div className="xdrive-cx-diary-card__expanded-meta">{expandedMeta}</div> : null}
-      {expanded && expandedContent ? expandedContent : null}
-      {expanded && secondaryContent ? secondaryContent : null}
-      {children}
-    </article>
-  );
+  return <Master3150Card
+    mode="diary"
+    className={`workspace-operational-row xdrive-cx-diary-card ${className}`}
+    mainClassName="xdrive-cx-diary-card__main"
+    routeClassName="cx-diary-route xdrive-cx-diary-card__route"
+    timesClassName="xdrive-cx-diary-card__times"
+    statusClassName="xdrive-cx-diary-card__status"
+    footerClassName={`xdrive-cx-diary-card__footer ${footerClassName}`}
+    footerRole={footerRole}
+    footerAriaLabel={footerAriaLabel}
+    from={from}
+    to={to}
+    pickup={pickup}
+    delivery={delivery}
+    band={band}
+    posted={statusLine}
+    postedAt={statusStamp}
+    loadId={loadId}
+    vehicle={vehicle}
+    footer={footer}
+    terms={paymentTerms}
+    expanded={expanded}
+    expandedContent={<>
+      {expandedMeta && <div className="xdrive-cx-diary-card__expanded-meta">{expandedMeta}</div>}
+      {expandedContent}
+      {secondaryContent}
+    </>}
+    extra={children}
+    state={dataState ?? state}
+    stage={dataStage ?? stage}
+  />;
 }

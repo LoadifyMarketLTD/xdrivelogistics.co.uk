@@ -115,7 +115,17 @@ describe('workspace canonical handoff geometry', () => {
       'app/admin/jobs/[id]/page.tsx',
     ];
 
-    for (const page of registerPages) expect(read(page)).toContain('carrier-register-page');
+    for (const page of registerPages) {
+      const source = read(page);
+      if (page === 'app/admin/vehicles/page.tsx') {
+        const shell = read('app/components/workspace/VehicleRegisterShell.tsx');
+        expect(source).toContain("import { VehicleRegisterShell }");
+        expect(source).toContain('<VehicleRegisterShell');
+        expect(shell).toContain('carrier-register-page carrier-register-page--vehicles');
+      } else {
+        expect(source).toContain('carrier-register-page');
+      }
+    }
     for (const page of detailPages) expect(read(page)).toContain('carrier-detail-page');
   });
 
@@ -192,7 +202,9 @@ describe('workspace canonical handoff geometry', () => {
     expect(vehicles).not.toContain("gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))'");
     expect(css).toContain('.xdrive-carrier-workspace .carrier-register-modal__field-grid {');
     expect(css).toContain('grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));');
-    expect(vehicles).toContain('carrier-register-toolbar');
+    const vehicleShell = read('app/components/workspace/VehicleRegisterShell.tsx');
+    expect(vehicles).toContain('<VehicleRegisterShell');
+    expect(vehicleShell).toContain('carrier-register-toolbar');
     expect(vehicles).toContain('carrier-register-table-wrap');
     expect(vehicles).toContain('carrier-register-table');
     expect(vehicles).toContain('carrier-register-action');

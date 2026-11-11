@@ -52,6 +52,7 @@ type AdditionalStop = {
 };
 
 type Snapshot = {
+  pickupTown?: string; deliveryTown?: string;
   id: string;
   reference: string;
   status: string;
@@ -98,8 +99,8 @@ type Snapshot = {
 
 type FormState = {
   clientName: string; clientEmail: string; clientPhone: string;
-  pickupDate: string; pickupTime: string; pickupAddress: string; pickupPostcode: string; collectionContact: string; collectionPhone: string;
-  deliveryDate: string; deliveryTime: string; deliveryAddress: string; deliveryPostcode: string; deliveryContact: string; deliveryPhone: string;
+  pickupDate: string; pickupTime: string; pickupAddress: string; pickupTown: string; pickupPostcode: string; collectionContact: string; collectionPhone: string;
+  deliveryDate: string; deliveryTime: string; deliveryAddress: string; deliveryTown: string; deliveryPostcode: string; deliveryContact: string; deliveryPhone: string;
   vehicle: string; cargo: string; weight: string; pallets: string; length: string; width: string; height: string; cargoValue: string;
   customerReference: string; purchaseOrder: string; bookingReference: string; customerPrice: string; targetCarrierCost: string;
   tailLift: boolean; forklift: boolean; handball: boolean; adr: boolean; temperatureControlled: boolean; fragile: boolean;
@@ -108,8 +109,8 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   clientName: '', clientEmail: '', clientPhone: '',
-  pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
-  deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
+  pickupDate: '', pickupTime: '', pickupAddress: '', pickupTown: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
+  deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryTown: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
   vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', length: '', width: '', height: '', cargoValue: '',
   customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '',
   tailLift: false, forklift: false, handball: false, adr: false, temperatureControlled: false, fragile: false,
@@ -117,10 +118,10 @@ const EMPTY_FORM: FormState = {
 };
 
 function StopFields({
-  title, date, time, postcode, address, contact, phone, onDate, onTime, onPostcode, onAddress, onContact, onPhone, showErrors,
+  title, date, time, postcode, address, contact, phone, onDate, onTime, onPostcode, onAddress, onTown, town, onContact, onPhone, showErrors,
 }: {
   title: string; date: string; time: string; postcode: string; address: string; contact: string; phone: string;
-  onDate: (value: string) => void; onTime: (value: string) => void; onPostcode: (value: string) => void; onAddress: (value: string) => void; onContact: (value: string) => void; onPhone: (value: string) => void; showErrors: boolean;
+  onDate: (value: string) => void; onTime: (value: string) => void; onPostcode: (value: string) => void; onAddress: (value: string) => void; onTown?: (value: string) => void; town?: string; onContact: (value: string) => void; onPhone: (value: string) => void; showErrors: boolean;
 }) {
   const postcodeError = showErrors && (!postcode.trim() ? 'Required' : !isFullUkPostcode(postcode) ? 'Enter a full UK postcode' : '');
   const addressError = showErrors && !address.trim() ? 'Required' : '';
@@ -131,7 +132,8 @@ function StopFields({
       <label style={labelStyle}>Time *<select style={{ ...fieldStyle, ...(showErrors && !time ? invalidStyle : {}) }} value={time} onChange={(event) => onTime(event.target.value)}><option value="">Select time</option>{QUARTER_HOUR_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}</select>{showErrors && !time ? <span style={errorTextStyle}>Required</span> : null}</label>
     </div>
     <label style={labelStyle}>Postcode *<input style={{ ...fieldStyle, ...(postcodeError ? invalidStyle : {}) }} value={postcode} onChange={(event) => onPostcode(event.target.value.toUpperCase())} />{postcodeError ? <span style={errorTextStyle}>{postcodeError}</span> : null}</label>
-    <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} error={addressError || undefined} />
+    <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} onPostcodeResolved={onPostcode} error={addressError || undefined} />
+    {onTown ? <div style={{fontSize:11,color:"#475569"}}>Public town: {town || "Select an address or enter the town below"}</div> : null}
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
       <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
@@ -171,8 +173,8 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
         setAdditionalStops(job.additionalStops ?? []);
         setForm({
           clientName: job.clientName ?? '', clientEmail: job.clientEmail ?? '', clientPhone: job.clientPhone ?? '',
-          pickupDate: job.pickupDate ?? '', pickupTime: job.pickupTime ?? '', pickupAddress: job.pickupAddress ?? '', pickupPostcode: job.pickupPostcode ?? '', collectionContact: job.collectionContact ?? '', collectionPhone: job.collectionPhone ?? '',
-          deliveryDate: job.deliveryDate ?? '', deliveryTime: job.deliveryTime ?? '', deliveryAddress: job.deliveryAddress ?? '', deliveryPostcode: job.deliveryPostcode ?? '', deliveryContact: job.deliveryContact ?? '', deliveryPhone: job.deliveryPhone ?? '',
+          pickupDate: job.pickupDate ?? '', pickupTime: job.pickupTime ?? '', pickupAddress: job.pickupAddress ?? '', pickupTown: job.pickupTown ?? '', pickupPostcode: job.pickupPostcode ?? '', collectionContact: job.collectionContact ?? '', collectionPhone: job.collectionPhone ?? '',
+          deliveryDate: job.deliveryDate ?? '', deliveryTime: job.deliveryTime ?? '', deliveryAddress: job.deliveryAddress ?? '', deliveryTown: job.deliveryTown ?? '', deliveryPostcode: job.deliveryPostcode ?? '', deliveryContact: job.deliveryContact ?? '', deliveryPhone: job.deliveryPhone ?? '',
           vehicle: job.vehicle || 'LWB Van', cargo: job.cargo || 'Pallets', weight: asInput(job.weight), pallets: asInput(job.pallets), length: asInput(job.length), width: asInput(job.width), height: asInput(job.height), cargoValue: asInput(job.cargoValue),
           customerReference: job.customerReference ?? '', purchaseOrder: job.purchaseOrder ?? '', bookingReference: job.bookingReference ?? '', customerPrice: asInput(job.customerPrice), targetCarrierCost: asInput(job.targetCarrierCost),
           tailLift: Boolean(job.tailLift), forklift: Boolean(job.forklift), handball: Boolean(job.handball), adr: Boolean(job.adr), temperatureControlled: Boolean(job.temperatureControlled), fragile: Boolean(job.fragile),
@@ -198,7 +200,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
   });
 
   const invalid = () => {
-    const mainInvalid = !form.pickupDate || !form.pickupTime || !isFullUkPostcode(form.pickupPostcode) || !form.pickupAddress.trim() || !form.deliveryDate || !form.deliveryTime || !isFullUkPostcode(form.deliveryPostcode) || !form.deliveryAddress.trim();
+    const mainInvalid = !form.pickupDate || !form.pickupTime || !isFullUkPostcode(form.pickupPostcode) || !form.pickupAddress.trim() || !form.pickupTown.trim() || !form.deliveryTown.trim() || !form.deliveryDate || !form.deliveryTime || !isFullUkPostcode(form.deliveryPostcode) || !form.deliveryAddress.trim();
     const stopsInvalid = additionalStops.some((stop) => !stop.date || !stop.time || !isFullUkPostcode(stop.postcode) || !stop.address.trim());
     const dimensionsInvalid = [form.length, form.width, form.height].some((value) => value.trim() && (numberOrNull(value) == null || Number(value) > 2000));
     return mainInvalid || stopsInvalid || dimensionsInvalid;
@@ -218,8 +220,8 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
         body: JSON.stringify({
           publish,
           clientName: form.clientName || null, clientEmail: form.clientEmail || '', clientPhone: form.clientPhone || null,
-          pickupDateTime: dateTime(form.pickupDate, form.pickupTime), pickupTimeSlot: form.pickupTime, pickupAddress: form.pickupAddress.trim(), pickupPostcode: normalizePostcode(form.pickupPostcode), collectionContact: form.collectionContact || null, collectionPhone: form.collectionPhone || null,
-          deliveryDateTime: dateTime(form.deliveryDate, form.deliveryTime), deliveryTimeSlot: form.deliveryTime, deliveryAddress: form.deliveryAddress.trim(), deliveryPostcode: normalizePostcode(form.deliveryPostcode), deliveryContact: form.deliveryContact || null, deliveryPhone: form.deliveryPhone || null,
+          pickupDateTime: dateTime(form.pickupDate, form.pickupTime), pickupTimeSlot: form.pickupTime, pickupAddress: form.pickupAddress.trim(), pickupTown: form.pickupTown.trim(), pickupPostcode: normalizePostcode(form.pickupPostcode), collectionContact: form.collectionContact || null, collectionPhone: form.collectionPhone || null,
+          deliveryDateTime: dateTime(form.deliveryDate, form.deliveryTime), deliveryTimeSlot: form.deliveryTime, deliveryAddress: form.deliveryAddress.trim(), deliveryTown: form.deliveryTown.trim(), deliveryPostcode: normalizePostcode(form.deliveryPostcode), deliveryContact: form.deliveryContact || null, deliveryPhone: form.deliveryPhone || null,
           additionalStops: additionalStops.map((stop) => ({ type: stop.type, address: stop.address.trim(), postcode: normalizePostcode(stop.postcode), contact: stop.contact || null, phone: stop.phone || null, dateTime: dateTime(stop.date, stop.time), instructions: stop.instructions || null })),
           vehicleLabel: form.vehicle, cargoLabel: form.cargo, weightKg: numberOrNull(form.weight), pallets: numberOrNull(form.pallets), lengthCm: numberOrNull(form.length), widthCm: numberOrNull(form.width), heightCm: numberOrNull(form.height), cargoValueGbp: numberOrNull(form.cargoValue),
           customerReference: form.customerReference || null, purchaseOrder: form.purchaseOrder || null, bookingReference: form.bookingReference || null, customerPrice: numberOrNull(form.customerPrice), targetCarrierCost: numberOrNull(form.targetCarrierCost),
@@ -249,9 +251,14 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
 
     <Panel title="Collection and delivery" description="Update the route whenever required. Existing lifecycle status, award/allocation and operational evidence remain preserved.">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 12 }}>
-        <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(v) => set('pickupDate', v)} onTime={(v) => set('pickupTime', v)} onPostcode={(v) => set('pickupPostcode', v)} onAddress={(v) => set('pickupAddress', v)} onContact={(v) => set('collectionContact', v)} onPhone={(v) => set('collectionPhone', v)} showErrors={showErrors} />
-        <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(v) => set('deliveryDate', v)} onTime={(v) => set('deliveryTime', v)} onPostcode={(v) => set('deliveryPostcode', v)} onAddress={(v) => set('deliveryAddress', v)} onContact={(v) => set('deliveryContact', v)} onPhone={(v) => set('deliveryPhone', v)} showErrors={showErrors} />
-      </div>
+        <div style={{display:'grid',gap:8}}>
+          <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(v) => set('pickupDate', v)} onTime={(v) => set('pickupTime', v)} onPostcode={(v) => setForm(current => ({...current,pickupPostcode:v,pickupTown:''}))} onAddress={(v) => set('pickupAddress', v)} onTown={(v) => set('pickupTown', v)} onContact={(v) => set('collectionContact', v)} onPhone={(v) => set('collectionPhone', v)} showErrors={showErrors} town={form.pickupTown} />
+          <label style={labelStyle}>Collection town *<input style={fieldStyle} required value={form.pickupTown} onChange={(e) => set('pickupTown', e.target.value)} placeholder="Select an address or enter town" /></label>
+        </div>
+        <div style={{display:'grid',gap:8}}>
+          <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(v) => set('deliveryDate', v)} onTime={(v) => set('deliveryTime', v)} onPostcode={(v) => setForm(current => ({...current,deliveryPostcode:v,deliveryTown:''}))} onAddress={(v) => set('deliveryAddress', v)} onTown={(v) => set('deliveryTown', v)} onContact={(v) => set('deliveryContact', v)} onPhone={(v) => set('deliveryPhone', v)} showErrors={showErrors} town={form.deliveryTown} />
+          <label style={labelStyle}>Delivery town *<input style={fieldStyle} required value={form.deliveryTown} onChange={(e) => set('deliveryTown', e.target.value)} placeholder="Select an address or enter town" /></label>
+        </div>      </div>
       <div style={{ display: 'grid', gap: 8, borderTop: '1px solid #e2e8f0', marginTop: 12, paddingTop: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><div><strong style={{ fontSize: 12 }}>Additional stops</strong><div style={{ fontSize: 11, color: '#64748b' }}>Corrections are allowed at any stage. A progressed stop can be corrected, but its executed position/type cannot be removed or reordered.</div></div><ActionButton tone="secondary" disabled={saving || additionalStops.length >= 8} onClick={addStop}>{additionalStops.length >= 8 ? 'Maximum 8 stops' : 'Add stop'}</ActionButton></div>
         {additionalStops.map((stop, index) => <div key={stop.id} style={{ border: '1px solid #dbe3ee', borderRadius: 4, padding: 10, display: 'grid', gap: 8, background: '#fbfdff' }}>

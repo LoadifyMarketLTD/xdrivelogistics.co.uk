@@ -44,8 +44,9 @@ describe('Driver Marketplace consolidation contract', () => {
     expect(nearby).toContain('const driver = await requireDriver(request)');
     expect(bids).toContain('const driver = await requireDriver(request)');
     expect(bids).toContain('submitDriverQuote');
-    expect(mobileAuth).toContain('enforceActiveNativeDeviceBinding');
-    expect(mobileAuth).toContain("request.headers.get('x-xdrive-installation-id')");
+    expect(mobileAuth).not.toContain('enforceActiveNativeDeviceBinding');
+    expect(mobileAuth).toContain('supabaseAdmin.auth.getUser(token)');
+    expect(mobileAuth).toContain("if (!token) return respond(401, { error: 'Missing bearer token.' })");
   });
 
   it('fails closed on marketplace discovery when commercial bidding is explicitly revoked', () => {

@@ -1,3 +1,5 @@
+import {canonicalWorkspaceJobStatus} from './workspaceJobStage';
+
 export type PodCompletionRecord = {
   pod_generated?: unknown;
   delivery_photos?: unknown;
@@ -26,6 +28,18 @@ export const hasStoredSignature = (value: unknown): boolean => {
   }
   return typeof record.value === 'string' && hasStoredSignature(record.value);
 };
+
+/** Rejected or requested-for-resubmission PODs are not invoice-ready. */
+export function isPodApprovedForInvoicing(reviewStatus: unknown): boolean {
+  const status = String(reviewStatus ?? '').trim().toLowerCase();
+  return status !== 'rejected' && status !== 'missing_requested';
+}
+
+/** Unified read-only POD backlog: delivered jobs with incomplete required evidence. */
+export function isDeliveredAwaitingPod(record: PodCompletionRecord & {status?: unknown;current_status?: unknown}): boolean {
+  const lifecycle=canonicalWorkspaceJobStatus(record.current_status??record.status);
+  return lifecycle==='delivered' && !hasCompletePodEvidence(record);
+}
 
 export function hasCompletePodEvidence(record: PodCompletionRecord) {
   const recipientName =

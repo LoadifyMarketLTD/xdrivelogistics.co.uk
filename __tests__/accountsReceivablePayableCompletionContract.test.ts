@@ -29,7 +29,7 @@ describe('Accounts Receivable / Accounts Payable completion',()=>{
     expect(api).toContain('invoiceAgingBucket');
     expect(api).toContain('receivableAging');
     expect(api).toContain('payableAging');
-    expect(control).toContain("['aging', 'Aging']");
+    expect(control).toContain("onClick={() => setView('aging')}");
     expect(control).toContain('AGING_BUCKET_LABELS');
     expect(api).toContain('No payment state is fabricated.');
   });
@@ -39,8 +39,8 @@ describe('Accounts Receivable / Accounts Payable completion',()=>{
     expect(register).toContain("title: 'Accounts Payable'");
     expect(register).toContain("classifyAccountsDirection(invoice, workspace.companyId) === 'receivable'");
     expect(register).toContain("classifyAccountsDirection(invoice, workspace.companyId) === 'payable'");
-    expect(control).toContain("['receivable', 'Accounts Receivable']");
-    expect(control).toContain("['payable', 'Accounts Payable']");
+    expect(control).toContain("view === 'payable' ? 'receivable' : 'payable'");
+    expect(control).toContain("view === 'payable' ? 'Accounts Receivable' : 'Accounts Payable'");
   });
 
   it('keeps the existing Owner Driver finance receivables/payables split rather than replacing it',()=>{

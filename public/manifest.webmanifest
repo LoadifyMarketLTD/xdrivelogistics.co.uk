@@ -1,0 +1,16 @@
+{
+  "name": "XDrive Logistics",
+  "short_name": "XDrive",
+  "description": "XDrive Logistics courier and freight exchange platform",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B2F6B",
+  "theme_color": "#0B2F6B",
+  "icons": [
+    {"src":"/icons/icon-192x192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"/icons/icon-512x512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"/icons/maskable-icon-192x192.png","sizes":"192x192","type":"image/png","purpose":"maskable"},
+    {"src":"/icons/maskable-icon-512x512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}

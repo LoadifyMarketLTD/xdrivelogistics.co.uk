@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select(
-      'id, company_id, awarded_carrier_company_id, assigned_company_id, created_by, delivery_photos, damage_photos, pod_photos, delivery_signature_data'
+      'id, company_id, awarded_carrier_company_id, assigned_company_id, created_by, pickup_photos, collection_photo_url, delivery_photos, damage_photos, pod_photos, delivery_signature_data'
     )
     .eq('id', jobId)
     .maybeSingle();
@@ -58,6 +58,8 @@ export async function GET(request: NextRequest) {
 
   const signaturePath = signatureEvidencePath(job.delivery_signature_data);
   const permittedPaths = new Set([
+    ...stringArray(job.pickup_photos),
+    ...(typeof job.collection_photo_url === 'string' ? [job.collection_photo_url] : []),
     ...stringArray(job.delivery_photos),
     ...stringArray(job.damage_photos),
     ...stringArray(job.pod_photos),

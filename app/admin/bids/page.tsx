@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import BookingConfirmationFullPage from '../../customer/quotes/BookingConfirmationFullPage';
 import { ActionButton, AlertBanner, EmptyState, OperationalTable, SemanticStatusBadge, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 //  Types
@@ -102,6 +103,7 @@ export default function BidsPage() {
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null); // bidId being actioned
+  const [selectedAward, setSelectedAward] = useState<{ bid: BidWithJob; details: { delivery_datetime: string | null; payment_terms: string | null; pallets: number | null; requested_vehicle_label: string | null } } | null>(null);
 
   //  Data loading
 
@@ -181,10 +183,36 @@ export default function BidsPage() {
     return sessionData.session?.access_token ?? null;
   };
 
+  // Read the authoritative job fields before presenting the financial consent.
+  const prepareAcceptance = async (bid: BidWithJob) => {
+    if (actionLoading || selectedAward || !companyId) return;
+    setActionError('');
+    const price = resolveBidAmountGbp(bid);
+    if (price == null || price <= 0) { setActionError('Cannot award a bid without a valid positive price.'); return; }
+    setActionLoading(bid.id);
+    const { data: job, error: jobError } = await supabase
+      .from('jobs')
+      .select('delivery_datetime, payment_terms, pallets, requested_vehicle_label')
+      .eq('id', bid.job_id)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    setActionLoading(null);
+    if (jobError || !job) {
+      setActionError(jobError?.message || 'The job details are unavailable. Booking confirmation is blocked.');
+      return;
+    }
+    setSelectedAward({ bid, details: {
+      delivery_datetime: job.delivery_datetime ?? null,
+      payment_terms: job.payment_terms ?? null,
+      pallets: job.pallets ?? null,
+      requested_vehicle_label: job.requested_vehicle_label ?? null,
+    } });
+  };
+
   //  Accept bid
 
   const acceptBid = async (bidId: string) => {
-    if (!confirmBookingPaymentObligation()) return;
+    if (!selectedAward || selectedAward.bid.id !== bidId || actionLoading) return;
     setActionError('');
     setActionLoading(bidId);
     const token = await getAccessToken();
@@ -202,6 +230,7 @@ export default function BidsPage() {
     if (!res.ok) {
       setActionError(json.error ?? `Accept failed (${res.status}).`);
     } else {
+      setSelectedAward(null);
       void loadBids();
     }
     setActionLoading(null);
@@ -264,7 +293,7 @@ export default function BidsPage() {
                   key={group.jobId}
                   group={group}
                   actionLoading={actionLoading}
-                  onAccept={acceptBid}
+                  onAccept={prepareAcceptance}
                   onReject={rejectBid}
                 />
               ))}
@@ -272,6 +301,33 @@ export default function BidsPage() {
           )}
         </div>
       </div>
+      {selectedAward && <BookingConfirmationFullPage
+        key={selectedAward.bid.id}
+        working={actionLoading === selectedAward.bid.id}
+        onCancel={() => { if (!actionLoading) setSelectedAward(null); }}
+        onConfirm={() => void acceptBid(selectedAward.bid.id)}
+        details={{
+          jobId: selectedAward.bid.job_id,
+          bidId: selectedAward.bid.id,
+          amount: resolveBidAmountGbp(selectedAward.bid) ?? 0,
+          currency: selectedAward.bid.currency || 'GBP',
+          pickup: selectedAward.bid.pickup_location || 'Collection not recorded',
+          delivery: selectedAward.bid.delivery_location || 'Delivery not recorded',
+          pickupDate: selectedAward.bid.pickup_datetime ?? null,
+          deliveryDate: selectedAward.details.delivery_datetime,
+          vehicle: (selectedAward.details.requested_vehicle_label || selectedAward.bid.vehicle_type || 'Vehicle not recorded').replaceAll('_',' '),
+          pallets: selectedAward.details.pallets,
+          tailLift: false,
+          paymentTerms: selectedAward.details.payment_terms,
+          carrierName: selectedAward.bid.carrierIdentity?.displayName || selectedAward.bid.companies?.name || 'Carrier',
+          companyName: selectedAward.bid.carrierIdentity?.companyName || selectedAward.bid.companies?.name || null,
+          memberId: null,
+          phone: null,
+          availability: null,
+          ownerDriver: selectedAward.bid.carrierIdentity?.companyType === 'owner_driver',
+          message: selectedAward.bid.message,
+        }}
+      />}
     </ProtectedRoute>
   );
 }
@@ -286,7 +342,7 @@ function JobBidGroup({
 }: {
   group: JobGroup;
   actionLoading: string | null;
-  onAccept: (bidId: string) => void | Promise<void>;
+  onAccept: (bid: BidWithJob) => void | Promise<void>;
   onReject: (bidId: string) => void | Promise<void>;
 }) {
   const BIDS_PER_PAGE = 8;
@@ -367,7 +423,7 @@ function JobBidGroup({
                 const canAccept = !isAwarded && bid.bid_status === 'submitted';
                 const canReject = bid.bid_status === 'submitted';
                 return <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-                  {canAccept ? <ActionButton tone="success" disabled={isActioning} title="Accept this bid and award the job to this carrier" onClick={() => void onAccept(bid.id)}>{isActioning ? '...' : 'Accept'}</ActionButton> : null}
+                  {canAccept ? <ActionButton tone="success" disabled={isActioning} title="Accept this bid and award the job to this carrier" onClick={() => void onAccept(bid)}>{isActioning ? '...' : 'Accept'}</ActionButton> : null}
                   {canReject ? <ActionButton tone="danger" disabled={isActioning} title="Reject this bid" onClick={() => void onReject(bid.id)}>{isActioning ? '...' : 'Reject'}</ActionButton> : null}
                   {!canAccept && !canReject ? <span className="workspace-record-meta">—</span> : null}
                 </div>;

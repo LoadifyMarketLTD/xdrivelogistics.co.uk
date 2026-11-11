@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import MasterBrandImage from '../../components/workspace/MasterBrandImage';
 import Link from 'next/link';
 import { useEffect, useState, type ComponentType } from 'react';
 import {
@@ -118,7 +118,7 @@ export default function SuperAdminSidebar({
       aria-label="Super Admin navigation"
     >
       <Link href={definition.homeHref} prefetch={false} className={styles.sidebarBrand} onClick={() => { setOptimisticActiveHref(definition.homeHref); onNavigate(); }}>
-        <Image src="/icon-192.png" alt="" width={36} height={36} priority />
+        <MasterBrandImage priority />
         <span className={styles.sidebarBrandCopy}>
           <strong>XDrive</strong>
           <small>Platform Control</small>

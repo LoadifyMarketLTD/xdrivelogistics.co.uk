@@ -1,0 +1,37 @@
+'use client';
+import Link from 'next/link';
+export type Load = {
+  id: string; status: string; pickup_area: string; pickup_postcode_area: string | null;
+  delivery_area: string; delivery_postcode_area: string | null;
+  pickup_datetime: string | null; delivery_datetime: string | null;
+  pickup_time_slot: string | null; delivery_time_slot: string | null;
+  vehicle_type: string | null; requested_vehicle_label: string | null; requested_vehicle_type: string | null;
+  service_mode: string | null; public_quote_notes: string | null;
+  distance_to_pickup_miles: number | null; distance_to_delivery_miles: number | null;
+  distance_miles: number | null; weight_kg: number | null; pallets: number | null;
+  payment_terms: string | null; exchange_posted_at: string | null;
+  member: { name: string; postedBy: string | null } | null;
+  myBid?: { id?: string; status: string | null; amount: number | null } | null;
+};
+const serviceLabel = (value: string | null) => ({timed_direct:'Same Day · Timed',direct:'Direct',same_day:'Same Day',next_day:'Next Day',return:'Return Journey'}[String(value ?? '').toLowerCase()] ?? String(value ?? 'Direct').replaceAll('_',' '));
+const place = (town: string, outcode: string | null) => { const a=town.trim().toUpperCase(), b=(outcode ?? '').trim().toUpperCase(); return !b || a===b ? a : a.endsWith(' '+b) ? a : a+' '+b; };
+const windowLabel=(slot:string|null,at:string|null)=>{if(!slot)return '';const trimmed=slot.trim();if(!/^([01]?\d|2[0-3]):[0-5]\d$/.test(trimmed))return '';if(at && new Date(at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})===trimmed)return '';return ' · Slot '+trimmed;};
+const time = (value: string | null) => {
+  if (!value) return 'Time not confirmed';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Time not confirmed' : date.toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+const shortTime = (value: string | null) => {
+  if (!value) return 'Not specified';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Not specified' : date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+};
+export default function FreshJobCard({load,mode="jobs",actions,headerOnly=false}:{load:Load;mode?:"jobs"|"quotes"|"bookings"|"preview";actions?:React.ReactNode;headerOnly?:boolean}) {
+return <article className="fresh-card xd-load-card" data-testid="load-card">
+          <section className="fresh-summary xd-load-summary" data-testid="load-summary"><div className="fresh-summary-top"><strong>{(load.member?.postedBy || load.member?.name || 'Company not provided').toUpperCase()}</strong><span className="fresh-available">{mode === "quotes" ? "Quoted" : mode === "bookings" ? "Booking" : "NEW"}</span></div><div className="fresh-posted">@ {shortTime(load.exchange_posted_at)}</div><div className="fresh-summary-meta"><span className="fresh-service">{serviceLabel(load.service_mode)}</span><span>{load.requested_vehicle_label || load.vehicle_type || 'Vehicle unspecified'}</span></div></section>
+          <section className="fresh-route xd-load-route" data-testid="load-route"><div className="fresh-route-line" aria-hidden="true"><span className="fresh-pickup-dot"/><span className="fresh-connector"/><span className="fresh-delivery-dot">&#9679;</span></div><div className="fresh-route-places"><div><strong>{place(load.pickup_area, load.pickup_postcode_area)}</strong><p>Collection · {time(load.pickup_datetime)}{windowLabel(load.pickup_time_slot,load.pickup_datetime)}</p></div><div><strong>{place(load.delivery_area, load.delivery_postcode_area)}</strong><p>Delivery · {time(load.delivery_datetime)}{windowLabel(load.delivery_time_slot,load.delivery_datetime)}</p></div></div></section>
+          {!headerOnly && load.public_quote_notes ? <section className="fresh-notes" data-testid="load-notes"><strong>Notes:</strong> {load.public_quote_notes}</section> : null}
+          {!headerOnly && (load.distance_miles != null || load.weight_kg != null || load.pallets != null) ? <section className="fresh-quick">{[load.distance_miles != null ? `${load.distance_miles} miles` : null, load.weight_kg != null ? `${load.weight_kg} kg` : null, load.pallets != null ? `${load.pallets} pallets` : null].filter(Boolean).join(' | ')}</section> : null}
+          {!headerOnly && <div className="fresh-actions xd-load-actions">{actions ? actions : (mode === "jobs" || mode === "preview") ? <><Link className="quote-now xd-cx-quote" href={mode === "preview" ? `/driver-pwa-fresh/visual-preview/quote?load=${encodeURIComponent(load.id)}` : `/driver-pwa-fresh/jobs/${encodeURIComponent(load.id)}#quote`}>Quote Now</Link><Link className="fresh-detail xd-cx-detail" href={mode === "preview" ? `/driver-pwa-fresh/visual-preview/details?load=${encodeURIComponent(load.id)}` : `/driver-pwa-fresh/jobs/${encodeURIComponent(load.id)}`}>View Details</Link></> : null}</div>}
+        </article>;
+}
