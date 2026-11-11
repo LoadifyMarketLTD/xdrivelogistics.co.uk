@@ -454,7 +454,7 @@ export interface InvoiceDocument {
   invoice_id: string;
   company_id: string;
   uploaded_by: string | null;
-  doc_type: 'invoice_pdf' | 'pod_photo' | 'pod_signature' | 'other';
+  doc_type: 'invoice_pdf' | 'pod_pdf' | 'pod_photo' | 'pod_signature' | 'other';
   file_url: string;
   file_name: string | null;
   file_size_bytes: number | null;

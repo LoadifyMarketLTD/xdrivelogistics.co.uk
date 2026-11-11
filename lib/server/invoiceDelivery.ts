@@ -447,12 +447,23 @@ export async function submitInvoice(
     );
   }
 
-  // Never send an invoice without the signed POD companion and its evidence.
+  // Split the generated invoice and its verified POD evidence into independent PDFs.
   const combined = await PDFDocument.load(pdfBytes).catch(() => null);
-  if (claimedInvoice.job_id && (!combined || combined.getPageCount() < 3 || !pdfContext.podSummary)) {
-    return failDelivery(409, 'Combined invoice and signed POD are incomplete; email was not sent.');
+  if (!combined || (claimedInvoice.job_id && (combined.getPageCount() < 3 || !pdfContext.podSummary))) {
+    return failDelivery(409, 'Invoice and signed POD are incomplete; email was not sent.');
   }
-  if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
+  const invoiceDocument = await PDFDocument.create();
+  const [invoicePage] = await invoiceDocument.copyPages(combined, [0]);
+  invoiceDocument.addPage(invoicePage);
+  const invoiceBytes = await invoiceDocument.save();
+  let podBytes: Uint8Array | null = null;
+  if (claimedInvoice.job_id) {
+    const podDocument = await PDFDocument.create();
+    const podPages = await podDocument.copyPages(combined, combined.getPageIndices().slice(1));
+    podPages.forEach((page) => podDocument.addPage(page));
+    podBytes = await podDocument.save();
+  }
+  if (!invoiceBytes.byteLength || invoiceBytes.byteLength > 10 * 1024 * 1024 || (podBytes && (!podBytes.byteLength || podBytes.byteLength > 10 * 1024 * 1024))) {
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
   }
 
@@ -460,7 +471,7 @@ export async function submitInvoice(
   const storagePath = `${sender.companyId}/${claimedInvoice.id}/${fileName}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('invoice-docs')
-    .upload(storagePath, pdfBytes, {
+    .upload(storagePath, invoiceBytes, {
       contentType: 'application/pdf',
       upsert: true,
       cacheControl: '3600',
@@ -477,11 +488,11 @@ export async function submitInvoice(
     .maybeSingle();
   if (existingDocumentError) return failDelivery(500, existingDocumentError.message);
 
-  const pdfSha256 = createHash('sha256').update(pdfBytes).digest('hex');
+  const pdfSha256 = createHash('sha256').update(invoiceBytes).digest('hex');
   const documentValues = {
     file_url: storagePath,
     file_name: fileName,
-    file_size_bytes: pdfBytes.byteLength,
+    file_size_bytes: invoiceBytes.byteLength,
     content_sha256: pdfSha256,
     uploaded_by: sender.userId,
   };
@@ -504,6 +515,26 @@ export async function submitInvoice(
     if (error) return failDelivery(500, error.message);
   }
 
+  if (podBytes) {
+    const podFileName = `${cleanFileName(invoiceNumber)}-POD.pdf`;
+    const podStoragePath = `${sender.companyId}/${claimedInvoice.id}/${podFileName}`;
+    const { error: podUploadError } = await supabaseAdmin.storage.from('invoice-docs').upload(podStoragePath, podBytes, {
+      contentType: 'application/pdf', upsert: true, cacheControl: '3600',
+    });
+    if (podUploadError) return failDelivery(500, `POD PDF storage failed: ${podUploadError.message}`);
+    const { data: existingPod, error: podLookupError } = await supabaseAdmin.from('invoice_documents')
+      .select('id').eq('invoice_id', claimedInvoice.id).eq('doc_type', 'pod_pdf').maybeSingle();
+    if (podLookupError) return failDelivery(503, `POD document schema is not ready: ${podLookupError.message}`);
+    const podDocumentValues = {
+      file_url: podStoragePath, file_name: podFileName, file_size_bytes: podBytes.byteLength,
+      content_sha256: createHash('sha256').update(podBytes).digest('hex'), uploaded_by: sender.userId,
+    };
+    const podWrite = existingPod
+      ? await supabaseAdmin.from('invoice_documents').update(podDocumentValues).eq('id', existingPod.id).eq('company_id', sender.companyId)
+      : await supabaseAdmin.from('invoice_documents').insert({ invoice_id: claimedInvoice.id, company_id: sender.companyId, doc_type: 'pod_pdf', ...podDocumentValues });
+    if (podWrite.error) return failDelivery(503, `POD document registration failed: ${podWrite.error.message}`);
+  }
+
     const senderDisplayName = companyName.replace(/["<>]/g, '').trim() || 'Invoice issuer';
     const issuerCopyEmail = typeof pdfContext.issuerEmail === 'string'
       && validEmail(pdfContext.issuerEmail.trim().toLowerCase())
@@ -519,19 +550,20 @@ export async function submitInvoice(
       subject: resolvedSubject,
       text: resolvedMessage,
       html: messageToHtml(resolvedMessage),
-      attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
+      attachments: [{ filename: fileName, content: Buffer.from(invoiceBytes).toString('base64') }, ...(podBytes ? [{ filename: `${cleanFileName(invoiceNumber)}-POD.pdf`, content: Buffer.from(podBytes).toString('base64') }] : [])],
     };
-    if (!Array.isArray(emailBody.attachments) || emailBody.attachments.length !== 1) return failDelivery(409, 'Exactly one combined PDF attachment is required.');
-    const frozenAttachment = emailBody.attachments[0] as { content: string };
+    const generatedAttachments = emailBody.attachments as Array<{ filename: string; content: string }>;
+    if (generatedAttachments.length !== (claimedInvoice.job_id ? 2 : 1)) return failDelivery(409, 'Invoice and POD attachments are incomplete.');
+    const frozenAttachment = generatedAttachments[0];
     const frozen = await PDFDocument.load(Buffer.from(frozenAttachment.content, 'base64')).catch(() => null);
-    if (claimedInvoice.job_id && (!frozen || frozen.getPageCount() < 3)) return failDelivery(409, 'Frozen invoice attachment is incomplete.');
+    if (!frozen || frozen.getPageCount() !== 1) return failDelivery(409, 'Frozen invoice attachment is incomplete.');
     const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
     if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
   }
   // Validate frozen payloads too: retries must not bypass the combined PDF rule.
   const attachments = emailBody?.attachments;
-  if (!Array.isArray(attachments) || attachments.length !== 1) {
-    return failDelivery(409, 'Exactly one combined invoice and POD PDF attachment is required.');
+  if (!Array.isArray(attachments) || attachments.length !== (claimedInvoice.job_id ? 2 : 1)) {
+    return failDelivery(409, 'Separate invoice and POD PDF attachments are required.');
   }
   const attachment = attachments[0];
   if (!attachment || typeof attachment !== 'object' || typeof attachment.content !== 'string' || typeof attachment.filename !== 'string' || !attachment.filename.toLowerCase().endsWith('.pdf')) {
@@ -542,8 +574,15 @@ export async function submitInvoice(
     return failDelivery(409, 'The frozen invoice PDF attachment exceeds the allowed size or is empty.');
   }
   const verifiedPdf = await PDFDocument.load(frozenBytes).catch(() => null);
-  if (!verifiedPdf || (claimedInvoice.job_id && verifiedPdf.getPageCount() < 3)) {
-    return failDelivery(409, 'The frozen combined invoice and signed POD are incomplete.');
+  if (!verifiedPdf || verifiedPdf.getPageCount() !== 1) {
+    return failDelivery(409, 'The frozen invoice PDF is invalid.');
+  }
+  if (claimedInvoice.job_id) {
+    const podAttachment = attachments[1];
+    if (!podAttachment || typeof podAttachment.content !== 'string' || typeof podAttachment.filename !== 'string' || !podAttachment.filename.toLowerCase().endsWith('.pdf')) return failDelivery(409, 'POD attachment is missing.');
+    const podBuffer = Buffer.from(podAttachment.content, 'base64');
+    const podDocument = await PDFDocument.load(podBuffer).catch(() => null);
+    if (!podDocument || podDocument.getPageCount() < 2 || podBuffer.byteLength > 10 * 1024 * 1024) return failDelivery(409, 'Signed POD attachment is incomplete.');
   }
   const attemptedAt = new Date().toISOString();
 
