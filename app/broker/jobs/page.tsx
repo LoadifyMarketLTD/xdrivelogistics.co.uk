@@ -161,7 +161,7 @@ export default function BrokerJobsPage() {
                       <div><span>Carrier:</span><strong>{job.awarded_carrier_company_id ? 'Awarded' : 'Not awarded'}</strong></div>
                     </>}
                     notes={<>
-                      {job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id}/>}
+                      {(job.assigned_driver_id || job.awarded_carrier_company_id) && <JobLiveTrackingPanel jobId={job.id}/>}
                       <DriverInstructionPanel jobId={job.id}/>
                       <div className="workspace-detail-grid">
                         <div className="workspace-detail-item"><strong>Pickup</strong><div>{job.pickup_location || job.pickup_postcode || 'Not recorded'}</div></div>

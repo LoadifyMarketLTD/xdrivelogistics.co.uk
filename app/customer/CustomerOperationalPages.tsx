@@ -1,5 +1,6 @@
 'use client';
 
+import JobLiveTrackingPanel from '../components/tracking/JobLiveTrackingPanel';
 import { OperationalExpandAllControl } from '../components/workspace/OperationalExpandAllControl';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -338,7 +339,7 @@ export function CustomerDeliveriesOperationalPage() {
                 ? <StatusBadge value="Tracking active" tone="blue" />
                 : <StatusBadge value="Awaiting live position" tone="orange" />;
           return <CustomerOperationalRow key={job.id} job={job} middleLabel="TRACKING / ETA" middleValue={trackingState} middleMeta={`${etaText} · ${evidenceText}`} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionLabel="Open full booking" actionHref={`/customer/jobs/${job.id}`} sheet />;
-        })}</div>}</main>
+        })}</div>}{expanded && rows.some((job) => job.id === expanded && Boolean(job.assigned_driver_id || job.awarded_carrier_company_id)) && <JobLiveTrackingPanel jobId={expanded} />}</main>
       </div>
     </PageFrame>
   );

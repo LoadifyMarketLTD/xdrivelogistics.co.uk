@@ -173,7 +173,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
             <span>Pickup {when(job.pickup_datetime)} · <StatusBadge value={presentationStatus ?? 'unknown'} /></span>
           </div>
 
-          {job.awarded_carrier_company_id && <JobLiveTrackingPanel jobId={job.id} />}
+          {(job.assigned_driver_id || job.awarded_carrier_company_id) && <JobLiveTrackingPanel jobId={job.id} />}
 
           {!job.awarded_carrier_company_id && quotes.length > 0 && (
             <Panel title="Compare carrier quotes" description="Compare the verified quote values available to this customer account, open each member profile, then award the carrier. Reputation/ETA fields are not fabricated when the current quote contract does not supply them.">
