@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { renewSession, type LiveJob, type LiveSession } from './liveApi';
 
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
@@ -12,6 +12,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  const current=useRef(session);current.current=session;
  const sessionCallback=useRef(onSession);sessionCallback.current=onSession;
  const [loading,setLoading]=useState(true);
+ const [eligibilityChecked,setEligibilityChecked]=useState(false);
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
@@ -32,12 +33,12 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    current.current=fresh;sessionCallback.current(fresh);
    const controller=new AbortController();
    const write=init.method&&init.method.toUpperCase()!=='GET';
-   const clock=setTimeout(()=>controller.abort(),write?25000:12000);
+   const clock=setTimeout(()=>controller.abort(),write?45000:30000);
    try{
      const res=await fetch(base+endpoint,{...init,signal:controller.signal,cache:'no-store',headers:{Authorization:'Bearer '+fresh.token,...init.headers}});
      if(!res.ok){const data=object(await res.json().catch(()=>({})));throw new Error(String(data.error||data.message||'XDrive Finance API error ('+res.status+')'));}
      return res;
-   }catch(e){if(controller.signal.aborted)throw new Error(write?'Finance request timed out; verify server state before retrying.':'XDrive Finance did not respond in 12 seconds.');throw e;}finally{clearTimeout(clock)}
+   }catch(e){if(controller.signal.aborted)throw new Error(write?'Finance request timed out; verify server state before retrying.':'XDrive Finance did not respond in 30 seconds. Your POD status has not changed. Retry the Finance check.');throw e;}finally{clearTimeout(clock)}
  }
  async function loadDetail(id:string) {
    const res=await req('/finance/invoices/'+encodeURIComponent(id));
@@ -45,7 +46,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    return object(data.invoice) as Invoice;
  }
  async function discover() {
-   setLoading(true);setError('');
+   setLoading(true);setError('');setEligibilityChecked(false);
    try {
      const res=await req('/finance/jobs/eligible');
      const data=object(await res.json());
@@ -68,7 +69,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
        else setNotice(job.podRecorded?'This job is not Ready To Invoice. Finance must verify the signed POD, accepted commercial terms and owner/admin permissions.':'The delivery is recorded, but the signed POD has not been finalised in XDrive. Return to POD, check the recipient name and signature, then select Save Signed POD. Already stored delivery photos can be reused.');
      }
    }catch(e){setError(e instanceof Error?e.message:'Unable to load XDrive Finance');}
-   finally{setLoading(false)}
+   finally{setEligibilityChecked(true);setLoading(false)}
  }
  useEffect(()=>{void discover()},[job.id]);
  async function action(run:()=>Promise<void>) {if(busy)return;setBusy(true);setError('');try{await run()}catch(e){setError(e instanceof Error?e.message:'XDrive Finance action failed')}finally{setBusy(false)}}
@@ -127,8 +128,8 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    <div className="rv-card">
     <h3>Job & billing eligibility</h3>
     {row('Job reference',ref)}
-    {row('Invoice eligibility',eligible?'Verified Ready To Invoice':invoice?'Invoice already created':'Not eligible / pending')}
-    {row('POD',eligible?'Completed and validated by XDrive':invoice?'Recorded for existing invoice':'Not yet verified by Finance')}
+    {row('Invoice eligibility',eligible?'Verified Ready To Invoice':invoice?'Invoice already created':error?'Verification unavailable - retry':'Not eligible / pending')}
+    {row('POD',eligible?'Completed and validated by XDrive':invoice?'Recorded for existing invoice':error?'Not rechecked - previous POD unchanged':'Not yet verified by Finance')}
     {row('Billing type',eligible?.commercial_mode||'Not available')}
     {eligible?.commercial_mode==='marketplace'&&row('Contractual net rate',money(Number(eligible.agreed_amount||0)))}
     {invoice&&<>{row('Invoice number',invoice.invoice_number||invoice.id)}{row('Status',invoice.status||'Unknown')}{row('Delivery status',invoice.delivery_state||'Not sent')}{row('Total',money(Number(invoice.amount||0),invoice.currency||'GBP'))}</>}
@@ -140,7 +141,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
     <label className="rv-field"><span>Net agreed amount (£)</span><input type="number" min=".01" step=".01" value={netAmount} onChange={e=>setNetAmount(e.target.value)}/></label>
     <label className="rv-field"><span>VAT %</span><select value={vatRate} onChange={e=>setVatRate(e.target.value)}><option value="0">0%</option><option value="5">5%</option><option value="20">20%</option></select></label>
    </section>}
-   {stage===0&&!eligible&&!invoice&&<button className="rv-outline rv-wide" onClick={()=>void discover()} disabled={loading||busy}>Recheck Invoice Eligibility ↻</button>}
+   {stage===0&&!eligible&&!invoice&&eligibilityChecked&&<button className="rv-outline rv-wide" onClick={()=>void discover()} disabled={loading||busy}>Recheck Invoice Eligibility ↻</button>}
    {stage===0&&eligible&&!invoice&&<button className="rv-primary rv-wide" disabled={busy||generatorRequested} onClick={()=>void generate()}>{busy?'Generating official draft…':'Generate Invoice in XDrive →'}</button>}
    {stage===0&&invoice&&<button className="rv-primary rv-wide" onClick={()=>setStage(sent?2:1)}>Open Existing Invoice →</button>}
    {stage===1&&<section className="rv-card"><h3>Combined A4 Invoice + Complete POD</h3>
