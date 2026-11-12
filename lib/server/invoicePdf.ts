@@ -271,9 +271,9 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   fit(pdfText(input.clientName,'Customer'),otherX+13,cardY+cardH-52,222,11,true);
   const senderCount=wrapped(input.issuerAddress,margin+13,cardY+cardH-67,222);
   const clientCount=wrapped(input.clientAddress,otherX+13,cardY+cardH-67,222);
-  const issuerExtra=[input.issuerCompanyNumber?'Company No. '+pdfText(input.issuerCompanyNumber):'',input.issuerVatNumber&&vatTreatment!=='not_registered'?'VAT No. '+pdfText(input.issuerVatNumber):'',pdfText(input.issuerEmail)].filter(Boolean);
+  const issuerExtra=[input.issuerXdId?'XDrive ID '+pdfText(input.issuerXdId):'',input.issuerCompanyNumber?'Company No. '+pdfText(input.issuerCompanyNumber):'',input.issuerVatNumber&&vatTreatment!=='not_registered'?'VAT No. '+pdfText(input.issuerVatNumber):'',pdfText(input.issuerEmail)].filter(Boolean);
   const clientExtra=[input.customerCompanyNumber?'Company No. '+pdfText(input.customerCompanyNumber):'',input.customerReference?'Customer Ref. '+pdfText(input.customerReference):'',pdfText(input.clientEmail)].filter(Boolean);
-  issuerExtra.slice(0,2).forEach((v,i)=>fit(v,margin+13,cardY+cardH-67-senderCount*12-i*11,222,7.6,false,muted));
+  issuerExtra.slice(0,3).forEach((v,i)=>fit(v,margin+13,cardY+cardH-67-senderCount*12-i*11,222,7.6,false,muted));
   clientExtra.slice(0,2).forEach((v,i)=>fit(v,otherX+13,cardY+cardH-67-clientCount*12-i*11,222,7.6,false,muted));
   // Collection and delivery positions.
   fit('TRANSPORT ROUTE',margin,498,220,9.5,true,navy);
@@ -345,7 +345,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   // Page footer.
   page.drawLine({start:{x:margin,y:88},end:{x:555,y:88},color:border,thickness:.9});
   fit(issuerName,margin,70,245,9,true,navy);
-  fit([input.issuerCompanyNumber?'Company '+pdfText(input.issuerCompanyNumber):'',pdfText(input.issuerEmail)].filter(Boolean).join('  |  '),margin,52,contentWidth,7.4,false,muted);
+  fit([input.issuerXdId?'XDrive ID '+pdfText(input.issuerXdId):'',input.issuerCompanyNumber?'Company '+pdfText(input.issuerCompanyNumber):'',pdfText(input.issuerEmail)].filter(Boolean).join('  |  '),margin,52,contentWidth,7.4,false,muted);
   fit('OFFICIAL XDRIVE INVOICE',410,70,145,7.4,true,muted);
 
   const evidenceItems = input.evidenceImages ?? [];
