@@ -305,7 +305,7 @@ export default function ReserveApp() {
     }
     const step=nextStates[job.status];
     const delivered=job.status==='DELIVERED'||job.status==='POD_SUBMITTED';
-    if(job.podRecorded||podDone)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Completed booking · Signed POD</h1><Route job={job} full/><p>The signed POD is archived and read-only. Delivery cannot be repeated.</p>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}</section>;
+    if(job.podRecorded||podDone)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Completed booking · Signed POD</h1><Route job={job} full/><p>The signed POD is archived and read-only. Delivery cannot be repeated.</p>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}<button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View / Send Invoice</button></section>;
     return <section className="rv-operation-screen">
       {(!delivered||podDone||job.podRecorded)&&<><button className="rv-back" onClick={()=>setView('list')}>← Back to Bookings</button>
       <span className="rv-over">BOOKING OPERATIONS</span>
