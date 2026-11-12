@@ -374,3 +374,9 @@
 .rv-nav button.rv-booking-unread.rv-active{color:#fff}
 @keyframes rv-booking-alert{0%,100%{background:#c42c34;box-shadow:0 0 0 0 #d92e3866}50%{background:#e24b48;box-shadow:0 0 0 4px #d92e3820}}
 @media(prefers-reduced-motion:reduce){.rv-nav button.rv-booking-unread{animation:none;background:#c42c34}}
+
+/* Persistent live tracking panel: stays mounted when switching workspace tabs. */
+.rv-gps-panel{position:fixed;z-index:15;top:72px;bottom:76px;left:50%;transform:translateX(-50%);width:min(100%,720px);overflow-y:auto;margin:0;padding:18px;background:#f5f7fb;border-radius:0}
+.rv-gps-panel p{line-height:1.5}
+.rv-gps-panel small{display:block;margin-top:16px;color:#526578}
+
