@@ -255,7 +255,7 @@ export function applyPersonalBids(jobs:LiveJob[], bids:Json):LiveJob[] {
     if (existing) {
       result.set(id, { ...existing, ...quoteFields });
     } else {
-      result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
+      result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', fromOutcode: extractPublicOutcode(bid.pickupPostcodeArea), toOutcode: extractPublicOutcode(bid.deliveryPostcodeArea), pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
     }
   }
   return [...result.values()];
