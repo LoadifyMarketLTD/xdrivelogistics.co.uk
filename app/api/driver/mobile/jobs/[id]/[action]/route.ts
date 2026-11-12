@@ -292,11 +292,8 @@ async function savePod(
   const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
   const signatureData = rawSignature || job.delivery_signature_data || null;
-  const effectivePhotoCount = new Set([...existingPhotos, ...photoPaths]).size;
-
-  if (effectivePhotoCount === 0) {
-    return respond(400, { error: 'At least one delivery photo is required for POD.' });
-  }
+  // Delivery photographs are optional unless a specific customer requirement applies.
+  // Preserve uploaded evidence without imposing a universal photograph requirement.
   if (!signatureData) {
     return respond(400, { error: 'Recipient signature is required for POD.' });
   }

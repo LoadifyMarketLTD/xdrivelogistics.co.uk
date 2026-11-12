@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { canonicalPodEvidence, canonicalPodStateLabel } from '../lib/pod/canonicalPodEvidence';
 
 describe('canonical POD evidence engine', () => {
-  it('requires generated POD, delivery photo, recipient signature and recipient name', () => {
+  it('requires generated POD, recipient signature and recipient name without a mandatory photograph', () => {
     expect(canonicalPodEvidence({
       pod_generated: true,
-      delivery_photos: ['company/job/delivery/photo.jpg'],
+      delivery_photos: [],
       delivery_signature_data: 'company/job/signature.png',
       client_signature_name: 'Receiver',
     }).complete).toBe(true);

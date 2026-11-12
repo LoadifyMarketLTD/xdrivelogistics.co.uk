@@ -84,7 +84,7 @@ export async function PATCH(request: NextRequest) {
   const pod = canonicalPodEvidence(job);
   if (action === 'approve' && !pod.complete) {
     return json(409, {
-      error: 'Cannot approve POD until generated POD, delivery photo, recipient signature and recipient name are all recorded.',
+      error: 'Cannot approve POD until generated POD, recipient signature and recipient name are all recorded.',
       podState: pod.state,
     });
   }

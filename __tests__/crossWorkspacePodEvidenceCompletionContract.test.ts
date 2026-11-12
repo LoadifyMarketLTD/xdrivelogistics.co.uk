@@ -15,7 +15,7 @@ describe('cross-workspace canonical POD / Evidence completion', () => {
 
   it('preserves the existing atomic Driver POD write contract', () => {
     expect(driverPod).toContain("rpc('record_driver_pod_atomic'");
-    expect(driverPod).toContain('At least one delivery photo is required for POD.');
+    expect(driverPod).not.toContain('At least one delivery photo is required for POD.');
     expect(driverPod).toContain('Recipient signature is required for POD.');
     expect(driverPod).toContain('Recipient name is required for POD.');
   });
@@ -41,7 +41,7 @@ describe('cross-workspace canonical POD / Evidence completion', () => {
     for (const source of [brokerReview, legacyBrokerReview]) {
       expect(source).toContain('canonicalPodEvidence(job)');
       expect(source).toContain("action === 'approve' && !pod.complete");
-      expect(source).toContain('generated POD, delivery photo, recipient signature and recipient name');
+      expect(source).toContain('generated POD, recipient signature and recipient name');
     }
     expect(brokerReview).toContain('broker_pod_review_status: reviewStatusMap[action]');
     expect(brokerReview).toContain("kind: 'pod_review'");
