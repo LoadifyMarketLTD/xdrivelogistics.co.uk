@@ -11,7 +11,6 @@ import { invoiceSignedGrossAmount } from '../../../lib/brokerFinance';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   KpiCard,
   KpiGrid,
@@ -19,7 +18,6 @@ import {
   PageHeader,
   Panel,
   StatusBadge,
-  TwoColumn,
 } from './WorkspaceUI';
 
 type Invoice = {
@@ -75,6 +73,32 @@ const paymentState = (invoice: Invoice) => {
   return toCanonicalPaymentStatus(invoice.payment_status, invoiceFallback);
 };
 
+function readableService(value: string | null): string {
+  if (!value?.trim()) return 'Logistics service';
+  const raw = value.trim();
+  if (!raw.startsWith('{') && !raw.startsWith('[')) return raw;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return raw;
+    const record = parsed as Record<string, unknown>;
+    const details = record.jobDescription && typeof record.jobDescription === 'object'
+      ? record.jobDescription as Record<string, unknown> : null;
+    const candidates = [details?.body, details?.description, record.description, record.service, record.notes];
+    const description = candidates.find((item): item is string => typeof item === 'string' && item.trim().length > 0);
+    return description?.trim() ?? 'Logistics transport service';
+  } catch {
+    return raw;
+  }
+}
+
+function FinanceTable({ columns, rows, empty }: { columns: string[]; rows: React.ReactNode[][]; empty?: React.ReactNode }) {
+  return <div style={{ width: '100%', minWidth: 0 }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: '0.76rem' }}>
+      <thead><tr>{columns.map((column, index) => <th key={index} scope="col" style={{ width: columns.length === 2 ? (index === 0 ? '35%' : '65%') : undefined, textAlign: 'left', padding: '0.7rem 0.55rem', background: '#eaf0f6', color: '#243b57', border: '1px solid #dce4ed', overflowWrap: 'anywhere' }}>{column}</th>)}</tr></thead>
+      <tbody>{rows.length ? rows.map((row, rowIndex) => <tr key={rowIndex}>{columns.map((_, index) => <td key={index} style={{ padding: '0.68rem 0.55rem', verticalAlign: 'top', border: '1px solid #e0e7ef', overflowWrap: 'anywhere', whiteSpace: 'normal', lineHeight: 1.5 }}>{row[index] ?? '-'}</td>)}</tr>) : <tr><td colSpan={columns.length} style={{ padding: '1rem', textAlign: 'center' }}>{empty ?? 'No records'}</td></tr>}</tbody>
+    </table>
+  </div>;
+}
 export default function InvoiceDetailPage({
   invoiceId,
   backHref,
@@ -330,10 +354,10 @@ export default function InvoiceDetailPage({
             </Panel>
           )}
 
-          <TwoColumn>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '0.9rem' }}>
             <div style={{ display: 'grid', gap: '0.9rem' }}>
               <Panel title="Invoice summary" actions={<><ActionButton tone="secondary" onClick={() => window.print()}>Print</ActionButton><ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton></>}>
-                <DataTable
+                <FinanceTable
                   columns={['Field', 'Value']}
                   rows={[
                     ['Document', invoice.document_type === 'credit_note' ? 'Credit note' : invoice.document_type === 'supplementary' ? 'Supplementary invoice' : 'Invoice'],
@@ -345,7 +369,7 @@ export default function InvoiceDetailPage({
                     ['Due date', date(invoice.due_date)],
                     ['Payment terms', invoice.payment_terms ?? 'Not set'],
                     ['Route', `${invoice.pickup_location ?? 'Collection'} → ${invoice.delivery_location ?? 'Delivery'}`],
-                    ['Service', invoice.service_description ?? 'Logistics service'],
+                    ['Service', readableService(invoice.service_description)],
                     ['Net', currency(invoice.net_amount, code)],
                     [`VAT ${invoice.vat_rate ?? 0}%`, currency(invoice.vat_amount, code)],
                     ['Total', currency(signedAmount, code)],
@@ -354,7 +378,7 @@ export default function InvoiceDetailPage({
               </Panel>
 
               <Panel title="Documents" description="Files are opened through short-lived, authorised links.">
-                <DataTable
+                <FinanceTable
                   columns={['Document', 'Type', 'Added', 'Action']}
                   rows={documents.map((document) => [
                     document.file_name ?? 'Document',
@@ -369,7 +393,7 @@ export default function InvoiceDetailPage({
 
             <div style={{ display: 'grid', gap: '0.9rem' }}>
               <Panel title="Status timeline">
-                <DataTable
+                <FinanceTable
                   columns={['Transition', 'Time', 'Note']}
                   rows={history.map((item) => [
                     `${item.from_status ?? 'Created'} → ${item.to_status}`,
@@ -381,7 +405,7 @@ export default function InvoiceDetailPage({
               </Panel>
 
               <Panel title="Payment records">
-                <DataTable
+                <FinanceTable
                   columns={['Amount', 'Method', 'Date', 'Reference']}
                   rows={payments.map((payment) => [
                     currency(payment.amount, payment.currency),
@@ -394,7 +418,7 @@ export default function InvoiceDetailPage({
               </Panel>
 
               <Panel title="Disputes">
-                <DataTable
+                <FinanceTable
                   columns={['Reason', 'Opened', 'Status', 'Resolution']}
                   rows={disputes.map((dispute) => [
                     dispute.reason,
@@ -406,7 +430,7 @@ export default function InvoiceDetailPage({
                 />
               </Panel>
             </div>
-          </TwoColumn>
+          </div>
         </>
       )}
     </PageFrame>
