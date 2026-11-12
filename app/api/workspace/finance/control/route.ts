@@ -1,5 +1,6 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { invoiceAgingBucket, type AgingBucket } from '../../../../../lib/finance/accounts';
+import { estimateUkLatePayment } from '../../../../../lib/finance/ukLatePayment';
 import { resolveWorkspaceRole } from '../../../../../lib/workspaceRole';
 import { hasWorkspaceCapabilityForContext } from '../../../../../lib/roleCapabilities';
 import {
@@ -175,8 +176,24 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const rateText = request.nextUrl.searchParams.get('applicableBaseRatePercent');
+  const requestedRate = rateText === null ? null : Number(rateText);
+  const validRate = requestedRate !== null && rateText !== '' && Number.isFinite(requestedRate)
+    && requestedRate >= 0 && requestedRate <= 100 ? requestedRate : null;
+  const todayIso = new Date().toISOString().slice(0, 10);
   const enrichedInvoices = invoices.map((invoice) => ({
     ...invoice,
+    latePaymentAssessment: invoice.direction === 'receivable' && invoice.lifecycle === 'overdue'
+      && invoice.dueDate && invoice.currency === 'GBP' && validRate !== null
+      ? estimateUkLatePayment({
+          dueDate: invoice.dueDate.slice(0, 10),
+          asOfDate: todayIso,
+          originalDebtGbp: invoice.gross,
+          outstandingGbp: invoice.outstandingAmount,
+          applicableBaseRatePercent: validRate,
+        })
+      : null,
+    latePaymentReviewRequired: invoice.direction === 'receivable' && invoice.lifecycle === 'overdue',
     counterpartyName: invoice.counterpartyCompanyId
       ? companyNameById.get(invoice.counterpartyCompanyId) ?? invoice.counterpartySnapshot ?? 'Counterparty'
       : invoice.counterpartySnapshot ?? 'Counterparty',
@@ -278,6 +295,7 @@ export async function GET(request: NextRequest) {
     counterparties: [...counterpartyMap.entries()].map(([id, value]) => ({ id, ...value })).sort((a, b) => (b.receivable + b.payable) - (a.receivable + a.payable)),
     summary,
     generatedAt: new Date().toISOString(),
+    latePaymentPolicy: { automaticCharges: false, assessmentIsAdvisory: true, requiresLegalEligibilityReview: true, rateProvided: validRate !== null, notice: 'UK B2B statutory interest and compensation are potential creditor rights; applicable reference rates, contractual remedies and payment history must be reviewed before a claim.' },
     note: 'AR/AP is derived from canonical invoice buyer/supplier ownership plus verified payment history. No payment state is fabricated.',
   });
 }
