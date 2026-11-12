@@ -59,14 +59,14 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
       const layer=overlays.current,instance=map.current;
       if(!layer||!instance)return;
       layer.clearLayers();setRouteError("");setDistanceToTarget(null);
-      if(position)L.marker([position.lat,position.lon],{icon:marker("ðŸšš","#e65b45")}).bindPopup("Driver current location").addTo(layer);
+      
       const points: {point:Point;address:string;kind:string;completedAt?:string}[]=[];
       for(const stop of ordered){
         try {const point=await geocode(stop.address);if(point)points.push({...stop,point});else setRouteError("Some stop addresses could not be located.");}
         catch {setRouteError("Map geocoding unavailable. Check internet connection.");}
       }
       if(!lifecycle.active)return;
-      points.forEach((s,i)=>L.marker([s.point.lat,s.point.lon],{icon:marker(String(i+1),s.kind==="PICKUP"?"#f5a400":"#202020")}).bindPopup(s.kind+" â€” "+s.address).addTo(layer));
+      points.forEach((s,i)=>L.marker([s.point.lat,s.point.lon],{icon:marker(String(i+1),s.kind==="PICKUP"?"#f5a400":"#202020")}).bindPopup(s.kind+" — "+s.address).addTo(layer));
       const locations=[...(position?[position]:[]),...points.map(s=>s.point)];
       if(locations.length>1)instance.fitBounds(L.latLngBounds(locations.map(p=>[p.lat,p.lon] as L.LatLngTuple)),{padding:[38,38],maxZoom:12});
       else if(locations.length===1)instance.setView([locations[0].lat,locations[0].lon],11);
@@ -96,14 +96,14 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
     void draw();return()=>{lifecycle.active=false};
   },[position,ordered]);
   return <section className="xroute">
-    <div className="xroute-head"><button onClick={onBack} aria-label="Back">â†</button><strong>Route</strong><span>âŒ–</span></div>
+    <div className="xroute-head"><button onClick={onBack} aria-label="Back">←</button><strong>Route</strong><span>⌖</span></div>
     <div className="xroute-map" ref={element} aria-label="Live driver, collection and delivery map" />
     <div className="xroute-info">
-      <strong>{position?"ðŸšš Driver location active":locationRequested?(locationError||"Locating driverâ€¦"):"Driver location not enabled"}</strong>
+      <strong>{position?"🚚 Driver location active":locationRequested?(locationError||"Locating driver…"):"Driver location not enabled"}</strong>
       {!locationRequested&&!position&&<button type="button" className="rv-outline" onClick={()=>setLocationRequested(true)}>Show my GPS position</button>}
       {distanceToTarget!==null&&<div>Distance to {deliveryPhase?"delivery":"pickup"}: {distanceToTarget.toFixed(1)} miles</div>}
       {!deliveryPhase&&distanceMiles!==undefined&&<div>Job distance: {distanceMiles.toFixed(2)} miles {travelMinutes!==undefined?`(${Math.floor(travelMinutes/60)}h ${travelMinutes%60}min)`:""}</div>}
-      <div>{ordered.map((s,i)=><div key={i}>{i+1}. {s.kind==="PICKUP"?"Collection":"Delivery"}: {s.address}{s.completedAt?" âœ“":""}</div>)}</div>
+      <div>{ordered.map((s,i)=><div key={i}>{i+1}. {s.kind==="PICKUP"?"Collection":"Delivery"}: {s.address}{s.completedAt?" ✓":""}</div>)}</div>
       {routeError&&<small role="status">{routeError}</small>}
     </div>
   </section>;
