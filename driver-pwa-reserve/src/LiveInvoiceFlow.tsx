@@ -48,18 +48,12 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  async function discover() {
    setLoading(true);setError('');setEligibilityChecked(false);
    try {
-     const res=await req('/finance/jobs/eligible');
+     const res=await req('/finance/jobs/'+encodeURIComponent(job.id)+'/invoice-context');
      const data=object(await res.json());
      const rows=Array.isArray(data.rows)?data.rows.map(object) as Eligible[]:[];
      const candidate=rows.find(j=>j.id===job.id)||null;
      setEligible(candidate);
-     let existing=candidate?.invoice||null;
-     // Fallback to the existing company register, including jobs already invoiced.
-     if(!existing) {
-       const register=object(await (await req('/finance/invoices?view=receivables&limit=500')).json());
-       const saved=Array.isArray(register.rows)?register.rows.map(object) as Invoice[]:[];
-       existing=saved.find(v=>v.job_id===job.id)||null;
-     }
+     let existing=(candidate?.invoice||object(data.invoice)) as Invoice|null;
      if(existing?.id) {
        const full=await loadDetail(existing.id);setInvoice(full);setClientName(full.client_name||'');setClientEmail(full.client_email||'');setNetAmount(full.net_amount==null?'':String(full.net_amount));setVatRate(String(full.vat_amount&&full.net_amount?Math.round(100*full.vat_amount/full.net_amount):0));
        setNotice('Official XDrive invoice found. Existing invoice reused; duplicate creation is blocked.');
