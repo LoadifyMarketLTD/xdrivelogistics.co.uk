@@ -11,7 +11,7 @@ describe('Driver PWA GPS auth boundary', () => {
     expect(route).not.toContain('requireDriver(request)');
     expect(route).toContain('ensureAvailabilityEligible(auth.driver, true)');
     expect(route).not.toContain('hasActiveAssignedJob');
-    expect(route).toContain('Availability sharing is disabled while you have an active assigned job.');
+    expect(route).toContain('Availability sharing is independent of an active booking.');
     expect(route).toContain('ensureAvailabilityEligible(auth.driver, true)');
   });
 
