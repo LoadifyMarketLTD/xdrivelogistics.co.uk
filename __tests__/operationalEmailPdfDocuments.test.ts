@@ -48,6 +48,10 @@ describe('operational email PDF documents', () => {
   it('creates a valid remittance advice PDF', async () => {
     const attachment = buildRemittanceAdviceAttachment({
       invoiceNumber: 'INV-2026-001847',
+      jobReference: 'JOB-3316FA3E',
+      pickup: 'Blackburn BB2 2RP',
+      delivery: 'Leeds LS22 6FQ',
+      serviceDescription: 'Freight transport service',
       supplierName: 'XDrive Logistics Ltd',
       customerName: 'Controlled Customer',
       paymentDate: '18 Oct 2026, 23:30',

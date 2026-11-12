@@ -1422,7 +1422,7 @@ async function handlePaymentReceived(event: NotificationEvent) {
   if (isUuid(rawInvoiceId)) {
     const { data, error } = await supabase
       .from('invoices')
-      .select('id,company_id,buyer_company_id,invoice_number,currency')
+      .select('id,company_id,buyer_company_id,invoice_number,currency,job_id,job_ref,service_description')
       .eq('id', rawInvoiceId)
       .maybeSingle();
     if (error) throw error;
@@ -1458,6 +1458,15 @@ async function handlePaymentReceived(event: NotificationEvent) {
   const dateLine = paymentDate
     ? `<p><strong>Payment date:</strong> ${escapeHtml(paymentDate)}</p>`
     : '';
+  // Resolve the job from the paid invoice, not from an unrelated event payload.
+  const invoiceJobId = typeof invoice.job_id === 'string' ? invoice.job_id : '';
+  const invoiceJobRef = typeof invoice.job_ref === 'string' ? invoice.job_ref.trim() : '';
+  const jobContext = invoiceJobId && isUuid(invoiceJobId)
+    ? await getPublicJobContext({ ...event, entity_id: invoiceJobId, payload: { job_id: invoiceJobId } })
+    : null;
+  const jobReference = invoiceJobRef || (jobContext?.reference === 'Booking reference unavailable' ? '' : jobContext?.reference ?? '');
+  const serviceDescription = typeof invoice.service_description === 'string'
+    ? invoice.service_description.trim() : '';
   const subject = `You've been paid - Remittance advice - Invoice ${invoiceReference}`;
   const attachment = buildRemittanceAdviceAttachment({
     invoiceNumber: invoiceReferenceRaw,

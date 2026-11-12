@@ -244,6 +244,10 @@ export function buildPodSummaryAttachment(context: PodDocumentContext): EmailAtt
 
 export type RemittanceDocumentContext = {
   invoiceNumber: string;
+  jobReference?: string;
+  pickup?: string;
+  delivery?: string;
+  serviceDescription?: string;
   supplierName?: string;
   customerName?: string;
   paymentDate?: string;
@@ -260,6 +264,10 @@ export function buildRemittanceAdviceAttachment(context: RemittanceDocumentConte
     : '';
   const lines: PdfLine[] = [
     ...field('Invoice', context.invoiceNumber),
+    ...field('Job reference', context.jobReference),
+    ...field('Collection', context.pickup),
+    ...field('Delivery', context.delivery),
+    ...field('Transport service', context.serviceDescription),
     ...field('Supplier', context.supplierName),
     ...field('Customer', context.customerName),
     ...field('Payment date', context.paymentDate),
