@@ -368,3 +368,9 @@
 .rv-card-head-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto}
 .rv-card-back{border:1px solid #b4c8d8;background:#eaf2f8;color:#1b3d59;border-radius:8px;font-size:12px;font-weight:800;min-height:32px;padding:4px 8px;white-space:nowrap}
 .rv-card-back:focus-visible{outline:2px solid #f47721}
+
+/* Awarded booking alert: red pulse until the actual incoming job is opened. */
+.rv-nav button.rv-booking-unread{background:#c42c34;color:#fff;border-radius:9px;animation:rv-booking-alert 1.1s ease-in-out infinite}
+.rv-nav button.rv-booking-unread.rv-active{color:#fff}
+@keyframes rv-booking-alert{0%,100%{background:#c42c34;box-shadow:0 0 0 0 #d92e3866}50%{background:#e24b48;box-shadow:0 0 0 4px #d92e3820}}
+@media(prefers-reduced-motion:reduce){.rv-nav button.rv-booking-unread{animation:none;background:#c42c34}}
