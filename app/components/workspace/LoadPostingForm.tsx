@@ -259,7 +259,6 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [moffett, setMoffett] = useState(false);
   const [trackedPreferred, setTrackedPreferred] = useState(false);
   const [electronicQuotes, setElectronicQuotes] = useState(true);
-  const [smartPayOnly, setSmartPayOnly] = useState(false);
   const [allowEuMembers, setAllowEuMembers] = useState(false);
   const [notifyRadius, setNotifyRadius] = useState('10');
   const [form, setForm] = useState({
@@ -677,7 +676,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             deliveryMode, deliveryWindowEnd: deliveryEnd,
             loadingMetres: numberOrNull(loadingMetres), cubicMetres: numberOrNull(cubicMetres),
             waitReturn, hiab, trailer, moffett, repeatable: saveForRepeat,
-            trackedDriverPreferred: trackedPreferred, electronicQuotes, smartPayOnly, allowEuMembers,
+            trackedDriverPreferred: trackedPreferred, electronicQuotes, allowEuMembers,
             notifyRadiusMiles: Math.min(100, Math.max(1, Math.round(Number(notifyRadius) || 10))),
           },
           executionInstructions: form.executionInstructions || null,
@@ -969,7 +968,6 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               </label>
               <label className="approved-postload-check"><input type="checkbox" checked={trackedPreferred} onChange={(event) => setTrackedPreferred(event.target.checked)}/> Tracked Driver Preferred</label>
               <label className="approved-postload-check"><input type="checkbox" checked={electronicQuotes} onChange={(event) => setElectronicQuotes(event.target.checked)}/> Electronic Quotes</label>
-              <label className="approved-postload-check"><input type="checkbox" checked={smartPayOnly} onChange={(event) => setSmartPayOnly(event.target.checked)}/> Accept quotes from SmartPay members only</label>
               <label className="approved-postload-check"><input type="checkbox" checked={allowEuMembers} onChange={(event) => setAllowEuMembers(event.target.checked)}/> Also accept quotes from EU members</label>
               <span>Distribution and quoting preferences are saved with this load; eligibility remains subject to XDrive server-side permissions.</span>
             </div>}
