@@ -8,7 +8,8 @@ test('Bookings separates received, allocated and delivered live records',()=>{
  assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired\)/);
  assert.match(app,/bookingSection==='Delivered'\?\['DELIVERED','POD_SUBMITTED'\]/);
  assert.match(app,/Review Incoming Job/);
- assert.match(app,/Booking is not actionable because its collection time has passed/);
+ assert.doesNotMatch(app,/Booking is not actionable because its collection time has passed/);
+ assert.match(app,/Booking awarded\. Your response is required/);
  assert.match(app,/View Booking Details/);
  assert.match(app,/View POD & Status/);
 });
