@@ -4,11 +4,6 @@ import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverCon
 
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
-const ACTIVE_JOB_STATUSES = new Set([
-  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
-  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery',
-  'on_site_delivery', 'arrived_delivery',
-]);
 // Public Exchange coordinates are approximate (about 1 km), never exact GPS.
 function roundedForExchange(value: number): number {
   return Math.round(value * 100) / 100;
