@@ -29,6 +29,8 @@ type Invoice = {
   invoiceDate: string | null;
   dueDate: string | null;
   agingBucket: AgingBucket;
+  latePaymentReviewRequired?: boolean;
+  latePaymentAssessment?: { daysOverdue: number; annualRatePercent: number; interestGbp: number; compensationGbp: number; totalPotentialClaimGbp: number; requiresReview: true } | null;
 };
 type ReadyJob = { id: string; pickupLocation: string | null; deliveryLocation: string | null; clientName: string | null; updatedAt: string | null };
 type Counterparty = {
@@ -113,6 +115,8 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
+  const [baseRateInput, setBaseRateInput] = useState('');
+  const [reviewedBaseRate, setReviewedBaseRate] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,14 +126,15 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
     const token = data.session?.access_token;
     if (!token) { setError('Your session has expired. Please sign in again.'); setLoading(false); return; }
     try {
-      const response = await fetch('/api/workspace/finance/control', { headers: { Authorization: `Bearer ${token}` } });
+      const rateQuery = reviewedBaseRate === null ? '' : `?applicableBaseRatePercent=${encodeURIComponent(String(reviewedBaseRate))}`;
+      const response = await fetch(`/api/workspace/finance/control${rateQuery}`, { headers: { Authorization: `Bearer ${token}` } });
       const body = await response.json().catch(() => null) as Payload | null;
       if (!response.ok || !body) throw new Error(body?.error ?? 'Finance control could not be loaded.');
       setPayload(body);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Finance control could not be loaded.');
     } finally { setLoading(false); }
-  }, []);
+  }, [reviewedBaseRate]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -279,6 +284,24 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
         </InvoiceProRegister>
       )}
 
+      {showReceivables && (view === 'overdue' || view === 'receivable' || view === 'dashboard') && (
+        <section className={styles.panel} aria-label="UK statutory late payment review">
+          <div className={styles.panelHeader}><div><div className={styles.panelKicker}>Credit control</div><h2 className={styles.panelTitle}>UK late-payment rights (review only)</h2></div></div>
+          <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+            <p>Potential statutory interest: 8 percentage points above the applicable Bank of England reference rate, plus fixed recovery compensation of GBP 40 / 70 / 100 where legally eligible. These estimates are NOT added to invoices or balances.</p>
+            <label>Applicable Bank of England reference rate (%) — verify the correct statutory reference period before entering
+              <input type="number" min="0" max="100" step="0.01" value={baseRateInput} onChange={(event) => setBaseRateInput(event.target.value)} placeholder="Enter verified rate" style={{ display:'block', width:'min(250px,100%)', minHeight:40, marginTop:8, padding:8, border:'1px solid #cbd5e1', borderRadius:8 }} />
+            </label>
+            <div><button className={styles.button} disabled={baseRateInput.trim() === '' || !Number.isFinite(Number(baseRateInput)) || Number(baseRateInput) < 0 || Number(baseRateInput) > 100} onClick={() => setReviewedBaseRate(Number(baseRateInput))}>Calculate estimates</button></div>
+            <p>Eligibility, contract terms, disputes, historical rate periods and partial payments require creditor review. No automatic claim, invoice adjustment or collection is performed.</p>
+            {reviewedBaseRate !== null && (
+              <div style={{ overflowX:'auto' }}><table className={styles.table}><thead><tr><th>Invoice</th><th>Overdue days</th><th>Interest estimate</th><th>Fixed compensation</th><th>Review status</th></tr></thead><tbody>
+                {invoices.filter((invoice) => invoice.direction === 'receivable' && invoice.latePaymentReviewRequired).map((invoice) => <tr key={invoice.id}><td>{invoice.invoiceNumber}</td><td>{invoice.latePaymentAssessment?.daysOverdue ?? '—'}</td><td>{invoice.latePaymentAssessment ? money(invoice.latePaymentAssessment.interestGbp) : 'Not available'}</td><td>{invoice.latePaymentAssessment ? money(invoice.latePaymentAssessment.compensationGbp) : 'Not available'}</td><td>Requires review</td></tr>)}
+              </tbody></table></div>
+            )}
+          </div>
+        </section>
+      )}
       {!['dashboard','ready','customers','aging','statements','counterparties'].includes(view) && (
         <InvoiceProRegister>
           <div className={styles.registerHead}><div><div className={styles.panelKicker}>Invoice operations</div><div className={styles.registerTitle}>{view === 'receivable' ? 'Accounts Receivable' : view === 'payable' ? 'Accounts Payable' : 'Invoice register'}</div></div><span className={styles.registerMeta}>{visibleInvoices.length} records</span></div>
