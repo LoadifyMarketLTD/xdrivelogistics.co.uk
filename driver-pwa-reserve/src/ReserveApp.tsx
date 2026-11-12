@@ -44,6 +44,8 @@ export default function ReserveApp() {
   const [id,setId]=useState<string|null>(null);
   const [quoteSection,setQuoteSection]=useState<QuoteSection>('Submitted');
   const [bookingSection,setBookingSection]=useState<BookingSection>('Received');
+  const [bookingSearch,setBookingSearch]=useState('');
+  const [bookingPeriod,setBookingPeriod]=useState('all');
   const [withdrawId,setWithdrawId]=useState<string|null>(null);
   const [mapReturnView,setMapReturnView]=useState<View>('list');
   const [quoteAmount,setQuoteAmount]=useState('');const [quoteEta,setQuoteEta]=useState('30');const [quoteNotes,setQuoteNotes]=useState('');
@@ -162,9 +164,10 @@ export default function ReserveApp() {
   function list(){
     const waitingOffers=tab==='Bookings'&&bookingSection==='Received'&&offersLoading;
     const waitingQuotes=tab==='Quotes'&&bidsLoading;
-    const shown = reserveJobs(jobs, tab, '', 'All', quoteSection).filter(j=>tab!=='Bookings'||(bookingSection==='Received'?Boolean(j.acceptanceRequired):bookingSection==='Delivered'?['DELIVERED','POD_SUBMITTED'].includes(j.status):!j.acceptanceRequired&&!['DELIVERED','POD_SUBMITTED'].includes(j.status)));
+    const shown = reserveJobs(jobs, tab, '', 'All', quoteSection).filter(j=>tab!=='Bookings'||(bookingSection==='Received'?Boolean(j.acceptanceRequired):bookingSection==='Delivered'?['DELIVERED','POD_SUBMITTED'].includes(j.status)||Boolean(j.podRecorded):!j.acceptanceRequired&&!['DELIVERED','POD_SUBMITTED'].includes(j.status)&&!j.podRecorded)).filter(j=>tab!=='Bookings'||bookingSection!=='Delivered'||((!bookingSearch.trim()||[j.id,j.yourRef,j.customerRef,j.from,j.to,j.company,j.pickupAddress,j.deliveryAddress].some(v=>String(v||'').toLowerCase().includes(bookingSearch.trim().toLowerCase())))&&(bookingPeriod==='all'||(Boolean(j.postedAt)&&Date.parse(j.postedAt||'')>=Date.now()-Number(bookingPeriod)*86400000)))).sort((a,b)=>tab==='Bookings'&&bookingSection==='Delivered'?(Date.parse(b.postedAt||'')||0)-(Date.parse(a.postedAt||'')||0):0);
     return <>
-      {tab==='Bookings'&&<div className="rv-quote-tabs rv-booking-tabs" role="group" aria-label="Booking categories">{(['Received','Allocated','Delivered'] as BookingSection[]).map(s=><button key={s} className={bookingSection===s?'rv-selected':''} aria-pressed={bookingSection===s} onClick={()=>setBookingSection(s)}>{s}</button>)}</div>}
+      {tab==='Bookings'&&<div className="rv-quote-tabs rv-booking-tabs" role="group" aria-label="Booking categories">{(['Received','Allocated','Delivered'] as BookingSection[]).map(s=><button key={s} className={bookingSection===s?'rv-selected':''} aria-pressed={bookingSection===s} onClick={()=>setBookingSection(s)}>{s==='Received'?'Pending':s==='Allocated'?'Active':'History'}</button>)}</div>}
+      {tab==='Bookings'&&bookingSection==='Delivered'&&<div className="rv-booking-history-tools" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'10px 0 14px'}}><input aria-label="Search booking history" placeholder="Search reference, town, postcode, customer" value={bookingSearch} onChange={e=>setBookingSearch(e.target.value)} style={{flex:'1 1 200px',minWidth:0,padding:11,borderRadius:9,border:'1px solid #cbd5e1'}}/><select aria-label="Booking history period" value={bookingPeriod} onChange={e=>setBookingPeriod(e.target.value)} style={{padding:10,borderRadius:9,border:'1px solid #cbd5e1'}}><option value="all">All time</option><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option></select></div>}
       {tab==='Quotes'&&<div className="rv-quote-tabs" role="group" aria-label="Quote sections">{(['Submitted','Awarded','History'] as QuoteSection[]).map(s=><button key={s} className={quoteSection===s?'rv-selected':''} aria-pressed={quoteSection===s} onClick={()=>{setQuoteSection(s);setWithdrawId(null)}}>{s}</button>)}</div>}
       {loading&&shown.length===0&&<p className="rv-loading-inline" role="status">Refreshing live jobs…</p>}
       {shown.length ? shown.map(j=>card(j)) : <div className="rv-empty">
