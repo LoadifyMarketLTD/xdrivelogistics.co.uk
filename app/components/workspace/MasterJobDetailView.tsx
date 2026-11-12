@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getAccessToken } from '../../admin/_lib/getAccessToken';
 import type { LoadDetailSection } from '../../../lib/loadPostingDetails';
 import './master-job-detail.css';
+import JobLiveTrackingPanel from '../tracking/JobLiveTrackingPanel';
 
 type Evidence = {pickupPhotos?: string[]; deliveryPhotos?: string[]; signature?:string; recipientName?:string; timestamp?:string};
 export type MasterJob = {
@@ -52,7 +53,7 @@ function EvidenceImages({paths,jobId,label}:{paths:string[];jobId:string;label:s
   return <div className="mjd-photos">{paths.map((path,i)=><div className="mjd-photo" key={path+i}>{urls[path]?<a href={urls[path]} target="_blank" rel="noreferrer"><img src={urls[path]} alt={label+' '+(i+1)}/></a>:<div className="mjd-photo-unavailable">{failed.includes(path)?'Image not available':'Loading image…'}</div>}</div>)}</div>;
 }
 export default function MasterJobDetailView({job,driverName,saveMessage,exchangeVisibility,publishingExchange,canManage,onBack,onEdit,onInvoice,onDelete,onExchange}:Props){
- const [tab,setTab]=useState<'overview'|'timeline'|'pod'>('overview');
+ const [tab,setTab]=useState<'overview'|'timeline'|'tracking'|'pod'>('overview');
  const delivered=['delivered','completed'].includes(job.status.toLowerCase());
  const canPublish=canManage&&!delivered;
  const photos=job.pod;
@@ -69,7 +70,7 @@ export default function MasterJobDetailView({job,driverName,saveMessage,exchange
    </section>
    {saveMessage&&<p className="mjd-notice" role="status">{saveMessage}</p>}
    <nav className="mjd-tabs" aria-label="Job information">
-    {([['overview','Load Details'],['timeline','Status History'],['pod','POD & Documents']] as const).map(([key,label])=><button type="button" key={key} onClick={()=>setTab(key)} className={tab===key?'active':''} aria-current={tab===key?'page':undefined}>{label}</button>)}
+    {([['overview','Load Details'],['timeline','Status History'],['tracking','Live Tracking'],['pod','POD & Documents']] as const).map(([key,label])=><button type="button" key={key} onClick={()=>setTab(key)} className={tab===key?'active':''} aria-current={tab===key?'page':undefined}>{label}</button>)}
    </nav>
    {tab==='overview'&&<>
     <section className="mjd-route">
@@ -82,6 +83,7 @@ export default function MasterJobDetailView({job,driverName,saveMessage,exchange
     </section>
     {job.loadDetailSections.map(section=><section className="mjd-card mjd-detail" key={section.title}><h2>{section.title}</h2><dl>{section.items.map(item=><div key={item.label}><dt>{item.label}</dt><dd>{display(item.value)}</dd></div>)}</dl></section>)}
    </>}
+   {tab==='tracking'&&<section className="mjd-card">{job.assignedDriverId ? <JobLiveTrackingPanel jobId={job.id}/> : <p className="mjd-empty">Tracking starts after a driver is assigned.</p>}</section>}
    {tab==='timeline'&&<section className="mjd-card"><h2>Operational Status History</h2>{job.statusHistory?.length?<ol className="mjd-timeline">{[...job.statusHistory].sort((a,b)=>new Date(a.timestamp).getTime()-new Date(b.timestamp).getTime()).map((event,i)=><li key={i}><strong>{statusLabel(event.status)}</strong><time>{new Date(event.timestamp).toLocaleString('en-GB')}</time></li>)}</ol>:<p className="mjd-empty">No status events recorded.</p>}</section>}
    {tab==='pod'&&<section className="mjd-card mjd-pod"><h2>Proof of Delivery</h2>{photos?<>
     <h3>Collection evidence</h3><EvidenceImages paths={photos.pickupPhotos||[]} jobId={job.id} label="Collection photo"/>
