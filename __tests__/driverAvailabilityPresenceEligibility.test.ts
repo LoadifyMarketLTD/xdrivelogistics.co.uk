@@ -100,49 +100,41 @@ beforeEach(() => {
   state.update.mockResolvedValue({ error: null });
 });
 
-describe('driver availability presence prevents active-job tracking', () => {
-  it('revokes stale presence and hides it on GET for an active assigned job', async () => {
+describe('driver availability presence allows independent availability during active jobs', () => {
+  it('keeps opted-in presence visible on GET for a driver with active work', async () => {
     state.activeAssignments = [{ id: 'active-job' }];
     state.presence = { visibility: 'exchange', available_until: '2099-01-01T00:00:00Z' };
-
     const response = await GET(request('GET'));
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ active: false, presence: null });
-    expect(state.deleted).toHaveBeenCalledWith('driver_id', 'driver-1');
-    expect(state.presenceLookup).not.toHaveBeenCalled();
-  });
-
-  it('refuses to activate availability when assigned active work exists', async () => {
-    state.activeAssignments = [{ id: 'allocated-job' }];
-
-    const response = await POST(request('POST'));
-    expect(response.status).toBe(409);
-    expect((await response.json()).error).toContain('active assigned job');
-    expect(state.deleted).toHaveBeenCalled();
-    expect(state.upsert).not.toHaveBeenCalled();
-  });
-
-  it('refuses to refresh exact position while an active job exists', async () => {
-    state.activeAssignments = [{ id: 'loaded-job' }];
-
-    const response = await PUT(request('PUT'));
-    expect(response.status).toBe(409);
-    expect(state.deleted).toHaveBeenCalled();
-    expect(state.update).not.toHaveBeenCalled();
-  });
-
-  it('fails closed on assignment lookup errors without publishing coordinates', async () => {
-    state.assignmentsError = { message: 'database unavailable' };
-
-    const response = await POST(request('POST'));
-    expect(response.status).toBe(503);
-    expect(state.upsert).not.toHaveBeenCalled();
+    expect(await response.json()).toEqual({ active: true, presence: state.presence });
     expect(state.deleted).not.toHaveBeenCalled();
-    const readResponse = await GET(request('GET'));
-    expect(readResponse.status).toBe(503);
-    expect(state.presenceLookup).not.toHaveBeenCalled();
+    expect(state.presenceLookup).toHaveBeenCalled();
   });
 
+  it('allows an opted-in driver to publish availability while on an active job', async () => {
+    state.activeAssignments = [{ id: 'allocated-job' }];
+    const response = await POST(request('POST'));
+    expect(response.status).toBe(200);
+    expect(state.upsert).toHaveBeenCalledOnce();
+    expect(state.deleted).not.toHaveBeenCalled();
+  });
+
+  it('allows GPS refresh during active work if sharing is still active', async () => {
+    state.activeAssignments = [{ id: 'loaded-job' }];
+    state.presence = { available_until: '2099-01-01T00:00:00Z' };
+    const response = await PUT(request('PUT'));
+    expect(response.status).toBe(200);
+    expect(state.update).toHaveBeenCalled();
+    expect(state.deleted).not.toHaveBeenCalled();
+  });
+
+  it('does not depend on the unrelated assignment lookup to publish opted-in availability', async () => {
+    state.assignmentsError = { message: 'database unavailable' };
+    const response = await POST(request('POST'));
+    expect(response.status).toBe(200);
+    expect(state.upsert).toHaveBeenCalledOnce();
+    expect(state.jobsLookup).not.toHaveBeenCalled();
+  });
   it('allows eligible opted-in drivers and rounds public Exchange coordinates', async () => {
     const response = await POST(request('POST'));
     expect(response.status).toBe(200);

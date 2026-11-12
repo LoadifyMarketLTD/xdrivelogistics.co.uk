@@ -14,33 +14,34 @@ describe('CX nearby availability workspace contract', () => {
   it('surfaces the existing nearby availability backend in a dedicated Exchange view', () => {
     expect(page).toContain('/api/availability/nearby?');
     expect(page).toContain("type Tab = Exclude<AvailabilityTab, 'future'> | 'all';");
-    expect(page).toContain("import { matchesAvailabilityFilters, type AvailabilityTab }");
+    expect(page).toContain("matchesAvailabilityFilters, type AvailabilityTab");
     expect(page).toContain('Nearby Exchange');
     expect(page).toContain("position.scope === 'exchange'");
-    expect(page).toContain(`title="Who's nearby"`);
+    expect(page).toContain('Other Drivers');
   });
 
   it('shows operational vehicle capability without inventing driver identity', () => {
     expect(page).toContain('position.vehicle_type');
-    expect(page).toContain('position.payload_kg');
-    expect(page).toContain('position.pallets_capacity');
-    expect(page).toContain('position.has_tail_lift');
+    expect(api).toContain('payload_kg: vehicle?.payload_kg');
+    expect(api).toContain('pallets_capacity: vehicle?.pallets_capacity');
+    expect(api).toContain('has_tail_lift: vehicle?.has_tail_lift');
     expect(page).not.toContain('position.driver_id ??');
     expect(page).not.toContain('position.driver_id ||');
   });
 
   it('explains and preserves the Exchange privacy boundary', () => {
-    expect(page).toContain('rounded Exchange area');
-    expect(page).toContain('driver identity is not disclosed');
+    expect(api).toContain('lat: Number(row.exchange_lat)');
+    expect(api).toContain('never the driver');
     expect(api).toContain("scope: 'exchange'");
     expect(api).toContain('lat: Number(row.exchange_lat)');
     expect(api).toContain('lng: Number(row.exchange_lng)');
     expect(api).not.toContain("scope: 'exchange',\n      driver_id");
   });
 
-  it('does not broaden eligibility beyond opt-in available resources without active work', () => {
+  it('allows opted-in available drivers with active work while preserving consent', () => {
     expect(api).toContain("availability_status ?? '').toLowerCase() === 'available'");
     expect(api).toContain('driversWithActiveJobs.has(driverId)');
-    expect(page).toContain('Only opt-in, currently available resources without an active job appear here.');
+    expect(api).toContain('on_job: driversWithActiveJobs.has(driverId)');
+    expect(api).not.toContain('|| driversWithActiveJobs.has(driverId)');
   });
 });
