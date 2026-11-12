@@ -31,7 +31,7 @@ export function reserveJobs(jobs:LiveJob[], tab:ReserveTab, search='', vehicle='
           : quoteSection==='Awarded'
             ? j.quoteOutcome==='AWARDED'||j.bidStatus==='accepted'
             : j.bidStatus==='submitted'&&j.quoteOutcome!=='AWARDED')
-      : j.status!=='OPEN' && j.quoteOutcome!=='CANCELLED'
+      : (Boolean(j.acceptanceRequired && j.offerId) || j.status!=='OPEN') && j.quoteOutcome!=='CANCELLED'
   ).filter(j=>vehicle==='All'||j.vehicle===vehicle
   ).filter(j=>!needle||[j.from,j.to,j.company,j.vehicle,j.id]
     .filter(Boolean).join(' ').toLocaleLowerCase().includes(needle)).sort((a,b)=>a.id.localeCompare(b.id));

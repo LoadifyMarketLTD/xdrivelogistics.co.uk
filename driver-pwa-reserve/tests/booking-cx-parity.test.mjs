@@ -5,9 +5,10 @@ const src=file=>fs.readFileSync(new URL('../src/'+file,import.meta.url),'utf8');
 test('Bookings separates received, allocated and delivered live records',()=>{
  const app=src('ReserveApp.tsx');
  assert.match(app,/type BookingSection = 'Received' \| 'Allocated' \| 'Delivered'/);
- assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired&&!j\.offerExpired\)/);
+ assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired\)/);
  assert.match(app,/bookingSection==='Delivered'\?\['DELIVERED','POD_SUBMITTED'\]/);
  assert.match(app,/Review Incoming Job/);
+ assert.match(app,/Booking is not actionable because its collection time has passed/);
  assert.match(app,/View Booking Details/);
  assert.match(app,/View POD & Status/);
 });
