@@ -980,6 +980,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               <label style={labelStyle}>Email<input style={fieldStyle} type="email" value={externalTarget.email} onChange={(event) => setExternalTarget((v) => ({ ...v, email: event.target.value }))} /></label>
               <label style={labelStyle}>Agreed rate (£)<input style={fieldStyle} type="number" min="0" value={externalTarget.agreedRate} onChange={(event) => setExternalTarget((v) => ({ ...v, agreedRate: event.target.value }))} /></label>
               <label style={labelStyle}>Payment terms<select style={fieldStyle} value={externalTarget.paymentTerms} onChange={(event) => setExternalTarget((v) => ({ ...v, paymentTerms: event.target.value as (typeof PAYMENT_TERMS)[number] }))}>{PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
+            <p role="note" style={{ fontSize: 11, lineHeight: 1.5, color: "#475569", margin: "4px 0 10px" }}>Late payment notice: For qualifying business-to-business debts, overdue invoices may attract statutory interest of 8% per year above the Bank of England base rate (calculated daily), plus fixed debt-recovery compensation of GBP 40 (debt under GBP 1,000), GBP 70 (GBP 1,000 to GBP 9,999.99), or GBP 100 (GBP 10,000 or more). These are potential creditor rights, not automatic XDrive platform charges. Contractual terms and applicable law govern.</p>
             </div>
           )}
           {directTargetMode === 'internal_resource' && (
@@ -1096,6 +1097,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 {PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}
               </select>
             </label>
+            <p role="note" style={{ fontSize: 11, lineHeight: 1.5, color: "#475569", margin: "4px 0 10px" }}>Late payment notice: For qualifying business-to-business debts, overdue invoices may attract statutory interest of 8% per year above the Bank of England base rate (calculated daily), plus fixed debt-recovery compensation of GBP 40 (debt under GBP 1,000), GBP 70 (GBP 1,000 to GBP 9,999.99), or GBP 100 (GBP 10,000 or more). These are potential creditor rights, not automatic XDrive platform charges. Contractual terms and applicable law govern.</p>
             {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)
               <input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} />
             </label>}
