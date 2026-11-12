@@ -63,7 +63,7 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
     netAmount: Number(row.net_amount),
     vatAmount: Number(row.vat_amount),
     vatRate: row.vat_rate as 0 | 5 | 20,
-    paymentTerms: (row.payment_terms as 'Pay now' | '14 days' | '30 days') ?? '14 days',
+    paymentTerms: (row.payment_terms as 'Pay now' | '7 days' | '14 days' | '30 days') ?? '14 days',
     lateFee: COMPANY_CONFIG.payment.lateFeeNote,
     podPhotos: row.pod_photos ?? undefined,
     signature: row.signature ?? undefined,
@@ -1104,7 +1104,7 @@ export default function InvoiceDetailPage() {
                     <label style={labelStyle}>Payment Terms</label>
                     <select
                       value={formData.paymentTerms}
-                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as 'Pay now' | '14 days' | '30 days' })}
+                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as 'Pay now' | '7 days' | '14 days' | '30 days' })}
                       style={inputStyle}
                     >
                       <option value="Pay now">Pay now</option>
