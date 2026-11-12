@@ -97,13 +97,14 @@ export default function ReserveApp() {
   async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
   function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Good condition',notes:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
-    if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded)return;
+    if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
     let active=true;
     void (async()=>{
       try{
         const res=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft',{headers:{Authorization:'Bearer '+session.token},cache:'no-store'});
         if(!res.ok||!active)return;
         const data=await res.json();
+        if(data?.completed===true){setPodDone(true);setJobs(rows=>rows.map(row=>row.id===job.id?{...row,podRecorded:true,status:'DELIVERED'}:row));return;}
         const saved=data?.draft;
         if(!saved||typeof saved!=='object'||!active)return;
         setDraft(previous=>({
