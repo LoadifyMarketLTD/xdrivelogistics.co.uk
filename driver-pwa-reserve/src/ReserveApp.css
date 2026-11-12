@@ -361,3 +361,10 @@
 .rv-detail-summary .rv-chips span:last-child{border:0}
 .rv-detail-summary .rv-jobhead small{font-size:12px}
 @media(max-width:400px){.rv-detail-summary .rv-stop b{font-size:19px}.rv-detail-summary .rv-stop-schedule>span,.rv-detail-summary .rv-stop-schedule>strong{font-size:13px!important}}
+
+/* Keep the approved job card immediately beneath the top navbar. */
+.rv-main:has(>.rv-job){padding-top:0}
+.rv-main:has(>.rv-job)>.rv-job:first-child{margin-top:0}
+.rv-card-head-actions{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto}
+.rv-card-back{border:1px solid #b4c8d8;background:#eaf2f8;color:#1b3d59;border-radius:8px;font-size:12px;font-weight:800;min-height:32px;padding:4px 8px;white-space:nowrap}
+.rv-card-back:focus-visible{outline:2px solid #f47721}
