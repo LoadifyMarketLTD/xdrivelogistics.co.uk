@@ -44,30 +44,12 @@ async function ensureAvailabilityEligible(
     return !error;
   };
 
+  // Availability sharing is independent of an active booking. Drivers may advertise future capacity.
   if (String(driver.availability_status ?? '').toLowerCase() !== 'available') {
     if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
     return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
   }
 
-  // A driver with an active assigned job must not advertise live availability.
-  // Check both canonical and historical status fields at the database boundary.
-  const driverId = driver.id;
-  const activeStatuses = [...ACTIVE_JOB_STATUSES].join(',');
-  const { data: activeAssignments, error: assignmentsError } = await supabaseAdmin!
-    .from('jobs')
-    .select('id')
-    .eq('assigned_driver_id', driverId)
-    .or(`current_status.in.(${activeStatuses}),status.in.(${activeStatuses})`)
-    .limit(1);
-  if (assignmentsError) {
-    return NextResponse.json({ error: 'Assigned jobs could not be verified safely.' }, { status: 503 });
-  }
-  if (activeAssignments?.length) {
-    if (!(await clearPresence())) {
-      return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
-    }
-    return NextResponse.json({ error: 'Availability sharing is disabled while you have an active assigned job.' }, { status: 409 });
-  }
   return null;
 }
 

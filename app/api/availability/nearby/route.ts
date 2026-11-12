@@ -73,6 +73,7 @@ type NearbyPosition = {
   available_until: unknown;
   recorded_at: unknown;
   distance_miles?: number | null;
+  on_job?: boolean;
 };
 
 export async function GET(request: NextRequest) {
@@ -198,7 +199,7 @@ export async function GET(request: NextRequest) {
 
   const positions = presenceRows.flatMap<NearbyPosition>((row) => {
     const driverId = String(row.driver_id ?? '');
-    if (!eligibleDriverIds.has(driverId) || driversWithActiveJobs.has(driverId)) return [];
+    if (!eligibleDriverIds.has(driverId)) return [];
 
     const companyId = row.company_id ? String(row.company_id) : null;
     const sameCompany = Boolean(companyId && ownCompanies.has(companyId));
@@ -208,6 +209,7 @@ export async function GET(request: NextRequest) {
         driver_id: row.driver_id,
         company_id: companyId,
         scope: 'fleet',
+        on_job: driversWithActiveJobs.has(driverId),
         lat: Number(row.exact_lat),
         lng: Number(row.exact_lng),
         vehicle_type: vehicle?.type ?? null,
@@ -234,6 +236,7 @@ export async function GET(request: NextRequest) {
       member_code: company.xd_id ?? null,
       member_type: company.company_type ?? null,
       scope: 'exchange',
+      on_job: driversWithActiveJobs.has(driverId),
       lat: Number(row.exchange_lat),
       lng: Number(row.exchange_lng),
       vehicle_type: vehicle?.type ?? null,
