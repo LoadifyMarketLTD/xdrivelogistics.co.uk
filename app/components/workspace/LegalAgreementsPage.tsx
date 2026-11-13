@@ -517,13 +517,19 @@ export default function LegalAgreementsPage({
                       {record.signedPdfHash ? <span>PDF hash: <code style={{ color: '#334155' }}>{record.signedPdfHash.slice(0, 16)}...</code></span> : null}
                     </div>
                     {record.signedPdfAvailable ? (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
-                        <ActionButton tone="primary" disabled={openingOriginalId === record.id} onClick={() => void openOriginalSignedAgreement(record)}>
-                          {openingOriginalId === record.id ? 'Opening original...' : 'View original signed PDF'}
-                        </ActionButton>
-                        <ActionButton tone="secondary" disabled={downloadingId === record.id} onClick={() => void downloadSignedAgreement(record)}>
-                          {downloadingId === record.id ? 'Preparing PDF...' : 'Download readable reconstruction'}
-                        </ActionButton>
+                      <div style={{ display: 'grid', gap: 9, borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
+                        <div style={{ color: '#4b5e78', fontSize: 12, lineHeight: 1.6 }}>
+                          <strong>Readable legal text:</strong> download a fresh Unicode PDF reconstructed from the acceptance evidence.
+                          The archived signed PDF is kept unchanged for integrity; some historical PDF files may have unreadable font encoding.
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
+                          <ActionButton tone="primary" disabled={downloadingId === record.id} onClick={() => void downloadSignedAgreement(record)}>
+                            {downloadingId === record.id ? 'Generating readable PDF...' : 'Download readable legal PDF'}
+                          </ActionButton>
+                          <ActionButton tone="secondary" disabled={openingOriginalId === record.id} onClick={() => void openOriginalSignedAgreement(record)}>
+                            {openingOriginalId === record.id ? 'Opening archive...' : 'View archived signed original'}
+                          </ActionButton>
+                        </div>
                       </div>
                     ) : null}
                   </article>
