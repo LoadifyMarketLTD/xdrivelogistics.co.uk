@@ -1,4 +1,4 @@
-﻿-- FIN-03: invoice payment trigger must use the same net settlement formula
+-- FIN-03: invoice payment trigger must use the same net settlement formula
 -- as refresh_invoice_stripe_balance. Reversal and lost-dispute amounts are
 -- capped at the original Stripe attempt amount, avoiding double deduction.
 -- This migration replaces only the function body; trigger wiring stays intact.
