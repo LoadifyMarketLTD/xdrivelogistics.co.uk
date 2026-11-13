@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '../../components/AuthContext';
 import '../../components/workspace/role-settings-workspace.css';
 import '../xdrive-owner-settings-v9.css';
 
@@ -20,6 +21,9 @@ export default function OwnerDriverSettingsSectionShell({
   active, children,
 }: { active: 'legal' | 'billing'; children: ReactNode }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isOwnerDriver = user?.ownerDriverWorkspace === true || user?.workspaceRole === 'owner_driver';
+  if (!isOwnerDriver) return <>{children}</>;
   return (
     <div className="role-settings-layout owner-settings-route-layout" data-owner-settings="true">
       <aside className="role-settings-nav" aria-label="Owner Driver account settings">
