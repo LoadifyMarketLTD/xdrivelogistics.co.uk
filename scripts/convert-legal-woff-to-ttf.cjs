@@ -38,6 +38,8 @@ function convert(input, output) {
   fs.writeFileSync(output, out);
   console.log(output, out.length);
 }
-for (const weight of [400, 700]) {
-  convert(path.join(base, `inter-latin-ext-${weight}-normal.woff`), path.join(dest, `inter-latin-ext-${weight}-normal.ttf`));
+for (const subset of ['latin', 'latin-ext']) {
+  for (const weight of [400, 700]) {
+    convert(path.join(base, `inter-${subset}-${weight}-normal.woff`), path.join(dest, `inter-${subset}-${weight}-normal.ttf`));
+  }
 }
