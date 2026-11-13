@@ -100,6 +100,7 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [disputes, setDisputes] = useState<DisputeRecord[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -176,6 +177,37 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
   }, [invoiceId]);
 
   useEffect(() => { void loadDetail(); }, [loadDetail]);
+
+
+  // Invoice document paths are private storage keys, never browser addresses.
+  // The authorised invoice-document service issues a short-lived signed URL.
+  const openInvoiceDocument = async (document: DocumentRecord) => {
+    if (!invoiceId) return;
+    const popup = window.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    setOpeningDocumentId(document.id);
+    setDocError('');
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Session expired. Please sign in again.');
+      const query = new URLSearchParams({ invoiceId, documentId: document.id });
+      const response = await fetch('/api/finance/invoice-document-url?' + query.toString(), {
+        headers: { Authorization: 'Bearer ' + token },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({})) as { signedUrl?: string; error?: string };
+      if (!response.ok || !payload.signedUrl) {
+        throw new Error(payload.error || 'This document could not be opened securely.');
+      }
+      if (popup) popup.location.href = payload.signedUrl;
+      else window.location.assign(payload.signedUrl);
+    } catch (reason) {
+      popup?.close();
+      setDocError(reason instanceof Error ? reason.message : 'Document could not be opened.');
+    } finally {
+      setOpeningDocumentId(null);
+    }
+  };
 
   const handleRecordPayment = async () => {
     if (!financeOperator || !invoiceId || !payAmount || Number(payAmount) <= 0) return;
@@ -395,7 +427,7 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
             </section>
 
             <section className="driver-row-details">
-              <div className="driver-detail-tabs"><strong>Documents</strong><ActionButton tone="secondary" onClick={() => setShowDocForm((value) => !value)}>{showDocForm ? 'Cancel' : '+ Add Document'}</ActionButton></div>
+              <div className="driver-detail-tabs"><strong>Documents</strong>{docError && <span role="alert" className="driver-diary-text-block">{docError}</span>}<ActionButton tone="secondary" onClick={() => setShowDocForm((value) => !value)}>{showDocForm ? 'Cancel' : '+ Add Document'}</ActionButton></div>
               {showDocForm && (
                 <div className="driver-detail-grid" style={{ marginTop: 5 }}>
                   {docError && <div className="driver-diary-text-block"><strong>Error</strong><span>{docError}</span></div>}
@@ -405,7 +437,7 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
                   <div className="driver-row-actions"><ActionButton tone="primary" disabled={savingDoc || !docUrl.trim()} onClick={() => void handleSaveDoc()}>{savingDoc ? 'Saving…' : 'Save Document'}</ActionButton></div>
                 </div>
               )}
-              {documents.length === 0 ? <EmptyState compact title="No documents attached" /> : <div className="driver-load-list" style={{ marginTop: 5 }}>{documents.map((document) => <div key={document.id} className="driver-load-row"><div className="driver-load-row__meta"><a href={document.file_url} target="_blank" rel="noopener noreferrer">{document.file_name ?? 'Document'}</a><span>{document.doc_type}</span><span>{fmtDate(document.created_at)}</span></div></div>)}</div>}
+              {documents.length === 0 ? <EmptyState compact title="No documents attached" /> : <div className="driver-load-list" style={{ marginTop: 5 }}>{documents.map((document) => <div key={document.id} className="driver-load-row"><div className="driver-load-row__meta"><ActionButton tone="secondary" disabled={openingDocumentId===document.id} onClick={()=>void openInvoiceDocument(document)}>{openingDocumentId===document.id?'Opening...':document.file_name??'View document'}</ActionButton><span>{document.doc_type}</span><span>{fmtDate(document.created_at)}</span></div></div>)}</div>}
             </section>
 
             <section className="driver-row-details">

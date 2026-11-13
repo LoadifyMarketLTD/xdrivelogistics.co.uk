@@ -1,27 +1,36 @@
-# XDrive Logistics Owner Driver design v4 — 13 November 2026
+# XDrive Owner Driver — official POD/Invoice alignment (13 November 2026)
 Repository: LoadifyMarketLTD/xdrivelogistics.co.uk
-Worktree: C:\Users\xdriv\Desktop\XDrive-OwnerDriver-Redesign-20261113
-Branch: design/owner-driver-xdrive-cards-20261113 (Draft PR #807; DO NOT MERGE)
-Previous source: b6185db. Historical #805/#806 unchanged. Main, production Netlify, Supabase and PWA unchanged.
+Local worktree: C:\Users\xdriv\Desktop\XDrive-OwnerDriver-Redesign-20261113
+Branch design/owner-driver-xdrive-cards-20261113; Draft PR #807
+Original preview commits b6185db, 82e4a1f (7-tab transport dossier). Main and production untouched.
 
-User assessment: Loads, Quotes, Diary redesign v3 is positively received; make only small finishing changes there. My Jobs differs most, and detailed job page has a very long, wasteful two-column scroll.
+User review images:
+- Action Centre screenshot: four-column stacked pending action rows, duplicate Pending badges, blank toolbar and extra page header; needs future XDrive compact action-card polish.
+- Directory screenshot: shared five-column member result grid with many 'Not supplied' / 'Not enough evidence' fields; preserve functional directory and reliable scores. Shared protected component not changed.
+- Two screenshots: loading /driver/finance/invoices/<invoice UUID>/<issuer UUID>/<invoice UUID>/INV-202611-004-POD.pdf displays Netlify 404. Root cause: legacy driver finance invoice detail linked <a href={document.file_url}> and file_url is a private relative storage key, not a browser URL.
+- Explicit requirement: POD/Invoice PDF must use CURRENT approved model in XDrive main, not old historical generators in pre-master preview branch.
 
-V4 implementation:
-- app/driver/jobs/page.tsx: My Jobs now uses same XDriveTransportOverview (journey, schedule, transport data) as Loads/Quotes/Diary. Removed duplicate Driver Workspace/Jobs page header and redundant Diary/My Jobs sub-navigation. Existing filters, execution context, details, Open job/Continue actions and data queries retained.
-- app/components/workspace/DriverJobExecutionPage.tsx (desktop branch ONLY): introduced tabbed Transport Dossier with Overview, Order, Tracking, POD, Documents, Invoice, History. Overview displays route, dates, vehicle, POD/invoice summary and contextual actions. Order contains booking terms, pickup/delivery contacts, notes and instructions; Tracking contains Journey Replay; POD contains existing evidence forms, signatures and PDF actions; Documents lists job docs; Invoice displays separate invoice/payment statuses with existing view/create actions; History contains operational timeline. Replaced two-column simultaneous rendering with conditional full-width sections, reducing scrolling and empty space. Mobile/PWA rendering branch verified byte-identical.
-- app/driver/xdrive-job-dossier-v4.css imported last from driver layout. Unique XDrive styling, responsive 4/2/1 overview grid, full-width dossier panels, accessible 7-tab buttons, and improved My Jobs card.
-- scripts/split-driver-job-dossier.cjs, scripts/refine-my-jobs-v4.cjs, scripts/test-owner-dossier-v4.cjs record edits/tests.
+Implemented in this iteration:
+1. Synced seven exact source files from GitHub main e013e5f (comparison equal after normalizing Windows line endings):
+  - lib/server/professionalPodPdf.ts (approved A4 POD with official logo, delivery details, received by, signature, photo evidence)
+  - lib/server/officialXDrivePdfLogo.ts
+  - lib/server/podEvidenceClassification.ts
+  - lib/server/invoicePdf.ts
+  - lib/server/invoicePdfContext.ts
+  - app/api/workspace/jobs/[jobId]/pod/pdf/route.ts
+  - app/api/driver/finance/invoices/[id]/preview/route.ts
+2. app/driver/finance/invoices/[id]/page.tsx: direct href={document.file_url} removed. Opens via authenticated /api/finance/invoice-document-url?invoiceId=...&documentId=... issuing short-lived signed invoice-docs URL; errors shown and popup closed safely.
+3. app/components/workspace/DriverJobExecutionPage.tsx: new 7-tab dossier POD now exposes View official POD PDF and Download official POD PDF through existing authenticated /api/workspace/jobs/[jobId]/pod/pdf; Invoice tab has Preview official Invoice PDF through /api/driver/finance/invoices/[id]/preview, and separate Invoice details & payment. Overview POD button opens existing POD details. No record or status mutated.
+4. Scripts test-official-pdf-alignment.cjs, fix-current-invoice-document-links.cjs, align-dossier-official-pdfs.cjs.
 
-V4 verification:
-- 13/13 targeted contract tests PASS, including byte-for-byte unchanged mobile/PWA branch.
-- CSS parse PASS.
-- TSX transpile PASS.
-- Protected XDrive invariants PASS.
-- Full npm run typecheck PASS (initial v4 pass; final re-run scheduled).
-- Authenticated browser E2E / PDF preview / GPS status transitions NOT YET verified. No live test data mutations.
+Verification:
+- node scripts/test-official-pdf-alignment.cjs: 13/13 PASS.
+- node scripts/test-owner-dossier-v4.cjs: 13/13 PASS.
+- npm run typecheck: PASS (full, after copy of required podEvidenceClassification.ts).
+- git diff --check PASS.
+- Actual authenticated PDF display, signed link response, Netlify build: NOT VERIFIED yet.
+- Historical already generated document bytes are immutable; new generation/preview uses current approved generator.
 
-Next:
-1. Re-run full TS check on final files.
-2. Commit/push V4 to Draft PR #807.
-3. Wait for Netlify Preview SHA deploy Ready, inspect authenticated UI if accessible.
-4. Ask for user visual acceptance before any merge; do not modify production.
+Safety: no main or Netlify production changes, no Supabase writes, no PWA mutation, no old templates manually recreated, old #805/#806 preserved.
+
+Next: commit/push isolated branch PR #807, verify Netlify latest SHA; authenticate in Edge to verify rendering and signed-link 404 fix, run real PDF visual compare. Do not merge without user approval.

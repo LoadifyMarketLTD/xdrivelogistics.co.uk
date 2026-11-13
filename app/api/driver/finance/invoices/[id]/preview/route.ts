@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { PDFDocument } from 'pdf-lib';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
 import { loadInvoicePdfContext } from '../../../../../../../lib/server/invoicePdfContext';
@@ -121,6 +122,7 @@ export async function GET(
     supabase: supabaseAdmin,
     companyId: previewer.companyId,
     jobId: typeof invoice.job_id === 'string' ? invoice.job_id : null,
+    requirePod: Boolean(invoice.job_id),
   });
 
   let pdfBytes: Uint8Array;
@@ -147,11 +149,12 @@ export async function GET(
       customerReference: cleanText(invoice.customer_ref) || null,
       loadId: cleanText(invoice.load_id) || null,
       orderedAt: cleanText(invoice.ordered_at) || null,
-      leftAt: cleanText(invoice.left_at) || null,
-      deliveryNotes: cleanText(invoice.delivery_notes) || null,
+      leftAt: pdfContext.leftAt || cleanText(invoice.left_at) || null,
+      deliveryNotes: pdfContext.deliveryNotes || cleanText(invoice.delivery_notes) || null,
       pickupLocation: invoice.pickup_location as string | null,
       pickupDateTime: pdfContext.pickupDateTime ?? invoice.pickup_datetime as string | null,
       deliveryLocation: invoice.delivery_location as string | null,
+      deliveredAt: pdfContext.deliveredAt || cleanText(invoice.delivered_at) || null,
       deliveryDateTime: pdfContext.deliveryDateTime || cleanText(invoice.delivered_at) || cleanText(invoice.delivery_datetime) || null,
       recipientName: pdfContext.recipientName || cleanText(invoice.delivery_recipient) || cleanText(invoice.recipient_name) || null,
       cargoDescription: pdfContext.cargoDescription || cleanText(invoice.cargo_summary) || null,
@@ -163,6 +166,12 @@ export async function GET(
       paypalEmail: pdfContext.paypalEmail,
       logoBytes: pdfContext.logoBytes,
       evidenceImages: pdfContext.evidenceImages,
+      signatureAttestation: pdfContext.signatureAttestation,
+      podSummary: pdfContext.podSummary,
+      podDetails: pdfContext.podDetails,
+      podHandover: pdfContext.podHandover,
+      podSignatureDataUrl: pdfContext.podSignatureDataUrl,
+      podDeliveryPhotoCount: pdfContext.podDeliveryPhotoCount,
       netAmount,
       vatAmount,
       vatRate,
@@ -179,11 +188,20 @@ export async function GET(
     return respond(500, { error: 'Generated preview is empty or exceeds the 10 MB limit.' });
   }
 
-  return new NextResponse(Buffer.from(pdfBytes), {
+  const combined = await PDFDocument.load(pdfBytes).catch(() => null);
+  if (!combined || combined.getPageCount() < (invoice.job_id ? 3 : 1)) return respond(409, { error: 'Invoice or POD preview is incomplete.' });
+  const previewKind = request.nextUrl.searchParams.get('document') === 'pod' ? 'pod' : 'invoice';
+  if (previewKind === 'pod' && !invoice.job_id) return respond(404, { error: 'This invoice has no associated POD.' });
+  const selected = await PDFDocument.create();
+  const pageIndexes = previewKind === 'pod' ? combined.getPageIndices().slice(1) : [0];
+  const selectedPages = await selected.copyPages(combined, pageIndexes);
+  selectedPages.forEach((page) => selected.addPage(page));
+  const selectedBytes = await selected.save();
+  return new NextResponse(Buffer.from(selectedBytes), {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="${cleanFileName(invoiceNumber)}-preview.pdf"`,
+      'Content-Disposition': `inline; filename="${cleanFileName(invoiceNumber)}-${previewKind}-preview.pdf"`,
       'Cache-Control': 'no-store, max-age=0',
       'X-Content-Type-Options': 'nosniff',
     },
