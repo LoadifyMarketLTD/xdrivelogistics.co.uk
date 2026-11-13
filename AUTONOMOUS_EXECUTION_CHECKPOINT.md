@@ -1,25 +1,26 @@
-# XDrive Owner Driver redesign checkpoint — 2026-11-13
-Scope: isolated preview-only redesign, no main merge, no production or Supabase mutations.
-Base historical commit e544e4e7, marker e8a6e81, branch design/owner-driver-xdrive-cards-20261113.
-Worktree: C:\Users\xdriv\Desktop\XDrive-OwnerDriver-Redesign-20261113.
-Historical references #805/#806 remain untouched.
+# XDrive Owner Driver v2 — checkpoint 2026-11-13
+Worktree: C:\Users\xdriv\Desktop\XDrive-OwnerDriver-Redesign-20261113
+Branch design/owner-driver-xdrive-cards-20261113 (PR #807, Draft/NO MERGE).
+Base 806 pre-master; main and production never changed.
+Approved Post Load, PWA, Supabase, API and Invoice/POD generator unchanged.
 
-Implemented:
-- New independent CSS app/driver/xdrive-operational-cards.css, imported last in app/driver/layout.tsx.
-- New XDriveCardContext shared identity header; integrated into CxLoadCard, CxQuoteCard, CxDiaryCard.
-- Scoped booking row visual convergence using .driver-jobs-board without changing business logic.
-- Three-column XDrive layout 1.08fr/.95fr/.87fr, rounded corners, navy/blue/green accents, readable 14–15px labels/content, minimum 34px footer actions, responsive 2/1 column fallbacks.
-- No TEG visual assets, proprietary icons, page layouts or copied design.
-- No changes to approved Post Load, PWA, Supabase, APIs or invoice/POD generators.
+Changes in v2:
+- app/driver/history/page.tsx: initially show driver's own assigned jobs, with company diary only if role authorizes explicit selection. Existing nine tabs and six detail tabs preserved.
+- app/driver/jobs/page.tsx: 3 XDrive information zones (route, pickup/delivery schedule, vehicle/execution) and header, status actions intact; photo evidence distinguished from completed POD.
+- app/driver/xdrive-operational-cards-v2.css: XDrive-only layout/typography, 3 column booking card, denser Diary order detail grid, improved quote status amount formatting, remove duplicate reference in three cards, responsive tablet/mobile.
+- app/driver/layout.tsx imports v2 CSS last.
+- scripts/refine-owner-driver-v2.ps1 and refine-driver-jobs-layout.cjs record edits, scripts/test-driver-redesign-v2.cjs validates structure.
 
 Verification:
-- postcss parsing PASS (59 top-level CSS nodes).
-- TypeScript transpileModule PASS on five changed/added TSX files.
-- npm ci PASS (615 packages). Full npm run typecheck started; result must be recorded when complete.
-- No authenticated cross-role E2E or browser screenshots yet; do not claim full PASS.
+- 6/6 targeted contract checks PASS (node scripts/test-driver-redesign-v2.cjs).
+- CSS parse PASS, three TSX transpile checks PASS, git diff --check PASS.
+- Protected workspace invariants PASS.
+- Full typecheck still running when checkpoint prepared; do not claim PASS until final process exit.
+- Previous v1 Next.js build PASS; v2 build not yet run.
+- Authenticated visual E2E still pending.
 
 Next:
-1. Wait for full typecheck result, remediate any errors.
-2. Run protected invariants PowerShell and production build from local branch if supported.
-3. Push new branch only, open Draft PR only, use Netlify Deploy Preview for visual acceptance; NEVER merge into main without explicit approval.
-4. In authenticated Edge, compare route /driver/loads /driver/quotes /driver/jobs /driver/history at 1920/1366/390 widths.
+1. Confirm full typecheck, fix errors.
+2. Commit/push v2 to PR #807, check Netlify status and test link.
+3. Compare authenticated 807 Diary, Bookings, Quotes, Loads in Edge with baseline; no merge without approval.
+4. Later: Dashboard cleanup and explicit E2E on status transitions, POD / Invoice. No live transactions without authorization.

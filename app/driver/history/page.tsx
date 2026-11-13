@@ -294,7 +294,7 @@ export default function JobHistoryPage() {
   const companyId = typeof user?.companyId === 'string' ? user.companyId.trim() : '';
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const canViewCompanyDiary = canGenerateInvoices && Boolean(companyId);
-  const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('company');
+  const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('mine');
   const diaryScope: 'company' | 'mine' = canViewCompanyDiary ? selectedDiaryScope : 'mine';
   const feedbackReviewerCompanyId = canViewCompanyDiary && diaryScope === 'company' ? companyId : null;
   const historyFilters = useMemo(() => getCanonicalDiaryTabs(canViewCompanyDiary ? 'owner_driver' : 'driver'), [canViewCompanyDiary]);
@@ -575,7 +575,7 @@ export default function JobHistoryPage() {
       </div>
       <div className="left-title">Search Panel</div>
       <div className="diary-filter-body">
-        <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">Company Diary</option><option value="mine">My assigned jobs</option></select></div>
+        <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}>{canViewCompanyDiary && <option value="company">Company Diary (all authorised company records)</option>}<option value="mine">My assigned jobs</option></select></div>
         <div className="filter"><span className="label">Date</span><select value={search.dateRange} onChange={(e) => setSearch((current) => ({ ...current, dateRange: e.target.value as DateRange }))}><option value="any">Anytime</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></div>
         <div className="filter"><span className="label">Pickup Time Within</span><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Delivery Time Within</span><select value={search.deliveryWithin} onChange={(e) => setSearch((current) => ({ ...current, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>

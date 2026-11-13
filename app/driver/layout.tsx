@@ -25,6 +25,7 @@ import '../components/workspace/admin-marketplace-identity.css';
 import '../components/workspace/workspace-readable-typography.css';
 import './driver-mobile-readability-blueprint.css';
 import './xdrive-operational-cards.css';
+import './xdrive-operational-cards-v2.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.
