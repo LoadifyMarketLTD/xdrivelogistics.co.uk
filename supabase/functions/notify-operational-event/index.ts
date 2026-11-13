@@ -1468,8 +1468,12 @@ async function handlePaymentReceived(event: NotificationEvent) {
   const serviceDescription = typeof invoice.service_description === 'string'
     ? invoice.service_description.trim() : '';
   const subject = `You've been paid - Remittance advice - Invoice ${invoiceReference}`;
-  const attachment = buildRemittanceAdviceAttachment({
+  const attachment = await buildRemittanceAdviceAttachment({
     invoiceNumber: invoiceReferenceRaw,
+    jobReference,
+    pickup: jobContext?.pickup,
+    delivery: jobContext?.delivery,
+    serviceDescription: serviceDescription && !serviceDescription.startsWith('{') ? serviceDescription : 'Freight transport service',
     supplierName: companyId ? names.get(companyId) : '',
     customerName: buyerCompanyId ? names.get(buyerCompanyId) : '',
     paymentDate,

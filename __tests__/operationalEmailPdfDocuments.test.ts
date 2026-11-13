@@ -1,4 +1,5 @@
 import { PDFDocument } from 'pdf-lib';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -46,7 +47,7 @@ describe('operational email PDF documents', () => {
   });
 
   it('creates a valid remittance advice PDF', async () => {
-    const attachment = buildRemittanceAdviceAttachment({
+    const attachment = await buildRemittanceAdviceAttachment({
       invoiceNumber: 'INV-2026-001847',
       jobReference: 'JOB-3316FA3E',
       pickup: 'Blackburn BB2 2RP',
