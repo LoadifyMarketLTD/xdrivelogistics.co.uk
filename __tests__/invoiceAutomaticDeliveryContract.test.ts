@@ -48,9 +48,11 @@ describe('POD-bound Draft, review and explicit invoice delivery', () => {
   });
 
   it('persists a SHA-256 fingerprint for the exact generated PDF attachment', () => {
-    expect(sender).toContain("createHash('sha256').update(pdfBytes).digest('hex')");
+    expect(sender).toContain("createHash('sha256').update(invoiceBytes).digest('hex')");
     expect(sender).toContain('content_sha256: pdfSha256');
-    expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }]");
+    expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(invoiceBytes).toString('base64') }");
+    expect(sender).toContain('...(podBytes ? [{');
+    expect(sender).toContain('Separate invoice and POD PDF attachments are required.');
   });
 
   it('keeps a private issuer copy of the exact delivered invoice', () => {
