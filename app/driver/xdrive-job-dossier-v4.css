@@ -1,0 +1,146 @@
+/* XDrive Owner Driver — transport dossier tabs, v4.
+   Desktop execution only. Mobile/PWA execution flow is unchanged. */
+.xdrive-driver-workspace .xd-case-dossier{
+  border:1px solid #d5e0eb;border-radius:9px 9px 0 0;
+  background:#fff;overflow:hidden;box-shadow:0 1px 4px rgba(17,47,83,.06);
+  margin:4px 0 0;
+}
+.xdrive-driver-workspace .xd-case-dossier__topline{
+  min-height:44px;display:flex;align-items:center;flex-wrap:wrap;gap:10px;
+  padding:8px 16px;background:#eff5fb;border-bottom:1px solid #dce8f5;
+}
+.xdrive-driver-workspace .xd-case-dossier__topline>span:first-child{
+  color:#163a64;font-size:12px;font-weight:850;letter-spacing:.09em;
+}
+.xdrive-driver-workspace .xd-case-dossier__topline>strong{
+  color:#112f53;font-size:14px;font-weight:800;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd-case-dossier__status{
+  margin-left:auto;padding:5px 11px;border-radius:99px;
+  background:#e1f4e9;color:#136a3b;font-size:12px;font-weight:800;
+}
+.xdrive-driver-workspace .xd-case-tabs{
+  display:flex;flex-wrap:wrap;align-items:center;gap:5px;
+  padding:8px 12px;background:#fff;
+}
+.xdrive-driver-workspace .xd-case-tabs button{
+  min-height:38px;padding:8px 15px;appearance:none;cursor:pointer;
+  border:1px solid transparent;border-radius:6px;
+  background:transparent;color:#526579;
+  font-size:14px;font-weight:750;line-height:20px;
+}
+.xdrive-driver-workspace .xd-case-tabs button:hover{
+  background:#edf4fc;color:#173e6f;
+}
+.xdrive-driver-workspace .xd-case-tabs button[aria-selected="true"]{
+  border:1px solid #a7c9ea;background:#e3effc;color:#124c87;
+  box-shadow:inset 0 -2px #225f9e;
+}
+.xdrive-driver-workspace .xd-case-tabs button:focus-visible,
+.xdrive-driver-workspace .xd-case-overview button:focus-visible{
+  outline:3px solid #86bdf0;outline-offset:2px;
+}
+.xdrive-driver-workspace .xd-case-overview,
+.xdrive-driver-workspace .xd-case-invoice{
+  margin-top:12px;border:1px solid #d5e0eb;border-radius:9px;
+  background:#fff;box-shadow:0 1px 4px rgba(17,47,83,.06);overflow:hidden;
+}
+.xdrive-driver-workspace .xd-case-overview>header,
+.xdrive-driver-workspace .xd-case-invoice>header{
+  display:flex;gap:12px;align-items:center;justify-content:space-between;
+  padding:12px 16px;background:#f2f7fd;border-bottom:1px solid #dce7f1;
+  color:#112f53;font-size:15px;font-weight:800;
+}
+.xdrive-driver-workspace .xd-case-overview>header>strong{
+  background:#e4f3e9;color:#176d40;border-radius:99px;padding:5px 12px;
+  font-size:12px;line-height:18px;
+}
+.xdrive-driver-workspace .xd-case-invoice>header>span{
+  color:#627589;font-size:12px;font-weight:650;
+}
+.xdrive-driver-workspace .xd-case-overview__grid,
+.xdrive-driver-workspace .xd-case-invoice__grid{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  padding:16px;gap:10px;
+}
+.xdrive-driver-workspace .xd-case-overview__grid>div,
+.xdrive-driver-workspace .xd-case-invoice__grid>div{
+  display:flex;flex-direction:column;gap:6px;
+  padding:14px 15px;border:1px solid #e0e9f2;border-radius:8px;
+  background:#fcfdff;min-width:0;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd-case-overview__grid small,
+.xdrive-driver-workspace .xd-case-invoice__grid small{
+  font-size:11px;font-weight:800;color:#60758c;letter-spacing:.07em;
+}
+.xdrive-driver-workspace .xd-case-overview__grid strong,
+.xdrive-driver-workspace .xd-case-invoice__grid strong{
+  color:#112f53;font-size:15px;font-weight:750;line-height:20px;
+}
+.xdrive-driver-workspace .xd-case-overview__grid span{
+  font-size:13px;line-height:18px;color:#566c83;
+}
+.xdrive-driver-workspace .xd-case-overview__actions{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  padding:12px 16px;background:#f5f8fc;border-top:1px solid #e2eaf2;
+}
+.xdrive-driver-workspace .xd-case-overview__actions>button{
+  min-height:36px;border:1px solid #b9cce0;border-radius:6px;
+  padding:7px 13px;color:#173e6b;background:#fff;
+  font-size:13px;font-weight:750;cursor:pointer;
+}
+.xdrive-driver-workspace .xd-case-overview__actions>button:hover{
+  background:#e5f0fb;border-color:#92bbe3;
+}
+.xdrive-driver-workspace .xd-case-panels{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:12px;
+  min-width:0;margin-top:12px;
+}
+.xdrive-driver-workspace .xd-case-panels__column{
+  display:contents;
+}
+.xdrive-driver-workspace .xd-case-panels .driver-detail-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:9px!important;
+}
+.xdrive-driver-workspace .xd-case-panels .driver-detail-item{
+  min-width:0;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd-case-panels table{
+  width:100%;table-layout:auto;max-width:100%;
+}
+.xdrive-driver-workspace .xd-case-panels th,
+.xdrive-driver-workspace .xd-case-panels td{
+  white-space:normal!important;overflow-wrap:anywhere!important;
+  font-size:13px!important;line-height:19px!important;
+}
+.xdrive-driver-workspace .xd-case-panels [id="journey-replay"]{
+  min-width:0;width:100%;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-load-row>.xd3-journey{
+  min-height:118px;border-top:1px solid #e0e8f1;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-load-row>.xd3-journey>section{
+  padding:12px 15px;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-load-row__meta{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  min-height:42px!important;padding:6px 12px!important;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-row-actions{
+  margin-left:auto;
+}
+@media(max-width:1250px){
+  .xdrive-driver-workspace .xd-case-overview__grid,
+  .xdrive-driver-workspace .xd-case-invoice__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:840px){
+  .xdrive-driver-workspace .xd-case-panels .driver-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .xdrive-driver-workspace .xd-case-tabs button{padding:7px 11px;font-size:13px}
+}
+@media(max-width:600px){
+  .xdrive-driver-workspace .xd-case-overview__grid,
+  .xdrive-driver-workspace .xd-case-invoice__grid{grid-template-columns:minmax(0,1fr)}
+  .xdrive-driver-workspace .xd-case-panels .driver-detail-grid{grid-template-columns:minmax(0,1fr)!important}
+  .xdrive-driver-workspace .xd-case-dossier__status{margin-left:0}
+}

@@ -13,7 +13,7 @@ import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
-import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
+import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
 import BookingDetailsStep from '../../driver-pwa-fresh/bookings/[id]/workflow/BookingDetailsStep';
 import OnMyWayToPickupStep from '../../driver-pwa-fresh/bookings/[id]/workflow/OnMyWayToPickupStep';
@@ -244,6 +244,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const [savedSignatureData, setSavedSignatureData] = useState('');
   const podDraftSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [showPodDetails, setShowPodDetails] = useState(false);
+  const [caseTab, setCaseTab] = useState<'overview'|'order'|'tracking'|'pod'|'documents'|'invoice'|'history'>('overview');
   const [podPhotoUrls, setPodPhotoUrls] = useState<string[]>([]);
   const [signing, setSigning] = useState(false);
   const signatureRef = useRef<HTMLCanvasElement>(null);
@@ -1449,6 +1450,42 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         </span>
       </div>
 
+      <section className="xd-case-dossier" aria-label="Transport dossier">
+        <div className="xd-case-dossier__topline">
+          <span>TRANSPORT DOSSIER</span>
+          <strong>{sheet?.bookingReference ?? sheet?.reference ?? job.booking_reference ?? `XDL-${job.id.slice(0,8).toUpperCase()}`}</strong>
+          <span className="xd-case-dossier__status">{statusLabel[currentStatus] ?? currentStatus}</span>
+        </div>
+        <div className="xd-case-tabs" role="tablist" aria-label="Booking dossier sections">
+          {([
+            ['overview','Overview'],['order','Order'],['tracking','Tracking'],['pod','POD'],
+            ['documents','Documents'],['invoice','Invoice'],['history','History'],
+          ] as const).map(([id,label]) => (
+            <button key={id} type="button" role="tab" aria-selected={caseTab===id}
+              className={caseTab===id?'xd-case-tabs__active':''}
+              onClick={()=>setCaseTab(id)}>{label}</button>
+          ))}
+        </div>
+      </section>
+
+      {caseTab==='overview' && <section className="xd-case-overview" aria-label="Transport overview">
+        <header><span>Journey &amp; execution</span><strong>{statusLabel[currentStatus] ?? currentStatus}</strong></header>
+        <div className="xd-case-overview__grid">
+          <div><small>COLLECTION</small><strong>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong><span>{formatDateTime(job.pickup_datetime)}</span></div>
+          <div><small>DESTINATION</small><strong>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong><span>{formatDateTime(job.delivery_datetime)}</span></div>
+          <div><small>VEHICLE</small><strong>{requestedVehicle}</strong><span>{allocatedVehicleSummary}</span></div>
+          <div><small>DOCUMENTS</small><strong>{podComplete ? 'POD completed' : 'POD pending'}</strong><span>{sheet?.invoices[0]?.number ?? 'Invoice not issued'}</span></div>
+        </div>
+        <div className="xd-case-overview__actions">
+          <button type="button" onClick={()=>setCaseTab('order')}>View order</button>
+          <button type="button" onClick={()=>setCaseTab('tracking')}>Tracking &amp; Journey Replay</button>
+          <button type="button" onClick={()=>setCaseTab('pod')}>{podComplete ? 'View POD' : 'Complete POD'}</button>
+          <button type="button" onClick={()=>setCaseTab('invoice')}>Invoice &amp; payment</button>
+          {canShowLifecycleAction && nextStatus && nextLabel && <ActionButton tone="success" disabled={working} onClick={()=>void moveStatus(nextStatus)}>{working?'Saving...':nextLabel}</ActionButton>}
+        </div>
+      </section>}
+
+      {caseTab==='order' && <>
       <Panel title="Order" description="Awarded booking confirmation and operational instructions from the driver-authorised job sheet.">
         <div className="driver-detail-grid">
           <div className="driver-detail-item"><span>Booking / job reference</span><strong>{sheet?.bookingReference ?? job.booking_reference ?? sheet?.reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`}</strong><small>Load ID {job.id.slice(0, 8).toUpperCase()}</small></div>
@@ -1525,7 +1562,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
             </ActionButton>
           )}
           {podComplete && (
-            <ActionButton tone="secondary" onClick={() => void openPodDetails()}>View POD</ActionButton>
+            <ActionButton tone="secondary" onClick={() => {setCaseTab('pod');void openPodDetails();}}>View POD</ActionButton>
           )}
           {podComplete && !sheet?.invoices[0]?.id && canGenerateInvoices && (
             <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>
@@ -1541,24 +1578,27 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
             <a href={wazeUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Waze ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
           </>}
           <a href={routeMapUrl(job)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Route</a>
-          <ActionButton tone="secondary" onClick={() => document.getElementById('journey-replay')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Journey Replay</ActionButton>
+          <ActionButton tone="secondary" onClick={() => setCaseTab('tracking')}>Journey Replay</ActionButton>
           {sheet?.memberPhone && <a href={`tel:${sheet.memberPhone.replace(/\s+/g, '')}`} style={linkButtonStyle}>Call Member</a>}
           {sheet?.invoices[0]?.id && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View invoice (£)</ActionButton>}
         </div>
       </Panel>
 
-      <TwoColumn>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <Panel title="Route and navigation">
+      </>}
+
+      <div className="xd-case-panels">
+        <div className="xd-case-panels__column">
+
+{caseTab==='order' && <Panel title="Route and navigation">
             <DataTable columns={['Stop', 'Address', 'Time', 'Navigation']} rows={[
               ['Pickup', [sheet?.pickup.address ?? job.pickup_location, sheet?.pickup.postcode ?? job.pickup_postcode].filter(Boolean).join(', ') || 'Not set', formatDateTime(sheet?.pickup.dateTime ?? job.pickup_datetime), (sheet?.pickup.address ?? job.pickup_location) ? <a key="pickup" href={mapsUrl(sheet?.pickup.address ?? job.pickup_location ?? '', sheet?.pickup.postcode ?? job.pickup_postcode)} target="_blank" rel="noopener noreferrer">Open map</a> : '—'],
               ['Delivery', [sheet?.delivery.address ?? job.delivery_location, sheet?.delivery.postcode ?? job.delivery_postcode].filter(Boolean).join(', ') || 'Not set', formatDateTime(sheet?.delivery.dateTime ?? job.delivery_datetime), (sheet?.delivery.address ?? job.delivery_location) ? <a key="delivery" href={mapsUrl(sheet?.delivery.address ?? job.delivery_location ?? '', sheet?.delivery.postcode ?? job.delivery_postcode)} target="_blank" rel="noopener noreferrer">Open map</a> : '—'],
             ]} />
-          </Panel>
+          </Panel>}
 
-          {loadSections.map((section) => <Panel key={section.title} title={section.title}><div className="driver-detail-grid">{section.items.map((item) => <div className="driver-detail-item" key={`${section.title}-${item.label}`}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div></Panel>)}
+          {caseTab==='order' && loadSections.map((section) => <Panel key={section.title} title={section.title}><div className="driver-detail-grid">{section.items.map((item) => <div className="driver-detail-item" key={`${section.title}-${item.label}`}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div></Panel>)}
 
-          {(currentStatus === 'on_site_pickup' || currentStatus === 'loaded') && (
+          {caseTab==='pod' && (currentStatus === 'on_site_pickup' || currentStatus === 'loaded') && (
             <Panel title="Collection evidence" description="Attach 1–10 verified loading photos. Take a photo or select several saved images in one action.">
               <input ref={collectionCameraInput} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={selectCollectionPhotos} />
               <input ref={collectionGalleryInput} type="file" accept="image/jpeg,image/png" multiple hidden onChange={selectCollectionPhotos} />
@@ -1570,7 +1610,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
               {collectionPhotos.length > 0 && <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Verified collection evidence: {collectionPhotos.length}/10 photos.</div>}
             </Panel>
           )}
-          {(currentStatus === 'on_site_delivery' || (currentStatus === 'delivered' && !podComplete)) && (
+          {caseTab==='pod' && (currentStatus === 'on_site_delivery' || (currentStatus === 'delivered' && !podComplete)) && (
             <Panel
               title={currentStatus === 'delivered' ? 'Complete Proof of Delivery (POD)' : 'Delivery evidence'}
               description={currentStatus === 'delivered'
@@ -1610,12 +1650,12 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
           )}
         </div>
 
-        <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
-          <Panel title="Operational timeline" description="Pickup, loading, transit, delivery and completion events."><DataTable columns={['Status', 'Time', 'Details']} rows={timelineRows} empty={<EmptyState title="No recorded history" />} /></Panel>
-          <div id="journey-replay"><Panel title="Journey Replay" description="GPS route, tracked distance, speed evidence and lifecycle events for this assigned job."><WorkspaceJobReplay jobId={jobId} /></Panel></div>
-          <Panel title="Notes" description="Driver operational notes remain separate from the awarded Order confirmation."><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>
-          <Panel title="Documents"><div style={{ display: 'grid', gap: 5 }}>{sheet?.documents.length ? sheet.documents.map((document) => <div key={document.id ?? `${document.type}-${document.createdAt}`} className="driver-detail-item"><span>{document.type}</span><strong>{document.fileName ?? 'Job document'}</strong><small>{formatDateTime(document.createdAt)}</small></div>) : <EmptyState title="No job documents" />}</div></Panel>
-          <Panel title="POD and invoice" description="POD is mandatory for every job. Invoice creation is available only after POD is complete.">
+        <div className="xd-case-panels__column">
+{caseTab==='history' && <Panel title="Operational timeline" description="Pickup, loading, transit, delivery and completion events."><DataTable columns={['Status', 'Time', 'Details']} rows={timelineRows} empty={<EmptyState title="No recorded history" />} /></Panel>}
+          {caseTab==='tracking' && <div id="journey-replay"><Panel title="Journey Replay" description="GPS route, tracked distance, speed evidence and lifecycle events for this assigned job."><WorkspaceJobReplay jobId={jobId} /></Panel></div>}
+{caseTab==='order' && <Panel title="Notes" description="Driver operational notes remain separate from the awarded Order confirmation."><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>}
+{caseTab==='documents' && <Panel title="Documents"><div style={{ display: 'grid', gap: 5 }}>{sheet?.documents.length ? sheet.documents.map((document) => <div key={document.id ?? `${document.type}-${document.createdAt}`} className="driver-detail-item"><span>{document.type}</span><strong>{document.fileName ?? 'Job document'}</strong><small>{formatDateTime(document.createdAt)}</small></div>) : <EmptyState title="No job documents" />}</div></Panel>}
+{caseTab==='pod' && <Panel title="POD and invoice" description="POD is mandatory for every job. Invoice creation is available only after POD is complete.">
             <div className="driver-detail-grid">
               <div className="driver-detail-item"><span>POD required</span><strong>Yes</strong></div>
               <div className="driver-detail-item"><span>POD status</span><strong>{podComplete ? 'Complete' : 'Pending'}</strong><small>{job.pod_generated_at ? formatDateTime(job.pod_generated_at) : 'Complete POD after delivery'}</small></div>
@@ -1625,11 +1665,11 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
               <div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? (podComplete ? 'Ready to create' : 'Locked until POD')}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? (podComplete ? 'POD complete' : 'POD pending')}</small></div>
             </div>
             {podComplete && <div className="driver-row-actions" style={{ marginTop: 8 }}>
-              <ActionButton tone="secondary" onClick={() => void openPodDetails()}>View POD</ActionButton>
+              <ActionButton tone="secondary" onClick={() => {setCaseTab('pod');void openPodDetails();}}>View POD</ActionButton>
               {sheet?.invoices[0]?.id ? <ActionButton tone="primary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View Invoice</ActionButton> : canGenerateInvoices ? <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>{working ? 'Creating...' : 'Create Invoice'}</ActionButton> : null}
             </div>}
-          </Panel>
-          {podComplete && showPodDetails && (
+          </Panel>}
+          {caseTab==='pod' && podComplete && showPodDetails && (
             <Panel title="Proof of Delivery" description="Recorded delivery confirmation and POD evidence for this job.">
               <div className="driver-detail-grid">
                 <div className="driver-detail-item"><span>Received by</span><strong>{sheet?.pod.receiverName ?? job.client_signature_name ?? 'Not captured'}</strong></div>
@@ -1645,8 +1685,22 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
               <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setShowPodDetails(false)}>Close POD</ActionButton></div>
             </Panel>
           )}
+          {caseTab==='invoice' && <section className="xd-case-invoice" aria-label="Invoice and payment">
+            <header><strong>Invoice &amp; payment</strong><span>Financial documents</span></header>
+            <div className="xd-case-invoice__grid">
+              <div><small>INVOICE</small><strong>{sheet?.invoices[0]?.number ?? (podComplete ? 'Ready to create' : 'Awaiting POD')}</strong></div>
+              <div><small>INVOICE STATUS</small><strong>{sheet?.invoices[0]?.status ?? 'Not issued'}</strong></div>
+              <div><small>PAYMENT STATUS</small><strong>{sheet?.invoices[0]?.paymentStatus ?? 'Not recorded'}</strong></div>
+              <div><small>PAYMENT TERMS</small><strong>{sheet?.paymentTerms ?? 'Not supplied'}</strong></div>
+            </div>
+            <div className="xd-case-overview__actions">
+              {sheet?.invoices[0]?.id ? <ActionButton tone="primary" onClick={()=>router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View Invoice</ActionButton> :
+                podComplete && canGenerateInvoices ? <ActionButton tone="primary" disabled={working} onClick={()=>void createInvoice()}>{working?'Creating...':'Create Invoice'}</ActionButton> :
+                <span>{podComplete?'Invoice generation is managed by the authorised carrier.':'Complete POD before creating an invoice.'}</span>}
+            </div>
+          </section>}
         </div>
-      </TwoColumn>
+      </div>
     </PageFrame>
   );
 }

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
+import XDriveTransportOverview from '../../components/workspace/XDriveTransportOverview';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
@@ -176,10 +176,10 @@ export default function DriverJobsPage() {
       <DriverWorkspaceShell
         driverName={driver?.display_name ?? undefined}
         availabilityLabel={driverStatus}
-        subtitle="Assigned work, live execution and POD hand-off in one compact board."
+        hideHeader
         headerActions={<ActionButton tone="primary" onClick={() => void loadJobs()} disabled={loading}>Refresh</ActionButton>}
       >
-        <DriverIntegratedNav label="Diary tools" items={[{ href: '/driver/history', label: 'Diary' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
+
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         <div className="driver-board-layout driver-jobs-board">
           <aside className="driver-filter-rail" aria-label="Job board context">
@@ -228,22 +228,19 @@ export default function DriverJobsPage() {
                     <div className="xd-booking-heading">
                       <span className="xd-booking-heading__type">Assigned transport</span>
                       <span className="xd-booking-heading__ref">XDrive ref · {job.id.slice(0, 8).toUpperCase()}</span>
-                      <span className="xd-booking-heading__state">{workspaceJobOperationalLabel(job)}</span>
+
                     </div>
-                    <div className="driver-load-row__top xd-booking-card__main">
-                      <section className="xd-booking-card__route">
-                        <div className="xd-booking-card__field"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'}</strong></div>
-                        <div className="xd-booking-card__field"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{job.delivery_location ?? 'Delivery'}</strong></div>
-                      </section>
-                      <section className="xd-booking-card__times">
-                        <div className="xd-booking-card__field"><span className="driver-cell-label">Pickup</span><strong className="driver-cell-primary">{job.pickup_postcode ?? 'Postcode TBC'}</strong><span className="driver-cell-secondary">{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</span></div>
-                        <div className="xd-booking-card__field"><span className="driver-cell-label">Delivery</span><strong className="driver-cell-primary">{job.delivery_postcode ?? 'Postcode TBC'}</strong><span className="driver-cell-secondary">{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</span></div>
-                      </section>
-                      <section className="xd-booking-card__state">
-                        <div className="xd-booking-card__field"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleLabel(job)}</strong><span className="driver-cell-secondary">{job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}</span></div>
-                        <div className="xd-booking-card__field"><span className="driver-cell-label">Execution</span><strong className="driver-cell-primary">{workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary">{hasPod ? 'Delivery photos captured (POD status in Diary)' : inExecution ? 'Execution in progress' : complete ? 'Execution complete' : stage === 'allocated' || stage === 'awarded' ? 'Assigned / awaiting execution' : 'Job record'}</span></div>
-                      </section>
-                    </div>
+                    <XDriveTransportOverview
+                      tone="diary"
+                      from={job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}
+                      to={job.delivery_location ?? job.delivery_postcode ?? 'Destination not supplied'}
+                      pickup={{primary:fmtTime(job.pickup_datetime),meta:fmtDate(job.pickup_datetime)}}
+                      delivery={{primary:fmtTime(job.delivery_datetime),meta:fmtDate(job.delivery_datetime)}}
+                      status={workspaceJobOperationalLabel(job)}
+                      caption={job.cargo_type?.replace(/_/g,' ') ?? 'Cargo not specified'}
+                      stamp={hasPod ? 'Delivery photos recorded · Check POD in Diary' : inExecution ? 'Execution in progress' : complete ? 'Execution complete' : 'Assigned transport'}
+                      vehicle={vehicleLabel(job)}
+                    />
                     <div className="driver-load-row__meta"><span>Job #{job.id.slice(0, 8).toUpperCase()}</span><StatusBadge value={workspaceJobOperationalLabel(job)} tone={stageTone(job)} />{hasPod && <StatusBadge value="Delivery evidence" tone="green" />}<div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => toggleJob(job.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue job' : 'Open job'}</ActionButton></div></div>
                     {expanded && <div className="driver-row-details"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Pickup</span><strong>{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</strong></div><div className="driver-detail-item"><span>Delivery</span><strong>{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</strong></div><div className="driver-detail-item"><span>Vehicle</span><strong>{vehicleLabel(job)}</strong></div><div className="driver-detail-item"><span>Evidence</span><strong>{hasPod ? 'Delivery photos captured' : complete ? 'Open job / Diary for full POD state' : 'Pending execution'}</strong></div></div><div className="driver-inline-quote driver-job-actions"><span style={{ color: '#64748b', fontSize: '11px', lineHeight: '15px', flex: '1 1 260px' }}>Journey status, loading evidence and POD are updated only from the full execution screen so every transition follows the canonical driver state machine.</span><ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{inExecution ? 'Continue execution' : 'Open details'}</ActionButton></div></div>}
                   </article>;

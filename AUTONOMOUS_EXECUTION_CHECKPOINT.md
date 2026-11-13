@@ -1,30 +1,27 @@
-# XDrive Owner Driver redesign checkpoint — 13 November 2026
+# XDrive Logistics Owner Driver design v4 — 13 November 2026
+Repository: LoadifyMarketLTD/xdrivelogistics.co.uk
 Worktree: C:\Users\xdriv\Desktop\XDrive-OwnerDriver-Redesign-20261113
-Branch: design/owner-driver-xdrive-cards-20261113, Draft PR #807.
-Historical #805/#806, current main and production untouched.
+Branch: design/owner-driver-xdrive-cards-20261113 (Draft PR #807; DO NOT MERGE)
+Previous source: b6185db. Historical #805/#806 unchanged. Main, production Netlify, Supabase and PWA unchanged.
 
-User reported visual parity of #807 with #806, despite earlier cosmetic claims. This is correct: old JSX CxLoadCard/CxQuoteCard/CxDiaryCard was preserved at root, with only CSS and header additions.
+User assessment: Loads, Quotes, Diary redesign v3 is positively received; make only small finishing changes there. My Jobs differs most, and detailed job page has a very long, wasteful two-column scroll.
 
-V3 genuine structural change:
-- NEW app/components/workspace/XDriveTransportOverview.tsx. Journey route with origin/destination timeline, separate schedule, separate member/vehicle/status info.
-- NEW app/driver/xdrive-operational-cards-v3.css. Independent XDrive design, readable font, layered backgrounds, 3/2/1 column responsive layout, own accent/spacing.
-- Modified CxLoadCard/CxQuoteCard/CxDiaryCard to render new overview exclusively for showXDriveContext=true; other roles preserve original markup.
-- Existing load details freight/commercial preserved in expanded overview; quotes expanded table and diary expanded panes untouched; action footers remain working.
-- Removed duplicate status from header; operational status appears in the overview.
-- Fixed Quotes 'Details unavailable': expired/protected loads now allow expanding the user's own persisted quote record without granting access to the restricted original load.
-- Scripts apply-xdrive-v3-overview.cjs, fix-quote-details-fallback.cjs, test-driver-redesign-v3.cjs for traceability.
+V4 implementation:
+- app/driver/jobs/page.tsx: My Jobs now uses same XDriveTransportOverview (journey, schedule, transport data) as Loads/Quotes/Diary. Removed duplicate Driver Workspace/Jobs page header and redundant Diary/My Jobs sub-navigation. Existing filters, execution context, details, Open job/Continue actions and data queries retained.
+- app/components/workspace/DriverJobExecutionPage.tsx (desktop branch ONLY): introduced tabbed Transport Dossier with Overview, Order, Tracking, POD, Documents, Invoice, History. Overview displays route, dates, vehicle, POD/invoice summary and contextual actions. Order contains booking terms, pickup/delivery contacts, notes and instructions; Tracking contains Journey Replay; POD contains existing evidence forms, signatures and PDF actions; Documents lists job docs; Invoice displays separate invoice/payment statuses with existing view/create actions; History contains operational timeline. Replaced two-column simultaneous rendering with conditional full-width sections, reducing scrolling and empty space. Mobile/PWA rendering branch verified byte-identical.
+- app/driver/xdrive-job-dossier-v4.css imported last from driver layout. Unique XDrive styling, responsive 4/2/1 overview grid, full-width dossier panels, accessible 7-tab buttons, and improved My Jobs card.
+- scripts/split-driver-job-dossier.cjs, scripts/refine-my-jobs-v4.cjs, scripts/test-owner-dossier-v4.cjs record edits/tests.
 
-Verification completed:
-- 5/5 targeted v3 tests PASS
-- JSX transpilation for five changed components PASS
-- CSS parsed PASS
-- git diff --check PASS
-- Existing protected invariant suite PASS and existing v2 tests PASS
-- Full TypeScript check for v3 layout before quote fallback PASS; final TypeScript after quote fallback ongoing.
-- Authenticated browser pixel measurement and E2E NOT YET verified; do not claim visual acceptance.
-- No production or data mutations; PR remains Draft.
+V4 verification:
+- 13/13 targeted contract tests PASS, including byte-for-byte unchanged mobile/PWA branch.
+- CSS parse PASS.
+- TSX transpile PASS.
+- Protected XDrive invariants PASS.
+- Full npm run typecheck PASS (initial v4 pass; final re-run scheduled).
+- Authenticated browser E2E / PDF preview / GPS status transitions NOT YET verified. No live test data mutations.
 
 Next:
-1. Confirm final typecheck exit code.
-2. Commit/push to PR #807 and check Netlify preview deploy SHA.
-3. Authenticated Edge test and inspect DOM dimensions/screenshots against user captures. Never merge without approval.
+1. Re-run full TS check on final files.
+2. Commit/push V4 to Draft PR #807.
+3. Wait for Netlify Preview SHA deploy Ready, inspect authenticated UI if accessible.
+4. Ask for user visual acceptance before any merge; do not modify production.
