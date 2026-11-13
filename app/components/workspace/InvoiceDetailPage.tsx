@@ -356,7 +356,7 @@ export default function InvoiceDetailPage({
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '0.9rem' }}>
             <div style={{ display: 'grid', gap: '0.9rem' }}>
-              <Panel title="Invoice summary" actions={<><ActionButton tone="secondary" onClick={() => window.print()}>Print</ActionButton><ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton></>}>
+              <Panel title="Invoice summary" actions={<><ActionButton tone="secondary" onClick={() => { const pdf = documents.find((document) => document.doc_type === "invoice_pdf" || document.doc_type === "invoice pdf" || document.doc_type === "invoice"); if (pdf) { void openDocument(pdf); } else { setError("No invoice PDF is attached to this invoice."); } }}>Print</ActionButton><ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton></>}>
                 <FinanceTable
                   columns={['Field', 'Value']}
                   rows={[
