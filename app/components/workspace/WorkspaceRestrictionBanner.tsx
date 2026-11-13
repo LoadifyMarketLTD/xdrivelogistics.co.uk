@@ -24,13 +24,39 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   const [loading, setLoading] = useState(false);
   const sequence = useRef(0);
   const pending = useRef<AbortController | null>(null);
-  const refresh = useCallback(async () => {
+  const pendingKey = useRef<string | null>(null);
+  const lastFinishedAt = useRef(0);
+  const lastFinishedKey = useRef<string | null>(null);
+  const timeoutTriggered = useRef(false);
+  const CHECK_TIMEOUT_MS = 45000;
+  const FOCUS_REFRESH_INTERVAL_MS = 60000;
+  const refresh = useCallback(async (force = false) => {
+    if (!user?.id || role === 'platform_owner' || isRecoveryPage) {
+      pending.current?.abort();
+      pending.current = null;
+      pendingKey.current = null;
+      ++sequence.current;
+      setSnapshot(null);
+      setLoading(false);
+      return;
+    }
+    // Focus and visibility are frequently emitted together. Neither should
+    // abort and restart an in-flight advisory readiness verification.
+    if (!force && pending.current && pendingKey.current === contextKey) return;
+    if (!force && lastFinishedKey.current === contextKey &&
+        Date.now() - lastFinishedAt.current < FOCUS_REFRESH_INTERVAL_MS) return;
     const current = ++sequence.current;
     pending.current?.abort();
-    if (!user?.id || role === 'platform_owner' || isRecoveryPage) { setSnapshot(null); setLoading(false); return; }
     const controller = new AbortController();
     pending.current = controller;
-    const timeout = window.setTimeout(() => controller.abort(), 20000);
+    pendingKey.current = contextKey;
+    timeoutTriggered.current = false;
+    // Cold starts, token refresh and multiple checks can exceed 20 seconds.
+    // Never treat an unverified response as proof that restrictions were lifted.
+    const timeout = window.setTimeout(() => {
+      timeoutTriggered.current = true;
+      controller.abort();
+    }, CHECK_TIMEOUT_MS);
     setLoading(true);
     let unauthorized = false;
     try {
@@ -57,36 +83,46 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
       if (!response.ok) throw new Error(payload?.error || 'Your account requirements could not be checked. Retry the check.');
       if (!payload || !Array.isArray(payload.blockers) || typeof payload.ready !== 'boolean') throw new Error('The requirements service returned an incomplete result. Please retry.');
       if (payload.ready === false && payload.blockers.length === 0) throw new Error('Account readiness is not confirmed. Retry or contact support.');
+      if (controller.signal.aborted) throw new Error('The requirements check was interrupted.');
       if (current === sequence.current) setSnapshot({ key: contextKey, blockers: payload.blockers, error: '', unauthorized: false });
     } catch (reason) {
       if (current === sequence.current) setSnapshot((previous) => ({
         key: contextKey, blockers: previous?.key === contextKey ? previous.blockers : [], unauthorized,
-        error: controller.signal.aborted ? 'The requirements check timed out. Please retry.' : reason instanceof Error ? reason.message : 'Your requirements could not be verified. Please retry.',
+        error: timeoutTriggered.current ? 'The requirements check timed out. Please retry.' : reason instanceof Error ? reason.message : 'Your requirements could not be verified. Please retry.',
       }));
     } finally {
       window.clearTimeout(timeout);
-      if (current === sequence.current) setLoading(false);
+      if (current === sequence.current) {
+        pending.current = null;
+        pendingKey.current = null;
+        lastFinishedAt.current = Date.now();
+        lastFinishedKey.current = contextKey;
+        setLoading(false);
+      }
     }
   }, [companyId, contextKey, isRecoveryPage, role, user?.id]);
 
   const cancelPending = useCallback(() => {
     ++sequence.current;
     pending.current?.abort();
+    pending.current = null;
+    pendingKey.current = null;
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void refresh(true);
     const onFocus = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const onReadinessChanged = () => { if (document.visibilityState === 'visible') void refresh(true); };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onFocus);
-    window.addEventListener(WORKSPACE_READINESS_CHANGED, onFocus);
+    window.addEventListener(WORKSPACE_READINESS_CHANGED, onReadinessChanged);
     return () => {
       cancelPending();
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
-      window.removeEventListener(WORKSPACE_READINESS_CHANGED, onFocus);
+      window.removeEventListener(WORKSPACE_READINESS_CHANGED, onReadinessChanged);
     };
-  }, [refresh, pathname, cancelPending]);
+  }, [refresh, cancelPending]);
 
   if (!user?.id || role === 'platform_owner' || isRecoveryPage) return null;
   const current = snapshot?.key === contextKey ? snapshot : null;
@@ -114,12 +150,12 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
           {blocker.actionType === 'stripe_setup' && blocker.companyId ? <StripeSetupAction
             companyId={blocker.companyId} context={operation ?? 'commercial'}
             getAccessToken={async () => { const { data } = await supabase.auth.getSession(); return data.session?.access_token ?? null; }}
-          /> : blocker.actionType === 'retry' ? <button type="button" style={buttonStyle} disabled={loading} onClick={() => void refresh()}>{blocker.actionLabel}</button>
+          /> : blocker.actionType === 'retry' ? <button type="button" style={buttonStyle} disabled={loading} onClick={() => void refresh(true)}>{blocker.actionLabel}</button>
             : isSafeRecoveryHref(blocker.actionHref) ? <a href={blocker.actionHref} target="_blank" rel="noopener noreferrer" style={{ ...buttonStyle, textDecoration: 'none' }}>{blocker.actionLabel}</a>
               : <button type="button" style={buttonStyle} onClick={() => router.push(root + '/support?reason=' + encodeURIComponent(blocker.code))}>Contact support</button>}
         </div>)}
         {(current || error) && <><div style={{ fontSize: 12 }}>Recovery opens separately so your current form stays intact. Return here to re-check; nothing is posted or quoted automatically.</div>
-          <button type="button" disabled={loading} onClick={() => void refresh()} style={{ ...buttonStyle, justifySelf: 'start' }}>{loading ? 'Checking...' : 'Re-check requirements'}</button></>}
+          <button type="button" disabled={loading} onClick={() => void refresh(true)} style={{ ...buttonStyle, justifySelf: 'start' }}>{loading ? 'Checking...' : 'Re-check requirements'}</button></>}
       </div>
     </section>
   );

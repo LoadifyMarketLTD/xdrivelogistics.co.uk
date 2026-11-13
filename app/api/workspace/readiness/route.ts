@@ -26,6 +26,10 @@ export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin || !supabaseValidator) {
     return json(503, { ready: false, error: 'Readiness service is temporarily unavailable.' });
   }
+  const startedAt = Date.now();
+  let identityMs = 0;
+  let companyMs = 0;
+  let onboardingMs = 0;
   const token = getBearerToken(request);
   if (!token) return json(401, { ready: false, error: 'Your session has expired. Sign in again.' });
   try {
@@ -40,6 +44,7 @@ export async function GET(request: NextRequest) {
       admin.from('company_memberships').select('company_id,role_in_company,status').eq('user_id', userId).eq('status', 'active'),
       admin.from('drivers').select('id,company_id,driver_type').eq('user_id', userId),
     ]);
+    identityMs = Date.now() - startedAt;
     if (profileResult.error || membershipResult.error) return json(503, { ready: false, error: 'Your account and company access could not be verified. Please retry.' });
     const memberships = membershipResult.data ?? [];
     // Reconcile a stale client company id only when authorization is unambiguous:
@@ -59,6 +64,7 @@ export async function GET(request: NextRequest) {
       companyId ? admin.from('companies').select('id,name,status,company_type').eq('id', companyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
       admin.from('onboarding_applications').select('id,user_id,company_id,status,account_type,current_step').eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
     ]);
+    companyMs = Date.now() - startedAt;
     if (companyResult.error) return json(503, { ready: false, error: 'Company status could not be verified. Please retry.' });
     const applications = (applicationsResult.data ?? []).filter((row) => companyId ? row.company_id === companyId : !row.company_id);
     const unbound = (applicationsResult.data ?? []).filter((row) => !row.company_id);
@@ -128,6 +134,7 @@ export async function GET(request: NextRequest) {
         }
       }
     }
+    onboardingMs = Date.now() - startedAt;
     if (companyId) {
       if (!['active', 'approved'].includes(normal(companyResult.data?.status))) blockers.push(support(
         'COMPANY_STATUS_REQUIRED', 'Company status requires attention', 'Your company is not active or approved. Review the document restrictions shown here, or ask support to review the account status.',
@@ -168,20 +175,37 @@ export async function GET(request: NextRequest) {
                 : context.root + (context.root === '/broker' || context.root === '/driver' ? '/finance' : '/invoices') });
           } catch { addUnavailable('Transport account'); }
         })(),
+        // Run driver eligibility alongside legal/Stripe/buyer-risk checks instead
+        // of serially after all three. Preserve all blockers and fail-closed results.
+        (async () => {
+          if (!isDriver) return;
+          if (driversResult.error) addUnavailable('Driver readiness');
+          else if (drivers.length > 1) blockers.push(support('DRIVER_PROFILE_CONFLICT', 'Driver records need reconciliation', 'Multiple driver profiles match this account and company. Support must resolve the assignment before driver readiness can be confirmed.'));
+          else if (!driver) blockers.push(support('DRIVER_PROFILE_REQUIRED', 'Driver profile requires attention', 'A driver profile must be linked to this account and company before driver-originated quotes can be checked.'));
+          else try {
+            const eligibility = await resolveDriverOperationalEligibility(admin, String(driver.id));
+            for (const reason of eligibility.blockers) blockers.push(driverReadinessBlocker(reason, context));
+          } catch { addUnavailable('Driver readiness'); }
+        })(),
       ]);
-      if (isDriver) {
-        if (driversResult.error) addUnavailable('Driver readiness');
-        else if (drivers.length > 1) blockers.push(support('DRIVER_PROFILE_CONFLICT', 'Driver records need reconciliation', 'Multiple driver profiles match this account and company. Support must resolve the assignment before driver readiness can be confirmed.'));
-        else if (!driver) blockers.push(support('DRIVER_PROFILE_REQUIRED', 'Driver profile requires attention', 'A driver profile must be linked to this account and company before driver-originated quotes can be checked.'));
-        else try {
-          const eligibility = await resolveDriverOperationalEligibility(admin, String(driver.id));
-          for (const reason of eligibility.blockers) blockers.push(driverReadinessBlocker(reason, context));
-        } catch { addUnavailable('Driver readiness'); }
-      }
     }
     const unique = [...new Map(blockers.map((blocker) => [blocker.code, blocker])).values()].sort((a, b) => a.code.localeCompare(b.code));
-    return json(200, { ready: unique.length === 0, companyId, companyName: companyResult.data?.name ?? null,
+    const elapsedMs = Date.now() - startedAt;
+    const commercialMs = elapsedMs - onboardingMs;
+    // Record stage duration only: no user, company, session or document identifiers.
+    if (elapsedMs > 8000) console.warn('[workspace-readiness] slow checks', {
+      elapsedMs, identityMs, companyMs: companyMs - identityMs,
+      onboardingMs: onboardingMs - companyMs, commercialMs,
+    });
+    const response = json(200, { ready: unique.length === 0, companyId, companyName: companyResult.data?.name ?? null,
       role: context.role, checkedAt: new Date().toISOString(), advisory: true, blockers: unique });
+    response.headers.set('Server-Timing', [
+      'identity;dur=' + identityMs,
+      'company;dur=' + (companyMs - identityMs),
+      'onboarding;dur=' + (onboardingMs - companyMs),
+      'commercial;dur=' + commercialMs,
+    ].join(', '));
+    return response;
   } catch {
     return json(503, { ready: false, error: 'Your account requirements could not be verified. Please retry; existing restrictions remain in force.' });
   }
