@@ -493,7 +493,7 @@ export default function MyQuotesPage() {
                               ? `Quote ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`
                               : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
 
-                  return <CxQuoteCard
+                  return <CxQuoteCard showXDriveContext
                     key={bid.id}
                     routeFrom={view.pickup}
                     routeTo={view.delivery}

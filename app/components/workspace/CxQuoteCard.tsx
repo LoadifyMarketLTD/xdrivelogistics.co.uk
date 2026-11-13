@@ -20,6 +20,7 @@ export default function CxQuoteCard({
   expanded = false,
   expandedContent,
   footer,
+  showXDriveContext = false,
 }: {
   routeFrom: ReactNode;
   routeTo: ReactNode;
@@ -35,10 +36,11 @@ export default function CxQuoteCard({
   expanded?: boolean;
   expandedContent?: ReactNode;
   footer: ReactNode;
+  showXDriveContext?: boolean;
 }) {
   return (
     <article className="xdrive-cx-quote-card" data-quote-stage={stage}>
-      <XDriveCardContext type="Freight quote" reference={loadId} status={stage ?? band} variant="quote" />
+      {showXDriveContext ? <XDriveCardContext type="Freight quote" reference={loadId} status={stage ?? band} variant="quote" /> : null}
       <div className="xdrive-cx-quote-card__main">
         <section className="xdrive-cx-quote-card__route">
           <div><span>From:</span><strong>{routeFrom}</strong></div>

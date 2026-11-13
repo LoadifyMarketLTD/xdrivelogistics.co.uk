@@ -653,7 +653,7 @@ export default function JobHistoryPage() {
                   const memberLabel = job.companies?.name ?? 'Member not supplied';
 
                   return (
-                    <CxDiaryCard
+                    <CxDiaryCard showXDriveContext
                       key={job.id}
                       from={formatExecutionAddress(job.pickup_location, job.pickup_postcode)}
                       to={formatExecutionAddress(job.delivery_location, job.delivery_postcode)}

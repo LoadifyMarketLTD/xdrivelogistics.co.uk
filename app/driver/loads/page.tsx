@@ -395,7 +395,7 @@ export default function AvailableLoadsPage() {
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
                   return <Fragment key={load.id}>
-                    <CxLoadCard
+                    <CxLoadCard showXDriveContext
                       className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}
                       from={load.pickup_area}
                       to={load.delivery_area}

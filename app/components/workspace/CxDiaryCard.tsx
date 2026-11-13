@@ -30,6 +30,7 @@ export default function CxDiaryCard({
   stage,
   dataState,
   dataStage,
+  showXDriveContext = false,
 }: {
   from: ReactNode;
   to: ReactNode;
@@ -54,10 +55,11 @@ export default function CxDiaryCard({
   stage?: string;
   dataState?: string;
   dataStage?: string;
+  showXDriveContext?: boolean;
 }) {
   return (
     <article className={`workspace-operational-row xdrive-cx-diary-card${className ? ` ${className}` : ''}`} data-state={dataState ?? state} data-stage={dataStage ?? stage}>
-      <XDriveCardContext type="Transport record" reference={loadId} status={band} variant="diary" />
+      {showXDriveContext ? <XDriveCardContext type="Transport record" reference={loadId} status={band} variant="diary" /> : null}
       <div className="xdrive-cx-diary-card__main">
         <section className="cx-diary-route xdrive-cx-diary-card__route">
           <div><span>From:</span><strong>{from}</strong></div>

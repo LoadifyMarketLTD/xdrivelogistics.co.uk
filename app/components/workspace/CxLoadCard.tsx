@@ -35,6 +35,7 @@ export default function CxLoadCard({
   footer,
   className = '',
   dataState,
+  showXDriveContext = false,
 }: {
   from: ReactNode;
   to: ReactNode;
@@ -53,10 +54,11 @@ export default function CxLoadCard({
   footer: ReactNode;
   className?: string;
   dataState?: string;
+  showXDriveContext?: boolean;
 }) {
   return (
     <article className={`xdrive-cx-load-card${className ? ` ${className}` : ''}`} data-state={dataState}>
-      <XDriveCardContext type="Freight load" reference={loadId} status={band} variant="load" />
+      {showXDriveContext ? <XDriveCardContext type="Freight load" reference={loadId} status={band} variant="load" /> : null}
       <div className="xdrive-cx-load-card__main">
         <section className="xdrive-cx-load-card__route">
           <div><span>From:</span><strong>{from}</strong></div>
