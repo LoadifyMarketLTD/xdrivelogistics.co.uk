@@ -343,6 +343,15 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const memberCode = profile?.xd_id || 'Not assigned';
   const routes = routeMap[role];
 
+  // Stable Owner Driver categories: membership controls permissions, not item count.
+  const ownerNav = [
+    { label: 'My Profile', action: () => setSection('overview'), active: section === 'overview' || section === 'profile' },
+    { label: 'Company Settings', action: () => setSection('company'), active: section === 'company' || section === 'finance' },
+    { label: 'Operations', action: () => setSection('operations'), active: section === 'operations' || section === 'blocked' },
+    { label: 'Security', action: () => setSection('security'), active: section === 'security' },
+    { label: 'Billing & Membership', action: () => router.push('/driver/settings/billing'), active: false },
+    { label: 'Legal & Agreements', action: () => router.push('/driver/account/legal-agreements'), active: false },
+  ];
   const nav = useMemo(() => [
     { label: 'Overview', action: () => setSection('overview'), active: section === 'overview' },
     { label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' },
@@ -364,11 +373,13 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     ...(routes.support ? [{ label: 'Support', action: () => router.push(routes.support!), active: false }] : []),
   ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.billing, routes.documents, routes.finance, routes.notifications, routes.support, routes.team, routes.vehicles, section]);
 
+  const displayedNav = role === 'owner' ? ownerNav : nav;
+
   return (
     <PageFrame>
       <PageHeader
         eyebrow={roleLabel ?? ROLE_LABEL[role]}
-        title="Settings"
+        title={role === 'owner' ? 'Account settings' : 'Settings'}
         description={`${roleLabel ?? ROLE_LABEL[role]} profile, security and authorised workspace controls.`}
         actions={
           section === 'company'
@@ -382,13 +393,13 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-      <div className="role-settings-layout">
+      <div className="role-settings-layout" data-owner-settings={role === 'owner' ? 'true' : undefined}>
         <aside className="role-settings-nav">
           <div className="role-settings-company">
-            <strong>{companyDisplay}</strong>
+            <strong>{role === 'owner' ? 'Account settings' : companyDisplay}</strong>
             <span>{identityCode} · {role}</span>
           </div>
-          {nav.map((item) => (
+          {displayedNav.map((item) => (
             <button key={item.label} type="button" data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button>
           ))}
         </aside>
@@ -409,6 +420,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                   <div><span>Main contact</span><strong>{profile?.full_name || user?.email || 'Not recorded'}</strong></div>
                   <div><span>Operating base</span><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not recorded'}</strong></div>
                 </div>
+                {role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('profile')}>Edit profile</ActionButton></div>}
               </Panel>
             </div>
           ) : section === 'company' ? (
@@ -435,16 +447,18 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                   <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
                 </div>
               </Panel>
+              {role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" disabled={!canManageBilling} onClick={() => setSection('finance')}>Company finance settings</ActionButton></div>}
               {canEditCompany && <CompanyDepartmentsPanel companyId={company.id} />}
             </div>
-          ) : section === 'operations' && companyOperationsVisible ? (
-            <CompanyOperationsSettingsPanel companyId={company.id} companyName={companyDisplay} />
+          ) : section === 'operations' ? (
+            companyOperationsVisible ? <div className="role-settings-subsection"><CompanyOperationsSettingsPanel companyId={company.id} companyName={companyDisplay} /><div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('blocked')}>Blocked members</ActionButton></div></div> : <Panel title="Company operations"><EmptyState compact title="Owner or administrator permission required" /></Panel>
           ) : section === 'blocked' && companyOperationsVisible ? (
-            <CompanyBlockedMembersPanel companyId={company.id} />
-          ) : section === 'finance' && canManageBilling ? (
-            <CompanyFinanceSettingsPanel companyId={company.id} companyName={companyDisplay} />
+            <div className="role-settings-subsection"><div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('operations')}>Back to operations</ActionButton></div><CompanyBlockedMembersPanel companyId={company.id} /></div>
+          ) : section === 'finance' ? (
+            canManageBilling ? <div className="role-settings-subsection"><div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('company')}>Back to company settings</ActionButton></div><CompanyFinanceSettingsPanel companyId={company.id} companyName={companyDisplay} /></div> : <Panel title="Company finance settings"><EmptyState compact title="Owner or administrator permission required" /></Panel>
           ) : section === 'profile' ? (
             <Panel title="My Profile" description="Edit the personal profile attached to the signed-in XDrive account.">
+              {role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('overview')}>Back to profile overview</ActionButton></div>}
               <div className="role-settings-form">
                 <label>Full name<input value={profileForm.fullName} onChange={(e) => setProfileForm((v) => ({ ...v, fullName: e.target.value }))} /></label>
                 <label>Phone<input value={profileForm.phone} onChange={(e) => setProfileForm((v) => ({ ...v, phone: e.target.value }))} /></label>

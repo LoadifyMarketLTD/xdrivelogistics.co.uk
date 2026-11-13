@@ -1,0 +1,10 @@
+const fs=require('fs');
+const p='app/components/workspace/RoleSettingsWorkspace.tsx';
+let t=fs.readFileSync(p,'utf8').replaceAll('\r\n','\n');
+const a='<div className="role-settings-layout">';
+if(t.split(a).length!==2)throw Error('Settings layout unique marker missing');
+t=t.replace(a,"<div className=\"role-settings-layout\" data-owner-settings={role === 'owner' ? 'true' : undefined}>");
+const old='<span>{identityCode} �� {role}</span>';
+if(t.includes(old))t=t.replace(old,"<span>{role === 'owner' ? 'Owner Driver' : identityCode + ' · ' + role}</span>");
+fs.writeFileSync(p,t,'utf8');
+console.log('Owner settings layout scoped without affecting other roles.');
