@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import XDriveCardContext from './XDriveCardContext';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
 export type CxDateParts = { primary: ReactNode; meta?: ReactNode };
@@ -55,6 +56,7 @@ export default function CxLoadCard({
 }) {
   return (
     <article className={`xdrive-cx-load-card${className ? ` ${className}` : ''}`} data-state={dataState}>
+      <XDriveCardContext type="Freight load" reference={loadId} status={band} variant="load" />
       <div className="xdrive-cx-load-card__main">
         <section className="xdrive-cx-load-card__route">
           <div><span>From:</span><strong>{from}</strong></div>

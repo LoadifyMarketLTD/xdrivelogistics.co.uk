@@ -1,0 +1,242 @@
+/* XDrive Operational Cards v1 — 2026-11-13
+   Independent XDrive design on top of the working pre-master (#806) components.
+   Scoped to authenticated driver workspace only. No TEG assets or styling copied.
+   Data, actions, RLS and approved Post Load are unchanged.
+*/
+.xdrive-driver-workspace{
+  --xd-card-navy:#112f53;
+  --xd-card-blue:#225f9e;
+  --xd-card-green:#16814c;
+  --xd-card-amber:#ad7414;
+  --xd-card-red:#b43643;
+  --xd-card-border:#d5e0eb;
+  --xd-card-bg:#ffffff;
+  --xd-card-muted:#526579;
+  --xd-card-radius:9px;
+  --xd-card-main-height:94px;
+  --xd-card-foot-height:38px;
+}
+
+/* One recognizable XDrive hierarchy for load, quote, and diary cards. */
+.xdrive-driver-workspace :is(.xdrive-cx-load-list,.xdrive-cx-quote-list,.diary-bookings){
+  gap:8px!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card,.xdrive-cx-quote-card,.xdrive-cx-diary-card){
+  position:relative;
+  border:1px solid var(--xd-card-border)!important;
+  border-radius:var(--xd-card-radius)!important;
+  background:var(--xd-card-bg)!important;
+  box-shadow:0 1px 4px rgba(17,47,83,.08)!important;
+  overflow:hidden!important;
+  min-width:0;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card,.xdrive-cx-quote-card,.xdrive-cx-diary-card)::before{
+  content:"";
+  position:absolute;
+  top:0;bottom:0;left:0;width:4px;
+  background:var(--xd-card-blue);
+  pointer-events:none;
+  z-index:1;
+}
+.xdrive-driver-workspace .xdrive-cx-quote-card::before{background:var(--xd-card-amber)}
+.xdrive-driver-workspace .xdrive-cx-diary-card::before{background:var(--xd-card-navy)}
+.xdrive-driver-workspace .xdrive-cx-diary-card[data-stage="completed"]::before{background:var(--xd-card-green)}
+.xdrive-driver-workspace .xdrive-cx-diary-card[data-stage="cancelled"]::before,
+.xdrive-driver-workspace .xdrive-cx-diary-card[data-stage="expired"]::before{background:#8b98a9}
+.xdrive-driver-workspace .xdrive-cx-diary-card[data-stage="in_progress"]::before{background:var(--xd-card-amber)}
+
+/* Context header is XDrive's own design, not the CX three-column stripe. */
+.xdrive-driver-workspace .xd-card-context{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  min-height:30px;padding:4px 14px 4px 16px;
+  background:#f3f7fb;border-bottom:1px solid #e5edf5;
+  font-size:12px;line-height:16px;letter-spacing:.02em;
+}
+.xdrive-driver-workspace .xd-card-context__type{
+  font-weight:800;letter-spacing:.075em;text-transform:uppercase;color:var(--xd-card-navy);
+}
+.xdrive-driver-workspace .xd-card-context__ref{
+  color:var(--xd-card-muted);font-weight:650;font-variant-numeric:tabular-nums;
+}
+.xdrive-driver-workspace .xd-card-context__status{
+  color:var(--xd-card-navy);
+  background:#e4edf8;border-radius:100px;
+  padding:3px 9px;font-weight:750;max-width:45%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.xdrive-driver-workspace .xd-card-context--quote .xd-card-context__status{background:#fff0d5;color:#815612}
+.xdrive-driver-workspace .xd-card-context--diary .xd-card-context__status{background:#e1f4e9;color:#16643b}
+
+/* Use proportions chosen for XDrive typography rather than duplicating TEG. */
+.xdrive-driver-workspace .xdrive-cx-load-card__main,
+.xdrive-driver-workspace .xdrive-cx-quote-card__main,
+.xdrive-driver-workspace .xdrive-cx-diary-card__main{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.08fr) minmax(0,.95fr) minmax(0,.87fr)!important;
+  min-height:var(--xd-card-main-height)!important;
+  background:#fff!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__main,.xdrive-cx-quote-card__main,.xdrive-cx-diary-card__main)>section{
+  padding:12px 14px!important;
+  border-right:1px solid #edf1f5!important;
+  min-width:0;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__main,.xdrive-cx-quote-card__main,.xdrive-cx-diary-card__main)>section:last-child{
+  border-right:0!important;
+  background:#fbfcff!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__route,.xdrive-cx-quote-card__route,.xdrive-cx-diary-card__route) strong,
+.xdrive-driver-workspace :is(.cx-load-datetime,.cx-quote-datetime,.cx-diary-datetime)>strong{
+  font-size:15px!important;line-height:20px!important;
+  font-weight:750!important;color:var(--xd-card-navy)!important;
+  overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__route,.xdrive-cx-quote-card__route,.xdrive-cx-diary-card__route) span,
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__times,.xdrive-cx-quote-card__times,.xdrive-cx-diary-card__times)>div>span:first-child{
+  font-size:14px!important;line-height:19px!important;color:var(--xd-card-muted)!important;
+}
+.xdrive-driver-workspace :is(.cx-load-datetime,.cx-quote-datetime,.cx-diary-datetime){
+  display:flex!important;flex-wrap:wrap!important;gap:4px 7px!important;align-items:baseline;
+}
+.xdrive-driver-workspace :is(.cx-load-datetime,.cx-quote-datetime,.cx-diary-datetime)>span{
+  font-size:13px!important;line-height:18px!important;color:var(--xd-card-muted)!important;
+  white-space:normal!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__band,.xdrive-cx-quote-card__band,.xdrive-cx-diary-card__band){
+  border-radius:6px!important;background:#e7effa!important;color:var(--xd-card-navy)!important;
+  text-align:left!important;padding:5px 10px!important;
+  font-size:13px!important;line-height:18px!important;font-weight:750!important;
+  min-height:28px!important;margin:0 0 6px!important;
+}
+.xdrive-driver-workspace .xdrive-cx-diary-card[data-stage="completed"] .xdrive-cx-diary-card__band{
+  background:#e3f4e9!important;color:#146b3f!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__status,.xdrive-cx-quote-card__status,.xdrive-cx-diary-card__status)
+ :is(.xdrive-cx-load-card__posted,.xdrive-cx-quote-card__service,.xdrive-cx-diary-card__status-line){
+  font-size:14px!important;line-height:19px!important;color:var(--xd-card-navy)!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__status-meta,.xdrive-cx-quote-card__status-meta,.xdrive-cx-diary-card__status-meta){
+  font-size:13px!important;line-height:18px!important;color:var(--xd-card-muted)!important;
+  gap:8px;flex-wrap:wrap;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__vehicle,.xdrive-cx-quote-card__vehicle,.xdrive-cx-diary-card__vehicle){
+  margin:0!important;min-width:0!important;flex-direction:row!important;align-items:center!important;gap:6px!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__vehicle-image,.xdrive-cx-quote-card__vehicle-image,.xdrive-cx-diary-card__vehicle-image){
+  width:34px!important;height:23px!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__vehicle,.xdrive-cx-quote-card__vehicle,.xdrive-cx-diary-card__vehicle) strong{
+  font-size:13px!important;line-height:17px!important;white-space:normal!important;
+}
+
+/* Expanded material flows naturally. No fake vertical spacer. */
+.xdrive-driver-workspace .xdrive-cx-load-card__freight{
+  margin-top:12px!important;padding-top:9px!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__freight,.xdrive-cx-load-card__commercial){
+  font-size:14px!important;line-height:19px!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__freight,.xdrive-cx-load-card__commercial)>div{
+  grid-template-columns:minmax(105px,.45fr) minmax(0,1fr)!important;gap:8px!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-card__freight,.xdrive-cx-load-card__commercial) :is(span,strong),
+.xdrive-driver-workspace .xdrive-cx-load-card__notes :is(span,strong){
+  font-size:14px!important;line-height:19px!important;
+}
+.xdrive-driver-workspace .xdrive-cx-load-card__notes{
+  padding:12px 16px!important;background:#f9fbfe!important;min-height:0!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-quote-card__expanded-cx,.driver-diary-details){
+  background:#fbfdff!important;border-top:1px solid #e3ebf4!important;
+  padding:12px 16px!important;
+}
+.xdrive-driver-workspace .xdrive-cx-quote-card__expanded-cx :is(span,strong,div),
+.xdrive-driver-workspace .driver-diary-details :is(span,strong){
+  font-size:14px!important;line-height:19px!important;
+}
+
+/* A distinct actionable XDrive footer. */
+.xdrive-driver-workspace :is(.xdrive-cx-load-footer,.xdrive-cx-quote-card__footer,.xdrive-cx-diary-card__footer){
+  min-height:var(--xd-card-foot-height)!important;
+  display:flex!important;align-items:center!important;flex-wrap:wrap;
+  gap:4px 8px!important;
+  padding:4px 12px 4px 16px!important;
+  background:#f3f7fb!important;
+  border-top:1px solid #e2eaf3!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-footer,.xdrive-cx-quote-card__footer,.xdrive-cx-diary-card__footer) button{
+  min-height:34px!important;
+  border-radius:6px!important;
+  padding:5px 10px!important;
+  font-size:13px!important;line-height:18px!important;
+  font-weight:700!important;cursor:pointer;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-load-footer,.xdrive-cx-quote-card__footer,.xdrive-cx-diary-card__footer) button:focus-visible{
+  outline:3px solid #6fb1f4!important;outline-offset:2px;
+}
+.xdrive-driver-workspace .xdrive-cx-load-footer button[class*="quote"]{
+  background:var(--xd-card-green)!important;color:#fff!important;border-color:var(--xd-card-green)!important;
+}
+.xdrive-driver-workspace :is(.xdrive-cx-quote-card__quote-state,.xdrive-cx-quote-card__footer .xdrive-cx-quote-card__member){
+  font-size:13px!important;line-height:18px!important;
+}
+.xdrive-driver-workspace .xdrive-cx-quote-card__quote-state--unsuccessful{
+  color:var(--xd-card-red)!important;font-weight:800!important;
+}
+.xdrive-driver-workspace .xdrive-cx-diary-card__footer button[data-operation="primary"]{
+  background:var(--xd-card-green)!important;color:#fff!important;
+}
+
+/* Booking execution list also speaks the XDrive system, without changing its behavior. */
+.xdrive-driver-workspace .driver-jobs-board .driver-load-row{
+  border:1px solid var(--xd-card-border)!important;
+  border-left:4px solid var(--xd-card-blue)!important;
+  border-radius:var(--xd-card-radius)!important;
+  box-shadow:0 1px 4px rgba(17,47,83,.08)!important;
+  margin-bottom:8px!important;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-load-row__top{
+  min-height:96px!important;gap:8px!important;padding:12px 14px!important;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-cell-primary{
+  font-size:15px!important;line-height:20px!important;color:var(--xd-card-navy)!important;
+}
+.xdrive-driver-workspace .driver-jobs-board :is(.driver-cell-label,.driver-cell-secondary){
+  font-size:14px!important;line-height:19px!important;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-load-row__meta{
+  padding:6px 12px!important;min-height:40px!important;background:#f3f7fb!important;
+}
+.xdrive-driver-workspace .driver-jobs-board .driver-row-actions button{
+  min-height:34px!important;border-radius:6px!important;
+}
+
+/* When the page gets narrower, keep route/times readable instead of compressing. */
+@media (max-width:1100px){
+  .xdrive-driver-workspace :is(.xdrive-cx-load-card__main,.xdrive-cx-quote-card__main,.xdrive-cx-diary-card__main){
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+  }
+  .xdrive-driver-workspace :is(.xdrive-cx-load-card__status,.xdrive-cx-quote-card__status,.xdrive-cx-diary-card__status){
+    grid-column:1/-1;border-top:1px solid #e5edf5!important;
+  }
+}
+@media (max-width:720px){
+  .xdrive-driver-workspace :is(.xdrive-cx-load-card__main,.xdrive-cx-quote-card__main,.xdrive-cx-diary-card__main){
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  .xdrive-driver-workspace :is(.xdrive-cx-load-card__main,.xdrive-cx-quote-card__main,.xdrive-cx-diary-card__main)>section{
+    grid-column:1/-1;border-right:0!important;border-bottom:1px solid #edf1f5!important;
+    padding:11px 13px!important;
+  }
+  .xdrive-driver-workspace .xd-card-context{
+    padding:7px 12px!important;
+    flex-wrap:wrap;
+  }
+  .xdrive-driver-workspace .xd-card-context__status{max-width:100%}
+  .xdrive-driver-workspace :is(.xdrive-cx-load-footer,.xdrive-cx-quote-card__footer,.xdrive-cx-diary-card__footer){
+    padding:7px 10px 7px 13px!important;
+  }
+  .xdrive-driver-workspace .driver-jobs-board .driver-load-row__top{
+    grid-template-columns:1fr!important;
+  }
+}

@@ -1,54 +1,25 @@
-Fleet 3150 isolated release from preserved 2026-10-31 snapshot. Route /try-xdrive-fleet-demo and fleet.css only. No authenticated fleet route changed. ESLint passed on source copy. TypeScript verification running; visual and deployment unverified.
+# XDrive Owner Driver redesign checkpoint — 2026-11-13
+Scope: isolated preview-only redesign, no main merge, no production or Supabase mutations.
+Base historical commit e544e4e7, marker e8a6e81, branch design/owner-driver-xdrive-cards-20261113.
+Worktree: C:\Users\xdriv\Desktop\XDrive-OwnerDriver-Redesign-20261113.
+Historical references #805/#806 remain untouched.
 
----
+Implemented:
+- New independent CSS app/driver/xdrive-operational-cards.css, imported last in app/driver/layout.tsx.
+- New XDriveCardContext shared identity header; integrated into CxLoadCard, CxQuoteCard, CxDiaryCard.
+- Scoped booking row visual convergence using .driver-jobs-board without changing business logic.
+- Three-column XDrive layout 1.08fr/.95fr/.87fr, rounded corners, navy/blue/green accents, readable 14–15px labels/content, minimum 34px footer actions, responsive 2/1 column fallbacks.
+- No TEG visual assets, proprietary icons, page layouts or copied design.
+- No changes to approved Post Load, PWA, Supabase, APIs or invoice/POD generators.
 
-# Company 3150 — real data integration checkpoint
-Date: 2026-11-03
-User-approved scope: replace fictional data and simulated behaviour on authenticated Company /admin with production company data. Preserve 3150 sidebar, card shapes/layout, typography, CSS, icon sizes, split filters and original public DEMO reference.
-Worktree: D:\XDrive-Company-3150-RealData-20261103
-Branch: feature/company-3150-real-data-20261103, based on origin/main 349c802e at creation.
-Changes: new Company3150LiveProvider uses existing tenant-scoped useCompanyWorkspaceData for jobs, awarded bookings, bids, invoices, drivers, vehicles, driver and vehicle documents. Shared demo components switch based on context, leaving public /try-xdrive-company-demo reference unchanged. Authenticated directory/nearby availability/messages/notifications use existing protected API routes via user's Supabase access token, with no service-role exposure. Fake fixtures, KPI fallback, notifications and local mutations are not presented to real Company. Post Load real action opens existing authorised /admin/post-load form; no demo POST goes to production. Management of fleet edits delegates to existing real /admin/fleet.
-No CSS files changed. No Supabase schema/data updates executed.
-Testing: ESLint modified files PASS; TypeScript PASS before final small changes, final rerun pending. Playwright local public DEMO: 17/17 sidebar tabs, sidebar 224px #071D43, desktop no horizontal overflow, 0 JS page errors. /admin unauthenticated redirects 307; unauth API returns 503 in isolated local environment missing server configuration (fails closed); authenticated full workflows NOT tested.
-IMPORTANT: current status is isolated worktree only, NOT merged or deployed. No real Company logged-in session was available to verify data display. No claim of production success yet.
-Remaining: final tsc; build/deploy preview; authenticated QA; check updated main before merge; no force push. Any work not covered by real APIs (e.g., actual GPS map, return journeys direct in 3150) currently opens authorised native routes, with no fictitious entries.
+Verification:
+- postcss parsing PASS (59 top-level CSS nodes).
+- TypeScript transpileModule PASS on five changed/added TSX files.
+- npm ci PASS (615 packages). Full npm run typecheck started; result must be recorded when complete.
+- No authenticated cross-role E2E or browser screenshots yet; do not claim full PASS.
 
-### Final checks
-- Full tsc --noEmit --incremental false PASS (exit 0) after the final functional navigation adjustment.
-- ESLint scoped files PASS (exit 0); git diff --check PASS.
-- Netlify PR #756 first deploy e4c553c1 READY, hosted public DEMO 200, /admin 307 unauth, protected directory/notifications 401 unauth.
-- Follow-up commit 567791e9 fixes live sidebar view keys, pushed to same PR; follow-up Netlify deploy still building at time of this checkpoint.
-- No authenticated Company tenant data or write workflow E2E completed. PR stays DRAFT; main untouched.
-
-
-### Original Company boards recovered 2026-11-03
-- Verified authoritative code source D:\XDrive-3118-Transfer-Complete-20261102\app\try-xdrive-demo\components. Distinct original files: DemoReportsBoard, DemoFreightVision (+ DemoFreightMap), DemoInvoicesBoard, DemoMessagesBoard, DemoLiveAvailability, DemoReturnJourneys, DemoNetworkToolsBoard, DemoCompanyQuotes, plus original namespaced CSS and return-journeys.css.
-- COPIED without redesign into app/try-xdrive-demo/components of isolated Company 3150 real-data worktree; attached to the 8 corresponding Company sidebar tabs in OperationsDemo.tsx. Previous simplified Company3150LiveNetwork/Invoices components no longer rendered on those tabs.
-- Real Company data context retained. Original Quotes only uses authenticated company bids with direction; real award delegates to authorized quotes. Original Invoices reads actual invoice records and delegates issuance to authorized invoices. Original Messages uses protected /api/workspace/messages, not local browser sample messages, when authenticated. Original NetworkTools uses protected directory and live datasets. Original Returns does not mislabel ordinary company jobs as return journeys.
-- TypeScript --noEmit PASS after fixing quote direction literal types (last test). ESLint scoped original boards PASS (0 errors). Browser eight-tab rendered UI smoke pending/not yet certified. Public original DEMO reference /try-xdrive-company-demo remains separate from authenticated /admin.
-- No main merge or production deploy. Source project's uncommitted changes untouched. Worktree branch feature/company-3150-real-data-20261103; PR #756 remains DRAFT pending browser/auth checks.
-
-## Seven-workspace original page transfer - 2026-11-03
-See SEVEN_WORKSPACES_ORIGINAL_BOARDS_AUDIT.md for exact mappings, source, role boundaries, tests and remaining hosted/authenticated QA. Branch feature/7-workspaces-original-boards-20261103, based on Company 5b4f3690. Main and production untouched.
-
-2026-11-03: Continued PR #757; original My Fleet/Drivers cards reused in Fleet and Owner Driver using suppressPreview to avoid sample fallback; scoped ESLint 0, tsc 0. Browser preview pending. No main merge.
-
-2026-11-03: Existing Employee Driver preview source located and recovered as separate route; ESLint PASS and tsc PASS. Employee authenticated E2E still pending.
-
-## Hosted verification completed, 2026-11-03
-- Head 8ed8a684, PR #757 Draft, base main. Netlify deploy preview #757 READY on exact head.
-- Playwright desktop: all nine route previews HTTP 200; 92 role-appropriate sidebar tabs total (Customer 7, Broker 10, Company 17, Fleet 10, Dispatcher 8, Owner Driver 18, Driver 7, Company Driver 6, Employee Driver 9), zero page JavaScript errors, no document overflow. Fleet and Owner Driver original My Fleet board rendered successfully. Company Driver 3 separate stability passes of 6 tabs.
-- Playwright mobile viewport 390x844: all 9/9 routes HTTP 200, mobile tabs visible, left sidebar hidden, document width 390 with no overflow, zero JS errors. See nine-workspaces-browser-audit.json and mobile-nine-workspaces.log.
-- /admin and /broker unauthenticated redirect 307. /api/workspace/messages, /api/workspace/notifications and /api/directory unauthenticated return 401. TypeScript --noEmit PASS, ESLint PASS, diff --check PASS.
-- LIMITS: no authenticated tenant E2E, no real invoice/award/POD writes, no OPPO physical-device QA, no comprehensive visual pixel comparison. Original public demo fixtures remain where those demo boards were intentionally preserved. Production main is NOT modified, PR remains Draft.
-
-2026-11-03 Company sidebar tab parity: branch feature/role-tab-company-parity-20261103. Reuses original Company Dashboard, Quotes, Bookings and Network & Tools in Customer/Broker/Fleet/Owner Driver; original Quotes/Bookings and restricted Network Tools in Driver/Company Driver; Dispatcher Network original. Authenticated Broker UI aligned, ProtectedRoute retained and Company3150LiveProvider added, writes routed to native broker pages. Full tsc PASS with NODE_OPTIONS=--max-old-space-size=2048; ESLint PASS, git diff check PASS. Details ROLE_TAB_COMPANY_PARITY_AUDIT_20261103.md. Pending: hosted visual/mobile E2E, real auth, production. No main merge.
-
-## Single Master Workspace implementation, 2026-11-03
-Source: app/try-xdrive-demo/components/MasterWorkspace.tsx + MasterWorkspacePolicy.ts + OperationsDemo.tsx. All nine public role routes and authenticated /admin and /broker now delegate to the same Master. Role config restricts fleet/invoice/post-load/award actions; actual API/RLS is separate. CI guard scripts/verify-master-workspace.mjs + .github/workflows/master-workspace-parity.yml. TypeScript 0, ESLint 0, static master-route parity test 0. Authenticated /customer and /driver real production routes NOT migrated; preserve their operational workflows until tests. Hosted visual test pending. See MASTER_WORKSPACE_ARCHITECTURE_20261103.md.
-
-2026-11-03 AGENTS.md compliance correction: originally added forbidden .github/workflows/master-workspace-parity.yml in PR #759. Removed the workflow. Mandatory scripts/verify-protected-workspace-invariants.ps1 PASS, node scripts/verify-master-workspace.mjs PASS. Original preflight was NOT declared ahead of work (recorded as historical noncompliance). Multiple stacked PRs for same phase also violated docs/agent-scopes/agent-preflight.md. No production/main changes.
-
-2026-11-03 mandatory production build attempt: npm run build with NODE_OPTIONS=--max-old-space-size=2048. Supabase env validation and public town/outcode contract passed; Next.js 15.5.25 compiled successfully in 109s; subsequent lint/type phase failed with JavaScript heap out of memory, worker code 134 after reaching 2 GB limit. BUILD GATE NOT PASS. Do not merge PR #759 or push main. Scoped tsc and eslint passed separately; PowerShell invariant gate passed. Increase available memory/isolate build and repeat full build before any merge. Log: AGENTS_COMPLIANCE_BUILD.log (local, untracked).
-
-2026-11-03 build memory remediation: RAM total 15.35 GB, free 4.73 GB before retry. Previous build failed because NODE_OPTIONS=--max-old-space-size=2048 was exhausted during Next.js lint/type phase. Re-ran invariant gate PASS and full npm run build with NODE_OPTIONS=--max-old-space-size=4096 and NEXT_TELEMETRY_DISABLED=1. Next 15.5.25 compiled in 41 sec, completed lint/type, page generation 211 routes, BUILD_EXIT 0 (runtime about 254s). Supabase service role absent locally so admin operations disabled (nonfatal); Next ESLint plugin warning nonfatal. Log MASTER_BUILD_4096.log untracked, local only. No code or production changes. PR #759 remains Draft pending authenticated role migrations, RLS & workflows.
+Next:
+1. Wait for full typecheck result, remediate any errors.
+2. Run protected invariants PowerShell and production build from local branch if supported.
+3. Push new branch only, open Draft PR only, use Netlify Deploy Preview for visual acceptance; NEVER merge into main without explicit approval.
+4. In authenticated Edge, compare route /driver/loads /driver/quotes /driver/jobs /driver/history at 1920/1366/390 widths.

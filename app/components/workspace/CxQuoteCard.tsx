@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import XDriveCardContext from './XDriveCardContext';
 import type { CxDateParts } from './CxLoadCard';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
@@ -37,6 +38,7 @@ export default function CxQuoteCard({
 }) {
   return (
     <article className="xdrive-cx-quote-card" data-quote-stage={stage}>
+      <XDriveCardContext type="Freight quote" reference={loadId} status={stage ?? band} variant="quote" />
       <div className="xdrive-cx-quote-card__main">
         <section className="xdrive-cx-quote-card__route">
           <div><span>From:</span><strong>{routeFrom}</strong></div>

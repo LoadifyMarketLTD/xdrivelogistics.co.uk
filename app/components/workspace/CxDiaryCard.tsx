@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import XDriveCardContext from './XDriveCardContext';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
 export type CxDiaryDateParts = { primary: ReactNode; meta?: ReactNode };
@@ -56,6 +57,7 @@ export default function CxDiaryCard({
 }) {
   return (
     <article className={`workspace-operational-row xdrive-cx-diary-card${className ? ` ${className}` : ''}`} data-state={dataState ?? state} data-stage={dataStage ?? stage}>
+      <XDriveCardContext type="Transport record" reference={loadId} status={band} variant="diary" />
       <div className="xdrive-cx-diary-card__main">
         <section className="cx-diary-route xdrive-cx-diary-card__route">
           <div><span>From:</span><strong>{from}</strong></div>
