@@ -1,0 +1,56 @@
+/* XDrive Owner Driver dashboard v2.
+   Preserve live data, values, actions and routes. Only owner dashboard cards.
+   Prioritise the actionable booking register over large decorative statistics. */
+.xdrive-driver-workspace .xd-owner-commercial-dashboard{
+  display:grid!important;grid-template-columns:minmax(0,.87fr) minmax(0,1.13fr)!important;
+  gap:12px!important;align-items:start!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard>.xdrive-owner-dashboard-column{
+  min-width:0!important;display:grid!important;gap:10px!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard .workspace-operational-card,
+.xdrive-driver-workspace .xd-owner-commercial-dashboard [class*="operational-card"]{
+  border:1px solid #d5e0eb!important;border-radius:9px!important;
+  box-shadow:0 1px 4px rgba(17,47,83,.06)!important;background:#fff!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard button{
+  transition:background-color .12s ease,border-color .12s ease;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard button:focus-visible{
+  outline:3px solid #6fb1f4!important;outline-offset:2px;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard .xdrive-owner-dashboard-column>div:first-child button{
+  min-height:94px!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard .xdrive-owner-dashboard-column>div:first-child button strong{
+  margin-top:12px!important;font-size:22px!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard .xdrive-owner-dashboard-column>div:first-child button small{
+  margin-top:5px!important;font-size:12px!important;line-height:17px!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard article{
+  border:1px solid #dce5ef!important;border-left:4px solid #225f9e!important;
+  border-radius:8px!important;box-shadow:none!important;
+  margin-bottom:0!important;background:#fff!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard article>div:first-child{
+  grid-template-columns:minmax(0,1.12fr) minmax(0,1fr) minmax(0,.8fr)!important;
+  gap:10px!important;padding:10px 12px!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard article :is(strong,span){
+  font-size:14px!important;line-height:19px!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard article>div:last-child{
+  padding:6px 10px!important;background:#f3f7fb!important;
+}
+.xdrive-driver-workspace .xd-owner-commercial-dashboard article button{
+  min-height:34px!important;border-radius:6px!important;padding:6px 12px!important;
+}
+@media(max-width:1100px){
+  .xdrive-driver-workspace .xd-owner-commercial-dashboard{grid-template-columns:minmax(0,1fr)!important}
+}
+@media(max-width:720px){
+  .xdrive-driver-workspace .xd-owner-commercial-dashboard article>div:first-child{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+}

@@ -634,7 +634,7 @@ export default function DriverDashboard() {
           <>
             {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
 
-            <div className="driver-owner-parity-grid xdrive-owner-dashboard-grid">
+            <div className="driver-owner-parity-grid xdrive-owner-dashboard-grid xd-owner-commercial-dashboard">
               <div className="xdrive-owner-dashboard-column">
                 <OperationalCard
                   title="Reports & Statistics"
