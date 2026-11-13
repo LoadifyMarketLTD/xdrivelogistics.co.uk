@@ -1,0 +1,19 @@
+
+/* Final compact heading and readable count spacing for audited pages. */
+.xdrive-driver-workspace .driver-action-centre-board .driver-tab-strip button>span{margin-left:7px!important}
+.xdrive-driver-workspace .driver-action-centre-board .driver-account-link>span:last-child{font-size:13px!important;font-weight:800!important}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-board-layout{gap:12px!important}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-filter-rail{
+ border:1px solid #d9e3ee!important;border-radius:8px!important;overflow:hidden!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-filter-rail__header{
+ background:#f1f6fc!important;color:#12395f!important;font-size:13px!important;
+ font-weight:800!important;padding:10px 12px!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-board-main>.workspace-record-meta{
+ min-height:38px!important;border:1px solid #e0e7f0!important;
+ border-radius:7px!important;background:#f5f8fc!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer details[open]{
+ width:100%;background:#f8fafc;padding:8px 10px;border:1px solid #e4ebf3;border-radius:6px;
+}

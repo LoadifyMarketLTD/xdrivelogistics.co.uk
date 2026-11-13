@@ -4,9 +4,12 @@ import { WorkspaceEventLogPage } from '../../components/workspace/WorkspaceEvent
 
 export default function DriverEventLogPage() {
   return (
-    <WorkspaceEventLogPage
+    <div className="xd-driver-event-log">
+      <WorkspaceEventLogPage
+      driverCompact
       eyebrow="Driver operational audit"
       description="Search and export the operational events delivered to your driver account."
     />
+    </div>
   );
 }

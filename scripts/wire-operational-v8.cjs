@@ -1,0 +1,11 @@
+const fs=require('fs');
+const read=p=>fs.readFileSync(p,'utf8').replaceAll('\r\n','\n');
+const one=(s,a,b)=>{if(s.split(a).length!==2)throw Error('Expected one '+a.slice(0,60));return s.replace(a,b)};
+let p='app/driver/layout.tsx',s=read(p);
+s=one(s,"import './xdrive-job-dossier-v4.css';","import './xdrive-job-dossier-v4.css';\nimport './xdrive-operations-v8.css';");
+fs.writeFileSync(p,s);
+p='app/driver/event-log/page.tsx';s=read(p);
+s=one(s,'  return (\n    <WorkspaceEventLogPage','  return (\n    <div className="xd-driver-event-log">\n      <WorkspaceEventLogPage');
+s=one(s,'    />\n  );','    />\n    </div>\n  );');
+fs.writeFileSync(p,s);
+console.log('Driver event log scoped and operational stylesheet imported.');

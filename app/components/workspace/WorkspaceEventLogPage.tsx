@@ -142,10 +142,12 @@ export function WorkspaceEventLogPage({
   eyebrow = 'Operational audit',
   title = 'Event Log',
   description = 'Search and export operational events delivered to your authenticated account.',
+  driverCompact = false,
 }: {
   eyebrow?: string;
   title?: string;
   description?: string;
+  driverCompact?: boolean;
 }) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -311,6 +313,30 @@ export function WorkspaceEventLogPage({
                 const replayJobId = event.job_id && UUID_RE.test(event.job_id) ? event.job_id : null;
                 return (
                 <article key={event.id} className="workspace-operational-row">
+                  {driverCompact ? (
+                    <div className="xd-event-record">
+                      <div className="xd-event-record__headline">
+                        <strong>{eventLabel(event.event_type)}</strong>
+                        <span>{fmtDate(event.created_at)}</span>
+                      </div>
+                      <div className="xd-event-record__context">
+                        <span><b>Reference</b> {eventReference(event)}</span>
+                        <span><b>Actor</b> {actorLabel(event)}</span>
+                        <span><b>Source</b> {sourceLabel(event.source)}</span>
+                      </div>
+                      <p>{payloadSummary(event)}</p>
+                      <div className="xd-event-record__footer">
+                        <details>
+                          <summary>Technical details</summary>
+                          <div>Event ID: {event.id}</div>
+                          <div>Entity ID: {event.entity_id ?? 'Not provided'}</div>
+                          <div>Entity type: {event.entity_type ?? 'Not provided'}</div>
+                        </details>
+                        {replayJobId ? <ActionButton tone="secondary" onClick={() => window.location.assign(`/job-replay/${replayJobId}`)}>Open Replay</ActionButton> : null}
+                      </div>
+                    </div>
+                  ) : (
+                  <>
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>DATE</span><strong style={cellPrimaryStyle}>{fmtDate(event.created_at)}</strong><div style={cellMetaStyle}>Account event</div></div>
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>EVENT</span><strong style={cellPrimaryStyle}>{eventLabel(event.event_type)}</strong><div style={cellMetaStyle}>{event.entity_type ?? '—'}</div></div>
@@ -319,6 +345,8 @@ export function WorkspaceEventLogPage({
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>DETAILS</span><strong style={cellPrimaryStyle}>{payloadSummary(event)}</strong><div style={cellMetaStyle}>Operational activity</div></div>
                   </div>
                   <div className="workspace-record-meta"><span>Event #{event.id.slice(0, 8).toUpperCase()}</span><span>Source: {sourceLabel(event.source)}</span>{replayJobId ? <ActionButton tone="secondary" onClick={() => window.location.assign(`/job-replay/${replayJobId}`)}>Open Replay</ActionButton> : null}</div>
+                  </>
+                  )}
                 </article>
                 );
               })}

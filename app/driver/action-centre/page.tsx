@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
@@ -127,11 +126,8 @@ export default function DriverActionCentrePage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        driverName="Action Centre"
-        subtitle="Prioritised driver actions requiring review or acknowledgement."
-        headerActions={<ActionButton tone="primary" disabled={loading} onClick={() => void loadRows()}>Refresh</ActionButton>}
+        hideHeader
       >
-        <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         <div className="driver-board-layout driver-action-centre-board">
           {rail}
@@ -155,9 +151,9 @@ export default function DriverActionCentrePage() {
                         <div className="driver-load-cell"><span className="driver-cell-label">Action</span><strong className="driver-cell-primary">{formatLabel(row.event_type)}</strong><span className="driver-cell-secondary">{formatLabel(row.entity_type)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Reference</span><strong className="driver-cell-primary">{row.event_id?.slice(0, 8).toUpperCase() ?? row.id.slice(0, 8).toUpperCase()}</strong><span className="driver-cell-secondary">{row.source === 'operational' ? 'Live operational action' : 'Workspace notification'}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Created</span><strong className="driver-cell-primary">{formatDate(row.created_at)}</strong><span className="driver-cell-secondary">Driver queue</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary">{formatLabel(row.status)}</strong><span className="driver-cell-secondary"><StatusBadge value={formatLabel(row.status)} tone={tone} /></span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Status</span><StatusBadge value={formatLabel(row.status)} tone={tone} /></div>
                       </div>
-                      <div className="driver-load-row__meta"><span>Action #{row.id.slice(0, 8).toUpperCase()}</span><StatusBadge value={formatLabel(row.status)} tone={tone} /><div className="driver-row-actions">{row.cta_href ? <ActionButton tone="secondary" onClick={() => { window.location.href = row.cta_href; }}>Open details</ActionButton> : null}</div></div>
+                      <div className="driver-load-row__meta"><span>{row.source === 'operational' ? 'Operational action' : 'Notification'}</span><div className="driver-row-actions">{row.cta_href ? <ActionButton tone="secondary" onClick={() => { window.location.href = row.cta_href; }}>Open details</ActionButton> : null}</div></div>
                     </article>
                   );
                 })}

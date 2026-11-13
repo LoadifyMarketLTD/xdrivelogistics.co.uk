@@ -1,0 +1,166 @@
+/* Owner Driver operations v8: align Action Centre, Messages and Event Log with approved XDrive cards.
+   Presentation only: no API, status transitions, message delivery or financial arithmetic changes. */
+.xdrive-driver-workspace .driver-action-centre-board,
+.xdrive-driver-workspace .driver-messages-board{gap:12px!important;align-items:start;min-width:0}
+.xdrive-driver-workspace .driver-action-centre-board .driver-filter-rail,
+.xdrive-driver-workspace .driver-messages-board .driver-filter-rail{
+ border:1px solid #d5e2ef!important;border-radius:8px!important;overflow:hidden;background:#fff!important;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-filter-rail__header,
+.xdrive-driver-workspace .driver-messages-board .driver-filter-rail__header{
+ padding:11px 13px!important;background:#f1f6fc!important;color:#102f54!important;
+ font-size:13px!important;font-weight:800!important;letter-spacing:.03em;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-tab-strip,
+.xdrive-driver-workspace .driver-messages-board .driver-tab-strip{margin:0!important}
+.xdrive-driver-workspace .driver-action-centre-board .driver-board-summary,
+.xdrive-driver-workspace .driver-messages-board .driver-board-summary{
+ background:#f5f8fc!important;border:1px solid #e0e8f2!important;padding:9px 12px!important;
+ font-size:13px!important;font-weight:650!important;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-load-list{display:grid;gap:7px!important}
+.xdrive-driver-workspace .driver-action-centre-board .driver-load-row{
+ border:1px solid #d9e4f1!important;border-left:4px solid #2c70b6!important;
+ border-radius:8px!important;box-shadow:none!important;margin:0!important;overflow:hidden;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-load-row__top{
+ display:grid!important;grid-template-columns:minmax(0,1.1fr) minmax(0,.75fr) minmax(0,.95fr) minmax(0,.55fr)!important;
+ min-height:0!important;gap:0!important;padding:0!important;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-load-cell{
+ min-height:0!important;padding:11px 14px!important;gap:4px!important;min-width:0;
+ border-right:1px solid #edf1f6!important;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-load-cell:last-child{border-right:0!important}
+.xdrive-driver-workspace .driver-action-centre-board .driver-cell-primary{
+ font-size:14px!important;line-height:20px!important;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-cell-secondary{
+ font-size:12px!important;line-height:17px!important;color:#667b90!important;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-load-row__meta{
+ display:flex!important;align-items:center!important;flex-wrap:wrap!important;
+ min-height:38px!important;padding:4px 12px!important;background:#f5f8fc!important;
+ font-size:12px!important;color:#536b82!important;
+}
+.xdrive-driver-workspace .driver-action-centre-board .driver-load-row__meta .driver-row-actions{margin-left:auto}
+.xdrive-driver-workspace .driver-messages-board .driver-board-main{
+ border:1px solid #dae4ef!important;border-radius:8px!important;background:#fff!important;padding:12px!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-row-details{
+ margin:0!important;padding:12px!important;border:0!important;box-shadow:none!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-row-details>div:nth-child(2){
+ border-radius:7px!important;background:#f4f8fd!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-row-details article.driver-load-row{
+ max-width:78%;width:fit-content;min-width:min(300px,100%);
+ border-radius:10px!important;border:1px solid #d9e5f1!important;
+ box-shadow:none!important;margin-bottom:8px!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-row-details article.driver-load-row[data-state="sent"]{
+ background:#eaf3ff!important;border-color:#bad4f0!important;
+ margin-left:auto!important;margin-right:0!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-row-details article.driver-load-row[data-state="received"]{
+ background:#f5f8fc!important;margin-left:0!important;margin-right:auto!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-row-details article .driver-load-row__meta{
+ display:flex!important;align-items:center;justify-content:flex-start!important;gap:8px!important;
+ min-height:29px!important;padding:5px 10px!important;font-size:12px!important;
+ border-bottom:1px solid rgba(151,178,205,.2)!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-row-details article>div:last-child{
+ padding:10px 12px!important;font-size:14px!important;line-height:20px!important;
+}
+.xdrive-driver-workspace .driver-messages-board .driver-filter-rail__body .driver-account-link{
+ text-align:left!important;min-height:54px!important;border-radius:7px!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-operational-row{
+ border:1px solid #dbe5f0!important;border-left:4px solid #2f6eaf!important;
+ border-radius:8px!important;margin-bottom:8px!important;box-shadow:none!important;
+ overflow:hidden!important;background:#fff!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-operational-row__top{
+ display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) minmax(0,.75fr) minmax(0,.75fr) minmax(0,1.5fr)!important;
+ min-height:0!important;gap:0!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-operational-cell{
+ min-width:0!important;padding:9px 12px!important;overflow-wrap:anywhere!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-operational-cell strong{
+ font-size:13px!important;line-height:19px!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-record-meta{
+ padding:7px 10px!important;font-size:12px!important;line-height:18px!important;
+}
+@media(max-width:1100px){
+ .xdrive-driver-workspace .driver-action-centre-board .driver-load-row__top{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .xdrive-driver-workspace .xd-driver-event-log .workspace-operational-row__top{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:680px){
+ .xdrive-driver-workspace .driver-action-centre-board .driver-load-row__top,
+ .xdrive-driver-workspace .xd-driver-event-log .workspace-operational-row__top{grid-template-columns:minmax(0,1fr)!important}
+ .xdrive-driver-workspace .driver-messages-board .driver-row-details article.driver-load-row{max-width:100%;min-width:0;width:auto}
+}
+
+
+/* v8 readable audit cards: evidence preserved under disclosure, no columns of internal IDs. */
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record{
+  padding:12px 15px;display:grid;gap:10px;min-width:0;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__headline{
+  display:flex;justify-content:space-between;align-items:baseline;
+  flex-wrap:wrap;gap:8px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__headline strong{
+  font-size:15px;line-height:21px;font-weight:800;color:#12395f;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__headline span{
+  font-size:12px;line-height:17px;color:#61758c;font-variant-numeric:tabular-nums;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__context{
+  display:flex;flex-wrap:wrap;gap:8px 19px;min-width:0;
+  color:#415972;font-size:12px;line-height:19px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__context b{
+  color:#718297;font-weight:650;margin-right:5px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record>p{
+  margin:0!important;overflow-wrap:anywhere;white-space:pre-wrap;
+  font-size:13px;line-height:20px;color:#1d3654;
+  border-top:1px solid #e8eef6;padding-top:8px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  gap:10px;min-height:26px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer details{
+  font-size:12px;color:#597086;max-width:100%;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer summary{
+  cursor:pointer;text-decoration:underline;text-underline-offset:2px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer details>div{
+  padding:4px 0 0 13px;font-family:ui-monospace,Consolas,monospace;font-size:11px;
+}
+
+
+/* Final compact heading and readable count spacing for audited pages. */
+.xdrive-driver-workspace .driver-action-centre-board .driver-tab-strip button>span{margin-left:7px!important}
+.xdrive-driver-workspace .driver-action-centre-board .driver-account-link>span:last-child{font-size:13px!important;font-weight:800!important}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-board-layout{gap:12px!important}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-filter-rail{
+ border:1px solid #d9e3ee!important;border-radius:8px!important;overflow:hidden!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-filter-rail__header{
+ background:#f1f6fc!important;color:#12395f!important;font-size:13px!important;
+ font-weight:800!important;padding:10px 12px!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .workspace-board-main>.workspace-record-meta{
+ min-height:38px!important;border:1px solid #e0e7f0!important;
+ border-radius:7px!important;background:#f5f8fc!important;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer details[open]{
+ width:100%;background:#f8fafc;padding:8px 10px;border:1px solid #e4ebf3;border-radius:6px;
+}

@@ -1,0 +1,40 @@
+
+/* v8 readable audit cards: evidence preserved under disclosure, no columns of internal IDs. */
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record{
+  padding:12px 15px;display:grid;gap:10px;min-width:0;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__headline{
+  display:flex;justify-content:space-between;align-items:baseline;
+  flex-wrap:wrap;gap:8px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__headline strong{
+  font-size:15px;line-height:21px;font-weight:800;color:#12395f;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__headline span{
+  font-size:12px;line-height:17px;color:#61758c;font-variant-numeric:tabular-nums;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__context{
+  display:flex;flex-wrap:wrap;gap:8px 19px;min-width:0;
+  color:#415972;font-size:12px;line-height:19px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__context b{
+  color:#718297;font-weight:650;margin-right:5px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record>p{
+  margin:0!important;overflow-wrap:anywhere;white-space:pre-wrap;
+  font-size:13px;line-height:20px;color:#1d3654;
+  border-top:1px solid #e8eef6;padding-top:8px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer{
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;
+  gap:10px;min-height:26px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer details{
+  font-size:12px;color:#597086;max-width:100%;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer summary{
+  cursor:pointer;text-decoration:underline;text-underline-offset:2px;
+}
+.xdrive-driver-workspace .xd-driver-event-log .xd-event-record__footer details>div{
+  padding:4px 0 0 13px;font-family:ui-monospace,Consolas,monospace;font-size:11px;
+}

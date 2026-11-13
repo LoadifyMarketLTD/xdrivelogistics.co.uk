@@ -301,9 +301,9 @@ export default function DriverFinancePage() {
               <div className={styles.metricSub}>{counts.Sent + counts.Overdue + counts.Disputed} invoices</div>
             </article>
             <article className={[styles.metric, styles.metricGreen].join(' ')}>
-              <div className={styles.metricLabel}>Paid</div>
+              <div className={styles.metricLabel}>Payments received</div>
               <div className={styles.metricValue}>{money(values?.paid ?? 0)}</div>
-              <div className={styles.metricSub}>{counts.Paid} invoices</div>
+              <div className={styles.metricSub}>{counts.Paid} fully paid invoices</div>
             </article>
             <article className={[styles.metric, styles.metricNavy].join(' ')}>
               <div className={styles.metricLabel}>Currency</div>
@@ -322,7 +322,7 @@ export default function DriverFinancePage() {
                 <div className={styles.flow}>
                   <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>{financeView === 'receivables' ? 'Ready to invoice' : 'Open payables'}</div><div className={styles.flowSub}>{financeView === 'receivables' ? 'POD-complete work waiting to be billed' : 'Supplier invoices awaiting settlement'}</div></div><strong className={styles.flowValue}>{financeView === 'receivables' ? money(eligibleJobs.reduce((sum, job) => sum + Number(job.invoice?.amount ?? job.agreed_amount ?? job.direct_invoice_amount ?? 0), 0)) : money(values?.outstanding ?? 0)}</strong></div>
                   <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Awaiting payment</div><div className={styles.flowSub}>Issued invoices still open</div></div><strong className={styles.flowValue}>{money(values?.outstanding ?? 0)}</strong></div>
-                  <div className={styles.flowRow}><span className={[styles.dot, styles.dotGreen].join(' ')} /><div><div className={styles.flowLabel}>Paid</div><div className={styles.flowSub}>Completed settlements</div></div><strong className={styles.flowValue}>{money(values?.paid ?? 0)}</strong></div>
+                  <div className={styles.flowRow}><span className={[styles.dot, styles.dotGreen].join(' ')} /><div><div className={styles.flowLabel}>Payments received</div><div className={styles.flowSub}>Recorded cash, including partial payments</div></div><strong className={styles.flowValue}>{money(values?.paid ?? 0)}</strong></div>
                 </div>
                 <div style={{display:'flex',justifyContent:'space-between',gap:12,marginTop:14,flexWrap:'wrap'}}>
                   <span className={styles.registerMeta}>Gross {money(values?.gross ?? 0)}  Net {money(values?.net ?? 0)}  VAT {money(values?.vat ?? 0)}</span>

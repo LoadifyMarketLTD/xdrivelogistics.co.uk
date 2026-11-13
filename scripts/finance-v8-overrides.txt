@@ -1,0 +1,21 @@
+/* v8: XDrive finance presentation; values and accounting calculations unchanged. */
+.surface{gap:12px;--ip-line:#d8e3ef;--ip-bg:#f4f8fc;--ip-ink:#112f53}
+.nav{border-radius:9px;box-shadow:none}
+.navButton{border-radius:6px;min-height:37px;font-size:13px}
+.metric{min-height:106px;border-radius:9px;padding:15px 16px;box-shadow:0 1px 4px rgba(17,47,83,.05)}
+.metricLabel{font-size:11px;letter-spacing:.09em}
+.metricValue{font-size:25px;line-height:1.15}
+.metricSub{font-size:12px;line-height:18px}
+.panel,.register{border-radius:9px;box-shadow:0 1px 4px rgba(17,47,83,.05)}
+.flow{border-radius:7px}
+.flowRow{padding:12px}
+.flowLabel{font-size:13px}
+.flowSub{font-size:12px;line-height:17px}
+.actionButton{grid-template-columns:30px minmax(0,1fr) 16px;border-radius:7px;gap:10px;min-height:53px;padding:9px 12px}
+.actionButton>span:nth-child(2){display:flex;flex-direction:column;min-width:0;gap:3px}
+.actionLabel{display:block;font-size:13px;line-height:18px;font-weight:800}
+.actionSub{display:block;font-size:12px;line-height:17px;overflow-wrap:anywhere}
+.actionIcon{width:29px;height:29px;border-radius:6px}
+.table th{font-size:12px}
+.table td{font-size:13px}
+@media(max-width:700px){.actionButton{grid-template-columns:28px minmax(0,1fr) 12px}}
