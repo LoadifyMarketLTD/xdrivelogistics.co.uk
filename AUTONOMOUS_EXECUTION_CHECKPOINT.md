@@ -34,3 +34,9 @@ Verification:
 Safety: no main or Netlify production changes, no Supabase writes, no PWA mutation, no old templates manually recreated, old #805/#806 preserved.
 
 Next: commit/push isolated branch PR #807, verify Netlify latest SHA; authenticate in Edge to verify rendering and signed-link 404 fix, run real PDF visual compare. Do not merge without user approval.
+
+## Legal & Agreements video 2026-11-13 22:24
+Video 138.3s 1914x994, reviewed 18 contact frames plus full frames at 00:00,00:37,01:15,02:09. Shows /driver/account/legal-agreements, current legal package v2026-09-29-r3, historical acceptances 4 Oct, 1 Oct, 16 Sep, signed readable reproduction (6 pages). Legal records display mojibake (Â·, â€¦). Readable reconstruction explicitly states not original signed PDF. It includes acceptance ID, timestamp, original PDF SHA-256 and evidence SHA-256. Existing signed-document endpoint supports both readable=1 (reconstruction after original hash validation) and default (short-lived signed URL to immutable original).
+Patch: app/components/workspace/LegalAgreementsPage.tsx fixes mojibake, explicitly presents View original signed PDF (secured existing signed-document route) alongside Download readable reconstruction (unchanged existing generator). No alteration to original signed evidence, historic agreements, acceptance records, Terms or Privacy text. Script scripts/fix-legal-history-pdfs-v5.cjs.
+Verification: JSX transpile PASS; TypeScript npm run typecheck PASS; protected invariant gate PASS; git diff --check PASS. Authenticated click-through for original signed PDF and visual PDF examination NOT YET verified.
+User approval not yet obtained for production. Maintain Draft PR #807 only.

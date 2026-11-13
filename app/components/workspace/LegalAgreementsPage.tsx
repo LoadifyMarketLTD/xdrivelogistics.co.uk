@@ -127,6 +127,7 @@ export default function LegalAgreementsPage({
   const [legalLanguage, setLegalLanguage] = useState<LegalLanguage>('en');
   const [signerFullName, setSignerFullName] = useState('');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [openingOriginalId, setOpeningOriginalId] = useState<string | null>(null);
 
   const resetConfirmations = () => {
     setAcceptedDocumentCodes([]);
@@ -266,6 +267,31 @@ export default function LegalAgreementsPage({
     }
   };
 
+  // Original signed PDF is accessed read-only via a short-lived signed storage URL.
+  // This is distinct from the explicitly labelled readable reconstruction.
+  const openOriginalSignedAgreement = async (record: AcceptanceHistoryRow) => {
+    if (!record.signedPdfAvailable) return;
+    const viewer = window.open('about:blank', '_blank');
+    if (viewer) viewer.opener = null;
+    setOpeningOriginalId(record.id);
+    setError('');
+    try {
+      const token = await getAccessToken();
+      const response = await fetch('/api/account/legal-agreements/' + encodeURIComponent(record.id) + '/signed-document', {
+        headers: { Authorization: 'Bearer ' + token }, cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({})) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) throw new Error(payload.error || 'Original signed PDF could not be opened.');
+      if (viewer) viewer.location.href = payload.url;
+      else window.location.assign(payload.url);
+    } catch (cause) {
+      viewer?.close();
+      setError(cause instanceof Error ? cause.message : 'Original signed PDF could not be opened.');
+    } finally {
+      setOpeningOriginalId(null);
+    }
+  };
+
   const submitAcceptance = async () => {
     if (!model || !canAccept) return;
     setSubmitting(true);
@@ -330,7 +356,7 @@ export default function LegalAgreementsPage({
       {message && <AlertBanner tone="success">{message}</AlertBanner>}
 
       {loading ? (
-        <Panel><EmptyState compact title="Loading Legal & Agreementsâ€¦" /></Panel>
+        <Panel><EmptyState compact title="Loading Legal & Agreements..." /></Panel>
       ) : !model ? (
         <Panel><EmptyState title="Legal history unavailable" description="XDrive could not resolve the contractual record for this account." /></Panel>
       ) : (
@@ -439,7 +465,7 @@ export default function LegalAgreementsPage({
                 <div>
                   <ActionButton tone="primary" disabled={!canAccept || submitting} onClick={() => void submitAcceptance()}>
                     {submitting
-                      ? 'Recording acceptanceâ€¦'
+                      ? 'Recording acceptance...'
                       : isInitialRemediation
                         ? 'Record current acceptance'
                         : 'Accept current agreements'}
@@ -475,7 +501,7 @@ export default function LegalAgreementsPage({
                       {record.agreements.map((agreement) => (
                         <div key={`${record.id}-${agreement.code}`} style={{ fontSize: 10, color: '#475569' }}>
                           <strong style={{ color: '#0f172a' }}>{agreementLabelByCode.get(agreement.code) ?? agreement.code.replace(/_/g, ' ')}</strong>
-                          <span> Â· v{agreement.version}{agreement.language ? ` Â· ${agreement.language}` : ''}</span>
+                          <span> | v{agreement.version}{agreement.language ? ` | ${agreement.language}` : ''}</span>
                         </div>
                       ))}
                     </div>
@@ -486,14 +512,17 @@ export default function LegalAgreementsPage({
                       <span>Privacy: <strong style={{ color: '#334155' }}>{record.privacyVersion}</strong></span>
                       <span>Language: <strong style={{ color: '#334155' }}>{record.acceptanceLanguage}</strong></span>
                       <span>Evidence ID: <code style={{ color: '#334155' }}>{record.id}</code></span>
-                      <span>Evidence hash: <code style={{ color: '#334155' }}>{record.evidenceHash.slice(0, 16)}â€¦</code></span>
+                      <span>Evidence hash: <code style={{ color: '#334155' }}>{record.evidenceHash.slice(0, 16)}...</code></span>
                       {record.signerFullName ? <span>Signed by: <strong style={{ color: '#334155' }}>{record.signerFullName}</strong></span> : null}
-                      {record.signedPdfHash ? <span>PDF hash: <code style={{ color: '#334155' }}>{record.signedPdfHash.slice(0, 16)}â€¦</code></span> : null}
+                      {record.signedPdfHash ? <span>PDF hash: <code style={{ color: '#334155' }}>{record.signedPdfHash.slice(0, 16)}...</code></span> : null}
                     </div>
                     {record.signedPdfAvailable ? (
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 }}>
+                        <ActionButton tone="primary" disabled={openingOriginalId === record.id} onClick={() => void openOriginalSignedAgreement(record)}>
+                          {openingOriginalId === record.id ? 'Opening original...' : 'View original signed PDF'}
+                        </ActionButton>
                         <ActionButton tone="secondary" disabled={downloadingId === record.id} onClick={() => void downloadSignedAgreement(record)}>
-                          {downloadingId === record.id ? 'Preparing PDFâ€¦' : 'Download readable copy'}
+                          {downloadingId === record.id ? 'Preparing PDF...' : 'Download readable reconstruction'}
                         </ActionButton>
                       </div>
                     ) : null}
