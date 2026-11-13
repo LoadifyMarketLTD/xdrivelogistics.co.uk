@@ -530,7 +530,22 @@ export default function MyQuotesPage() {
                       {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={pendingWithdrawals.has(bid.id)} onClick={() => void handleWithdrawBid(bid.id)}>{pendingWithdrawals.has(bid.id) ? 'Cancelling…' : 'Cancel Quote'}</button> : null}
                       <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${quoteStage}`}>{footerState}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>
-                        <button type="button" className="xdrive-inline-link" disabled={view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)))} title={view.access === 'protected' ? 'This load is no longer available to this account' : undefined} onClick={() => router.push(view.access === 'assigned' || view.access === 'own' ? `/driver/jobs/${bid.job_id}` : `/driver/loads/${bid.job_id}`)}>{view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage))) ? 'Details unavailable' : 'View Details'}</button>
+                        <button
+                          type="button"
+                          className="xdrive-inline-link"
+                          title={view.access === 'protected' ? 'Original load is restricted; your own quote record remains available below.' : undefined}
+                          onClick={() => {
+                            if (view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)))) {
+                              setExpandedIds((previous) => {
+                                const next = new Set(previous);
+                                next.add(bid.id);
+                                return next;
+                              });
+                            } else {
+                              router.push(view.access === 'assigned' || view.access === 'own' ? `/driver/jobs/${bid.job_id}` : `/driver/loads/${bid.job_id}`);
+                            }
+                          }}
+                        >{view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage))) ? 'View quote record' : 'View Details'}</button>
                         {view.postingMemberId ? <span> ({view.postingMemberId})</span> : null}
                         <strong>{counterpartName}</strong>
                         {view.postingPhone ? <a href={`tel:${view.postingPhone.replace(/\s+/g, '')}`}>{view.postingPhone}</a> : null}

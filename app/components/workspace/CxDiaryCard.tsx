@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import XDriveCardContext from './XDriveCardContext';
+import XDriveTransportOverview from './XDriveTransportOverview';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
 export type CxDiaryDateParts = { primary: ReactNode; meta?: ReactNode };
@@ -59,7 +60,15 @@ export default function CxDiaryCard({
 }) {
   return (
     <article className={`workspace-operational-row xdrive-cx-diary-card${className ? ` ${className}` : ''}`} data-state={dataState ?? state} data-stage={dataStage ?? stage}>
-      {showXDriveContext ? <XDriveCardContext type="Transport record" reference={loadId} status={band} variant="diary" /> : null}
+      {showXDriveContext ? <XDriveCardContext type="Transport record" reference={loadId} variant="diary" /> : null}
+      {showXDriveContext ? (
+        <XDriveTransportOverview
+          tone="diary"
+          from={from} to={to} pickup={pickup} delivery={delivery}
+          status={band} member={statusLine} stamp={statusStamp}
+          vehicle={vehicle}
+        />
+      ) : (
       <div className="xdrive-cx-diary-card__main">
         <section className="cx-diary-route xdrive-cx-diary-card__route">
           <div><span>From:</span><strong>{from}</strong></div>
@@ -82,6 +91,7 @@ export default function CxDiaryCard({
           </div>
         </section>
       </div>
+      )}
       <div className={`xdrive-cx-diary-card__footer${footerClassName ? ` ${footerClassName}` : ''}`} role={footerRole} aria-label={footerAriaLabel}>{footer}</div>
       {expanded && expandedMeta ? <div className="xdrive-cx-diary-card__expanded-meta">{expandedMeta}</div> : null}
       {expanded && expandedContent ? expandedContent : null}

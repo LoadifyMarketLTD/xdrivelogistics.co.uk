@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import XDriveCardContext from './XDriveCardContext';
+import XDriveTransportOverview from './XDriveTransportOverview';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
 export type CxDateParts = { primary: ReactNode; meta?: ReactNode };
@@ -58,7 +59,17 @@ export default function CxLoadCard({
 }) {
   return (
     <article className={`xdrive-cx-load-card${className ? ` ${className}` : ''}`} data-state={dataState}>
-      {showXDriveContext ? <XDriveCardContext type="Freight load" reference={loadId} status={band} variant="load" /> : null}
+      {showXDriveContext ? <XDriveCardContext type="Freight load" reference={loadId} variant="load" /> : null}
+      {showXDriveContext ? (
+        <XDriveTransportOverview
+          tone="load"
+          from={from} to={to} pickup={pickup} delivery={delivery}
+          status={band} member={posted} postedAt={postedAt} vehicle={vehicle}
+          details={expanded ? freight : undefined}
+          requirements={expanded ? commercial : undefined}
+          extraRoute={routeMeta}
+        />
+      ) : (
       <div className="xdrive-cx-load-card__main">
         <section className="xdrive-cx-load-card__route">
           <div><span>From:</span><strong>{from}</strong></div>
@@ -84,6 +95,7 @@ export default function CxLoadCard({
           {expanded && commercial ? <div className="xdrive-cx-load-card__commercial">{commercial}</div> : null}
         </section>
       </div>
+      )}
       {expanded && notes ? <div className="xdrive-cx-load-card__notes">{notes}</div> : null}
       <div className="xdrive-cx-load-footer">{footer}</div>
     </article>

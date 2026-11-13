@@ -1,38 +1,30 @@
-# XDrive Owner Driver redesign, 13 November 2026
-Repository: LoadifyMarketLTD/xdrivelogistics.co.uk
+# XDrive Owner Driver redesign checkpoint — 13 November 2026
 Worktree: C:\Users\xdriv\Desktop\XDrive-OwnerDriver-Redesign-20261113
-Branch: design/owner-driver-xdrive-cards-20261113, Draft PR #807
-History: #806 at e544e4e7; current production untouched.
+Branch: design/owner-driver-xdrive-cards-20261113, Draft PR #807.
+Historical #805/#806, current main and production untouched.
 
-V1 commits 6c772148 and 499e5a85:
-- New visual XDrive card component header and typography for Loads, Quotes, Diary
-- Card headers only enabled in driver pages; other roles not inadvertently changed
-- No Courier Exchange assets or exact visual copying
-V2 commit 46a3fa6:
-- Diary defaults to My assigned jobs, Company Diary remains explicitly selected and permission-gated.
-- Three-zone Bookings card matches the XDrive information architecture.
-- Diary extended panel and quote status redesigned; duplicate IDs removed from compact card body.
-- POD photo presence no longer described as complete POD.
-V2 Dashboard follow-on:
-- Scoped class xd-owner-commercial-dashboard on owner-only dashboard.
-- Added app/driver/xdrive-operational-dashboard-v2.css (two balanced columns, smaller metric blocks, clearer latest bookings).
-- No data or API changes.
+User reported visual parity of #807 with #806, despite earlier cosmetic claims. This is correct: old JSX CxLoadCard/CxQuoteCard/CxDiaryCard was preserved at root, with only CSS and header additions.
 
-Validation:
-- CSS parser PASS, TSX focused transpile PASS.
-- 6/6 targeted tests PASS in scripts/test-driver-redesign-v2.cjs.
-- Protected invariants PASS.
-- Full typecheck PASS after commit 46a3fa6; second full run started after Dashboard edit, not yet confirmed.
-- Previous Next.js build on earlier version PASS; new commit build/Netlify must be confirmed.
-- Authenticated browser visual and real E2E status/finance flows NOT verified.
+V3 genuine structural change:
+- NEW app/components/workspace/XDriveTransportOverview.tsx. Journey route with origin/destination timeline, separate schedule, separate member/vehicle/status info.
+- NEW app/driver/xdrive-operational-cards-v3.css. Independent XDrive design, readable font, layered backgrounds, 3/2/1 column responsive layout, own accent/spacing.
+- Modified CxLoadCard/CxQuoteCard/CxDiaryCard to render new overview exclusively for showXDriveContext=true; other roles preserve original markup.
+- Existing load details freight/commercial preserved in expanded overview; quotes expanded table and diary expanded panes untouched; action footers remain working.
+- Removed duplicate status from header; operational status appears in the overview.
+- Fixed Quotes 'Details unavailable': expired/protected loads now allow expanding the user's own persisted quote record without granting access to the restricted original load.
+- Scripts apply-xdrive-v3-overview.cjs, fix-quote-details-fallback.cjs, test-driver-redesign-v3.cjs for traceability.
 
-Security/constraints:
-- No main merge or production Netlify, no Supabase changes.
-- No approved Post Load, mobile PWA or invoice/POD generator edits.
-- Existing #805/#806 backups retained.
+Verification completed:
+- 5/5 targeted v3 tests PASS
+- JSX transpilation for five changed components PASS
+- CSS parsed PASS
+- git diff --check PASS
+- Existing protected invariant suite PASS and existing v2 tests PASS
+- Full TypeScript check for v3 layout before quote fallback PASS; final TypeScript after quote fallback ongoing.
+- Authenticated browser pixel measurement and E2E NOT YET verified; do not claim visual acceptance.
+- No production or data mutations; PR remains Draft.
 
 Next:
-- Finish full TS typecheck after Dashboard CSS.
-- Push follow-on commit to Draft #807 and verify Netlify Deploy Preview health.
-- Compare real card dimensions in authenticated browser and fix issues before proposing merge.
-- Dashboard, Diary, Bookings, Loads, Quotes still require authenticated E2E and user acceptance.
+1. Confirm final typecheck exit code.
+2. Commit/push to PR #807 and check Netlify preview deploy SHA.
+3. Authenticated Edge test and inspect DOM dimensions/screenshots against user captures. Never merge without approval.

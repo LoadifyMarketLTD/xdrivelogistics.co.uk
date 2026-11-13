@@ -1,0 +1,121 @@
+/* XDrive Operational Cards V3: redesigned content anatomy, not a CX lookalike.
+   Applies only to explicit driver cards where showXDriveContext is enabled. */
+.xdrive-driver-workspace .xd3-journey{
+  display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.92fr) minmax(0,.84fr);
+  gap:0;min-height:124px;background:#fff;
+  font-family:inherit;color:#112f53;
+}
+.xdrive-driver-workspace .xd3-journey>section{
+  min-width:0;padding:12px 17px;display:flex;flex-direction:column;gap:8px;
+}
+.xdrive-driver-workspace .xd3-journey>section+section{border-left:1px solid #e1eaf3}
+.xdrive-driver-workspace .xd3-journey__context{background:#f8fbff}
+.xdrive-driver-workspace .xd3-journey__eyebrow{
+  color:#60778d;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  line-height:15px;margin-bottom:1px;
+}
+.xdrive-driver-workspace .xd3-route-line{display:flex;gap:12px;min-height:62px}
+.xdrive-driver-workspace .xd3-route-line__track{
+  position:relative;display:flex;flex-direction:column;align-items:center;
+  justify-content:space-between;width:15px;flex:0 0 15px;padding:8px 0;
+}
+.xdrive-driver-workspace .xd3-route-line__track:before{
+  position:absolute;content:'';top:11px;bottom:11px;left:7px;width:2px;
+  background:#a5b9ce;
+}
+.xdrive-driver-workspace .xd3-route-line__track i{
+  position:relative;width:10px;height:10px;display:block;border:2px solid #225f9e;
+  background:#fff;border-radius:50%;z-index:1;
+}
+.xdrive-driver-workspace .xd3-route-line__track i:last-child{background:#16814c;border-color:#16814c}
+.xdrive-driver-workspace .xd3-route-line__track b{display:none}
+.xdrive-driver-workspace .xd3-route-line__places{
+  display:grid;grid-template-rows:1fr 1fr;gap:7px;min-width:0;flex:1;
+}
+.xdrive-driver-workspace .xd3-route-line__places>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.xdrive-driver-workspace .xd3-route-line__places small{
+  font-size:11px;line-height:14px;color:#61768a;font-weight:650;
+}
+.xdrive-driver-workspace .xd3-route-line__places strong{
+  color:#102c50;font-size:15px;line-height:20px;font-weight:800;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd3-journey__supplement{font-size:12px;color:#526579}
+.xdrive-driver-workspace .xd3-schedule-row{
+  display:grid;grid-template-columns:66px minmax(0,1fr);align-items:baseline;
+  gap:2px 9px;margin-top:3px;
+}
+.xdrive-driver-workspace .xd3-schedule-row>span{color:#60778d;font-size:12px;font-weight:750}
+.xdrive-driver-workspace .xd3-schedule-row>strong{
+  color:#102c50;font-size:16px;line-height:20px;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.xdrive-driver-workspace .xd3-schedule-row>small{
+  grid-column:2;font-size:12px;color:#60778d;line-height:16px;
+}
+.xdrive-driver-workspace .xd3-journey__state{display:grid;gap:4px}
+.xdrive-driver-workspace .xd3-journey__state-label{
+  align-self:start;width:fit-content;max-width:100%;
+  padding:5px 10px;border-radius:5px;background:#e7effa;
+  color:#194b80;font-size:13px;font-weight:800;line-height:19px;
+  text-transform:capitalize;
+}
+.xdrive-driver-workspace .xd3-journey--quote .xd3-journey__state-label{background:#fff0d5;color:#8b6016}
+.xdrive-driver-workspace .xd3-journey--diary .xd3-journey__state-label{background:#e1f4e9;color:#186f45}
+.xdrive-driver-workspace .xd3-journey__caption{
+  color:#526579;font-size:12px;line-height:17px;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd3-journey__member{
+  color:#102c50;font-size:13px;line-height:19px;font-weight:750;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd3-journey__stamp{
+  color:#526579;font-size:12px;line-height:17px;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd3-journey__bottom{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:6px;margin-top:auto;
+}
+.xdrive-driver-workspace .xd3-journey__vehicle{
+  display:inline-flex;align-items:center;gap:7px;color:#102c50;
+  min-width:0;font-size:13px;
+}
+.xdrive-driver-workspace .xd3-journey__vehicle img{height:24px;width:34px;object-fit:contain;display:block}
+.xdrive-driver-workspace .xd3-journey__vehicle strong{font-size:13px;line-height:17px}
+.xdrive-driver-workspace .xd3-journey__posted{
+  color:#647589;font-size:11px;font-weight:650;line-height:16px;
+}
+.xdrive-driver-workspace .xd3-journey__details,
+.xdrive-driver-workspace .xd3-journey__requirements{
+  display:grid;gap:7px;margin-top:7px;padding-top:9px;border-top:1px solid #e5edf5;
+  color:#273d56;font-size:13px;line-height:19px;
+}
+.xdrive-driver-workspace .xd3-journey__details>div,
+.xdrive-driver-workspace .xd3-journey__requirements>div{
+  display:grid;grid-template-columns:minmax(90px,.7fr) minmax(0,1.3fr);gap:8px;
+  min-width:0;overflow-wrap:anywhere;
+}
+.xdrive-driver-workspace .xd3-journey__details span,
+.xdrive-driver-workspace .xd3-journey__requirements span{
+  font-size:12px;line-height:18px;font-weight:650;color:#60778d;
+}
+.xdrive-driver-workspace .xd3-journey__details strong,
+.xdrive-driver-workspace .xd3-journey__requirements strong{
+  font-size:13px;line-height:19px;font-weight:700;
+}
+/* Flat badge in the XDrive context header avoids duplicating the operational status. */
+.xdrive-driver-workspace .xd-card-context{background:#f0f5fb!important;min-height:26px!important}
+.xdrive-driver-workspace .xd-card-context__ref{margin-left:auto;font-size:12px!important}
+.xdrive-driver-workspace .xd3-journey ~ .xdrive-cx-load-footer,
+.xdrive-driver-workspace .xd3-journey ~ .xdrive-cx-quote-card__footer,
+.xdrive-driver-workspace .xd3-journey ~ .xdrive-cx-diary-card__footer{
+  margin:0!important;background:#f5f8fc!important;border-top:1px solid #dce7f2!important;
+  min-height:40px!important;gap:8px!important;
+}
+/* Explicit tablet and handheld behavior, keeping the route readable. */
+@media(max-width:1100px){
+ .xdrive-driver-workspace .xd3-journey{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+ .xdrive-driver-workspace .xd3-journey__context{grid-column:1/-1;border-top:1px solid #e1eaf3!important;border-left:0!important}
+}
+@media(max-width:700px){
+ .xdrive-driver-workspace .xd3-journey{grid-template-columns:minmax(0,1fr)}
+ .xdrive-driver-workspace .xd3-journey>section{border-left:0!important;border-bottom:1px solid #e1eaf3;padding:12px 14px!important}
+ .xdrive-driver-workspace .xd3-journey__context{grid-column:1}
+}

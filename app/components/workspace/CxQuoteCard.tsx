@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import XDriveCardContext from './XDriveCardContext';
+import XDriveTransportOverview from './XDriveTransportOverview';
 import type { CxDateParts } from './CxLoadCard';
 import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
@@ -40,7 +41,15 @@ export default function CxQuoteCard({
 }) {
   return (
     <article className="xdrive-cx-quote-card" data-quote-stage={stage}>
-      {showXDriveContext ? <XDriveCardContext type="Freight quote" reference={loadId} status={stage ?? band} variant="quote" /> : null}
+      {showXDriveContext ? <XDriveCardContext type="Freight quote" reference={loadId} variant="quote" /> : null}
+      {showXDriveContext ? (
+        <XDriveTransportOverview
+          tone="quote"
+          from={routeFrom} to={routeTo} pickup={pickup} delivery={delivery}
+          status={sold ? 'SOLD' : band} caption={service}
+          postedAt={postedAt} vehicle={vehicle}
+        />
+      ) : (
       <div className="xdrive-cx-quote-card__main">
         <section className="xdrive-cx-quote-card__route">
           <div><span>From:</span><strong>{routeFrom}</strong></div>
@@ -63,6 +72,7 @@ export default function CxQuoteCard({
           </div>
         </section>
       </div>
+      )}
       {expanded && expandedContent ? <div className="xdrive-cx-quote-card__expanded-cx">{expandedContent}</div> : null}
       <div className="xdrive-cx-quote-card__footer">{footer}</div>
     </article>
