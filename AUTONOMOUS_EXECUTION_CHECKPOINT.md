@@ -1,4 +1,4 @@
-# WORKSPACE 3510 ÔÇö BN17 Customer Loads search regression (2026-11-08)
+﻿# WORKSPACE 3510 ├ö├ç├Â BN17 Customer Loads search regression (2026-11-08)
 
 ## User reproduction
 Screenshot from Netlify PR #770 /customer/loads: entered 'bn17', radius 10 mile; zero results and warning 'Collection outcode could not be located'. Another screenshot of same real loads shows completed BN17 -> BN1 job in list. No records should be fabricated.
@@ -123,3 +123,7 @@ Limited rerun of 4 files: 22 PASS, 3 FAIL; 2 driverMobileJobActionRoute and 2 mi
 2026-11-09 15:16 audited chat history and current branch. Root and PWA builds PASS, PWA 43/43, targeted server 17/17, real renderer 3/3; isolated Edge mocked POD/Invoice PDF E2E PASS. Full root Vitest remains 98 FAIL across unrelated workspaces; live physical-device authenticated lifecycle, genuine server-generated PDF evidence and Netlify verification NOT PASS.
 Fixed malformed literal `r`n leaking into Bookings JSX. Restricted Create Invoice UI to Owner Driver, matching server owner/admin finance authorization; Company Driver remains able to view/download POD and invoices subject to API permissions. PWA build PASS after edit.
 Do not merge to main until end-to-end genuine job lifecycle, actual backend PDF, security/role and production verification pass; root baseline comparison needed.
+
+## Customer Sidebar 2026-11-13
+Branch fix/customer-sidebar-click-20261113. Dashboard formerly nested a second MasterWorkspace and remounted the sidebar when switching to other Customer routes. Changed CustomerMasterLayoutGate to always host the sidebar, and removed the nested Dashboard MasterWorkspace. Post Load untouched. tsc PASS, 7/7 targeted Vitest PASS. Existing stale masterRealDashboardRoutingContract 2 failures; needs update. Not published; live regression and full visual audit outstanding.
+
