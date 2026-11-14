@@ -315,7 +315,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   page.drawRectangle({x:margin,y:boxY,width:248,height:boxH,color:pale,borderColor:border,borderWidth:.7});
   fit('PAYMENT DETAILS',margin+14,boxY+boxH-22,215,9.5,true,navy);
   page.drawRectangle({x:margin+14,y:boxY+boxH-30,width:220,height:1.5,color:orange});
-  fit('Terms: '+pdfText(input.paymentTerms,'14 days'),margin+14,boxY+boxH-46,222,8.5,true);
+  fit('Terms: '+pdfText(input.paymentTerms,'30 days'),margin+14,boxY+boxH-46,222,8.5,true);
   const bank=[
     input.bankAccountName?'Account: '+pdfText(input.bankAccountName):'',
     input.bankSortCode?'Sort code: '+pdfText(input.bankSortCode):'',

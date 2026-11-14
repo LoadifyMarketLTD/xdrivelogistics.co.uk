@@ -130,7 +130,7 @@ export async function PATCH(
     const vatRate = Number(body.vat_rate);
 
     if (!paymentTerms) {
-      return respond(422, { error: 'Payment terms must be Pay now, 14 days or 30 days.' });
+      return respond(422, { error: 'Payment terms must be Pay now, 7 days, 14 days or 30 days.' });
     }
     if (!Number.isFinite(netAmount) || netAmount <= 0) {
       return respond(422, { error: 'Net amount must be positive.' });

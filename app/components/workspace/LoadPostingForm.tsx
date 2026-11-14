@@ -227,7 +227,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [directCarrierError, setDirectCarrierError] = useState('');
   const [directTargetMode, setDirectTargetMode] = useState<DirectTargetMode>('marketplace');
   const [visibilityGroupId, setVisibilityGroupId] = useState('');
-  const [externalTarget, setExternalTarget] = useState({ contactName: '', companyName: '', email: '', phone: '', agreedRate: '', paymentTerms: COMPANY_CONFIG.payment.defaultTerm as (typeof PAYMENT_TERMS)[number] });
+  const [externalTarget, setExternalTarget] = useState({ contactName: '', companyName: '', email: '', phone: '', agreedRate: '', paymentTerms: '30 days' as (typeof PAYMENT_TERMS)[number] });
   const [internalDrivers, setInternalDrivers] = useState<InternalDirectDriver[]>([]);
   const [internalVehicles, setInternalVehicles] = useState<InternalDirectVehicle[]>([]);
   const [internalDriverId, setInternalDriverId] = useState('');
@@ -276,7 +276,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     pickupDate: '', pickupTime: '', pickupAddress: '', pickupTown: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
     deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryTown: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
     vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', itemCount: '', palletType: '', palletStackable: '', length: '', width: '', height: '', cargoValue: '',
-    customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '', paymentTerms: COMPANY_CONFIG.payment.defaultTerm as (typeof PAYMENT_TERMS)[number],
+    customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '', paymentTerms: '30 days' as (typeof PAYMENT_TERMS)[number],
     tailLift: false, forklift: false, handball: false, deliveryTailLift: false, deliveryForklift: false, deliveryHandball: false,
     adr: false, temperatureControlled: false, fragile: false, pumpTruck: false, twoPersonCrew: false, dedicatedVehicle: false, isFixedPrice: false,
     collectionAccessRestrictions: '', deliveryAccessRestrictions: '', documentChecklist: '',
@@ -1072,6 +1072,11 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <label style={labelStyle}>Customer reference
             <input style={fieldStyle} placeholder="000000" value={form.customerReference} onChange={(event) => set('customerReference', event.target.value)} />
           </label>
+          <label style={labelStyle}>Payment terms
+            <select aria-label="Payment terms" style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>
+              {PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}
+            </select>
+          </label>
           <label className="approved-postload-hardpod">
             <input type="checkbox" checked={form.documentChecklist.split(/\r?\n/).some((entry) => entry.trim() === 'Hard copy POD required')} onChange={(event) => setForm((current) => ({ ...current, documentChecklist: event.target.checked ? [current.documentChecklist.trim(), 'Hard copy POD required'].filter(Boolean).join('\n') : current.documentChecklist.split(/\r?\n/).filter((entry) => entry.trim() !== 'Hard copy POD required').join('\n') }))} />
             Hard copy POD required
@@ -1093,11 +1098,6 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               <select style={fieldStyle} value={form.isFixedPrice ? 'fixed' : 'quotes'} onChange={(event) => set('isFixedPrice', event.target.value === 'fixed')}>
                 <option value="quotes">Accept quotes</option>
                 <option value="fixed">Fixed price</option>
-              </select>
-            </label>
-            <label style={labelStyle}>Payment terms
-              <select style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>
-                {PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}
               </select>
             </label>
             <p role="note" style={{ fontSize: 11, lineHeight: 1.5, color: "#475569", margin: "4px 0 10px" }}>Late payment notice: For qualifying business-to-business debts, overdue invoices may attract statutory interest of 8% per year above the Bank of England base rate (calculated daily), plus fixed debt-recovery compensation of GBP 40 (debt under GBP 1,000), GBP 70 (GBP 1,000 to GBP 9,999.99), or GBP 100 (GBP 10,000 or more). These are potential creditor rights, not automatic XDrive platform charges. Contractual terms and applicable law govern.</p>

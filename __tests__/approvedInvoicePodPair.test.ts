@@ -32,6 +32,11 @@ describe('Approved Invoice + POD pair in the real billing renderer', () => {
     expect(pdf.getPages().every(p=>Math.abs(p.getSize().width-595.28)<1 && Math.abs(p.getSize().height-841.89)<1)).toBe(true);
     fs.writeFileSync('approved-invoice-pod-pair-qa.pdf',bytes);
   });
+  it('uses the 30-day default when invoice payment terms are missing', async()=>{
+    const source=fs.readFileSync('lib/server/invoicePdf.ts','utf8');
+    expect(source).toContain("pdfText(input.paymentTerms,'30 days')");
+    expect(source).not.toContain("pdfText(input.paymentTerms,'14 days')");
+  });
   it('without a verified signed POD leaves a one-page invoice unchanged',async()=>{
     const bytes=await buildInvoicePdf({
       invoiceNumber:'INV-DRAFT-PREVIEW',invoiceDate:'2026-11-09',dueDate:'2026-11-30',
