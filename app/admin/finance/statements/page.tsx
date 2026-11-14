@@ -65,6 +65,34 @@ export default function FinanceStatementsPage() {
     return { invoiced, paid, outstanding: Math.max(0, invoiced - paid) };
   }, [rows]);
 
+  const exportCsv = () => {
+    const headers = ['Invoice', 'Job', 'Counterparty', 'Invoice date', 'Due date', 'Net', 'VAT', 'Gross', 'Currency', 'Invoice status', 'Payment status'];
+    const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+    const records = rows.map((invoice) => [
+      invoice.invoice_number ?? invoice.id,
+      invoice.job_id ?? '',
+      invoice.client_name ?? 'Counterparty',
+      invoice.invoice_date ?? invoice.created_at ?? '',
+      invoice.due_date ?? '',
+      invoice.net_amount ?? '',
+      invoice.vat_amount ?? '',
+      invoice.amount ?? '',
+      invoice.currency ?? 'GBP',
+      invoice.status,
+      invoice.payment_status ?? '',
+    ]);
+    const csv = '\uFEFF' + [headers, ...records].map((record) => record.map(quote).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'xdrive-income-statement.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const exportStatement = () => {
     const label = counterparty === 'all'
       ? 'all-counterparties'
@@ -159,6 +187,7 @@ export default function FinanceStatementsPage() {
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} />
           </label>
           <ActionButton tone="secondary" onClick={() => { setStatementType('income'); setDateFilter('invoice_date'); setCounterparty('all'); setFromDate(''); setToDate(''); }}>Clear</ActionButton>
+          <ActionButton tone="secondary" disabled={rows.length === 0} onClick={exportCsv}>Export CSV</ActionButton>
           <ActionButton tone="primary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Generate</ActionButton>
         </div>
       </Panel>
