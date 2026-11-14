@@ -1,7 +1,7 @@
 import {test,expect} from '@playwright/test';
 import {loginWithCredentials} from './helpers/authLogin';
 
-/** Authenticated, production-backed, read-only seven-role shell acceptance. */
+/** Authenticated, production-backed, read-only seven-role PR807 shell acceptance. */
 const cases=[
  {role:'Customer',key:'CUSTOMER',path:'/customer/loads'},
  {role:'Broker',key:'BROKER',path:'/broker/loads'},
@@ -13,7 +13,7 @@ const cases=[
 ] as const;
 
 for(const item of cases){
- test(`PR807 authenticated production shell: ${item.role}`,async({page})=>{
+ test(`PR807 authenticated production top shell: ${item.role}`,async({page})=>{
   test.setTimeout(150000);
   const email=process.env[`E2E_${item.key}_EMAIL`];
   const password=process.env[`E2E_${item.key}_PASSWORD`];
@@ -24,10 +24,11 @@ for(const item of cases){
   await expect(page).toHaveURL(new RegExp(item.path.replaceAll('/','\\/')+'(?:[?#]|$)'),{timeout:45000});
   const shell=page.locator('[data-master-workspace="production"]');
   await expect(shell).toBeVisible({timeout:45000});
-  await expect(shell.locator('button[aria-label="Open workspace menu"]')).toHaveCount(1);
+  await expect(shell.locator('.top-workspace-shell__header')).toBeVisible();
+  await expect(shell.locator('nav.top-workspace-nav')).toBeVisible();
+  await expect(shell.locator('button.top-workspace-action--signout')).toBeVisible();
+  await expect(shell).not.toHaveClass(/master3150-production/);
   await expect(page.locator('body')).not.toContainText('Fictional customer name');
-  expect(await page.locator('[data-master-workspace="production"]').count()).toBe(1);
-  await expect(page.getByRole('complementary',{name:'Master workspace sections'})).toBeVisible();
-  await expect(page.getByRole('button',{name:'Loads',exact:true}).first()).toBeVisible();
+  await expect(shell).toHaveCount(1);
  });
 }

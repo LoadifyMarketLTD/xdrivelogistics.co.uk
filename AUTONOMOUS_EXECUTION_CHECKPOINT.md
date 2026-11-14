@@ -179,3 +179,10 @@
 - Replaced AuthenticatedMasterShell internal 3150 sidebar and CSS imports with actual approved PR807 TopWorkspaceShell and canonical measured white-workspace CSS; retained data-master-workspace wrapper and all authenticated route children.  
 - Static scope 12/12 PASS; cross-role safety 12/12 PASS; TypeScript noEmit full PASS 148 seconds. Git diff check PASS.  
 - Prior 13/13 Playwright PASS predates this shell replacement and MUST be rerun; prior tests assert 3150 sidebar and will need updated PR807 top-navigation assertions. Visual comparison and full operational E2E not yet verified. Do not publish main.  
+ 
+## 2026-11-14 20:53 updated PR807 top-shell acceptance  
+- Updated Playwright assertions to inspect actual PR807 TopWorkspaceShell header, nav, signout, main content and root absence of master3150-production. Kept real role credentials and no mutation.  
+- Full 13/13 authenticated read-only Chromium Playwright suite PASS in 6.1 minutes after actual shell replacement, across seven roles, Broker Loads filter/detail/reset and 5 roles route access.  
+- Discovered nested legacy .master3150-production in app/customer/loads/page.tsx and many legacy page-level CSS selectors; replacing the shell alone does not remove all 3150 page presentation. Visual acceptance is still NOT PASS.  
+- Latest origin/main remains 450ad1ce and is ancestor of this branch. Full Next build started and compiled successfully in 79 seconds, lint warning from DemoFleetBoard; final build exit still pending at checkpoint.  
+- Outstanding before main: finish Next build, remove remaining 3150 visual presentation safely, screenshot compare PR807 for all seven roles, click-based top navigation and all functional tabs, E2E operational flow and device regression. NO GO.  
