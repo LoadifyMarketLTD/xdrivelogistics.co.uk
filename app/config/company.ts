@@ -55,7 +55,7 @@ export const COMPANY_CONFIG = {
     paypal: {
       email: process.env.COMPANY_PAYPAL_EMAIL?.trim() || '',
     },
-    terms: ['Pay now', '14 days', '30 days'] as const,
+    terms: ['Pay now', '7 days', '14 days', '30 days'] as const,
     defaultTerm: '14 days' as const,
     specialExtensionDays: 15 as const,
     lateFeeNote: 'Late commercial payments may be subject to statutory interest and recovery-cost compensation where applicable.',

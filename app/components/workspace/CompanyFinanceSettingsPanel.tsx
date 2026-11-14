@@ -133,7 +133,7 @@ export default function CompanyFinanceSettingsPanel({ companyId, companyName }: 
         <label>VAT treatment<select value={settings.defaultVatTreatment} onChange={(e) => { const treatment = e.target.value; const rate = treatment === 'standard' ? 20 : treatment === 'reduced' ? 5 : treatment === 'zero_rated' || treatment === 'not_registered' ? 0 : settings.defaultVatRate; setSettings((v) => ({ ...v, defaultVatTreatment: treatment, defaultVatRate: rate })); }}><option value="standard">Standard rate</option><option value="reduced">Reduced rate</option><option value="zero_rated">Zero-rated</option><option value="reverse_charge">Reverse charge</option><option value="not_registered">Not VAT registered</option></select></label>
         <label>VAT rate<select value={settings.defaultVatRate} onChange={(e) => setSettings((v) => ({ ...v, defaultVatRate: Number(e.target.value) }))}><option value={0}>0%</option><option value={5}>5%</option><option value={20}>20%</option></select></label>
       </div>
-      <div style={{ marginTop: 10, color: '#64748b', fontSize: 11 }}>Standard XDrive payment terms remain Pay now, 14 days or 30 days. Any exceptional extension is handled separately and is not a company default.</div>
+      <div style={{ marginTop: 10, color: '#64748b', fontSize: 11 }}>Standard XDrive payment terms remain Pay now, 7 days, 14 days or 30 days. Any exceptional extension is handled separately and is not a company default.</div>
     </Panel>}
 
     {tab === 'email' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 10, alignItems: 'start' }}>

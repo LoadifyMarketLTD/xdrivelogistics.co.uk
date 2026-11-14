@@ -19,6 +19,8 @@ export const normalizeXDrivePaymentTerm = (
     return 'Pay now';
   }
 
+  if (normalized === '7 days' || normalized === '7 day' || normalized === 'net 7') return '7 days';
+
   if (normalized === '14 days' || normalized === '14 day' || normalized === 'net 14') {
     return '14 days';
   }
@@ -30,8 +32,9 @@ export const normalizeXDrivePaymentTerm = (
   return null;
 };
 
-export const paymentTermDays = (paymentTerm: PaymentTerm): 0 | 14 | 30 => {
+export const paymentTermDays = (paymentTerm: PaymentTerm): 0 | 7 | 14 | 30 => {
   if (paymentTerm === 'Pay now') return 0;
+  if (paymentTerm === '7 days') return 7;
   return paymentTerm === '14 days' ? 14 : 30;
 };
 

@@ -63,7 +63,7 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
     netAmount: Number(row.net_amount),
     vatAmount: Number(row.vat_amount),
     vatRate: row.vat_rate as 0 | 5 | 20,
-    paymentTerms: (row.payment_terms as 'Pay now' | '14 days' | '30 days') ?? '14 days',
+    paymentTerms: (row.payment_terms as 'Pay now' | '7 days' | '14 days' | '30 days') ?? '14 days',
     lateFee: COMPANY_CONFIG.payment.lateFeeNote,
     podPhotos: row.pod_photos ?? undefined,
     signature: row.signature ?? undefined,
@@ -238,7 +238,7 @@ export default function InvoiceDetailPage() {
   useEffect(() => {
     if (formData.date && formData.paymentTerms) {
       const invoiceDate = new Date(formData.date);
-      const daysToAdd = formData.paymentTerms === '14 days' ? 14 : 30;
+      const daysToAdd = formData.paymentTerms === 'Pay now' ? 0 : formData.paymentTerms === '7 days' ? 7 : formData.paymentTerms === '14 days' ? 14 : 30;
       const dueDate = new Date(invoiceDate);
       dueDate.setDate(dueDate.getDate() + daysToAdd);
       setFormData((prev) => ({
@@ -1104,10 +1104,11 @@ export default function InvoiceDetailPage() {
                     <label style={labelStyle}>Payment Terms</label>
                     <select
                       value={formData.paymentTerms}
-                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as 'Pay now' | '14 days' | '30 days' })}
+                      onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value as 'Pay now' | '7 days' | '14 days' | '30 days' })}
                       style={inputStyle}
                     >
                       <option value="Pay now">Pay now</option>
+                      <option value="7 days">7 days</option>
                       <option value="14 days">14 days</option>
                       <option value="30 days">30 days</option>
                     </select>

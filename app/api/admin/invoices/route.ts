@@ -31,7 +31,7 @@ const schema = z.object({
   amount: z.number().positive().finite(),
   vatRate: z.union([z.literal(0), z.literal(5), z.literal(20)]),
   currency: z.string().trim().length(3),
-  paymentTerms: z.enum(['Pay now', '14 days', '30 days']),
+  paymentTerms: z.enum(['Pay now', '7 days', '14 days', '30 days']),
 });
 
 const nullable = (value: string | null | undefined) => {

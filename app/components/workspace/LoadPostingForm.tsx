@@ -1253,7 +1253,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
         </div>
         <div style={{ marginTop: '6px', color: '#64748b', fontSize: '10px', lineHeight: '14px', fontWeight: 500 }}>
-          Customer booking reference is optional and remains an external/customer reference. XDrive generates its own load reference automatically. Payment terms are shown on every posted job and are limited to Pay now, 14 days or 30 days; 45, 60 and 90 day terms are not supported.
+          Customer booking reference is optional and remains an external/customer reference. XDrive generates its own load reference automatically. Payment terms are shown on every posted job and are limited to Pay now, 7 days, 14 days or 30 days; 45, 60 and 90 day terms are not supported.
         </div>
       </Panel>
 
