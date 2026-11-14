@@ -1633,13 +1633,15 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
                 </div>
                 <label className="driver-detail-item"><span>Received by (full name)</span><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /></label>
                 <div role="group" aria-label="Recipient signature"><strong>Recipient signature</strong><p>Sign below using a mouse, touchscreen or stylus.</p><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
-                <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton></div>
+                <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton><ActionButton tone="secondary" onClick={() => { const signed = signatureData(); if (signed) { setSavedSignatureData(signed); setPodDraftError(''); setMessage('Signature captured. Save the POD draft to keep it.'); } else { setPodDraftError('Draw the recipient signature first.'); } }}>Save signature</ActionButton></div>
                 {hardCopyRequired && (
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
                     <input type="checkbox" checked={hardCopyAcknowledged} onChange={(event) => setHardCopyAcknowledged(event.target.checked)} />
                     Hard-copy POD requirement completed
                   </label>
                 )}
+                <div role="status" aria-live="polite">{podDraftError ? 'POD draft not saved: ' + podDraftError : podDraftSaving ? 'Saving POD draft...' : podDraftLoaded ? 'POD draft ready; changes are saved to XDrive.' : 'Loading POD draft...'}</div>
+                <ActionButton tone="secondary" disabled={working || podDraftSaving || !podDraftLoaded} onClick={() => void savePodDraftNow()}>{podDraftSaving ? 'Saving draft...' : 'Save POD Draft'}</ActionButton>
                 {currentStatus === 'delivered' && (
                   <ActionButton tone="success" disabled={working} onClick={() => void completePod()}>
                     {working ? 'Saving POD…' : 'Complete POD'}
