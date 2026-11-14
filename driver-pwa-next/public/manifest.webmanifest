@@ -1,0 +1,17 @@
+{
+  "name": "XDrive Logistics Driver NEXT",
+  "short_name": "XDrive NEXT",
+  "id": "/driver/reserve-next/",
+  "start_url": "/driver/reserve-next/index.html",
+  "scope": "/driver/reserve-next/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#071a42",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

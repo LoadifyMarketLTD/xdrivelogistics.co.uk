@@ -1,0 +1,62 @@
+/* Driver NEXT: single-column CX-reference booking Status screen */
+.xb-workspace:has(.xb-cx-status){max-width:760px;margin:0 auto;gap:12px}
+.xb-workspace:has(.xb-cx-status) .xb-heading{display:none}
+.xb-workspace:has(.xb-cx-status) .xb-tabs{background:#343543;border-radius:38px;gap:0;padding:4px;overflow:hidden}
+.xb-workspace:has(.xb-cx-status) .xb-tabs button{min-height:54px;font-size:16px;border-radius:35px;color:#f5f5f8}
+.xb-workspace:has(.xb-cx-status) .xb-tabs button.xb-tab-active{background:#ffe168;color:#161822}
+.xb-cx-status{display:grid;gap:15px;min-width:0}
+.xb-cx-status .xb-status-panel{padding:0;background:white;overflow:hidden;min-height:380px;border-radius:16px}
+.xb-cx-customer{background:#dedfe5;padding:21px 20px}
+.xb-cx-customer h2{color:#454852;font-size:18px;font-weight:750;margin:0 0 6px}
+.xb-cx-customer p{color:#727782;font-size:14px;margin:0}
+.xb-cx-status .xb-timeline{display:grid;gap:9px;padding:27px 20px 30px}
+.xb-cx-status .xb-stage{min-height:68px;gap:15px}
+.xb-cx-status .xb-stage-symbol{font-size:0;width:31px;height:31px;flex-basis:31px;background:#d9dce1;border-color:#d9dce1;color:white}
+.xb-cx-status .xb-stage-symbol::after{content:'✓';font-size:17px}
+.xb-cx-status .xb-stage-done .xb-stage-symbol{background:#60bd52;border-color:#60bd52}
+.xb-cx-status .xb-stage-current .xb-stage-symbol{background:#d9dce1;border-color:#d9dce1;color:white}
+.xb-cx-status .xb-stage-current .xb-stage-symbol::after{content:'✓'}
+.xb-cx-status .xb-stage:not(:last-child)::before{left:15px;top:34px;bottom:-7px;background:none;border-left:3px dotted #d8dce2;width:0}
+.xb-cx-status .xb-stage-content{gap:5px;padding:3px 0 17px}
+.xb-cx-status .xb-stage-content strong{font-size:17px}
+.xb-cx-status .xb-stage-content time{font-size:13px;color:#777d89}
+.xb-cx-status .xb-stage-content small{font-size:12px}
+.xb-cx-status .xb-stage-action{display:none}
+.xb-cx-status .xb-evidence-note{margin:0 18px 16px}
+.xb-cx-continue{width:100%;min-height:60px;background:#60bc50;color:white;border:0;border-radius:14px;font-size:19px;font-weight:750}
+.xb-cx-documents{display:grid;gap:10px}
+.xb-cx-documents-button{padding:14px;border:0;border-radius:10px;background:#e9f1f8;color:#19304d;font-weight:700}
+.xb-cx-operation{background:#fff;border-radius:15px;overflow:hidden}
+.xb-cx-form-title{display:flex;align-items:center;gap:12px;padding:15px;background:#343543;color:white}
+.xb-cx-form-title button{background:none;color:white;border:0;font-size:24px}
+.xb-cx-form-title h2{color:white!important;font-size:20px;margin:0}
+.xb-cx-operation .xb-delivery{padding:17px}
+.xb-cx-finance{padding:17px;background:#fff;border-radius:15px}
+@media(min-width:950px){
+ .rv-shell:has(.xb-cx-status){display:block;max-width:900px;padding-bottom:50px}
+ .rv-shell:has(.xb-cx-status) .rv-header{height:76px}
+ .rv-shell:has(.xb-cx-status) .rv-main{padding:22px 22px 36px;min-height:auto}
+ .rv-shell:has(.xb-cx-status) .rv-nav{position:relative;width:100%;max-width:none;left:auto;bottom:auto;transform:none;justify-content:center}
+}
+
+/* Keep the next-status action above the bottom mobile navigation, as in the CX reference. */
+@media(max-width:949px){.rv-main:has(.xb-cx-status){padding-bottom:165px}.xb-cx-continue{position:fixed;bottom:82px;left:12px;width:calc(100% - 24px);z-index:45;box-shadow:0 6px 18px #102a3e35}}
+
+
+/* The timeline scrolls within the white panel; the fixed green action never covers a completed status row. */
+@media(max-width:949px){.xb-cx-status .xb-status-panel{height:calc(100dvh - 300px);min-height:350px;overflow-y:auto;overscroll-behavior:contain}.xb-cx-status .xb-timeline{padding-bottom:22px}}
+/* POD is a dedicated screen, not a Status tab with a form underneath. */
+.xb-workspace:has(.xb-cx-operation) .xb-tabs{display:none}
+.xb-workspace:has(.xb-cx-operation){gap:0}
+.xb-cx-operation .xb-delivery-header h3,.xb-cx-operation .xb-delivery-header>.xb-muted{display:none}
+.xb-cx-operation .xb-delivery-header{padding:0;border:0;box-shadow:none}
+.xb-cx-operation .xb-delivery-header .xb-address{margin:0}
+.xb-cx-operation .xb-cx-form-title{position:sticky;top:0;z-index:8}
+.xb-cx-operation .xb-form-actions{position:sticky;bottom:0;z-index:8;background:#fff;padding:10px 0;border-top:1px solid #e4e8ef}
+@media(max-width:949px){
+ .rv-main:has(.xb-cx-operation){padding:9px 12px 0;min-height:0}
+ .xb-cx-operation{height:calc(100dvh - 150px);max-height:calc(100dvh - 150px);overflow-y:auto;overscroll-behavior:contain;scroll-padding-bottom:80px}
+ .xb-cx-operation .xb-delivery{padding:14px 13px 80px}
+ .xb-cx-operation .xb-form-actions{grid-template-columns:minmax(85px,.9fr) minmax(0,2fr)}
+ .xb-cx-operation .xb-form-actions button{font-size:13px}
+}
