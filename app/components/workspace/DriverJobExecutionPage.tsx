@@ -1617,23 +1617,23 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
                 ? 'POD is mandatory for every job. Confirm the recipient, evidence and signature before invoice creation.'
                 : 'Photo, recipient name and signature are all required before marking the job Delivered.'}
             >
-              <input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} />
+              <input ref={deliveryInput} type="file" accept="image/*" multiple hidden onChange={selectDeliveryPhotos} />
               <div style={{ display: 'grid', gap: 7 }}>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   <StatusBadge value="POD required" tone="orange" />
                   <StatusBadge value={deliveryPhotos.length ? `${deliveryPhotos.length} delivery photo${deliveryPhotos.length === 1 ? '' : 's'}` : 'Delivery photo missing'} tone={deliveryPhotos.length ? 'green' : 'orange'} />
                   {job.delivery_signature_data ? <StatusBadge value="Signature recorded" tone="green" /> : null}
                 </div>
-                <ActionButton tone="secondary" disabled={working || deliveryPhotos.length >= 10} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length}/10)</ActionButton>
+                <ActionButton tone="secondary" disabled={working || deliveryPhotos.length >= 10} onClick={() => deliveryInput.current?.click()}>Upload delivery photos from device ({deliveryPhotos.length}/10)</ActionButton>
                 <div className="driver-detail-grid">
                   <label className="driver-detail-item"><span>Delivered on</span><input type="date" value={podDeliveredOn} onChange={(event) => setPodDeliveredOn(event.target.value)} style={inputStyle} /></label>
                   <label className="driver-detail-item"><span>Delivery status</span><select value={podDeliveryStatus} onChange={(event) => setPodDeliveryStatus(event.target.value)} style={inputStyle}><option>Completed Delivery</option><option>Partial Delivery</option><option>Failed Delivery</option><option>Refused</option><option>Left Safe</option></select></label>
                   <label className="driver-detail-item"><span>No. of items</span><input type="number" min="0" value={podItemCount} onChange={(event) => setPodItemCount(event.target.value)} style={inputStyle} /></label>
                   <label className="driver-detail-item"><span>Left at</span><input value={podLeftAt} onChange={(event) => setPodLeftAt(event.target.value)} placeholder="Goods inwards / reception / safe place" style={inputStyle} /></label>
                 </div>
-                <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} />
-                <canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
-                <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton>
+                <label className="driver-detail-item"><span>Received by (full name)</span><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /></label>
+                <div role="group" aria-label="Recipient signature"><strong>Recipient signature</strong><p>Sign below using a mouse, touchscreen or stylus.</p><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
+                <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton></div>
                 {hardCopyRequired && (
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
                     <input type="checkbox" checked={hardCopyAcknowledged} onChange={(event) => setHardCopyAcknowledged(event.target.checked)} />
