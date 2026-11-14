@@ -88,3 +88,10 @@
 - Local Supabase credentials are unavailable to the dev server (NEXT_PUBLIC_SUPABASE_URL and anon key not configured), so no authenticated E2E, RLS or customer/driver real backend validation. Do not claim real-world workflows PASS.
 - TypeScript, scoped ESLint and static guard 12/12 previously PASS. Next optimized compilation PASS; complete production build still not proven PASS.
 - No changes to Post Load, PWA, published main or Supabase. NO PUSH/NO MERGE/NO DEPLOY.
+
+## Phase 7 — additional contract regression audit (14 November 2026, ~08:31 UTC)
+- Ran Vitest on five cross-workspace suites: crossWorkspacePodEvidenceCompletionContract 5/5, crossWorkspaceQuoteLifecycleWiringContract 4/4, crossWorkspaceOwnerReferenceParityContract 6/6, crossWorkspaceCanonicalDiaryWiringContract 3/3, allWorkspaceCxReferencePageAudit 9/9. Combined **27/27 PASS**.
+- Ran six role/security/booking suites: allWorkspaceSettingsParityContract 3/3, crossWorkspaceDiaryRoleRlsContract 3/3, crossWorkspaceDiaryStabilityContract 4/4, companyDriverCommercialBoundary 5/5, bookingOfferCarrierAcceptance 7/7, crossWorkspaceDashboardConsistencyContract 10/10. Combined **32/32 PASS**.
+- Total new Vitest contract suite result **59/59 PASS**, 11/11 files. Reran `node scripts/test-pr807-cross-role-safety.cjs`: 12/12 PASS. Diff against origin/main shows no Post Load or Driver PWA path changes.
+- These tests do not prove authenticated Supabase role flows or full interactive functionality. Local environment lacks public Supabase config; no production writes made. Full production build was not completed; approval gate remains **NO-GO for main**.
+- Current integration branch `integration/owner-driver-selective-20261114`; last code migration commit `609fa6d3`, preview-audit commit `c8d5c00c`. The seven historical role-specific authenticated workspace modules and document workflow still require E2E testing. Do not attempt merge/production deploy without full verification.
