@@ -50,82 +50,105 @@ export type SignedLegalAgreementPdfResult = {
 
 const loadInterFonts = async (pdf: PDFDocument) => {
   pdf.registerFontkit(fontkit);
-  // Embed real TrueType fonts, not browser WOFF webfonts. WOFF subsetting
-  // generated unreadable glyphs in signed PDFs on common PDF viewers.
-  // Keep these fonts in the repository so serverless production can read them.
+  // Each @fontsource Inter subset is INCOMPLETE alone: latin-ext lacks ordinary
+  // English letters, so the old generator silently drew .notdef squares.
+  // Embed both open-source Unicode subsets and select per character.
   const base = join(process.cwd(), 'public', 'fonts', 'legal');
-  const [regularBytes, boldBytes] = await Promise.all([
-    readFile(join(base, 'inter-latin-ext-400-normal.ttf')),
-    readFile(join(base, 'inter-latin-ext-700-normal.ttf')),
+  const [latinRegularBytes, latinBoldBytes, extRegularBytes, extBoldBytes] = await Promise.all([
+    readFile(join(base,'inter-latin-400-normal.ttf')),
+    readFile(join(base,'inter-latin-700-normal.ttf')),
+    readFile(join(base,'inter-latin-ext-400-normal.ttf')),
+    readFile(join(base,'inter-latin-ext-700-normal.ttf')),
   ]);
-  return {
-    regular: await pdf.embedFont(regularBytes, { subset: false }),
-    bold: await pdf.embedFont(boldBytes, { subset: false }),
+  const [regular, bold, extRegular, extBold] = await Promise.all([
+    pdf.embedFont(latinRegularBytes,{subset:false}),
+    pdf.embedFont(latinBoldBytes,{subset:false}),
+    pdf.embedFont(extRegularBytes,{subset:false}),
+    pdf.embedFont(extBoldBytes,{subset:false}),
+  ]);
+  const latinRegular = fontkit.create(latinRegularBytes);
+  const latinBold = fontkit.create(latinBoldBytes);
+  const extendedRegular = fontkit.create(extRegularBytes);
+  const extendedBold = fontkit.create(extBoldBytes);
+  const select = (char:string,isBold:boolean):PDFFont => {
+    const cp=char.codePointAt(0)!;
+    if ((isBold?latinBold:latinRegular).hasGlyphForCodePoint(cp)) return isBold?bold:regular;
+    if ((isBold?extendedBold:extendedRegular).hasGlyphForCodePoint(cp)) return isBold?extBold:extRegular;
+    throw new Error('Legal PDF font does not support Unicode U+'+cp.toString(16).toUpperCase().padStart(4,'0'));
   };
+  return { select };
 };
 
-const wrapText = (font: PDFFont, text: string, size: number, maxWidth: number) => {
-  const paragraphs = text.replace(/\r/g, '').split('\n');
-  const lines: string[] = [];
-  for (const paragraph of paragraphs) {
-    if (!paragraph.trim()) { lines.push(''); continue; }
-    const words = paragraph.split(/\s+/);
-    let line = '';
-    for (const word of words) {
-      const candidate = line ? `${line} ${word}` : word;
-      if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-        line = candidate;
-        continue;
+const fontRuns=(value:string,bold:boolean,select:(char:string,bold:boolean)=>PDFFont)=>{
+  const runs:Array<{font:PDFFont; text:string}>=[];
+  for(const char of value){
+    const font=select(char,bold);
+    const last=runs[runs.length-1];
+    if(last && last.font===font)last.text+=char;
+    else runs.push({font,text:char});
+  }
+  return runs;
+};
+const textWidth=(value:string,size:number,bold:boolean,select:(char:string,bold:boolean)=>PDFFont)=>
+  fontRuns(value,bold,select).reduce((sum,{font,text})=>sum+font.widthOfTextAtSize(text,size),0);
+
+const wrapText = (
+  text: string, size:number, maxWidth:number,bold:boolean,
+  select:(char:string,bold:boolean)=>PDFFont,
+) => {
+  const paragraphs=text.replace(/\r/g,'').split('\n');
+  const lines:string[]=[];
+  for(const paragraph of paragraphs){
+    if(!paragraph.trim()){lines.push('');continue;}
+    const words=paragraph.split(/\s+/);
+    let line='';
+    for(const word of words){
+      const candidate=line?line+' '+word:word;
+      if(textWidth(candidate,size,bold,select)<=maxWidth){line=candidate;continue;}
+      if(line)lines.push(line);
+      if(textWidth(word,size,bold,select)<=maxWidth){line=word;continue;}
+      let chunk='';
+      for(const char of word){
+        const next=chunk+char;
+        if(textWidth(next,size,bold,select)>maxWidth && chunk){lines.push(chunk);chunk=char;}
+        else chunk=next;
       }
-      if (line) lines.push(line);
-      if (font.widthOfTextAtSize(word, size) <= maxWidth) {
-        line = word;
-        continue;
-      }
-      let chunk = '';
-      for (const char of word) {
-        const next = chunk + char;
-        if (font.widthOfTextAtSize(next, size) > maxWidth && chunk) {
-          lines.push(chunk);
-          chunk = char;
-        } else chunk = next;
-      }
-      line = chunk;
+      line=chunk;
     }
-    if (line) lines.push(line);
+    if(line)lines.push(line);
   }
   return lines;
 };
-
-const addWriter = (pdf: PDFDocument, regular: PDFFont, bold: PDFFont) => {
-  let page: PDFPage = pdf.addPage(A4);
-  // The first page reserves its masthead for the canonical XDrive wordmark.
-  let y = A4[1] - MARGIN - 80;
-  const ensure = (height: number) => {
-    if (y - height >= MARGIN) return;
-    page = pdf.addPage(A4);
-    y = A4[1] - MARGIN;
+const addWriter=(pdf:PDFDocument,select:(char:string,bold:boolean)=>PDFFont)=>{
+  let page:PDFPage=pdf.addPage(A4);
+  let y=A4[1]-MARGIN-80;
+  const ensure=(height:number)=>{
+    if(y-height>=MARGIN)return;
+    page=pdf.addPage(A4);y=A4[1]-MARGIN-80;
   };
-  const line = (value: string, opts?: { size?: number; bold?: boolean; color?: ReturnType<typeof rgb>; gap?: number }) => {
-    const size = opts?.size ?? 9.5;
-    const font = opts?.bold ? bold : regular;
-    const color = opts?.color ?? DARK;
-    const lines = wrapText(font, value, size, CONTENT_WIDTH);
-    const lineHeight = size * 1.45;
-    ensure(Math.max(lineHeight, lines.length * lineHeight) + (opts?.gap ?? 0));
-    for (const item of lines) {
-      page.drawText(item || ' ', { x: MARGIN, y, size, font, color });
-      y -= lineHeight;
+  const line=(value:string,opts?:{size?:number;bold?:boolean;color?:ReturnType<typeof rgb>;gap?:number})=>{
+    const size=opts?.size??9.5,isBold=!!opts?.bold,color=opts?.color??DARK;
+    const lines=wrapText(value,size,CONTENT_WIDTH,isBold,select);
+    const lineHeight=size*1.45;
+    ensure(Math.max(lineHeight,lines.length*lineHeight)+(opts?.gap??0));
+    for(const item of lines){
+      let x=MARGIN;
+      if(!item){y-=lineHeight;continue;}
+      for(const run of fontRuns(item,isBold,select)){
+        page.drawText(run.text,{x,y,size,font:run.font,color});
+        x+=run.font.widthOfTextAtSize(run.text,size);
+      }
+      y-=lineHeight;
     }
-    y -= opts?.gap ?? 0;
+    y-=opts?.gap??0;
   };
-  const spacer = (height = 8) => { ensure(height); y -= height; };
-  const rule = () => {
+  const spacer=(height=8)=>{ensure(height);y-=height;};
+  const rule=()=>{
     ensure(10);
-    page.drawLine({ start: { x: MARGIN, y }, end: { x: A4[0] - MARGIN, y }, thickness: 0.8, color: rgb(0.84, 0.87, 0.91) });
-    y -= 12;
+    page.drawLine({start:{x:MARGIN,y},end:{x:A4[0]-MARGIN,y},thickness:.8,color:rgb(.84,.87,.91)});
+    y-=12;
   };
-  return { line, spacer, rule };
+  return {line,spacer,rule};
 };
 
 export const buildSignedLegalAgreementPdf = async (input: SignedLegalAgreementPdfInput): Promise<SignedLegalAgreementPdfResult> => {
@@ -181,16 +204,14 @@ export const buildSignedLegalAgreementPdf = async (input: SignedLegalAgreementPd
   pdf.setSubject('Immutable electronic legal acceptance package');
   pdf.setCreator('XDrive Logistics');
   pdf.setProducer('XDrive Logistics');
-  const { regular, bold } = await loadInterFonts(pdf);
+  const { select } = await loadInterFonts(pdf);
   await pdf.attach(Buffer.from(JSON.stringify(exactUtf8Evidence, null, 2), 'utf8'), `XDrive-Legal-Text-${language}-${input.acceptanceId.slice(0, 8).toUpperCase()}.json`, {
     mimeType: 'application/json',
     description: 'Exact UTF-8 signed legal text and evidence bound to this acceptance.',
     creationDate: new Date(input.evidence.acceptedAt),
   });
-  const w = addWriter(pdf, regular, bold);
-  await drawOfficialXDrivePdfLogo(pdf, pdf.getPage(0), { x: MARGIN, y: 722, maxWidth: 232, maxHeight: 69 });
-
-  w.line(COMPANY_CONFIG.legalName, { size: 18, bold: true, color: NAVY });
+  const w = addWriter(pdf, select);
+  // Official XDrive logo on all pages, after pagination; the header space is reserved.
   w.line(pdfCopy.packageTitle, { size: 15, bold: true, color: ORANGE, gap: 5 });
   w.line(`${pdfCopy.acceptanceId}: ${input.acceptanceId}`, { size: 8.5, color: MUTED });
   w.line(`${pdfCopy.acceptedAt}: ${input.evidence.acceptedAt}`, { size: 8.5, color: MUTED });
@@ -260,6 +281,13 @@ export const buildSignedLegalAgreementPdf = async (input: SignedLegalAgreementPd
   w.line(`${pdfCopy.signatureHash}: ${signaturePayloadHash}`, { size: 7.5 });
   w.line(`${pdfCopy.generatedBy} ${COMPANY_CONFIG.legalName}, ${pdfCopy.companyNumber} ${COMPANY_CONFIG.companyNumber}.`, { size: 8.5, color: MUTED });
 
+  // Canonical XDrive logo, never reproduced as text or a placeholder.
+  for (const [index, page] of pdf.getPages().entries()) {
+    await drawOfficialXDrivePdfLogo(pdf, page, { x: MARGIN, y: 735, maxWidth: 232, maxHeight: 58 });
+    page.drawLine({ start: { x: MARGIN, y: 724 }, end: { x: A4[0]-MARGIN, y: 724 }, thickness: 0.6, color: rgb(0.85,0.89,0.94) });
+    const footerFont = select("X", false);
+    page.drawText("XDrive Logistics | " + (index + 1) + " / " + pdf.getPageCount(), { x: MARGIN, y: 25, size: 8, font: footerFont, color: MUTED });
+  }
   const bytes = await pdf.save({ useObjectStreams: false });
   const pdfHash = sha256Hex(bytes);
   const filename = `XDrive-Signed-Agreement-${input.acceptanceId.slice(0, 8).toUpperCase()}.pdf`;
