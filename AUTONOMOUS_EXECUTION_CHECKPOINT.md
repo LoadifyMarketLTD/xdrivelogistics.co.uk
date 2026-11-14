@@ -55,3 +55,10 @@
 - New component `app/components/workspace/XDriveTransportOverview.tsx`, stylesheet `app/driver/xdrive-operational-cards-v3.css`; code and CSS parse validated.
 - `scripts/test-owner-myjobs-safety.cjs` 9/9 PASS; related 3 Vitest files 13/13 PASS; after My Jobs `npm run typecheck` PASS (17.13 seconds). Main integration guard `scripts/test-owner-selective-integration.cjs` 12/12 PASS. `git diff --check` PASS. No post-load or PWA changes, no production or preview push.
 - Other modules Loads/Quotes/Diary/Finance remain **NOT SELECTIVELY INTEGRATED**; full functional E2E and production build still NOT DONE. Gate NO-GO.
+
+## Phase 4 (LOCAL ONLY): Finance visual parity without changing approved invoice lifecycle
+- `app/driver/finance/page.tsx`: only add Owner Driver role resolver and `data-owner-finance=true` attribute on existing `InvoiceProSurface`. No finance calculation, API call, tab filter, invoice generation, email/send, VAT, payment status, RLS, or state machine logic changed (file byte-equal to main after removing exactly those changes).
+- `app/components/workspace/InvoiceProFinance.module.css`: owner-scoped compact styling of cards, action buttons and font sizes; legacy invoice styling for Company Driver and other roles unchanged.
+- `scripts/test-owner-finance-safety.cjs`: 9/9 PASS including exact main semantics, Draft separate review before Send, unpaid invoice filter and draft/cancelled accounting exclusion. Three finance/business billing unit test files: 8/8 PASS. TypeScript run after finance port PASS.
+- Premerge integration guard after phase 4 12/12 PASS; PWA/Post Load/other role route diff zero. Do NOT copy old Preview #807 finance page: that version auto-sends generated invoices, changes accounting and removes awaiting-payment scope; these regressions would violate requirements.
+- Loads/Quotes/Diary visuals still NOT selectively integrated; full end-to-end booking/POD/invoice/email under test data and cross-role regressions NOT DONE. Main release NO-GO. No push.

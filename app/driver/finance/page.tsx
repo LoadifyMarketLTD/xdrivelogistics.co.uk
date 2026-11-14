@@ -7,6 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import {
   toCanonicalInvoiceStatusWithDueDate,
   toCanonicalPaymentStatus,
@@ -117,6 +118,7 @@ export default function DriverFinancePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
+  const isOwnerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const financeView = searchParams.get('view') === 'payables' ? 'payables' : 'receivables';
   const canGenerateInvoices = (user?.membershipRole === 'owner' || user?.membershipRole === 'admin') && financeView === 'receivables';
   const [activeTab, setActiveTab] = useState<FinanceRegisterFilter>('All');
@@ -271,7 +273,7 @@ export default function DriverFinancePage() {
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell hideHeader>
-        <InvoiceProSurface data-testid="invoice-pro-driver-finance">
+        <InvoiceProSurface data-testid="invoice-pro-driver-finance" data-owner-finance={isOwnerDriver ? "true" : undefined}>
           {error && <AlertBanner tone="danger">{error}</AlertBanner>}
           {generateError && <AlertBanner tone="danger">{generateError}</AlertBanner>}
 

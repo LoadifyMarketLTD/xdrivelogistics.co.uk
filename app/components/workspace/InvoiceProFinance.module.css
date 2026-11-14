@@ -63,3 +63,25 @@
 .actionButton>span:nth-child(2){display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
 .actionButton .actionLabel,.actionButton .actionSub{display:block;line-height:1.4;white-space:normal;overflow-wrap:anywhere}
 .actionButton .arrow{display:block;justify-self:end}
+
+/* Owner Driver-only finance visual adjustments; canonical accounting and APIs unchanged. */
+.surface[data-owner-finance="true"]{gap:12px;--ip-line:#d8e3ef;--ip-bg:#f4f8fc;--ip-ink:#112f53}
+.surface[data-owner-finance="true"] .nav{border-radius:9px;box-shadow:none}
+.surface[data-owner-finance="true"] .navButton{border-radius:6px;min-height:37px;font-size:13px}
+.surface[data-owner-finance="true"] .metric{min-height:106px;border-radius:9px;padding:15px 16px;box-shadow:0 1px 4px rgba(17,47,83,.05)}
+.surface[data-owner-finance="true"] .metricLabel{font-size:11px;letter-spacing:.09em}
+.surface[data-owner-finance="true"] .metricValue{font-size:25px;line-height:1.15}
+.surface[data-owner-finance="true"] .metricSub{font-size:12px;line-height:18px}
+.surface[data-owner-finance="true"] .panel,.surface[data-owner-finance="true"] .register{border-radius:9px;box-shadow:0 1px 4px rgba(17,47,83,.05)}
+.surface[data-owner-finance="true"] .flow{border-radius:7px}
+.surface[data-owner-finance="true"] .flowRow{padding:12px}
+.surface[data-owner-finance="true"] .flowLabel{font-size:13px}
+.surface[data-owner-finance="true"] .flowSub{font-size:12px;line-height:17px}
+.surface[data-owner-finance="true"] .actionButton{grid-template-columns:30px minmax(0,1fr) 16px;border-radius:7px;gap:10px;min-height:53px;padding:9px 12px}
+.surface[data-owner-finance="true"] .actionButton>span:nth-child(2){display:flex;flex-direction:column;min-width:0;gap:3px}
+.surface[data-owner-finance="true"] .actionLabel{display:block;font-size:13px;line-height:18px;font-weight:800}
+.surface[data-owner-finance="true"] .actionSub{display:block;font-size:12px;line-height:17px;overflow-wrap:anywhere}
+.surface[data-owner-finance="true"] .actionIcon{width:29px;height:29px;border-radius:6px}
+.surface[data-owner-finance="true"] .table th{font-size:12px}
+.surface[data-owner-finance="true"] .table td{font-size:13px}
+@media(max-width:700px){.surface[data-owner-finance="true"] .actionButton{grid-template-columns:28px minmax(0,1fr) 12px}}
