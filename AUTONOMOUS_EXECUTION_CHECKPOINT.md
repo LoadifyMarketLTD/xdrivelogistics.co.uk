@@ -127,3 +127,10 @@
 - Re-ran cross-role static contract 12/12 PASS. Owner-only historical scope guard has expected 1 FAIL because the authorized change now spans seven roles; do not weaken guard or claim full PASS.
 - Remaining Company authenticated gate and all seven operational 807 E2E gates remain NO-GO. No main push.
 
+ 
+## 2026-11-14 authenticated shell gate  
+- Commit 59ab8ed3 moved authenticated Broker and Company non-dashboard/non-Post-Load routes to AuthenticatedMasterShell; Post Load retains original shell.  
+- New read-only local Playwright test e2e/pr807-authenticated-shell.spec.ts: Broker, Fleet Manager, Dispatcher all 3/3 PASS against real Supabase Production data on localhost:5299; first run false failures from hidden desktop mobile-toggle locator corrected.  
+- Broker screenshot/test context confirmed 33 real Loads with route, times, payment terms and View Details/Quotes and Award actions visible. Write actions were NOT executed.  
+- Concurrent TypeScript run encountered conflicting generated Next validator type directories while Playwright dev server was active; not a verified source-code TypeScript failure. Recheck after build/dev artifacts isolated.  
+- Protected Super Admin, Post Load page and Driver PWA remain unchanged. No main push. Remaining full seven-role visual parity and workflow E2E NO-GO.  
