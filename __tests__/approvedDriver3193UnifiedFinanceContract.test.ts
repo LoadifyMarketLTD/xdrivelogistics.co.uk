@@ -32,7 +32,7 @@ describe('Single approved 3193 Driver Finance model, all permitted workspaces', 
     expect(driver).toContain('/api/driver/finance/invoices');
     expect(driver).toContain('/api/driver/finance/jobs/eligible');
     expect(driver).toContain('generate-invoice');
-    expect(business).toContain("fetch('/api/workspace/finance/control'");
+    expect(business).toContain("const financeEndpoint = '/api/workspace/finance/control'");
     expect(business).toContain('Authorization: `Bearer ${token}`');
     expect(superAdmin).toContain('/api/super-admin/finance?section=invoices');
     expect(superAdmin).toContain("<ProtectedRoute allowedRoles={['owner']}>");
