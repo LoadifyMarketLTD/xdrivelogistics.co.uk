@@ -1,0 +1,50 @@
+/* Same Owner Driver six-category account navigation across Settings, Legal and Billing. */
+.owner-settings-route-layout {
+  max-width:1380px;
+  margin:16px 24px;
+  grid-template-columns:204px minmax(0,1fr);
+}
+.owner-settings-route-layout .role-settings-nav a {
+  display:flex;
+  align-items:center;
+  min-height:43px;
+  padding:7px 13px;
+  background:white;
+  color:#1f3652;
+  font-size:13px;
+  font-weight:700;
+  line-height:19px;
+  text-decoration:none;
+  border-bottom:1px solid #edf2f7;
+  border-left:3px solid transparent;
+}
+.owner-settings-route-layout .role-settings-nav a:hover { background:#f8fbff; }
+.owner-settings-route-layout .role-settings-nav a[data-active="true"] {
+  border-left-color:#f5a300;
+  background:#eef4fa;
+  color:#0b2f6b;
+}
+.owner-settings-route-layout .role-settings-nav a:focus-visible {
+  outline:2px solid #1769c1;
+  outline-offset:-2px;
+}
+.owner-settings-route-layout .role-settings-main {
+  padding:0;
+  min-width:0;
+}
+.owner-settings-route-layout .role-settings-main > * {
+  margin:0;
+}
+@media(max-width:900px){
+  .owner-settings-route-layout {
+    grid-template-columns:1fr;
+    margin:10px;
+  }
+}
+@media(min-width:520px) and (max-width:900px){
+  .owner-settings-route-layout .role-settings-nav {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .owner-settings-route-layout .role-settings-company {grid-column:1/-1;}
+}

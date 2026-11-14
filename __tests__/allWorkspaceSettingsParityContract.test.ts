@@ -7,7 +7,7 @@ describe('all workspace settings parity', () => {
   const settings = read('app/components/workspace/RoleSettingsWorkspace.tsx');
 
   it('uses one shared sidebar for every workspace role', () => {
-    expect(settings).toContain('<div className="role-settings-layout">');
+    expect(settings).toContain('className="role-settings-layout" data-owner-settings');
     expect(settings).toContain('<aside className="role-settings-nav">');
     expect(settings).not.toContain("role !== 'owner' && role !== 'driver'");
     expect(settings).not.toContain('role-settings-layout--topnav');

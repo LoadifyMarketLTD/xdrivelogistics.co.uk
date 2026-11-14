@@ -160,3 +160,18 @@
   }
 }
 
+
+/* Owner Driver Settings v9: six stable account categories, no duplicated operations navigation. */
+.role-settings-layout[data-owner-settings="true"]{grid-template-columns:204px minmax(0,1fr);gap:12px;max-width:1380px}
+.role-settings-layout[data-owner-settings="true"] .role-settings-nav{border:1px solid #d7e2ef;border-radius:9px;overflow:hidden;box-shadow:none}
+.role-settings-layout[data-owner-settings="true"] .role-settings-company{padding:12px 14px;background:#eef4fb}
+.role-settings-layout[data-owner-settings="true"] .role-settings-nav button{min-height:43px;padding:7px 13px;font-size:13px;font-weight:700;line-height:19px}
+.role-settings-layout[data-owner-settings="true"] .role-settings-nav button:focus-visible{outline:2px solid #1769c1;outline-offset:-2px}
+.role-settings-layout[data-owner-settings="true"] .role-settings-main{width:100%;min-width:0}
+.role-settings-layout[data-owner-settings="true"] .role-settings-overview{max-width:950px}
+.role-settings-layout[data-owner-settings="true"] .role-settings-kv>div{min-height:42px;gap:18px;padding:4px 0}
+.role-settings-layout[data-owner-settings="true"] .role-settings-kv strong{font-size:13px;font-weight:750}
+.role-settings-layout[data-owner-settings="true"] .role-settings-kv span{font-size:12px}
+.role-settings-layout[data-owner-settings="true"] .role-settings-subsection{display:grid;gap:12px;align-content:start}
+@media(max-width:900px){.role-settings-layout[data-owner-settings="true"]{grid-template-columns:1fr}}
+@media(min-width:520px) and (max-width:900px){.role-settings-layout[data-owner-settings="true"] .role-settings-nav{grid-template-columns:repeat(2,minmax(0,1fr))}.role-settings-layout[data-owner-settings="true"] .role-settings-company{grid-column:1/-1}}

@@ -22,7 +22,7 @@ describe('CX-informed Driver vs Owner Driver settings boundary', () => {
   });
 
   it('keeps Driver and Owner Driver inside the same shared Settings sidebar composition', () => {
-    expect(settings).toContain('<div className="role-settings-layout">');
+    expect(settings).toContain('className="role-settings-layout" data-owner-settings');
     expect(settings).toContain('<aside className="role-settings-nav">');
     expect(settings).not.toContain("role !== 'owner' && role !== 'driver'");
   });
