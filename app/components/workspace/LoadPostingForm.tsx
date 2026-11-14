@@ -14,6 +14,7 @@ import { WORKSPACE_READINESS_CHANGED, isSafeRecoveryHref } from '../../../lib/wo
 import { resolveLegalRemediationUrl } from '../../../lib/workspaceRemediation';
 import { isValidTargetPriceGbp, smartReadLoad } from '../../../lib/smartReadLoad';
 import { COMPANY_CONFIG } from '../../config/company';
+import { convertPostLoadMeasurement, displayPostLoadMeasurement, type PostLoadWeightUnit, type PostLoadDimensionUnit } from '../../../lib/postLoadUnits';
 import { importedPostingTown, townFromPostingAddress, validPostingTown } from '../../../lib/loadPostingTown';
 import './load-posting-exchange.css';
 import './approved-post-load-3150.css';
@@ -253,6 +254,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [jobType, setJobType] = useState<'Hotshot' | 'Backload'>('Hotshot');
   const [loadingMetres, setLoadingMetres] = useState('');
   const [cubicMetres, setCubicMetres] = useState('');
+  const [weightUnit, setWeightUnit] = useState<PostLoadWeightUnit>('kg');
+  const [dimensionUnit, setDimensionUnit] = useState<PostLoadDimensionUnit>('cm');
   const [waitReturn, setWaitReturn] = useState(false);
   const [hiab, setHiab] = useState(false);
   const [trailer, setTrailer] = useState(false);
@@ -1258,8 +1261,17 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             </label>
             <div className="approved-postload-job-metrics">
               {([['itemCount', 'No. of Items'], ['weight', 'Gross Load Weight (kg)'], ['pallets', 'Pallets']] as const).map(([key, label]) => (
-                <label key={key} style={labelStyle}>{label}
-                  <input style={{ ...fieldStyle, ...(showValidation && numericErrors[key] ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(numericErrors[key])} type="number" min="0" value={form[key]} onChange={(event) => set(key, event.target.value)} />
+                <label key={key} style={labelStyle}>{key === 'weight' ? `Gross Load Weight (${weightUnit})` : label}
+                  {key === 'weight' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 76px', gap: 6 }}>
+                      <input aria-label="Gross Load Weight" style={{ ...fieldStyle, ...(showValidation && numericErrors[key] ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(numericErrors[key])} type="number" min="0" step="any" value={displayPostLoadMeasurement(form.weight, weightUnit, 'kg')} onChange={(event) => set('weight', convertPostLoadMeasurement(event.target.value, weightUnit, 'kg'))} />
+                      <select aria-label="Weight unit" style={fieldStyle} value={weightUnit} onChange={(event) => setWeightUnit(event.target.value as PostLoadWeightUnit)}>
+                        <option value="kg">kg</option><option value="lb">lbs</option><option value="t">t</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <input style={{ ...fieldStyle, ...(showValidation && numericErrors[key] ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(numericErrors[key])} type="number" min="0" value={form[key]} onChange={(event) => set(key, event.target.value)} />
+                  )}
                 </label>
               ))}
             </div>
@@ -1279,10 +1291,15 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             <summary>Additional Options</summary>
             <div className="approved-postload-job-fields">
               <div className="approved-postload-job-metrics"><label style={labelStyle}>Loading Metres<input style={fieldStyle} type="number" min="0" step="0.01" value={loadingMetres} onChange={(event) => setLoadingMetres(event.target.value)} /></label><label style={labelStyle}>Cubic Metres<input style={fieldStyle} type="number" min="0" step="0.01" value={cubicMetres} onChange={(event) => setCubicMetres(event.target.value)} /></label></div>
+              <label style={labelStyle}>Dimension unit
+                <select aria-label="Dimension unit" style={{ ...fieldStyle, maxWidth: 140 }} value={dimensionUnit} onChange={(event) => setDimensionUnit(event.target.value as PostLoadDimensionUnit)}>
+                  <option value="cm">cm</option><option value="m">m</option><option value="in">in</option><option value="ft">ft</option>
+                </select>
+              </label>
               <div className="approved-postload-job-metrics">
                 {([['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)']] as const).map(([key, label]) => (
-                  <label key={key} style={labelStyle}>{label}
-                    <input style={{ ...fieldStyle, ...(showValidation && dimensionErrors[key] ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(dimensionErrors[key])} type="number" min="0" step="1" value={form[key]} onChange={(event) => set(key, event.target.value)} />
+                  <label key={key} style={labelStyle}>{dimensionUnit === 'cm' ? label : `${key.charAt(0).toUpperCase() + key.slice(1)} (${dimensionUnit})`}
+                    <input style={{ ...fieldStyle, ...(showValidation && dimensionErrors[key] ? invalidFieldStyle : {}) }} aria-invalid={showValidation && Boolean(dimensionErrors[key])} type="number" min="0" step="any" value={displayPostLoadMeasurement(form[key], dimensionUnit, 'cm')} onChange={(event) => set(key, convertPostLoadMeasurement(event.target.value, dimensionUnit, 'cm'))} />
                   </label>
                 ))}
               </div>

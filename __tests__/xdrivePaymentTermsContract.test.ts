@@ -46,19 +46,21 @@ const invoiceEmailTemplate = readFileSync(
 );
 
 describe('XDrive financial payment-term contract', () => {
-  it('exposes only Pay now, 14 days and 30 days as standard payment terms', () => {
-    expect(COMPANY_CONFIG.payment.terms).toEqual(['Pay now', '14 days', '30 days']);
+  it('exposes Pay now, 7 days, 14 days and 30 days as standard payment terms', () => {
+    expect(COMPANY_CONFIG.payment.terms).toEqual(['Pay now', '7 days', '14 days', '30 days']);
     expect(COMPANY_CONFIG.payment.specialExtensionDays).toBe(15);
     expect(XDRIVE_SPECIAL_EXTENSION_DAYS).toBe(15);
   });
 
   it('rejects 45/60-day base terms while preserving due-on-receipt aliases', () => {
     expect(normalizeXDrivePaymentTerm('due on receipt')).toBe('Pay now');
+    expect(normalizeXDrivePaymentTerm('7 days')).toBe('7 days');
     expect(normalizeXDrivePaymentTerm('14 days')).toBe('14 days');
     expect(normalizeXDrivePaymentTerm('30 days')).toBe('30 days');
     expect(normalizeXDrivePaymentTerm('45 days')).toBeNull();
     expect(normalizeXDrivePaymentTerm('60 days')).toBeNull();
     expect(paymentTermDays('Pay now')).toBe(0);
+    expect(paymentTermDays('7 days')).toBe(7);
     expect(paymentTermDays('14 days')).toBe(14);
     expect(paymentTermDays('30 days')).toBe(30);
   });
@@ -72,8 +74,8 @@ describe('XDrive financial payment-term contract', () => {
   });
 
   it('enforces the base contract and one controlled extension in the database', () => {
-    expect(migration).toContain("CHECK (payment_terms IN ('Pay now', '14 days', '30 days'))");
-    expect(migration).toContain('CHECK (payment_due_days IN (0, 14, 30))');
+    expect(migration).toContain("CHECK (payment_terms IN ('Pay now', '7 days', '14 days', '30 days'))");
+    expect(migration).toContain('CHECK (payment_due_days IN (0, 7, 14, 30))');
     expect(migration).toContain('CHECK (payment_extension_days IN (0, 15))');
     expect(migration).toContain('maximum +15 day payment extension');
     expect(migration).toContain("COALESCE(v_role, '') NOT IN ('owner', 'admin', 'finance')");
@@ -98,8 +100,9 @@ describe('XDrive financial payment-term contract', () => {
     expect(autoInvoice).toContain('computeInvoiceDueDate(invoiceDate, paymentTerms)');
   });
 
-  it('keeps manual invoice creation limited to the three standard terms', () => {
+  it('keeps manual invoice creation limited to the approved standard terms', () => {
     expect(manualInvoice).toContain('<option value="Pay now">Pay now</option>');
+    expect(manualInvoice).toContain('<option value="7 days">7 days</option>');
     expect(manualInvoice).toContain('<option value="14 days">14 days</option>');
     expect(manualInvoice).toContain('<option value="30 days">30 days</option>');
     expect(manualInvoice).not.toContain('<option value="45 days">');

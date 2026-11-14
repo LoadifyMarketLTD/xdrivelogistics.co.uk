@@ -1,5 +1,5 @@
 -- XDrive PreLive finance contract:
---   * base payment terms are Pay now / 14 days / 30 days only;
+--   * base payment terms are Pay now / 7 days / 14 days / 30 days only;
 --   * no 45-day or 60-day standard terms exist;
 --   * one exceptional +15 day invoice extension may be granted through the
 --     finance-authorised server path, with actor/time/reason audit fields;
@@ -32,6 +32,10 @@ BEGIN
     RETURN 'Pay now';
   END IF;
 
+  IF v_terms IN ('7 days', '7 day', 'net 7') THEN
+    RETURN '7 days';
+  END IF;
+
   IF v_terms IN ('14 days', '14 day', 'net 14') THEN
     RETURN '14 days';
   END IF;
@@ -40,7 +44,7 @@ BEGIN
     RETURN '30 days';
   END IF;
 
-  RAISE EXCEPTION 'Unsupported XDrive payment terms: %. Allowed base terms are Pay now, 14 days, or 30 days.',
+  RAISE EXCEPTION 'Unsupported XDrive payment terms: %. Allowed base terms are Pay now, 7 days, 14 days, or 30 days.',
     COALESCE(NULLIF(btrim(p_payment_terms), ''), '<empty>')
     USING ERRCODE = '23514';
 END;
@@ -57,6 +61,7 @@ DECLARE
 BEGIN
   RETURN CASE v_terms
     WHEN 'Pay now' THEN 0
+    WHEN '7 days' THEN 7
     WHEN '14 days' THEN 14
     WHEN '30 days' THEN 30
   END;
@@ -93,13 +98,14 @@ UPDATE public.jobs j
 SET payment_terms = source.payment_terms
 FROM canonical_job_payment_terms source
 WHERE j.id = source.job_id
-  AND source.payment_terms IN ('Pay now', '14 days', '30 days');
+  AND source.payment_terms IN ('Pay now', '7 days', '14 days', '30 days');
 
 UPDATE public.jobs
 SET payment_terms = public.fn_canonical_xdrive_payment_terms(payment_terms)
 WHERE lower(btrim(payment_terms)) IN (
   'pay now', 'immediate', 'due on receipt',
-  '14 days', '14 day', 'net 14',
+  '7 days', '7 day', 'net 7',
+    '14 days', '14 day', 'net 14',
   '30 days', '30 day', 'net 30'
 );
 
@@ -108,6 +114,7 @@ SET default_payment_terms = public.fn_canonical_xdrive_payment_terms(default_pay
 WHERE default_payment_terms IS NOT NULL
   AND lower(btrim(default_payment_terms)) IN (
     'pay now', 'immediate', 'due on receipt',
+    '7 days', '7 day', 'net 7',
     '14 days', '14 day', 'net 14',
     '30 days', '30 day', 'net 30'
   );
@@ -120,7 +127,8 @@ UPDATE public.invoices
 SET payment_terms = public.fn_canonical_xdrive_payment_terms(payment_terms)
 WHERE lower(btrim(payment_terms)) IN (
   'pay now', 'immediate', 'due on receipt',
-  '14 days', '14 day', 'net 14',
+  '7 days', '7 day', 'net 7',
+    '14 days', '14 day', 'net 14',
   '30 days', '30 day', 'net 30'
 );
 
@@ -129,7 +137,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM public.jobs
     WHERE payment_terms IS NULL
-       OR payment_terms NOT IN ('Pay now', '14 days', '30 days')
+       OR payment_terms NOT IN ('Pay now', '7 days', '14 days', '30 days')
   ) THEN
     RAISE EXCEPTION 'PreLive payment-term migration blocked: jobs contains unsupported payment terms.';
   END IF;
@@ -137,14 +145,14 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM public.company_settings
     WHERE default_payment_terms IS NOT NULL
-      AND default_payment_terms NOT IN ('Pay now', '14 days', '30 days')
+      AND default_payment_terms NOT IN ('Pay now', '7 days', '14 days', '30 days')
   ) THEN
     RAISE EXCEPTION 'PreLive payment-term migration blocked: company_settings contains unsupported payment terms.';
   END IF;
 
   IF EXISTS (
     SELECT 1 FROM public.job_commercial_agreements
-    WHERE payment_terms NOT IN ('Pay now', '14 days', '30 days')
+    WHERE payment_terms NOT IN ('Pay now', '7 days', '14 days', '30 days')
        OR payment_due_days IS DISTINCT FROM public.fn_xdrive_payment_due_days(payment_terms)
   ) THEN
     RAISE EXCEPTION 'PreLive payment-term migration blocked: a commercial agreement contains unsupported or inconsistent payment terms.';
@@ -152,7 +160,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1 FROM public.invoices
-    WHERE payment_terms NOT IN ('Pay now', '14 days', '30 days')
+    WHERE payment_terms NOT IN ('Pay now', '7 days', '14 days', '30 days')
   ) THEN
     RAISE EXCEPTION 'PreLive payment-term migration blocked: invoices contains unsupported payment terms.';
   END IF;
@@ -163,31 +171,31 @@ ALTER TABLE public.jobs
   DROP CONSTRAINT IF EXISTS jobs_payment_terms_xdrive_check;
 ALTER TABLE public.jobs
   ADD CONSTRAINT jobs_payment_terms_xdrive_check
-  CHECK (payment_terms IN ('Pay now', '14 days', '30 days'));
+  CHECK (payment_terms IN ('Pay now', '7 days', '14 days', '30 days'));
 
 ALTER TABLE public.company_settings
   DROP CONSTRAINT IF EXISTS company_settings_payment_terms_xdrive_check;
 ALTER TABLE public.company_settings
   ADD CONSTRAINT company_settings_payment_terms_xdrive_check
-  CHECK (default_payment_terms IS NULL OR default_payment_terms IN ('Pay now', '14 days', '30 days'));
+  CHECK (default_payment_terms IS NULL OR default_payment_terms IN ('Pay now', '7 days', '14 days', '30 days'));
 
 ALTER TABLE public.job_commercial_agreements
   DROP CONSTRAINT IF EXISTS job_commercial_agreements_payment_terms_xdrive_check;
 ALTER TABLE public.job_commercial_agreements
   ADD CONSTRAINT job_commercial_agreements_payment_terms_xdrive_check
-  CHECK (payment_terms IN ('Pay now', '14 days', '30 days'));
+  CHECK (payment_terms IN ('Pay now', '7 days', '14 days', '30 days'));
 
 ALTER TABLE public.job_commercial_agreements
   DROP CONSTRAINT IF EXISTS job_commercial_agreements_payment_due_days_check;
 ALTER TABLE public.job_commercial_agreements
   ADD CONSTRAINT job_commercial_agreements_payment_due_days_check
-  CHECK (payment_due_days IN (0, 14, 30));
+  CHECK (payment_due_days IN (0, 7, 14, 30));
 
 ALTER TABLE public.invoices
   DROP CONSTRAINT IF EXISTS invoices_payment_terms_xdrive_check;
 ALTER TABLE public.invoices
   ADD CONSTRAINT invoices_payment_terms_xdrive_check
-  CHECK (payment_terms IN ('Pay now', '14 days', '30 days'));
+  CHECK (payment_terms IN ('Pay now', '7 days', '14 days', '30 days'));
 
 ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS payment_extension_days smallint NOT NULL DEFAULT 0,

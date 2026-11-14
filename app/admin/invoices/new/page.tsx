@@ -435,6 +435,7 @@ export default function NewInvoicePage() {
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Payment Terms</label>
                 <select value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value as Invoice['payment_terms'])} style={inputStyle}>
                   <option value="Pay now">Pay now</option>
+                  <option value="7 days">7 days</option>
                   <option value="14 days">14 days</option>
                   <option value="30 days">30 days</option>
                 </select>
