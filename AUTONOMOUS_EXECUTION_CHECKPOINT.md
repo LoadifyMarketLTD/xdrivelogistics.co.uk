@@ -169,3 +169,8 @@
 - Next dev test auto-rewrote generated next-env.d.ts and tsconfig.json; restored both from Git, then static owner scope 12/12 and cross-role safety 12/12 PASS; clean worktree.  
 - Inspection: AuthenticatedMasterShell still imports master3150-production.css, master3150-design-system.css, master3150-operations-shell.css, master3150-board-reference.css and uses master3150-production class. Therefore visual 807 parity is NOT established, despite shared cards using xdrive807 presentation.  
 - Outstanding: screenshot reference comparison and seven-role full tab/action E2E, booking award assignment collection delivery POD invoice payment read/write fixture, full build, device validation, release gate. NO GO main.  
+ 
+## 2026-11-14 20:03 PR807 exact shell source audit  
+- Fetched PR807 ref origin/pr807-reference e7d9b84d; approved pinned snapshot a4315231 exists locally. Actual approved Owner Driver shell in a4315231 app/driver/layout.tsx wraps DriverTopWorkspaceShell, which returns TopWorkspaceShell, and loads top-workspace-shell.css plus canonical white-workspace styles.  
+- Current shared authenticated shell is a distinct AuthenticatedMasterShell, using ApprovedSidebar and four master3150-* CSS files. Therefore it is not an exact transplant of the PR807 TopWorkspaceShell even though 807 cards and role navigation pass. Visual shell migration is a real remaining implementation task, not merely renaming CSS.  
+- Do not replace layout blindly: retain original Post Load, Super Admin, Driver PWA, role authorization, real routes and all data. Next: inspect TopWorkspaceShell props and role navigation contracts, design isolated adapter, screenshot compare in Edge, then implement and regress each role.  
