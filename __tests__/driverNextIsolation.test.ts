@@ -28,6 +28,11 @@ describe('Driver NEXT remains an independent installable PWA', () => {
     expect(config).toContain("https://www.xdrivelogistics.co.uk");
     expect(config).not.toContain("app.xdrivelogistics.co.uk");
   });
+  it('keeps Vite-specific types out of the platform Next.js typecheck', () => {
+    const tsconfig=JSON.parse(at('tsconfig.json'));
+    expect(tsconfig.exclude).toContain('driver-pwa-reserve/**');
+    expect(tsconfig.exclude).toContain('driver-pwa-next/**');
+  });
   it('provides one separately built entrypoint', () => {
     const html=at('public/driver/reserve-next/index.html');
     expect(html).toContain('/driver/reserve-next/assets/');

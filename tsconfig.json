@@ -45,6 +45,7 @@
     "node_modules",
     "official-driver-pwa/**",
     "driver-pwa-reserve/**",
+    "driver-pwa-next/**",
     "standalone/driver-pwa-1099/**",
     "supabase/functions"
   ]
