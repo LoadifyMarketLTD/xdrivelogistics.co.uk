@@ -17,8 +17,14 @@ const checks=[
   'app/driver/settings/layout.tsx',
   'app/components/workspace/WorkspaceEventLogPage.tsx',
   'app/driver/event-log/page.tsx',
+  'app/driver/action-centre/page.tsx',
+  'app/driver/messages/page.tsx',
   '__tests__/allWorkspaceSettingsParityContract.test.ts',
-  '__tests__/cxDriverSettingsRoleBoundaryContract.test.ts'
+  '__tests__/cxDriverSettingsRoleBoundaryContract.test.ts',
+  'app/driver/_components/OwnerDriverSettingsSectionShell.tsx',
+  'app/driver/xdrive-event-log-owner.css',
+  'app/driver/xdrive-owner-settings-v9.css',
+  'scripts/test-owner-selective-integration.cjs'
   ].includes(p))],
   ['Owner settings has stable six categories',((x)=>x.length===6&&x.every(k=>['My Profile','Company Settings','Operations','Security','Billing & Membership','Legal & Agreements'].includes(k)))([...read('app/components/workspace/RoleSettingsWorkspace.tsx').matchAll(/\{ label: '([^']+)', action:[^\n]+active:[^\n]+ \}/g)].slice(0,6).map(x=>x[1]))],
   ['Owner-specific sidebar controlled by role',read('app/components/workspace/RoleSettingsWorkspace.tsx').includes("role === 'owner' ? ownerNav : nav")],

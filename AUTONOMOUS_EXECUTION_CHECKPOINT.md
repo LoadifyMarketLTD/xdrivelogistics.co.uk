@@ -37,3 +37,14 @@
 - Verify each migrated route fully, including actions/subactions, mobile, documents, MAP, notifications, E2E quote->award->booking->pickup->delivery->POD->invoice->email using disposable test data.
 - Run full unit/integration, production build and all 7 roles regression; review visual changes with user.
 - Keep release gate NO-GO until 100% approved. NO PUSH/MAIN/MERGE.
+
+## Phase 2 (LOCAL ONLY): Action Centre and Messages
+- Preserved ALL existing message send, load, participant validation, Action Centre API and links; UI changes only for Owner Driver via `resolveWorkspaceRole(user) === 'owner_driver'`. Other Company Driver / Driver roles retain original DriverIntegratedNav, page headers, message tabs and duplicate status metadata (by design to avoid changing another role).
+- `app/driver/action-centre/page.tsx`: remove redundant header/Action-Messages tab for Owner Driver, avoid duplicating status badges and internal Action number, apply scoped card geometry. Existing 3 filters, refresh, Open details remain active.
+- `app/driver/messages/page.tsx`: remove duplicate header/subnavigation/single Conversations tab for Owner Driver, simplify explanatory copy and badge; original thread selection, reply, and refresh remain unchanged. Company Driver unchanged.
+- `app/driver/xdrive-owner-actions-messages.css`: only selectors under `.xd-owner-action` and `.xd-owner-messages` on `.xdrive-driver-workspace`, no global Post Load effect. Imported only by Action Centre and Messages pages.
+- `scripts/test-owner-action-messages-safety.cjs`: 11/11 PASS including Post Load protected check, Owner/Company role separation, send/reply, no arbitrary recipients.
+- Four Vitest files: 38/38 PASS (actionCentreRoleSafety, cxWorkspaceMessengerParity, cxWorkspaceNotificationInbox, driverWorkspaceNavigationPerformance).
+- TypeScript re-run after phase 2 PASS (14.94 seconds), CSS PostCSS + JSX transpilation PASS; `git diff --check` PASS.
+- Existing first local commit `bedb0b8f` for Settings + Event Log, no remote push. Phase 2 remains local until tests and local commit. This is STILL NOT ready for `main`: Loads/Quotes/Diary/My Jobs/Finance and production E2E write flows have not been selectively integrated or tested.
+- All changes remain in isolated worktree on branch integration/owner-driver-selective-20261114 based on `main` 593c1bb; **POST LOAD and PWA totally untouched**. Do not merge PR #807 wholesale.
