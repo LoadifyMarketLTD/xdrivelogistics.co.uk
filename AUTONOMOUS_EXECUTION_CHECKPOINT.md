@@ -1,4 +1,4 @@
-﻿# WORKSPACE 3510 ├ö├ç├Â BN17 Customer Loads search regression (2026-11-08)
+# WORKSPACE 3510 ├ö├ç├Â BN17 Customer Loads search regression (2026-11-08)
 
 ## User reproduction
 Screenshot from Netlify PR #770 /customer/loads: entered 'bn17', radius 10 mile; zero results and warning 'Collection outcode could not be located'. Another screenshot of same real loads shows completed BN17 -> BN1 job in list. No records should be fabricated.
@@ -127,3 +127,37 @@ Do not merge to main until end-to-end genuine job lifecycle, actual backend PDF,
 ## Customer Sidebar 2026-11-13
 Branch fix/customer-sidebar-click-20261113. Dashboard formerly nested a second MasterWorkspace and remounted the sidebar when switching to other Customer routes. Changed CustomerMasterLayoutGate to always host the sidebar, and removed the nested Dashboard MasterWorkspace. Post Load untouched. tsc PASS, 7/7 targeted Vitest PASS. Existing stale masterRealDashboardRoutingContract 2 failures; needs update. Not published; live regression and full visual audit outstanding.
 
+
+# XDrive Post Load enhancement checkpoint â€” 14 November 2026
+
+## User authorization
+The already approved Post Load is retained. Small additive improvements based on directly tested Courier Exchange features are permitted. Do not redesign, remove existing behavior, post test jobs, or deploy unverified changes. SmartPay, factoring and EOM remain excluded.
+
+## Working copy
+- Source baseline: origin/main at 593c1bb6
+- Separate worktree: `C:\Users\xdriv\Desktop\XDrive-PostLoad-Enhancements-20261114`
+- Branch: `feature/postload-units-20261114`
+- No push / production merge / deployment.
+
+## Implemented
+- Weight selector kg / lbs / t, with conversion at UI boundary; canonical API still sends weightKg.
+- Dimension selector cm / m / in / ft, with conversion at UI boundary; canonical API still sends lengthCm / widthCm / heightCm.
+- Previous labels and default units remain kg/cm. No database schema or API change.
+- Added conversion tests in __tests__/postLoadUnits.test.ts and helper lib/postLoadUnits.ts.
+- Original Owner Driver PR807 integration branch untouched.
+
+## Verification
+- Focused Vitest 34/34 PASS, 4 suites.
+- Scoped ESLint exit 0.
+- TypeScript npx tsc --noEmit exit 0.
+- The older loadPostingOperationalContract suite has 6 failures on BOTH unchanged origin/main baseline and feature branch, due to stale assertions such as 'Attach job documents' versus 'Upload Document'; not introduced by feature.
+- git diff --check required before commit.
+- Browser interaction and full production build not yet verified.
+
+## Remaining candidate improvements â€” require independent data model and permissions validation
+- CX style saved customer/contact/location lookup with controlled tenant access.
+- Customer Price as confidential customer-side financial data distinct from public fixed-price offer.
+- Individual reference visibility toward subcontractor after award.
+- Regular Load per-day commercial fields and Daily Hire depot / rate logic with API persistence.
+- En-route email schedule/recipient notification worker (actual delivery verified, not a fake UI-only checkbox).
+No unimplemented feature should be described as done.
