@@ -191,3 +191,8 @@
 - Full Next.js 15.5.28 production build exit 0 PASS, 360.12 seconds; compiled in 79 seconds, TypeScript/lint completed with one pre-existing DemoFleetBoard react-hooks warning and Next ESLint plugin warning, 191/191 static pages generated, route traces complete.  
 - Local build had no SUPABASE_SERVICE_ROLE_KEY, so admin operations were disabled during static generation; no claim of live production admin testing.  
 - Generated Next dev/build tsconfig and next-env changes restored to committed versions. No main push or deploy.  
+ 
+## 2026-11-14 driver role shell gap corrected  
+- Found DriverMasterLayoutGate still using legacy MasterWorkspace for all driver child routes. Replaced with AuthenticatedMasterShell/PR807 TopWorkspaceShell for Owner Driver and Company Driver, retaining existing approved Post Load route on legacy renderer and independent /driver dashboard.  
+- Owner static scope 12/12 PASS; cross-role safety 12/12 PASS; full TypeScript noEmit PASS 134.48 seconds. Two authenticated driver Playwright shell tests rerun PASS 2/2 in 1.4 minutes.  
+- The full 13/13 authenticated suite and full production build PASS are from before this driver-gate edit. Full build must be rerun after final visual migration; this commit is NOT release-ready.  

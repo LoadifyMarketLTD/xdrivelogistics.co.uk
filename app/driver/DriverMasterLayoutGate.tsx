@@ -3,6 +3,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
+import AuthenticatedMasterShell from '../components/workspace/AuthenticatedMasterShell';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
 
 const DRIVER_MASTER_TAB_BY_ROUTE: Readonly<Record<string,number>> = {
@@ -13,6 +14,7 @@ const DRIVER_MASTER_TAB_BY_ROUTE: Readonly<Record<string,number>> = {
  account:18,'change-password':18,
 };
 
+/** Use the approved PR807 shell for both driver roles, preserving the approved Post Load route. */
 export default function DriverMasterLayoutGate({children}:{children:ReactNode}){
  const pathname=usePathname();
  const {user}=useAuth();
@@ -20,6 +22,9 @@ export default function DriverMasterLayoutGate({children}:{children:ReactNode}){
  const workspace=resolveWorkspaceRole(user);
  const role=workspace==='owner_driver'?'Owner Driver':'Company Driver';
  const section=pathname.split('/')[2]||'';
- return <MasterWorkspace key={pathname} role={role} authenticated
-  initialTab={DRIVER_MASTER_TAB_BY_ROUTE[section]??0} dashboard={children}/>;
+ const activeTab=DRIVER_MASTER_TAB_BY_ROUTE[section]??0;
+ if(section==='post-load'){
+  return <MasterWorkspace key={pathname} role={role} authenticated initialTab={activeTab} dashboard={children}/>;
+ }
+ return <AuthenticatedMasterShell role={role} activeTab={activeTab}>{children}</AuthenticatedMasterShell>;
 }
