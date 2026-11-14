@@ -395,3 +395,38 @@
 .rv-advertise-form input:not([type='checkbox']),.rv-advertise-form textarea{width:100%;max-width:100%;padding:10px;border:1px solid #c4d1df;border-radius:8px;font:inherit;color:#13293f}
 .rv-advertise-check{display:flex;align-items:center;gap:10px;font-weight:600}
 .rv-advertise-check input{width:18px;height:18px}
+
+/* Driver NEXT desktop review: expand the live workspace without altering the Pixel/mobile PWA. */
+.rv-desktop-overview{display:none}
+@media (min-width:900px){
+  :root{background:#e8edf3}
+  .rv-shell{max-width:1260px;min-height:100vh;display:grid;grid-template-rows:82px 65px minmax(0,1fr);padding-bottom:0;border-left:1px solid #d4dee8;border-right:1px solid #d4dee8}
+  .rv-header{grid-row:1;height:82px;padding:12px 28px}
+  .rv-header .rv-official-logo{width:190px;height:49px}
+  .rv-header .rv-workflow-caption{font-size:12px}
+  .rv-nav{grid-row:2;position:sticky;top:0;left:auto;bottom:auto;transform:none;max-width:none;width:100%;justify-content:flex-start;gap:12px;padding:8px 25px;box-shadow:0 3px 12px #122c4120;z-index:20}
+  .rv-nav button{flex-direction:row;justify-content:center;gap:10px;min-width:160px;font-size:14px;padding:10px 20px;border-radius:8px}
+  .rv-nav button span{font-size:19px}
+  .rv-nav button.rv-active{background:#254865;color:#fff}
+  .rv-nav button.rv-active:after{display:none}
+  .rv-main{grid-row:3;min-width:0;min-height:calc(100vh - 147px);padding:22px 28px 38px}
+  .rv-main:has(>.rv-job){padding:20px 24px 38px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:15px;background:#f5f7fb}
+  .rv-main:has(>.rv-job)>.rv-job{min-width:0;margin:0;border:1px solid #d8e3ec;border-radius:12px;padding:19px;background:#fff}
+  .rv-main:has(>.rv-job)>.rv-quote-tabs,.rv-main:has(>.rv-job)>.rv-booking-history-tools,.rv-main:has(>.rv-job)>.rv-loading-inline,.rv-main:has(>.rv-job)>.rv-api-notes{grid-column:1/-1}
+  .rv-main .rv-empty{max-width:800px;margin:15px auto;padding:28px 30px}
+  .rv-desktop-overview{display:block;max-width:1100px;margin:8px auto 18px}
+  .rv-desktop-intro{background:#fff;border:1px solid #d7e2eb;border-radius:12px;padding:22px 26px;text-align:left}
+  .rv-desktop-intro span{color:#c26018;font-size:11px;font-weight:900;letter-spacing:1.2px}
+  .rv-desktop-intro h2{font-size:23px;margin:6px 0 10px;color:#18324d}
+  .rv-desktop-intro p{font-size:14px;color:#536d83;margin:0;line-height:1.55}
+  .rv-desktop-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:14px}
+  .rv-desktop-metrics button{display:flex;flex-direction:column;align-items:flex-start;gap:7px;text-align:left;padding:20px 23px;border:1px solid #d7e2eb;background:#fff;border-radius:12px;color:#203c58}
+  .rv-desktop-metrics button strong{font-size:29px;color:#ec791f}
+  .rv-desktop-metrics button span{font-size:13px;font-weight:800}
+  .rv-desktop-metrics button:hover,.rv-desktop-metrics button:focus-visible{outline:2px solid #f4a05f}
+  .rv-gps-panel{top:147px;bottom:0;width:min(100%,1260px)}
+}
+@media(min-width:900px) and (max-width:1080px){
+ .rv-main:has(>.rv-job){grid-template-columns:minmax(0,1fr)}
+ .rv-desktop-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
