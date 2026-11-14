@@ -120,3 +120,10 @@
 - Cleaned Next-generated tsconfig/next-env modifications and temporary build/typecheck logs. No source changes in protected Super Admin/Post Load/PWA paths.
 - Remaining: actual authenticated 807 visual parity and action-by-action seven-role E2E, fix/replace Carrier Admin test fixture through authorized credentials, regression and release gate. NO-GO for main.
 
+
+## 2026-11-14 16:56 carrier verification continuation
+- Supabase Production auth.users confirms audit Carrier Admin exists, confirmed email, profile.role=company_admin and profiles.company_id matches active company admin account. Audit password from env.test is rejected. No auth record changed.
+- The active company admin email is a valid candidate, but no credential or browser CDP session for that identity was verified. Existing Edge normal profile has no remote debugging; ports 9333 and 9334 are unrelated Driver PWA audit sessions. Do NOT claim authenticated Company workspace PASS.
+- Re-ran cross-role static contract 12/12 PASS. Owner-only historical scope guard has expected 1 FAIL because the authorized change now spans seven roles; do not weaken guard or claim full PASS.
+- Remaining Company authenticated gate and all seven operational 807 E2E gates remain NO-GO. No main push.
+
