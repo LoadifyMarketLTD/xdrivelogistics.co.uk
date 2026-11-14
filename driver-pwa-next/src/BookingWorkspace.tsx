@@ -62,7 +62,7 @@ function timeLabel(day?: string, time?: string): string {
 }
 function normalisedPhone(phone?: string): string | null {
   const value = String(phone || '').trim();
-  return /^\+?[\d\s()\-]{7,24}$/.test(value) ? value.replace(/[\s()\-]/g, '') : null;
+  return /^\+?[\d\s()-]{7,24}$/.test(value) ? value.replace(/[\s()-]/g, '') : null;
 }
 function Line({ title, value }: { title: string; value: ReactNode }) {
   return <div className="xb-info-line"><dt>{title}</dt><dd>{value || 'Not provided'}</dd></div>;
@@ -283,14 +283,15 @@ export function BookingListCard({job, busy = false, onDetails, onStatus, onOpera
 }) {
   const offered = Boolean(job.acceptanceRequired && job.offerId);
   const expired = Boolean(job.offerExpired);
-  const delivered = Boolean(job.podRecorded || job.status === 'DELIVERED' || job.status === 'POD_SUBMITTED');
+  const delivered = Boolean(job.podRecorded || job.status === 'POD_SUBMITTED');
+  const podPending = job.status === 'DELIVERED' && !delivered;
   const reference = job.yourRef || job.customerRef || job.id;
   const stage = stages.find(item => item.key === job.status)?.title || job.status.replaceAll('_',' ');
   const price = job.quote == null ? 'Price not provided' : new Intl.NumberFormat('en-GB', {style:'currency', currency:'GBP'}).format(job.quote);
   return <article className="xb-list-card" aria-label={'Booking '+reference}>
     <div className="xb-list-top"><div><strong>{job.company || 'Transport customer'}</strong>
       <small>Ref: {reference}</small></div>
-      <span className="xb-list-state">{offered ? expired ? 'OFFER EXPIRED' : 'ACCEPTANCE REQUIRED' : delivered ? 'DELIVERED' : stage.toUpperCase()}</span>
+      <span className="xb-list-state">{offered ? expired ? 'OFFER EXPIRED' : 'ACCEPTANCE REQUIRED' : delivered ? 'DELIVERED (POD)' : podPending ? 'POD PENDING' : stage.toUpperCase()}</span>
     </div>
     <div className="xb-list-route">
       <div><span className="xb-list-route-pin" aria-hidden="true">1</span><div><b>{routeLabel(job.from, job.fromOutcode)}</b><small>Collection · {timeLabel(job.pickupDate,job.pickup)}</small></div></div>
@@ -312,7 +313,7 @@ export function BookingListCard({job, busy = false, onDetails, onStatus, onOpera
     </div>
     {!offered && !expired && <div className="xb-list-actions xb-list-secondary-actions">
       {delivered ? <button type="button" className="xb-secondary" onClick={onInvoice}>POD & Invoice</button>
-        : <button type="button" className="xb-secondary" onClick={onOperate}>Continue Delivery</button>}
+        : <button type="button" className="xb-secondary" onClick={onOperate}>{podPending?'Complete POD':'Continue Delivery'}</button>}
     </div>}
   </article>;
 }

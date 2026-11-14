@@ -341,3 +341,10 @@
 .xb-signature-entry:not(.xb-signature-entry-done) .xb-signature-entry-arrow{color:#182c43}
 .xb-signature-entry-done{background:#e3f6ea;border:2px solid #3aa46e;box-shadow:none}
 .xb-signature-entry-done .xb-signature-entry-copy strong{font-size:17px;color:#176a47}
+
+/* A single POD form, with the recipient signing directly underneath Received By. */
+.xb-signature-inline{padding:14px 0;border-bottom:1px solid #d9e2ec;margin-bottom:14px}
+.xb-signature-inline h3{margin:0 0 8px}
+.xb-signature-inline .xb-signature-page-save{width:100%;margin-top:12px}
+.xb-hard-copy-ack{display:flex;align-items:flex-start;gap:10px;padding:12px;font-weight:600;line-height:1.4}
+.xb-hard-copy-ack input{width:20px;height:20px;flex:none}

@@ -10,17 +10,17 @@ type Props = {
  signature: string|null; onSignature: (next:string|null) => void;
  onSaveSignature: () => Promise<void>; signatureVerified: boolean;
  photos: File[]; onPhotos: (files:File[]) => void;
+ hardCopyAcknowledged:boolean; onHardCopyAcknowledged:(value:boolean)=>void;
  onConfirm: () => void; onBack: () => void; busy:boolean;
 };
 export default function BookingDeliveryForm({
  mode='delivery',job,value,onChange,signature,onSignature,onSaveSignature,signatureVerified,
- photos,onPhotos,onConfirm,onBack,busy,
+ photos,onPhotos,hardCopyAcknowledged,onHardCopyAcknowledged,onConfirm,onBack,busy,
 }:Props){
  const [picker,setPicker]=useState(false);
  const [fileError,setFileError]=useState('');
  const [editingPhoto,setEditingPhoto]=useState<File|null>(null);
  const [savingSignature,setSavingSignature]=useState(false);
- const [signaturePage,setSignaturePage]=useState(false);
  const [signatureError,setSignatureError]=useState('');
  const [cameraOpen,setCameraOpen]=useState(false);
  const [cameraBusy,setCameraBusy]=useState(false);
@@ -31,7 +31,7 @@ export default function BookingDeliveryForm({
  const fileDocument=useRef<HTMLInputElement>(null);
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
  const requiredItems=value.items!==''&&Number.isInteger(Number(value.items))&&Number(value.items)>0;
- const ready=value.recipient.trim().length>=2&&Boolean(signature)&&signatureVerified&&requiredItems;
+ const ready=value.recipient.trim().length>=2&&Boolean(signature)&&signatureVerified&&requiredItems&&(!job.hardCopyPodRequired||hardCopyAcknowledged);
  const photosCount=photos.filter(f=>f.type==='image/png'||f.type==='image/jpeg').length+(mode==='pod'&&photos.length===0?(job.deliveryPhotos?.length||0):0);
  const documentsCount=photos.filter(f=>f.type==='application/pdf').length;
  const stopCamera=()=>{streamRef.current?.getTracks().forEach(track=>track.stop());streamRef.current=null;setCameraOpen(false);};
@@ -79,37 +79,27 @@ export default function BookingDeliveryForm({
   catch(error){setSignatureError(error instanceof Error?error.message:'Could not save signature.');}
   finally{setSavingSignature(false);}
  };
- if(signaturePage)return <section className="xb-signature-page" aria-label="Recipient signature page">
- <div className="xb-signature-page-top"><button type="button" className="xb-signature-back" onClick={()=>setSignaturePage(false)}>← Delivery</button><span>RECIPIENT SIGNATURE</span></div>
- <div className="xb-signature-page-card">
-  <h2>PLEASE SIGN BELOW</h2>
-  <p>Confirm that you have received the goods. The driver will save the signature to the official XDrive POD.</p>
-  <div className="xb-signature-recipient"><span>Received By</span><strong>{value.recipient.trim()||'Not provided'}</strong></div>
-  <SignaturePad value={signature} onChange={next=>{setSignatureError('');onSignature(next);}}/>
-  <button type="button" className={'xb-signature-page-save'+(signatureVerified?' xb-saved':'')} disabled={!signature||savingSignature||busy||signatureVerified} onClick={()=>void save()}>
-   {savingSignature?'Saving signature...':signatureVerified?'Signature saved & verified':'CONFIRM SIGNATURE'}
-  </button>
-  {signatureVerified&&<div className="xb-signature-page-success" role="status">Signature saved and verified. Return to Delivery to complete the handover.</div>}
-  {signatureError&&<p role="alert" className="xb-error">{signatureError}</p>}
-  <button type="button" className="xb-signature-return" onClick={()=>setSignaturePage(false)}>{signatureVerified?'Return to Delivery':'Cancel and return'}</button>
- </div>
-</section>;
-return <div className="xb-delivery" aria-label={mode==='pod'?'Signed POD form':'Delivery handover form'}>
+return <div className="xb-delivery" aria-label="Proof of Delivery form">
   <section className="xb-collection-panel xb-delivery-header">
-   <h3>{mode==='pod'?'Proof of Delivery':'On Site Delivery'}</h3>
-   <p className="xb-muted">{mode==='pod'?'Review and submit the signed proof of delivery.':'Complete recipient handover before finalizing delivery.'}</p>
+   <h3>Proof of Delivery (POD)</h3>
+   <p className="xb-muted">Complete the signed proof of delivery. Confirmation finalises the booking only after the server verifies the POD.</p>
    <div className="xb-address"><strong>Delivery address</strong><p>{job.deliveryAddress||[job.to,job.toOutcode].filter(Boolean).join(', ')}</p></div>
   </section>
   <section className="xb-collection-panel">
-   <h3>Recipient handover</h3>
-    <p className="xb-muted">Confirm the recipient full name, then hand over the phone for the signature.</p>
+   <h3>Proof of delivery</h3>
+    <p className="xb-muted">Enter the recipient name, capture the signature, and attach any supporting delivery evidence before confirming the POD.</p>
    <label className="xb-form-field"><span>Received By (Full Name) *</span>
     <input autoComplete="name" value={value.recipient} placeholder="Full name of recipient" onChange={e=>set('recipient',e.target.value)}/></label>
-       <button type="button" className={'xb-signature-entry'+(signatureVerified?' xb-signature-entry-done':'')} onClick={()=>setSignaturePage(true)} aria-label={signatureVerified?'View Recipient Signature':'Open Recipient Signature page'} disabled={busy}>
-      <span className="xb-signature-entry-icon" aria-hidden="true">SIGN</span>
-      <span className="xb-signature-entry-copy"><strong>{signatureVerified?'SIGNATURE SAVED':'TAP HERE TO SIGN'}</strong><small>{signatureVerified?'Recipient signature verified':value.recipient.trim()?'Hand the phone to '+value.recipient.trim():'Enter the recipient full name first'}</small></span>
-      <span className="xb-signature-entry-arrow" aria-hidden="true">&gt;</span>
+   <div className="xb-signature-inline" aria-label="Recipient signature in POD">
+    <h3>Recipient signature *</h3>
+    <p className="xb-muted">Ask the recipient to sign directly below.</p>
+    <SignaturePad value={signature} onChange={next=>{setSignatureError('');onSignature(next);}}/>
+    <button type="button" className={'xb-signature-page-save'+(signatureVerified?' xb-saved':'')} disabled={!signature||savingSignature||busy||signatureVerified||value.recipient.trim().length<2} onClick={()=>void save()}>
+      {savingSignature?'Saving signature...':signatureVerified?'Signature saved & verified':'Save Signature'}
     </button>
+    {signatureVerified&&<div className="xb-signature-page-success" role="status">Signature saved and verified on XDrive.</div>}
+    {signatureError&&<p role="alert" className="xb-error">{signatureError}</p>}
+   </div>
 <div className="xb-form-grid">
     <label className="xb-form-field"><span>Left At</span>
       <select value={value.leftAt} onChange={e=>set('leftAt',e.target.value)}>
@@ -154,12 +144,13 @@ return <div className="xb-delivery" aria-label={mode==='pod'?'Signed POD form':'
     <button type="button" aria-label={'Remove '+file.name} onClick={()=>onPhotos(photos.filter((_,index)=>index!==i))}>Remove</button>
    </li>)}</ul>}
   </section>
+  {job.hardCopyPodRequired&&<label className="xb-hard-copy-ack"><input type="checkbox" checked={hardCopyAcknowledged} onChange={event=>onHardCopyAcknowledged(event.target.checked)}/> I acknowledge the customer's hard-copy POD requirement.</label>}
   <div className="xb-form-actions">
    <button type="button" className="xb-secondary" onClick={onBack} disabled={busy}>Booking status</button>
    <button type="button" className="xb-primary" disabled={busy||!ready} onClick={onConfirm}>
-    {busy?'Saving…':mode==='pod'?'Save Signed POD':'Confirm Delivery'}
+    {busy?'Confirming POD...':'Confirm POD & Complete Delivery'}
    </button>
   </div>
-  {!ready&&<p className="xb-evidence-note">Required before confirmation: recipient name, item count and a saved, verified signature.</p>}
+  {!ready&&<p className="xb-evidence-note">Required before confirmation: recipient name, item count, a saved verified signature, and hard-copy acknowledgement if required.</p>}
  </div>;
 }

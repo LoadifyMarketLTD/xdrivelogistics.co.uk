@@ -16,3 +16,5 @@ From `driver-pwa-next`: `npm ci`, `npm run build`, `npm run preview -- --host 12
 ## Verification performed
 
 Vite/TypeScript build PASS. `__tests__/driverNextIsolation.test.ts` PASS. Browser owner-driver sign-in through local preview PASS: config 200, Supabase auth 200, Loads/Bookings shown. Physical Pixel 7 Pro Chrome CDP owner-driver sign-in PASS, with a screenshot saved only in the desktop QA workspace. Full real bookings/POD/Invoice/email E2E remains a release gate; simulated E2E is not proof of production completion.
+
+CX POD parity: recipient, inline saved signature, Left At, optional camera/gallery/docs and one Confirm POD & Complete Delivery action. A POD without server confirmation remains POD PENDING in Active, never History. After successful POD, Update status offers an optional Advertise for return journey form; publication and availability changes require explicit driver input. XDrive Invoice remains separate.
