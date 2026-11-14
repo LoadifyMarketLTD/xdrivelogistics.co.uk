@@ -428,7 +428,7 @@ export default function ReserveApp() {
   function flow(){
     if(!job)return null;
     if((job.status==='ON_SITE_DELIVERY'||job.status==='DELIVERED')&&!job.podRecorded&&!podDone){
-      return <BookingDeliveryForm job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} hardCopyAcknowledged={hardCopyAcknowledged} onHardCopyAcknowledged={setHardCopyAcknowledged} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onBack={()=>setView('list')} onConfirm={()=>void confirmPod(job)} mode="pod"/>;
+      return <BookingDeliveryForm job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} hardCopyAcknowledged={hardCopyAcknowledged} onHardCopyAcknowledged={setHardCopyAcknowledged} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onBack={()=>setView('statusHistory')} onConfirm={()=>void confirmPod(job)} mode="pod"/>;
     }
     const step=nextStates[job.status];
     const delivered=job.status==='DELIVERED'||job.status==='POD_SUBMITTED';

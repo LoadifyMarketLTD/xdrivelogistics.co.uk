@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { driverGet, renewSession, type LiveJob, type LiveSession } from './liveApi';
+import { useState, type ReactNode } from 'react';
+import { type LiveJob, type LiveSession } from './liveApi';
 import { routeLabel } from './routeLabel';
-import BookingStatusSummary from './BookingStatusSummary';
 import './BookingWorkspace.css';
+import './BookingCXStatus.css';
 
 type Section = 'summary' | 'stops' | 'status';
 type Mode = 'overview' | 'acceptance' | 'operation' | 'finance';
@@ -27,10 +27,10 @@ type Props = {
 const stages = [
   { key: 'ALLOCATED', title: 'Accepted', detail: 'Booking confirmed' },
   { key: 'ON_WAY_TO_PICKUP', title: 'On My Way to Collection', detail: 'Navigate to collection' },
-  { key: 'ON_SITE_PICKUP', title: 'On Site Collection', detail: 'Collection handover and evidence' },
+  { key: 'ON_SITE_PICKUP', title: 'On Site (Collection)', detail: 'Collection handover and evidence' },
   { key: 'LOADED', title: 'Loaded', detail: 'Goods, packaging and ETA recorded' },
   { key: 'ON_WAY_TO_DELIVERY', title: 'On My Way to Delivery', detail: 'Navigate to delivery' },
-  { key: 'ON_SITE_DELIVERY', title: 'On Site Delivery', detail: 'Delivery handover and signature' },
+  { key: 'ON_SITE_DELIVERY', title: 'On Site (Delivery)', detail: 'Delivery handover and signature' },
   { key: 'DELIVERED', title: 'Delivered', detail: 'Confirm proof of delivery' },
   { key: 'POD_SUBMITTED', title: 'POD Recorded', detail: 'Signed documents available' },
   { key: 'INVOICE', title: 'Invoice', detail: 'Review and send the official invoice separately' },
@@ -47,7 +47,10 @@ const backendStages: Record<string, string> = {
 
 function stageIndex(job: LiveJob): number {
   if (job.podRecorded || job.status === 'POD_SUBMITTED') return stages.findIndex(s => s.key === 'POD_SUBMITTED');
-  return stages.findIndex(stage => stage.key === job.status);
+  if (job.acceptanceRequired) return 0;
+  // The active stage is the NEXT action, not the last status already confirmed.
+  const lastStage = stages.findIndex(stage => stage.key === job.status);
+  return lastStage < 0 ? 0 : Math.min(lastStage + 1, stages.findIndex(stage => stage.key === 'DELIVERED'));
 }
 function timestamp(raw?: string): string | null {
   if (!raw) return null;
@@ -87,38 +90,10 @@ function RouteStop({ number, title, address, schedule, onMap }: {
     </div>
   </div>;
 }
-function StatusProgress({ job, session, onSession, onOperate, operationsAllowed = true }: {
+function StatusProgress({ job, onOperate, operationsAllowed = true }: {
   job: LiveJob; session?:LiveSession; onSession?:(session:LiveSession)=>void;
   onOperate: () => void; operationsAllowed?: boolean;
 }) {
-  const [invoiceStatus,setInvoiceStatus]=useState<{state:'unknown'|'missing'|'draft'|'created'|'sent';number?:string}>({state:'unknown'});
-  useEffect(()=>{
-    if(!session || !job.podRecorded)return;
-    let active=true;
-    setInvoiceStatus({state:'unknown'});
-    void (async()=>{
-      try {
-        const fresh=await renewSession(session);
-        if(active)onSession?.(fresh);
-        const context=await driverGet('/finance/jobs/'+encodeURIComponent(job.id)+'/invoice-context',fresh.token,8000);
-        const rows=Array.isArray(context.rows)?context.rows:[];
-        const row=rows.find(value=>value&&typeof value==='object'&&!Array.isArray(value)&&value.id===job.id) as {invoice?:unknown}|undefined;
-        const found=row?.invoice||context.invoice;
-        const candidate=found&&typeof found==='object'&&!Array.isArray(found)?found as Record<string,unknown>:null;
-        const id=typeof candidate?.id==='string'?candidate.id:'';
-        if(!id){if(active)setInvoiceStatus({state:'missing'});return;}
-        const detail=await driverGet('/finance/invoices/'+encodeURIComponent(id),fresh.token,8000);
-        const invoice=detail.invoice&&typeof detail.invoice==='object'&&!Array.isArray(detail.invoice)?detail.invoice as Record<string,unknown>:candidate!;
-        const sent=invoice.delivery_state==='sent'&&typeof invoice.delivery_message_id==='string'&&invoice.delivery_message_id.length>0;
-        const draft=String(invoice.status||'').toLowerCase()==='draft';
-        if(active)setInvoiceStatus({
-          state:sent?'sent':draft?'draft':'created',
-          number:String(invoice.invoice_number||invoice.id||id),
-        });
-      }catch{if(active)setInvoiceStatus({state:'unknown'});}
-    })();
-    return()=>{active=false};
-  },[job.id,job.podRecorded,session?.token]);
   const current = stageIndex(job);
   const history = job.statusHistory || [];
   const statusEvent = (key: string) => {
@@ -127,22 +102,17 @@ function StatusProgress({ job, session, onSession, onOperate, operationsAllowed 
   };
   const podRecorded = Boolean(job.podRecorded || job.status === 'POD_SUBMITTED');
   return <section className="xb-panel xb-status-panel" aria-label="Booking status timeline">
-    <div className="xb-panel-heading"><h2>Booking status</h2><span className="xb-reference">{podRecorded ? 'POD RECORDED' : 'LIVE STATUS'}</span></div>
-    <ol className="xb-timeline">{stages.map((stage, index) => {
+    <div className="xb-cx-customer"><h2>{job.company||'Transport customer'}</h2><p>Load ID {job.yourRef||job.customerRef||job.id}</p></div>
+    <ol className="xb-timeline">{stages.filter((stage,index)=>index<=current && stage.key!=='INVOICE' && stage.key!=='POD_SUBMITTED' && (stage.key!=='ON_WAY_TO_DELIVERY'||current===stages.findIndex(value=>value.key==='ON_WAY_TO_DELIVERY'))).slice().reverse().map(stage => {
+      const index=stages.findIndex(value=>value.key===stage.key);
       const isCurrent = index === current && !podRecorded;
       const event = statusEvent(stage.key);
-      const complete = index < current || (podRecorded && index <= current) || (stage.key === 'INVOICE' && (Boolean(event)||invoiceStatus.state==='sent'));
+      const complete = stage.key==='DELIVERED' ? podRecorded : (index < current || (podRecorded && index <= current));
       return <li key={stage.key} className={'xb-stage'+(complete?' xb-stage-done':'')+(isCurrent?' xb-stage-current':'')}>
         <span className="xb-stage-symbol" aria-hidden="true">{complete ? '✓' : isCurrent ? '●' : String(index+1)}</span>
         <div className="xb-stage-content">
-          <strong>{stage.title}</strong><small>{stage.detail}</small>
-          {stage.key==='INVOICE' ? <small>
-            {invoiceStatus.state==='sent'?'Invoice '+(invoiceStatus.number||'')+' sent · provider accepted email':
-             invoiceStatus.state==='draft'?'Invoice '+(invoiceStatus.number||'')+' saved as draft':
-             invoiceStatus.state==='created'?'Invoice '+(invoiceStatus.number||'')+' created · sending not confirmed':
-             invoiceStatus.state==='missing'?'Invoice not created':'Invoice state not verified'}
-          </small> : event ? <time dateTime={event.at}>{timestamp(event.at) || 'Recorded, time unavailable'}</time>
-            : complete ? <small>Stage progressed · timestamp unavailable</small> : null}
+          <strong>{stage.key==='DELIVERED'?'Delivered (POD)':stage.title}</strong>{!complete&&<small>{stage.detail}</small>}
+          {event ? <time dateTime={event.at}>{timestamp(event.at) || 'Recorded, time unavailable'}</time> : complete ? <small>Stage recorded - timestamp unavailable</small> : null}
           {event?.notes && <p className="xb-event-note">{event.notes}</p>}
           {isCurrent && operationsAllowed && <button type="button" className="xb-stage-action" onClick={onOperate}>Open current step</button>}
         </div>
@@ -217,35 +187,26 @@ export default function BookingWorkspace({
         <RouteStop number={2} title="Delivery Details" address={delivery}
           schedule={timeLabel(job.deliveryDate,job.delivery)} onMap={onMap}/>
       </section>}
-      {section === 'status' && <BookingStatusSummary job={job} onMap={onMap}/>}
-      {section === 'status' && (mode === 'finance' ?
-        <div className="xb-status-columns xb-status-finance-columns" aria-label="Booking status and finance">
-          <StatusProgress job={job} session={session} onSession={onSession} onOperate={onOperate} operationsAllowed={false}/>
-          <section className="xb-panel xb-status-finance-panel" aria-label="POD and Invoice">
-            <div className="xb-panel-heading"><h2>Documents &amp; Finance</h2><span className="xb-reference">OFFICIAL RECORDS</span></div>
-            <p className="xb-panel-description">POD and invoice records are separate from the operational status. Email provider acceptance does not confirm recipient delivery.</p>
-            <div className="xb-finance-panel">{operation}</div>
-            {onReturnToStatus && <button type="button" className="xb-documents-back" onClick={onReturnToStatus}>Back to booking status</button>}
-          </section>
-        </div> : mode === 'operation' && !podRecorded ?
-        <div className="xb-status-workflow xb-status-columns">
-          <section className="xb-panel xb-current-panel" aria-label="Current booking operation">
-            <div className="xb-panel-heading"><h2>Current booking step</h2><span className="xb-reference">{job.status.replaceAll('_',' ')}</span></div>
+      {section === 'status' && <div className="xb-cx-status" aria-label="Booking status">
+        {mode === 'operation' && !podRecorded ?
+          <section className="xb-cx-operation" aria-label="Current booking operation">
+            <header className="xb-cx-form-title"><button type="button" onClick={onReturnToStatus||onBack} aria-label="Back to booking status">←</button>
+              <h2>{job.status==='DELIVERED'||job.status==='ON_SITE_DELIVERY'?'Delivered (POD)':job.status==='ON_SITE_PICKUP'?'Loaded Info':job.status.replaceAll('_',' ')}</h2></header>
             {operation}
           </section>
-          <StatusProgress job={job} session={session} onSession={onSession} onOperate={onOperate} operationsAllowed={!awaiting && !expired}/>
-        </div> :
-        <div className="xb-status-workflow xb-status-columns">
-          <StatusProgress job={job} session={session} onSession={onSession} onOperate={onOperate} operationsAllowed={!awaiting && !expired}/>
-          {podRecorded && <section className="xb-panel xb-documents-panel" aria-label="Proof of delivery and invoice documents">
-            <div className="xb-panel-heading"><h2>Documents &amp; Finance</h2><span className="xb-reference">POD RECORDED</span></div>
-            <p className="xb-panel-description">The official signed POD is read-only. The invoice is managed separately in XDrive Finance.</p>
-            <div className="xb-documents-actions">
-              {podDocument}
-              <button type="button" className="xb-primary xb-full" onClick={onInvoice}>Open POD & Invoice</button>
-            </div>
-          </section>}
-        </div>)}
+          : mode === 'finance' ?
+          <section className="xb-cx-finance" aria-label="POD and Invoice">
+            <button type="button" className="xb-secondary" onClick={onReturnToStatus}>← Booking Status</button>
+            <h2>POD &amp; Invoice</h2>{operation}
+          </section>
+          : <>
+            <StatusProgress job={job} session={session} onSession={onSession} onOperate={onOperate} operationsAllowed={!awaiting && !expired && !podRecorded}/>
+            {!awaiting && !expired && !podRecorded && <button type="button" className="xb-cx-continue" onClick={onOperate}>
+              {job.status==='DELIVERED'||job.status==='ON_SITE_DELIVERY'?'Delivered (POD)':job.status==='ON_SITE_PICKUP'?'Loaded':job.status==='ALLOCATED'?'On My Way to Collection':job.status==='LOADED'?'On My Way to Delivery':job.status.replaceAll('_',' ')}
+            </button>}
+            {podRecorded && <div className="xb-cx-documents">{podDocument}<button type="button" className="xb-cx-documents-button" onClick={onInvoice}>View POD &amp; Invoice</button></div>}
+          </>}
+      </div>}
     </div>
     {awaiting && <section className="xb-decision" aria-label="Accept booking confirmation">
       {decision === null ? <>
