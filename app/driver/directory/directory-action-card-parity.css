@@ -1,10 +1,6 @@
-/* Owner Driver Directory: match Action Centre's operational card geometry. */
-.xdrive-driver-workspace .xdrive-directory-page .workspace-record-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.xdrive-driver-workspace .xdrive-directory-page .workspace-operational-row {
+/* Driver Directory uses the Action Centre operational-card component geometry. */
+.xdrive-driver-workspace .xdrive-directory-page .workspace-record-list { display: flex; flex-direction: column; gap: 8px; }
+.xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card {
   border: 1px solid var(--ws-border, #cfd7e3) !important;
   border-left: 3px solid var(--ws-blue, #1d57d8) !important;
   border-radius: var(--ws-radius, 4px) !important;
@@ -12,25 +8,39 @@
   box-shadow: none !important;
   overflow: hidden;
 }
-.xdrive-driver-workspace .xdrive-directory-page .workspace-operational-row__top {
+.xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-row__top {
   display: grid !important;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(0, 1fr) !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  min-height: 70px !important;
+  height: auto !important;
   gap: 0 !important;
-  min-height: 64px !important;
 }
-.xdrive-driver-workspace .xdrive-directory-page .workspace-operational-cell {
-  padding: 8px 10px !important;
-  min-width: 0;
+.xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-cell {
+  min-width: 0 !important;
+  padding: 10px 12px !important;
   border-right: 1px solid var(--ws-border-soft, #e2e7ed) !important;
 }
-.xdrive-driver-workspace .xdrive-directory-page .workspace-operational-cell:last-child { border-right: 0 !important; }
-.xdrive-driver-workspace .xdrive-directory-page .driver-cell-label { margin-bottom: 3px; }
-.xdrive-driver-workspace .xdrive-directory-page .driver-cell-secondary { margin-top: 3px; overflow-wrap: anywhere; }
+/* Move actions to the card footer, as on Action Centre, instead of a fifth data column. */
+.xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-cell:last-child {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-right: 0 !important;
+  border-top: 1px solid var(--ws-border-soft, #e2e7ed) !important;
+  background: #f8fafc;
+  padding: 8px 12px !important;
+}
+.xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-cell:nth-child(4) { border-right: 0 !important; }
+.xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-cell-label { margin-bottom: 3px; }
+.xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-cell-secondary { margin-top: 3px; overflow-wrap: anywhere; }
 @media (max-width: 1200px) {
-  .xdrive-driver-workspace .xdrive-directory-page .workspace-operational-row__top { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-row__top { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-cell:nth-child(2) { border-right: 0 !important; }
 }
 @media (max-width: 760px) {
-  .xdrive-driver-workspace .xdrive-directory-page .workspace-operational-row__top { grid-template-columns: minmax(0, 1fr) !important; }
-  .xdrive-driver-workspace .xdrive-directory-page .workspace-operational-cell { border-right: 0 !important; border-bottom: 1px solid var(--ws-border-soft, #e2e7ed) !important; }
-  .xdrive-driver-workspace .xdrive-directory-page .workspace-operational-cell:last-child { border-bottom: 0 !important; }
+  .xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-row__top { grid-template-columns: minmax(0, 1fr) !important; }
+  .xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-cell { border-right: 0 !important; border-bottom: 1px solid var(--ws-border-soft, #e2e7ed) !important; }
+  .xdrive-driver-workspace .xdrive-directory-page .driver-directory-action-card .driver-load-cell:last-child { border-bottom: 0 !important; }
 }
