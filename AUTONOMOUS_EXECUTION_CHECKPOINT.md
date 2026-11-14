@@ -147,3 +147,9 @@
 - Extended authenticated read-only Playwright shell test to all seven roles: Customer, Broker, Fleet Manager, Dispatcher, Owner Driver and Company Driver PASS; Company / Carrier FAIL because audit fixture password remains invalid. Broker real Loads interaction test PASS. Overall 7 PASS / 1 FAIL.  
 - Static owner selective scope 12/12 PASS and cross-role safety 12/12 PASS; git diff --check PASS.  
 - Existing production company admin account is known, but test fixture not fixed. No password reset, no Supabase mutation, no main push or deploy. Full seven-role E2E release gate remains NO-GO.  
+ 
+## 2026-11-14 18:27 completion of read-only role shell E2E  
+- Authenticated local Playwright: 10/11 PASS initially; Carrier Admin failure was old test credential, not workspace failure. Dedicated Carrier Admin test with user-supplied test fixture stored OUTSIDE repo PASS 1/1 in 69.07 seconds. All seven role shells have passed read-only authentication.  
+- New navigation tests Broker, Fleet Manager and Dispatcher: Loads to Quotes to Bookings and back PASS 3/3. Broker real Loads filter, details and reset PASS. No production writes.  
+- Local test credential file is C:\Users\xdriv\Desktop\XDrive-PR807-Carrier-Local.env, excluded from Git and this checkpoint. Never commit secrets.  
+- Full functional role flows, visual PR807 parity and production deployment NOT VERIFIED; main not pushed.  
