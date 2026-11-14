@@ -134,3 +134,10 @@
 - Broker screenshot/test context confirmed 33 real Loads with route, times, payment terms and View Details/Quotes and Award actions visible. Write actions were NOT executed.  
 - Concurrent TypeScript run encountered conflicting generated Next validator type directories while Playwright dev server was active; not a verified source-code TypeScript failure. Recheck after build/dev artifacts isolated.  
 - Protected Super Admin, Post Load page and Driver PWA remain unchanged. No main push. Remaining full seven-role visual parity and workflow E2E NO-GO.  
+ 
+## 2026-11-14 17:30 read-only Broker actions  
+- New e2e/pr807-broker-load-actions-readonly.spec.ts exercises real Broker Loads cards, View Details, FROM filter with no match, Clear reset and Open/All tabs without writes.  
+- Local authenticated Playwright chromium 4/4 PASS: Broker, Fleet Manager, Dispatcher shell and Broker actions. Supabase Production-backed data, local Next app, no production mutations.  
+- Historical seven-role guard now permits e2e/ test files, but continues to protect Post Load, PWA, other routes and auth/payment APIs.  
+- Concurrent tsc with Playwright Next dev generated conflicting Next validator types; TypeScript standalone verification still pending. Do not claim typecheck PASS.  
+- No main push, no merge, no deploy. Company Admin credential fixture and full seven-role functional E2E remain NO-GO.  

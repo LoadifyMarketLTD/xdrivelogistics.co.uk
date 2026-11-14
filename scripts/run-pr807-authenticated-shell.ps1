@@ -16,5 +16,5 @@ $env:E2E_BASE_URL=$env:PLAYWRIGHT_BASE_URL
 $env:E2E_VISUAL_FIXTURE='false'
 $env:E2E_ALLOW_PRODUCTION_MUTATION='false'
 $env:CI='1'
-node node_modules\@playwright\test\cli.js test e2e/pr807-authenticated-shell.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line
+node node_modules\@playwright\test\cli.js test e2e/pr807-authenticated-shell.spec.ts e2e/pr807-broker-load-actions-readonly.spec.ts --project=chromium --workers=1 --retries=0 --reporter=line
 exit $LASTEXITCODE
