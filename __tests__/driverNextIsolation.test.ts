@@ -24,7 +24,7 @@ describe('Driver NEXT remains an independent installable PWA', () => {
   });
   it('connects local production preview to real XDrive driver API only', () => {
     expect(config).toContain("base: '/driver/reserve-next/'");
-    expect(config).toContain("preview: { proxy: { '/api/driver':");
+    expect(config).toContain("preview: { proxy: { '/api':");
     expect(config).toContain("https://www.xdrivelogistics.co.uk");
     expect(config).not.toContain("app.xdrivelogistics.co.uk");
   });

@@ -7,6 +7,6 @@ export default defineConfig({
   plugins: [react()],
   // Local production-preview uses the same real driver API as Netlify.
   // Keep this proxy confined to NEXT preview; Reserve and production are unchanged.
-  preview: { proxy: { '/api/driver': { target: 'https://www.xdrivelogistics.co.uk', changeOrigin: true } } },
+  preview: { proxy: { '/api': { target: 'https://www.xdrivelogistics.co.uk', changeOrigin: true } } },
   server: { allowedHosts: ['quick-pumas-teach.loca.lt', 'hip-papers-type.loca.lt'], proxy: { '/xdrive-api': { target: 'https://www.xdrivelogistics.co.uk', changeOrigin: true, rewrite: (path: string) => path.replace(/^\/xdrive-api/, '/api') } } },
 })
