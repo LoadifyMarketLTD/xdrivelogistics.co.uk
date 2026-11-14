@@ -176,7 +176,7 @@ export default function BookingWorkspace({
         <p>Booking {reference}</p>
       </div>
       <div className="xb-heading-bottom">
-        <span className="xb-state">{awaiting ? 'ACCEPTANCE REQUIRED' : expired ? 'EXPIRED OFFER' : podRecorded ? 'POD RECORDED' : job.status.replaceAll('_',' ')}</span>
+        <span className="xb-state">{awaiting ? 'ACCEPTANCE REQUIRED' : expired ? 'EXPIRED OFFER' : podRecorded ? 'POD RECORDED' : job.status==='DELIVERED' ? 'POD PENDING' : job.status.replaceAll('_',' ')}</span>
         <button type="button" className="xb-back" onClick={onBack} aria-label="Back">← <span>Back</span></button>
       </div>
     </header>
