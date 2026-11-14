@@ -57,7 +57,7 @@ const bodySchema = z.object({
       email: z.string().trim().email().optional().nullable().or(z.literal('')),
       phone: z.string().trim().min(5).max(60),
       agreedRate: optionalNumber,
-      paymentTerms: z.enum(['Pay now', '14 days', '30 days']).optional().nullable(),
+      paymentTerms: z.enum(['Pay now', '7 days', '14 days', '30 days']).optional().nullable(),
     }),
     z.object({
       type: z.literal('internal_resource'),
@@ -97,7 +97,7 @@ const bodySchema = z.object({
   bookingReference: optionalText,
   customerPrice: optionalNumber,
   targetCarrierCost: optionalNumber,
-  paymentTerms: z.enum(['Pay now', '14 days', '30 days']).optional().default('14 days'),
+  paymentTerms: z.enum(['Pay now', '7 days', '14 days', '30 days']).optional().default('14 days'),
   tailLift: z.boolean(),
   forklift: z.boolean(),
   handball: z.boolean(),

@@ -161,3 +161,5 @@ The already approved Post Load is retained. Small additive improvements based on
 - Regular Load per-day commercial fields and Daily Hire depot / rate logic with API persistence.
 - En-route email schedule/recipient notification worker (actual delivery verified, not a fake UI-only checkbox).
 No unimplemented feature should be described as done.
+
+2026-11-14 09:53: API 7-day fix on fix/finance-api-seven-day-20261114 from origin/main 81feedef. Four approved terms kept. Updated 5 Zod validations across 4 API routes, 2 API messages, 1 Finance explanation, legacy contract test; added 8 API contract tests. 20/20 focused tests PASS; TypeScript PASS; ESLint PASS. No Post Load UI modifications, no production mutations. Pending PR/deploy verification.
