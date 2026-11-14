@@ -114,3 +114,9 @@
 - PR807 click navigation previews 7/7 PASS but no transport cards populated; real authenticated local seven-role E2E still pending.
 - No production mutations, no main push.
 
+
+## 2026-11-14 16:37 local authenticated run
+- Local Next server at http://127.0.0.1:5299 with actual Supabase environment, read-only seven-role Chromium E2E: 6 PASS, 1 FAIL (Carrier Admin fixture invalid credentials on both local and production, 3 attempts and 2 CI retries). The 6 PASS prove authenticated route availability, not full PR807 shell parity or write workflows.
+- Cleaned Next-generated tsconfig/next-env modifications and temporary build/typecheck logs. No source changes in protected Super Admin/Post Load/PWA paths.
+- Remaining: actual authenticated 807 visual parity and action-by-action seven-role E2E, fix/replace Carrier Admin test fixture through authorized credentials, regression and release gate. NO-GO for main.
+
