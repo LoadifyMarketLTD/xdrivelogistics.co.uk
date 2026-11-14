@@ -163,3 +163,9 @@
 - Fetched origin/main 450ad1ce and merged cleanly into isolated branch as 4bc93df2; no conflicts; backup branch backup/pr807-pre-reconcile-20261114-1909 retained.  
 - TypeScript tsc noEmit incremental false PASS exit 0 after 129.07s. Static integration guard 12/12 PASS; cross-role guard 12/12 PASS. Vitest four suites 13/13 PASS including Post Load payment terms, signed invoice/POD pair, settings role boundaries.  
 - Seven-role authenticated shell/navigation Playwright 13/13 PASS before merge; post-merge authenticated rerun still required. No push to main; no Netlify deploy.  
+ 
+## 2026-11-14 19:41 post-merge authenticated retest  
+- Playwright local authenticated read-only suite rerun against reconciled branch: 13/13 PASS in 5.6 minutes; seven role shells, Broker Loads interactions and five role navigation journeys. Real Supabase-backed local app, no production writes.  
+- Next dev test auto-rewrote generated next-env.d.ts and tsconfig.json; restored both from Git, then static owner scope 12/12 and cross-role safety 12/12 PASS; clean worktree.  
+- Inspection: AuthenticatedMasterShell still imports master3150-production.css, master3150-design-system.css, master3150-operations-shell.css, master3150-board-reference.css and uses master3150-production class. Therefore visual 807 parity is NOT established, despite shared cards using xdrive807 presentation.  
+- Outstanding: screenshot reference comparison and seven-role full tab/action E2E, booking award assignment collection delivery POD invoice payment read/write fixture, full build, device validation, release gate. NO GO main.  
