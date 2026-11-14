@@ -74,3 +74,8 @@
 - `npm run build` running as remote desktop session PID 12132; capture its result before claiming PASS.
 - Old Owner-only `scripts/test-owner-selective-integration.cjs` reports expected scope FAIL after extending to other roles, while protected-surface assertions still passed. New cross-role guard is authoritative for expanded scope, but no substitute for authenticated E2E.
 - Do not push/merge or deploy to production. All this work remains LOCAL; pending further pages and visual/functional regression tests.
+
+## End-of-session verification note
+- Next.js full production build progressed through **optimized compilation PASS (2.8 min)** and entered final lint/type validation but did not finish; no final build PASS may be claimed. To avoid leaving a long-running session, build PID 12132 was terminated. Re-run once local build environment is ready.
+- Last local cross-role commit: 609fa6d3. Protected Post Load and PWA sources remain unchanged. No remote push, merge or production deployment.
+- A fresh Edge headless browser returned 200 on historical preview routes but no visible content on the sampled route, so UI parity and role-authenticated end-to-end workflows remain BLOCKED/UNVERIFIED. Do not treat the 12/12 static contract as functional completion.
