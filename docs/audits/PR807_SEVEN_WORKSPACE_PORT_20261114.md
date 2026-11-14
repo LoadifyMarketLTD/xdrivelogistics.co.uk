@@ -32,7 +32,7 @@
 - New static seven-role and protected-surface contract 12/12 PASS.
 - git diff --check PASS.
 - Prior Owner-only safety guard now has one expected scope rejection ('Only approved Owner settings and styles') because work expanded to other roles. Other guard checks PASS. It is not an E2E test.
-- Playwright Edge local preview: initial routes returned HTTP 200 but client-rendered workspace text was empty, so visual/browser suite is NOT PASS. Browser/auth readiness requires investigation.
+- Playwright Edge local preview: cold dev compilation initially returned empty client content with an intermittent JavaScript error. Re-test after Next compilation: 18/18 desktop/mobile preview page loads visible, HTTP 200, no pageerrors/overflow. Seven original preview Loads navigation interactions 7/7 PASS. No transport cards populated with real data, so card action parity and authenticated E2E NOT VERIFIED.
 - Full authenticated E2E, RLS/tenant, functional write flows, mobile device, and visual comparison NOT VERIFIED.
 - Full production build: pending at time of writing.
 

@@ -79,3 +79,12 @@
 - Next.js full production build progressed through **optimized compilation PASS (2.8 min)** and entered final lint/type validation but did not finish; no final build PASS may be claimed. To avoid leaving a long-running session, build PID 12132 was terminated. Re-run once local build environment is ready.
 - Last local cross-role commit: 609fa6d3. Protected Post Load and PWA sources remain unchanged. No remote push, merge or production deployment.
 - A fresh Edge headless browser returned 200 on historical preview routes but no visible content on the sampled route, so UI parity and role-authenticated end-to-end workflows remain BLOCKED/UNVERIFIED. Do not treat the 12/12 static contract as functional completion.
+
+## Phase 6 local Edge preview retest (14 November 2026)
+- Source branch remains integration/owner-driver-selective-20261114; commit 609fa6d3 is shared-card migration.
+- Initial client-side render error 'Invalid or unexpected token' occurred during cold Next dev compilation. After compilation/refresh, the same preview rendered and no pageerror remained. No production code change was required for this transient dev-server condition.
+- Microsoft Edge Playwright: 9 historic role preview routes x desktop 1440 and mobile 390 = **18/18 HTTP 200 + visibly rendered + no JS pageerrors + no horizontal overflow**. Results in _audit/pr807-seven-role-smoke.json.
+- Seven original workspace preview routes: clicked Loads through navigation, **7/7 click smoke PASS**, visible content and no page errors. No actual load cards rendered in this local session, so card layout, actions, quotes and bookings remain UNVERIFIED with real data.
+- Local Supabase credentials are unavailable to the dev server (NEXT_PUBLIC_SUPABASE_URL and anon key not configured), so no authenticated E2E, RLS or customer/driver real backend validation. Do not claim real-world workflows PASS.
+- TypeScript, scoped ESLint and static guard 12/12 previously PASS. Next optimized compilation PASS; complete production build still not proven PASS.
+- No changes to Post Load, PWA, published main or Supabase. NO PUSH/NO MERGE/NO DEPLOY.
