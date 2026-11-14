@@ -5,7 +5,11 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import XDriveTransportOverview from '../../components/workspace/XDriveTransportOverview';
 import { useAuth } from '../../components/AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import '../xdrive-operational-cards-v3.css';
+import '../xdrive-owner-myjobs.css';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
@@ -14,7 +18,7 @@ import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../.
 import {hasCompletePodEvidence,isDeliveredAwaitingPod} from '../../../lib/jobs/podCompletion';
 import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
 import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
-import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type DriverBookingView = DriverJobView | 'current';
 
@@ -106,6 +110,7 @@ function vehicleLabel(job: JobRow) {
 export default function DriverJobsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const isOwnerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [driver, setDriver] = useState<DriverRow | null>(null);
   const [jobs, setJobs] = useState<JobRow[]>([]);
@@ -239,6 +244,47 @@ export default function DriverJobsPage() {
                   const hasPod = hasCompletePodEvidence(job);
                   const inExecution = stage === 'in_progress';
                   const complete = stage === 'completed';
+
+                  if (isOwnerDriver) return (
+                    <article key={job.id} className="driver-load-row xd-owner-job-card" data-state={status}>
+                      <div className="xd-owner-job-heading">
+                        <strong>Assigned transport</strong>
+                        <span>XDrive ref · {job.id.slice(0, 8).toUpperCase()}</span>
+                      </div>
+                      <XDriveTransportOverview
+                        tone="diary"
+                        from={job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}
+                        to={job.delivery_location ?? job.delivery_postcode ?? 'Destination not supplied'}
+                        pickup={{primary:fmtTime(job.pickup_datetime),meta:fmtDate(job.pickup_datetime)}}
+                        delivery={{primary:fmtTime(job.delivery_datetime),meta:fmtDate(job.delivery_datetime)}}
+                        status={workspaceJobOperationalLabel(job)}
+                        caption={job.cargo_type?.replace(/_/g, ' ') ?? 'Cargo not specified'}
+                        stamp={hasPod ? 'POD complete' : isDeliveredAwaitingPod(job) ? 'POD action required' : inExecution ? 'Execution in progress' : complete ? 'Execution complete' : 'Assigned transport'}
+                        vehicle={vehicleLabel(job)}
+                      />
+                      <div className="driver-load-row__meta xd-owner-job-actions">
+                        <StatusBadge value={workspaceJobOperationalLabel(job)} tone={complete ? 'green' : inExecution ? 'orange' : stage === 'cancelled' ? 'red' : 'blue'} />
+                        {hasPod && <StatusBadge value="POD complete" tone="green" />}
+                        {isDeliveredAwaitingPod(job) && <StatusBadge value="POD action required" tone="orange" />}
+                        <div className="driver-row-actions">
+                          <ActionButton tone="secondary" onClick={() => toggleJob(job.id)}>{expanded ? 'Collapse' : 'Details'}</ActionButton>
+                          <ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push('/driver/jobs/' + job.id)}>{inExecution ? 'Continue execution' : 'Open booking'}</ActionButton>
+                        </div>
+                      </div>
+                      {expanded && <div className="driver-row-details">
+                        <div className="driver-detail-grid">
+                          <div className="driver-detail-item"><span>Pickup</span><strong>{fmtDate(job.pickup_datetime)} {fmtTime(job.pickup_datetime)}</strong></div>
+                          <div className="driver-detail-item"><span>Delivery</span><strong>{fmtDate(job.delivery_datetime)} {fmtTime(job.delivery_datetime)}</strong></div>
+                          <div className="driver-detail-item"><span>Vehicle</span><strong>{vehicleLabel(job)}</strong></div>
+                          <div className="driver-detail-item"><span>Evidence</span><strong>{hasPod ? 'POD complete' : isDeliveredAwaitingPod(job) ? 'POD action required' : complete ? 'Review POD in booking' : 'Pending execution'}</strong></div>
+                        </div>
+                        <div className="driver-inline-quote driver-job-actions">
+                          <span>Transport status and POD evidence remain managed through the authorised job execution workflow.</span>
+                          <ActionButton tone={inExecution ? 'success' : 'secondary'} onClick={() => router.push('/driver/jobs/' + job.id)}>{inExecution ? 'Continue execution' : 'Open booking details'}</ActionButton>
+                        </div>
+                      </div>}
+                    </article>
+                  );
                   return <CxDiaryCard
                     key={job.id}
                     className="xd-approved-bookings-card"

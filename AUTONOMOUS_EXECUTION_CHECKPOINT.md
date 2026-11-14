@@ -48,3 +48,10 @@
 - TypeScript re-run after phase 2 PASS (14.94 seconds), CSS PostCSS + JSX transpilation PASS; `git diff --check` PASS.
 - Existing first local commit `bedb0b8f` for Settings + Event Log, no remote push. Phase 2 remains local until tests and local commit. This is STILL NOT ready for `main`: Loads/Quotes/Diary/My Jobs/Finance and production E2E write flows have not been selectively integrated or tested.
 - All changes remain in isolated worktree on branch integration/owner-driver-selective-20261114 based on `main` 593c1bb; **POST LOAD and PWA totally untouched**. Do not merge PR #807 wholesale.
+
+## Phase 3 (LOCAL ONLY): My Jobs redesigned card with POD and GPS preserved
+- New Owner Driver conditional card in `app/driver/jobs/page.tsx` via `XDriveTransportOverview` and owner-only `xdrive-owner-myjobs.css`; Company Driver continues to render original CxDiaryCard untouched.
+- Main baseline's full job POD completion fields (`pod_generated`, `pod_photos`, `delivery_signature_data`, `client_signature_name`), `hasCompletePodEvidence` and `isDeliveredAwaitingPod`, original current filter and active-job priority preserved. Existing `app/driver/jobs/[id]/page.tsx` with full execution and `JobLiveTrackingPanel` UNCHANGED (unlike unsafe old PR807).
+- New component `app/components/workspace/XDriveTransportOverview.tsx`, stylesheet `app/driver/xdrive-operational-cards-v3.css`; code and CSS parse validated.
+- `scripts/test-owner-myjobs-safety.cjs` 9/9 PASS; related 3 Vitest files 13/13 PASS; after My Jobs `npm run typecheck` PASS (17.13 seconds). Main integration guard `scripts/test-owner-selective-integration.cjs` 12/12 PASS. `git diff --check` PASS. No post-load or PWA changes, no production or preview push.
+- Other modules Loads/Quotes/Diary/Finance remain **NOT SELECTIVELY INTEGRATED**; full functional E2E and production build still NOT DONE. Gate NO-GO.
