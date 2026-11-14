@@ -158,3 +158,8 @@
 - Local authenticated Chromium suite 13/13 PASS: seven shells, Broker real Loads read-only, and navigation for Customer Broker Carrier Admin Fleet Manager Dispatcher. Carrier credentials loaded from local file outside repo.  
 - IMPORTANT BASELINE DRIFT: origin/main now 450ad1ce, branch merge-base 81feedef; origin/main has independently changed Post Load and invoice APIs. Existing static guards comparing branch to origin/main now FAIL 4/12 and 2/12 because of divergent baseline, NOT verified regression in these test changes. Rebase/reconciliation required before release.  
 - No production mutation, no main push. Visual and complete E2E workflow still unverified.  
+ 
+## 2026-11-14 19:12 main reconciliation verified  
+- Fetched origin/main 450ad1ce and merged cleanly into isolated branch as 4bc93df2; no conflicts; backup branch backup/pr807-pre-reconcile-20261114-1909 retained.  
+- TypeScript tsc noEmit incremental false PASS exit 0 after 129.07s. Static integration guard 12/12 PASS; cross-role guard 12/12 PASS. Vitest four suites 13/13 PASS including Post Load payment terms, signed invoice/POD pair, settings role boundaries.  
+- Seven-role authenticated shell/navigation Playwright 13/13 PASS before merge; post-merge authenticated rerun still required. No push to main; no Netlify deploy.  
