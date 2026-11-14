@@ -3,7 +3,9 @@ import {loginWithCredentials} from './helpers/authLogin';
 
 /** Real sidebar navigation: route and selected tab, without production writes. */
 for (const item of [
+ {name:'Customer',env:'CUSTOMER',loads:'/customer/loads',quotes:'/customer/quotes',bookings:'/customer/bookings'},
  {name:'Broker',env:'BROKER',loads:'/broker/loads',quotes:'/broker/bids',bookings:'/broker/jobs'},
+ {name:'Company / Carrier',env:'CARRIER_ADMIN',loads:'/admin/marketplace',quotes:'/admin/exchange',bookings:'/admin/won-work'},
  {name:'Fleet Manager',env:'FLEET_MANAGER',loads:'/admin/marketplace',quotes:'/admin/exchange',bookings:'/admin/won-work'},
  {name:'Dispatcher',env:'DISPATCHER',loads:'/admin/marketplace',quotes:'/admin/exchange',bookings:'/admin/won-work'},
 ] as const) {

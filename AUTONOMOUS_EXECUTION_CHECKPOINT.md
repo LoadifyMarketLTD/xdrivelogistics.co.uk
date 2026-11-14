@@ -153,3 +153,8 @@
 - New navigation tests Broker, Fleet Manager and Dispatcher: Loads to Quotes to Bookings and back PASS 3/3. Broker real Loads filter, details and reset PASS. No production writes.  
 - Local test credential file is C:\Users\xdriv\Desktop\XDrive-PR807-Carrier-Local.env, excluded from Git and this checkpoint. Never commit secrets.  
 - Full functional role flows, visual PR807 parity and production deployment NOT VERIFIED; main not pushed.  
+ 
+## 2026-11-14 18:37 E2E expanded navigation  
+- Local authenticated Chromium suite 13/13 PASS: seven shells, Broker real Loads read-only, and navigation for Customer Broker Carrier Admin Fleet Manager Dispatcher. Carrier credentials loaded from local file outside repo.  
+- IMPORTANT BASELINE DRIFT: origin/main now 450ad1ce, branch merge-base 81feedef; origin/main has independently changed Post Load and invoice APIs. Existing static guards comparing branch to origin/main now FAIL 4/12 and 2/12 because of divergent baseline, NOT verified regression in these test changes. Rebase/reconciliation required before release.  
+- No production mutation, no main push. Visual and complete E2E workflow still unverified.  
