@@ -1,0 +1,43 @@
+/* Driver NEXT Status reconstruction — scoped to the booking workspace. */
+.xb-status-overview{display:grid;gap:17px;min-width:0;padding:21px;border-radius:15px;color:#fff;background:linear-gradient(135deg,#172941,#284d6d)}
+.xb-status-overview.xb-overview-complete{background:linear-gradient(135deg,#164a3d,#237960)}
+.xb-status-overview.xb-overview-pending{background:linear-gradient(135deg,#593b1e,#95612e)}
+.xb-status-overline{display:block;color:#cce0ed;font-size:11px;font-weight:900;letter-spacing:.13em;margin-bottom:7px}
+.xb-status-overview h2{margin:0 0 8px;color:#fff;font-size:clamp(19px,2.5vw,27px);line-height:1.22}
+.xb-status-overview p{margin:0;max-width:75ch;color:#e7eef5;font-size:14px;line-height:1.5}
+.xb-status-route{display:grid;grid-template-columns:minmax(0,1fr) 22px minmax(0,1fr);align-items:center;gap:9px;padding:15px;background:#ffffff13;border:1px solid #ffffff28;border-radius:11px}
+.xb-status-route>div{display:grid;gap:5px;min-width:0}
+.xb-status-route span:not(.xb-status-route-arrow),.xb-status-quickfacts dt{font-size:10px;font-weight:900;letter-spacing:.075em;color:#d5e1eb}
+.xb-status-route strong{font-size:16px;overflow-wrap:anywhere}
+.xb-status-route small{font-size:12px;color:#dce9f2}
+.xb-status-route-arrow{text-align:center;font-size:22px;color:#ffce68}
+.xb-status-quickfacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0}
+.xb-status-quickfacts>div{padding:12px;background:#ffffff13;border-radius:8px;min-width:0}
+.xb-status-quickfacts dt{margin:0 0 6px}
+.xb-status-quickfacts dd{font-size:13px;font-weight:800;margin:0;overflow-wrap:anywhere}
+.xb-status-map-link{justify-self:start;color:#fff;background:transparent;border:1px solid #ffffff7c;padding:11px 15px;border-radius:9px;font-weight:800;font-size:13px}
+.xb-status-columns{display:grid;gap:15px;min-width:0;align-items:start}
+.xb-status-finance-panel{min-width:0}
+.xb-status-finance-panel .xb-finance-panel{min-width:0}
+.xb-status-panel .xb-stage{min-height:70px}
+.xb-status-panel .xb-stage-content strong{font-size:15px}
+@media(min-width:950px){
+ .rv-shell:has(.xb-status-overview){max-width:1320px}
+ .rv-main:has(.xb-status-overview){width:100%;max-width:none;padding:22px 28px 42px}
+ .xb-workspace:has(.xb-status-overview){width:100%;max-width:1200px;margin-inline:auto}
+ .xb-status-overview{grid-template-columns:minmax(0,1fr) minmax(330px,.9fr);gap:20px 26px;padding:27px}
+ .xb-status-overview-heading{grid-column:1}
+ .xb-status-route{grid-column:2;grid-row:1 / span 2}
+ .xb-status-quickfacts{grid-column:1;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .xb-status-map-link{grid-column:2;justify-self:end}
+ .xb-status-columns{grid-template-columns:minmax(0,1fr) minmax(0,.9fr);gap:20px}
+ .xb-status-columns .xb-panel{padding:21px}
+}
+@media(max-width:380px){.xb-status-overview{padding:14px}.xb-status-route{padding:10px;gap:5px}.xb-status-route strong{font-size:14px}}
+@media(min-width:950px){
+ .rv-shell:has(.xb-status-overview){display:grid;grid-template-rows:80px 62px minmax(0,1fr);min-height:100vh;padding-bottom:0}
+ .rv-shell:has(.xb-status-overview) .rv-header{grid-row:1;height:80px;padding:12px 26px}
+ .rv-shell:has(.xb-status-overview) .rv-nav{grid-row:2;position:sticky;top:0;left:auto;bottom:auto;transform:none;width:100%;max-width:none;justify-content:flex-start;gap:12px;padding:8px 24px;z-index:25}
+ .rv-shell:has(.xb-status-overview) .rv-nav button{flex-direction:row;justify-content:center;gap:8px;min-width:150px;padding:9px 16px;border-radius:8px;font-size:14px}
+ .rv-shell:has(.xb-status-overview) .rv-main{grid-row:3;min-height:calc(100vh - 142px)}
+}

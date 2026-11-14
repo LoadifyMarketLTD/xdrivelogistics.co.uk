@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { driverGet, renewSession, type LiveJob, type LiveSession } from './liveApi';
 import { routeLabel } from './routeLabel';
+import BookingStatusSummary from './BookingStatusSummary';
 import './BookingWorkspace.css';
 
 type Section = 'summary' | 'stops' | 'status';
@@ -216,22 +217,28 @@ export default function BookingWorkspace({
         <RouteStop number={2} title="Delivery Details" address={delivery}
           schedule={timeLabel(job.deliveryDate,job.delivery)} onMap={onMap}/>
       </section>}
+      {section === 'status' && <BookingStatusSummary job={job} onMap={onMap}/>}
       {section === 'status' && (mode === 'finance' ?
-        <div className="xb-finance-panel" aria-label="POD and Invoice">
-          {operation}
-          {onReturnToStatus && <button type="button" className="xb-documents-back" onClick={onReturnToStatus}>← Booking status timeline</button>}
+        <div className="xb-status-columns xb-status-finance-columns" aria-label="Booking status and finance">
+          <StatusProgress job={job} session={session} onSession={onSession} onOperate={onOperate} operationsAllowed={false}/>
+          <section className="xb-panel xb-status-finance-panel" aria-label="POD and Invoice">
+            <div className="xb-panel-heading"><h2>Documents &amp; Finance</h2><span className="xb-reference">OFFICIAL RECORDS</span></div>
+            <p className="xb-panel-description">POD and invoice records are separate from the operational status. Email provider acceptance does not confirm recipient delivery.</p>
+            <div className="xb-finance-panel">{operation}</div>
+            {onReturnToStatus && <button type="button" className="xb-documents-back" onClick={onReturnToStatus}>Back to booking status</button>}
+          </section>
         </div> : mode === 'operation' && !podRecorded ?
-        <div className="xb-status-workflow">
+        <div className="xb-status-workflow xb-status-columns">
           <section className="xb-panel xb-current-panel" aria-label="Current booking operation">
             <div className="xb-panel-heading"><h2>Current booking step</h2><span className="xb-reference">{job.status.replaceAll('_',' ')}</span></div>
             {operation}
           </section>
           <StatusProgress job={job} session={session} onSession={onSession} onOperate={onOperate} operationsAllowed={!awaiting && !expired}/>
         </div> :
-        <div className="xb-status-workflow">
+        <div className="xb-status-workflow xb-status-columns">
           <StatusProgress job={job} session={session} onSession={onSession} onOperate={onOperate} operationsAllowed={!awaiting && !expired}/>
           {podRecorded && <section className="xb-panel xb-documents-panel" aria-label="Proof of delivery and invoice documents">
-            <div className="xb-panel-heading"><h2>POD &amp; Invoice</h2><span className="xb-reference">SIGNED DOCUMENTS</span></div>
+            <div className="xb-panel-heading"><h2>Documents &amp; Finance</h2><span className="xb-reference">POD RECORDED</span></div>
             <p className="xb-panel-description">The official signed POD is read-only. The invoice is managed separately in XDrive Finance.</p>
             <div className="xb-documents-actions">
               {podDocument}
