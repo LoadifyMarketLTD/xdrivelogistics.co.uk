@@ -391,7 +391,8 @@ export default function ReserveApp() {
       const newlyUploaded=await uploadDeliveryEvidence(j,s.token);
       const photos=[...new Set([...priorPaths(priorState.draft?.photoUris),...newlyUploaded.photos])];
       const documents=[...new Set([...priorPaths(priorState.draft?.documentUris),...newlyUploaded.documents])];
-      const podDraft={recipientName:draft.recipient.trim(),leftAt:draft.leftAt,itemCount:Number(draft.items),deliveryStatus:draft.condition,notes:draft.notes,signatureData:signature,photoUris:photos,documentUris:documents};
+      // pod-draft API validates itemCount as a string; the mobile POD submit API uses a number.
+      const podDraft={recipientName:draft.recipient.trim(),leftAt:draft.leftAt,itemCount:String(draft.items),deliveryStatus:draft.condition,notes:draft.notes,signatureData:signature,photoUris:photos,documentUris:documents};
       const saved=await fetch(podDraftUrl,{method:'PUT',headers:{Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:JSON.stringify(podDraft)});
       if(!saved.ok){const detail=await saved.json().catch(()=>({}));throw new Error(detail.error||'Signed POD draft could not be saved ('+saved.status+').');}
       // The current XDrive backend requires status DELIVERED before atomic POD recording.
