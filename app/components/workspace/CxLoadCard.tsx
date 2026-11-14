@@ -45,6 +45,7 @@ export default function CxLoadCard({
   paymentTerms?: ReactNode;
 }) {
   return <Master3150Card
+    presentation="xdrive807"
     mode="load"
     className={`xdrive-cx-load-card ${className}`}
     mainClassName="xdrive-cx-load-card__main"

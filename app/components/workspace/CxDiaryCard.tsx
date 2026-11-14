@@ -39,6 +39,7 @@ export default function CxDiaryCard({
   paymentTerms?: ReactNode;
 }) {
   return <Master3150Card
+    presentation="xdrive807"
     mode="diary"
     className={`workspace-operational-row xdrive-cx-diary-card ${className}`}
     mainClassName="xdrive-cx-diary-card__main"

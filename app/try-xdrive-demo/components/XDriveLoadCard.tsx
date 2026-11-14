@@ -1,4 +1,6 @@
 import type {ReactNode} from "react";
+import XDriveTransportOverview from "../../components/workspace/XDriveTransportOverview";
+import "../../components/workspace/xdrive-role-807-card.css";
 
 export type XDriveCardData = {
  id:string;from:string;to:string;date:string;status:string;vehicle:string;
@@ -10,15 +12,19 @@ export default function XDriveLoadCard({data,onDetails,actions,extra}:{data:XDri
  const d=new Date(data.date+"T12:00:00Z");
  const day=Number.isNaN(d.getTime())?"--":d.toLocaleDateString("en-GB",{weekday:"short",timeZone:"UTC"});
  const date=Number.isNaN(d.getTime())?"TBC":d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",timeZone:"UTC"});
- return <article className="xd-board-card xd-shared-job-card">
-  <div className="xd-card-date"><span>{day}</span><strong>{date}</strong><em className={/next|allocated|progress/i.test(data.status)?"blue":"green"}>{data.status}</em></div>
-  <div className="xd-card-main">
-   <h3><span>{"\u{1F4CD}"} {data.from.toUpperCase()}</span><i>{"\u2192"}</i><span>{"\u{1F4CD}"} {data.to.toUpperCase()}</span></h3>
-   <p className="xd-card-distance">Collection: {data.collection||data.date} | Delivery: {data.delivery||"ASAP"}</p>
-   <div className="xd-card-facts"><span>{"\u{1F69A}"} {data.vehicle}</span><span>{"\u{1F4E6}"} {data.cargo}</span><span>{"\u2696"} {data.weight}</span><span>{"\u25A3"} {data.packaging||"General Freight"}</span></div>
-   {(data.equipment||data.dimensions)&&<p className="xd-card-distance">{data.equipment&&<>Required: {data.equipment}</>}{data.dimensions&&<> | Dimensions: {data.dimensions}</>}</p>}
-   <p className="xd-card-terms">Ref: {data.id} | <b>Payment Terms:</b> {data.paymentTerms||"See booking details"}</p>
+ return <article className="xdrive-role-807-card xd-shared-job-card" data-presentation="xdrive807" data-master-reference="807">
+  <div className="xd-card-context"><strong>{day} {date}</strong><span className="xd-card-context__ref">Ref: {data.id}</span></div>
+  <XDriveTransportOverview
+   tone="load" from={data.from} to={data.to}
+   pickup={{primary:data.collection||data.date||"TBC"}} delivery={{primary:data.delivery||"ASAP"}}
+   status={data.status} member={data.company||undefined} vehicle={data.vehicle}
+   stamp={data.memberId?"Member ID: "+data.memberId:undefined}
+   details={<><div><span>Cargo</span><strong>{data.cargo}</strong></div><div><span>Weight</span><strong>{data.weight}</strong></div><div><span>Packaging</span><strong>{data.packaging||"General Freight"}</strong></div></>}
+   requirements={<><div><span>Payment terms</span><strong>{data.paymentTerms||"See booking details"}</strong></div>{data.equipment&&<div><span>Equipment</span><strong>{data.equipment}</strong></div>}{data.dimensions&&<div><span>Dimensions</span><strong>{data.dimensions}</strong></div>}</>}
+  />
+  <div className="xd-card-actions master3150-record__full-footer">
+   <button onClick={onDetails}>View Details</button>{actions}
   </div>
-  <div className="xd-card-company"><small>{data.company?"Posted by":"Booking status"}</small><strong>{data.company||data.status}</strong>{data.memberId&&<span>Member ID: {data.memberId}</span>}<div className="xd-card-actions"><button onClick={onDetails}>View Details</button>{actions}</div>{extra}</div>
+  {extra}
  </article>;
 }

@@ -62,3 +62,15 @@
 - `scripts/test-owner-finance-safety.cjs`: 9/9 PASS including exact main semantics, Draft separate review before Send, unpaid invoice filter and draft/cancelled accounting exclusion. Three finance/business billing unit test files: 8/8 PASS. TypeScript run after finance port PASS.
 - Premerge integration guard after phase 4 12/12 PASS; PWA/Post Load/other role route diff zero. Do NOT copy old Preview #807 finance page: that version auto-sends generated invoices, changes accounting and removes awaiting-payment scope; these regressions would violate requirements.
 - Loads/Quotes/Diary visuals still NOT selectively integrated; full end-to-end booking/POD/invoice/email under test data and cross-role regressions NOT DONE. Main release NO-GO. No push.
+
+## Phase 5 (LOCAL ONLY): Cross-role PR #807 presentation migration — 14 November 2026
+- User expanded scope to the **seven original operational workspaces**. Preserve the existing Master 3150 and role-specific permissions, and explicitly freeze **Post Load** including its current code, APIs, design, fields and behavior.
+- Added opt-in `presentation='xdrive807'` branch to shared `Master3150Card` while retaining `approved3150` fallback. Existing `CxLoadCard`, `CxQuoteCard`, `CxDiaryCard` opt in; their original footer action JSX and expanded detail callbacks remain in place.
+- Added scoped stylesheet `app/components/workspace/xdrive-role-807-card.css`; new layout uses already imported `XDriveTransportOverview`.
+- Historical `app/try-xdrive-demo/components/XDriveLoadCard.tsx` uses shared 807 presentation for role preview Loads/Quotes/Bookings, preserving actions, View Details, and extra data. Authenticated roles with distinct boards require further migration.
+- Read-only migration matrix: `docs/audits/PR807_SEVEN_WORKSPACE_PORT_20261114.md`.
+- Validation: `npx tsc --noEmit --pretty false` PASS; scoped ESLint PASS; PostCSS parse PASS; `node scripts/test-pr807-cross-role-safety.cjs` **12/12 PASS**; `git diff --check` PASS.
+- Local Edge smoke remains **NOT PASS**: initial historical preview routes return HTTP 200 but empty client-rendered text in fresh headless browser. Do not count HTTP 200 as UI functional parity. E2E authenticated role, RLS, image upload, POD, invoice and email still untested.
+- `npm run build` running as remote desktop session PID 12132; capture its result before claiming PASS.
+- Old Owner-only `scripts/test-owner-selective-integration.cjs` reports expected scope FAIL after extending to other roles, while protected-surface assertions still passed. New cross-role guard is authoritative for expanded scope, but no substitute for authenticated E2E.
+- Do not push/merge or deploy to production. All this work remains LOCAL; pending further pages and visual/functional regression tests.

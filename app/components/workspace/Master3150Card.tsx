@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react';
 import type { CxDateParts } from './CxLoadCard';
+import XDriveTransportOverview from './XDriveTransportOverview';
+import './xdrive-role-807-card.css';
 import './master3150-design-system.css';
 import './master3150-record-card.css';
 import './master3150-live-operations.css';
@@ -42,6 +44,7 @@ export type Master3150CardProps = {
   state?: string;
   stage?: string;
   sold?: boolean;
+  presentation?: 'approved3150' | 'xdrive807';
 };
 
 /* Only print dates supplied by the authorized backend. Never default to today. */
@@ -65,13 +68,30 @@ function pickupCalendar(meta: ReactNode): {weekday: string; date: string} {
 export default function Master3150Card({
   mode, className='',mainClassName='',routeClassName='',timesClassName='',statusClassName='',footerClassName='',
   from,to,pickup,delivery,band,posted,postedAt,loadId,vehicle,facts,terms,routeMeta,statusMeta,
-  footer,footerRole,footerAriaLabel,expanded=false,expandedContent,extra,state,stage,sold=false,
+  footer,footerRole,footerAriaLabel,expanded=false,expandedContent,extra,state,stage,sold=false,presentation='approved3150',
 }:Master3150CardProps) {
   const calendar = pickupCalendar(pickup.meta);
   const stageText = (stage || state || '').toLowerCase();
   const tone = /cancel|withdraw|reject|unsuccessful|expired/.test(stageText)?'muted':
     /allocated|progress|booked|accepted/.test(stageText)?'blue':
     /pending|await|unallocat/.test(stageText)?'amber':'green';
+  if (presentation === 'xdrive807') {
+    return <article className={['xdrive-role-807-card', 'xd-shared-job-card', 'master3150-record', 'master3150-record--'+mode, className].filter(Boolean).join(' ')}
+      data-state={state} data-stage={stage} data-master-reference="807" data-presentation="xdrive807">
+      <div className="xd-card-context"><span className="xd-card-context__ref">Ref: {loadId}</span></div>
+      <XDriveTransportOverview
+        tone={mode} from={from} to={to} pickup={pickup} delivery={delivery}
+        status={sold?'SOLD':band} caption={state || stage || undefined}
+        member={posted} stamp={postedAt} vehicle={vehicle}
+        extraRoute={routeMeta}
+        details={facts} requirements={terms ? <div><span>Payment terms</span><strong>{terms}</strong></div> : undefined}
+      />
+      <div className={['xd-card-actions', 'master3150-record__full-footer', footerClassName].filter(Boolean).join(' ')}
+        role={footerRole} aria-label={footerAriaLabel}>{footer}</div>
+      {expanded && expandedContent && <div className="xd-card-expanded">{expandedContent}</div>}
+      {extra}
+    </article>;
+  }
   return (
     <article className={['xd-board-card','xd-shared-job-card','master3150-record',`master3150-record--${mode}`,className].filter(Boolean).join(' ')} data-state={state} data-stage={stage} data-master-reference="3150">
       <div className="xd-card-date" aria-label="Collection date and status">

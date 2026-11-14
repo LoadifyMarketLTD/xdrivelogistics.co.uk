@@ -27,6 +27,7 @@ export default function CxQuoteCard({
   paymentTerms?: ReactNode;
 }) {
   return <Master3150Card
+    presentation="xdrive807"
     mode="quote"
     className="xdrive-cx-quote-card"
     mainClassName="xdrive-cx-quote-card__main"
