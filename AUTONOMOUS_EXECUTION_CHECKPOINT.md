@@ -141,3 +141,9 @@
 - Historical seven-role guard now permits e2e/ test files, but continues to protect Post Load, PWA, other routes and auth/payment APIs.  
 - Concurrent tsc with Playwright Next dev generated conflicting Next validator types; TypeScript standalone verification still pending. Do not claim typecheck PASS.  
 - No main push, no merge, no deploy. Company Admin credential fixture and full seven-role functional E2E remain NO-GO.  
+ 
+## 2026-11-14 17:46 seven-role shell verification  
+- Standalone TypeScript: node node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false PASS exit 0 in 122.96s. No concurrent generated-validator conflict.  
+- Extended authenticated read-only Playwright shell test to all seven roles: Customer, Broker, Fleet Manager, Dispatcher, Owner Driver and Company Driver PASS; Company / Carrier FAIL because audit fixture password remains invalid. Broker real Loads interaction test PASS. Overall 7 PASS / 1 FAIL.  
+- Static owner selective scope 12/12 PASS and cross-role safety 12/12 PASS; git diff --check PASS.  
+- Existing production company admin account is known, but test fixture not fixed. No password reset, no Supabase mutation, no main push or deploy. Full seven-role E2E release gate remains NO-GO.  
