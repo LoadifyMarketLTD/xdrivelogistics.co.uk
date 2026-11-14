@@ -45,3 +45,18 @@
 
 /* The timeline scrolls within the white panel; the fixed green action never covers a completed status row. */
 @media(max-width:949px){.xb-cx-status .xb-status-panel{height:calc(100dvh - 300px);min-height:350px;overflow-y:auto;overscroll-behavior:contain}.xb-cx-status .xb-timeline{padding-bottom:22px}}
+/* POD is a dedicated screen, not a Status tab with a form underneath. */
+.xb-workspace:has(.xb-cx-operation) .xb-tabs{display:none}
+.xb-workspace:has(.xb-cx-operation){gap:0}
+.xb-cx-operation .xb-delivery-header h3,.xb-cx-operation .xb-delivery-header>.xb-muted{display:none}
+.xb-cx-operation .xb-delivery-header{padding:0;border:0;box-shadow:none}
+.xb-cx-operation .xb-delivery-header .xb-address{margin:0}
+.xb-cx-operation .xb-cx-form-title{position:sticky;top:0;z-index:8}
+.xb-cx-operation .xb-form-actions{position:sticky;bottom:0;z-index:8;background:#fff;padding:10px 0;border-top:1px solid #e4e8ef}
+@media(max-width:949px){
+ .rv-main:has(.xb-cx-operation){padding:9px 12px 0;min-height:0}
+ .xb-cx-operation{height:calc(100dvh - 150px);max-height:calc(100dvh - 150px);overflow-y:auto;overscroll-behavior:contain;scroll-padding-bottom:80px}
+ .xb-cx-operation .xb-delivery{padding:14px 13px 80px}
+ .xb-cx-operation .xb-form-actions{grid-template-columns:minmax(85px,.9fr) minmax(0,2fr)}
+ .xb-cx-operation .xb-form-actions button{font-size:13px}
+}
