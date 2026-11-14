@@ -174,3 +174,8 @@
 - Fetched PR807 ref origin/pr807-reference e7d9b84d; approved pinned snapshot a4315231 exists locally. Actual approved Owner Driver shell in a4315231 app/driver/layout.tsx wraps DriverTopWorkspaceShell, which returns TopWorkspaceShell, and loads top-workspace-shell.css plus canonical white-workspace styles.  
 - Current shared authenticated shell is a distinct AuthenticatedMasterShell, using ApprovedSidebar and four master3150-* CSS files. Therefore it is not an exact transplant of the PR807 TopWorkspaceShell even though 807 cards and role navigation pass. Visual shell migration is a real remaining implementation task, not merely renaming CSS.  
 - Do not replace layout blindly: retain original Post Load, Super Admin, Driver PWA, role authorization, real routes and all data. Next: inspect TopWorkspaceShell props and role navigation contracts, design isolated adapter, screenshot compare in Edge, then implement and regress each role.  
+ 
+## 2026-11-14 20:38 PR807 shell replacement  
+- Replaced AuthenticatedMasterShell internal 3150 sidebar and CSS imports with actual approved PR807 TopWorkspaceShell and canonical measured white-workspace CSS; retained data-master-workspace wrapper and all authenticated route children.  
+- Static scope 12/12 PASS; cross-role safety 12/12 PASS; TypeScript noEmit full PASS 148 seconds. Git diff check PASS.  
+- Prior 13/13 Playwright PASS predates this shell replacement and MUST be rerun; prior tests assert 3150 sidebar and will need updated PR807 top-navigation assertions. Visual comparison and full operational E2E not yet verified. Do not publish main.  
