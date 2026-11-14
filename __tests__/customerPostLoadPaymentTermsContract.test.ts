@@ -21,7 +21,7 @@ describe('Customer Post Load payment terms contract', () => {
   });
 
   it('rejects base terms beyond 30 days at the API boundary', () => {
-    const canonical = "z.enum(['Pay now', '14 days', '30 days'])";
+    const canonical = "z.enum(['Pay now', '7 days', '14 days', '30 days'])";
     expect(createRoute).toContain(`paymentTerms: ${canonical}.optional().default('14 days')`);
     expect(createRoute).toContain(`paymentTerms: ${canonical}.optional().nullable()`);
     expect(createRoute).not.toContain("'45 days'");

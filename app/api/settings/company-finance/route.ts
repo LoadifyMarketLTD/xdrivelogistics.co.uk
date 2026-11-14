@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest) {
 
   const paymentTerms = text(body.paymentTerms, 32);
   if (!(COMPANY_CONFIG.payment.terms as readonly string[]).includes(paymentTerms)) {
-    return json(422, { error: 'Payment terms must be Pay now, 14 days or 30 days.' });
+    return json(422, { error: 'Payment terms must be Pay now, 7 days, 14 days or 30 days.' });
   }
 
   const vatTreatment = normalizeInvoiceVatTreatment(body.defaultVatTreatment);
