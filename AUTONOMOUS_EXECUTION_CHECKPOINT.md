@@ -95,3 +95,22 @@
 - Total new Vitest contract suite result **59/59 PASS**, 11/11 files. Reran `node scripts/test-pr807-cross-role-safety.cjs`: 12/12 PASS. Diff against origin/main shows no Post Load or Driver PWA path changes.
 - These tests do not prove authenticated Supabase role flows or full interactive functionality. Local environment lacks public Supabase config; no production writes made. Full production build was not completed; approval gate remains **NO-GO for main**.
 - Current integration branch `integration/owner-driver-selective-20261114`; last code migration commit `609fa6d3`, preview-audit commit `c8d5c00c`. The seven historical role-specific authenticated workspace modules and document workflow still require E2E testing. Do not attempt merge/production deploy without full verification.
+
+## 2026-11-14 16:10 UTC reconciliation validation
+- Isolated reconciled branch integration/pr807-main-reconcile-20261114, commit 8d2ae2a6; PR809/810 main changes merged locally. No push/deploy.
+- npm ci completed: 616 packages.
+- TypeScript tsc --noEmit PASS, exit 0.
+- 25/25 targeted Vitest PASS (finance, Post Load units, payment terms, role boundaries).
+- 12/12 static cross-role safety PASS; Owner Action/Messages, Finance, My Jobs scripts PASS.
+- Public town/outcode privacy validation PASS.
+- npm run build started, pending final result. Full authenticated E2E and actual seven-role visual parity still NO-GO.
+
+
+## Authenticated production read-only E2E 2026-11-14
+- env.test located at OneDrive Desktop; loaded into process environment only, secrets never copied into repository.
+- npm run build PASS (exit 0, 473.95 seconds); TypeScript PASS.
+- Chromium production seven-role Loads read-only: 6 PASS, 1 FAIL (Carrier Admin invalid login credentials; account fixture needs correction). This is current production baseline, not PR807 proof.
+- Mobile Safari production seven-role Loads read-only: 4 PASS, 3 FAIL. Carrier Admin same invalid credentials; Owner Driver and Company Driver redirected to existing reserve PWA, so old desktop Loads selector is invalid on mobile. Do not modify PWA.
+- PR807 click navigation previews 7/7 PASS but no transport cards populated; real authenticated local seven-role E2E still pending.
+- No production mutations, no main push.
+
