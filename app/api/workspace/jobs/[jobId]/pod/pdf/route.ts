@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { drawOfficialPodCover } from '../../../../../../../lib/server/professionalPodPdf';
+import { drawOfficialPodCover, type PodSignatureEvidence } from '../../../../../../../lib/server/professionalPodPdf';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../../../_lib/supabaseAdmin';
 import { canonicalPodEvidence } from '../../../../../../../lib/pod/canonicalPodEvidence';
 import { drawOfficialXDrivePdfLogo } from '../../../../../../../lib/server/officialXDrivePdfLogo';
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { jobId } = await params;
   const { data: job, error: jobError } = await supabaseAdmin.from('jobs')
-    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime,collection_contact_name,delivery_contact_name,no_of_items,items,weight_kg,delivery_status,customer_reference,load_reference,booking_reference,delivered_at,delivery_notes,vehicle_type,cargo_type')
+    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,assigned_driver_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime,collection_contact_name,delivery_contact_name,no_of_items,items,weight_kg,delivery_status,customer_reference,load_reference,booking_reference,delivered_at,delivery_notes,vehicle_type,cargo_type')
     .eq('id', jobId).maybeSingle();
   if (jobError) return jsonError(500, jobError.message);
   if (!job) return jsonError(404, 'Job not found.');
@@ -45,19 +45,38 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!authorised) return jsonError(403, 'This POD is outside your authorised workspace.');
 
   const evidence = canonicalPodEvidence(job);
-  if (!evidence.complete) return jsonError(409, 'Complete delivery POD with a photo, handwritten signature and recipient name first.');
+  if (!evidence.complete) return jsonError(409, 'Complete delivery POD with verified photos, recipient identity and a recognised signature or name attestation first.');
   if (evidence.deliveryPhotoCount < 1) return jsonError(409, 'A delivery photograph is required for the POD PDF.');
-  const storedSignature = job.delivery_signature_data;
-  const signature = typeof storedSignature === 'string' ? storedSignature
-    : storedSignature && typeof storedSignature === 'object' && !Array.isArray(storedSignature)
-      ? String((storedSignature as Record<string, unknown>).value ?? '')
-      : '';
-  if (!/^data:image\/(png|jpeg);base64,/i.test(signature)) {
-    return jsonError(409, 'A handwritten recipient signature image is required.');
-  }
   // Identify the actual executing carrier, not the marketplace or booking customer.
   const carrierId = job.awarded_carrier_company_id ?? job.assigned_company_id;
   if (!carrierId) return jsonError(409, 'An executing carrier must be assigned before a POD can be issued.');
+  // Backward-compatible digital POD: a typed-name attestation is not a drawn
+  // signature. Accept it only when it is bound to this job, driver, recipient,
+  // timestamp and a verified delivery photo. The PDF labels it truthfully.
+  const storedSignature = job.delivery_signature_data;
+  const record = storedSignature && typeof storedSignature === 'object' && !Array.isArray(storedSignature)
+    ? storedSignature as Record<string, unknown> : null;
+  const imageSignature = typeof storedSignature === 'string' ? storedSignature
+    : typeof record?.value === 'string' ? record.value : '';
+  let signature: PodSignatureEvidence | null = /^data:image\/(png|jpeg);base64,/i.test(imageSignature)
+    ? imageSignature : null;
+  if (!signature && record?.type === 'recipient_typed_name_attestation'
+    && record.signature_method === 'typed_name_attestation') {
+    const recipientName = typeof record.recipient_name === 'string' ? record.recipient_name.trim() : '';
+    const confirmedAt = typeof record.confirmed_at === 'string' ? record.confirmed_at : '';
+    const evidencePath = typeof record.evidence_path === 'string' ? record.evidence_path : '';
+    const matchesRecord = record.job_id === job.id
+      && record.driver_id === job.assigned_driver_id
+      && recipientName === String(job.client_signature_name ?? '').trim()
+      && Number.isFinite(Date.parse(confirmedAt))
+      && evidencePath.startsWith(`${carrierId}/${job.id}/photos/`)
+      && !evidencePath.includes('..') && !evidencePath.includes('\\')
+      && evidence.deliveryPhotos.includes(evidencePath);
+    if (matchesRecord) signature = { kind: 'typed_name_attestation', recipientName, confirmedAt };
+  }
+  if (!signature) {
+    return jsonError(409, 'Verified recipient signature or job-bound typed-name attestation is required.');
+  }
   const { data: carrier, error: carrierError } = await supabaseAdmin.from('companies')
     .select('id, name').eq('id', carrierId).maybeSingle();
   if (carrierError || !carrier?.name) return jsonError(409, 'Executing carrier details are unavailable.');

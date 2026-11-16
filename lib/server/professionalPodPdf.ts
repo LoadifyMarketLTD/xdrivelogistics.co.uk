@@ -7,6 +7,12 @@ export type ProfessionalPodDetails = {
  vehicle_type?:string|null;cargo_type?:string|null;
 };
 export type HandoverDetails = {leftAt?:string|null;itemCount?:string|number|null;notes?:string|null;deliveryStatus?:string|null};
+/** Never present a verified typed-name attestation as a drawn recipient signature. */
+export type PodSignatureEvidence = string | {
+  kind: 'typed_name_attestation';
+  recipientName: string;
+  confirmedAt: string;
+};
 const navy=rgb(.039,.149,.326),orange=rgb(.968,.678,.043),white=rgb(1,1,1);
 const grey=rgb(.32,.39,.48),edge=rgb(.82,.86,.91),pale=rgb(.96,.97,.985);
 const valid=(v:unknown)=>v!=null&&String(v).trim().length>0;
@@ -19,7 +25,7 @@ const lines=(page:PDFPage,font:PDFFont,v:unknown,x:number,y:number,width:number,
  all.slice(0,max).forEach((t,i)=>page.drawText(t,{x,y:y-i*lead,size,font,color:o.color??navy}));
  if(all.length>max)page.drawText('See original job record',{x,y:y-max*lead,size:7,font,color:grey});
 };
-export async function drawOfficialPodCover(pdf:PDFDocument,logoBytes:Uint8Array,carrierName:string,job:ProfessionalPodDetails,signature:string,photoCount:number,handover:HandoverDetails={}):Promise<void>{
+export async function drawOfficialPodCover(pdf:PDFDocument,logoBytes:Uint8Array,carrierName:string,job:ProfessionalPodDetails,signature:PodSignatureEvidence,photoCount:number,handover:HandoverDetails={}):Promise<void>{
  const page=pdf.addPage([595.28,841.89]),reg=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
  const frame=(x:number,y:number,w:number,h:number,fill=white)=>page.drawRectangle({x,y,width:w,height:h,color:fill,borderColor:edge,borderWidth:.75});
  const label=(s:string,x:number,y:number)=>page.drawText(s.toUpperCase(),{x,y,size:7.6,font:bold,color:grey});
@@ -66,13 +72,21 @@ export async function drawOfficialPodCover(pdf:PDFDocument,logoBytes:Uint8Array,
  ['Delivery photos',String(photoCount)+' attached'],
  ];
  rows.forEach(([n,v],i)=>{const y=335-i*23;page.drawText(n,{x:54,y,size:8.3,font:bold,color:grey});lines(page,reg,v,151,y,159,{size:8.3,max:1});});
- label('RECIPIENT SIGNATURE',344,336);
+ const typedName = typeof signature !== 'string';
+ label(typedName ? 'RECIPIENT NAME ATTESTATION' : 'RECIPIENT SIGNATURE',344,336);
  page.drawRectangle({x:343,y:221,width:194,height:102,color:white,borderColor:edge,borderWidth:1});
- const bytes=Buffer.from(signature.split(',')[1],'base64');
- const signatureImage=/^data:image\/png/i.test(signature)?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);
- const ss=signatureImage.scaleToFit(172,82);
- page.drawImage(signatureImage,{x:354+(172-ss.width)/2,y:233+(82-ss.height)/2,width:ss.width,height:ss.height});
- page.drawText('Signed by '+clean(job.client_signature_name),{x:344,y:205,size:8,font:reg,color:grey});
+ if (typeof signature === 'string') {
+  const bytes=Buffer.from(signature.split(',')[1],'base64');
+  const signatureImage=/^data:image\/png/i.test(signature)?await pdf.embedPng(bytes):await pdf.embedJpg(bytes);
+  const ss=signatureImage.scaleToFit(172,82);
+  page.drawImage(signatureImage,{x:354+(172-ss.width)/2,y:233+(82-ss.height)/2,width:ss.width,height:ss.height});
+ } else {
+  page.drawText('TYPED-NAME ATTESTATION',{x:352,y:300,size:8.2,font:bold,color:navy});
+  lines(page,bold,signature.recipientName,352,278,175,{size:9.5,lead:11,max:2});
+  lines(page,reg,'Confirmed: '+dateLabel(signature.confirmedAt),352,249,175,{size:7.3,lead:9,max:2});
+  page.drawText('No handwritten signature supplied',{x:352,y:228,size:7.1,font:reg,color:grey});
+ }
+ lines(page,reg,(typedName?'Attested by ':'Signed by ')+clean(job.client_signature_name),344,205,194,{size:8,lead:9,max:1});
  label('DELIVERY NOTES',40,163);
  lines(page,reg,handover.notes??job.delivery_notes,40,150,515,{size:8.3,max:2,lead:11});
  frame(40,70,515,58,pale);
@@ -82,6 +96,6 @@ export async function drawOfficialPodCover(pdf:PDFDocument,logoBytes:Uint8Array,
  page.drawRectangle({x:317,y:70,width:238,height:58,color:navy});
  page.drawText('DELIVERY COMPLETED',{x:338,y:92,size:13,font:bold,color:white});
  page.drawLine({start:{x:40,y:52},end:{x:555,y:52},thickness:.8,color:edge});
- page.drawText('Issued by '+clean(carrierName)+'  |  Original signed evidence preserved',{x:40,y:37,size:7.7,font:reg,color:grey});
+ lines(page,reg,'Issued by '+clean(carrierName)+(typedName?'  |  Original typed-name attestation and photos preserved':'  |  Original signed evidence preserved'),40,37,468,{size:7.5,lead:9,max:1});
  page.drawText('1 / POD',{x:519,y:37,size:7.5,font:bold,color:navy});
 }
