@@ -14,6 +14,7 @@ type Prospect = {
 type Result = { organisations?: Prospect[]; total?: number; error?: string };
 type Contact = { id: string; person_name: string | null; business_email: string | null; business_phone: string | null };
 type Activity = { id: string; event_type: string; occurred_at: string; note: string | null };
+type Suppression = { id: string; channel: string; normalized_contact_value: string; reason: string; recorded_at: string };
 const empty = { legal_name: '', company_number: '', website: '', legal_form: 'unknown', segment: 'customer', source_url: '' };
 
 export default function BusinessDevelopmentPage() {
@@ -33,6 +34,11 @@ export default function BusinessDevelopmentPage() {
   const [eventNote, setEventNote] = useState('');
   const [savingEvent, setSavingEvent] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
+  const [suppressions, setSuppressions] = useState<Suppression[]>([]);
+  const [suppressionForm, setSuppressionForm] = useState({ channel: 'email', contact_value: '', reason: 'opt_out', source: '' });
+  const [savingSuppression, setSavingSuppression] = useState(false);
+  const [suppressionError, setSuppressionError] = useState<string | null>(null);
+  const [suppressionVersion, setSuppressionVersion] = useState(0);
   const [contactForm, setContactForm] = useState({ person_name: '', business_email: '', business_phone: '', contact_kind: 'generic_business', lawful_basis: 'undetermined', lawful_basis_evidence: '', source_url: '' });
 
   const load = useCallback(async () => {
@@ -79,6 +85,47 @@ export default function BusinessDevelopmentPage() {
     void fetchDetails();
     return () => { active = false; };
   }, [selected, detailVersion]);
+
+  useEffect(() => {
+    let active = true;
+    const loadSuppressions = async () => {
+      try {
+        const auth = await getAuthHeader();
+        if (!auth) throw new Error('Platform Owner session required.');
+        const response = await fetch('/api/super-admin/business-development/suppressions', {
+          headers: { Authorization: auth }, cache: 'no-store',
+        });
+        const body = await response.json() as { suppressions?: Suppression[]; error?: string };
+        if (!response.ok || !Array.isArray(body.suppressions))
+          throw new Error(body.error ?? 'Suppression registry unavailable.');
+        if (active) { setSuppressions(body.suppressions); setSuppressionError(null); }
+      } catch (e) {
+        if (active) { setSuppressions([]); setSuppressionError(e instanceof Error ? e.message : 'Suppression registry unavailable.'); }
+      }
+    };
+    void loadSuppressions();
+    return () => { active = false; };
+  }, [suppressionVersion]);
+
+  const saveSuppression = async (event: FormEvent) => {
+    event.preventDefault();
+    if (savingSuppression) return;
+    setSavingSuppression(true); setSuppressionError(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw new Error('Platform Owner session required.');
+      const response = await fetch('/api/super-admin/business-development/suppressions', {
+        method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify(suppressionForm),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? 'Unable to save suppression.');
+      setSuppressionForm({ ...suppressionForm, contact_value: '', source: '' });
+      setSuppressionVersion(version => version + 1);
+    } catch (e) {
+      setSuppressionError(e instanceof Error ? e.message : 'Unable to save suppression.');
+    } finally { setSavingSuppression(false); }
+  };
 
   const saveContact = async (event: FormEvent) => {
     event.preventDefault();
@@ -226,6 +273,31 @@ export default function BusinessDevelopmentPage() {
             {activity.note ? ': ' + activity.note : ''}
           </li>)}</ul> : <p>No activity recorded or details not loaded.</p>}
         </SuperAdminSectionCard>}
+        <SuperAdminSectionCard title="Do Not Contact registry">
+          <p>Record objections, opt-outs or invalid identifiers. Suppressed contacts cannot be imported again.</p>
+          {suppressionError && <SuperAdminNotice tone="danger">{suppressionError}</SuperAdminNotice>}
+          <form onSubmit={(event) => void saveSuppression(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
+            <label>Channel <select value={suppressionForm.channel} onChange={event => setSuppressionForm({ ...suppressionForm, channel: event.target.value })}>
+              <option value="email">Email</option><option value="phone">Phone</option>
+            </select></label>
+            <label>Email or E.164 phone <input required maxLength={300} value={suppressionForm.contact_value} onChange={event => setSuppressionForm({ ...suppressionForm, contact_value: event.target.value })} /></label>
+            <label>Reason <select value={suppressionForm.reason} onChange={event => setSuppressionForm({ ...suppressionForm, reason: event.target.value })}>
+              <option value="opt_out">Opt out</option><option value="objection">Objection</option>
+              <option value="invalid">Invalid identifier</option><option value="legal_hold">Legal hold</option>
+              <option value="other">Other</option>
+            </select></label>
+            <label>Evidence source <input required maxLength={500} value={suppressionForm.source} onChange={event => setSuppressionForm({ ...suppressionForm, source: event.target.value })} /></label>
+            <button type="submit" disabled={savingSuppression}>{savingSuppression ? 'Saving…' : 'Add to Do Not Contact'}</button>
+          </form>
+          <p>{suppressions.length} recent suppressions shown (maximum 100).</p>
+          {suppressions.length > 0 && <div style={{ overflowX: 'auto' }}><table>
+            <thead><tr><th>Channel</th><th>Identifier</th><th>Reason</th><th>Recorded</th></tr></thead>
+            <tbody>{suppressions.map(item => <tr key={item.id}>
+              <td>{item.channel}</td><td>{item.normalized_contact_value}</td><td>{item.reason}</td>
+              <td>{new Date(item.recorded_at).toLocaleString('en-GB')}</td>
+            </tr>)}</tbody>
+          </table></div>}
+        </SuperAdminSectionCard>
       </SuperAdminPage>
     </ProtectedRoute>
   );
