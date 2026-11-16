@@ -21,6 +21,7 @@ export default function BusinessDevelopmentPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(empty);
+  const [reloadVersion, setReloadVersion] = useState(0);
 
   const load = useCallback(async () => {
     setError(null);
@@ -36,7 +37,7 @@ export default function BusinessDevelopmentPage() {
       setRows(body.organisations);
       setTotal(body.total);
     } catch (e) { setRows([]); setTotal(null); setError(e instanceof Error ? e.message : 'CRM unavailable.'); }
-  }, [page]);
+  }, [page, reloadVersion]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -53,7 +54,7 @@ export default function BusinessDevelopmentPage() {
       });
       const body = await res.json() as { error?: string };
       if (!res.ok) throw new Error(body.error ?? 'Unable to save prospect.');
-      setForm(empty); setPage(1); await load();
+      setForm(empty); setPage(1); setReloadVersion(version => version + 1);
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save prospect.'); }
     finally { setBusy(false); }
   };
