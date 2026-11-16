@@ -78,3 +78,39 @@ export async function POST(request: NextRequest) {
   });
   return respond(201, { organisation: data });
 }
+
+/** Owner-only status transitions; every successful change has a corresponding audit event. */
+export async function PATCH(request: NextRequest) {
+  const auth = await authorize(request);
+  if (auth.error) return auth.error;
+  let body: Record<string, unknown>;
+  try {
+    const parsed: unknown = await request.json();
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid');
+    body = parsed as Record<string, unknown>;
+  } catch { return respond(400, { error: 'Invalid JSON object.' }); }
+  const statuses = new Set(['discovered','researching','qualified','contacted','replied','onboarding','disqualified']);
+  if (typeof body.id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.id) ||
+      !statuses.has(String(body.status)) ||
+      (body.note != null && (typeof body.note !== 'string' || body.note.length > 1000)))
+    return respond(400, { error: 'Invalid organisation, status or note.' });
+  // Conversion is intentionally excluded: it requires a verified onboarding relationship.
+  const { data: current, error: readError } = await supabaseAdmin!
+    .from('crm_prospect_organisations').select('id,status').eq('id', body.id).maybeSingle();
+  if (readError) return respond(503, { error: 'Organisation unavailable.' });
+  if (!current) return respond(404, { error: 'Organisation not found.' });
+  if (current.status === 'converted') return respond(409, { error: 'Converted organisations cannot be manually reverted.' });
+  if (current.status === body.status) return respond(200, { organisation: current, unchanged: true });
+  const { data, error } = await supabaseAdmin!
+    .from('crm_prospect_organisations').update({ status: body.status, updated_at: new Date().toISOString() })
+    .eq('id', body.id).eq('status', current.status).select('id,status').maybeSingle();
+  if (error) return respond(503, { error: 'Status update failed.' });
+  if (!data) return respond(409, { error: 'Organisation changed concurrently; refresh and retry.' });
+  const note = `Status changed from ${current.status} to ${body.status}${typeof body.note === 'string' && body.note.trim() ? ': ' + body.note.trim() : ''}`;
+  const { error: auditError } = await supabaseAdmin!.from('crm_prospect_events').insert({
+    organisation_id: body.id, actor_user_id: auth.owner!.id,
+    channel: 'other', event_type: 'status_changed', note,
+  });
+  if (auditError) return respond(503, { error: 'Status updated but audit logging failed; contact administrator before retrying.' });
+  return respond(200, { organisation: data });
+}
