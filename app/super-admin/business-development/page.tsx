@@ -28,6 +28,10 @@ export default function BusinessDevelopmentPage() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailVersion, setDetailVersion] = useState(0);
+  const [eventType, setEventType] = useState('note');
+  const [eventNote, setEventNote] = useState('');
+  const [savingEvent, setSavingEvent] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -72,7 +76,28 @@ export default function BusinessDevelopmentPage() {
     };
     void fetchDetails();
     return () => { active = false; };
-  }, [selected]);
+  }, [selected, detailVersion]);
+
+  const saveActivity = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected || savingEvent) return;
+    setSavingEvent(true); setDetailError(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw new Error('Platform Owner session required.');
+      const response = await fetch('/api/super-admin/business-development/events', {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organisation_id: selected.id, event_type: eventType, channel: 'other', note: eventNote }),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? 'Unable to record activity.');
+      setEventNote('');
+      setDetailVersion(version => version + 1);
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : 'Unable to record activity.');
+    } finally { setSavingEvent(false); }
+  };
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
@@ -139,6 +164,22 @@ export default function BusinessDevelopmentPage() {
           {contacts.length ? <ul>{contacts.map(contact => <li key={contact.id}>
             {contact.person_name ?? 'General business contact'} — {contact.business_email ?? contact.business_phone ?? 'No contact details'}
           </li>)}</ul> : <p>No contacts recorded or details not loaded.</p>}
+          <h3>Record activity</h3>
+          <form onSubmit={(event) => void saveActivity(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
+            <label>Activity type <select value={eventType} onChange={event => setEventType(event.target.value)}>
+              <option value="note">Internal note</option>
+              <option value="research_completed">Research completed</option>
+              <option value="qualified">Qualified</option>
+              <option value="call_attempted">Call attempted</option>
+              <option value="meeting_scheduled">Meeting scheduled</option>
+              <option value="reply_received">Reply received</option>
+              <option value="onboarding_started">Onboarding started</option>
+              <option value="converted">Converted</option>
+              <option value="disqualified">Disqualified</option>
+            </select></label>
+            <label>Internal note <textarea maxLength={2000} value={eventNote} onChange={event => setEventNote(event.target.value)} /></label>
+            <button type="submit" disabled={savingEvent}>{savingEvent ? 'Saving…' : 'Record activity'}</button>
+          </form>
           <h3>Activity history ({activities.length})</h3>
           {activities.length ? <ul>{activities.map(activity => <li key={activity.id}>
             {new Date(activity.occurred_at).toLocaleString('en-GB')} — {activity.event_type}
