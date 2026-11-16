@@ -271,6 +271,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
     setLoading(true);
     setMultiStopsReady(false);
+    setMultiStops([]);
+    // Never render the previous booking's commercial enrichment on a new job.
+    setSheet(null);
     setError('');
     const { data, error: loadError } = await supabase.from('jobs').select('*').eq('id', jobId).eq('assigned_driver_id', driverId).maybeSingle();
     if (loadError || !data) {
@@ -297,6 +300,10 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     setPendingPodPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos.filter((v): v is string => typeof v === 'string') : []);
     setPendingPodDocuments(Array.isArray(row.pod_photos) ? row.pod_photos.filter((v): v is string => typeof v === 'string') : []);
     setRecipientName(row.client_signature_name ?? '');
+    // The assigned job is now authorised and has sufficient data to render.
+    // Do not leave its screen blocked while optional sheet and multi-stop API calls run.
+    // The existing multi-stop gate remains fail-closed until stops are verified.
+    setLoading(false);
     // Preserve the current hard-copy acknowledgement during evidence refresh.
 
     const auth = await authHeader();

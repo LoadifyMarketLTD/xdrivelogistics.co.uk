@@ -56,6 +56,16 @@ const tests=[
    assert.match(diary,/cx-diary-state-tabs/);
    assert.match(diary,/cx-diary-filter-rail/);
  }],
+ ['Job execution releases base UI before optional commercial enrichment',()=>{
+   const src=read('app/components/workspace/DriverJobExecutionPage.tsx');
+   const body=src.slice(src.indexOf('const loadJob = useCallback'),src.indexOf('useEffect(() => { void loadJob(); }'));
+   const baseReady=body.indexOf('setRecipientName(row.client_signature_name');
+   const firstUsable=body.indexOf('setLoading(false);',baseReady);
+   const optionalSheet=body.indexOf('const auth = await authHeader();',baseReady);
+   assert.ok(baseReady>=0&&firstUsable>baseReady&&optionalSheet>firstUsable,'Job screen must show after authorised base row, before optional sheet and stop enrichment');
+   assert.match(body,/setMultiStopsReady\(false\)/);
+   assert.match(body,/setSheet\(null\)/);
+ }],
  ['XDrive own original context card is present',()=>{
    assert.match(read('app/components/workspace/XDriveCardContext.tsx'),/Freight|XDrive ref|xd-card-context/);
  }],
