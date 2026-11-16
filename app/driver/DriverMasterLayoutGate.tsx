@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
-import AuthenticatedMasterShell from '../components/workspace/AuthenticatedMasterShell';
+import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
 
 const DRIVER_MASTER_TAB_BY_ROUTE: Readonly<Record<string,number>> = {
@@ -26,5 +26,5 @@ export default function DriverMasterLayoutGate({children}:{children:ReactNode}){
  if(section==='post-load'){
   return <MasterWorkspace key={pathname} role={role} authenticated initialTab={activeTab} dashboard={children}/>;
  }
- return <AuthenticatedMasterShell role={role} activeTab={activeTab}>{children}</AuthenticatedMasterShell>;
+ return <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>;
 }

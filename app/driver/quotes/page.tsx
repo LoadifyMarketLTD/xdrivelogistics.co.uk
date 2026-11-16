@@ -10,7 +10,7 @@ import { fetchAllBookingOfferPages } from '../../../lib/bookingOfferPages';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage, isTerminalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import ApprovedDriverQuoteCard from '../_components/ApprovedDriverQuoteCard';
+import CxQuoteCard from '../../components/workspace/OwnerPR807QuoteCard';
 
 type QuoteDirection = 'outgoing' | 'incoming';
 type TabId = 'submitted' | 'awarded';
@@ -534,7 +534,7 @@ export default function MyQuotesPage() {
                               ? `Quote ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`
                               : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
 
-                  return <ApprovedDriverQuoteCard
+                  return <CxQuoteCard showXDriveContext
                     key={bid.id}
                     routeFrom={view.pickup}
                     routeTo={view.delivery}

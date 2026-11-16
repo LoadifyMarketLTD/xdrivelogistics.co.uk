@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true, "incremental": false, "tsBuildInfoFile": "./.next/owner-recovery-qa.tsbuildinfo" },
+  "include": [
+    "next-env.d.ts",
+    "app/driver/layout.tsx",
+    "app/driver/DriverMasterLayoutGate.tsx",
+    "app/driver/page.tsx",
+    "app/driver/loads/page.tsx",
+    "app/driver/quotes/page.tsx",
+    "app/driver/jobs/page.tsx"
+  ],
+  "exclude": ["node_modules", ".next", "dist", "test-results", "e2e"]
+}

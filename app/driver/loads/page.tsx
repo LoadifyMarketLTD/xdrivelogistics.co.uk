@@ -15,7 +15,7 @@ import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import {usePublicPickupRadius} from '../../try-xdrive-demo/components/usePublicPickupRadius';
 import '../../components/workspace/master3150-unified-loads.css';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import ApprovedDriverLoadCard from '../_components/ApprovedDriverLoadCard';
+import CxLoadCard from '../../components/workspace/OwnerPR807LoadCard';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -470,7 +470,7 @@ export default function AvailableLoadsPage() {
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
                   return <Fragment key={load.id}>
-                    <ApprovedDriverLoadCard
+                    <CxLoadCard showXDriveContext
                       className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}
                       from={load.pickup_area}
                       to={load.delivery_area}
@@ -481,8 +481,7 @@ export default function AvailableLoadsPage() {
                       postedAt={<>{fmtDate(load.exchange_posted_at)}{load.member.memberId ? <> · Member ID: {load.member.memberId}</> : null}</>}
                       loadId={load.id.slice(0,8).toUpperCase()}
                       vehicle={selectedVehicleLabel}
-                      paymentTerms={load.payment_terms ?? 'Not supplied'}
-                      expanded={expanded}
+                                            expanded={expanded}
                       freight={<>
                         <div><span>Job Distance:</span><strong>{jobDistance}</strong></div>
                         <div><span>Weight:</span><strong>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</strong></div>

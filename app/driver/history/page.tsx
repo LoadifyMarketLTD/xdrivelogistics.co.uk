@@ -18,7 +18,7 @@ import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbac
 import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import ApprovedDriverDiaryCard from './ApprovedDriverDiaryCard';
+import CxDiaryCard from '../../components/workspace/OwnerPR807DiaryCard';
 import { Broker3150DiaryHeader, Broker3150DiaryTabs } from '../../components/workspace/Broker3150DiaryChrome';
 import { operationalLocationLabel } from '../../components/workspace/locationPresentation';
 import CxDiaryActions from '../../components/workspace/CxDiaryActions';
@@ -719,9 +719,8 @@ export default function JobHistoryPage() {
                   const memberLabel = job.companies?.name ?? 'Member not supplied';
 
                   return (
-                    <ApprovedDriverDiaryCard
+                    <CxDiaryCard showXDriveContext
                       key={job.id}
-                      onDetails={() => { const willExpand = !expanded; setExpandedIds(previous => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}
                       from={formatExecutionAddress(job.pickup_location, job.pickup_postcode)}
                       to={formatExecutionAddress(job.delivery_location, job.delivery_postcode)}
                       pickup={pickupWhen}

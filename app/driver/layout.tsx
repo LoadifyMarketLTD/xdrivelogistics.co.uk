@@ -24,9 +24,15 @@ import '../components/workspace/dashboard-compact-global.css';
 import '../components/workspace/admin-marketplace-identity.css';
 import '../components/workspace/workspace-readable-typography.css';
 import './driver-mobile-readability-blueprint.css';
-// Reuse the already approved 3118 Master card geometry in real Driver pages.
+// Keep protected Post Load board styling; restore the PR807/CX Owner Driver visual layers.
 import '../try-xdrive-demo/components/xdrive-unified-board.css';
 import './driver-approved-boards.css';
+import './xdrive-operational-cards.css';
+import './xdrive-operational-cards-v2.css';
+import './xdrive-operational-dashboard-v2.css';
+import './xdrive-operational-cards-v3.css';
+import './xdrive-job-dossier-v4.css';
+import './xdrive-operations-v8.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.
