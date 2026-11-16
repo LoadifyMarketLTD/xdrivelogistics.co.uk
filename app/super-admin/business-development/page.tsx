@@ -25,6 +25,9 @@ export default function BusinessDevelopmentPage() {
   }, []);
   const [rows, setRows] = useState<Prospect[]>([]);
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const [segmentFilter, setSegmentFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [total, setTotal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -51,7 +54,7 @@ export default function BusinessDevelopmentPage() {
     try {
       const auth = await getAuthHeader();
       if (!auth) throw new Error('Platform Owner session required.');
-      const res = await fetch('/api/super-admin/business-development?page=' + page, {
+      const res = await fetch('/api/super-admin/business-development?' + new URLSearchParams({ page: String(page), search, segment: segmentFilter, status: statusFilter }), {
         headers: { Authorization: auth }, cache: 'no-store',
       });
       const body = await res.json() as Result;
@@ -60,7 +63,7 @@ export default function BusinessDevelopmentPage() {
       setRows(body.organisations);
       setTotal(body.total);
     } catch (e) { setRows([]); setTotal(null); setError(e instanceof Error ? e.message : 'CRM unavailable.'); }
-  }, [page, reloadVersion]);
+  }, [page, reloadVersion, search, segmentFilter, statusFilter]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -216,6 +219,17 @@ export default function BusinessDevelopmentPage() {
           </form>
         </SuperAdminSectionCard>
         <SuperAdminSectionCard title="Prospect organisations">
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <label>Search name or company number <input type="search" maxLength={120} value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} /></label>
+            <label>Segment <select value={segmentFilter} onChange={event => { setSegmentFilter(event.target.value); setPage(1); }}>
+              <option value="">All segments</option>
+              {['customer','broker','forwarder','carrier','mixed'].map(value => <option key={value} value={value}>{value}</option>)}
+            </select></label>
+            <label>Status <select value={statusFilter} onChange={event => { setStatusFilter(event.target.value); setPage(1); }}>
+              <option value="">All statuses</option>
+              {['discovered','researching','qualified','contacted','replied','onboarding','converted','disqualified'].map(value => <option key={value} value={value}>{value}</option>)}
+            </select></label>
+          </div>
           <p>{total === null ? 'Not available' : total + ' organisations recorded'}</p>
           {rows.length === 0 ? <p>No verified prospects to display.</p> : (
             <div style={{ overflowX: 'auto' }}>
