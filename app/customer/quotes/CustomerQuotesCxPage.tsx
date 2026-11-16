@@ -249,8 +249,11 @@ export default function CustomerQuotesCxPage({routeBase='/customer'}:{routeBase?
           if (bid.job_id !== job.id) return false;
           const pendingOffer = pendingOfferByJob.get(job.id);
           const stage = canonicalQuoteStage(bid, 'poster');
-          if (statusFilter === 'received') return ['submitted', 'viewed', 'shortlisted'].includes(stage) || pendingOffer?.bid_id === bid.id;
-          if (statusFilter === 'pending') return pendingOffer?.bid_id === bid.id;
+          // A withdrawn quote cannot still be awaiting carrier acceptance,
+          // even if a stale booking-offer record remains pending.
+          const validPendingOffer = pendingOffer?.bid_id === bid.id && String(bid.status).toLowerCase() === 'submitted';
+          if (statusFilter === 'received') return ['submitted', 'viewed', 'shortlisted'].includes(stage) || validPendingOffer;
+          if (statusFilter === 'pending') return validPendingOffer;
           if (statusFilter === 'accepted') return stage === 'accepted';
           if (statusFilter === 'archived') return stage === 'archived';
           if (statusFilter === 'withdrawn') return stage === 'withdrawn';
@@ -396,7 +399,7 @@ export default function CustomerQuotesCxPage({routeBase='/customer'}:{routeBase?
             const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
             const quoteStage = canonicalQuoteStage(bid, 'poster');
             const pendingOffer = pendingOfferByJob.get(job.id);
-            const isPendingSelectedBid = pendingOffer?.bid_id === bid.id;
+            const isPendingSelectedBid = pendingOffer?.bid_id === bid.id && String(bid.status).toLowerCase() === 'submitted';
             const collectionExpired=Boolean(job.pickup_datetime && Date.parse(job.pickup_datetime)<=Date.now());
             const awardLocked = Boolean(pendingOffer);
             const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted' || isPendingSelectedBid;

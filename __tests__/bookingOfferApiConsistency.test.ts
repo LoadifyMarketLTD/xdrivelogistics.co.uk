@@ -6,7 +6,7 @@ describe('Driver booking-offer API consistency',()=>{
   it('fails closed if linked job or buyer lookup fails',()=>{
     expect(route).toContain('error: jobsError');
     expect(route).toContain('error: buyersError');
-    expect(route).toContain('if (jobsError || buyersError) return json(503');
+    expect(route).toContain('if (jobsError || buyersError || bidsError) return json(503');
   });
   it('never presents an orphaned booking offer as an empty legitimate job',()=>{
     expect(route).toContain('jobIds.some((id) => !jobById.has(id))');
