@@ -203,10 +203,6 @@ const storageObjectExists = async (path: string) => {
   return (data ?? []).some((entry) => entry.name === fileName);
 };
 
-function nowDateUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 function requiresHardCopyPod(value: unknown) {
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
   if (!normalized) return false;
@@ -252,15 +248,21 @@ async function savePod(
   const allowedDeliveryStatuses = new Set(['Completed Delivery', 'Partial Delivery', 'Failed Delivery', 'Refused', 'Left Safe']);
   const leftAt = typeof body.leftAt === 'string' ? body.leftAt.trim().slice(0, 500) : '';
   const deliveredOnRaw = typeof body.deliveredOn === 'string' ? body.deliveredOn.trim() : '';
-  const deliveredOn = /^\d{4}-\d{2}-\d{2}$/.test(deliveredOnRaw) ? deliveredOnRaw : nowDateUtc();
+  const deliveredOn = deliveredOnRaw;
+  const deliveredTime = typeof body.deliveredTime === 'string' ? body.deliveredTime.trim() : '';
   const itemCountRaw = body.itemCount == null || body.itemCount === '' ? null : Number(body.itemCount);
-  const itemCount = itemCountRaw === null ? null : Math.round(itemCountRaw);
+  const itemCount = itemCountRaw;
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
   if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
+  if (!leftAt) return respond(400, { error: 'Left At is required for POD.' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(deliveredOn) || !Number.isFinite(Date.parse(`${deliveredOn}T00:00:00Z`))) {
+    return respond(400, { error: 'A valid Delivered On date is required for POD.' });
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(deliveredTime)) return respond(400, { error: 'A valid Delivery Time is required for POD.' });
   if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
-  if (itemCount !== null && (!Number.isFinite(itemCount) || itemCount < 0 || itemCount > 100000)) {
-    return respond(400, { error: 'Enter a valid delivered item count.' });
+  if (itemCount === null || !Number.isInteger(itemCount) || itemCount < 1 || itemCount > 100000) {
+    return respond(400, { error: 'A whole-number delivered item count greater than zero is required.' });
   }
   const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
   if (hardCopyRequired && !hardCopyAcknowledged) {
@@ -291,7 +293,16 @@ async function savePod(
   const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
   const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const signatureData = rawSignature || job.delivery_signature_data || null;
+  const storedSignature = job.delivery_signature_data && typeof job.delivery_signature_data === 'object' && !Array.isArray(job.delivery_signature_data)
+    ? job.delivery_signature_data as Record<string, unknown>
+    : null;
+  // Keep the server-verified signature envelope (including its job-bound evidence path)
+  // when the submitted drawing is the same signature already confirmed before Delivered.
+  const signatureData = storedSignature
+    && typeof storedSignature.signature_data === 'string'
+    && storedSignature.signature_data === rawSignature
+    ? job.delivery_signature_data
+    : rawSignature || job.delivery_signature_data || null;
   // Delivery photographs are optional unless a specific customer requirement applies.
   // Preserve uploaded evidence without imposing a universal photograph requirement.
   if (!signatureData) {
@@ -321,6 +332,7 @@ async function savePod(
     : null;
   const podNotes = [
     typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
+    `Delivery time: ${deliveredTime}`,
     hardCopyRequired && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
   ].filter(Boolean).join(' | ') || null;
 

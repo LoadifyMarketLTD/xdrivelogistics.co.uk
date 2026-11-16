@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "plugins": []
+  },
+  "files": [
+    "next-env.d.ts",
+    "app/api/booking-offers/route.ts",
+    "app/api/driver/finance/jobs/[jobId]/invoice-context/route.ts",
+    "app/api/driver/mobile/jobs/[id]/[action]/route.ts",
+    "app/api/driver/mobile/jobs/[id]/confirmation/route.ts",
+    "app/api/driver/mobile/jobs/[id]/handover/route.ts",
+    "app/api/driver/mobile/jobs/[id]/undo-status/route.ts",
+    "app/api/driver/web/jobs/[id]/pod-draft/route.ts",
+    "app/api/marketplace/company/route.ts"
+  ],
+  "include": [],
+  "exclude": ["node_modules"]
+}
