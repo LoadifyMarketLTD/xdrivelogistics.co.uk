@@ -18,6 +18,11 @@ type Suppression = { id: string; channel: string; normalized_contact_value: stri
 const empty = { legal_name: '', company_number: '', website: '', legal_form: 'unknown', segment: 'customer', source_url: '' };
 
 export default function BusinessDevelopmentPage() {
+  // Deploy previews share Production-backed read sources; never present write actions as available.
+  const [previewReadOnly, setPreviewReadOnly] = useState(true);
+  useEffect(() => {
+    setPreviewReadOnly(/(^|\.)deploy-preview-\d+--/.test(window.location.hostname));
+  }, []);
   const [rows, setRows] = useState<Prospect[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState<number | null>(null);
@@ -109,7 +114,7 @@ export default function BusinessDevelopmentPage() {
 
   const saveSuppression = async (event: FormEvent) => {
     event.preventDefault();
-    if (savingSuppression) return;
+    if (savingSuppression || previewReadOnly) return;
     setSavingSuppression(true); setSuppressionError(null);
     try {
       const auth = await getAuthHeader();
@@ -129,7 +134,7 @@ export default function BusinessDevelopmentPage() {
 
   const saveContact = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selected || savingContact) return;
+    if (!selected || savingContact || previewReadOnly) return;
     setSavingContact(true); setDetailError(null);
     try {
       const auth = await getAuthHeader();
@@ -150,7 +155,7 @@ export default function BusinessDevelopmentPage() {
 
   const saveActivity = async (event: FormEvent) => {
     event.preventDefault();
-    if (!selected || savingEvent) return;
+    if (!selected || savingEvent || previewReadOnly) return;
     setSavingEvent(true); setDetailError(null);
     try {
       const auth = await getAuthHeader();
@@ -171,7 +176,7 @@ export default function BusinessDevelopmentPage() {
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || previewReadOnly) return;
     setBusy(true); setError(null);
     try {
       const auth = await getAuthHeader();
@@ -191,6 +196,7 @@ export default function BusinessDevelopmentPage() {
     <ProtectedRoute>
       <SuperAdminPage>
         <SuperAdminPageHeader eyebrow="Commercial acquisition" title="Business Development" description="Private UK B2B prospect register. No outreach is sent from this screen." />
+        {previewReadOnly && <SuperAdminNotice tone="warning">Read-only Deploy Preview. This preview may read Production-backed data. Creating prospects, contacts, activities and suppressions is disabled here; use an isolated staging environment for write tests.</SuperAdminNotice>}
         {error && <SuperAdminNotice tone="danger">{error}</SuperAdminNotice>}
         <SuperAdminSectionCard title="Add verified organisation">
           <form onSubmit={(event) => void create(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
@@ -206,7 +212,7 @@ export default function BusinessDevelopmentPage() {
               <option value="forwarder">Freight forwarder</option><option value="carrier">Carrier</option><option value="mixed">Mixed</option>
             </select></label>
             <label>Verified public source URL (HTTPS) <input required type="url" value={form.source_url} onChange={e => setForm({ ...form, source_url: e.target.value })} /></label>
-            <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save prospect'}</button>
+            <button type="submit" disabled={busy || previewReadOnly}>{busy ? 'Saving…' : 'Save prospect'}</button>
           </form>
         </SuperAdminSectionCard>
         <SuperAdminSectionCard title="Prospect organisations">
@@ -245,7 +251,7 @@ export default function BusinessDevelopmentPage() {
             </select></label>
             <label>Lawful basis evidence <textarea maxLength={2000} value={contactForm.lawful_basis_evidence} onChange={event => setContactForm({ ...contactForm, lawful_basis_evidence: event.target.value })} /></label>
             <label>Verified source URL (HTTPS) <input required type="url" value={contactForm.source_url} onChange={event => setContactForm({ ...contactForm, source_url: event.target.value })} /></label>
-            <button type="submit" disabled={savingContact || (!contactForm.business_email.trim() && !contactForm.business_phone.trim())}>{savingContact ? 'Saving…' : 'Save contact'}</button>
+            <button type="submit" disabled={previewReadOnly || savingContact || (!contactForm.business_email.trim() && !contactForm.business_phone.trim())}>{savingContact ? 'Saving…' : 'Save contact'}</button>
           </form>
           <h3>Business contacts ({contacts.length})</h3>
           {contacts.length ? <ul>{contacts.map(contact => <li key={contact.id}>
@@ -265,7 +271,7 @@ export default function BusinessDevelopmentPage() {
               <option value="disqualified">Disqualified</option>
             </select></label>
             <label>Internal note <textarea maxLength={2000} value={eventNote} onChange={event => setEventNote(event.target.value)} /></label>
-            <button type="submit" disabled={savingEvent}>{savingEvent ? 'Saving…' : 'Record activity'}</button>
+            <button type="submit" disabled={savingEvent || previewReadOnly}>{savingEvent ? 'Saving…' : 'Record activity'}</button>
           </form>
           <h3>Activity history ({activities.length})</h3>
           {activities.length ? <ul>{activities.map(activity => <li key={activity.id}>
@@ -287,7 +293,7 @@ export default function BusinessDevelopmentPage() {
               <option value="other">Other</option>
             </select></label>
             <label>Evidence source <input required maxLength={500} value={suppressionForm.source} onChange={event => setSuppressionForm({ ...suppressionForm, source: event.target.value })} /></label>
-            <button type="submit" disabled={savingSuppression}>{savingSuppression ? 'Saving…' : 'Add to Do Not Contact'}</button>
+            <button type="submit" disabled={savingSuppression || previewReadOnly}>{savingSuppression ? 'Saving…' : 'Add to Do Not Contact'}</button>
           </form>
           <p>{suppressions.length} recent suppressions shown (maximum 100).</p>
           {suppressions.length > 0 && <div style={{ overflowX: 'auto' }}><table>
