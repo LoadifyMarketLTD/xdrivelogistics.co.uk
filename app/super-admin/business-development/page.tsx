@@ -41,6 +41,7 @@ export default function BusinessDevelopmentPage() {
   const [eventType, setEventType] = useState('note');
   const [eventNote, setEventNote] = useState('');
   const [savingEvent, setSavingEvent] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [suppressions, setSuppressions] = useState<Suppression[]>([]);
   const [suppressionForm, setSuppressionForm] = useState({ channel: 'email', contact_value: '', reason: 'opt_out', source: '' });
@@ -156,6 +157,26 @@ export default function BusinessDevelopmentPage() {
     } finally { setSavingContact(false); }
   };
 
+  const updateStatus = async (status: string) => {
+    if (!selected || savingStatus || previewReadOnly || status === selected.status) return;
+    setSavingStatus(true); setDetailError(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw new Error('Platform Owner session required.');
+      const response = await fetch('/api/super-admin/business-development', {
+        method: 'PATCH', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: selected.id, status }),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? 'Unable to update status.');
+      setSelected({ ...selected, status });
+      setReloadVersion(version => version + 1);
+      setDetailVersion(version => version + 1);
+    } catch (error) {
+      setDetailError(error instanceof Error ? error.message : 'Unable to update status.');
+    } finally { setSavingStatus(false); }
+  };
+
   const saveActivity = async (event: FormEvent) => {
     event.preventDefault();
     if (!selected || savingEvent || previewReadOnly) return;
@@ -250,6 +271,12 @@ export default function BusinessDevelopmentPage() {
         {selected && <SuperAdminSectionCard title={'Prospect details — ' + selected.legal_name}>
           <button type="button" onClick={() => setSelected(null)}>Close details</button>
           {detailError && <SuperAdminNotice tone="danger">{detailError}</SuperAdminNotice>}
+          <label>Prospect status <select aria-label="Prospect status" value={selected.status} disabled={savingStatus || previewReadOnly}
+            onChange={event => void updateStatus(event.target.value)}>
+            {['discovered','researching','qualified','contacted','replied','onboarding','disqualified',...(selected.status === 'converted' ? ['converted'] : [])].map(value =>
+              <option key={value} value={value}>{value}</option>)}
+          </select></label>
+          <p>Conversion is managed separately through verified onboarding; selecting a status does not send any message.</p>
           <h3>Add sourced business contact</h3>
           <p>Record a verified source and lawful basis. This form never sends marketing messages.</p>
           <form onSubmit={(event) => void saveContact(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
