@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -282,7 +283,9 @@ export function mapJob(row: MobileJobRow) {
     podRequired: true,
     hardCopyPod: row.hard_copy_pod || '',
     collectionPassRequired: row.collection_pass_required === true,
-    podGenerated: hasPod(row),
+    // A signature or photo is only draft evidence. Match the Finance server gate
+    // before claiming the signed POD has been officially archived.
+    podGenerated: hasCompletePodEvidence(row),
     itemCount: row.no_of_items ?? null,
     packaging: row.packaging || '',
     weightKg: Number(row.weight_kg ?? 0) || null,
