@@ -15,14 +15,12 @@ test('Live read requests have explicit abort timeout and independent partial fee
  assert.match(api,/Promise\.allSettled\(/);
  assert.match(app,/Retry Live Data/);
 });
-test('Expired incoming offers are excluded from Received but remain protected in offer-detail code',()=>{
+test('Overdue incoming offers remain reviewable and explicitly labelled',()=>{
  assert.match(api,/const offerExpired = pending && Number\.isFinite\(pickupAt\) && pickupAt < Date\.now\(\)/);
  assert.match(app,/EXPIRED OFFER/);
- assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired&&!j\.offerExpired\)/);
- assert.match(app,/No current booking offers/);
- assert.match(app,/job.offerExpired\?<div className="rv-warning"/);
- assert.match(app,/Expired Booking Offer/);
- assert.match(app,/Accept\/Decline is disabled/);
+ assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired\)/);
+ assert.match(app,/View Expired Offer/);
+ assert.match(app,/Pending awarded jobs appear here, including overdue collections/);
 });
 test('Navigation resets scroll and remounts main view to avoid mid-page restoration',()=>{
  assert.match(app,/useLayoutEffect\(\(\)=>\{window\.scrollTo\(0,0\)/);
@@ -41,6 +39,7 @@ test('Invoice eligibility remains server-side with explicit prerequisites and re
  assert.match(finance,/ready to invoice|Ready To Invoice/i);
  assert.match(finance,/Recheck Invoice Eligibility/);
  assert.match(finance,/owner\/admin permissions/);
- assert.match(finance,/XDrive Finance did not respond in 12 seconds/);
+ assert.match(finance,/XDrive Finance did not respond in 30 seconds/);
  assert.match(finance,/if\(!eligible\)throw new Error/);
+ assert.match(app,/!offered&&\(j\.podRecorded\|\|j\.status==='POD_SUBMITTED'\)/);
 });
