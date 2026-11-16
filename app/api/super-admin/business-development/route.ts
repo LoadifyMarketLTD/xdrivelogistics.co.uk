@@ -27,9 +27,20 @@ export async function GET(request: NextRequest) {
   const page = Number(request.nextUrl.searchParams.get('page') ?? '1');
   if (!Number.isSafeInteger(page) || page < 1 || page > 100000) return respond(400, { error: 'Invalid page.' });
   const limit = 25;
-  const { data, count, error } = await supabaseAdmin!
+  const search = (request.nextUrl.searchParams.get('search') ?? '').trim();
+  const segment = request.nextUrl.searchParams.get('segment') ?? '';
+  const status = request.nextUrl.searchParams.get('status') ?? '';
+  const statuses = new Set(['discovered','researching','qualified','contacted','replied','onboarding','converted','disqualified']);
+  if (search.length > 120 || /[,()%]/.test(search) ||
+      (segment && !segments.has(segment)) || (status && !statuses.has(status)))
+    return respond(400, { error: 'Invalid CRM filters.' });
+  let query = supabaseAdmin!
     .from('crm_prospect_organisations')
-    .select('id,legal_name,company_number,website,legal_form,segment,status,source_url,source_checked_at,created_at', { count: 'exact' })
+    .select('id,legal_name,company_number,website,legal_form,segment,status,source_url,source_checked_at,created_at', { count: 'exact' });
+  if (search) query = query.or(`legal_name.ilike.%${search}%,company_number.ilike.%${search}%`);
+  if (segment) query = query.eq('segment', segment);
+  if (status) query = query.eq('status', status);
+  const { data, count, error } = await query
     .order('created_at', { ascending: false })
     .range((page - 1) * limit, page * limit - 1);
   if (error) return respond(503, { error: 'CRM records unavailable; migration may not be applied.' });
