@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   const identifiers = [{ channel: 'email', value: email }, { channel: 'phone', value: phone }].filter(v => v.value);
   for (const identifier of identifiers) {
     const { data, error } = await supabaseAdmin!.from('crm_prospect_suppressions')
-      .select('id').eq('channel', identifier.channel).eq('normalized_contact_value', identifier.value).limit(1);
+      .select('id').in('channel', [identifier.channel, 'all']).eq('normalized_contact_value', identifier.value).limit(1);
     if (error) return respond(503, { error: 'Suppression check unavailable.' });
     if (data?.length) return respond(409, { error: 'Contact is suppressed; cannot import.' });
   }
@@ -73,6 +73,6 @@ export async function POST(request: NextRequest) {
     lawful_basis_evidence: typeof body.lawful_basis_evidence === 'string' ? body.lawful_basis_evidence.trim() || null : null,
     source_url: (body.source_url as string).trim(),
   }).select('id,organisation_id,contact_kind,collected_at').single();
-  if (error) return respond(error.code === '23505' ? 409 : 503, { error: error.code === '23505' ? 'Duplicate contact.' : 'Contact save failed.' });
+  if (error) return respond(error.code === '23505' || error.code === '23514' ? 409 : 503, { error: error.code === '23514' ? 'Contact is suppressed.' : error.code === '23505' ? 'Duplicate contact.' : 'Contact save failed.' });
   return respond(201, { contact: data });
 }
