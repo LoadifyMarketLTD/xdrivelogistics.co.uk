@@ -65,3 +65,13 @@
 - Added scoped high-specificity Diary layout overrides to stack PR807 toolbar, status tabs and view controls at usable full width; legacy global styles remain available to other roles.
 - Re-ran 9/9 PR807 recovery tests, targeted TypeScript exit 0 and diff check exit 0; no protected Post Load, PWA, RLS, API or finance changes.
 - Requires another authenticated screenshot after syncing this correction to C:5301 for final visual confirmation.
+
+### Final authenticated visual smoke — PR807 Owner Driver
+- Final browser login returned auth HTTP 200. The owner-driver dashboard rendered PR807 top navigation and operational stats.
+- In the same authenticated browser session, `/driver/loads`, `/driver/quotes`, `/driver/jobs`, `/driver/history` each returned HTTP 200, rendered nonempty content, and reported no JavaScript page errors.
+- Compared screenshots after correction: Loads tab strip with no malformed literal backslash-n; Quotes original compact CX-style statuses; My Jobs PR807 compact summary; Diary toolbar, statuses, sorting and view controls displayed at full width.
+- Screenshot paths on local machine: `C:\Users\xdriv\AppData\Local\Temp\xdrive-pr807-{loads,quotes,jobs,history}-before-refinement.png` (latest overwritten captured after final refinements).
+- Automated browser test intercepted all non-auth mutation methods; no job, quote, POD, invoice, payment or Production DB write performed.
+- Targeted TypeScript 0 errors; PR807 recovery static tests 9/9 PASS. This is visual/read-only verification, NOT end-to-end transactional certification.
+- Active Driver screen route sources now have no MASTER3150 JSX references. `DriverMasterLayoutGate` retains `MasterWorkspace` only for protected Post Load. Inactive/technical shared 3150 CSS/adapters are retained until role dependency audit; their mere existence does not imply active Owner Driver rendering.
+- Source recovery branch remains local, not pushed, merged, or deployed to Production.
