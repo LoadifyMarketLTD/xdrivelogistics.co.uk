@@ -33,6 +33,7 @@ type BidRow = {
   poster_archived_at: string | null;
   bidder_archived_at: string | null;
   created_at: string;
+  updated_at: string | null;
   direction: QuoteDirection;
 };
 
@@ -210,15 +211,18 @@ export default function MyQuotesPage() {
   const pendingWithdrawalsRef = useRef<Set<string>>(new Set());
   const [pendingWithdrawals, setPendingWithdrawals] = useState<Set<string>>(new Set());
   const [pendingOfferBidIds,setPendingOfferBidIds] = useState<Set<string>>(new Set());
+  const [offersVerified, setOffersVerified] = useState(false);
 
   const fetchBids = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
     if (!background) setLoading(true);
+    // Fail closed on withdrawing a quote while booking-offer state refreshes.
+    setOffersVerified(false);
     setError('');
 
-    const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at';
+    const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at, updated_at';
     const outgoingRows: Array<Omit<BidRow, 'direction'>> = [];
     let outgoingError = false;
     for (let page = 0; page <= 10000; page++) {
@@ -314,11 +318,15 @@ export default function MyQuotesPage() {
     setOwnJobsById(Object.fromEntries(ownJobs.map((job) => [job.id, job])));
     setCompanyNames(nameMap);
     setBids(allRows);
+    // Render the authenticated quote register without waiting for optional
+    // booking-offer enrichment; sensitive actions remain gated below.
+    setLoading(false);
     const token=readRouteAuthAccessToken();
     if(token){
       try{
         const offers=await fetchAllBookingOfferPages<{bid_id:string;status:string}>('/api/booking-offers',token);
         setPendingOfferBidIds(new Set(offers.filter(offer=>offer.status==='pending').map(offer=>offer.bid_id)));
+        setOffersVerified(true);
       }catch{
         setError(previous=>previous||'Booking offer statuses could not be verified; use Bookings to check current offers.');
       }
@@ -520,7 +528,7 @@ export default function MyQuotesPage() {
                   const quoteAmount = money(bidPrice, bid.currency || 'GBP');
                   const pendingBookingOffer = bid.direction === 'outgoing' && pendingOfferBidIds.has(bid.id);
                   const fullDetailsRestricted = view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)));
-                  const activeQuote = bid.direction === 'outgoing' && !pendingBookingOffer && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
+                  const activeQuote = offersVerified && bid.direction === 'outgoing' && !pendingBookingOffer && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
                   const footerState = pendingBookingOffer
                     ? `Booking offer pending your acceptance · ${quoteAmount}`
                     : quoteStage === 'unsuccessful'
@@ -534,8 +542,8 @@ export default function MyQuotesPage() {
                           : quoteStage === 'archived'
                             ? `Archived Quote ${quoteAmount}`
                             : bid.direction === 'incoming'
-                              ? `Quote ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`
-                              : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
+                              ? `Quote ${quoteAmount} · last updated ${cxShortWhen(bid.updated_at ?? bid.created_at)}`
+                              : `You Quoted ${quoteAmount} · last updated ${cxShortWhen(bid.updated_at ?? bid.created_at)}`;
 
                   return <CxQuoteCard showXDriveContext
                     key={bid.id}
@@ -563,7 +571,7 @@ export default function MyQuotesPage() {
                         <div className="xdrive-cx-quote-table__head"><span>Quote from Member</span><span>Vehicle</span><span>Phone</span><span>Created</span><span>Quote</span><span>ETA</span><span>Distance</span></div>
                         <div className="xdrive-cx-quote-table__row">
                           <strong>{counterpartCompanyId ? <MemberIdentityLink companyId={counterpartCompanyId}>{counterpartName}</MemberIdentityLink> : counterpartName}</strong>
-                          <span>{vehicle}</span><span>{view.postingPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.created_at)}</span><strong>{quoteAmount}</strong>
+                          <span>{vehicle}</span><span>{view.postingPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.updated_at ?? bid.created_at)}</span><strong>{quoteAmount}</strong>
                           <span>{view.pickupEtaMinutes != null ? `${Math.round(view.pickupEtaMinutes)} min` : 'Not Supplied'}</span>
                           <span>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi` : 'Unknown'}</span>
                         </div>

@@ -98,3 +98,16 @@ The available Supabase branch snapshots report MIGRATIONS_FAILED; the authorized
 - Reproducible browser QA evidence stored in `_audit/pr807-e2e-20261116/job-progressive-gate.json` and screenshot `job-progressive-after-fix.png` under the C: preview worktree.
 - Targeted TypeScript: zero errors; ten PR807 recovery static assertions pass.
 - These proofs do **not** complete stateful POD/Invoice/Stripe E2E, which require isolated non-Production DB and test credentials. Do not conflate initial-state control inventory with validation of all actions.
+
+## Live Edge quote transaction on existing XDrive test job — 16 Nov 2026
+
+- Authenticated Edge using real Owner Driver identity linked to driver `9fe67b29-0c3f-459e-b968-eef703b00748`. User explicitly confirmed every job is test data, and all tests must be live in Edge, not a fake account/fixture. No third-party emails or real payments were sent.
+- Load board `/driver/loads`: authenticated GET `/api/driver/marketplace/loads` HTTP 200, two available live loads.
+- Job `C0E098F3` (`c0e098f3-a5f2-4b64-bf52-e129b3192947`), previously withdrawn quote, was selected through the **real Quote Now modal**. Client correctly disabled empty submission; entered £180, Standard service, On Time ETA, and an explicit LIVE E2E QA test note.
+- One actual browser POST to `/api/driver/bids`: **HTTP 200**, success, bid `e875b2b1-519e-4ede-9735-772816b7c70e`. Confirmed independently in XDrive Supabase: `job_bids.status=submitted`, `bid_price_gbp=180`, `quote_vehicle_type=luton_tail_lift`, canonical vehicle id present, `jobs.status=quoted`, `jobs.current_status=quoted`.
+- `/driver/quotes` authenticated Edge register eventually displayed C0E098F3, £180 and **Cancel Quote**, but took ~31.6 seconds; reused withdrawn bid originally created 7 Nov meant UI wrongly showed original quote timestamp. Current job remains quoted, with no actual pickup or payment.
+- Recovery fix in `app/driver/quotes/page.tsx`: render quotes after authenticated bid records load without blocking on booking-offer enrichment, gate any withdrawals until confirmed booking-offer readiness, and show the last updated timestamp rather than stale original submission timestamp.
+- Recovery fix in `MarketplaceQuoteNowDialog.tsx`: when the caller supplies no selectable vehicle options, do not misrepresent the empty `Vehicle *` selector as required; explain automatic backend vehicle verification.
+- Regression test `scripts/test-owner-live-quote-regressions.cjs`: **6/6 PASS**; targeted TypeScript exit 0; git diff check exit 0.
+- **Not tested:** acceptance by the posting-company account, delivery status transitions for this new job, POD upload, invoice issuance, Stripe/payment. User’s real Owner Driver user is not automatically authorized to act as the separate posting company.
+- Evidence in preview worktree `_audit/pr807-e2e-20261116/`: `live-loads-longwait.json`, `live-owner-quote-dialog.json`, `live-quote-submit.json`, `quotes-after-submit-live.json`, screenshots.
