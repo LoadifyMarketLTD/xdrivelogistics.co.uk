@@ -21,6 +21,15 @@ test('Quotes owns submissions; separate History keeps withdrawn/unsuccessful rec
  assert.deepEqual(reserveJobs(jobs,'Quotes','','All','History').map(x=>x.id),['six','seven']);
  assert.deepEqual(reserveJobs(jobs,'Bookings').map(x=>x.id),['three']);
 });
+test('pending award remains visible but blocked when linked bid was withdrawn',()=>{
+ const stale={id:'stale-offer',status:'ALLOCATED',offerId:'qa-offer',acceptanceRequired:true,acceptanceBlocked:true,
+   bidStatus:'withdrawn',quoteOutcome:'CANCELLED',personalBid:true,quote:75,
+   from:'Preston',to:'Bolton',vehicle:'LWB Van'};
+ assert.equal(reserveJobs([...jobs,stale],'Bookings').some(j=>j.id==='stale-offer'),true);
+ assert.equal(reserveJobs([...jobs,stale],'Quotes','','All','History').some(j=>j.id==='stale-offer'),true);
+ assert.equal(reserveJobs([...jobs,{...stale,id:'cancelled-booking',offerId:undefined,acceptanceRequired:false}],'Bookings').some(j=>j.id==='cancelled-booking'),false);
+});
+
 test('counts reflect available and active quoted loads only',()=>{
  assert.deepEqual(reserveCounts(jobs),{total:7,open:4,unquoted:3,quoted:1,historyOnly:2,booked:1,offers:0});
 });

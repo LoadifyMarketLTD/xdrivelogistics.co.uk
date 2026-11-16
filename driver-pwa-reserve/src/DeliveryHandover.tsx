@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LiveJob } from './liveApi';
 
-export type DeliveryHandoverDraft = {recipient:string;leftAt:string;items:string;condition:string;notes:string};
+export type DeliveryHandoverDraft = {recipient:string;leftAt:string;items:string;condition:string;notes:string;deliveredOn:string;deliveredTime:string};
 
+const readableAddress=(value:string)=>{
+ const seen=new Set<string>();
+ return String(value||'').split(',').map(part=>part.trim()).filter(part=>{
+   if(!part||part.toUpperCase()==='GB')return false;
+   const key=part.toUpperCase().replace(/\s+/g,' ');
+   if(seen.has(key))return false;
+   seen.add(key);return true;
+ }).join(', ');
+};
 type Props = {
- mode?: 'delivery' | 'pod';
+ mode?: 'delivery' | 'pod' | 'arrival';
  job:LiveJob;
  value:DeliveryHandoverDraft;
  onChange:(value:DeliveryHandoverDraft)=>void;
@@ -16,6 +25,7 @@ type Props = {
  onPhotos:(files:File[])=>void;
  onConfirm:()=>void;
  onBack:()=>void;
+ onUndo?:()=>void;
  busy:boolean;
 };
 
@@ -51,7 +61,7 @@ function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string
  </div>;
 }
 
-export default function DeliveryHandover({job,value,onChange,signature,onSignature,onSaveSignature,signatureVerified,photos,onPhotos,onConfirm,onBack,busy,mode='delivery'}:Props){
+export default function DeliveryHandover({job,value,onChange,signature,onSignature,onSaveSignature,signatureVerified,photos,onPhotos,onConfirm,onBack,onUndo,busy,mode='delivery'}:Props){
  const [savingSignature,setSavingSignature]=useState(false);
  const signatureSaved=signatureVerified;
  const [signatureError,setSignatureError]=useState('');
@@ -59,7 +69,9 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
  const changeSignature=(next:string|null)=>{setSignatureError('');onSignature(next);};
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
  const requiredItems=Number.isInteger(Number(value.items))&&value.items!==''&&Number(value.items)>0;
- const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems;
+ const hasDeliveryPhoto=photos.some(file=>file.type==='image/jpeg'||file.type==='image/png')||Boolean(job.deliveryPhotos?.length);
+ const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&(mode!=='delivery'||hasDeliveryPhoto);
+ const docsCount=photos.filter(f=>f.type==='application/pdf').length;
  const photosCount=mode==='pod'?Math.max(photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length,job.deliveryPhotos?.length||0):photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length;
  const [fileError,setFileError]=useState('');
  const [cameraOpen,setCameraOpen]=useState(false);
@@ -90,7 +102,6 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
   const file=new File([blob],'delivery-camera-'+timestamp+'.jpg',{type:'image/jpeg',lastModified:timestamp});
   addFiles([file]);stopCamera();
  };
- const docsCount=photos.filter(f=>f.type==='application/pdf').length;
  const addFiles=(incoming:FileList|File[]|null)=>{
    const candidates=Array.from(incoming||[]);
    const bad=candidates.find(file=>!['image/png','image/jpeg','application/pdf'].includes(file.type)||file.size<=0||file.size>10*1024*1024);
@@ -100,31 +111,41 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
    const unique=all.filter((file,index)=>all.findIndex(other=>other.name===file.name&&other.size===file.size&&other.lastModified===file.lastModified)===index);
    onPhotos(unique);
  };
+
+ if(mode==='arrival') return <section className="rv-delivery-page">
+  <div className="rv-delivery-bar"><button type="button" className="rv-back" onClick={onBack}>Back to Bookings</button><span>DELIVERY ARRIVAL</span>{onUndo&&<button type="button" className="rv-undo-action" disabled={busy} onClick={onUndo}>Undo Last Status</button>}</div>
+  <div className="rv-delivery-title"><div><span className="rv-delivery-eyebrow">ON SITE DELIVERY</span><h1>Confirm Arrival</h1></div><span className="rv-delivery-state">On site</span></div>
+  <div className="rv-delivery-route"><div><strong>{readableAddress(job.from)}</strong></div><div><strong>{readableAddress(job.to)}</strong></div></div>
+  <div className="rv-delivery-form"><h2>Arrival confirmation</h2><p>Confirm you have arrived. XDrive saves the time automatically. Enter recipient, items, photos, documents and signature only once in Complete Delivery.</p></div>
+  <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy} onClick={onConfirm}>{busy?"Confirming arrival...":"Confirm On Site Delivery"}</button><p>Complete Delivery opens automatically after arrival is saved.</p></div>
+ </section>;
+
  return <section className="rv-delivery-page">
-  <div className="rv-delivery-bar"><button type="button" className="rv-back" onClick={onBack}>← Bookings</button><span>{mode==='pod'?'08 / 11 · POD':'07 / 11 · DELIVERY'}</span></div>
+  <div className="rv-delivery-bar"><button type="button" className="rv-back" onClick={onBack}>Back to Bookings</button><span>{mode==='pod'?'08 / 11 - POD':'07 / 11 - DELIVERY'}</span>{onUndo&&<button type="button" className="rv-undo-action" disabled={busy} onClick={onUndo}>Undo Last Status</button>}</div>
   <div className="rv-delivery-title"><div><span className="rv-delivery-eyebrow">{mode === 'pod' ? 'DELIVERY EVIDENCE' : 'ON SITE DELIVERY'}</span><h1>{mode === 'pod' ? 'Complete Signed POD' : 'Complete Delivery'}</h1></div><span className="rv-delivery-state">{mode==='pod'?'Delivered':'On site'}</span></div>
   <div className="rv-delivery-route" aria-label="Collection and delivery">
-    <div><span className="rv-collection-dot"/> <strong>{job.from}</strong><small>Collection · {job.pickup} {job.pickupDate}</small></div>
-    <span className="rv-delivery-arrow" aria-hidden="true">→</span>
-    <div><span className="rv-drop-dot"/> <strong>{job.to}</strong><small>Delivery · {job.delivery} {job.deliveryDate}</small></div>
+    <div><span className="rv-collection-dot"/> <strong>{readableAddress(job.from)}</strong><small>Collection: {job.pickup} {job.pickupDate}</small></div>
+    <span className="rv-delivery-arrow" aria-hidden="true">to</span>
+    <div><span className="rv-drop-dot"/> <strong>{readableAddress(job.to)}</strong><small>Delivery: {job.delivery} {job.deliveryDate}</small></div>
   </div>
   <div className="rv-delivery-form">
     <div className="rv-delivery-section-head"><h2>Recipient handover</h2><span>* Required</span></div>
     <label className="rv-delivery-field rv-delivery-name"><span>Received By <em>*</em></span><input autoComplete="name" placeholder="Full name of recipient" value={value.recipient} onChange={e=>set('recipient',e.target.value)}/></label>
-    <div className="rv-delivery-field"><span>Recipient signature <em>*</em></span><SignaturePad value={signature} onChange={changeSignature}/><button type="button" className={'rv-signature-save'+(signatureSaved?' rv-signature-saved':'')} disabled={!signature||savingSignature||busy||signatureSaved} onClick={()=>void saveSignature()}><span aria-hidden="true">✓</span> {savingSignature?'Saving signature…':signatureSaved?'Signature Saved ✓':'Save Signature'}</button>{signatureSaved&&<p role="status" className="rv-signature-confirm">Signature saved securely in the XDrive POD draft. Complete the remaining delivery details to finalise POD.</p>}{signatureError&&<p role="alert" className="rv-delivery-file-error">{signatureError}</p>}</div>
+    <div className="rv-delivery-field"><span>Recipient signature <em>*</em></span><SignaturePad value={signature} onChange={changeSignature}/><button type="button" className={'rv-signature-save'+(signatureSaved?' rv-signature-saved':'')} disabled={!signature||savingSignature||busy||signatureSaved} onClick={()=>void saveSignature()}>{savingSignature?'Saving signature...':signatureSaved?'Signature Saved':'Save Signature'}</button>{signatureSaved&&<p role="status" className="rv-signature-confirm">Signature saved securely in the XDrive POD draft. Complete the remaining delivery details to finalise POD.</p>}{signatureError&&<p role="alert" className="rv-delivery-file-error">{signatureError}</p>}</div>
+    <div className="rv-delivery-split"><label className="rv-delivery-field"><span>Delivered On <em>*</em></span><input required type="date" value={value.deliveredOn} max={new Date().toISOString().slice(0,10)} onChange={e=>set('deliveredOn',e.target.value)}/></label><label className="rv-delivery-field"><span>Delivery Time <em>*</em></span><input required type="time" value={value.deliveredTime} onChange={e=>set('deliveredTime',e.target.value)}/></label></div>
     <div className="rv-delivery-split">
-      <label className="rv-delivery-field"><span>Left At</span><select value={value.leftAt} onChange={e=>set('leftAt',e.target.value)}>{['Goods Inwards','Reception','Warehouse','Loading Bay','Handed to recipient','Other'].map(v=><option key={v}>{v}</option>)}</select></label>
+      <label className="rv-delivery-field"><span>Left At <em>*</em></span><select required value={value.leftAt} onChange={e=>set('leftAt',e.target.value)}>{['Receiving Department','Goods Inwards','Reception','Warehouse','Loading Bay','Handed to recipient','Other'].map(v=><option key={v}>{v}</option>)}</select></label>
       <label className="rv-delivery-field"><span>Items <em>*</em></span><input inputMode="numeric" type="number" min="1" step="1" placeholder="Qty" value={value.items} onChange={e=>set('items',e.target.value)}/></label>
     </div>
     <label className="rv-delivery-field"><span>Delivery condition</span><select value={value.condition} onChange={e=>set('condition',e.target.value)}>{['Good condition','Damaged','Shortage','Refused'].map(v=><option key={v}>{v}</option>)}</select></label>
-    <div className="rv-delivery-upload"><div className="rv-delivery-upload-title"><strong>Delivery evidence</strong><span>{photosCount} photos · {docsCount} documents</span></div>
-      <div className="rv-delivery-attach-actions"><button type="button" className="rv-delivery-add" disabled={cameraBusy} onClick={()=>void openCamera()}><span aria-hidden="true">◉</span> {cameraBusy?'Opening camera...':'Take photo'}</button><label className="rv-delivery-add"><span aria-hidden="true">＋</span> Add files<input type="file" accept="image/png,image/jpeg,application/pdf" multiple onChange={e=>{addFiles(e.currentTarget.files);e.currentTarget.value='';}}/></label></div>
-      {cameraOpen&&<section className="rv-camera-card" aria-label="Delivery camera"><div className="rv-camera-head"><strong>Delivery photo</strong><span>Capture a clear photograph as proof of delivery.</span></div><div className="rv-camera-preview-shell"><video ref={videoRef} autoPlay playsInline muted aria-label="Live delivery camera preview" className="rv-camera-preview"/></div><div className="rv-camera-actions"><button type="button" className="rv-primary rv-camera-action" onClick={()=>void capturePhoto()}><span aria-hidden="true">◉</span> Capture photo</button><button type="button" className="rv-outline rv-camera-action" onClick={stopCamera}>Cancel</button></div></section>}
-      <p>{photosCount>0?`${photosCount} delivery photo${photosCount===1?' is':'s are'} recorded. Complete the recipient signature to save the official POD.`:'Photos are optional unless requested by the customer. Any photos or documents added will be retained with the signed POD.'}</p>{fileError&&<p className="rv-delivery-file-error" role="alert">{fileError}</p>}
-      {photos.length>0&&<ul className="rv-delivery-files">{photos.map((file,i)=><li key={file.name+'-'+i}><span>{file.type==='application/pdf'?'PDF':'PHOTO'} · {file.name}</span><button type="button" aria-label={'Remove '+file.name} onClick={()=>onPhotos(photos.filter((_,index)=>index!==i))}>×</button></li>)}</ul>}
+    <div className="rv-delivery-upload"><div className="rv-delivery-upload-title"><strong>Delivery evidence</strong><span>{photosCount} photos / {docsCount} documents</span></div>
+      <div className="rv-delivery-attach-actions"><button type="button" className="rv-delivery-add" disabled={cameraBusy} onClick={()=>void openCamera()}>{cameraBusy?'Opening camera...':'Take photo'}</button><label className="rv-delivery-add">Add Files<input type="file" accept="image/png,image/jpeg,application/pdf" multiple onChange={e=>{addFiles(e.currentTarget.files);e.currentTarget.value='';}}/></label></div>
+      {cameraOpen&&<section className="rv-camera-card" aria-label="Delivery camera"><div className="rv-camera-head"><strong>Delivery photo</strong><span>Capture a clear photograph as proof of delivery.</span></div><div className="rv-camera-preview-shell"><video ref={videoRef} autoPlay playsInline muted aria-label="Live delivery camera preview" className="rv-camera-preview"/></div><div className="rv-camera-actions"><button type="button" className="rv-primary rv-camera-action" onClick={()=>void capturePhoto()}>Capture Photo</button><button type="button" className="rv-outline rv-camera-action" onClick={stopCamera}>Cancel</button></div></section>}
+      <p>{photosCount>0?`${photosCount} delivery photo${photosCount===1?' is':'s are'} recorded. Complete the recipient signature to save the official POD.`:'At least one delivery photo is required by XDrive before Delivered. Added photos and documents are retained with the signed POD.'}</p>{fileError&&<p className="rv-delivery-file-error" role="alert">{fileError}</p>}
+      {photos.length>0&&<ul className="rv-delivery-files">{photos.map((file,i)=><li key={file.name+'-'+i}><span>{file.type==='application/pdf'?'PDF':'PHOTO'}: {file.name}</span><button type="button" aria-label={'Remove '+file.name} onClick={()=>onPhotos(photos.filter((_,index)=>index!==i))}>Remove</button></li>)}</ul>}
     </div>
-    <label className="rv-delivery-field"><span>Driver notes <small>Optional</small></span><textarea rows={2} placeholder="Access, shortages or delivery instructions…" value={value.notes} onChange={e=>set('notes',e.target.value)}/></label>
+    <label className="rv-delivery-field"><span>Driver notes <small>Optional</small></span><textarea rows={2} placeholder="Access, shortages or delivery instructions" value={value.notes} onChange={e=>set('notes',e.target.value)}/></label>
   </div>
-  <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy||!ready} onClick={onConfirm}>{busy ? 'Saving...' : mode === 'pod' ? 'Save Signed POD' : 'Confirm Delivery'}</button><p>{ready?'Handover is ready. Your evidence will be verified by XDrive.':`Required: ${[!value.recipient.trim()&&'recipient name',!signature&&'recipient signature',!requiredItems&&'item count',].filter(Boolean).join(', ')}.`}</p></div>
+  <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy||!ready} onClick={onConfirm}>{busy ? 'Saving...' : mode === 'pod' ? 'Save Signed POD' : 'Confirm Delivery'}</button><p>{ready?'Handover is ready. Your evidence will be verified by XDrive.':`Required: ${[!value.recipient.trim()&&'recipient name',!signature&&'recipient signature',!requiredItems&&'item count',!value.leftAt.trim()&&'Left At',!/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&'Delivered On',!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&'Delivery Time',mode==='delivery'&&!hasDeliveryPhoto&&'at least one delivery photo',].filter(Boolean).join(', ')}.`}</p></div>
  </section>;
 }

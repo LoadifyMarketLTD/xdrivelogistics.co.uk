@@ -1,6 +1,7 @@
 // Production driver API adapter. Only publishable Supabase keys are accepted.
 import { extractPublicOutcode } from './routeLabel';
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
+const QA_MOCK = import.meta.env.VITE_CX4A_QA_MOCK === '1';
 type Json = Record<string, unknown>;
 export type LiveSession = { token: string; refreshToken: string; expiresAt: number };
 export type LiveJob = {
@@ -10,7 +11,7 @@ export type LiveJob = {
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
   bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
   personalBid?: boolean; // true only for records returned by authenticated /mobile/bids personal quote history
-  offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; backendStatus?: string; podRecorded?: boolean;
+  offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; acceptanceBlocked?: boolean; offerQuoteStatus?: string; backendStatus?: string; podRecorded?: boolean;
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; service?: string;
@@ -59,6 +60,7 @@ async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): P
   }
 }
 export async function login(email: string, password: string): Promise<LiveSession> {
+  if (QA_MOCK) { latestSession = { token: 'cx4a-qa-driver-token', refreshToken: 'cx4a-qa-refresh-token', expiresAt: Date.now() + 86400000 }; return latestSession; }
   const config = await jsonFetch(base + '/mobile/config');
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
@@ -74,9 +76,10 @@ export async function login(email: string, password: string): Promise<LiveSessio
 }
 let latestSession: LiveSession | null = null;
 let renewalInFlight: Promise<LiveSession> | null = null;
-export async function renewSession(session: LiveSession): Promise<LiveSession> {
+export async function renewSession(session: LiveSession, forceRefresh = false): Promise<LiveSession> {
+  if (QA_MOCK) { latestSession = { ...session, expiresAt: Date.now() + 86400000 }; return latestSession; }
   const current = latestSession && latestSession.expiresAt > session.expiresAt ? latestSession : session;
-  if (current.expiresAt > Date.now() + 120000) return current;
+  if (!forceRefresh && current.expiresAt > Date.now() + 120000) return current;
   if (renewalInFlight) return renewalInFlight;
   renewalInFlight = renewSessionOnce(current).then(next => { latestSession = next; return next; }).finally(() => { renewalInFlight = null; });
   return renewalInFlight;
@@ -108,6 +111,7 @@ async function renewSessionOnce(session: LiveSession): Promise<LiveSession> {
   };
 }
 export async function revokeLiveSession(session: LiveSession): Promise<void> {
+  if (QA_MOCK) return;
   const config = await jsonFetch(base + '/mobile/config');
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
@@ -253,7 +257,7 @@ export function applyPersonalBids(jobs:LiveJob[], bids:Json):LiveJob[] {
     const quoteFields = { quote: amount, quoteSubmittedAt: str(bid.createdAt), quoteOutcome: outcome,
       bidId: str(bid.id), bidStatus: state, quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message), personalBid: true };
     if (existing) {
-      result.set(id, { ...existing, ...quoteFields });
+      result.set(id, { ...existing, ...quoteFields, acceptanceBlocked: Boolean(existing.acceptanceRequired && existing.offerId && state !== 'submitted') || existing.acceptanceBlocked });
     } else {
       result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', fromOutcode: extractPublicOutcode(bid.pickupPostcodeArea), toOutcode: extractPublicOutcode(bid.deliveryPostcodeArea), pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
     }
@@ -296,6 +300,8 @@ export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[]
       quoteOutcome: 'AWARDED',
       offerId: str(offer.id),
       acceptanceRequired: pending,
+      acceptanceBlocked: pending && (offer.acceptance_blocked === true || str(offer.quote_status).toLowerCase() === 'withdrawn' || str(offer.quote_status).toLowerCase() === 'cancelled' || (existing?.personalBid === true && Boolean(existing.bidStatus) && existing.bidStatus !== 'submitted')),
+      offerQuoteStatus: str(offer.quote_status),
       offerExpired,
       yourRef: str(offer.public_reference) || existing?.yourRef || id,
     });

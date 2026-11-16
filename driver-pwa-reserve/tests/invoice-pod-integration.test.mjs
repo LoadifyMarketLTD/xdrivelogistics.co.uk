@@ -20,7 +20,10 @@ test('modified invoice files parse as valid TypeScript',()=>{
 });
 test('official finance generator is used instead of manual invoice',()=>{
  const code=src('driver-pwa-reserve/src/LiveInvoiceFlow.tsx');
- assert.match(code,/\/finance\/jobs\/eligible/);
+assert.match(code,/\/finance\/jobs\/.*invoice-context/);
+ const eligibility=src('app/api/driver/finance/jobs/[jobId]/invoice-context/route.ts');
+ assert.match(eligibility,/hasCompletePodEvidence\(job\)/);
+ assert.match(eligibility,/canManageFinance/);
  assert.match(code,/generate-invoice/);
  assert.match(code,/idempotency_key/);
  assert.match(code,/\/preview/);

@@ -5,9 +5,11 @@ const read = p => readFileSync(new URL(p, import.meta.url), 'utf8');
 
 test('Reserve exposes a separate official signed POD A4 download only after verified POD', () => {
   const app = read('../src/ReserveApp.tsx');
-  assert.match(app, /delivered&&\(podDone\|\|job\.podRecorded\)/);
+  assert.match(app, /if\(job\.podRecorded\|\|podDone\)return/);
   assert.match(app, /<OfficialPodDownload jobId=\{job\.id\} session=\{session\}/);
-  assert.ok(app.indexOf('<OfficialPodDownload') < app.indexOf('Create Invoice + Complete POD'));
+  const completed=app.slice(app.indexOf('if(job.podRecorded||podDone)return'));
+  assert.ok(completed.includes('<OfficialPodDownload')&&completed.includes('Create / View Invoice'));
+  assert.ok(completed.indexOf('<OfficialPodDownload')<completed.indexOf('Create / View Invoice'));
 });
 test('official POD download is read-only and uses authenticated XDrive backend', () => {
   const src = read('../src/OfficialPodDownload.tsx');

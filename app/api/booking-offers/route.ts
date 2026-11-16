@@ -48,16 +48,20 @@ export async function GET(request: NextRequest) {
 
   const jobIds = [...new Set((offers ?? []).map((offer) => offer.job_id as string))];
   const buyerIds = [...new Set((offers ?? []).map((offer) => offer.buyer_company_id as string))];
-  const [{ data: jobs, error: jobsError }, { data: buyers, error: buyersError }] = await Promise.all([
+  const bidIds = [...new Set((offers ?? []).map((offer) => offer.bid_id as string))];
+  const [{ data: jobs, error: jobsError }, { data: buyers, error: buyersError }, { data: bids, error: bidsError }] = await Promise.all([
     jobIds.length ? supabaseAdmin.from('jobs').select('id,current_status,pickup_location,pickup_city,pickup_postcode,delivery_location,delivery_city,delivery_postcode,pickup_datetime,delivery_datetime,payment_terms,load_id,load_ref,load_reference,booking_reference,customer_reference,vehicle_type,requested_vehicle_label,job_distance_miles,job_distance_minutes,load_details,pickup_lat,pickup_lng,delivery_lat,delivery_lng').in('id', jobIds) : Promise.resolve({ data: [], error: null }),
     buyerIds.length ? supabaseAdmin.from('companies').select('id,name,xd_id').in('id', buyerIds) : Promise.resolve({ data: [], error: null }),
+    bidIds.length ? supabaseAdmin.from('job_bids').select('id,status').in('id', bidIds) : Promise.resolve({ data: [], error: null }),
   ]);
   // A partial database failure must not be represented as a successful, empty booking.
   // The driver needs the real route and buyer identity to decide on an offer.
-  if (jobsError || buyersError) return json(503, { error: 'Booking details are temporarily unavailable.' });
+  if (jobsError || buyersError || bidsError) return json(503, { error: 'Booking details are temporarily unavailable.' });
   const jobById = new Map((jobs ?? []).map((row) => [row.id as string, row]));
   const buyerById = new Map((buyers ?? []).map((row) => [row.id as string, row]));
+  const bidById = new Map((bids ?? []).map((row) => [row.id as string, row]));
   if (jobIds.some((id) => !jobById.has(id))) return json(503, { error: 'Some booking jobs could not be resolved.' });
+  if (bidIds.some((id) => !bidById.has(id))) return json(503, { error: 'Some booking quotations could not be resolved.' });
 
   return json(200, {
     page, hasMore: (offers ?? []).length > pageSize, nextPage: (offers ?? []).length > pageSize ? page + 1 : null,
@@ -68,6 +72,8 @@ export async function GET(request: NextRequest) {
       const zoneLabel = Array.from(new Set([zones.pickup?.label, zones.delivery?.label].filter((value): value is string => Boolean(value)))).join(' + ') || null;
       return {
         ...offer,
+        quote_status: bidById.get(offer.bid_id as string)?.status ?? null,
+        acceptance_blocked: offer.status === 'pending' && String(bidById.get(offer.bid_id as string)?.status ?? '') !== 'submitted',
         buyer_name: buyer?.name ?? 'Transport buyer',
         buyer_xd_id: buyer?.xd_id ?? null,
         public_reference: 'XDL-' + String(offer.job_id ?? '').slice(0, 8).toUpperCase(), 
