@@ -41,3 +41,9 @@
 - Final targeted TypeScript **0 errors**; regression recovery tests **8/8 PASS**.
 - Launched local URL in Edge. Original port 5299 and old original project left unchanged.
 - Data mutation E2E and end-to-end other roles have NOT been performed; do not merge to main or Production without additional gates.
+
+### Secondary authenticated read-only browser gate
+- Same recovered Owner Driver user authenticated with HTTP 200, Owner Driver top nav rendered, no browser JavaScript exceptions.
+- `/driver/loads`, `/driver/quotes`, `/driver/history` each returned HTTP 200 AND rendered nonempty page content after full browser load; no HTTP 500.
+- All non-auth business mutation requests were intercepted at the browser test layer; no actual job or finance write was performed.
+- These checks prove route render, not full transaction workflows, quote submissions, document generation, payment or driver tracking E2E.
