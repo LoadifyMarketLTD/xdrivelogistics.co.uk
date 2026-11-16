@@ -43,6 +43,14 @@ describe('Mobile Signed POD must agree with Finance POD completion', () => {
     expect(serverMapper).not.toContain('podGenerated: hasPod(row)');
   });
 
+  it('details endpoint must not label a draft POD completed merely because a signed evidence preview exists', () => {
+    const detailApi = readFileSync('app/api/driver/mobile/jobs/[id]/route.ts', 'utf8');
+    expect(detailApi).toContain("import { hasCompletePodEvidence } from '../../../../../../lib/jobs/podCompletion';");
+    expect(detailApi).toContain('podCompleted: hasCompletePodEvidence(row)');
+    expect(detailApi).not.toContain('podCompleted: Boolean(pod)');
+    expect(detailApi).toContain('pod,'); // evidence preview remains available for recovery/review
+  });
+
   it('only marks PWA as POD archived after authoritative server confirmation', () => {
     expect(clientMapper).toContain('podRecorded: r.podGenerated === true');
     expect(clientMapper).toContain('Boolean(r.deliverySignatureData)');
