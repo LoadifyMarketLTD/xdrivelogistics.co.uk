@@ -17,7 +17,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const signatureData = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
-  if (!signatureData || !/^data:image\/(png|jpeg);base64,/i.test(signatureData)) return respond(400, { error: 'A valid drawn recipient signature is required.' });
+  // Backward-compatible migration: installed clients without drawn signatures use typed-name attestation.
+  // Explicitly invalid signatures still fail; only ABSENT signatureData uses the legacy path.
+  const hasDrawnSignature = signatureData.length > 0;
+  if (hasDrawnSignature && !/^data:image\/(png|jpeg);base64,/i.test(signatureData)) return respond(400, { error: 'A valid drawn recipient signature is required.' });
   if (signatureData.length > 2500000) return respond(413, { error: 'Recipient signature is too large.' });
   if (!recipientName) return respond(400, { error: 'Recipient name is required.' });
   if (recipientName.length > 200) return respond(400, { error: 'Recipient name is too long.' });
@@ -71,9 +74,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .update({
       client_signature_name: recipientName,
       delivery_signature_data: {
-        type: 'recipient_drawn_signature',
-        signature_method: 'drawn_signature',
-        signature_data: signatureData,
+        type: hasDrawnSignature ? 'recipient_drawn_signature' : 'recipient_typed_name_attestation',
+        signature_method: hasDrawnSignature ? 'drawn_signature' : 'typed_name_attestation',
+        ...(hasDrawnSignature ? { signature_data: signatureData } : {}),
         evidence_path: evidencePath,
         recipient_name: recipientName,
         job_id: id,
@@ -90,5 +93,5 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   if (error) return respond(500, { error: error.message });
   if (!updated) return respond(409, { error: 'Delivery evidence could not be linked to this assignment.' });
-  return respond(200, { ok: true, signatureMethod: 'drawn_signature' });
+  return respond(200, { ok: true, signatureMethod: hasDrawnSignature ? 'drawn_signature' : 'typed_name_attestation' });
 }
