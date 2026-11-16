@@ -1,0 +1,45 @@
+import { test, expect } from '@playwright/test';
+import { loginWithCredentials } from './helpers/authLogin';
+
+test('real owner-driver Post Load: service controls, units and stops without posting', async ({ page }) => {
+  test.setTimeout(110_000);
+  const email = process.env.E2E_OWNER_DRIVER_EMAIL ?? '';
+  const password = process.env.E2E_OWNER_DRIVER_PASSWORD ?? '';
+  test.skip(!email || !password, 'Owner Driver credentials are required');
+  const blockedWrites: string[] = [];
+  await page.route('**/*', async (route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    if (['GET','HEAD','OPTIONS'].includes(req.method())) return route.continue();
+    if (url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/auth/v1/')) return route.continue();
+    if (url.hostname.endsWith('.supabase.co') && url.pathname === '/rest/v1/rpc/active_company_membership_role') return route.continue();
+    blockedWrites.push(req.method() + ' ' + url.pathname);
+    return route.fulfill({status:403,contentType:'application/json',body:'{"error":"READ_ONLY_TEST"}'});
+  });
+  await loginWithCredentials(page, email, password);
+  await page.goto('/driver/post-load', {waitUntil:'domcontentloaded'});
+  const form = page.locator('.xdrive-post-load-form');
+  await expect(form).toBeVisible({timeout:35000});
+  await expect(page.getByRole('button',{name:'On Demand'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Regular Load'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Daily Hire'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Open Saved Loads'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'Post Load & Save for Repeat Use'})).toBeVisible();
+  const weight = page.getByRole('spinbutton',{name:'Gross Load Weight'});
+  const unit = page.getByRole('combobox',{name:'Weight unit'});
+  const dimension = page.getByRole('combobox',{name:'Dimension unit'});
+  await weight.fill('100');
+  await unit.selectOption('lb');
+  expect(Number(await weight.inputValue())).toBeCloseTo(220.4623,2);
+  await unit.selectOption('kg');
+  expect(Number(await weight.inputValue())).toBeCloseTo(100,1);
+  await dimension.selectOption('ft');
+  await expect(dimension).toHaveValue('ft');
+  await dimension.selectOption('cm');
+  await expect(dimension).toHaveValue('cm');
+  const addStop = page.getByRole('button',{name:'Add stop'});
+  await expect(addStop).toBeEnabled();
+  await addStop.click();
+  await expect(page.getByText(/Stop 1|Additional stop|Intermediate stop/i).first()).toBeVisible({timeout:5000});
+  expect(blockedWrites).toEqual([]);
+});

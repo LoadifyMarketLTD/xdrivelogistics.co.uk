@@ -23,7 +23,7 @@
 @media(max-width:900px){.driver-quotes-prototype .cx-quote-state-tabs__action{margin-left:0;width:100%}.driver-diary-route .cx-diary-inline-stats{width:100%}}
 
 .driver-jobs-board .xdrive-pr807-job-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin:0 0 10px;padding:9px 12px;border:1px solid #cbd9e8;border-left:3px solid #1c6ac9;background:#fff;color:#163452;font-size:12px}
-.driver-jobs-board .xdrive-pr807-job-summary>strong{font-size:14px}
+.driver-jobs-board .xdrive-pr807-job-summary>h1{margin:0;font-size:14px;line-height:1.25;font-weight:700;color:inherit}
 .driver-jobs-board .xdrive-pr807-job-summary>span{color:#4c6887}
 
 /* Diary PR807: override legacy two-column controlbar geometry without changing shared CSS. */

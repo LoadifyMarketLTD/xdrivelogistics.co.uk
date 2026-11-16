@@ -206,7 +206,7 @@ export default function DriverJobsPage() {
 
           <main className="driver-board-main">
             <div className="xdrive-pr807-job-summary" aria-label="Current booking overview">
-              <strong>My Jobs</strong>
+              <h1>My Jobs</h1>
               <span>{jobs.length} assigned · {jobs.filter(job=>matchesFilter(job,'current')).length} current · {jobs.filter(job=>driverJobStage(job)==='completed').length} completed · {jobs.filter(isDeliveredAwaitingPod).length} awaiting POD</span>
             </div>
             <div className="driver-tab-strip" role="tablist" aria-label="Job status views">
