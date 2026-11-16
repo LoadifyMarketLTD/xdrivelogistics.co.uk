@@ -61,8 +61,8 @@ export default function BusinessDevelopmentPage() {
   return (
     <ProtectedRoute>
       <SuperAdminPage>
-        <SuperAdminPageHeader title="Business Development" description="Private UK B2B prospect register. No outreach is sent from this screen." />
-        {error && <SuperAdminNotice tone="critical">{error}</SuperAdminNotice>}
+        <SuperAdminPageHeader eyebrow="Commercial acquisition" title="Business Development" description="Private UK B2B prospect register. No outreach is sent from this screen." />
+        {error && <SuperAdminNotice tone="danger">{error}</SuperAdminNotice>}
         <SuperAdminSectionCard title="Add verified organisation">
           <form onSubmit={(event) => void create(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
             <label>Legal company name <input required minLength={2} maxLength={240} value={form.legal_name} onChange={e => setForm({ ...form, legal_name: e.target.value })} /></label>
