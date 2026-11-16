@@ -58,3 +58,10 @@
 - Targeted TypeScript verification: 0 errors; `scripts/test-pr807-cx-recovery.cjs`: 9/9 PASS, including no MASTER3150 renderer in active Owner Driver Dashboard / Loads / Quotes / My Jobs / Diary.
 - No API, RLS, auth, Production, Post Load, PWA or finance mutation changes. Existing technical legacy CSS and adapters outside these active route renders were not deleted pending dependency audit.
 - Next: sync into secondary C:5301 preview; authenticated screenshot and visual review; role and write-path E2E still unverified.
+
+### Visual QA correction (after authenticated screenshot)
+- Browser screenshots exposed two presentation defects despite passing TypeScript: a literal backslash-n rendered in Loads and a narrow/wrapped Diary toolbar caused by older high-specificity grid CSS.
+- Fixed both literal newline markers in Loads JSX without changing filtering or API behavior.
+- Added scoped high-specificity Diary layout overrides to stack PR807 toolbar, status tabs and view controls at usable full width; legacy global styles remain available to other roles.
+- Re-ran 9/9 PR807 recovery tests, targeted TypeScript exit 0 and diff check exit 0; no protected Post Load, PWA, RLS, API or finance changes.
+- Requires another authenticated screenshot after syncing this correction to C:5301 for final visual confirmation.

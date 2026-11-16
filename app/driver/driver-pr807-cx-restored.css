@@ -25,3 +25,32 @@
 .driver-jobs-board .xdrive-pr807-job-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin:0 0 10px;padding:9px 12px;border:1px solid #cbd9e8;border-left:3px solid #1c6ac9;background:#fff;color:#163452;font-size:12px}
 .driver-jobs-board .xdrive-pr807-job-summary>strong{font-size:14px}
 .driver-jobs-board .xdrive-pr807-job-summary>span{color:#4c6887}
+
+/* Diary PR807: override legacy two-column controlbar geometry without changing shared CSS. */
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar{
+  display:flex!important;flex-direction:column!important;align-items:stretch!important;
+  grid-template-columns:none!important;gap:7px!important;border:0!important;background:transparent!important;
+  width:100%!important;min-width:0!important;
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar .diary-head-cx{
+  display:flex!important;flex-wrap:wrap!important;align-items:center!important;justify-content:space-between!important;
+  width:100%!important;min-width:0!important;gap:8px!important;padding:7px 10px!important;
+  border:1px solid #cbd8e8!important;background:#fff!important;
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar .diary-head-cx .cx-diary-inline-stats{
+  flex:1 1 300px!important;min-width:260px!important;max-width:100%!important;white-space:normal!important;
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar .diary-tabs{
+  width:100%!important;max-width:100%!important;min-width:0!important;
+  display:flex!important;align-items:center!important;overflow-x:auto!important;overflow-y:hidden!important;
+  flex-wrap:nowrap!important;min-height:34px!important;height:auto!important;background:#fff!important;
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar .cx-diary-view-tools{
+  width:100%!important;display:flex!important;align-items:center!important;flex-wrap:wrap!important;
+  background:#fff!important;padding:6px 10px!important;border:1px solid #cbd8e8!important;
+}
+@media(max-width:900px){
+  .xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar .diary-head-cx{
+    align-items:flex-start!important;flex-direction:column!important;
+  }
+}
