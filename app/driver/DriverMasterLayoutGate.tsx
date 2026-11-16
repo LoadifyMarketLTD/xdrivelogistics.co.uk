@@ -18,7 +18,8 @@ const DRIVER_MASTER_TAB_BY_ROUTE: Readonly<Record<string,number>> = {
 export default function DriverMasterLayoutGate({children}:{children:ReactNode}){
  const pathname=usePathname();
  const {user}=useAuth();
- if(pathname==='/driver')return <>{children}</>;
+ // PR807 owner dashboard no longer contains an embedded Master 3150 shell.
+ // The top navigation must also wrap the /driver entry route.
  const workspace=resolveWorkspaceRole(user);
  const role=workspace==='owner_driver'?'Owner Driver':'Company Driver';
  const section=pathname.split('/')[2]||'';
