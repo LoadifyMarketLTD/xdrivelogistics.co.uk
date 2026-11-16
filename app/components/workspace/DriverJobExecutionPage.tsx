@@ -248,6 +248,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const podDraftSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
   const [showPodDetails, setShowPodDetails] = useState(false);
   const [podPhotoUrls, setPodPhotoUrls] = useState<string[]>([]);
+  const [podPhotoLinksLoading, setPodPhotoLinksLoading] = useState(false);
+  const [podPhotoLinksError, setPodPhotoLinksError] = useState('');
   const [signing, setSigning] = useState(false);
   const signatureRef = useRef<HTMLCanvasElement>(null);
   const collectionCameraInput = useRef<HTMLInputElement>(null);
@@ -1030,9 +1032,39 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     : navigationStage === 'delivery'
       ? (sheet?.delivery.address ?? job.delivery_location ?? '')
       : '';
-  const openPodDetails = () => {
+  const openPodDetails = async () => {
     setShowPodDetails(true);
-    setPodPhotoUrls(sheet?.pod.photoUrls ?? []);
+    setPodPhotoUrls([]);
+    setPodPhotoLinksError('');
+    const paths = [...new Set(deliveryPhotos.filter((value) => typeof value === 'string' && value.trim()))].slice(0, 10);
+    if (!paths.length) {
+      setPodPhotoLinksError('No delivery photographs are linked to this POD.');
+      return;
+    }
+    setPodPhotoLinksLoading(true);
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('The authenticated Driver session is unavailable.');
+      const urls = await Promise.all(paths.map(async (path) => {
+        try {
+          const response = await fetch('/api/pod/signed-url?jobId=' + encodeURIComponent(job.id) + '&path=' + encodeURIComponent(path), {
+            headers: { Authorization: auth }, cache: 'no-store',
+          });
+          const payload = await response.json().catch(() => ({})) as { signedUrl?: string };
+          return response.ok && typeof payload.signedUrl === 'string' && payload.signedUrl.startsWith('https://')
+            ? payload.signedUrl : '';
+        } catch {
+          return '';
+        }
+      }));
+      const permittedUrls = urls.filter(Boolean);
+      setPodPhotoUrls(permittedUrls);
+      if (permittedUrls.length !== paths.length) setPodPhotoLinksError('Some POD photographs could not be opened. Please retry.');
+    } catch {
+      setPodPhotoLinksError('POD photographs could not be authorised. Please reopen the POD.');
+    } finally {
+      setPodPhotoLinksLoading(false);
+    }
   };
 
   const navigationPostcode = navigationStage === 'pickup'
@@ -1740,7 +1772,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
               </div>
               {sheet?.pod.notes && <div className="driver-order-block"><strong>Delivery notes</strong><span>{sheet.pod.notes}</span></div>}
               {((sheet?.pod.signatureData ?? (typeof job.delivery_signature_data === 'string' ? job.delivery_signature_data : null))?.startsWith('data:image/')) && <div className="driver-order-block"><strong>Recipient signature</strong><img src={sheet?.pod.signatureData ?? String(job.delivery_signature_data)} alt="Recipient signature" style={{ maxWidth: 320, maxHeight: 120, border: '1px solid #cbd5e1', background: '#fff' }} /></div>}
-              <div className="driver-order-block"><strong>POD files</strong>{podPhotoUrls.length ? podPhotoUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noopener noreferrer">Delivery photo {index + 1}</a>) : <span>{sheet?.pod.photoCount ? `${sheet.pod.photoCount} delivery photo(s) recorded` : 'No delivery photo links available'}</span>}</div>
+              <div className="driver-order-block"><strong>POD files</strong>{podPhotoLinksLoading ? <span>Loading secure POD photo links...</span> : podPhotoUrls.length ? podPhotoUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noopener noreferrer">Delivery photo {index + 1}</a>) : <span>{podPhotoLinksError || 'No delivery photo links available'}</span>}{!podPhotoLinksLoading && podPhotoUrls.length > 0 && podPhotoLinksError && <span role="status">{podPhotoLinksError}</span>}</div>
               <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setShowPodDetails(false)}>Close POD</ActionButton></div>
             </Panel>
           )}
