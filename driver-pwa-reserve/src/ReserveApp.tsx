@@ -14,6 +14,7 @@ import type { DriverRecord } from './driverMenuView';
 import BookingStatusTimeline from './BookingStatusTimeline';
 import DeliveryHandover from './DeliveryHandover';
 import { routeLabel, isDuplicateRouteAddress } from './routeLabel';
+import { recoverDeliveredTime } from './podDraftRecovery';
 
 type Tab = 'Loads' | 'Quotes' | 'Bookings';
 type BookingSection = 'Received' | 'Allocated' | 'Delivered';
@@ -106,8 +107,21 @@ export default function ReserveApp() {
     let active=true;
     void (async()=>{
       try{
-        const res=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft',{headers:{Authorization:'Bearer '+session.token},cache:'no-store'});
-        if(!res.ok||!active)return;
+        // A completed delivery may be reopened after the JWT expires. Refresh
+        // credentials before restoring its server-side signed POD draft.
+        let authorised=await renewSession(session);
+        if(!active)return;
+        if(authorised.token!==session.token){setSession(authorised);localStorage.setItem(KEY,JSON.stringify(authorised));}
+        const endpoint=driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft';
+        let res=await fetch(endpoint,{headers:{Authorization:'Bearer '+authorised.token},cache:'no-store'});
+        if(res.status===401){
+          authorised=await renewSession(authorised,true);
+          if(!active)return;
+          setSession(authorised);localStorage.setItem(KEY,JSON.stringify(authorised));
+          res=await fetch(endpoint,{headers:{Authorization:'Bearer '+authorised.token},cache:'no-store'});
+        }
+        if(!res.ok)throw new Error('Could not restore the saved POD draft ('+res.status+'). Your stored evidence is preserved. Reconnect and retry.');
+        if(!active)return;
         const data=await res.json();
         if(data?.completed===true){setPodDone(true);setJobs(rows=>rows.map(row=>row.id===job.id?{...row,podRecorded:true,status:'DELIVERED'}:row));return;}
         const saved=data?.draft;
@@ -120,10 +134,10 @@ export default function ReserveApp() {
           condition:previous.condition==='Good condition'?String(saved.deliveryStatus||previous.condition):previous.condition,
           notes:previous.notes||String(saved.notes||''),
           deliveredOn:String(saved.deliveredOn||previous.deliveredOn||''),
-          deliveredTime:String(saved.deliveredTime||previous.deliveredTime||'')
+          deliveredTime:recoverDeliveredTime(saved.deliveredTime,previous.deliveredTime,job.statusHistory||[],saved.deliveredOn||previous.deliveredOn)
         }));
         if(typeof saved.signatureData==='string'&&/^data:image\/(png|jpeg);base64,/i.test(saved.signatureData)){setSignature(previous=>previous||saved.signatureData);setVerifiedSignature(saved.signatureData);}
-      }catch{/* Existing POD draft may be unavailable; request a new signature. */}
+      }catch(e){if(active)setError(e instanceof Error?e.message:'Saved POD draft could not be restored. Your evidence has not been deleted.');}
     })();
     return ()=>{active=false};
   },[id,view,job?.status,job?.podRecorded,session?.token]);
@@ -520,7 +534,7 @@ export default function ReserveApp() {
         </>}
         {collectionFiles.length>0&&<ul>{collectionFiles.map((file,index)=><li key={file.name+'-'+index}>{file.name} <button type="button" className="rv-outline" onClick={()=>setCollectionFiles(previous=>previous.filter((_,i)=>i!==index))}>Remove</button></li>)}</ul>}
       </section>}
-      {delivered&&!podDone&&!job.podRecorded&&<section className="rv-card rv-pod-stage"><span className="rv-over">DELIVERED / POD</span><h2>Recipient details and signature saved</h2><Fact name="Received By" value={draft.recipient}/><Fact name="Left At" value={draft.leftAt}/><Fact name="Items" value={draft.items}/><p>The delivery signature was verified before the Delivered status. Submit the final POD to archive the evidence.</p>{job.hardCopyPodRequired&&<label className="rv-hard-copy-ack"><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> I acknowledge that the required paper POD must be retained and handed over as instructed.</label>}<button className="rv-primary rv-wide" disabled={busy||!signature||verifiedSignature!==signature||(job.hardCopyPodRequired&&!hardCopyAcknowledged)} onClick={()=>void savePod(job)}>{busy?'Saving POD…':'Confirm and Save Signed POD →'}</button></section>}
+      {delivered&&!podDone&&!job.podRecorded&&<section className="rv-card rv-pod-stage"><span className="rv-over">DELIVERED / POD</span><h2>Recipient details and signature saved</h2><Fact name="Received By" value={draft.recipient}/><Fact name="Left At" value={draft.leftAt}/><Fact name="Items" value={draft.items}/><Fact name="Delivered On" value={draft.deliveredOn}/><Field label="Delivery Time *"><input type="time" required value={draft.deliveredTime} onChange={e=>setDraft(previous=>({...previous,deliveredTime:e.target.value}))}/></Field><p>The delivery signature was verified before the Delivered status. Submit the final POD to archive the evidence.</p>{job.hardCopyPodRequired&&<label className="rv-hard-copy-ack"><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> I acknowledge that the required paper POD must be retained and handed over as instructed.</label>}<button className="rv-primary rv-wide" disabled={busy||!signature||verifiedSignature!==signature||(job.hardCopyPodRequired&&!hardCopyAcknowledged)} onClick={()=>void savePod(job)}>{busy?'Saving POD…':'Confirm and Save Signed POD →'}</button></section>}
       {delivered&&(podDone||job.podRecorded)&&<section className="rv-card rv-pod-stage"><div className="rv-success">Signed POD is recorded in XDrive. The official invoice generator will use the stored delivery evidence.</div>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{role==='Owner Driver'&&<button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button>}<p className="rv-sub">Company owners can create or view an invoice after POD validation.</p></section>}
       {!delivered&&step&&<button className="rv-primary rv-wide" disabled={busy} onClick={()=>void transition(job)}>{busy?'Saving status…':job.status==='ALLOCATED'?'Save':job.status==='ON_SITE_PICKUP'?(collectionStage==='arrival'?'Save':'Save'):step.label+' →'}</button>}
     </section>;
