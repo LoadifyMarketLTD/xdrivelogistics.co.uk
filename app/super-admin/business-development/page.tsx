@@ -12,6 +12,8 @@ type Prospect = {
   segment: string; status: string; source_url: string; created_at: string;
 };
 type Result = { organisations?: Prospect[]; total?: number; error?: string };
+type Contact = { id: string; person_name: string | null; business_email: string | null; business_phone: string | null };
+type Activity = { id: string; event_type: string; occurred_at: string; note: string | null };
 const empty = { legal_name: '', company_number: '', website: '', legal_form: 'unknown', segment: 'customer', source_url: '' };
 
 export default function BusinessDevelopmentPage() {
@@ -22,6 +24,10 @@ export default function BusinessDevelopmentPage() {
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState(empty);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [selected, setSelected] = useState<Prospect | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -40,6 +46,33 @@ export default function BusinessDevelopmentPage() {
   }, [page, reloadVersion]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    let active = true;
+    setContacts([]); setActivities([]); setDetailError(null);
+    if (!selected) return;
+    const fetchDetails = async () => {
+      try {
+        const auth = await getAuthHeader();
+        if (!auth) throw new Error('Platform Owner session required.');
+        const headers = { Authorization: auth };
+        const id = encodeURIComponent(selected.id);
+        const [cr, er] = await Promise.all([
+          fetch('/api/super-admin/business-development/contacts?organisation_id=' + id, { headers, cache: 'no-store' }),
+          fetch('/api/super-admin/business-development/events?organisation_id=' + id, { headers, cache: 'no-store' }),
+        ]);
+        const cb = await cr.json() as { contacts?: Contact[]; error?: string };
+        const eb = await er.json() as { events?: Activity[]; error?: string };
+        if (!cr.ok || !er.ok || !Array.isArray(cb.contacts) || !Array.isArray(eb.events))
+          throw new Error(cb.error ?? eb.error ?? 'Prospect details unavailable.');
+        if (active) { setContacts(cb.contacts); setActivities(eb.events); }
+      } catch (e) {
+        if (active) setDetailError(e instanceof Error ? e.message : 'Prospect details unavailable.');
+      }
+    };
+    void fetchDetails();
+    return () => { active = false; };
+  }, [selected]);
 
   const create = async (event: FormEvent) => {
     event.preventDefault();
@@ -85,10 +118,10 @@ export default function BusinessDevelopmentPage() {
           <p>{total === null ? 'Not available' : total + ' organisations recorded'}</p>
           {rows.length === 0 ? <p>No verified prospects to display.</p> : (
             <div style={{ overflowX: 'auto' }}>
-              <table><thead><tr><th>Organisation</th><th>Company number</th><th>Segment</th><th>Status</th><th>Source</th></tr></thead>
+              <table><thead><tr><th>Organisation</th><th>Company number</th><th>Segment</th><th>Status</th><th>Source</th><th>Details</th></tr></thead>
                 <tbody>{rows.map(row => <tr key={row.id}>
                   <td>{row.legal_name}</td><td>{row.company_number ?? '—'}</td><td>{row.segment}</td>
-                  <td>{row.status}</td><td><a href={row.source_url} target="_blank" rel="noopener noreferrer">Source</a></td>
+                  <td>{row.status}</td><td><a href={row.source_url} target="_blank" rel="noopener noreferrer">Source</a></td><td><button type="button" onClick={() => setSelected(row)}>View</button></td>
                 </tr>)}</tbody>
               </table>
             </div>
@@ -99,6 +132,19 @@ export default function BusinessDevelopmentPage() {
             <button disabled={total === null || page * 25 >= total} onClick={() => setPage(page + 1)}>Next</button>
           </div>
         </SuperAdminSectionCard>
+        {selected && <SuperAdminSectionCard title={'Prospect details — ' + selected.legal_name}>
+          <button type="button" onClick={() => setSelected(null)}>Close details</button>
+          {detailError && <SuperAdminNotice tone="danger">{detailError}</SuperAdminNotice>}
+          <h3>Business contacts ({contacts.length})</h3>
+          {contacts.length ? <ul>{contacts.map(contact => <li key={contact.id}>
+            {contact.person_name ?? 'General business contact'} — {contact.business_email ?? contact.business_phone ?? 'No contact details'}
+          </li>)}</ul> : <p>No contacts recorded or details not loaded.</p>}
+          <h3>Activity history ({activities.length})</h3>
+          {activities.length ? <ul>{activities.map(activity => <li key={activity.id}>
+            {new Date(activity.occurred_at).toLocaleString('en-GB')} — {activity.event_type}
+            {activity.note ? ': ' + activity.note : ''}
+          </li>)}</ul> : <p>No activity recorded or details not loaded.</p>}
+        </SuperAdminSectionCard>}
       </SuperAdminPage>
     </ProtectedRoute>
   );
