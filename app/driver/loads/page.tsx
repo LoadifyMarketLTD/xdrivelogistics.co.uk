@@ -13,7 +13,6 @@ import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import {usePublicPickupRadius} from '../../try-xdrive-demo/components/usePublicPickupRadius';
-import '../../components/workspace/master3150-unified-loads.css';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxLoadCard from '../../components/workspace/OwnerPR807LoadCard';
 
@@ -202,7 +201,7 @@ export default function AvailableLoadsPage() {
   const [postedWithinFilter, setPostedWithinFilter] = useState<PostedWithinFilter>('any');
   const [jobTimingFilter, setJobTimingFilter] = useState<JobTimingFilter>('any');
   const [loadTypeFilter, setLoadTypeFilter] = useState<LoadTypeFilter>('all');
-  const [masterLoadsTab, setMasterLoadsTab] = useState<'all' | 'on_demand' | 'same_day' | 'next_day'>('all');
+  const [loadWindowTab, setLoadWindowTab] = useState<'all' | 'on_demand' | 'same_day' | 'next_day'>('all');
   const [sortBy, setSortBy] = useState<SortMode>('date_desc');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -302,7 +301,7 @@ export default function AvailableLoadsPage() {
   const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
     setVehicleFilter('any'); setPickupFilter(''); setPickupRadiusMiles('10'); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
-    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setMasterLoadsTab('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setLoadWindowTab('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   useEffect(() => {
     const resetLoads = () => {
@@ -319,7 +318,7 @@ export default function AvailableLoadsPage() {
       setPostedWithinFilter('any');
       setJobTimingFilter('any');
       setLoadTypeFilter('all');
-      setMasterLoadsTab('all');
+      setLoadWindowTab('all');
       setSortBy('date_desc');
       setVisibleCount(25);
       setPageSize(25);
@@ -381,12 +380,12 @@ export default function AvailableLoadsPage() {
     postedAt: load.exchange_posted_at,
   })), [filteredLoads]);
 
-  const selectMasterLoadsTab = (next: 'all' | 'on_demand' | 'same_day' | 'next_day') => {
+  const selectLoadWindowTab = (next: 'all' | 'on_demand' | 'same_day' | 'next_day') => {
     const date = new Date();
     date.setHours(12, 0, 0, 0);
     if (next === 'next_day') date.setDate(date.getDate() + 1);
     const localDate = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
-    setMasterLoadsTab(next);
+    setLoadWindowTab(next);
     setLoadTypeFilter(next === 'on_demand' ? 'on_demand' : 'all');
     setDateFromFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
     setDateToFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
@@ -396,13 +395,7 @@ export default function AvailableLoadsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-loads-prototype xdrive-admin-marketplace-identity master3150-unified-loads">
-        <header className="xd-approved-board-header master3150-driver-loads-heading"><h1 className="xd-approved-board-title">Loads</h1></header>
-        <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads primary tabs">
-          {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={masterLoadsTab===item.id} aria-pressed={masterLoadsTab===item.id} onClick={()=>selectMasterLoadsTab(item.id)}>{item.label}</button>)}
-          <a className="master3150-loads-my-jobs" href="/driver/jobs">My Loads</a>
-        </nav>
-        <div className="pagebody">
+      <section className="page driver-loads-prototype xdrive-admin-marketplace-identity">\n        <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Loads</div>
             <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>UK & ROI</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
@@ -421,16 +414,7 @@ export default function AvailableLoadsPage() {
             <div className="filter"><span className="label">Preferences</span><label className="check"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />Save as Default</label></div>
             <div className="filter"><button type="button" className="btn primary" onClick={applySearch}>Search</button> <button type="button" className="btn" onClick={clearFilters}>Clear</button></div>
           </aside>
-          <main className="main">
-            <details className="master3150-driver-load-stats"><summary>Live exchange statistics</summary>
-            <div className="xd-approved-board-kpis" aria-label="Real freight exchange statistics">
-              <div className="xd-approved-board-kpi"><strong>Available Loads</strong><b>{loads.length}</b><small>Live authorised records</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Matching Loads</strong><b>{filteredLoads.length}</b><small>Current search</small></div>
-              <div className="xd-approved-board-kpi green"><strong>Not Quoted</strong><b>{loads.filter(load => !load.myBid).length}</b><small>May request a quote</small></div>
-              <div className="xd-approved-board-kpi amber"><strong>Already Quoted</strong><b>{loads.filter(load => Boolean(load.myBid)).length}</b><small>Existing quote records</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
-            </div></details>
-            {successMsg && <div className="vision-note">{successMsg}</div>}
+          <main className="main">\n            {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-result-head" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', height: 'auto', minHeight: 42, paddingTop: 6, paddingBottom: 6 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
@@ -441,9 +425,17 @@ export default function AvailableLoadsPage() {
               </div>
             </div>
             <div className="load-nav-unified">
-              <label className="master3150-loads-service-selector">Service type <select aria-label="Service type" value={loadTypeFilter} onChange={(event)=>{setMasterLoadsTab('all');setLoadTypeFilter(event.target.value as LoadTypeFilter);setDateFromFilter('');setDateToFilter('');}}>
-                <option value="all">All Loads</option><option value="on_demand">On Demand</option><option value="regular_load">Regular Load</option><option value="daily_hire">Daily Hire</option>
-              </select></label>
+                             <div className="load-tabs" role="group" aria-label="Freight load categories">
+                 {([{id:'all',label:'All Live'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(tab=>
+                   <button key={tab.id} type="button" className={loadWindowTab===tab.id && (tab.id!=='all'||loadTypeFilter==='all')?'active':''}
+                     aria-pressed={loadWindowTab===tab.id && (tab.id!=='all'||loadTypeFilter==='all')}
+                     onClick={()=>selectLoadWindowTab(tab.id)}>{tab.label}</button>)}
+                 {(['regular_load','daily_hire'] as const).map(category=>
+                   <button key={category} type="button" className={loadTypeFilter===category?'active':''} aria-pressed={loadTypeFilter===category}
+                     onClick={()=>{setLoadWindowTab('all');setLoadTypeFilter(category);setDateFromFilter('');setDateToFilter('');setViewMode('list');}}>
+                     {category==='regular_load'?'Regular Load':'Daily Hire'}
+                   </button>)}
+               </div>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>

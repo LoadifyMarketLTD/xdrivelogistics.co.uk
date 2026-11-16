@@ -205,13 +205,9 @@ export default function DriverJobsPage() {
           </aside>
 
           <main className="driver-board-main">
-            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Bookings</h1><p className="xd-approved-board-subtitle">Assigned work, execution and proof of delivery</p></div></header>
-            <div className="xd-approved-board-kpis" aria-label="Real booking statistics">
-              <div className="xd-approved-board-kpi"><strong>Total Bookings</strong><b>{jobs.length}</b><small>Assigned to this Driver</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Current</strong><b>{jobs.filter(job => matchesFilter(job, 'current')).length}</b><small>Active or upcoming</small></div>
-              <div className="xd-approved-board-kpi green"><strong>Completed</strong><b>{jobs.filter(job => driverJobStage(job) === 'completed').length}</b><small>Completed records</small></div>
-              <div className="xd-approved-board-kpi amber"><strong>Awaiting POD</strong><b>{jobs.filter(isDeliveredAwaitingPod).length}</b><small>Delivery evidence required</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Shown</strong><b>{filteredJobs.length}</b><small>Matching current status</small></div>
+            <div className="xdrive-pr807-job-summary" aria-label="Current booking overview">
+              <strong>My Jobs</strong>
+              <span>{jobs.length} assigned · {jobs.filter(job=>matchesFilter(job,'current')).length} current · {jobs.filter(job=>driverJobStage(job)==='completed').length} completed · {jobs.filter(isDeliveredAwaitingPod).length} awaiting POD</span>
             </div>
             <div className="driver-tab-strip" role="tablist" aria-label="Job status views">
               {FILTERS.map((item) => (

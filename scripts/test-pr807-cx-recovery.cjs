@@ -39,8 +39,22 @@ const tests=[
    const s=read('app/driver/history/page.tsx');
    assert.match(s,/OwnerPR807DiaryCard/);
    assert.match(s,/isDeliveredAwaitingPod/);
-   assert.match(s,/Booking Details/);
+   assert.match(s,/onToggle=/);
+   assert.match(s,/onOpenTab=/);
+   assert.doesNotMatch(s,/Broker3150DiaryHeader|xd3150-diary-card-actions/);
    assert.match(s,/CxDiaryActions/);
+ }],
+ ['No MASTER 3150 renderer remains in active Owner Driver operational screens',()=>{
+   for(const route of ['app/driver/page.tsx','app/driver/loads/page.tsx','app/driver/quotes/page.tsx','app/driver/history/page.tsx','app/driver/jobs/page.tsx']){
+     assert.doesNotMatch(read(route),/Master3150|Broker3150|xd3150|master3150|OwnerDriver3150LiveDashboard/,route);
+   }
+   const loads=read('app/driver/loads/page.tsx');
+   const quotes=read('app/driver/quotes/page.tsx');
+   const diary=read('app/driver/history/page.tsx');
+   assert.match(loads,/load-tabs/);
+   assert.match(quotes,/cx-quote-state-tabs/);
+   assert.match(diary,/cx-diary-state-tabs/);
+   assert.match(diary,/cx-diary-filter-rail/);
  }],
  ['XDrive own original context card is present',()=>{
    assert.match(read('app/components/workspace/XDriveCardContext.tsx'),/Freight|XDrive ref|xd-card-context/);

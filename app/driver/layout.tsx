@@ -33,6 +33,7 @@ import './xdrive-operational-dashboard-v2.css';
 import './xdrive-operational-cards-v3.css';
 import './xdrive-job-dossier-v4.css';
 import './xdrive-operations-v8.css';
+import './driver-pr807-cx-restored.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.

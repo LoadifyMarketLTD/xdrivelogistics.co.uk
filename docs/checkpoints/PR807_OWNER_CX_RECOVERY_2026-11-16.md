@@ -47,3 +47,14 @@
 - `/driver/loads`, `/driver/quotes`, `/driver/history` each returned HTTP 200 AND rendered nonempty page content after full browser load; no HTTP 500.
 - All non-auth business mutation requests were intercepted at the browser test layer; no actual job or finance write was performed.
 - These checks prove route render, not full transaction workflows, quote submissions, document generation, payment or driver tracking E2E.
+
+## Second visual-reconciliation pass — 16 November 2026
+- User identified remaining visible MASTER 3150 presentation after first PR807 recovery. Confirmed in authenticated desktop screenshots of Loads, Quotes and Diary.
+- Loads: removed MASTER3150 top category nav and KPI panel, restored compact PR807/CX freight category tabs, kept pickup-radius search and modern same-day/next-day filters; recovered card implementation retained.
+- Quotes: removed MASTER3150 KPI navigation, restored CX-style status tabs, kept incoming/awarded/withdrawn/expired/unsuccessful filtering and pending booking-offer protection.
+- Diary: restored original PR807/CX Search Panel, toolbar and tab-strip while retaining newer location/date filters, role-allowed company diary, status lifecycle, pagination, POD/Invoice/feedback controls; removed Broker3150DiaryHeader/Tabs and Master 3150 diary-action wrapper.
+- My Jobs: replaced MASTER-style KPI block with compact PR807 assigned-bookings summary; kept newest status, POD, invoice and real driver execution handling.
+- New scoped `app/driver/driver-pr807-cx-restored.css` imported by Driver layout. Existing Post Load route still uses the approved `MasterWorkspace` deliberately; its own files are unchanged.
+- Targeted TypeScript verification: 0 errors; `scripts/test-pr807-cx-recovery.cjs`: 9/9 PASS, including no MASTER3150 renderer in active Owner Driver Dashboard / Loads / Quotes / My Jobs / Diary.
+- No API, RLS, auth, Production, Post Load, PWA or finance mutation changes. Existing technical legacy CSS and adapters outside these active route renders were not deleted pending dependency audit.
+- Next: sync into secondary C:5301 preview; authenticated screenshot and visual review; role and write-path E2E still unverified.

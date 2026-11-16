@@ -486,17 +486,20 @@ export default function MyQuotesPage() {
           </aside>
 
           <main className="main">
-            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Quotes</h1><p className="xd-approved-board-subtitle">Submitted &amp; Awarded — real quotation history</p></div></header>
-            <div className="xd-approved-board-kpis xd-quote-kpi-navigation" role="group" aria-label="Quote filters and page size">
-              <button type="button" className="xd-approved-board-kpi" aria-pressed={quoteScope === 'total'} onClick={() => setQuoteScope('total')}><strong>Total Quotes</strong><b>{bids.length}</b><small>All quote records</small></button>
-              <button type="button" className="xd-approved-board-kpi blue" aria-pressed={quoteScope === 'submitted'} onClick={() => { setActiveTab('submitted'); setQuoteScope('submitted'); setSubmittedView('all'); }}><strong>Submitted</strong><b>{bids.filter(bid => quoteBucket(bid) === 'submitted').length}</b><small>Active and historical quotations</small></button>
-              <button type="button" className="xd-approved-board-kpi green" aria-pressed={quoteScope === 'awarded'} onClick={() => { setActiveTab('awarded'); setQuoteScope('awarded'); }}><strong>Awarded</strong><b>{bids.filter(bid => quoteBucket(bid) === 'awarded').length}</b><small>Accepted quotations</small></button>
-              <button type="button" className="xd-approved-board-kpi amber" aria-pressed={quoteScope === 'received'} onClick={() => setQuoteScope('received')}><strong>Received</strong><b>{bids.filter(bid => bid.direction === 'incoming').length}</b><small>Quotes on posted loads</small></button>
-              <label className="xd-approved-board-kpi blue xd-quote-page-size"><strong>Results Per Page</strong><select aria-label="Results Per Page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select><small>Choose 10, 25 or 50</small></label>
-            </div>
+            <header className="workspace-quote-title"><h1>Quotes</h1></header>
+<div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Quotation states">
+  <button type="button" role="tab" aria-selected={quoteScope==='received'} data-active={quoteScope==='received'} onClick={()=>setQuoteScope('received')}>Received ({bids.filter(bid=>bid.direction==='incoming').length})</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='submitted'&&submittedView==='history'} data-active={quoteScope==='submitted'&&submittedView==='history'} onClick={()=>{setActiveTab('submitted');setQuoteScope('submitted');setSubmittedView('history');}}>Archived / Unsuccessful</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='submitted'&&submittedView==='active'} data-active={quoteScope==='submitted'&&submittedView==='active'} onClick={()=>{setActiveTab('submitted');setQuoteScope('submitted');setSubmittedView('active');}}>Submitted ({bids.filter(bid=>quoteBucket(bid)==='submitted').length})</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='awarded'} data-active={quoteScope==='awarded'} onClick={()=>{setActiveTab('awarded');setQuoteScope('awarded');}}>Awarded ({bids.filter(bid=>quoteBucket(bid)==='awarded').length})</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='total'} data-active={quoteScope==='total'} onClick={()=>setQuoteScope('total')}>All Quotes ({bids.length})</button>
+  <span className="cx-quote-state-tabs__action">
+    <label>Per page <select aria-label="Quote results per page" value={pageSize} onChange={event=>setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+  </span>
+</div>
             {error && <div className="vision-note">{error}</div>}
-            <div className="xd-quote-list-tools"><span>{quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
-            {quoteScope === 'submitted' && <div className="xd3150-quote-history-toggle" role="group" aria-label="Submitted quote activity">
+            <div className="cx-quote-result-summary"><span>{quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
+            {quoteScope === 'submitted' && <div className="cx-quote-submitted-view" role="group" aria-label="Submitted quote activity">
               {(['active','history','all'] as const).map(view=><button key={view} type="button" className={submittedView===view?'active':''} aria-pressed={submittedView===view} onClick={()=>setSubmittedView(view)}>{view==='active'?'Active quotes':view==='history'?'Withdrawn / expired / unsuccessful':'All submitted records'}</button>)}
             </div>}
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {quoteScope} quotes found.</span></div> : (

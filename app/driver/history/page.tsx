@@ -19,7 +19,6 @@ import { ActionButton, AlertBanner, EmptyState } from '../../components/workspac
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxDiaryCard from '../../components/workspace/OwnerPR807DiaryCard';
-import { Broker3150DiaryHeader, Broker3150DiaryTabs } from '../../components/workspace/Broker3150DiaryChrome';
 import { operationalLocationLabel } from '../../components/workspace/locationPresentation';
 import CxDiaryActions from '../../components/workspace/CxDiaryActions';
 
@@ -597,37 +596,32 @@ export default function JobHistoryPage() {
   const tabCount = (bucket: HistoryFilter) => jobs.filter((job) => filterMatches(job, bucket, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length;
 
   const vehicleTypes=useMemo(()=>[...new Set(jobs.map(job=>job.vehicle_type).filter((v):v is string=>Boolean(v)))].sort(),[jobs]);
-  const clearBrokerDiaryFilters=()=>{
+  const clearDiaryFilters=()=>{
     setSearch(EMPTY_SEARCH);setAppliedSearch(EMPTY_SEARCH);setSelectedDiaryDate(null);
     setPickupAreaFilter('');setDeliveryAreaFilter('');setVehicleTypeFilter('');
     setStatusFilter('all');setPage(1);
   };
 
   const filterRail = (
-    <aside className="xd-diary-filters left driver-filter-rail diary-filter-rail cx-diary-filter-rail xd3150-diary-rail workspace-filter-rail" aria-label="Diary search filters">
-      <div className="left-title workspace-filter-rail__header">Find Bookings</div>
-      <div className="diary-filter-body workspace-filter-rail__body">
-        <label>From (Town/Postcode)<input value={pickupAreaFilter} onChange={e=>setPickupAreaFilter(e.target.value)} placeholder="e.g. BB1 or Blackburn"/></label>
-        <label>To (Town/Postcode)<input value={deliveryAreaFilter} onChange={e=>setDeliveryAreaFilter(e.target.value)} placeholder="e.g. LS1 or Leeds"/></label>
-        <label>Driver<select value={diaryScope} disabled={!canViewCompanyDiary} onChange={e=>setSelectedDiaryScope(e.target.value as 'company'|'mine')}><option value="mine">My assigned jobs</option>{canViewCompanyDiary&&<option value="company">All company drivers</option>}</select></label>
-        <label>Vehicle<select value={vehicleTypeFilter} onChange={e=>setVehicleTypeFilter(e.target.value)}><option value="">Any Vehicle</option>{vehicleTypes.map(type=><option key={type} value={type}>{type.replaceAll('_',' ')}</option>)}</select></label>
-        <label>Status<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value as HistoryFilter)}>{historyFilters.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
-        <label>Date<input type="date" value={selectedDiaryDate??''} onChange={e=>setSelectedDiaryDate(e.target.value||null)}/></label>
-        <button type="button" className="xd3150-diary-clear" onClick={clearBrokerDiaryFilters}>Clear Filters</button>
-        <button type="button" className="xd3150-diary-search" onClick={()=>{setAppliedSearch(search);setPage(1)}}>Search Diary</button>
-        <details className="xd3150-diary-extra-filters"><summary>Additional search &amp; tools</summary><div className="xd3150-diary-extra-body">
-        <div className="cx-diary-rail-nav">
-          <ActionButton tone="secondary" onClick={()=>router.push('/driver/directory')}>Contacts</ActionButton>
-          <ActionButton tone="secondary" onClick={()=>router.push('/driver/finance')}>Payment Report</ActionButton>
-        </div>
-        <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">Company Diary</option><option value="mine">My assigned jobs</option></select></div>
+    <aside className="left driver-filter-rail diary-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
+      <div className="cx-diary-rail-nav">
+        <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Contacts</ActionButton>
+        <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Payment Report</ActionButton>
+      </div>
+      <div className="left-title">Search Panel</div>
+      <div className="diary-filter-body">
+        <div className="filter"><span className="label">From (Town/Postcode)</span><input value={pickupAreaFilter} onChange={e=>setPickupAreaFilter(e.target.value)} placeholder="e.g. Blackburn or BB1" /></div>
+        <div className="filter"><span className="label">To (Town/Postcode)</span><input value={deliveryAreaFilter} onChange={e=>setDeliveryAreaFilter(e.target.value)} placeholder="e.g. Leeds or LS1" /></div>
+        <div className="filter"><span className="label">Vehicle</span><select value={vehicleTypeFilter} onChange={e=>setVehicleTypeFilter(e.target.value)}><option value="">Any vehicle</option>{vehicleTypes.map(type=><option key={type} value={type}>{type.replaceAll('_',' ')}</option>)}</select></div>
+        <div className="filter"><span className="label">Specific Date</span><input type="date" value={selectedDiaryDate??''} onChange={e=>setSelectedDiaryDate(e.target.value||null)}/></div>
+        <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}>{canViewCompanyDiary && <option value="company">Company Diary (all authorised company records)</option>}<option value="mine">My assigned jobs</option></select></div>
         <div className="filter"><span className="label">Date</span><select value={search.dateRange} onChange={(e) => setSearch((current) => ({ ...current, dateRange: e.target.value as DateRange }))}><option value="any">Anytime</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></div>
         <div className="filter"><span className="label">Pickup Time Within</span><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Delivery Time Within</span><select value={search.deliveryWithin} onChange={(e) => setSearch((current) => ({ ...current, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Load ID / Ref</span><input value={search.loadRef} onChange={(e) => setSearch((current) => ({ ...current, loadRef: e.target.value }))} placeholder="Job, booking or ref" /></div>
         <div className="filter"><span className="label">Member Name / ID</span><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Company name" /></div>
         <div className="filter"><span className="label">Archived</span><select value={search.archive} onChange={(e) => setSearch((current) => ({ ...current, archive: e.target.value as ArchiveFilter }))}><option value="all">All records</option><option value="active">Active register</option><option value="closed">Closed records</option></select></div>
-        </div></details>
+        <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={clearDiaryFilters}>Clear</ActionButton></div>
       </div>
     </aside>
   );
@@ -637,51 +631,37 @@ export default function JobHistoryPage() {
       <DriverWorkspaceShell hideHeader>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
-        <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity xd-diary-v2 xd3150-broker-diary" data-diary-source="broker-3150">
-          <Broker3150DiaryHeader date={selectedDiaryDate??''}
-            onDateChange={(value)=>setSelectedDiaryDate(value||null)}/>
-          <Broker3150DiaryTabs
-            tabs={historyFilters.map(item=>({...item,count:tabCount(item.id)}))}
-            selected={statusFilter} onSelect={setStatusFilter}
-            label="Driver Diary states"
-          />
-          <section className="xd-diary-kpis xd-approved-board-kpis" aria-label="Real booking statistics">
-            <div className="xd-diary-kpi xd-approved-board-kpi"><strong>Total Bookings</strong><b>{jobs.length}</b><small>All statuses</small></div>
-            <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Today's Bookings</strong><b>{totalToday}</b><small>Pickup scheduled today</small></div>
-            <div className="xd-diary-kpi xd-approved-board-kpi green"><strong>Completed Today</strong><b>{completedToday}</b><small>Confirmed deliveries</small></div>
-            <div className="xd-diary-kpi xd-approved-board-kpi amber"><strong>Awaiting POD</strong><b>{awaitingPod}</b><small>Real evidence required</small></div>
-            <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Next 7 Days</strong><b>{upcomingJobs}</b><small>Scheduled collections</small></div>
-          </section>
-
-          <div className="xd-diary-layout">
+        <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity">
           {filterRail}
           <main className="driver-board-main main diary-main">
             <div className="driver-diary-controlbar">
               <div className="diary-head diary-head-cx workspace-record-meta workspace-list-controls cx-diary-toolbar">
-                <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></span>
+                <span className="cx-diary-toolbar__title"><strong>Diary at {new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZoneName:'short'})}</strong></span>
+                <span className="cx-diary-inline-stats" aria-label="Current booking statistics">Today {totalToday} · Completed {completedToday} · Awaiting POD {awaitingPod} · Next 7 days {upcomingJobs}</span>
                 <span className="driver-diary-summary-actions workspace-list-controls__right">
-                  <button type="button" className="cx-expand-entries-control" disabled={!visibleJobs.length} onClick={toggleExpandAll}>{allExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
-                  <ActionButton tone="secondary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>
+                  <button type="button" className="cx-expand-entries-control" disabled={!visibleJobs.length} onClick={toggleExpandAll}>{allExpanded?'Collapse All Entries':'Expand All Entries'}</button>
+                  <ActionButton tone="secondary" onClick={()=>void fetchHistory()} disabled={loading||refreshing}>{refreshing?'Refreshing...':'Refresh'}</ActionButton>
                 </span>
               </div>
-              <div className="xd-diary-results-head">
-                <h2>{selectedDiaryDate ? 'Selected Day Diary' : 'Diary Bookings'} <small>({visibleFiltered.length} bookings)</small></h2>
-                <div className="xd3150-diary-result-tools">
-                  <label>Sort by <select value={diarySortBy} onChange={e=>setDiarySortBy(e.target.value as 'earliest'|'latest')}><option value="earliest">Collection Time (Earliest)</option><option value="latest">Collection Time (Latest)</option></select></label>
-                  <button type="button" aria-label="List view" aria-pressed={diaryViewMode==='list'} onClick={()=>setDiaryViewMode('list')}>≡</button>
-                  <button type="button" aria-label="Calendar view" aria-pressed={diaryViewMode==='calendar'} onClick={()=>setDiaryViewMode('calendar')}>▦</button>
-                </div>
+              <div className="diary-tabs workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Diary booking states">
+                {historyFilters.map(item=><button key={item.id} type="button" role="tab" aria-selected={statusFilter===item.id} data-active={statusFilter===item.id} onClick={()=>setStatusFilter(item.id)}>{item.label} <span>{tabCount(item.id)}</span></button>)}
                 <span className="cx-diary-pagination">
-                  <label>Items per Page: <select value={itemsPerPage} onChange={(event) => setItemsPerPage(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                  <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1,current-1))} aria-label="Previous Diary page">&lsaquo;</button>
-                  <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
-                  <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages,current+1))} aria-label="Next Diary page">&rsaquo;</button>
+                  <label>Per page <select aria-label="Diary items per page" value={itemsPerPage} onChange={e=>setItemsPerPage(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+                  <button type="button" disabled={safePage<=1} onClick={()=>setPage(current=>Math.max(1,current-1))} aria-label="Previous Diary page">‹</button>
+                  <span>{visibleFiltered.length===0?'0':(safePage-1)*itemsPerPage+1+'-'+Math.min(safePage*itemsPerPage,visibleFiltered.length)+' of '+visibleFiltered.length}</span>
+                  <button type="button" disabled={safePage>=totalPages} onClick={()=>setPage(current=>Math.min(totalPages,current+1))} aria-label="Next Diary page">›</button>
                 </span>
+              </div>
+              <div className="cx-diary-view-tools">
+                <label>Sort by <select value={diarySortBy} onChange={e=>setDiarySortBy(e.target.value as 'earliest'|'latest')}><option value="earliest">Collection Time (Earliest)</option><option value="latest">Collection Time (Latest)</option></select></label>
+                <button type="button" aria-label="List view" aria-pressed={diaryViewMode==='list'} onClick={()=>setDiaryViewMode('list')}>List</button>
+                <button type="button" aria-label="Calendar view" aria-pressed={diaryViewMode==='calendar'} onClick={()=>setDiaryViewMode('calendar')}>Calendar</button>
               </div>
             </div>
 
+
             {loading && jobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
-              <div className={diaryViewMode==='calendar'?'diary-bookings xd3150-diary-calendar-view':'diary-bookings'}>
+              <div className={diaryViewMode==='calendar'?'diary-bookings cx-diary-calendar-view':'diary-bookings'}>
                 {visibleJobs.map((job) => {
                   const expanded = expandedIds.has(job.id); const reviews = reviewsByJob[job.id] ?? [];
                   const documents = documentsByJob[job.id] ?? []; const trackingEvents = eventsByJob[job.id] ?? []; const detailTab = detailTabs[job.id] ?? 'order';
@@ -735,14 +715,7 @@ export default function JobHistoryPage() {
                       expanded={expanded}
                       footerRole="toolbar"
                       footerAriaLabel={`Booking ${job.id} actions`}
-                      footer={<div className="xd3150-diary-card-actions">
-                        <button type="button" className="xd3150-diary-booking-action" onClick={()=>{
-                          const willExpand=!expanded;
-                          setExpandedIds(previous=>{const next=new Set(previous);if(next.has(job.id))next.delete(job.id);else next.add(job.id);return next;});
-                          if(willExpand&&isOwnAssignedJob)void fetchOrderSheet(job.id);
-                        }}>Booking Details</button>
-                        <details className="xd3150-diary-more-actions"><summary>More actions</summary>
-                        <CxDiaryActions
+                      footer={<CxDiaryActions
                         expanded={expanded}
                         onToggle={() => { const willExpand = !expanded; setExpandedIds(previous => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}
                         visibleTabs={isOwnAssignedJob ? DETAIL_TABS.filter(item => item.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices)).map(item => item.id) : []}
@@ -760,7 +733,7 @@ export default function JobHistoryPage() {
                         {canRequestCancellation ? <button type="button" data-operation="cancel" disabled={cancellingJobId === job.id} onClick={() => void requestDiaryCancellation(job)}>{cancellingJobId === job.id ? 'Sending…' : cancellationLabel}</button> : null}
                         {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open booking</button>}
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds(current => new Set(current).add(job.id))}>View feedback</button>}
-                      </CxDiaryActions></details></div>}
+                      </CxDiaryActions>}
                       expandedContent={<>
                       {expanded && !isOwnAssignedJob && (
                         <div className="driver-row-details driver-diary-details"><CompanyJobSheetPanel jobId={job.id} mode="carrier" /></div>
@@ -822,7 +795,6 @@ export default function JobHistoryPage() {
             )}
 
           </main>
-          </div>
         </div>
 
         {feedbackJobId && feedbackReviewerCompanyId ? (() => {

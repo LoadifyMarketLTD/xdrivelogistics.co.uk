@@ -1,0 +1,27 @@
+/* PR807 Courier Exchange-style Owner Driver visual restoration.
+ * Scoped to Driver operational pages; Post Load and other workspaces are untouched. */
+.driver-loads-prototype .load-tabs{display:flex;align-items:center;flex-wrap:wrap;gap:3px}
+.driver-loads-prototype .load-tabs button{border:1px solid #d6dfeb;border-radius:3px;padding:7px 9px;background:#fff;color:#173a62;font-size:12px;font-weight:650;cursor:pointer}
+.driver-loads-prototype .load-tabs button.active{background:#e9f2ff;border-color:#2172d6;color:#0b4da2}
+.driver-loads-prototype .load-tabs button:focus-visible{outline:2px solid #1f68c6;outline-offset:2px}
+.driver-loads-prototype .load-nav-unified{flex-wrap:wrap;gap:6px;min-height:40px}
+.driver-quotes-prototype .workspace-quote-title h1{margin:4px 0 8px;font-size:17px;color:#172e4b}
+.driver-quotes-prototype .cx-quote-state-tabs{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin:0 0 10px;padding:4px;border-bottom:1px solid #c8d7e8}
+.driver-quotes-prototype .cx-quote-state-tabs>button{border:1px solid #d1dfef;border-radius:3px;background:#fff;color:#1c426c;padding:8px 11px;font-size:12px;font-weight:650;cursor:pointer}
+.driver-quotes-prototype .cx-quote-state-tabs>button[data-active=true]{background:#e9f2ff;color:#0756b8;border-bottom:2px solid #196ed2}
+.driver-quotes-prototype .cx-quote-state-tabs__action{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-left:auto}
+.driver-quotes-prototype .cx-quote-state-tabs__action select{padding:5px;border:1px solid #c4d2e6;border-radius:3px;background:#fff}
+.driver-quotes-prototype .cx-quote-result-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;color:#425a72;font-size:12px}
+.driver-quotes-prototype .cx-quote-submitted-view{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 12px}
+.driver-quotes-prototype .cx-quote-submitted-view button{border:1px solid #c9d7ea;border-radius:3px;padding:7px 9px;background:#fff;color:#173a61;cursor:pointer;font-size:12px}
+.driver-quotes-prototype .cx-quote-submitted-view button.active{border-color:#2172d6;background:#e9f2ff;color:#0a53b5}
+.driver-diary-route .cx-diary-inline-stats{font-size:11px;color:#4f6784;white-space:normal}
+.driver-diary-route .cx-diary-view-tools{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:6px 0;color:#28486e;font-size:12px}
+.driver-diary-route .cx-diary-view-tools select,.driver-diary-route .cx-diary-view-tools button{border:1px solid #cad8e8;border-radius:3px;padding:5px;background:#fff;color:#244a74}
+.driver-diary-route .cx-diary-view-tools button[aria-pressed=true]{background:#e9f2ff;border-color:#2d76cc}
+.driver-diary-route .cx-diary-calendar-view{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+@media(max-width:900px){.driver-quotes-prototype .cx-quote-state-tabs__action{margin-left:0;width:100%}.driver-diary-route .cx-diary-inline-stats{width:100%}}
+
+.driver-jobs-board .xdrive-pr807-job-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;margin:0 0 10px;padding:9px 12px;border:1px solid #cbd9e8;border-left:3px solid #1c6ac9;background:#fff;color:#163452;font-size:12px}
+.driver-jobs-board .xdrive-pr807-job-summary>strong{font-size:14px}
+.driver-jobs-board .xdrive-pr807-job-summary>span{color:#4c6887}
