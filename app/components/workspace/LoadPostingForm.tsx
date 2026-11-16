@@ -1403,6 +1403,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       <div className="xdrive-postload-actions" style={{order:99}}>
         <span className="approved-postload-required-note">* Required Inputs</span>
         <button type="button" className="approved-postload-cancel" disabled={saving} onClick={() => router.back()}>Cancel</button>
+        <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>Save Draft</ActionButton>
         <ActionButton tone="secondary" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true, true)}>{saving ? 'Posting…' : 'Post Load & Save for Repeat Use'}</ActionButton>
         <ActionButton tone="warning" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
           {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : directTargetMode === 'external_subcontractor' ? 'Confirm External Booking' : directTargetMode === 'internal_resource' ? 'Create & Allocate Booking' : 'Post Load'}
