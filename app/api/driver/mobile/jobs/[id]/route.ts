@@ -5,6 +5,7 @@ import { buildSignedJobAttachments } from '../../jobAttachmentPresentation';
 import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../../jobOperationalPresentation';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../../_lib';
 import { buildSignedPodPresentations } from '../../podPresentation';
+import { hasCompletePodEvidence } from '../../../../../../lib/jobs/podCompletion';
 
 type JobStopRow = {
   id: string;
@@ -185,7 +186,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       specialInstructions,
       attachments,
       pod,
-      podCompleted: Boolean(pod),
+      // Present partial evidence for review, but never report archived POD
+      // unless the exact Finance completion gate confirms all requirements.
+      podCompleted: hasCompletePodEvidence(row),
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       budgetAmount: agreedRate,
