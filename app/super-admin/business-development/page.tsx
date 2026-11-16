@@ -32,6 +32,8 @@ export default function BusinessDevelopmentPage() {
   const [eventType, setEventType] = useState('note');
   const [eventNote, setEventNote] = useState('');
   const [savingEvent, setSavingEvent] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
+  const [contactForm, setContactForm] = useState({ person_name: '', business_email: '', business_phone: '', contact_kind: 'generic_business', lawful_basis: 'undetermined', lawful_basis_evidence: '', source_url: '' });
 
   const load = useCallback(async () => {
     setError(null);
@@ -77,6 +79,27 @@ export default function BusinessDevelopmentPage() {
     void fetchDetails();
     return () => { active = false; };
   }, [selected, detailVersion]);
+
+  const saveContact = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected || savingContact) return;
+    setSavingContact(true); setDetailError(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw new Error('Platform Owner session required.');
+      const response = await fetch('/api/super-admin/business-development/contacts', {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...contactForm, organisation_id: selected.id }),
+      });
+      const body = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(body.error ?? 'Unable to save contact.');
+      setContactForm({ person_name: '', business_email: '', business_phone: '', contact_kind: 'generic_business', lawful_basis: 'undetermined', lawful_basis_evidence: '', source_url: '' });
+      setDetailVersion(version => version + 1);
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : 'Unable to save contact.');
+    } finally { setSavingContact(false); }
+  };
 
   const saveActivity = async (event: FormEvent) => {
     event.preventDefault();
@@ -160,6 +183,23 @@ export default function BusinessDevelopmentPage() {
         {selected && <SuperAdminSectionCard title={'Prospect details — ' + selected.legal_name}>
           <button type="button" onClick={() => setSelected(null)}>Close details</button>
           {detailError && <SuperAdminNotice tone="danger">{detailError}</SuperAdminNotice>}
+          <h3>Add sourced business contact</h3>
+          <p>Record a verified source and lawful basis. This form never sends marketing messages.</p>
+          <form onSubmit={(event) => void saveContact(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
+            <label>Contact name (optional) <input maxLength={200} value={contactForm.person_name} onChange={event => setContactForm({ ...contactForm, person_name: event.target.value })} /></label>
+            <label>Business email <input type="email" maxLength={254} value={contactForm.business_email} onChange={event => setContactForm({ ...contactForm, business_email: event.target.value })} /></label>
+            <label>Business phone (international format, e.g. +44...) <input maxLength={40} value={contactForm.business_phone} onChange={event => setContactForm({ ...contactForm, business_phone: event.target.value })} /></label>
+            <label>Contact classification <select value={contactForm.contact_kind} onChange={event => setContactForm({ ...contactForm, contact_kind: event.target.value })}>
+              <option value="generic_business">Generic business</option><option value="named_person">Named person</option><option value="unknown">Unknown</option>
+            </select></label>
+            <label>Lawful basis <select value={contactForm.lawful_basis} onChange={event => setContactForm({ ...contactForm, lawful_basis: event.target.value })}>
+              <option value="undetermined">Undetermined — no outreach</option><option value="legitimate_interests">Legitimate interests</option>
+              <option value="consent">Consent</option><option value="other">Other documented basis</option>
+            </select></label>
+            <label>Lawful basis evidence <textarea maxLength={2000} value={contactForm.lawful_basis_evidence} onChange={event => setContactForm({ ...contactForm, lawful_basis_evidence: event.target.value })} /></label>
+            <label>Verified source URL (HTTPS) <input required type="url" value={contactForm.source_url} onChange={event => setContactForm({ ...contactForm, source_url: event.target.value })} /></label>
+            <button type="submit" disabled={savingContact || (!contactForm.business_email.trim() && !contactForm.business_phone.trim())}>{savingContact ? 'Saving…' : 'Save contact'}</button>
+          </form>
           <h3>Business contacts ({contacts.length})</h3>
           {contacts.length ? <ul>{contacts.map(contact => <li key={contact.id}>
             {contact.person_name ?? 'General business contact'} — {contact.business_email ?? contact.business_phone ?? 'No contact details'}
