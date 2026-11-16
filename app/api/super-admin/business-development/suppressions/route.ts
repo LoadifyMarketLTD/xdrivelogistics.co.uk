@@ -16,7 +16,7 @@ async function authorize(request: NextRequest) {
   return { owner };
 }
 
-export function normalizeSuppressionValue(channel: string, raw: string): string | null {
+function normalizeSuppressionValue(channel: string, raw: string): string | null {
   const trimmed = raw.trim();
   if (channel === 'email') {
     const email = trimmed.toLowerCase();
