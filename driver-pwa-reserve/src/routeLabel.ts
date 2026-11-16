@@ -24,3 +24,9 @@ export function routeLabel(town:string,postcodeArea?:string):string{
   if(new RegExp('(?:^|[^A-Z0-9])'+outcode+'(?:$|[^A-Z0-9])','i').test(city))return city;
   return city?city+', '+outcode:outcode;
 }
+
+/** Avoid repeating a city/outcode as an identical detailed address. */
+export function isDuplicateRouteAddress(publicLabel: string, address: string): boolean {
+  const compact = (value:string) => normalizeRouteAddress(value).toLowerCase().replace(/[^a-z0-9]/g,'');
+  return Boolean(publicLabel.trim() && address.trim()) && compact(publicLabel) === compact(address);
+}

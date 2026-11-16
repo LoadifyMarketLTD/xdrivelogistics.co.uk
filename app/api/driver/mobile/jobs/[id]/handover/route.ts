@@ -58,20 +58,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
-  const itemCount = optionalNumber(body.itemCount, 0, 100000);
-  const weightKg = optionalNumber(body.weightKg, 0, 100000);
-  const etaMinutes = optionalNumber(body.etaMinutes, 0, 1440);
-  if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
-    return respond(400, { error: 'Item count, weight and ETA must be valid positive numbers.' });
+  const stage = body.stage === 'arrival' ? 'arrival' : 'loaded';
+  const itemCount = optionalNumber(body.itemCount, 1, 100000);
+  const weightKg = optionalNumber(body.weightKg, 0.000001, 100000);
+  const etaProvided = typeof body.etaAt === 'string' && body.etaAt.trim().length > 0;
+  const etaDate = etaProvided ? new Date(String(body.etaAt)) : null;
+  const etaAt = etaDate && Number.isFinite(etaDate.getTime()) ? etaDate.toISOString() : null;
+  if ([itemCount, weightKg].some((value) => Number.isNaN(value))) {
+    return respond(400, { error: 'Item count and weight must be valid positive numbers when supplied.' });
+  }
+  if (etaProvided && !etaAt) {
+    return respond(400, { error: 'ETA must be a valid date and time when supplied.' });
+  }
+  if (etaDate && Number.isFinite(etaDate.getTime()) && etaDate.getTime() <= Date.now()) {
+    return respond(400, { error: 'Delivery ETA must be in the future.' });
   }
   const packaging = cleanString(body.packaging, 120);
+  const yourReference = cleanString(body.yourReference, 120);
+  const customerReference = cleanString(body.customerReference, 120);
   const notes = cleanString(body.notes, 2000);
   const photoPaths = stringPaths(body.photoPaths, MAX_PHOTOS);
   const documentPaths = stringPaths(body.documentPaths, MAX_DOCUMENTS);
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, assigned_driver_id, status, current_status, pickup_photos')
+    .select('id, assigned_driver_id, status, current_status, pickup_photos, collection_handover')
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -80,9 +91,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const rawStatus = String(job.current_status || job.status || '').toLowerCase();
   const status = rawStatus === 'arrived_pickup' ? 'on_site_pickup' : rawStatus;
-  if (!['on_site_pickup', 'loaded'].includes(status)) {
-    return respond(409, { error: 'Collection handover is available only after arriving at collection.' });
-  }
+  if (stage === 'arrival' && status !== 'on_site_pickup') return respond(409, { error: 'Collection arrival is available only after arriving at collection.' });
+  if (stage === 'loaded' && !['on_site_pickup','loaded'].includes(status)) return respond(409, { error: 'Loaded information is available only after arriving at collection.' });
 
   const companyPrefix = `${driver.companyId}/${jobId}/`;
   const photosValid = await verifyStoragePaths(photoPaths, [
@@ -92,6 +102,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!photosValid) {
     return respond(400, { error: 'Collection photo evidence could not be verified.' });
   }
+  if (stage === 'loaded' && photoPaths.length === 0) return respond(400, { error: 'At least one collection/loading photo is required.' });
   const documentsValid = await verifyStoragePaths(documentPaths, [
     `${companyPrefix}collection-documents/`,
   ]);
@@ -100,17 +111,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const capturedAt = new Date().toISOString();
-  const handover = {
-    version: 1,
-    capturedAt,
-    itemCount,
-    packaging: packaging || null,
-    weightKg,
-    etaMinutes,
-    notes: notes || null,
-    photoPaths,
-    documentPaths,
-  };
+  const previousHandover = job.collection_handover && typeof job.collection_handover === 'object' && !Array.isArray(job.collection_handover) ? job.collection_handover as Record<string, unknown> : {};
+  const stageRecord = stage === 'arrival'
+    ? { version: 1, capturedAt, itemCount, weightKg, notes: notes || null, photoPaths, documentPaths }
+    : { version: 1, capturedAt, itemCount, yourReference, customerReference, packaging: packaging || null, weightKg, etaAt, notes: notes || null, photoPaths, documentPaths };
+  const handover = stage === 'arrival'
+    ? { ...previousHandover, arrival: stageRecord }
+    : { ...previousHandover, ...stageRecord, loaded: stageRecord };
   const existingPhotos = Array.isArray(job.pickup_photos)
     ? job.pickup_photos.filter((value): value is string => typeof value === 'string')
     : [];
@@ -120,10 +127,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     pickup_photos: [...new Set([...existingPhotos, ...photoPaths])],
     updated_at: capturedAt,
   };
-  if (itemCount !== null) update.no_of_items = Math.round(itemCount);
-  if (packaging) update.packaging = packaging;
-  if (weightKg !== null) update.weight_kg = weightKg;
-  if (notes) update.collection_notes = notes;
+  if (stage === 'loaded') {
+    if (itemCount !== null) update.no_of_items = itemCount;
+    if (packaging) update.packaging = packaging;
+    if (weightKg !== null) update.weight_kg = weightKg;
+    if (notes) update.collection_notes = notes;
+  }
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('jobs')
@@ -142,9 +151,24 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   await insertTrackingEvent(
     jobId,
     driver.userId,
-    'collection_handover',
-    'Collection handover recorded.',
+    stage === 'arrival' ? 'collection_arrival' : 'collection_handover',
+    stage === 'arrival' ? 'Arrived at collection; arrival evidence recorded.' : 'Loaded information recorded.',
   ).catch(() => undefined);
 
   return respond(200, { ok: true, handover: updated.collection_handover });
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const driver = await requireDriver(request);
+  if (!isDriverContext(driver)) return driver;
+  const { id: jobId } = await params;
+  const { data, error } = await supabaseAdmin.from('jobs')
+    .select('id, collection_handover')
+    .eq('id', jobId)
+    .eq('assigned_driver_id', driver.driverId)
+    .maybeSingle();
+  if (error) return respond(500, { error: 'Collection workflow could not be read.' });
+  if (!data) return respond(404, { error: 'Job not found.' });
+  return respond(200, { ok: true, handover: data.collection_handover ?? null });
 }
