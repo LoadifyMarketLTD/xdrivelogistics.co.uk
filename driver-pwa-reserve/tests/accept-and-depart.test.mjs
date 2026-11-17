@@ -1,48 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {acceptAndStartCollection} from '../src/acceptAndStartCollection.ts';
-const job='11111111-2222-4333-8444-555555555555';
+import fs from 'node:fs';
 
-test('Accept automatically records accepted and on_my_way, checking server final status',async()=>{
- const transitions=[];
- const result=await acceptAndStartCollection(job,{
-  accept:async()=>({success:true,job_id:job,job_status:'allocated'}),
-  setStatus:async next=>{transitions.push(next)},
-  readStatus:async()=> 'on_my_way'
- });
- assert.deepEqual(transitions,['accepted','on_my_way']);
- assert.equal(result.accepted,true);assert.equal(result.departed,true);
+const app=fs.readFileSync(new URL('../src/ReserveApp.tsx',import.meta.url),'utf8');
+const lifecycle=fs.readFileSync(new URL('../src/reserveLifecycle.ts',import.meta.url),'utf8');
+
+test('Accept records accepted only; departure remains a separate explicit driver action',()=>{
+  assert.doesNotMatch(app,/acceptAndStartCollection/);
+  const start=app.indexOf('async function acceptIncomingJob');
+  const end=app.indexOf('function incoming()',start);
+  assert.ok(start>=0&&end>start);
+  const block=app.slice(start,end);
+  assert.match(block,/bookingOfferRespond\(s\.token,j\.offerId!,'accept'\)/);
+  assert.match(block,/nextStatus:'accepted'/);
+  assert.doesNotMatch(block,/nextStatus:'on_my_way'/);
+  assert.match(block,/status:'ALLOCATED',backendStatus:'accepted'/);
 });
-test('No duplicate accepted transition if already accepted',async()=>{
- const transitions=[];
- const result=await acceptAndStartCollection(job,{
-  accept:async()=>({success:true,job_id:job,job_status:'accepted'}),
-  setStatus:async next=>{transitions.push(next)},
-  readStatus:async()=> 'on_my_way'
- });
- assert.deepEqual(transitions,['on_my_way']);assert.equal(result.departed,true);
+
+test('On My Way to Pickup is the next manual lifecycle action after Accepted',()=>{
+  assert.match(lifecycle,/ALLOCATED:\{label:'On My Way to Collection',backend:'on_my_way',status:'ON_WAY_TO_PICKUP'\}/);
+  const flow=app.slice(app.indexOf('function flow()'));
+  assert.match(flow,/job\.status==='ALLOCATED'/);
+  assert.match(flow,/On My Way to Pickup/);
 });
-test('Contractual offer refusal does not create any transport status',async()=>{
- let n=0;
- await assert.rejects(acceptAndStartCollection(job,{accept:async()=>{throw Error('Offer refused')},setStatus:async()=>{n++},readStatus:async()=>''}),/Offer refused/);
- assert.equal(n,0);
-});
-test('No transport status when no assigned driver',async()=>{
- let n=0;
- const result=await acceptAndStartCollection(job,{accept:async()=>({success:true,job_id:job,job_status:'awarded'}),setStatus:async()=>{n++},readStatus:async()=>''});
- assert.equal(result.departed,false);assert.equal(result.accepted,true);assert.equal(n,0);
-});
-test('Partial success never pretends departure and does not repeat acceptance',async()=>{
- let accepted=0;const transitions=[];
- const result=await acceptAndStartCollection(job,{accept:async()=>{accepted++;return {success:true,job_id:job,job_status:'allocated'}},setStatus:async next=>{transitions.push(next);if(next==='on_my_way')throw Error('network')},readStatus:async()=>''});
- assert.equal(accepted,1);assert.equal(result.accepted,true);assert.equal(result.departed,false);assert.deepEqual(transitions,['accepted','on_my_way']);
- assert.match(result.reason||'',/Booking accepted/);
-});
-test('Read-back mismatch is not counted as successful departure',async()=>{
- const result=await acceptAndStartCollection(job,{accept:async()=>({success:true,job_id:job,job_status:'allocated'}),setStatus:async()=>{},readStatus:async()=> 'accepted'});
- assert.equal(result.departed,false);
-});
-test('Mismatched accepted booking ID prevents subsequent transitions',async()=>{
- let n=0;const result=await acceptAndStartCollection(job,{accept:async()=>({success:true,job_id:'wrong',job_status:'allocated'}),setStatus:async()=>{n++},readStatus:async()=>''});
- assert.equal(n,0);assert.equal(result.departed,false);assert.equal(result.accepted,false);
+
+test('Declining an offer remains separate from transport lifecycle writes',()=>{
+  const incoming=app.slice(app.indexOf('function incoming()'),app.indexOf('const undoTargets'));
+  assert.match(incoming,/bookingOfferRespond\(s\.token,job\.offerId!,'decline'\)/);
+  assert.doesNotMatch(incoming,/nextStatus:'on_my_way'/);
 });
