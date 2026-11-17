@@ -122,6 +122,22 @@ BEGIN
               OR NULLIF(trim(COALESCE(js.handover->>'signaturePath','')),'') IS NULL
               OR NOT COALESCE(js.handover->>'signaturePath' LIKE
                 v_job.assigned_company_id::text || '/' || v_job.id::text || '/stops/' || js.id::text || '/signature/%', false)
+              -- Database-side existence check closes the race between API-side
+              -- storage verification and commercial cancellation approval.
+              OR NOT EXISTS (
+                SELECT 1 FROM storage.objects so
+                WHERE so.bucket_id = 'pod-photos'
+                  AND so.name = js.handover->>'signaturePath'
+              )
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(CASE
+                  WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
+                    THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) AS evidence(path)
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM storage.objects so
+                  WHERE so.bucket_id = 'pod-photos' AND so.name = evidence.path
+                )
+              )
               OR EXISTS (
                 SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
                   THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) AS photo(path)

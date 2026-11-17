@@ -1,6 +1,6 @@
 const fs=require('fs');const {PGlite}=require('@electric-sql/pglite');
 (async()=>{const db=new PGlite(); const p=require('path').resolve(__dirname,'../../supabase/migrations')+'/';
-await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE SCHEMA storage; CREATE TABLE storage.objects(bucket_id text,name text);
 CREATE TABLE public.jobs(id uuid primary key,assigned_driver_id uuid,assigned_company_id uuid,status text,current_status text,exchange_visibility text,updated_at timestamptz);
 CREATE TABLE public.drivers(id uuid primary key,user_id uuid,company_id uuid,status text);
 CREATE TABLE public.company_memberships(user_id uuid,company_id uuid,status text,role_in_company text);
@@ -50,6 +50,11 @@ await db.query(`UPDATE job_stops SET handover=coalesce(handover,'{}'::jsonb)||$2
 await decisionBlocked('CROSS_JOB_POD');
 const validPrefix=`${ids.company}/${ids.job}/stops/${follow}`;
 await db.query(`UPDATE job_stops SET handover=coalesce(handover,'{}'::jsonb)||$2::jsonb WHERE id=$1`,[follow,JSON.stringify({recipientName:'Warehouse recipient',signaturePath:`${validPrefix}/signature/signed.png`,photoPaths:[`${validPrefix}/photos/return.png`]})]);
+await decisionBlocked('MISSING_STORAGE_OBJECTS');
+await db.query('INSERT INTO storage.objects(bucket_id,name) VALUES ($1,$2),($1,$3)', ['pod-photos', `${validPrefix}/signature/signed.png`, `${validPrefix}/photos/return.png`]);
+await db.query('DELETE FROM storage.objects WHERE name=$1', [`${validPrefix}/photos/return.png`]);
+await decisionBlocked('MISSING_RETURN_PHOTO_OBJECT');
+await db.query('INSERT INTO storage.objects(bucket_id,name) VALUES ($1,$2)', ['pod-photos', `${validPrefix}/photos/return.png`]);
 const approved=await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'approved','Physical return evidenced') AS result`,[request,ownerActor]);
 if(approved.rows[0].result.status!=='approved')throw Error('approval missing');
 const after=await db.query(`SELECT status FROM jobs WHERE id=$1`,[ids.job]);if(after.rows[0].status!=='cancelled')throw Error('job not cancelled');
