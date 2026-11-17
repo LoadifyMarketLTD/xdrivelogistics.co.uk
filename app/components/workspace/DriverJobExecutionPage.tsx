@@ -924,7 +924,6 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       setWorking(false);
       return;
     }
-    const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
       if (mobilePwa && (!collectionDocumentsLoaded || collectionDocumentsRecoveryFailed)) {
         setError('Collection documents have not been verified. Reopen this booking with a working connection before confirming Loaded.');
@@ -957,16 +956,27 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       setWorking(false);
       return;
     }
-    // Delivery arrival and POD submission are separate operations.
-    if (nextStatus === 'delivered') {
-      fields.p_delivery_photos = deliveryPhotos;
-      if (recipientName.trim()) fields.p_client_signature_name = recipientName.trim();
-    }
-    const { error: transitionError } = await supabase.rpc('driver_update_job_status_atomic', {
-      p_driver_id: driverId, p_job_id: job.id, p_next_status: nextStatus, p_driver_notes: notes.trim() || null, ...fields,
+    const actionByStatus: Record<string,string> = {
+      accepted:'accept',
+      on_my_way:'on-my-way-pickup',
+      on_site_pickup:'arrived-pickup',
+      in_transit:'on-my-way-delivery',
+      on_site_delivery:'arrived-delivery',
+      delivered:'delivered',
+      completed:'completed',
+    };
+    const action=actionByStatus[nextStatus];
+    if(!action){setError('Unsupported driver lifecycle action.');setWorking(false);return;}
+    const auth=await authHeader();
+    if(!auth){setError('Your XDrive session is not available. Please sign in again.');setWorking(false);return;}
+    const response=await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/${action}`,{
+      method:'POST',
+      headers:{Authorization:auth,'Content-Type':'application/json'},
+      body:JSON.stringify({driverNotes:notes.trim()||null}),
     });
-    if (transitionError) setError(transitionError.message);
-    else { setMessage(`Job updated: ${statusLabel[nextStatus] ?? nextStatus}.`); await loadJob(); }
+    const payload=await response.json().catch(()=>({})) as {error?:string};
+    if(!response.ok)setError(payload.error||'Booking status could not be updated.');
+    else {setMessage(`Job updated: ${statusLabel[nextStatus] ?? nextStatus}.`);await loadJob();}
     setWorking(false);
   };
 
