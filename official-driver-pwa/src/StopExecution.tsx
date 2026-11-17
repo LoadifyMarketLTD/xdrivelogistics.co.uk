@@ -92,6 +92,18 @@ export default function StopExecution({
     const weight = weightKg.trim() === '' ? null : Number(weightKg);
     if (!Number.isInteger(items) || items < 0 || items > 100000) { setError('Enter a valid number of items.'); return; }
     if (weight !== null && (!Number.isFinite(weight) || weight < 0 || weight > 100000)) { setError('Enter a valid weight.'); return; }
+    if (stop.type === 'delivery' && !files.some(file => file.type === 'image/jpeg' || file.type === 'image/png')) {
+      setError('Attach at least one delivery photo for this stop.');
+      return;
+    }
+    if (stop.type === 'delivery' && deliveryStatus !== 'Completed Delivery') {
+      setError('Record and resolve this delivery exception before completing the stop.');
+      return;
+    }
+    if (stop.type === 'delivery' && items < 1) {
+      setError('Enter at least one delivered item.');
+      return;
+    }
     if (stop.type === 'delivery' && (!recipientName.trim() || !leftAt.trim() || !deliveredOn || !signature)) {
       setError('Received By, signature, Left At and Delivered On are required for a delivery stop.');
       return;
