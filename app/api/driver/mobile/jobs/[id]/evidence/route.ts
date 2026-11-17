@@ -8,7 +8,7 @@ import { isDriverContext, requireDriver, respond } from '../../../_lib';
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,180}$/;
-type EvidenceCategory = 'photos' | 'damage' | 'documents';
+type EvidenceCategory = 'photos' | 'damage' | 'documents' | 'signature';
 
 function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
   if (contentType === 'application/pdf') return payload.subarray(0, 5).toString('ascii') === '%PDF-';
@@ -27,7 +27,7 @@ function evidenceCategory(request: NextRequest, kind: 'collection' | 'delivery')
     return category === 'documents' ? 'documents' : null;
   }
   if (!category) return 'photos';
-  return category === 'photos' || category === 'damage' || category === 'documents' ? category : null;
+  return category === 'photos' || category === 'damage' || category === 'documents' || category === 'signature' ? category : null;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -60,8 +60,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!ALLOWED_TYPES.has(contentType)) {
     return respond(415, { error: 'Evidence must be a PDF, JPEG or PNG file.' });
   }
-  if ((category === 'photos' || category === 'damage') && contentType === 'application/pdf') {
-    return respond(415, { error: 'Photo evidence must be a JPEG or PNG image.' });
+  if ((category === 'photos' || category === 'damage' || category === 'signature') && contentType === 'application/pdf') {
+    return respond(415, { error: 'Photo/signature evidence must be a JPEG or PNG image.' });
+  }
+  if (category === 'signature' && !stopId) {
+    return respond(400, { error: 'Signature evidence category is available only for a specific stop.' });
   }
 
   const objectName = request.headers.get('x-xdrive-evidence-name')?.trim() ?? '';
