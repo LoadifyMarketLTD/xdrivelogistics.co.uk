@@ -169,7 +169,8 @@ export function parseStopCancellation(rawValue: unknown): { ok: true; value: Par
   const reason = text(raw.reason, 1000);
   const instructionChannel = text(raw.instructionChannel, 40);
   const goodsInCustody = raw.goodsInCustody === true;
-  const goodsDisposition = text(raw.goodsDisposition, 80) || 'none';
+  const requestedDisposition = text(raw.goodsDisposition, 80) || 'none';
+  const goodsDisposition = goodsInCustody ? requestedDisposition : 'none';
   const resolutionAddress = text(raw.resolutionAddress, 500);
   const notes = text(raw.notes, 2000);
 
@@ -204,7 +205,9 @@ export function parseStopCancellation(rawValue: unknown): { ok: true; value: Par
 }
 
 export function isTerminalStopStatus(status: string) {
-  return status === 'completed' || status === 'cancelled' || status === 'skipped';
+  // "skipped" is retained only for legacy rows. It is deliberately NOT terminal
+  // for driver progression because it has no canonical cancellation/POD record.
+  return status === 'completed' || status === 'cancelled';
 }
 
 export function canDriverTransitionStop(current: string, next: string) {
