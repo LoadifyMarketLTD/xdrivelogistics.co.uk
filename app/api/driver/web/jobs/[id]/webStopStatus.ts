@@ -157,7 +157,6 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     if (['Damaged Goods','Incorrect Goods'].includes(outcome) && photoPaths.length < 1) {
       return respond(400, { error: 'Photographic evidence is required for damaged or incorrect goods.' });
     }
-    const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
     const damageOk = await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'damage'));
     const photoOk = damageOk ? true : await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos'));
     const docsOk = await verifyStopEvidence(documentPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'documents'));
@@ -249,7 +248,6 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
       parsedHandover.photoPaths = Array.isArray(job.delivery_photos) ? job.delivery_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
       parsedHandover.documentPaths = Array.isArray(job.pod_photos) ? job.pod_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
     } else {
-      const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
       if (!(await verifyStopEvidence(parsedHandover.photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) return respond(400, { error: 'Stop photo evidence could not be verified.' });
       if (!(await verifyStopEvidence(parsedHandover.documentPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'documents')))) return respond(400, { error: 'Stop document evidence could not be verified.' });
       if (target.stop_type === 'delivery' && parsedHandover.signaturePath &&
