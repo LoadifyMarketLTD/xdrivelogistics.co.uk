@@ -77,7 +77,7 @@ test('POD live audit displays one route and context-sensitive evidence guidance'
  const app=text('ReserveApp.tsx'),handover=text('DeliveryHandover.tsx');
  assert.match(app,/\(!delivered\|\|podDone\|\|job\.podRecorded\)/);
  assert.match(handover,/POD RECOVERY/);
- assert.match(handover,/photosCount>0/);
+ assert.match(handover,/const hasDeliveryPhoto=/);
  assert.match(handover,/recipient signature/);
 });
 
@@ -130,10 +130,10 @@ test('recipient signature has a distinct save button below the pad wired to veri
 
 test('signature save button turns green only on server-verified success and resets on edit',()=>{
  const component=text('DeliveryHandover.tsx'),styles=text('ReserveApp.css'),app=text('ReserveApp.tsx');
- assert.ok(component.includes("signatureSaved?' rv-signature-saved':''"));
+ assert.ok(component.includes("signatureVerified?' rv-signature-saved':''"));
  assert.match(component,/const changeSignature=\(next:string\|null\)=>\{setSignatureError\(''\);onSignature\(next\)/);
  assert.match(component,/try\{await onSaveSignature\(\);\}catch/);
- assert.match(component,/disabled=\{!signature\|\|savingSignature\|\|busy\|\|signatureSaved\}/);
+ assert.match(component,/disabled=\{!signature\|\|savingSignature\|\|busy\|\|signatureVerified\}/);
  assert.match(styles,/\.rv-signature-save\.rv-signature-saved:disabled\{background:#168348/);
  assert.match(app,/confirmation\?\.draft\?\.signatureData!==signature/);
 });
@@ -145,5 +145,5 @@ test('green signature status rehydrates from authoritative saved POD draft after
  assert.match(app,/setVerifiedSignature\(signature\)/);
  assert.match(app,/setVerifiedSignature\(null\);setError\(''\)/);
  assert.equal((app.match(/signatureVerified=\{Boolean\(signature\)&&verifiedSignature===signature\}/g)||[]).length,2); // both workflows
- assert.match(component,/const signatureSaved=signatureVerified/);
+ assert.match(component,/const successfulReady=.*signatureVerified/);
 });
