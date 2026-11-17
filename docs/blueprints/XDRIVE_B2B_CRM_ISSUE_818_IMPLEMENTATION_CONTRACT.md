@@ -1,6 +1,6 @@
 # XDrive Business Development CRM — implementation contract (Issue #818)
 
-Status: **DESIGN ONLY / NOT RELEASED**. Branch: `feature/business-development-crm-818`. Base main SHA: `1c93b3fb6282f5d52dd082e69892b6b9674778fe` (PR #817). No Production migrations, email sends, or customer data imports.
+Status: **IMPLEMENTATION IN DRAFT PR #819 / NOT RELEASED / NOT E2E VALIDATED**. Branch: `feature/business-development-crm-818`. No Production migrations, email sends, or customer data imports. See `docs/checkpoints/XDRIVE_CRM_818_CONTINUATION_2026-11-17.md` for exact current implementation and outstanding gates.
 
 ## Verified existing integration points
 - `app/super-admin/page.tsx`: current Super Admin Command Centre; preserve approved UI.

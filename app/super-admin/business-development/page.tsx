@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
+import CRMWorkflows from './_components/CRMWorkflows';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import {
   SuperAdminPage, SuperAdminPageHeader, SuperAdminSectionCard, SuperAdminNotice,
@@ -10,18 +11,33 @@ import {
 type Prospect = {
   id: string; legal_name: string; company_number: string | null; legal_form: string;
   segment: string; status: string; source_url: string; created_at: string;
+  website?: string | null; source_type?: string; source_reference?: string | null;
+  priority?: string; owner_user_id?: string | null; next_follow_up_at?: string | null;
+  updated_at?: string;
 };
 type Result = { organisations?: Prospect[]; total?: number; error?: string };
 type Contact = { id: string; person_name: string | null; business_email: string | null; business_phone: string | null };
 type Activity = { id: string; event_type: string; occurred_at: string; note: string | null };
 type Suppression = { id: string; channel: string; normalized_contact_value: string; reason: string; recorded_at: string };
-const empty = { legal_name: '', company_number: '', website: '', legal_form: 'unknown', segment: 'customer', source_url: '' };
+const empty = { legal_name: '', company_number: '', website: '', legal_form: 'unknown', segment: 'customer', source_url: '', source_type: 'company_website', source_reference: '' };
 
 export default function BusinessDevelopmentPage() {
-  // Deploy previews share Production-backed read sources; never present write actions as available.
+  // Server-verified environment status; hostname is not database isolation proof.
   const [previewReadOnly, setPreviewReadOnly] = useState(true);
   useEffect(() => {
-    setPreviewReadOnly(/(^|\.)deploy-preview-\d+--/.test(window.location.hostname));
+    let active = true;
+    void (async () => {
+      try {
+        const auth = await getAuthHeader();
+        if (!auth) return;
+        const res = await fetch('/api/super-admin/business-development/environment', {
+          headers: { Authorization: auth }, cache: 'no-store',
+        });
+        const payload = await res.json() as { staging_writes_enabled?: boolean };
+        if (active) setPreviewReadOnly(!res.ok || payload.staging_writes_enabled !== true);
+      } catch { if (active) setPreviewReadOnly(true); }
+    })();
+    return () => { active = false; };
   }, []);
   const [rows, setRows] = useState<Prospect[]>([]);
   const [page, setPage] = useState(1);
@@ -64,9 +80,9 @@ export default function BusinessDevelopmentPage() {
       setRows(body.organisations);
       setTotal(body.total);
     } catch (e) { setRows([]); setTotal(null); setError(e instanceof Error ? e.message : 'CRM unavailable.'); }
-  }, [page, reloadVersion, search, segmentFilter, statusFilter]);
+  }, [page, search, segmentFilter, statusFilter]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); }, [load, reloadVersion]);
 
   useEffect(() => {
     let active = true;
@@ -220,7 +236,7 @@ export default function BusinessDevelopmentPage() {
     <ProtectedRoute>
       <SuperAdminPage>
         <SuperAdminPageHeader eyebrow="Commercial acquisition" title="Business Development" description="Private UK B2B prospect register. No outreach is sent from this screen." />
-        {previewReadOnly && <SuperAdminNotice tone="warning">Read-only Deploy Preview. This preview may read Production-backed data. Creating prospects, contacts, activities and suppressions is disabled here; use an isolated staging environment for write tests.</SuperAdminNotice>}
+        {previewReadOnly && <SuperAdminNotice tone="warning">CRM writes are locked on Production and deploy previews. Only a separately configured, isolated Supabase staging project permits creation, editing, contacts, suppression and privacy actions. This view may use Production-backed read data.</SuperAdminNotice>}
         {error && <SuperAdminNotice tone="danger">{error}</SuperAdminNotice>}
         <SuperAdminSectionCard title="Add verified organisation">
           <form onSubmit={(event) => void create(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
@@ -235,6 +251,15 @@ export default function BusinessDevelopmentPage() {
               <option value="customer">Customer</option><option value="broker">Broker</option>
               <option value="forwarder">Freight forwarder</option><option value="carrier">Carrier</option><option value="mixed">Mixed</option>
             </select></label>
+            <label>Provenance type <select value={form.source_type} onChange={e => setForm({ ...form, source_type: e.target.value })}>
+              <option value="company_website">Verified website</option>
+              <option value="companies_house">Companies House</option>
+              <option value="existing_customer">Existing customer</option>
+              <option value="partner_referral">Partner referral</option>
+              <option value="inbound_enquiry">Inbound enquiry</option>
+              <option value="owner_csv">Owner-reviewed CSV</option>
+            </select></label>
+            <label>Source reference / relationship evidence <input maxLength={500} value={form.source_reference} onChange={e => setForm({ ...form, source_reference: e.target.value })} /></label>
             <label>Verified public source URL (HTTPS) <input required type="url" value={form.source_url} onChange={e => setForm({ ...form, source_url: e.target.value })} /></label>
             <button type="submit" disabled={busy || previewReadOnly}>{busy ? 'Saving…' : 'Save prospect'}</button>
           </form>
@@ -308,7 +333,6 @@ export default function BusinessDevelopmentPage() {
               <option value="meeting_scheduled">Meeting scheduled</option>
               <option value="reply_received">Reply received</option>
               <option value="onboarding_started">Onboarding started</option>
-              <option value="converted">Converted</option>
               <option value="disqualified">Disqualified</option>
             </select></label>
             <label>Internal note <textarea maxLength={2000} value={eventNote} onChange={event => setEventNote(event.target.value)} /></label>
@@ -345,6 +369,9 @@ export default function BusinessDevelopmentPage() {
             </tr>)}</tbody>
           </table></div>}
         </SuperAdminSectionCard>
+        <CRMWorkflows selected={selected} readOnly={previewReadOnly}
+          onUpdated={(patch) => { if (selected) setSelected({ ...selected, ...patch }); setReloadVersion(version => version + 1); }}
+          onPopulate={(fields) => { setForm(old => ({ ...old, ...fields })); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       </SuperAdminPage>
     </ProtectedRoute>
   );

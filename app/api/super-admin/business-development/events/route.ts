@@ -2,16 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { hasSuperAdminBearerAuthorization, verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
+import { crmIsolatedWriteEnabled } from '../_lib/server';
+
 export const dynamic = 'force-dynamic';
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status, headers: { 'Cache-Control': 'no-store' } });
 const uuid = (v: unknown) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-const eventTypes = new Set(['research_completed','qualified','call_attempted','meeting_scheduled','reply_received','onboarding_started','converted','disqualified','note']);
+const eventTypes = new Set(['research_completed','qualified','call_attempted','meeting_scheduled','reply_received','onboarding_started','disqualified','note']);
 const channels = new Set(['email','phone','other']);
 
 async function authorize(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return { error: respond(503, { error: 'CRM storage unavailable.' }) };
   if (!hasSuperAdminBearerAuthorization(request)) return { error: respond(401, { error: 'Authentication required.' }) };
+  if (request.method !== 'GET' && !crmIsolatedWriteEnabled()) return { error: respond(403, { error: 'CRM writes require isolated staging.' }) };
   const owner = await verifyPlatformOwner(request);
   if (!owner) return { error: respond(403, { error: 'Active Platform Owner required or preview write disabled.' }) };
   return { owner };
