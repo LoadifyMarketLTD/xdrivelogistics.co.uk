@@ -222,3 +222,20 @@ export function canDriverTransitionStop(current: string, next: string) {
 export function deliveryOutcomeIsException(value: string) {
   return value !== 'Completed Delivery' && (DELIVERY_OUTCOMES as readonly string[]).includes(value);
 }
+
+
+export function scopedStopEvidenceObject(path: string, prefix: string) {
+  if (!path.startsWith(prefix) || path.includes('..') || path.includes('\\') || path.includes('://')) return null;
+  const splitAt = path.lastIndexOf('/');
+  if (splitAt < prefix.length - 1 || splitAt === path.length - 1) return null;
+  return { folder: path.slice(0, splitAt), fileName: path.slice(splitAt + 1) };
+}
+
+export function stopEvidencePrefix(
+  companyId: string,
+  jobId: string,
+  stopId: string,
+  category: 'photos' | 'damage' | 'documents' | 'signature',
+) {
+  return `${companyId}/${jobId}/stops/${stopId}/${category}/`;
+}
