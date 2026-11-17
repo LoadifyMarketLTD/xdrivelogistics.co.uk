@@ -277,6 +277,7 @@ async function completeCanonicalFinalStop(
         version: 3,
         capturedAt: now,
         canonicalFinalPod: true,
+        canonicalPodReference: { jobId, stopId: finalStop.id, signatureSource: 'jobs.delivery_signature_data', photoSource: 'jobs.delivery_photos', documentSource: 'jobs.pod_photos' },
         recipientName: details.recipientName,
         leftAt: details.leftAt,
         itemCount: details.itemCount,
