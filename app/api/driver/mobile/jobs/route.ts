@@ -104,7 +104,7 @@ async function loadStops(jobIds: string[]) {
 
   const { data, error } = await supabaseAdmin
     .from('job_stops')
-    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at, handover')
+    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, en_route_at, arrived_at, completed_at, cancelled_at, handover')
     .in('job_id', jobIds)
     .order('sequence', { ascending: true });
 
