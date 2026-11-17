@@ -247,6 +247,7 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
       if (!hasCompletePodEvidence(job)) return respond(409, { error: 'Complete the canonical final POD before completing the final stop.' });
       parsedHandover.photoPaths = Array.isArray(job.delivery_photos) ? job.delivery_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
       parsedHandover.documentPaths = Array.isArray(job.pod_photos) ? job.pod_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
+      parsedHandover.canonicalPodReference = { jobId, stopId, signatureSource: 'jobs.delivery_signature_data', photoSource: 'jobs.delivery_photos', documentSource: 'jobs.pod_photos' };
     } else {
       if (!(await verifyStopEvidence(parsedHandover.photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) return respond(400, { error: 'Stop photo evidence could not be verified.' });
       if (!(await verifyStopEvidence(parsedHandover.documentPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'documents')))) return respond(400, { error: 'Stop document evidence could not be verified.' });
