@@ -23,17 +23,17 @@ describe('Eight approved 3150 Owner Driver tab integration gates',()=>{
   expect(fleet).toContain('<DemoDriversBoard');
   expect(fleet).toContain('body?.companyId!==companyId');
  });
- it('Dashboard and operational card wrappers use canonical Master 3150 originals',()=>{
-  expect(read(prefix+'page.tsx')).toContain('OwnerDriver3150LiveDashboard');
-  expect(read(prefix+'_components/ApprovedDriverOperationalCard.tsx')).toContain('Master3150Card');
-  expect(read(prefix+'_components/ApprovedDriverLoadCard.tsx')).toContain('CxLoadCard');
-  expect(read(prefix+'_components/ApprovedDriverQuoteCard.tsx')).toContain('CxQuoteCard');
-  expect(read(prefix+'history/ApprovedDriverDiaryCard.tsx')).toContain('CxDiaryCard');
+ it('preserves live PR807 dashboard and operational card routes without reverting to the embedded demo',()=>{
+  expect(read(prefix+'page.tsx')).toContain('<DriverWorkspaceShell');
+  expect(read(prefix+'page.tsx')).toContain("const ownerDriver = workspaceRole === 'owner_driver'");
+  expect(read(prefix+'loads/page.tsx')).toContain("from '../../components/workspace/OwnerPR807LoadCard'");
+  expect(read(prefix+'quotes/page.tsx')).toContain("from '../../components/workspace/OwnerPR807QuoteCard'");
+  expect(read(prefix+'history/page.tsx')).toContain("from '../../components/workspace/OwnerPR807DiaryCard'");
   expect(read(prefix+'jobs/page.tsx')).toContain('return <CxDiaryCard');
   expect(read(prefix+'jobs/page.tsx')).toContain('<DriverWorkspaceShell hideHeader');
-  expect(read(prefix+'jobs/page.tsx')).toContain('meta: [job.pickup_datetime?.slice(0,10)');
-  expect(read('app/components/workspace/CxLoadCard.tsx')).toContain('Master3150Card');
-  expect(read('app/components/workspace/CxQuoteCard.tsx')).toContain('Master3150Card');
-  expect(read('app/components/workspace/CxDiaryCard.tsx')).toContain('Master3150Card');
+  expect(read(prefix+'jobs/page.tsx')).toContain('Current booking overview');
+  expect(read('app/components/workspace/OwnerPR807LoadCard.tsx')).toContain('XDriveTransportOverview');
+  expect(read('app/components/workspace/OwnerPR807QuoteCard.tsx')).toContain('XDriveTransportOverview');
+  expect(read('app/driver/DriverMasterLayoutGate.tsx')).toContain('<DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>');
  });
 });

@@ -11,22 +11,22 @@ describe('Driver Loads / Quotes runtime visibility regressions', () => {
   const canonicalCard = read('app/components/workspace/Master3150Card.tsx');
   const quoteModal = read('app/driver/_components/MarketplaceQuoteModal.tsx');
   const jobs = read('app/driver/jobs/page.tsx');
-  it('uses approved shared Load cards with separate expanded freight, commercial and notes', () => {
-    expect(loads).toContain('<ApprovedDriverLoadCard');
-    expect(loadCard).toContain('freight &&');
-    expect(loadCard).toContain('commercial &&');
-    expect(loadCard).toContain('notes &&');
-    expect(loadCard).toContain('<CxLoadCard');
-    expect(sharedCard).toContain('expanded={expanded}');
-    expect(canonicalCard).toContain('expanded && expandedContent &&');
+  it('uses the PR807 live Load cards and reveals freight, commercial and notes only in detail state', () => {
+    const pr807Load = read('app/components/workspace/OwnerPR807LoadCard.tsx');
+    expect(loads).toContain("import CxLoadCard from '../../components/workspace/OwnerPR807LoadCard'");
+    expect(loads).toContain('<CxLoadCard showXDriveContext');
+    for (const field of ['freight={<', 'commercial={<', 'notes={<']) expect(loads).toContain(field);
+    expect(pr807Load).toContain('details={expanded ? freight : undefined}');
+    expect(pr807Load).toContain('requirements={expanded ? commercial : undefined}');
+    expect(pr807Load).toContain('showXDriveContext ? <XDriveCardContext');
   });
-  it('renders canonical quote details only when expanded', () => {
-    expect(quotes).toContain('<ApprovedDriverQuoteCard');
+  it('renders PR807 quote details only when expanded and retains a real Quote modal', () => {
+    const pr807Quote = read('app/components/workspace/OwnerPR807QuoteCard.tsx');
+    expect(quotes).toContain("import CxQuoteCard from '../../components/workspace/OwnerPR807QuoteCard'");
+    expect(quotes).toContain('<CxQuoteCard showXDriveContext');
     expect(quotes).toContain('expandedContent={');
-    expect(quoteCard).toContain('<CxQuoteCard');
-    expect(quoteCard).toContain('stage={stage} expanded={expanded}');
-    expect(sharedCard).toContain('expanded={expanded}');
-    expect(canonicalCard).toContain('expanded && expandedContent &&');
+    expect(pr807Quote).toContain('expanded && expandedContent ?');
+    expect(pr807Quote).toContain('showXDriveContext ? <XDriveCardContext');
   });
   it('allows withdrawn quotes to become actionable again', () => {
     expect(loads).toContain("load.myBid.status !== 'withdrawn'");

@@ -25,7 +25,9 @@ describe('authenticated Owner Driver Master Workspace',()=>{
   it('maintains actual Owner Driver role and page-specific nav selection on deep links',()=>{
     expect(gate).toContain("workspace==='owner_driver'?'Owner Driver'");
     expect(gate).toContain('key={pathname}');
-    expect(gate).toContain('initialTab={DRIVER_MASTER_TAB_BY_ROUTE[section]??0}');
+    expect(gate).toContain('const activeTab=DRIVER_MASTER_TAB_BY_ROUTE[section]??0;');
+    expect(gate).toContain('<MasterWorkspace key={pathname} role={role} authenticated initialTab={activeTab} dashboard={children}/>');
+    expect(gate).toContain('return <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>');
     expect(gate).toContain('documents:17,settings:18');
   });
 
@@ -50,7 +52,12 @@ describe('authenticated Owner Driver Master Workspace',()=>{
     expect(diary).toContain("<option value=\"company\">Company Diary");
   });
   it('keeps the owner-driver production dashboard and real vehicle API',()=>{
-    expect(read('app/driver/page.tsx')).toContain("role === 'Owner Driver' ? <Company3150LiveProvider>");
+    const home = read('app/driver/page.tsx');
+    expect(home).toContain("const ownerDriver = workspaceRole === 'owner_driver'");
+    expect(home).toContain('<DriverWorkspaceShell');
+    expect(home).toContain('useCompanyWorkspaceData');
+    expect(home).toContain("router.push('/driver/jobs')");
+    expect(home).not.toContain('<Company3150LiveProvider>');
     expect(read('app/driver/vehicles/page.tsx')).toContain("fetch('/api/driver/vehicles'");
   });
 });

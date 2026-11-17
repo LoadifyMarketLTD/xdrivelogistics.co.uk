@@ -5,13 +5,16 @@ const read = (name: string) => fs.readFileSync(path.join(process.cwd(), name), '
 const page = read('app/driver/page.tsx');
 const adapter = read('app/driver/_components/OwnerDriver3150LiveDashboard.tsx');
 const original = read('app/try-xdrive-demo/components/DemoCompanyDashboard.tsx');
-describe('Owner Driver Dashboard restores approved 3150 design with real data', () => {
-  it('renders the approved 3150 visual component, rather than legacy finance dashboard, for Owner Driver', () => {
-    expect(page).toContain("role === 'Owner Driver' ? <OwnerDriver3150LiveDashboard/> : <DriverDashboardContent/>");
+describe('Owner Driver Dashboard live operational data with legacy 3150 adapter preserved', () => {
+  it('renders the current PR807 Driver operational workspace without an embedded demo dashboard', () => {
+    expect(page).toContain("const ownerDriver = workspaceRole === 'owner_driver'");
+    expect(page).toContain('<DriverWorkspaceShell');
+    expect(page).toContain('useCompanyWorkspaceData');
+    expect(page).toContain('readRouteAuthAccessToken');
+    expect(page).toContain("router.push('/driver/jobs')");
+    expect(page).not.toContain('<DemoCompanyDashboard');
+    // The retained legacy adapter is verified separately, but it is not the current entrypoint.
     expect(adapter).toContain('<DemoCompanyDashboard');
-    for (const section of ['xd-dashboard-kpis', 'xd-dashboard-primary', 'xd-dashboard-secondary', 'Today', 'Action Required', 'Fleet & Drivers', 'Recent Activity', 'Performance', 'Load Overview']) {
-      expect(original).toContain(section);
-    }
   });
   it('loads verified fleet and receivables through tenant-authorized backend routes', () => {
     expect(adapter).toContain('/api/workspace/fleet-overview?companyId=');
