@@ -12,7 +12,7 @@ test('published Production PWA entry uses the vetted, explicitly approved live-w
   const html=readFileSync(resolve(root,'public/driver/reserve-pwa/index.html'),'utf8');
   const match=html.match(/\/driver\/reserve-pwa\/assets\/(index-[\w-]+\.js)/);
   assert.ok(match,'public index must refer to a versioned JS asset');
-  assert.equal(match[1],'index-DKW6h7wu.js','wrong build published: do not ship QA read-only bundle');
+  assert.equal(match[1],'index-BnvzNuwR.js','wrong build published: do not ship QA read-only bundle');
   const asset=resolve(root,'public/driver/reserve-pwa/assets',match[1]);
   assert.ok(existsSync(asset),'published JS does not exist');
   const code=readFileSync(asset,'utf8');
@@ -22,4 +22,6 @@ test('published Production PWA entry uses the vetted, explicitly approved live-w
   assert.ok(code.includes('company_driver'));
   assert.ok(code.includes('Driver type could not be verified'));
   assert.ok(code.includes('XDL-'), 'Published bundle must retain official XDrive public reference format');
+  assert.ok(code.includes('Carrier Company ID'), 'Published collection form must show the assigned carrier identity');
+  assert.ok(code.includes('XDrive Job Reference'), 'Published collection form must show the job number');
 });
