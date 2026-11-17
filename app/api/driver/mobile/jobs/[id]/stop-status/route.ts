@@ -8,6 +8,8 @@ import {
   isTerminalStopStatus,
   parseStopCancellation,
   parseStopCompletion,
+  scopedStopEvidenceObject,
+  stopEvidencePrefix,
 } from '../../../../../../../lib/jobs/driverStopExecution';
 import { insertTrackingEvent, isDriverContext, requireDriver, respond } from '../../../_lib';
 
@@ -39,11 +41,9 @@ const pathList = (value: unknown, max = 10) => {
 
 async function verifyStopEvidence(paths: string[], prefix: string) {
   for (const path of paths) {
-    if (!path.startsWith(prefix) || path.includes('..') || path.includes('\\') || path.includes('://')) return false;
-    const splitAt = path.lastIndexOf('/');
-    if (splitAt <= 0 || splitAt === path.length - 1) return false;
-    const folder = path.slice(0, splitAt);
-    const fileName = path.slice(splitAt + 1);
+    const object = scopedStopEvidenceObject(path, prefix);
+    if (!object) return false;
+    const { folder, fileName } = object;
     const { data, error } = await supabaseAdmin!.storage.from('pod-photos').list(folder, { limit: 100, search: fileName });
     if (error || !(data ?? []).some(entry => entry.name === fileName)) return false;
   }
@@ -180,10 +180,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return respond(400, { error: 'Photographic evidence is required for damaged or incorrect goods.' });
     }
     const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
-    if (!(await verifyStopEvidence(photoPaths, `${base}damage/`)) && !(await verifyStopEvidence(photoPaths, `${base}photos/`))) {
+    if (!(await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'damage'))) && !(await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) {
       return respond(400, { error: 'Exception photo evidence could not be verified.' });
     }
-    if (!(await verifyStopEvidence(documentPaths, `${base}documents/`))) {
+    if (!(await verifyStopEvidence(documentPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'documents')))) {
       return respond(400, { error: 'Exception documents could not be verified.' });
     }
     const previous = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
@@ -308,14 +308,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } else {
       const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
       const category = target.stop_type === 'collection' ? 'photos/' : 'photos/';
-      if (!(await verifyStopEvidence(parsedHandover.photoPaths, base + category))) {
+      if (!(await verifyStopEvidence(parsedHandover.photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) {
         return respond(400, { error: 'Stop photo evidence could not be verified.' });
       }
-      if (!(await verifyStopEvidence(parsedHandover.documentPaths, base + 'documents/'))) {
+      if (!(await verifyStopEvidence(parsedHandover.documentPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'documents')))) {
         return respond(400, { error: 'Stop document evidence could not be verified.' });
       }
       if (target.stop_type === 'delivery' && parsedHandover.signaturePath &&
-          !(await verifyStopEvidence([parsedHandover.signaturePath], base + 'signature/'))) {
+          !(await verifyStopEvidence([parsedHandover.signaturePath], stopEvidencePrefix(driver.companyId, jobId, stopId, 'signature')))) {
         return respond(400, { error: 'Stop signature evidence could not be verified.' });
       }
     }
