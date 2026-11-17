@@ -4,7 +4,7 @@ import fs from 'node:fs';
 const file=(name)=>fs.readFileSync(new URL('../src/'+name,import.meta.url),'utf8');
 const view=file('DeliveryHandover.tsx'), app=file('ReserveApp.tsx'),css=file('ReserveApp.css');
 test('compact delivery screen uses real job and a single grouped handover',()=>{
- for(const part of ['Complete Delivery','Recipient handover','Received By','Recipient signature','Left At','Items','Delivery condition','Driver notes','job.from','job.to','job.delivery'])assert.ok(view.includes(part),part);
+ for(const part of ['Delivery Outcome','Completed Delivery','Incorrect Goods','Incorrect Address','Job Cancelled','Delivery Refused','No Unloading Facilities','Damaged Goods','Received By','Recipient signature','Left At','Items','Driver notes','job.from','job.to','job.delivery'])assert.ok(view.includes(part),part);
  assert.doesNotMatch(view,/BookingStatusTimeline|BOOKINGS \/ OPERATIONAL WORKFLOW|rv-progress/);
  assert.match(app,/job.status==='ON_SITE_DELIVERY'\)\{/);
  assert.match(app,/<DeliveryHandover job=\{job\}/);
@@ -21,8 +21,9 @@ test('Recipient, verified drawn signature, item count and delivery photo gate de
  assert.match(view,/&&hasDeliveryPhoto&&/);
  assert.match(view,/disabled=\{busy\|\|!ready\}/);
  assert.match(view,/Maximum 10 delivery images \(including saved job photos\) and 10 documents per POD/);
- assert.match(app,/const evidence=await uploadDeliveryEvidence\(j,s\.token\)/);
+ assert.match(app,/const evidence=await uploadDeliveryEvidence\(j,current\.token\)/);
  assert.match(app,/photoUris:evidence\.photos,documentUris:evidence\.documents/);
+ assert.ok(app.indexOf("/pod',current.token")<app.indexOf("nextStatus:'delivered'"), 'POD must precede Delivered');
 });
 test('camera and multi-file uploads carry the original File objects into official POD flow',()=>{
  assert.match(view,/navigator\.mediaDevices\.getUserMedia/);
