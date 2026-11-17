@@ -6,7 +6,7 @@ const api=f=>fs.readFileSync(new URL('../../app/api/driver/mobile/jobs/[id]/'+f,
 const app=src('ReserveApp.tsx');
 const handover=api('handover/route.ts');
 const pod=api('[action]/route.ts');
-const confirmation=api('confirmation/route.ts');
+const stopStatus=api('stop-status/route.ts');
 test('QA build installs central network firewall before mounting React',()=>{
  const main=src('main.tsx');
  assert.ok(main.indexOf('installQaNetworkGuard(')<main.indexOf('createRoot('));
@@ -18,8 +18,9 @@ test('Hard-copy POD cannot submit before affirmative acknowledgment and sends ac
  assert.match(app,/const \[hardCopyAcknowledged,setHardCopyAcknowledged\]=useState\(false\)/);
  assert.match(app,/if\(j\.hardCopyPodRequired&&!hardCopyAcknowledged\)/);
  assert.match(app,/hardCopyAcknowledged:j\.hardCopyPodRequired\?hardCopyAcknowledged:false/);
- assert.match(app,/job\.hardCopyPodRequired&&<label className="rv-hard-copy-ack"/);
- assert.match(app,/disabled=\{busy\|\|!signature\|\|verifiedSignature!==signature\|\|\(job\.hardCopyPodRequired&&!hardCopyAcknowledged\)\}/);
+ const delivery=src('DeliveryHandover.tsx');
+ assert.match(delivery,/successful&&hardCopyRequired&&<label className="rv-hard-copy-ack"/);
+ assert.match(delivery,/successfulReady=.*hardCopyRequired\|\|hardCopyAcknowledged/);
  assert.match(pod,/hardCopyRequired && !hardCopyAcknowledged/);
  assert.match(app,/setHardCopyAcknowledged\(false\)/);
 });
@@ -29,12 +30,13 @@ test('ETA is future-only on both client and server',()=>{
  assert.match(app,/if\(deliveryEtaAt\.trim\(\)\)/);
  assert.ok(app.indexOf('if(deliveryEtaAt.trim())')<app.indexOf('const evidence=await uploadCollectionEvidence(j,s.token)'));
 });
-test('Loaded, delivered and POD require verified photos; a stored delivery photo may be reused',()=>{
+test('Loaded and successful POD require verified photos; per-stop evidence remains stop scoped',()=>{
  assert.match(handover,/stage === 'loaded' && photoPaths\.length === 0/);
  assert.match(app,/collectionStage==='loaded'&&!evidence\.photos\.length/);
- assert.match(confirmation,/!persistedEvidence.includes\(evidencePath\)/);
  assert.match(app,/if\(!evidence\.photos\.length\)throw new Error\('XDrive requires at least one verified delivery photo/);
  assert.match(pod,/deliveryPhotos.length < 1 \|\| deliveryPhotos.length > 10/);
+ assert.match(stopStatus,/scopedStopEvidenceObject/);
+ assert.match(stopStatus,/stopEvidencePrefix/);
 });
 test('Optional arrival quantities and server-autofilled immutable collection references agree with handover API',()=>{
  assert.match(app,/pickupItems\.trim\(\)===''\?null:Number\(pickupItems\)/);
