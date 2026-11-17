@@ -30,7 +30,7 @@ export function isCrmProductionWriteAllowed(input: CrmProductionWriteGateInput):
     const actual = new URL(input.connectedSupabaseUrl ?? '');
     return actual.origin === 'https://jqxlauexhkonixtjvljw.supabase.co' &&
       actual.pathname === '/' && !actual.username && !actual.password &&
-      !actual.search && !actual.hash;
+      !actual.search && !actual.hash && !actual.port;
   } catch {
     return false;
   }
@@ -58,6 +58,8 @@ export function isCrmStagingWriteAllowed(input: CrmWriteGateInput): boolean {
       declared.hostname.endsWith('.supabase.co') &&
       declared.hostname!=='.supabase.co' &&
       !declared.username && !declared.password && !actual.username && !actual.password &&
-      declared.pathname==='/' && actual.pathname==='/';
+      declared.pathname==='/' && actual.pathname==='/' &&
+      !declared.port && !actual.port &&
+      !declared.search && !actual.search && !declared.hash && !actual.hash;
   } catch{return false;}
 }
