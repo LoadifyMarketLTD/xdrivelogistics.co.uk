@@ -47,6 +47,19 @@ const nextActionLabel: Record<string, string> = {
   completed: 'Complete Job',
 };
 
+type ExecutionStop = {
+  id: string;
+  sequence: number;
+  type: 'collection' | 'delivery' | string;
+  address: string;
+  status: 'pending' | 'en_route' | 'arrived' | 'completed' | 'cancelled' | 'skipped' | string;
+  enRouteAt?: string;
+  arrivedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
+  handover?: Record<string, unknown> | null;
+};
+
 type DeliveryRouteMetrics = {
   distanceMiles: number;
   durationMinutes: number;
@@ -212,7 +225,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [job, setJob] = useState<DbJob | null>(null);
   const [sheet, setSheet] = useState<JobSheet | null>(null);
-  const [multiStops, setMultiStops] = useState<Array<{id:string;sequence:number;type:string;address:string;status:string}>>([]);
+  const [multiStops, setMultiStops] = useState<ExecutionStop[]>([]);
   const [multiStopsReady, setMultiStopsReady] = useState(false);
   const [stopPhotoPaths, setStopPhotoPaths] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
@@ -330,9 +343,14 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     if (auth) {
       try {
         const stopResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(jobId), { headers: { Authorization: auth }, cache: 'no-store' });
-        const stopPayload = await stopResponse.json().catch(() => ({})) as { job?: { stops?: Array<{id?:string;sequence?:number;type?:string;address?:string;status?:string}> }; multiDropPartial?:boolean };
+        const stopPayload = await stopResponse.json().catch(() => ({})) as { job?: { stops?: Array<Partial<ExecutionStop>> }; multiDropPartial?:boolean };
         if (!stopResponse.ok || stopPayload.multiDropPartial) throw new Error('Stops unavailable');
-        setMultiStops((stopPayload.job?.stops ?? []).filter((stop): stop is {id:string;sequence:number;type:string;address:string;status:string} => Boolean(stop.id && typeof stop.sequence === 'number' && stop.type && stop.address && stop.status)).sort((a,b)=>a.sequence-b.sequence));
+        const parsedStops=(stopPayload.job?.stops ?? [])
+          .filter((stop): stop is Partial<ExecutionStop> & {id:string;sequence:number;type:string;address:string;status:string} =>
+            Boolean(stop.id && typeof stop.sequence === 'number' && stop.type && stop.address && stop.status))
+          .map(stop=>({ ...stop, handover: stop.handover && typeof stop.handover === 'object' ? stop.handover as Record<string,unknown> : null } as ExecutionStop))
+          .sort((a,b)=>a.sequence-b.sequence);
+        setMultiStops(parsedStops);
         setMultiStopsReady(true);
       } catch { setMultiStopsReady(false); }
     }
