@@ -15,7 +15,7 @@ test('Bookings separates received, allocated and delivered live records',()=>{
  assert.match(app,/View Booking Details/);
  assert.match(app,/View POD & Status/);
 });
-test('Booking history originates from live backend statusHistory and never fabricated stages',()=>{
+test('Booking history originates from live backend statusHistory plus persisted per-stop timestamps',()=>{
  const api=src('liveApi.ts');
  const timeline=src('BookingStatusTimeline.tsx');
  const app=src('ReserveApp.tsx');
@@ -23,7 +23,10 @@ test('Booking history originates from live backend statusHistory and never fabri
  assert.match(api,/get\(e,'at','timestamp','created_at','createdAt','occurred_at'\)/);
  assert.match(timeline,/events\.length\?/);
  assert.match(timeline,/Time not recorded/);
- assert.match(timeline,/No history is invented/);
+ assert.match(timeline,/No timestamps have been invented/);
+ assert.match(timeline,/stopAuditEvents\(job\)/);
+ assert.match(timeline,/Cancelled on Instruction/);
+ assert.match(timeline,/Proof of Return/);
  assert.match(app,/<BookingStatusTimeline job=\{job\}\/>/);
  assert.doesNotMatch(app,/<details className="rv-history"><summary>Booking Status History/);
 });
@@ -32,10 +35,10 @@ test('Booking cards keep recipient-offer review and details-only map without com
  assert.doesNotMatch(app,/openMap\(j,'list'\)/);
  assert.match(app,/openMap\(job,'details'\)/);
  assert.match(app,/acceptIncomingJob\(job\)/);
- assert.match(app,/acceptAndStartCollection\(j\.id/);
- const accept=src('acceptAndStartCollection.ts');
- assert.match(accept,/await operations\.accept\(\)/);
- assert.match(accept,/await operations\.setStatus\('accepted'\)/);
- assert.match(accept,/await operations\.setStatus\('on_my_way'\)/);
+ assert.doesNotMatch(app,/acceptAndStartCollection/);
+ const acceptBlock=app.slice(app.indexOf('async function acceptIncomingJob'),app.indexOf('function incoming()'));
+ assert.match(acceptBlock,/bookingOfferRespond\(s\.token,j\.offerId!,'accept'\)/);
+ assert.match(acceptBlock,/nextStatus:'accepted'/);
+ assert.doesNotMatch(acceptBlock,/nextStatus:'on_my_way'/);
  assert.match(app,/bookingOfferRespond\(s\.token,job\.offerId!,'decline'\)/);
 });
