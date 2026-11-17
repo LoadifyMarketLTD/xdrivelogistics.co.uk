@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { hasCompletePodEvidence, hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
 import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
@@ -231,7 +232,9 @@ async function savePod(
 
   const job = existing as unknown as MobileJobWithDamageEvidence;
   // A repeated Send POD must not rewrite the signed record or emit a second event.
-  if (job.pod_generated === true) return respond(200, { ok: true, alreadySubmitted: true, job: mapJob(job) });
+  if (job.pod_generated === true) return hasCompletePodEvidence(job)
+    ? respond(200, { ok: true, alreadySubmitted: true, job: mapJob(job) })
+    : respond(409, { error: 'Existing POD is incomplete: drawn signature, recipient name and delivery photo are required.' });
   const currentStatus = String(job.current_status ?? job.status ?? '').toLowerCase();
   if (!['delivered', 'completed', 'invoiced'].includes(currentStatus)) {
     return respond(409, { error: 'Mark the job Delivered before completing POD.' });
@@ -291,9 +294,8 @@ async function savePod(
   const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
   const signatureData = rawSignature || job.delivery_signature_data || null;
-  // Photos are optional evidence; retain any supplied photos and documents.
-  if (!signatureData) {
-    return respond(400, { error: 'Recipient signature is required for POD.' });
+  if (!hasStoredSignature(signatureData)) {
+    return respond(400, { error: 'A drawn recipient signature is required for POD; a typed name is insufficient.' });
   }
 
   try {
@@ -312,6 +314,9 @@ async function savePod(
   }
 
   const deliveryPhotos = Array.from(new Set([...existingPhotos, ...photoPaths]));
+  if (deliveryPhotos.length < 1 || deliveryPhotos.length > 10) {
+    return respond(409, { error: 'At least one and at most 10 verified delivery photos are required for POD.' });
+  }
   const damagePhotos = Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths]));
   const podDocuments = Array.from(new Set([...existingDocuments, ...documentPaths]));
   const driverNotes = typeof body.notes === 'string' && body.notes.trim()

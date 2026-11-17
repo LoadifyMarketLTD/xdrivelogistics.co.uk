@@ -70,7 +70,7 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
  const requiredItems=Number.isInteger(Number(value.items))&&value.items!==''&&Number(value.items)>0;
  const hasDeliveryPhoto=photos.some(file=>file.type==='image/jpeg'||file.type==='image/png')||Boolean(job.deliveryPhotos?.length);
- const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&(mode!=='delivery'||hasDeliveryPhoto);
+ const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&hasDeliveryPhoto&&photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length<=10&&(job.deliveryPhotos?.length??0)<=10;
  const docsCount=photos.filter(f=>f.type==='application/pdf').length;
  const photosCount=mode==='pod'?Math.max(photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length,job.deliveryPhotos?.length||0):photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length;
  const [fileError,setFileError]=useState('');
@@ -109,6 +109,9 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
    setFileError('');
    const all=[...photos,...candidates];
    const unique=all.filter((file,index)=>all.findIndex(other=>other.name===file.name&&other.size===file.size&&other.lastModified===file.lastModified)===index);
+   const imageCount=unique.filter(file=>file.type==='image/jpeg'||file.type==='image/png').length;
+   const documentCount=unique.filter(file=>file.type==='application/pdf').length;
+   if(imageCount>10||documentCount>10){setFileError('Maximum 10 delivery images and 10 documents per POD.');return;}
    onPhotos(unique);
  };
 

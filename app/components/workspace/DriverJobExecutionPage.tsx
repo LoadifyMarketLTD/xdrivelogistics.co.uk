@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import type { DbJob } from '../../../lib/types/database';
 import { getLoadDetailSections } from '../../../lib/loadPostingDetails';
 import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
-import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
+import { hasCompletePodEvidence, hasStoredSignature } from '../../../lib/jobs/podCompletion';
 import { isAreaOnlyStop, navigationDestination, navigationUrl } from '../../../lib/jobs/driverNavigationLinks';
 import { driverBookingScreen } from '../../../lib/jobs/driverBookingScreens';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
@@ -253,6 +253,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const collectionCameraInput = useRef<HTMLInputElement>(null);
   const collectionGalleryInput = useRef<HTMLInputElement>(null);
   const deliveryInput = useRef<HTMLInputElement>(null);
+   const deliveryGalleryInput = useRef<HTMLInputElement>(null);
 
   useDriverLocationPublisher(job?.current_status ?? job?.status, mobilePwa && !podOnly, job?.id ?? jobId);
   const liveExecutionStatus=job ? canonicalExecutionStatus(job.current_status ?? job.status) : null;
@@ -735,10 +736,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     if (mobilePwa && (!Number.isInteger(Number(podItemCount)) || Number(podItemCount) < 1)) { setError('Number of items must be at least 1.'); return; }
     const newSignature = signatureData();
     const storedSignature = job.delivery_signature_data;
-    const hasStoredSignature = typeof storedSignature === 'string'
-      ? storedSignature.trim().length > 0
-      : Boolean(storedSignature && typeof storedSignature === 'object');
-    if (!newSignature && !savedSignatureData && !hasStoredSignature) {
+    const existingDrawnSignature = hasStoredSignature(storedSignature);
+    if (!newSignature && !savedSignatureData && !existingDrawnSignature) {
       setError('Recipient signature is required to complete POD.');
       return;
     }
@@ -1290,7 +1289,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
       const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
       const storedSignature=job.delivery_signature_data;
-      const signatureReady=Boolean(savedSignatureData || (typeof storedSignature==='string'?storedSignature.trim():storedSignature));
+      const signatureReady=Boolean(savedSignatureData || hasStoredSignature(storedSignature));
       return <ProofOfDeliveryStep
         bookingReference={sheet?.bookingReference??null}
         routeLabel={`${pickupArea} → ${deliveryArea}`}
@@ -1665,14 +1664,16 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
                 ? 'POD is mandatory for every job. Confirm the recipient, evidence and signature before invoice creation.'
                 : 'Photo, recipient name and signature are all required before marking the job Delivered.'}
             >
-              <input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} />
+              <input ref={deliveryInput} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={selectDeliveryPhotos} />
+               <input ref={deliveryGalleryInput} type="file" accept="image/jpeg,image/png" multiple hidden onChange={selectDeliveryPhotos} />
               <div style={{ display: 'grid', gap: 7 }}>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   <StatusBadge value="POD required" tone="orange" />
                   <StatusBadge value={deliveryPhotos.length ? `${deliveryPhotos.length} delivery photo${deliveryPhotos.length === 1 ? '' : 's'}` : 'Delivery photo missing'} tone={deliveryPhotos.length ? 'green' : 'orange'} />
-                  {job.delivery_signature_data ? <StatusBadge value="Signature recorded" tone="green" /> : null}
+                  {hasStoredSignature(job.delivery_signature_data) ? <StatusBadge value="Drawn signature recorded" tone="green" /> : null}
                 </div>
-                <ActionButton tone="secondary" disabled={working || deliveryPhotos.length >= 10} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length}/10)</ActionButton>
+                <ActionButton tone="secondary" disabled={working || deliveryPhotos.length >= 10} onClick={() => deliveryInput.current?.click()}>Take photo ({deliveryPhotos.length}/10)</ActionButton>
+                 <ActionButton tone="secondary" disabled={working || deliveryPhotos.length >= 10} onClick={() => deliveryGalleryInput.current?.click()}>Attach saved photos</ActionButton>
                 <div className="driver-detail-grid">
                   <label className="driver-detail-item"><span>Delivered on</span><input type="date" value={podDeliveredOn} onChange={(event) => setPodDeliveredOn(event.target.value)} style={inputStyle} /></label>
                   <label className="driver-detail-item"><span>Delivery status</span><select value={podDeliveryStatus} onChange={(event) => setPodDeliveryStatus(event.target.value)} style={inputStyle}><option>Completed Delivery</option><option>Partial Delivery</option><option>Failed Delivery</option><option>Refused</option><option>Left Safe</option></select></label>
