@@ -14,7 +14,8 @@ const intakeCompanyId = () =>
 /**
  * Owner-confirmed capture of an internal source reference. Never copies a
  * tenant's contacts or assumes public enquiries are marketing opt-ins.
- * Staging only; source data must be present in the same isolated environment.
+ * Production or staging only behind the explicit CRM write gate;
+ * canonical sources must exist in the same verified database.
  */
 export async function POST(request: NextRequest) {
   const auth = await authorizeCrm(request, true);
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     ?body.relationship_evidence.trim():'';
   const segment=String(body.segment??'customer');
   const legalForm=String(body.legal_form??'unknown');
-  if (!['existing_customer','inbound_enquiry'].includes(type) || !crmUuid(sourceId) ||
+  if (!['existing_customer','inbound_enquiry','business_interest'].includes(type) || !crmUuid(sourceId) ||
       legalName.length<2 || legalName.length>240 || number.length>32 ||
       !forms.has(legalForm) || !segments.has(segment) ||
       !crmHttps(verifiedSource) || (website && !crmHttps(website)) ||
@@ -59,14 +60,29 @@ export async function POST(request: NextRequest) {
   if(type==='inbound_enquiry'){
     const intake=intakeCompanyId();
     if(!crmUuid(intake))
-      return crmResponse(503,{error:'Public intake identity not configured in isolated staging.'});
+      return crmResponse(503,{error:'Public quote intake identity not configured.'});
     const {data:quote,error:quoteError}=await supabaseAdmin!.from('quotes')
       .select('id').eq('id',sourceId).eq('company_id',intake)
-      .ilike('notes','%SOURCE: app.xdrivelogistics.co.uk%').maybeSingle();
+      .or('notes.ilike.%SOURCE: app.xdrivelogistics.co.uk%,notes.ilike.%SOURCE: www.xdrivelogistics.co.uk/public-quote-request%')
+      .maybeSingle();
     if(quoteError)return crmResponse(503,{error:'Inbound service source unavailable.'});
     if(!quote)return crmResponse(404,{error:'No matching public inbound enquiry; unverified sources are not imported.'});
   }
-  const provenance=(type==='existing_customer'?'Registered XDrive company ':'XDrive inbound quote ')
+  if(type==='business_interest'){
+    const {data:interest,error:interestError}=await supabaseAdmin!
+      .from('crm_business_interests')
+      .select('id,business_name,company_number,status')
+      .eq('id',sourceId).eq('status','accepted').maybeSingle();
+    if(interestError)return crmResponse(503,{error:'Business-interest canonical source unavailable.'});
+    if(!interest)return crmResponse(409,{error:'Business interest must have a documented accepted owner review before CRM capture.'});
+    if(interest.company_number && String(interest.company_number).toUpperCase()!==number)
+      return crmResponse(409,{error:'Verified registered company number must match the accepted source.'});
+    if(!interest.company_number &&
+       String(interest.business_name).trim().toLocaleLowerCase('en-GB')!==legalName.toLocaleLowerCase('en-GB'))
+      return crmResponse(409,{error:'Prospect name must match the accepted inbound source unless the company number is verified.'});
+  }
+  const provenance=(type==='existing_customer'?'Registered XDrive company ':
+    type==='inbound_enquiry'?'XDrive inbound quote ':'Owner-reviewed business interest ')
     +sourceId+' | Owner evidence: '+evidence;
   const {data,error}=await supabaseAdmin!.from('crm_prospect_organisations').insert({
     legal_name:legalName,company_number:number||null,website:website||null,

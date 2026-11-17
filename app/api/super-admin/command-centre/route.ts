@@ -323,6 +323,8 @@ export async function GET(request: NextRequest) {
   const crmBridgeUnavailable = crmBridgeEnabled && !crmSnapshot?.ready;
   const crmPrivacyCount = crmSnapshot?.ready ? crmSnapshot.privacyCount : 0;
   const crmFollowUpCount = crmSnapshot?.ready ? crmSnapshot.followUpCount : 0;
+  const crmInboundCount = crmSnapshot?.ready ? crmSnapshot.inboundCount : 0;
+  const crmRetentionCount = crmSnapshot?.ready ? crmSnapshot.retentionCount : 0;
 
   const queue: ActionQueueItem[] = [];
 
@@ -555,8 +557,9 @@ export async function GET(request: NextRequest) {
     + overdueInvoiceP1Count
     + supportCriticalP1Count
     + gdprRequestsP1Count
-    + crmPrivacyCount;
-  const p2Count = docsExpiringSoonP2Count + overdueInvoiceP2Count + crmFollowUpCount;
+    + crmPrivacyCount
+    + crmRetentionCount;
+  const p2Count = docsExpiringSoonP2Count + overdueInvoiceP2Count + crmFollowUpCount + crmInboundCount;
   const totalQueueCount = p0Count + p1Count + p2Count;
   const criticalActionsCount = p0Count + p1Count;
   const exactJobsAtRiskCount =
@@ -610,6 +613,8 @@ export async function GET(request: NextRequest) {
       ready: crmBridgeEnabled ? (crmSnapshot?.ready === true) : false,
       privacyPending: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.privacyCount : null,
       followUpsDue: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.followUpCount : null,
+      inboundAwaitingReview: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.inboundCount : null,
+      retentionReviewsDue: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.retentionCount : null,
       explanation: !crmBridgeEnabled
         ? 'Read-only CRM bridge disabled until isolated schema review.'
         : crmSnapshot?.ready ? 'Read-only, source-specific CRM cases; no tickets or messages created.'

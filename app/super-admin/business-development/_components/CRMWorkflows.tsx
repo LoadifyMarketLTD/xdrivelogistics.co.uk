@@ -27,8 +27,15 @@ type CompanyMatch = {
   company_name:string|null;company_number:string;
   company_status:string|null;company_type?:string|null;source_url:string;
 };
+type InboundInterest = {
+  id:string;business_name:string;business_email:string;contact_name:string;
+  company_number:string|null;interest_kind:string;message:string;
+  source:string;source_reference:string|null;marketing_opt_in:boolean;
+  status:string;retained_until:string;retention_state:'active'|'minimised';legal_hold:boolean;
+  created_at:string;reviewed_at:string|null;review_note:string|null;
+};
 type SourceCandidate = {
-  source_type:'existing_customer'|'inbound_enquiry';source_id:string;legal_name:string;
+  source_type:'existing_customer'|'inbound_enquiry'|'business_interest';source_id:string;legal_name:string;
   company_number:string;website:string;verified_source_url:string;
   relationship_evidence:string;legal_form:string;segment:string;
 };
@@ -47,10 +54,10 @@ type PrivacyRequest = {
   requester_verified: boolean; legal_hold: boolean; legal_hold_reviewed_at?: string | null; request_note: string;
 };
 type Metrics = {
-  organisations: number; contacts: number; campaign_drafts: number; follow_ups_due: number;
+  organisations: number; contacts: number; campaign_drafts: number; follow_ups_due: number; inbound_awaiting_review?:number;
   by_status: Record<string,number>; by_segment: Record<string,number>;
   recorded_reply_events?:number;recorded_call_attempts?:number;
-  recorded_meetings?:number;verified_member_conversions?:number;
+  recorded_meetings?:number;verified_member_conversions?:number;real_jobs_attributed?:number;
 };
 type Preview = {
   dryRun: boolean; total: number; valid: number; writes: number;
@@ -88,6 +95,26 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
   const [notice,setNotice]=useState('');
   const [reload,setReload]=useState(0);
   const [metrics,setMetrics]=useState<Metrics|null>(null);
+  const [inbound,setInbound]=useState<InboundInterest[]>([]);
+  const [inboundPage,setInboundPage]=useState(1);
+  const [inboundFilter,setInboundFilter]=useState('all');
+  const [inboundTotal,setInboundTotal]=useState<number|null>(null);
+  const [inboundError,setInboundError]=useState('');
+  const [inboundReviewNote,setInboundReviewNote]=useState('');
+  const [retentionConfirmed,setRetentionConfirmed]=useState(false);
+  const [realJobId,setRealJobId]=useState('');
+  const [realJobEvidence,setRealJobEvidence]=useState('');
+  const [realJobConfirmation,setRealJobConfirmation]=useState(false);
+  const [realJobEnabled,setRealJobEnabled]=useState(false);
+  const [firstJobCount,setFirstJobCount]=useState<number|null>(null);
+  const [manualInbound,setManualInbound]=useState({
+    business_name:'',contact_name:'',business_email:'',company_number:'',
+    interest_kind:'commercial',message:'',source_reference:'',
+  });
+  const [ownerAlerts,setOwnerAlerts]=useState<null|{
+    total:number;alerts:Array<{id:string;alert_kind:string;trigger_date:string;created_at:string}>;
+    schedule:string;delivery:string;
+  }>(null);
   const [queueBucket,setQueueBucket]=useState('overdue');
   const [queuePage,setQueuePage]=useState(1);
   const [queue,setQueue]=useState<Org[]>([]);
@@ -144,37 +171,62 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
   const [conversionEvidence,setConversionEvidence]=useState('');
   const [working,setWorking]=useState(false);
 
+  // Deep links use stable anchors; no duplicate Super Admin pages are created.
+  useEffect(()=>{
+    const scrollToSection=()=>{
+      const id=window.location.hash.slice(1);
+      if(['crm-research','crm-inbound','crm-follow-ups','crm-privacy'].includes(id))
+        document.getElementById(id)?.scrollIntoView({block:'start',behavior:'smooth'});
+    };
+    scrollToSection();
+    window.addEventListener('hashchange',scrollToSection);
+    return ()=>window.removeEventListener('hashchange',scrollToSection);
+  },[]);
+
   // Canonical source links carry only record type and UUID, never copied
-  // client contact details. The staging-only API re-verifies the database
+  // client contact details. The CRM API re-verifies the database
   // ownership, legal identity and supporting evidence before any CRM write.
   useEffect(()=>{
     const params = new URLSearchParams(window.location.search);
     const type = params.get('source_type');
     const id = params.get('source_id') ?? '';
-    if ((type==='existing_customer' || type==='inbound_enquiry') &&
+    if ((type==='existing_customer' || type==='inbound_enquiry' || type==='business_interest') &&
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
       setCanonicalSourceType(type);
       setCanonicalSourceId(id);
-      setNotice('Canonical XDrive record selected. Confirm identity, provenance and relationship before staging CRM capture.');
+      setNotice('Canonical XDrive record selected. Confirm identity, provenance and relationship before CRM capture.');
     }
   },[]);
 
   useEffect(()=>{
     let active=true;
     const fetchMain=async()=>{
-      const [m,c,p]=await Promise.allSettled([
+      const [m,c,p,a,b,f,e]=await Promise.allSettled([
         crmApi<Metrics>('/dashboard'),
         crmApi<{drafts:Campaign[]}>('/campaigns'),
         crmApi<{requests:PrivacyRequest[]}>('/privacy-requests'),
+        crmApi<{total:number;alerts:Array<{id:string;alert_kind:string;trigger_date:string;created_at:string}>;schedule:string;delivery:string}>('/alerts'),
+        crmApi<{requests:InboundInterest[];total:number}>('/inbound?status='+encodeURIComponent(inboundFilter)+'&page='+inboundPage),
+        crmApi<{verified_first_jobs:number}>('/first-real-job'),
+        crmApi<{real_job_attestation_enabled:boolean}>('/environment'),
       ]);
       if(!active)return;
       if(m.status==='fulfilled')setMetrics(m.value);else setMetrics(null);
       if(c.status==='fulfilled')setDrafts(c.value.drafts);
       if(p.status==='fulfilled')setPrivacy(p.value.requests);
+      if(a.status==='fulfilled')setOwnerAlerts(a.value);else setOwnerAlerts(null);
+      if(b.status==='fulfilled'){
+        setInbound(b.value.requests);setInboundTotal(b.value.total);setInboundError('');
+      }else{
+        setInbound([]);setInboundTotal(null);
+        setInboundError(b.reason instanceof Error?b.reason.message:'Business inbox unavailable.');
+      }
+      setFirstJobCount(f.status==='fulfilled'?f.value.verified_first_jobs:null);
+      setRealJobEnabled(e.status==='fulfilled'&&e.value.real_job_attestation_enabled===true);
     };
     void fetchMain();
     return()=>{active=false;};
-  },[reload]);
+  },[reload,inboundFilter,inboundPage]);
   useEffect(()=>{
     let active = true;
     void crmApi<{organisations:Org[];total:number}>(
@@ -227,6 +279,40 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     setResearchHits(result.total_registry_hits);
     setNotice('Official Companies House industry research loaded. No contact data imported; every business needs individual review.');
   });
+  const loadFullIndustryResearch=()=>run(async()=>{
+    // Five bounded official Companies House requests. No CRM writes.
+    const all:ResearchCandidate[]=[];
+    for(let page=1;page<=5;page++){
+      const result=await crmApi<{candidates:ResearchCandidate[];total_registry_hits:number}>(
+        '/research-targets?sector='+encodeURIComponent(researchSector)+'&page='+page);
+      all.push(...result.candidates);
+      setResearchHits(result.total_registry_hits);
+      if(result.candidates.length<20)break;
+    }
+    const unique=new Map<string,ResearchCandidate>();
+    for(const candidate of all)unique.set(candidate.company_number,candidate);
+    setResearchCandidates(Array.from(unique.values()).slice(0,100));
+    setResearchPage(1);
+    setNotice('Official UK registry research: '+unique.size+
+      ' legal entities retrieved (maximum 100). These are unqualified research candidates; industry classification does not prove freight demand or contact permission.');
+  });
+  const prepareResearchCsv=()=>{
+    const candidateRows=researchCandidates.filter(item=>!item.already_in_crm);
+    const escaped=(value:string)=>'"'+value.replace(/"/g,'""')+'"';
+    const segment=researchSector==='road_freight'?'carrier':
+      researchSector==='freight_support'?'broker':'customer';
+    const lines=['legal_name,company_number,website,legal_form,segment,source_url'];
+    for(const item of candidateRows){
+      const form=item.company_type==='llp'?'llp':item.company_type==='ltd'?'ltd':'unknown';
+      lines.push([item.company_name,item.company_number,'',form,segment,item.source_url]
+        .map(value=>escaped(value)).join(','));
+    }
+    setCsv(lines.join('\n')+'\n');
+    setCsvPreview(null);
+    setCsvConfirmed(false);
+    setNotice('Prepared '+candidateRows.length+
+      ' official UK company records for independent manual review. No contact information imported. The standard signed CSV preview and your explicit confirmation are still required.');
+  };
   const lookupCompany=()=>run(async()=>{
     const data=await crmApi<{company_name:string;company_number:string;company_status:string;company_type?:string;source_url:string}>(
       '/companies-house?company_number='+encodeURIComponent(companyNumber));
@@ -240,7 +326,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     setNotice('Official registry search returned '+result.companies.length+' records. None have been imported.');
   });
   const captureInternalSource=()=>run(async()=>{
-    if(readOnly || !sourceCandidate)throw Error('Select and verify an internal source in isolated staging.');
+    if(readOnly || !sourceCandidate)throw Error('Select and verify an internal source in this approved deployment.');
     const result=await crmApi<{organisation:{id:string;legal_name:string}}>('/source-capture','POST',{
       ...sourceCandidate,confirmation:'CAPTURE_VERIFIED_SOURCE',
     });
@@ -276,7 +362,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     setNotice('Campaign draft saved. No delivery/sending capability exists.');
   });};
   const campaignAction=(action:string)=>run(async()=>{
-    if(readOnly || !selectedDraftId)throw Error('Select a draft in isolated staging.');
+    if(readOnly || !selectedDraftId)throw Error('Select a draft in this approved deployment.');
     await crmApi('/campaigns','PATCH',{
       id:selectedDraftId,action,approval_evidence:approvalEvidence,
       ...((action==='edit')?campaign:{}),
@@ -298,7 +384,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     setPrivacyNote('');setNotice('Privacy request recorded. Objections are suppressed immediately.');
   });};
   const privacyAction=(id:string,action:string)=>run(async()=>{
-    if(readOnly)throw Error('Isolated staging required.');
+    if(readOnly)throw Error('CRM write permission is currently unavailable.');
     if(action==='execute_erasure' && eraseConfirmed!=='ERASE_CONTACT')throw Error('Type ERASE_CONTACT to confirm erasure.');
     await crmApi('/privacy-requests','PATCH',{
       id,action,requester_verified:requesterVerified,review_note:reviewNote,
@@ -339,13 +425,13 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       'Blocked: '+result.reasons.join('; '));
   });
   const retentionAction=(status:string)=>run(async()=>{
-    if(!contactForm || readOnly)throw Error('Select a contact in isolated staging.');
+    if(!contactForm || readOnly)throw Error('Select a contact in the approved CRM deployment.');
     await crmApi('/contacts','PATCH',{id:contactForm.id,action:'retention',
       contact_status:status,review_note:contactRetentionNote});
     setContactRetentionNote('');setNotice('Human retention review recorded.');
   });
   const recordManualAction=()=>run(async()=>{
-    if (readOnly || !selected) throw Error('Select a prospect in isolated staging.');
+    if (readOnly || !selected) throw Error('Select a prospect in the approved CRM deployment.');
     if (manualNote.trim().length < 10) throw Error('Record at least ten characters of actual activity evidence.');
     const result=await crmApi<{result:{status:string;next_follow_up_at:string|null}}>(
       '/follow-ups','POST',{
@@ -362,6 +448,52 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     onUpdated({status:result.result.status,next_follow_up_at:result.result.next_follow_up_at});
     setNotice('Actual activity and follow-up recorded together; no outbound message was generated.');
   });
+  const reviewInbound=(id:string,action:'review'|'accept'|'decline')=>run(async()=>{
+    if(readOnly || inboundReviewNote.trim().length<20)
+      throw Error('Real review evidence of 20+ characters required.');
+    await crmApi('/inbound','PATCH',{
+      id,action,note:inboundReviewNote.trim(),
+    });
+    setInboundReviewNote('');
+    setNotice('Canonical business-interest decision recorded with audit; no company auto-created.');
+  });
+  const reviewInboundRetention=(
+    id:string,action:'retention_extend'|'retention_minimise'|'legal_hold_set'|'legal_hold_release',
+  )=>run(async()=>{
+    if(readOnly || !retentionConfirmed || inboundReviewNote.trim().length<40)
+      throw Error('Retention review must include explicit confirmation and 40+ characters of evidence.');
+    await crmApi('/inbound','PATCH',{
+      id,action,note:inboundReviewNote.trim(),
+      confirmation:'I_REVIEWED_RETENTION_LEGAL_BASIS',
+    });
+    setRetentionConfirmed(false);setInboundReviewNote('');
+    setNotice('Owner retention decision recorded in immutable audit. No messages dispatched.');
+  });
+  const recordManualInbound=(event:FormEvent)=>{
+    event.preventDefault();
+    if(readOnly)return;
+    void run(async()=>{
+      await crmApi('/inbound','POST',{
+        ...manualInbound,confirmation:'RECORD_REAL_INBOUND_EMAIL',
+      });
+      setManualInbound({business_name:'',contact_name:'',business_email:'',
+        company_number:'',interest_kind:'commercial',message:'',source_reference:''});
+      setNotice('Actual inbound email evidence queued for owner review. No automated replies or marketing.');
+    });
+  };
+  const confirmFirstGenuineJob=(event:FormEvent)=>{
+    event.preventDefault();
+    if(readOnly||!selected||selected.status!=='converted'||!realJobEnabled||!realJobConfirmation)return;
+    void run(async()=>{
+      await crmApi('/first-real-job','POST',{
+        organisation_id:selected.id,job_id:realJobId,
+        evidence:realJobEvidence.trim(),
+        confirmation:'I_VERIFIED_THIS_IS_A_REAL_PAID_OR_CONTRACTED_JOB_NOT_TEST',
+      });
+      setRealJobId('');setRealJobEvidence('');setRealJobConfirmation(false);
+      setNotice('Independently verified first real job recorded. No invoice payment or revenue claimed.');
+    });
+  };
   const conversion=(event:FormEvent)=>{event.preventDefault();if(!selected || readOnly)return;void run(async()=>{
     const result=await crmApi<{organisation:Org}>('/onboarding-link','POST',{
       organisation_id:selected.id,company_id:conversionCompanyId,
@@ -375,19 +507,37 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     {notice && <SuperAdminNotice tone="info">{notice}</SuperAdminNotice>}
     <SuperAdminSectionCard title="Commercial acquisition — evidence-based scorecard">
       {metrics ? <>
-        <p>{metrics.organisations} verified/research prospect records · {metrics.contacts} sourced contacts · {metrics.follow_ups_due} follow-ups due · {metrics.campaign_drafts} campaign drafts</p>
+        <p>{metrics.inbound_awaiting_review??0} new business enquiries · {metrics.organisations} verified/research prospect records · {metrics.contacts} sourced contacts · {metrics.follow_ups_due} follow-ups due · {metrics.campaign_drafts} campaign drafts</p>
         <p>Pipeline: {Object.entries(metrics.by_status).map(([key,value])=>key+': '+value).join(' · ')}</p>
         <p>Segments: {Object.entries(metrics.by_segment).map(([key,value])=>key+': '+value).join(' · ')}</p>
         <p>Manually documented replies: {metrics.recorded_reply_events??0} ·
           Recorded call attempts: {metrics.recorded_call_attempts??0} ·
           Recorded meetings: {metrics.recorded_meetings??0} ·
-          Verified active-member conversions: {metrics.verified_member_conversions??0}</p>
+          Verified active-member conversions: {metrics.verified_member_conversions??0} ·
+          Real first-jobs independently attested: {metrics.real_jobs_attributed??0}</p>
         <p>These figures reflect CRM entries, not independently proven shipment transactions.</p>
       </> : <p>CRM metrics unavailable until isolated schema is applied.</p>}
       <p>First live loads, real bookings and completed jobs are not inferred from CRM statuses.</p>
       <button type="button" onClick={()=>setReload(x=>x+1)}>Refresh verified counts</button>
     </SuperAdminSectionCard>
 
+    <SuperAdminSectionCard title="Scheduled owner reminders — internal notifications only">
+      {ownerAlerts ? <>
+        <p>{ownerAlerts.total} recorded internal owner alerts. {ownerAlerts.schedule}.</p>
+        <p>{ownerAlerts.delivery}</p>
+        {ownerAlerts.alerts.length>0 && <ul>
+          {ownerAlerts.alerts.slice(0,10).map(alert=><li key={alert.id}>
+            {alert.alert_kind==='follow_up_due'?'Follow-up due':
+             alert.alert_kind==='privacy_review'?'Data-rights review':
+             alert.alert_kind==='inbound_review'?'New commercial enquiry':
+             'Business enquiry retention review'}
+            {' — '}{new Date(alert.created_at).toLocaleString('en-GB')}
+          </li>)}
+        </ul>}
+      </> : <p>Automated alert records unavailable until the dedicated Production migration is active.
+        This does not mean there are zero alerts.</p>}
+    </SuperAdminSectionCard>
+    <div id="crm-follow-ups" />
     <SuperAdminSectionCard title="Follow-up work queue — manual prospect operations">
       <p>Due and upcoming actions from verified CRM records. Reviewing the queue never contacts a business.</p>
       <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'end'}}>
@@ -492,6 +642,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       <p>Other sources: {sourceTypes.slice(1).map(x=>x[1]).join(' · ')}. All require owner-verified provenance and manual intake; no scraping or outbound contact.</p>
     </SuperAdminSectionCard>
 
+    <div id="crm-research" />
     <SuperAdminSectionCard title="Industry research — Companies House SIC targeting">
       <p>Search active UK companies in transport-dependent industries. These are research candidates,
         not confirmed XDrive customers or automatically contactable leads.</p>
@@ -512,9 +663,11 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
             {[1,2,3,4,5].map(number=><option key={number} value={number}>{number}</option>)}
           </select>
         </label>
-        <button type="button" disabled={working} onClick={()=>void loadIndustryResearch()}>Search official registry</button>
+        <button type="button" disabled={working} onClick={()=>void loadIndustryResearch()}>Search official registry (20)</button>
+        <button type="button" disabled={working} onClick={()=>void loadFullIndustryResearch()}>Research up to 100 official companies</button>
       </div>
-      <p>Registry matches reported: {researchHits}. This page displays at most 20; the 100-record research window requires five pages and independent verification.</p>
+      <p>Registry matches reported: {researchHits}. Records loaded: {researchCandidates.length}/100. Registry status is verified at lookup; transport demand and lawful outreach are not.</p>
+      {researchCandidates.length>0 && <button type="button" disabled={working || !researchCandidates.some(item=>!item.already_in_crm)} onClick={prepareResearchCsv}>Prepare reviewed-import CSV from results (no database write)</button>}
       {researchCandidates.length>0 && <div style={{overflowX:'auto'}}>
         <table><thead><tr><th>Official company name</th><th>Number</th><th>Town</th><th>SIC</th><th>Already in CRM?</th><th>Review</th></tr></thead>
           <tbody>{researchCandidates.map(item=><tr key={item.company_number}>
@@ -533,6 +686,94 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
         or has given marketing permission. Never import personal details from the register by default.</p>
     </SuperAdminSectionCard>
 
+    <div id="crm-inbound" />
+    <SuperAdminSectionCard title="Incoming business interests — owner review">
+      <p>Submitted membership and partnership enquiries are neither approved customers nor marketing permissions.
+        Transport quotes remain in their existing canonical module.</p>
+      {inboundError && <p role="alert">{inboundError}</p>}
+      <div style={{display:'flex',gap:10,flexWrap:'wrap',alignItems:'center'}}>
+        <label>Review status
+          <select value={inboundFilter} onChange={e=>{setInboundFilter(e.target.value);setInboundPage(1);}}>
+            {['all','new','reviewing','accepted','declined'].map(status=><option key={status} value={status}>{status}</option>)}
+          </select>
+        </label>
+        <span>Matched: {inboundTotal===null?'Unavailable':inboundTotal} · page {inboundPage}</span>
+        <button type="button" disabled={working||inboundPage<=1} onClick={()=>setInboundPage(n=>n-1)}>Previous</button>
+        <button type="button" disabled={working||inboundTotal===null||inboundPage*30>=inboundTotal}
+          onClick={()=>setInboundPage(n=>n+1)}>Next</button>
+        <button type="button" disabled={working} onClick={()=>setReload(v=>v+1)}>Refresh</button>
+      </div>
+      <label>Decision evidence (20+ characters; 40+ for retention and legal holds)
+        <textarea rows={3} maxLength={2000} value={inboundReviewNote}
+          onChange={e=>setInboundReviewNote(e.target.value)}/>
+      </label>
+      <label><input type="checkbox" checked={retentionConfirmed}
+        onChange={event=>setRetentionConfirmed(event.target.checked)}/>
+        I independently checked retention requirements, legal holds and downstream prospect records.
+        The evidence field above contains no contact details.
+      </label>
+      {inbound.map(item=><div key={item.id} style={{...note,padding:12,border:'1px solid #E5E7EB',marginBottom:8}}>
+        <strong>{item.business_name} — {item.status}</strong>
+        <span>{item.contact_name} — {item.business_email} — {item.interest_kind} — {item.source}</span>
+        <span>Registered number: {item.company_number??'not supplied'}</span>
+        <p style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{item.message}</p>
+        <p>Retention: {item.retention_state} · {item.legal_hold?'Legal hold active':'No legal hold'} ·
+          Review due {new Date(item.retained_until).toLocaleDateString('en-GB')}</p>
+        {item.retention_state==='active' && <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+            onClick={()=>void reviewInboundRetention(item.id,'retention_extend')}>Extend 90 days after review</button>
+          {!item.legal_hold && <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+            onClick={()=>void reviewInboundRetention(item.id,'legal_hold_set')}>Record documented legal hold</button>}
+          {item.legal_hold && <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+            onClick={()=>void reviewInboundRetention(item.id,'legal_hold_release')}>Release legal hold</button>}
+          {!item.legal_hold && ['new','declined'].includes(item.status) &&
+           new Date(item.retained_until).getTime()<=Date.now() &&
+           <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+             onClick={()=>void reviewInboundRetention(item.id,'retention_minimise')}>Minimise expired unqualified enquiry</button>}
+        </div>}
+        {['new','reviewing'].includes(item.status) && <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          {(['review','accept','decline'] as const).map(action=>
+            <button key={action} type="button"
+              disabled={readOnly||working||inboundReviewNote.trim().length<20}
+              onClick={()=>void reviewInbound(item.id,action)}>{action}</button>)}
+        </div>}
+        {item.status==='accepted' && <button type="button" onClick={()=>{
+          setSourceCandidate({source_type:'business_interest',source_id:item.id,
+            legal_name:item.business_name,company_number:item.company_number??'',
+            website:'',verified_source_url:'',relationship_evidence:'',
+            legal_form:'unknown',segment:'customer'});
+          setNotice('Source selected; independently verify the legal business before CRM capture.');
+        }}>Verify accepted source for CRM</button>}
+      </div>)}
+      <p>Accepting a source does not copy its contact, register a member, or send a message.</p>
+    </SuperAdminSectionCard>
+
+    <SuperAdminSectionCard title="Record an actual received commercial email">
+      <p>Manual owner-attested evidence only. Email content is untrusted and triggers no action.
+        This form does not read a connected mailbox.</p>
+      <form style={note} onSubmit={recordManualInbound}>
+        <label>Business name <input required minLength={2} maxLength={240} value={manualInbound.business_name}
+          onChange={e=>setManualInbound({...manualInbound,business_name:e.target.value})}/></label>
+        <label>Sender name <input required minLength={2} maxLength={120} value={manualInbound.contact_name}
+          onChange={e=>setManualInbound({...manualInbound,contact_name:e.target.value})}/></label>
+        <label>Sender business email <input required type="email" maxLength={254} value={manualInbound.business_email}
+          onChange={e=>setManualInbound({...manualInbound,business_email:e.target.value})}/></label>
+        <label>Registered number (optional) <input maxLength={32} value={manualInbound.company_number}
+          onChange={e=>setManualInbound({...manualInbound,company_number:e.target.value})}/></label>
+        <label>Enquiry category <select value={manualInbound.interest_kind}
+          onChange={e=>setManualInbound({...manualInbound,interest_kind:e.target.value})}>
+          {['membership','partnership','commercial','other'].map(kind=><option key={kind} value={kind}>{kind}</option>)}
+        </select></label>
+        <label>Received business email summary <textarea required minLength={15} maxLength={2000}
+          value={manualInbound.message} onChange={e=>setManualInbound({...manualInbound,message:e.target.value})}/></label>
+        <label>Provider message ID, date and mailbox evidence (40+ characters)
+          <textarea required minLength={40} maxLength={500} value={manualInbound.source_reference}
+            onChange={e=>setManualInbound({...manualInbound,source_reference:e.target.value})}/>
+        </label>
+        <button type="submit" disabled={readOnly||working}>Record received email for human review</button>
+      </form>
+    </SuperAdminSectionCard>
+
     <SuperAdminSectionCard title='Existing XDrive records — open canonical workspaces'>
       <p>Enquiries, approved member details and job records belong in the existing
         Super Admin modules. Inspect them there, then separately verify a commercial
@@ -543,13 +784,13 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
         <a href='/super-admin/companies'>Company Governance</a>
         <a href='/super-admin/search'>Global Platform Search</a>
       </div>
-      <p>For a documented CRM connection, enter the UUID from the canonical record.
-        The backend rechecks that record in isolated staging before accepting anything.</p>
+      <p>Select the canonical company or enquiry from its own Super Admin page to prefill the reference UUID, or enter it manually below. The CRM backend independently rechecks the record before saving; no private contact details are copied.</p>
       <div style={note}>
         <label>Canonical source type
           <select value={canonicalSourceType} onChange={e=>setCanonicalSourceType(e.target.value as SourceCandidate['source_type'])}>
             <option value='inbound_enquiry'>Public XDrive enquiry</option>
             <option value='existing_customer'>Existing active registered company</option>
+            <option value='business_interest'>Approved business-interest request</option>
           </select>
         </label>
         <label>Verified source record UUID
@@ -564,8 +805,8 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       </div>
     </SuperAdminSectionCard>
     {sourceCandidate && <SuperAdminSectionCard title="Verify internal source before CRM capture">
-      <p>Selected source: {sourceCandidate.source_type==='inbound_enquiry'?'XDrive public service enquiry':'Registered XDrive member'} — {sourceCandidate.source_id}.</p>
-      <p>Neither an enquiry nor registration proves commercial consent or a completed booking.
+      <p>Selected source: {sourceCandidate.source_type==='inbound_enquiry'?'XDrive public service enquiry':sourceCandidate.source_type==='business_interest'?'Owner-reviewed business interest':'Registered XDrive member'} — {sourceCandidate.source_id}.</p>
+      <p>No enquiry or registration proves commercial consent or a completed booking.
         Confirm the legal entity and independent business-source evidence before capturing.</p>
       <div style={note}>
         <label>Independently verified legal business name
@@ -619,10 +860,10 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       <p><button type="button" disabled={working || readOnly} onClick={()=>void previewCsv()}>Validate CSV without writes</button></p>
       {csvPreview && <>
         <p>Valid: {csvPreview.valid}/{csvPreview.total}. Writes: {csvPreview.writes}.</p>
-        {!csvPreview.preview_token && <p>Signed preview unavailable: the staging import-signing secret may not be configured. Import stays locked.</p>}
+        {!csvPreview.preview_token && <p>Signed preview unavailable: the CRM import signing key may not be configured. Import stays locked.</p>}
         <ul>{csvPreview.rows.filter(x=>!x.valid).map(x=><li key={x.row}>Row {x.row}: {x.errors.join(', ')}</li>)}</ul>
         <label><input type="checkbox" checked={csvConfirmed} disabled={readOnly} onChange={e=>setCsvConfirmed(e.target.checked)}/> I have reviewed every source and confirm these are permitted, accurate business records.</label>
-        <p><button type="button" disabled={readOnly || working || !csvConfirmed || !csvPreview.preview_token || csvPreview.total!==csvPreview.valid} onClick={()=>void importCsv()}>Stage reviewed organisations (no contact import)</button></p>
+        <p><button type="button" disabled={readOnly || working || !csvConfirmed || !csvPreview.preview_token || csvPreview.total!==csvPreview.valid} onClick={()=>void importCsv()}>Import owner-reviewed organisations into CRM (no contact import)</button></p>
       </>}
     </SuperAdminSectionCard>
 
@@ -713,6 +954,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       </div>}
     </SuperAdminSectionCard>
 
+    <div id="crm-privacy" />
     <SuperAdminSectionCard title="Data subject access, objection and erasure">
       <form onSubmit={privacyCreate} style={note}>
         <label>Contact <select value={privacyContactId} onChange={e=>setPrivacyContactId(e.target.value)} required>
@@ -756,6 +998,34 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       </form>
       <p>Company must exist and be active, with matching legal name or company number. No conversion from an unverified self-reported record.</p>
     </SuperAdminSectionCard>}
+
+    <SuperAdminSectionCard title="First verified genuine job — historical tests excluded">
+      <p>Independently documented non-test first jobs: {firstJobCount===null?'Unavailable':firstJobCount}.
+        No payment or revenue is inferred from these records.</p>
+      {selected?.status==='converted' && <form style={note} onSubmit={confirmFirstGenuineJob}>
+        <p>The existing test-job baseline is excluded. A new job must belong to the active member company,
+          be completed with delivery evidence, be explicitly non-test and have external commercial proof.
+          Only genuine new commercial work may be certified.</p>
+        <label>Verified real job UUID
+          <input value={realJobId} maxLength={36} onChange={e=>setRealJobId(e.target.value)} required/>
+        </label>
+        <label>Independent signed contract, delivery and commercial evidence (60+ characters)
+          <textarea value={realJobEvidence} minLength={60} maxLength={2000}
+            rows={4} onChange={e=>setRealJobEvidence(e.target.value)} required/>
+        </label>
+        <label><input type="checkbox" checked={realJobConfirmation}
+          onChange={e=>setRealJobConfirmation(e.target.checked)}/>
+          I independently verified that this is genuine, commercially contracted work, NOT a platform test
+        </label>
+        <button type="submit" disabled={readOnly||working||!realJobEnabled||
+          !realJobConfirmation||realJobEvidence.trim().length<60||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(realJobId)}>
+          Certify independently verified first job
+        </button>
+        {!realJobEnabled && <p>This real-job certification control stays locked until genuine work
+          exists and the dedicated Production evidence gate has been enabled.</p>}
+      </form>}
+    </SuperAdminSectionCard>
 
     {selected?.status==='converted' && <SuperAdminSectionCard title='Commercial records — canonical workspaces'>
       <p>Being an active member does not prove a real job, POD or paid booking.

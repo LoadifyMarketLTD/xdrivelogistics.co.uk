@@ -55,6 +55,13 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'company-compliance', label: 'Company Compliance', href: '/super-admin/companies/compliance' },
       { id: 'buyer-risk', label: 'Buyer Risk & Exposure', href: '/super-admin/companies/buyer-risk' },
     ] },
+    { id: 'commercial', label: 'Business Development', items: [
+      { id: 'business-development-crm', label: 'B2B Prospect CRM', href: '/super-admin/business-development' },
+      { id: 'crm-research', label: 'UK Company Research', href: '/super-admin/business-development#crm-research' },
+      { id: 'crm-inbound', label: 'Commercial Enquiry Inbox', href: '/super-admin/business-development#crm-inbound' },
+      { id: 'crm-followups', label: 'Prospect Follow-ups', href: '/super-admin/business-development#crm-follow-ups' },
+      { id: 'crm-privacy', label: 'CRM Privacy & Suppression', href: '/super-admin/business-development#crm-privacy' },
+    ] },
     { id: 'finance', label: 'Finance', items: [
       { id: 'finance-overview', label: 'Finance Overview', href: '/super-admin/finance' },
       { id: 'invoices', label: 'Invoices', href: '/super-admin/finance/invoices' },

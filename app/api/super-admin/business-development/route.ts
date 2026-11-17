@@ -9,7 +9,7 @@ const statuses = new Set(['discovered','researching','qualified','contacted','re
 // Evidence-dependent stages must be recorded through the atomic follow-up workflow.
 const editableStatuses = new Set(['discovered','researching']);
 const priorities = new Set(['low','normal','high']);
-const sources = new Set(['companies_house','company_website','existing_customer','partner_referral','inbound_enquiry','owner_csv']);
+const sources = new Set(['companies_house','company_website','existing_customer','partner_referral','inbound_enquiry','business_interest','owner_csv']);
 
 const parse = async (request: NextRequest): Promise<Record<string, unknown> | null> => {
   try {
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
   const body=await parse(request);
   if (!body || !validateFields(body)) return crmResponse(400,{ error:'Invalid prospect fields or HTTPS provenance.' });
-  if (['existing_customer','inbound_enquiry'].includes(String(body.source_type)))
+  if (['existing_customer','inbound_enquiry','business_interest'].includes(String(body.source_type)))
     return crmResponse(409,{error:'Existing members and public enquiries must be verified through the canonical source-capture workflow.'});
   const record=companyPayload(body);
   const { data,error }=await supabaseAdmin!.from('crm_prospect_organisations').insert({
@@ -119,10 +119,10 @@ export async function PATCH(request: NextRequest) {
   if (body.action==='edit') {
     if (!validateFields(body)) return crmResponse(400,{ error:'Invalid edited prospect fields.' });
     const edited = companyPayload(body);
-    if (['existing_customer','inbound_enquiry'].includes(String(edited.source_type)) &&
+    if (['existing_customer','inbound_enquiry','business_interest'].includes(String(edited.source_type)) &&
         edited.source_type !== current.source_type)
       return crmResponse(409,{error:'Canonical source classification requires verified internal record capture.'});
-    if (['existing_customer','inbound_enquiry'].includes(String(current.source_type)) &&
+    if (['existing_customer','inbound_enquiry','business_interest'].includes(String(current.source_type)) &&
         (edited.source_type!==current.source_type ||
          edited.source_reference!==current.source_reference ||
          edited.source_url!==current.source_url ||

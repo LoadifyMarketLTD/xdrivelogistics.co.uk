@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   });
   if (error) return crmResponse(
     ['23503', '23514', 'P0001'].includes(error.code ?? '') ? 409 : 503,
-    { error: 'Follow-up action rejected. Check stage, contact relationship, evidence and staging schema.' },
+    { error: 'Follow-up action rejected. Check the prospect stage, contact relationship, evidence and CRM schema.' },
   );
   return crmResponse(200, { result: data, messages_sent: 0, automated_outreach: false });
 }

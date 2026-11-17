@@ -14,8 +14,8 @@ export type CrmCanonicalQueueItem = {
   href: string;
 };
 export type CrmQueueSnapshot =
-  | { ready: true; privacyCount: number; followUpCount: number; items: CrmCanonicalQueueItem[] }
-  | { ready: false; privacyCount: null; followUpCount: null; items: []; error: string };
+  | { ready: true; privacyCount: number; followUpCount: number; inboundCount: number; retentionCount: number; items: CrmCanonicalQueueItem[] }
+  | { ready: false; privacyCount: null; followUpCount: null; inboundCount: null; retentionCount: null; items: []; error: string };
 
 const PAGE_LIMIT = 50;
 const ageMinutes = (date: string, now: Date) =>
@@ -23,7 +23,7 @@ const ageMinutes = (date: string, now: Date) =>
 
 /**
  * Optional read-only CRM extension to the canonical Super Admin Action Queue.
- * Enabled only after CRM staging migrations are independently verified.
+ * Enabled only after the exact XDrive CRM schema is independently verified.
  * No support tickets, notifications, emails or data mutations are created.
  * Privacy requests created through general Support remain in that canonical
  * source, whereas CRM-origin requests retain their own source identity.
@@ -32,7 +32,7 @@ export async function readCrmActionQueue(
   db: SupabaseClient,
   now: Date,
 ): Promise<CrmQueueSnapshot> {
-  const [privacy, followUps] = await Promise.all([
+  const [privacy, followUps, inbound, retention] = await Promise.all([
     db.from('crm_privacy_requests')
       .select('id,request_type,status,created_at', { count: 'exact' })
       .in('status', ['received', 'reviewing', 'approved'])
@@ -45,10 +45,22 @@ export async function readCrmActionQueue(
       .lte('next_follow_up_at', now.toISOString())
       .order('next_follow_up_at', { ascending: true })
       .limit(PAGE_LIMIT),
+    db.from('crm_business_interests')
+      .select('id,created_at', { count: 'exact' })
+      .in('status', ['new','reviewing'])
+      .order('created_at', { ascending: true })
+      .limit(PAGE_LIMIT),
+    db.from('crm_business_interests')
+      .select('id,retained_until', { count: 'exact' })
+      .lte('retained_until', now.toISOString())
+      .order('retained_until', { ascending: true })
+      .limit(PAGE_LIMIT),
   ]);
-  if (privacy.error || followUps.error || privacy.count === null || followUps.count === null)
+  if (privacy.error || followUps.error || inbound.error || retention.error ||
+      privacy.count === null || followUps.count === null ||
+      inbound.count === null || retention.count === null)
     return {
-      ready: false, privacyCount: null, followUpCount: null, items: [],
+      ready: false, privacyCount: null, followUpCount: null, inboundCount: null, retentionCount: null, items: [],
       error: 'CRM action sources unavailable or schema not deployed; do not report zero.',
     };
 
@@ -64,7 +76,33 @@ export async function readCrmActionQueue(
       entityName: 'CRM data-rights request',
       detectedAt: String(row.created_at),
       ageMinutes: ageMinutes(String(row.created_at), now),
-      href: '/super-admin/business-development?section=privacy',
+      href: '/super-admin/business-development#crm-privacy',
+    })),
+    ...(inbound.data ?? []).map(row => ({
+      id: 'crm-inbound-' + row.id,
+      type: 'crm_business_interest_review',
+      severity: 'P2' as const,
+      title: 'Commercial enquiry awaiting review',
+      description: 'Unverified inbound business interest. No company account, marketing contact or booking has been created.',
+      entityType: 'crm_business_interest',
+      entityId: String(row.id),
+      entityName: 'Business interest',
+      detectedAt: String(row.created_at),
+      ageMinutes: ageMinutes(String(row.created_at), now),
+      href: '/super-admin/business-development#crm-inbound',
+    })),
+    ...(retention.data ?? []).map(row => ({
+      id: 'crm-retention-' + row.id,
+      type: 'crm_business_interest_retention',
+      severity: 'P1' as const,
+      title: 'Business enquiry retention review due',
+      description: 'Data retention date reached. Human review of statutory duties and legal holds is required before any deletion.',
+      entityType: 'crm_business_interest',
+      entityId: String(row.id),
+      entityName: 'Business interest retention',
+      detectedAt: String(row.retained_until),
+      ageMinutes: ageMinutes(String(row.retained_until), now),
+      href: '/super-admin/business-development#crm-inbound',
     })),
     ...(followUps.data ?? []).map(row => ({
       id: 'crm-followup-' + row.id,
@@ -77,8 +115,8 @@ export async function readCrmActionQueue(
       entityName: 'Commercial prospect',
       detectedAt: String(row.next_follow_up_at),
       ageMinutes: ageMinutes(String(row.next_follow_up_at), now),
-      href: '/super-admin/business-development?section=follow-ups',
+      href: '/super-admin/business-development#crm-follow-ups',
     })),
   ];
-  return { ready: true, privacyCount: privacy.count, followUpCount: followUps.count, items };
+  return { ready: true, privacyCount: privacy.count, followUpCount: followUps.count, inboundCount: inbound.count, retentionCount: retention.count, items };
 }
