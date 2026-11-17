@@ -31,7 +31,7 @@ export default function PodDetails({
  const canvas=useRef<HTMLCanvasElement>(null), drawing=useRef(false)
  const [leftAt,setLeftAt]=useState(initialDelivery?.leftAt || 'Goods Inwards')
  const [other,setOther]=useState('')
- const [condition,setCondition]=useState(initialDelivery?.condition || 'Good condition')
+ const [condition,setCondition]=useState(initialDelivery?.condition || 'Completed Delivery')
  const [items,setItems]=useState(String(initialDelivery?.items ?? initialItems))
  const [weightKg,setWeightKg]=useState(initialDelivery?.weightKg == null ? '' : String(initialDelivery.weightKg))
  const [deliveredOn,setDeliveredOn]=useState(initialDelivery?.deliveredOn || current.date)
@@ -84,8 +84,10 @@ export default function PodDetails({
  {open&&<div className="pod-signature"><p>Ask {recipient.trim() || 'the recipient'} to sign below. Rotate the phone for more space.</p><canvas ref={canvas} width={700} height={260} aria-label="Signature area" style={{width:'100%',height:200,touchAction:'none',background:'#fff',border:'1px solid #aeb4c0',borderRadius:8}} onPointerDown={start} onPointerMove={move} onPointerUp={()=>drawing.current=false} onPointerCancel={()=>drawing.current=false}/><div className="document-source-picker"><button type="button" onClick={save}>Save</button><button type="button" onClick={()=>{canvas.current?.getContext('2d')?.clearRect(0,0,700,260);setSigned(false)}}>Clear</button><button type="button" onClick={()=>setOpen(false)}>Cancel</button></div></div>}
  <div className="collection-pair"><label>Delivered On *<input type="date" value={deliveredOn} onChange={e=>setDeliveredOn(e.target.value)}/></label><label>Delivery Time *<input type="time" value={deliveredTime} onChange={e=>setDeliveredTime(e.target.value)}/></label></div>
  <div className="collection-pair"><label>Number Of Items *<input type="number" min="1" value={items} onChange={e=>setItems(e.target.value)}/></label><label>Weight (kg)<input type="number" min="0" step="0.01" value={weightKg} onChange={e=>setWeightKg(e.target.value)}/></label></div>
- <label>Delivery Status *<select value={condition} onChange={e=>setCondition(e.target.value)}><option>Good condition</option><option>Damaged</option><option>Shortage</option><option>Refused</option></select></label>
- {(Number(items)!==initialItems||condition!=='Good condition')&&<p role="status">Please describe the discrepancy and attach supporting evidence.</p>}
+ <label>Delivery Status *<select value={condition} onChange={e=>setCondition(e.target.value)}>
+   <option>Completed Delivery</option><option>Incorrect Goods</option><option>Incorrect Address</option><option>Job Cancelled</option><option>Delivery Refused</option><option>No Unloading Facilities</option><option>Damaged Goods</option>
+ </select></label>
+ {(Number(items)!==initialItems||condition!=='Completed Delivery')&&<p role="status">Record the reason and supporting evidence. Exception outcomes do not complete the delivery as successful.</p>}
  <label>Driver's Notes<textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Delivery remarks (optional for normal delivery)"/></label>
  {message&&<p role="status">{message}</p>}</section>
 }
