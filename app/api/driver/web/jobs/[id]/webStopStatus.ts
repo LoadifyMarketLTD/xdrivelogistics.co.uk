@@ -161,6 +161,8 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
       documentPaths,
       signaturePath: signaturePath || null,
     };
+  }
+
   // Collection handover is mandatory; do not allow skipping it by omitting the JSON object.
   if (next === 'completed' && target.stop_type === 'collection' && !handover) {
     return respond(400, { error: 'Collection stop photo handover is required.' });
