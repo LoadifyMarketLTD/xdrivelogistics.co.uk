@@ -17,6 +17,17 @@ type StopRow = {
 const allowedNext = new Set(['arrived', 'completed']);
 const terminalStopStatuses = new Set(['completed', 'skipped']);
 
+function cleanString(value: unknown, max: number) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function optionalDateTime(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') return NaN;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : NaN;
+}
+
 function optionalNumber(value: unknown, min: number, max: number) {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
@@ -142,14 +153,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const itemCount = optionalNumber(raw.itemCount, 0, 100000);
     const weightKg = optionalNumber(raw.weightKg, 0, 100000);
     const etaMinutes = optionalNumber(raw.etaMinutes, 0, 1440);
-    if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
-      return respond(400, { error: 'Stop handover numbers are invalid.' });
+    const etaAt = optionalDateTime(raw.etaAt);
+    const deliveredOn = optionalDateTime(raw.deliveredOn);
+    if ([itemCount, weightKg, etaMinutes, etaAt, deliveredOn].some((value) => Number.isNaN(value))) {
+      return respond(400, { error: 'Stop handover values are invalid.' });
     }
-    const packaging = typeof raw.packaging === 'string' ? raw.packaging.trim().slice(0, 120) : '';
-    const notes = typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 2000) : '';
+    const packaging = cleanString(raw.packaging, 120);
+    const notes = cleanString(raw.notes, 2000);
+    const customerReference = cleanString(raw.customerReference, 120);
+    const recipientName = cleanString(raw.recipientName, 160);
+    const leftAt = cleanString(raw.leftAt, 160);
+    const deliveryStatus = cleanString(raw.deliveryStatus, 80);
+    const signaturePath = cleanString(raw.signaturePath, 500);
     const photoPaths = pathList(raw.photoPaths);
     const documentPaths = pathList(raw.documentPaths);
-    if (photoPaths.length > 0 || documentPaths.length > 0) {
+    if (photoPaths.length > 0 || documentPaths.length > 0 || signaturePath) {
       if (!driver.companyId) return respond(403, { error: 'Driver company is required for stop evidence.' });
       const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
       if (!(await verifyStopEvidence(photoPaths, `${base}photos/`))) {
@@ -158,17 +176,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!(await verifyStopEvidence(documentPaths, `${base}documents/`))) {
         return respond(400, { error: 'Stop document evidence could not be verified.' });
       }
+      if (signaturePath && !(await verifyStopEvidence([signaturePath], `${base}signature/`))) {
+        return respond(400, { error: 'Stop signature evidence could not be verified.' });
+      }
     }
     handover = {
-      version: 1,
+      version: 2,
       capturedAt: new Date().toISOString(),
+      customerReference: customerReference || null,
       itemCount: itemCount === null ? null : Math.round(itemCount),
       packaging: packaging || null,
       weightKg,
       etaMinutes,
+      etaAt: etaAt === null ? null : etaAt,
       notes: notes || null,
+      recipientName: recipientName || null,
+      leftAt: leftAt || null,
+      deliveryStatus: deliveryStatus || null,
+      deliveredOn: deliveredOn === null ? null : deliveredOn,
       photoPaths,
       documentPaths,
+      signaturePath: signaturePath || null,
     };
   }
 
