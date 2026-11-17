@@ -75,6 +75,7 @@ describe('ONE immutable commercial XDrive ID per responsible participant', () =>
     expect(handover).toContain("supabaseAdmin!.from('companies').select('xd_id, company_type').eq('id', companyId).maybeSingle()");
     expect(handover).toContain("supabaseAdmin!.from('profiles').select('xd_id').eq('user_id', userId).maybeSingle()");
     expect(handover).toContain("verifiedCollectionCommercialActorId(driverType, company.xd_id, ownerProfile.data?.xd_id)");
+    expect(handover).toContain(".from('xdrive_job_references').select('public_reference')");
     expect(handover).toContain("job.assigned_company_id !== driver.companyId");
     expect(handover).toContain(".eq('assigned_driver_id', driver.driverId)");
     expect(handover).toContain('carrierCompanyReference: references!.identity!.carrierCompanyReference');

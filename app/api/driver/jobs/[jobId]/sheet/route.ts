@@ -5,6 +5,7 @@ import { respond } from '../../../mobile/_lib';
 import { buildSignedPodPresentations } from '../../../mobile/podPresentation';
 import { isWebDriverContext, requireActiveWebDriver } from '../../../_lib/webDriverContext';
 import { toCanonicalInvoiceStatus, toCanonicalPaymentStatus } from '../../../../../../lib/invoiceStatus';
+import { verifiedJobPublicReference } from '../../../../../../lib/jobs/jobPublicReference';
 
 function text(value: unknown) {
   return typeof value === 'string' ? value : value == null ? null : String(value);
@@ -79,10 +80,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
   }
   if (!rawJob) return respond(404, { error: 'This job is not assigned to your driver account.' });
+  const { data: officialReferenceRow, error: officialReferenceError } = await supabaseAdmin
+    .from('xdrive_job_references').select('public_reference').eq('job_id', jobId).maybeSingle();
+  const officialReference = verifiedJobPublicReference(jobId, officialReferenceRow?.public_reference);
+  if (officialReferenceError || !officialReference) return respond(503, { error: 'Official job reference could not be verified.' });
 
   const job = rawJob as Record<string, unknown>;
   const originCompanyId = text(job.company_id);
-  const postedByUserId = text(job.created_by);
   const vehicleId = text(job.vehicle_id);
 
   const acceptedBidPromise = driver.companyId
@@ -119,9 +123,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .limit(1)
     .maybeSingle();
 
-  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, financeCompanyResult, documentsResult, vehicleResult, driverResult, extrasResult, podResult] = await Promise.all([
+  const [companyResult, bidResult, agreementResult, trackingResult, invoiceResult, financeCompanyResult, documentsResult, vehicleResult, driverResult, extrasResult, podResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    postedByUserId ? supabaseAdmin.from('profiles').select('xd_id').eq('user_id', postedByUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     acceptedBidPromise,
     supabaseAdmin.from('job_commercial_agreements_effective').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
@@ -138,7 +141,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const company = (companyResult.data ?? {}) as Record<string, unknown>;
   const financeCompany = (financeCompanyResult.data ?? {}) as Record<string, unknown>;
-  const posterProfile = (posterProfileResult.data ?? {}) as Record<string, unknown>;
   const acceptedBid = (bidResult.data ?? {}) as Record<string, unknown>;
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
   const vehicle = (vehicleResult.data ?? {}) as Record<string, unknown>;
@@ -265,13 +267,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   return respond(200, {
     sheet: {
-      reference: text(job.booking_reference) || `XDL-${jobId.slice(0, 8).toUpperCase()}`,
+      reference: officialReference,
       loadId: jobId,
       status: text(job.current_status) || text(job.status) || 'allocated',
       bookedAt: acceptedAt,
       postingCompanyId: originCompanyId,
       bookedBy: text(company.name) || 'Marketplace member',
-      memberCode: originCompanyId ? text(company.xd_id) : text(posterProfile.xd_id),
+      memberCode: originCompanyId ? text(company.xd_id) : null,
       memberPhone: text(company.phone),
       executingCompanyId: text(agreement.supplier_company_id) ?? text(job.awarded_carrier_company_id) ?? driver.companyId,
       driverId: driver.driverId,
@@ -365,7 +367,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       extras: contractualExtras,
       partial: Boolean(
         companyResult.error
-        || posterProfileResult.error
         || bidResult.error
         || agreementResult.error
         || trackingResult.error
