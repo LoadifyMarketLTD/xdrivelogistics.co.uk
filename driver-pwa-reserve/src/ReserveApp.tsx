@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './ReserveApp.css';
 import { login, loadLiveWithDiagnostics, driverPost, driverGet, bookingOffersGet, applyBookingOffers, applyPersonalBids, bookingOfferRespond, renewSession, revokeLiveSession, mapAssigned, platformJobReference, type LiveSession, type LiveJob } from './liveApi';
-import { acceptAndStartCollection } from './acceptAndStartCollection';
 import { reserveStatusSteps, reserveUndoTargets } from './reserveLifecycle';
 import LiveInvoices from './LiveInvoices';
 import RouteMap from './RouteMap';
@@ -329,29 +328,21 @@ export default function ReserveApp() {
   }
   async function acceptIncomingJob(j:LiveJob){
     if(!j.offerId||j.acceptanceBlocked)return;
-    await run(s=>acceptAndStartCollection(j.id,{
-      accept:()=>bookingOfferRespond(s.token,j.offerId!,'accept'),
-      setStatus:next=>driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:next}),
-      readStatus:async()=>{
-        const response=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);
-        const row=response.job&&typeof response.job==='object'&&!Array.isArray(response.job)
-          ? response.job as Record<string,unknown>:null;
-        return String(row?.currentStatus||row?.current_status||row?.status||'');
-      },
-    }),outcome=>{
+    await run(async s=>{
+      await bookingOfferRespond(s.token,j.offerId!,'accept');
+      await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
+      const response=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);
+      const row=response.job&&typeof response.job==='object'&&!Array.isArray(response.job)
+        ? response.job as Record<string,unknown>:null;
+      const serverStatus=String(row?.currentStatus||row?.current_status||row?.status||'').toLowerCase();
+      if(serverStatus!=='accepted')throw new Error('Booking acceptance was not confirmed by the server. Refresh before continuing.');
+      return serverStatus;
+    },()=>{
       setTab('Bookings');
-      // A contract response we cannot verify must stay in Pending, not vanish into Active.
-      setBookingSection(outcome.accepted?'Allocated':'Received');
-      if(!outcome.departed){
-        setView('list');
-        setWarning(outcome.reason||(outcome.accepted
-          ? 'Booking accepted, but the departure status is not confirmed. Refresh before continuing.'
-          : 'Acceptance could not be confirmed. Refresh the offer before taking another action.'));
-        return;
-      }
+      setBookingSection('Allocated');
       setWarning('');
       setJobs(rows=>rows.map(row=>row.id===j.id
-        ? {...row,status:'ON_WAY_TO_PICKUP',backendStatus:'on_my_way',acceptanceRequired:false}:row));
+        ? {...row,status:'ALLOCATED',backendStatus:'accepted',acceptanceRequired:false}:row));
       setId(j.id);setView('flow');
     });
   }
