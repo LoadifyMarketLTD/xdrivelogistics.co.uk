@@ -54,6 +54,7 @@ export default function StopExecution({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  const [cancellationOpen, setCancellationOpen] = useState(false);
   const [cancelScope, setCancelScope] = useState<'stop'|'job'>('stop');
   const [cancelledByRole, setCancelledByRole] = useState('customer');
   const [cancelledByName, setCancelledByName] = useState('');
@@ -215,8 +216,30 @@ export default function StopExecution({
   const title = isReturn
     ? `Return Stop ${stop.sequence}`
     : `${stop.type === 'collection' ? 'Collection' : 'Delivery'} Stop ${stop.sequence}`;
-  const cancellationSelected = stop.type === 'delivery' && deliveryStatus === 'Job Cancelled';
-  const exceptionSelected = stop.type === 'delivery' && deliveryStatus !== 'Completed Delivery' && deliveryStatus !== 'Job Cancelled';
+  const cancellationSelected = cancellationOpen || (stop.type === 'delivery' && deliveryStatus === 'Job Cancelled');
+  const exceptionSelected = !cancellationSelected && stop.type === 'delivery' && deliveryStatus !== 'Completed Delivery';
+  const cancellationForm = <div className="stop-cancellation">
+    <h3>{cancelScope === 'job' ? 'Job Cancelled By' : 'Stop Cancelled By'}</h3>
+    <label>Cancellation scope<select value={cancelScope} onChange={e => setCancelScope(e.target.value as 'stop'|'job')}><option value="stop">This stop only</option><option value="job">Entire job</option></select></label>
+    <label>Instruction from<select value={cancelledByRole} onChange={e => setCancelledByRole(e.target.value)}>
+      <option value="posting_company">Posting Company</option><option value="customer">Customer</option><option value="broker_dispatcher">Broker / Dispatcher</option>
+      <option value="collection_contact">Collection Site Contact</option><option value="delivery_contact">Delivery Site Contact</option><option value="other_authorised_party">Other authorised party</option>
+    </select></label>
+    <label>Person / Contact Name<input value={cancelledByName} onChange={e => setCancelledByName(e.target.value)} /></label>
+    <label>Cancellation Reason *<textarea value={cancellationReason} onChange={e => setCancellationReason(e.target.value)} rows={3} /></label>
+    <label>Instruction received by<select value={instructionChannel} onChange={e => setInstructionChannel(e.target.value)}><option value="phone">Phone</option><option value="message">Message</option><option value="email">Email</option><option value="in_person">In person</option><option value="other">Other</option></select></label>
+    <label className="stop-cancellation__check"><input type="checkbox" checked={goodsInCustody} onChange={e => { setGoodsInCustody(e.target.checked); if (!e.target.checked) setGoodsDisposition('none'); }} /> Goods are already in my custody / vehicle</label>
+    {goodsInCustody && <label>Goods disposition<select value={goodsDisposition} onChange={e => setGoodsDisposition(e.target.value)}>
+      <option value="return_to_collection">Return to collection point</option><option value="return_to_sender_depot">Return to sender / depot</option>
+      <option value="await_instructions">Hold goods and await instructions</option><option value="redirect_authorised">Redirect to authorised address</option><option value="replacement_stop">Replacement delivery stop</option>
+    </select></label>}
+    {goodsInCustody && ['return_to_sender_depot','redirect_authorised','replacement_stop'].includes(goodsDisposition) && <label>Return / replacement address *<input value={resolutionAddress} onChange={e => setResolutionAddress(e.target.value)} /></label>}
+    <label>Driver's Notes<textarea rows={4} value={notes} onChange={event => setNotes(event.target.value)} /></label>
+    <div className="document-source-picker">
+      <button type="button" className="accept-action booking-next" disabled={busy} onClick={() => void cancelStop()}>{busy ? 'Saving...' : 'Record Cancellation'}</button>
+      <button type="button" onClick={() => { setCancellationOpen(false); if (deliveryStatus === 'Job Cancelled') setDeliveryStatus('Completed Delivery'); }}>Back</button>
+    </div>
+  </div>;
 
   return <section className="stop-execution" aria-label={title}>
     <header className="stop-execution__header">
@@ -234,8 +257,10 @@ export default function StopExecution({
 
     {error && <p role={error.startsWith('Exception recorded') ? 'status' : 'alert'} className="notification-reason">{error}</p>}
 
-    {stop.status === 'pending' && <button type="button" className="accept-action booking-next" disabled={busy} onClick={() => void transition('en_route')}>{busy ? 'Saving...' : `On My Way to ${isReturn ? 'Return' : 'Stop'}`}</button>}
-    {stop.status === 'en_route' && <button type="button" className="accept-action booking-next" disabled={busy} onClick={() => void transition('arrived')}>{busy ? 'Saving...' : `On Site - ${isReturn ? 'Return' : 'Stop'}`}</button>}
+    {['pending','en_route','arrived'].includes(stop.status) && !cancellationSelected && <button type="button" className="stop-cancel-action" onClick={() => setCancellationOpen(true)}>Record Stop / Job Cancellation</button>}
+    {cancellationOpen && stop.status !== 'arrived' && cancellationForm}
+    {stop.status === 'pending' && !cancellationOpen && <button type="button" className="accept-action booking-next" disabled={busy} onClick={() => void transition('en_route')}>{busy ? 'Saving...' : `On My Way to ${isReturn ? 'Return' : 'Stop'}`}</button>}
+    {stop.status === 'en_route' && !cancellationOpen && <button type="button" className="accept-action booking-next" disabled={busy} onClick={() => void transition('arrived')}>{busy ? 'Saving...' : `On Site - ${isReturn ? 'Return' : 'Stop'}`}</button>}
 
     {stop.status === 'arrived' && <>
       <div className="stop-execution__form">
@@ -261,23 +286,7 @@ export default function StopExecution({
           </>}
         </>}
 
-        {cancellationSelected && <div className="stop-cancellation">
-          <h3>{cancelScope === 'job' ? 'Job Cancelled By' : 'Stop Cancelled By'}</h3>
-          <label>Cancellation scope<select value={cancelScope} onChange={e => setCancelScope(e.target.value as 'stop'|'job')}><option value="stop">This stop only</option><option value="job">Entire job</option></select></label>
-          <label>Instruction from<select value={cancelledByRole} onChange={e => setCancelledByRole(e.target.value)}>
-            <option value="posting_company">Posting Company</option><option value="customer">Customer</option><option value="broker_dispatcher">Broker / Dispatcher</option>
-            <option value="collection_contact">Collection Site Contact</option><option value="delivery_contact">Delivery Site Contact</option><option value="other_authorised_party">Other authorised party</option>
-          </select></label>
-          <label>Person / Contact Name<input value={cancelledByName} onChange={e => setCancelledByName(e.target.value)} /></label>
-          <label>Cancellation Reason *<textarea value={cancellationReason} onChange={e => setCancellationReason(e.target.value)} rows={3} /></label>
-          <label>Instruction received by<select value={instructionChannel} onChange={e => setInstructionChannel(e.target.value)}><option value="phone">Phone</option><option value="message">Message</option><option value="email">Email</option><option value="in_person">In person</option><option value="other">Other</option></select></label>
-          <label className="stop-cancellation__check"><input type="checkbox" checked={goodsInCustody} onChange={e => { setGoodsInCustody(e.target.checked); if (!e.target.checked) setGoodsDisposition('none'); }} /> Goods are already in my custody / vehicle</label>
-          {goodsInCustody && <label>Goods disposition<select value={goodsDisposition} onChange={e => setGoodsDisposition(e.target.value)}>
-            <option value="return_to_collection">Return to collection point</option><option value="return_to_sender_depot">Return to sender / depot</option>
-            <option value="await_instructions">Hold goods and await instructions</option><option value="redirect_authorised">Redirect to authorised address</option><option value="replacement_stop">Replacement delivery stop</option>
-          </select></label>}
-          {goodsInCustody && ['return_to_sender_depot','redirect_authorised','replacement_stop'].includes(goodsDisposition) && <label>Return / replacement address *<input value={resolutionAddress} onChange={e => setResolutionAddress(e.target.value)} /></label>}
-        </div>}
+        {cancellationSelected && cancellationForm}
 
         {(exceptionSelected || !cancellationSelected) && <div className="stop-execution__attachments">
           <strong>{exceptionSelected ? 'Exception evidence' : isReturn ? 'Proof of Return files' : 'Attach files'}</strong>
