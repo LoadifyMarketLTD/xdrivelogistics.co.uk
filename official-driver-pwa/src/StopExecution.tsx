@@ -127,7 +127,8 @@ export default function StopExecution({
         },
       });
       await onRefresh(current.token);
-      if ((payload as { allStopsCompleted?: boolean }).allStopsCompleted) onClose();
+      void payload;
+      onClose();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Stop could not be completed.');
     } finally { setBusy(false); }
