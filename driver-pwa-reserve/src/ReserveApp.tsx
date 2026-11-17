@@ -127,7 +127,7 @@ export default function ReserveApp() {
   useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
   async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
-  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setDeliveryArrivalSaved(false);setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference('');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
+  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference('');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
     let active=true;
@@ -190,25 +190,7 @@ export default function ReserveApp() {
       .catch(()=>{});
     return ()=>{active=false;};
   },[id,view,job?.status,session?.token]);
-  useEffect(()=>{
-    if(!session||!job||view!=='flow'||job.status!=='ON_SITE_DELIVERY')return;
-    let active=true;
-    setDeliveryArrivalSaved(false);
-    void fetch(driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft',{headers:{Authorization:'Bearer '+session.token},cache:'no-store'})
-      .then(async response=>{if(!response.ok)throw new Error('Delivery arrival record could not be read');return response.json();})
-      .then(data=>{
-        if(!active)return;
-        let saved=false;
-        try{
-          const record=JSON.parse(data?.draft?.deliveryArrival||'null');
-          saved=Boolean(record?.confirmedAt);
-          if(saved&&typeof record.notes==='string')setDraft(previous=>({...previous,notes:previous.notes||record.notes}));
-        }catch{}
-        if(saved)setDraft(previous=>({...previous,...(!previous.deliveredOn||!previous.deliveredTime?detectedDeliveryDateTime():{})}));setDeliveryArrivalSaved(saved);
-      })
-      .catch(()=>{if(active)setDeliveryArrivalSaved(false);});
-    return ()=>{active=false;};
-  },[id,view,job?.status,session?.token]);  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');if(t==='Bookings')setBookingSection('Received');}
+  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');if(t==='Bookings')setBookingSection('Received');}
   function openMap(j:LiveJob,back:View='list'){setId(j.id);setMapReturnView(back);setView('map');setError('');}
   function card(j:LiveJob, mode:'list'|'details'='list'){
     const offered=Boolean(j.acceptanceRequired&&j.offerId);
@@ -290,14 +272,6 @@ export default function ReserveApp() {
       .then(data=>{if(!active)return;const refs=data?.references as {jobReference?:unknown;carrierCompanyReference?:unknown}|undefined;if(typeof refs?.jobReference!=='string'||typeof refs.carrierCompanyReference!=='string'||!refs.jobReference||!refs.carrierCompanyReference)throw new Error('The XDrive job and carrier IDs could not be verified. Reconnect and retry.');setYourReference(refs.jobReference);setCarrierReference(refs.carrierCompanyReference);const h=data?.handover as Record<string,any>|null;if(h?.arrival){if(h.arrival.itemCount!=null)setPickupItems(String(h.arrival.itemCount));if(h.arrival.weightKg!=null)setPickupWeight(String(h.arrival.weightKg));}if(h?.loaded){if(h.loaded.itemCount!=null)setItems(String(h.loaded.itemCount));if(h.loaded.weightKg!=null)setWeight(String(h.loaded.weightKg));}setCollectionStage(h?.loaded||h?.capturedAt?'loaded':'arrival');})
       .catch(reason=>{if(active){setCarrierReference('');setError(reason instanceof Error?reason.message:'Collection identifiers could not be loaded.');setCollectionStage('arrival');}});
     return ()=>{active=false;};
-  },[id,view,job?.status,session?.token]);  useEffect(()=>{
-    if(!session||!job||view!=='flow'||job.status!=='ON_SITE_DELIVERY')return;
-    let active=true;
-    void fetch(driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft',{headers:{Authorization:'Bearer '+session.token},cache:'no-store'})
-      .then(async response=>{if(!response.ok)throw new Error('Delivery arrival record could not be read');return response.json();})
-      .then(data=>{if(!active)return;let saved=false;try{const record=JSON.parse(data?.draft?.deliveryArrival||'null');saved=Boolean(record?.confirmedAt);}catch{}setDeliveryArrivalSaved(saved);})
-      .catch(()=>{if(active)setDeliveryArrivalSaved(false);});
-    return ()=>{active=false;};
   },[id,view,job?.status,session?.token]);  function quote(){
     if(!job)return null;
     const editing = tab==='Quotes' && job.personalBid===true && job.quote != null && job.bidStatus==='submitted' && Boolean(job.bidId);
@@ -369,7 +343,7 @@ export default function ReserveApp() {
         return;
       }
       setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:restored.status,backendStatus:serverStatus,statusHistory:restored.statusHistory?.length?restored.statusHistory:row.statusHistory}:row));
-      setDeliveryArrivalSaved(false);setCollectionStage('arrival');setError('');
+      setCollectionStage('arrival');setError('');
     });
   }
   async function transition(j:LiveJob) {
