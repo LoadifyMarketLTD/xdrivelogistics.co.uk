@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 import { historicalJobAliases } from '../../../../lib/jobs/historicalReferenceLookup';
-import { verifiedJobPublicReference, shortHistoricalJobReference } from '../../../../lib/jobs/jobPublicReference';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -27,7 +26,6 @@ export type DriverContext = {
 
 export type MobileJobRow = {
   id: string;
-  xdrive_job_references?: { public_reference?: string | null } | null;
   created_by: string | null;
   load_reference?: string | null;
   load_ref?: string | null;
@@ -182,7 +180,6 @@ export function isDriverContext(value: DriverContext | NextResponse): value is D
 
 export const jobSelect = [
   'id',
-  'xdrive_job_references(public_reference)',
   'created_by',
   'load_reference',
   'load_ref',
@@ -277,8 +274,7 @@ export function mapJob(row: MobileJobRow) {
   const agreedRateAmount = Number(row.agreed_rate_gbp ?? row.agreed_rate ?? 0) || null;
   return {
     id: row.id,
-    reference: verifiedJobPublicReference(row.id, row.xdrive_job_references?.public_reference)
-      ?? shortHistoricalJobReference(row.id),
+    reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
     legacyReferences: historicalJobAliases(row),
     status: mobileStatus(row),
     lifecycleStatus: row.status,
@@ -330,7 +326,13 @@ export function mapJob(row: MobileJobRow) {
   };
 }
 
-export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, message: string) {
+export async function insertTrackingEvent(
+  jobId: string,
+  userId: string,
+  eventType: string,
+  message: string,
+  meta: Record<string, unknown> = {},
+) {
   if (!supabaseAdmin) return;
   await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
@@ -339,6 +341,6 @@ export async function insertTrackingEvent(jobId: string, userId: string, eventTy
     event_type: eventType,
     event_time: new Date().toISOString(),
     message,
-    meta: { source: 'driver_mobile' },
+    meta: { source: 'driver_mobile', ...meta },
   });
 }

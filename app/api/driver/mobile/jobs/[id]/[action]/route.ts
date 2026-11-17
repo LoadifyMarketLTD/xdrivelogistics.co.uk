@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
+import { hasCompletePodEvidence, hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
 import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
@@ -22,9 +22,9 @@ const actionToCanonicalStatus: Record<string, string> = {
   'on-my-way-delivery': 'in_transit',
   'arrived-delivery': 'on_site_delivery',
   delivered: 'delivered',
+  completed: 'completed',
 };
 
-const terminalStopStatuses = new Set(['completed', 'skipped']);
 type PodEvidenceKind = 'photos' | 'damage' | 'documents';
 type MobileJobWithDamageEvidence = MobileJobRow & { damage_photos?: unknown };
 
@@ -46,36 +46,64 @@ const isMissingJobStopsRelation = (
   return (error.code === '42P01' || error.code === 'PGRST205') && text.includes('job_stops');
 };
 
-async function requireMultiDropFinalizationReady(jobId: string) {
+async function loadExecutionStops(jobId: string) {
   const { data, error } = await supabaseAdmin!
     .from('job_stops')
-    .select('id, sequence, stop_type, status')
-    .eq('job_id', jobId);
-
+    .select('id,sequence,stop_type,status,handover')
+    .eq('job_id', jobId)
+    .order('sequence', { ascending: true });
   if (error) {
-    if (isMissingJobStopsRelation(error)) return null;
-    return respond(503, { error: 'Multi-drop completion could not be verified. Please retry.' });
+    if (isMissingJobStopsRelation(error)) return { stops: [] as Array<{id:string;sequence:number;stop_type:string;status:string;handover:unknown}>, error: null };
+    return { stops: [], error: respond(503, { error: 'Stop completion could not be verified. Please retry.' }) };
   }
+  return { stops: (data ?? []) as Array<{id:string;sequence:number;stop_type:string;status:string;handover:unknown}>, error: null };
+}
 
-  const stops = (data ?? []) as Array<{ id: string; sequence: number; stop_type: string; status: string | null }>;
-  if (stops.length === 0) return null;
-
-  // A basic collection + delivery is not a multi-drop route. Its completion is
-  // governed by the canonical job lifecycle; legacy jobs may have unsynchronised
-  // pending stop rows even after the delivery was confirmed.
-  const standardRoute = stops.length === 2 &&
-    stops.some((stop) => stop.sequence === 1 && stop.stop_type === 'collection') &&
-    stops.some((stop) => stop.sequence === 2 && stop.stop_type === 'delivery');
-  if (standardRoute) return null;
-
-  const incompleteStops = stops.filter((stop) => !terminalStopStatuses.has(String(stop.status ?? 'pending').toLowerCase()));
-  if (incompleteStops.length > 0) {
-    return respond(409, {
-      error: 'Complete all multi-drop stops before capturing POD or marking the job delivered.',
-      remainingStops: incompleteStops.length,
-    });
+async function requireFinalPodReady(jobId: string) {
+  const loaded = await loadExecutionStops(jobId);
+  if (loaded.error) return loaded.error;
+  const stops = loaded.stops;
+  if (!stops.length) return null;
+  const finalStop = stops.at(-1)!;
+  const finalHandover = finalStop.handover && typeof finalStop.handover === 'object' && !Array.isArray(finalStop.handover)
+    ? finalStop.handover as Record<string, unknown>
+    : {};
+  if (finalHandover.stopKind === 'return' || finalHandover.stopKind === 'redirect') {
+    return respond(409, { error: 'This route ends with a return or redirected stop. Resolve that stop before any successful final POD or invoice.' });
   }
+  const prior = stops.slice(0, -1);
+  if (prior.some(stop => stop.status === 'skipped')) {
+    return respond(409, { error: 'A legacy skipped stop requires review before final POD can be submitted.' });
+  }
+  const unresolved = prior.filter(stop => !['completed','cancelled'].includes(stop.status));
+  if (unresolved.length) {
+    return respond(409, { error: 'Complete or resolve all earlier stops before final POD.', remainingStops: unresolved.length });
+  }
+  if (finalStop.stop_type !== 'delivery' || finalStop.status !== 'arrived') {
+    return respond(409, { error: 'Record On Site at the final delivery stop before submitting POD.' });
+  }
+  return null;
+}
 
+async function requireDeliveredReady(jobId: string) {
+  const loaded = await loadExecutionStops(jobId);
+  if (loaded.error) return loaded.error;
+  const stops = loaded.stops;
+  if (!stops.length) return null;
+  if (stops.some(stop => stop.status === 'skipped')) {
+    return respond(409, { error: 'A legacy skipped stop requires review before the job can close.' });
+  }
+  const finalStop = stops.at(-1)!;
+  const finalHandover = finalStop.handover && typeof finalStop.handover === 'object' && !Array.isArray(finalStop.handover)
+    ? finalStop.handover as Record<string, unknown>
+    : {};
+  if (finalHandover.stopKind === 'return' || finalHandover.stopKind === 'redirect') {
+    return respond(409, { error: 'This route ended with a return or redirected stop and cannot be closed as a successful delivery.' });
+  }
+  const prior = stops.slice(0, -1);
+  if (prior.some(stop => !['completed','cancelled'].includes(stop.status)) || finalStop.status !== 'completed') {
+    return respond(409, { error: 'Complete the final POD and resolve every earlier stop before marking the job Delivered.' });
+  }
   return null;
 }
 
@@ -91,7 +119,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
-    const stopGate = await requireMultiDropFinalizationReady(id);
+    const stopGate = await requireFinalPodReady(id);
     if (stopGate) return stopGate;
     return savePod(request, id, driver.userId, driver.driverId, driver.companyId);
   }
@@ -115,7 +143,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (action === 'delivered') {
-    const stopGate = await requireMultiDropFinalizationReady(id);
+    const stopGate = await requireDeliveredReady(id);
     if (stopGate) return stopGate;
   }
 
@@ -210,6 +238,69 @@ function requiresHardCopyPod(value: unknown) {
   return !['no', 'none', 'not required', 'not supplied', 'false', '0', 'n/a'].includes(normalized);
 }
 
+async function completeCanonicalFinalStop(
+  jobId: string,
+  details: {
+    recipientName: string;
+    leftAt: string;
+    itemCount: number;
+    weightKg: number | null;
+    deliveredAt: string;
+    deliveryStatus: string;
+    notes: string | null;
+    photoPaths: string[];
+    documentPaths: string[];
+  },
+) {
+  const loaded = await loadExecutionStops(jobId);
+  if (loaded.error) return { ok: false as const, response: loaded.error };
+  if (!loaded.stops.length) return { ok: true as const };
+  const finalStop = loaded.stops.at(-1)!;
+  const handover = finalStop.handover && typeof finalStop.handover === 'object' && !Array.isArray(finalStop.handover)
+    ? finalStop.handover as Record<string, unknown>
+    : {};
+  if (handover.stopKind === 'return') {
+    return { ok: false as const, response: respond(409, { error: 'A return stop must be closed with Proof of Return, not final delivery POD.' }) };
+  }
+  if (finalStop.status === 'completed') return { ok: true as const };
+  if (finalStop.stop_type !== 'delivery' || finalStop.status !== 'arrived') {
+    return { ok: false as const, response: respond(409, { error: 'Final delivery stop is not On Site.' }) };
+  }
+  const now = new Date().toISOString();
+  const { data: changed, error } = await supabaseAdmin!
+    .from('job_stops')
+    .update({
+      status: 'completed',
+      completed_at: now,
+      handover: {
+        ...handover,
+        version: 3,
+        capturedAt: now,
+        canonicalFinalPod: true,
+        canonicalPodReference: { jobId, stopId: finalStop.id, signatureSource: 'jobs.delivery_signature_data', photoSource: 'jobs.delivery_photos', documentSource: 'jobs.pod_photos' },
+        recipientName: details.recipientName,
+        leftAt: details.leftAt,
+        itemCount: details.itemCount,
+        weightKg: details.weightKg,
+        deliveredOn: details.deliveredAt,
+        deliveryStatus: details.deliveryStatus,
+        notes: details.notes,
+        photoPaths: details.photoPaths,
+        documentPaths: details.documentPaths,
+        signaturePath: null,
+      },
+      updated_at: now,
+    })
+    .eq('id', finalStop.id)
+    .eq('job_id', jobId)
+    .eq('status', 'arrived')
+    .select('id')
+    .maybeSingle();
+  if (error) return { ok: false as const, response: respond(500, { error: 'Final POD was saved but the final stop could not be synchronized.', podSaved: true }) };
+  if (!changed) return { ok: false as const, response: respond(409, { error: 'Final POD was saved but the final stop changed. Refresh and retry.', podSaved: true }) };
+  return { ok: true as const };
+}
+
 async function savePod(
   request: NextRequest,
   jobId: string,
@@ -230,14 +321,16 @@ async function savePod(
     .eq('id', jobId)
     .eq('assigned_driver_id', driverId)
     .maybeSingle();
-
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobWithDamageEvidence;
   const currentStatus = String(job.current_status ?? job.status ?? '').toLowerCase();
-  if (!['delivered', 'completed', 'invoiced'].includes(currentStatus)) {
-    return respond(409, { error: 'Mark the job Delivered before completing POD.' });
+  if (!['on_site_delivery','delivered','completed','invoiced'].includes(currentStatus)) {
+    return respond(409, { error: 'Record On Site at final delivery before submitting POD.' });
+  }
+  if (job.pod_generated === true && !hasCompletePodEvidence(job)) {
+    return respond(409, { error: 'Existing POD is incomplete: drawn signature, recipient name and delivery photo are required.' });
   }
 
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
@@ -246,24 +339,36 @@ async function savePod(
   const rawDamagePhotoUris = safeArray(body.damagePhotoUris);
   const rawDocumentUris = safeArray(body.documentUris);
   const deliveryStatus = typeof body.deliveryStatus === 'string' ? body.deliveryStatus.trim() : 'Completed Delivery';
-  const allowedDeliveryStatuses = new Set(['Completed Delivery', 'Partial Delivery', 'Failed Delivery', 'Refused', 'Left Safe']);
+  const allowedDeliveryStatuses = new Set([
+    'Completed Delivery','Incorrect Goods','Incorrect Address','Job Cancelled','Delivery Refused',
+    'No Unloading Facilities','Damaged Goods','Partial Delivery','Failed Delivery','Refused','Left Safe',
+  ]);
   const leftAt = typeof body.leftAt === 'string' ? body.leftAt.trim().slice(0, 500) : '';
-  const deliveredOnRaw = typeof body.deliveredOn === 'string' ? body.deliveredOn.trim() : '';
-  const deliveredOn = deliveredOnRaw;
+  const deliveredOn = typeof body.deliveredOn === 'string' ? body.deliveredOn.trim() : '';
   const deliveredTime = typeof body.deliveredTime === 'string' ? body.deliveredTime.trim() : '';
-  const itemCountRaw = body.itemCount == null || body.itemCount === '' ? null : Number(body.itemCount);
-  const itemCount = itemCountRaw;
+  const deliveredAtRaw = typeof body.deliveredAt === 'string' ? body.deliveredAt.trim() : '';
+  const itemCount = body.itemCount == null || body.itemCount === '' ? null : Number(body.itemCount);
+  const weightKg = body.weightKg == null || body.weightKg === '' ? null : Number(body.weightKg);
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
-  if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
+  if (!recipientName) return respond(400, { error: 'Received By is required for POD.' });
   if (!leftAt) return respond(400, { error: 'Left At is required for POD.' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(deliveredOn) || !Number.isFinite(Date.parse(`${deliveredOn}T00:00:00Z`))) {
     return respond(400, { error: 'A valid Delivered On date is required for POD.' });
   }
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(deliveredTime)) return respond(400, { error: 'A valid Delivery Time is required for POD.' });
+  const deliveredAtDate = deliveredAtRaw ? new Date(deliveredAtRaw) : new Date(`${deliveredOn}T${deliveredTime}:00Z`);
+  if (!Number.isFinite(deliveredAtDate.getTime())) return respond(400, { error: 'Delivered On date/time is invalid.' });
+  if (deliveredAtDate.getTime() > Date.now() + 5 * 60_000) return respond(400, { error: 'Delivered On cannot be in the future.' });
   if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
+  if (deliveryStatus !== 'Completed Delivery') return respond(409, {
+    error: 'This is a delivery exception, not a successful POD. Record the exception or cancellation outcome first.',
+  });
   if (itemCount === null || !Number.isInteger(itemCount) || itemCount < 1 || itemCount > 100000) {
     return respond(400, { error: 'A whole-number delivered item count greater than zero is required.' });
+  }
+  if (weightKg !== null && (!Number.isFinite(weightKg) || weightKg < 0 || weightKg > 100000)) {
+    return respond(400, { error: 'Delivery weight must be between 0 and 100000 kg when supplied.' });
   }
   const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
   if (hardCopyRequired && !hardCopyAcknowledged) {
@@ -276,54 +381,28 @@ async function savePod(
   if (rawSignature && !/^data:image\/(png|jpeg);base64,/i.test(rawSignature)) {
     return respond(400, { error: 'Recipient signature format is invalid.' });
   }
-  if (rawSignature.length > 2_500_000) {
-    return respond(413, { error: 'Recipient signature is too large.' });
-  }
+  if (rawSignature.length > 2_500_000) return respond(413, { error: 'Recipient signature is too large.' });
 
-  const photoPaths = rawPhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'photos', value));
-  const damagePhotoPaths = rawDamagePhotoUris.filter((value) => persistentPodPath(companyId, jobId, 'damage', value));
-  const documentPaths = rawDocumentUris.filter((value) => persistentPodPath(companyId, jobId, 'documents', value));
-  if (
-    photoPaths.length !== rawPhotoUris.length ||
-    damagePhotoPaths.length !== rawDamagePhotoUris.length ||
-    documentPaths.length !== rawDocumentUris.length
-  ) {
+  const photoPaths = rawPhotoUris.filter(value => persistentPodPath(companyId, jobId, 'photos', value));
+  const damagePhotoPaths = rawDamagePhotoUris.filter(value => persistentPodPath(companyId, jobId, 'damage', value));
+  const documentPaths = rawDocumentUris.filter(value => persistentPodPath(companyId, jobId, 'documents', value));
+  if (photoPaths.length !== rawPhotoUris.length || damagePhotoPaths.length !== rawDamagePhotoUris.length || documentPaths.length !== rawDocumentUris.length) {
     return respond(400, { error: 'POD files must be uploaded to XDrive storage before submission.' });
   }
 
   const existingPhotos = safeArray(job.delivery_photos).filter((item): item is string => typeof item === 'string');
   const existingDamagePhotos = safeArray(job.damage_photos).filter((item): item is string => typeof item === 'string');
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
-  const storedSignature = job.delivery_signature_data && typeof job.delivery_signature_data === 'object' && !Array.isArray(job.delivery_signature_data)
-    ? job.delivery_signature_data as Record<string, unknown>
-    : null;
-  // Keep the server-verified signature envelope (including its job-bound evidence path)
-  // when the submitted drawing is the same signature already confirmed before Delivered.
-  const signatureData = storedSignature
-    && typeof storedSignature.signature_data === 'string'
-    && storedSignature.signature_data === rawSignature
-    ? job.delivery_signature_data
-    : rawSignature || job.delivery_signature_data || null;
+  const signatureData = rawSignature || job.delivery_signature_data || null;
   if (!hasStoredSignature(signatureData)) {
     return respond(400, { error: 'A drawn recipient signature is required for POD; a typed name is insufficient.' });
   }
-  if (deliveryStatus !== 'Completed Delivery') {
-    return respond(409, { error: 'Resolve the delivery exception before final POD submission.' });
-  }
 
   try {
-    const existenceChecks = await Promise.all(
-      [...photoPaths, ...damagePhotoPaths, ...documentPaths].map((path) => storageObjectExists(path))
-    );
-    if (existenceChecks.some((exists) => !exists)) {
-      return respond(400, { error: 'One or more POD files could not be found in XDrive storage.' });
-    }
+    const existenceChecks = await Promise.all([...photoPaths, ...damagePhotoPaths, ...documentPaths].map(path => storageObjectExists(path)));
+    if (existenceChecks.some(exists => !exists)) return respond(400, { error: 'One or more POD files could not be found in XDrive storage.' });
   } catch (reason) {
-    return respond(503, {
-      error: reason instanceof Error
-        ? `POD storage could not be verified: ${reason.message}`
-        : 'POD storage could not be verified.',
-    });
+    return respond(503, { error: reason instanceof Error ? `POD storage could not be verified: ${reason.message}` : 'POD storage could not be verified.' });
   }
 
   const deliveryPhotos = Array.from(new Set([...existingPhotos, ...photoPaths]));
@@ -332,38 +411,53 @@ async function savePod(
   }
   const damagePhotos = Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths]));
   const podDocuments = Array.from(new Set([...existingDocuments, ...documentPaths]));
-  const driverNotes = typeof body.notes === 'string' && body.notes.trim()
-    ? body.notes.trim().slice(0, 5000)
-    : null;
+  const driverNotes = typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim().slice(0, 5000) : null;
   const podNotes = [
-    typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
+    driverNotes || '',
     `Delivery time: ${deliveredTime}`,
+    weightKg !== null ? `Delivery weight: ${weightKg} kg` : '',
     hardCopyRequired && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
   ].filter(Boolean).join(' | ') || null;
 
-  const { data: updated, error: podWriteError } = await supabaseAdmin!.rpc('record_driver_pod_atomic', {
-    p_job_id: jobId,
-    p_driver_id: driverId,
-    p_user_id: userId,
-    p_delivery_photos: deliveryPhotos,
-    p_damage_photos: damagePhotos,
-    p_pod_photos: podDocuments,
-    p_signature_data: signatureData,
-    p_recipient_name: recipientName,
-    p_driver_notes: driverNotes,
-    p_delivered_on: deliveredOn,
-    p_left_at: leftAt || null,
-    p_item_count: itemCount,
-    p_delivery_status: deliveryStatus,
-    p_delivery_notes: podNotes,
-    p_photo_urls: deliveryPhotos,
-  });
-  if (podWriteError) return respond(500, { error: podWriteError.message });
+  let updated: unknown = job;
+  let alreadySubmitted = job.pod_generated === true;
+  if (!alreadySubmitted) {
+    const result = await supabaseAdmin!.rpc('record_driver_pod_atomic', {
+      p_job_id: jobId,
+      p_driver_id: driverId,
+      p_user_id: userId,
+      p_delivery_photos: deliveryPhotos,
+      p_damage_photos: damagePhotos,
+      p_pod_photos: podDocuments,
+      p_signature_data: signatureData,
+      p_recipient_name: recipientName,
+      p_driver_notes: driverNotes,
+      p_delivered_on: deliveredOn,
+      p_left_at: leftAt,
+      p_item_count: itemCount,
+      p_delivery_status: deliveryStatus,
+      p_delivery_notes: podNotes,
+      p_photo_urls: deliveryPhotos,
+    });
+    if (result.error) return respond(500, { error: result.error.message });
+    updated = result.data;
+    alreadySubmitted = Boolean(result.data && typeof result.data === 'object' && '_alreadySubmitted' in result.data && result.data._alreadySubmitted === true);
+  }
 
-  await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
+  const finalStop = await completeCanonicalFinalStop(jobId, {
+    recipientName, leftAt, itemCount, weightKg, deliveredAt: deliveredAtDate.toISOString(),
+    deliveryStatus, notes: driverNotes, photoPaths: deliveryPhotos, documentPaths: podDocuments,
+  });
+  if (!finalStop.ok) return finalStop.response;
+
   if (hardCopyRequired && hardCopyAcknowledged) {
     await insertTrackingEvent(jobId, userId, 'note', 'Hard-copy POD requirement acknowledged by assigned driver.');
   }
 
-  return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
+  return respond(200, {
+    ok: true,
+    alreadySubmitted,
+    podReadyForDelivered: true,
+    job: mapJob((updated ?? job) as unknown as MobileJobRow),
+  });
 }

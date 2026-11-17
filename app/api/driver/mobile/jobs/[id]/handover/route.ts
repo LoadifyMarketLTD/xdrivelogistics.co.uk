@@ -15,15 +15,13 @@ async function getCollectionIdentity(
   driverType: string | null,
 ) {
   const ownerDriver = driverType === 'owner_driver';
-  const [{ data: company, error: companyError }, ownerProfile, { data: referenceRow, error: referenceError }] = await Promise.all([
+  const [{ data: company, error: companyError }, ownerProfile] = await Promise.all([
     supabaseAdmin!.from('companies').select('xd_id, company_type').eq('id', companyId).maybeSingle(),
     ownerDriver
       ? supabaseAdmin!.from('profiles').select('xd_id').eq('user_id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    supabaseAdmin!.from('xdrive_job_references').select('public_reference')
-      .eq('job_id', jobId).maybeSingle(),
   ]);
-  if (companyError || ownerProfile.error || referenceError || !company || !referenceRow) {
+  if (companyError || ownerProfile.error || !company) {
     return { error: 'Transport operator identity could not be verified.', identity: null };
   }
   if (ownerDriver && !['owner_driver', 'sole_trader'].includes(String(company.company_type ?? ''))) {
@@ -35,7 +33,7 @@ async function getCollectionIdentity(
       ? 'Owner Driver XDrive IDs are inconsistent. Collection is blocked until identity reconciliation.'
       : 'Driver role or employing company XDrive ID is not verified.', identity: null };
   }
-  const identity = collectionReferenceIdentity(jobId, publicId, referenceRow.public_reference);
+  const identity = collectionReferenceIdentity(jobId, publicId);
   return identity
     ? { error: null, identity }
     : { error: 'Official job reference or transport operator ID could not be verified.', identity: null };
@@ -124,6 +122,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) {
     return respond(403, { error: 'This job belongs to another carrier company.' });
   }
+  const { data: collectionStop, error: collectionStopError } = await supabaseAdmin
+    .from('job_stops')
+    .select('id,status,handover')
+    .eq('job_id', jobId)
+    .eq('stop_type', 'collection')
+    .order('sequence', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (collectionStopError) return respond(503, { error: 'Collection stop could not be resolved.' });
+  if (!collectionStop) return respond(409, { error: 'This booking has no persisted collection stop.' });
+
   const references = stage === 'loaded' ? await getCollectionIdentity(jobId, driver.companyId, driver.userId, driver.driverType) : null;
   if (references?.error || (stage === 'loaded' && !references?.identity)) {
     return respond(409, { error: references?.error || 'Collection identifiers are not available.' });
@@ -135,17 +144,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (stage === 'loaded' && !['on_site_pickup','loaded'].includes(status)) return respond(409, { error: 'Loaded information is available only after arriving at collection.' });
 
   const companyPrefix = `${driver.companyId}/${jobId}/`;
-  const photosValid = await verifyStoragePaths(photoPaths, [
-    `${companyPrefix}collection-photos/`,
-    `${companyPrefix}collection/`,
-  ]);
+  const stopPrefix = `${companyPrefix}stops/${collectionStop.id}/`;
+  const photosValid = await verifyStoragePaths(photoPaths, [`${stopPrefix}photos/`]);
   if (!photosValid) {
     return respond(400, { error: 'Collection photo evidence could not be verified.' });
   }
   if (stage === 'loaded' && photoPaths.length === 0) return respond(400, { error: 'At least one collection/loading photo is required.' });
-  const documentsValid = await verifyStoragePaths(documentPaths, [
-    `${companyPrefix}collection-documents/`,
-  ]);
+  const documentsValid = await verifyStoragePaths(documentPaths, [`${stopPrefix}documents/`]);
   if (!documentsValid) {
     return respond(400, { error: 'Collection document evidence could not be verified.' });
   }
@@ -184,6 +189,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (notes) update.collection_notes = notes;
   }
 
+  const previousStopHandover = collectionStop.handover && typeof collectionStop.handover === 'object' && !Array.isArray(collectionStop.handover)
+    ? collectionStop.handover as Record<string, unknown>
+    : {};
+  const stopHandover = stage === 'arrival'
+    ? { ...previousStopHandover, arrival: stageRecord }
+    : { ...previousStopHandover, ...stageRecord, loaded: stageRecord };
+  const { data: stopUpdated, error: stopUpdateError } = await supabaseAdmin
+    .from('job_stops')
+    .update({ handover: stopHandover, updated_at: capturedAt })
+    .eq('id', collectionStop.id)
+    .eq('job_id', jobId)
+    .select('id')
+    .maybeSingle();
+  if (stopUpdateError || !stopUpdated) {
+    return respond(stopUpdateError ? 500 : 409, { error: 'Collection evidence could not be linked to its stop.' });
+  }
+
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('jobs')
     .update(update)
@@ -198,12 +220,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(409, { error: 'Collection handover could not be linked to this assignment.' });
   }
 
-  await insertTrackingEvent(
-    jobId,
-    driver.userId,
-    stage === 'arrival' ? 'collection_arrival' : 'collection_handover',
-    stage === 'arrival' ? 'Arrived at collection; arrival evidence recorded.' : 'Loaded information recorded.',
-  ).catch(() => undefined);
+  if (stage === 'loaded') {
+    await insertTrackingEvent(
+      jobId,
+      driver.userId,
+      'collection_handover',
+      'Loaded information and stop-scoped collection evidence recorded.',
+      { stop_id: collectionStop.id },
+    ).catch(() => undefined);
+  }
 
   return respond(200, { ok: true, handover: updated.collection_handover });
 }
