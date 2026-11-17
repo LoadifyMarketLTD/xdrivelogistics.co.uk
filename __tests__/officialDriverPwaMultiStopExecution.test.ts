@@ -25,7 +25,7 @@ describe('Official Driver PWA multi-stop execution parity', () => {
     expect(app).toContain("stage: 'arrival'");
     expect(app).toContain("stage: 'loaded'");
     expect(app).toContain('uploadCollectionEvidence');
-    expect(app).toContain('At least one collection/loading photo');
+    expect(app).toContain('Attach at least one collection/loading photo');
     expect(app).toContain('syncPrimaryCollectionStop');
     expect(app).toContain("status: 'arrived'");
     expect(app).toContain("status: 'completed'");
