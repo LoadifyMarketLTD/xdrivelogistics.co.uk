@@ -8,6 +8,9 @@ describe('Official Driver PWA multi-stop execution parity', () => {
   const stopUi = read('official-driver-pwa/src/StopExecution.tsx');
   const stopRoute = read('app/api/driver/mobile/jobs/[id]/stop-status/route.ts');
   const evidenceRoute = read('app/api/driver/mobile/jobs/[id]/evidence/route.ts');
+  const podDetails = read('official-driver-pwa/src/PodDetails.tsx');
+  const livePod = read('official-driver-pwa/src/LivePodCapture.tsx');
+  const lifecycle = read('app/api/driver/mobile/jobs/[id]/[action]/route.ts');
 
   test('maps persisted job_stops into the official PWA feed', () => {
     expect(liveApi).toContain('export type LiveStop');
@@ -83,6 +86,25 @@ describe('Official Driver PWA multi-stop execution parity', () => {
     const deliveredUpdate = app.indexOf("nextStatus: 'delivered'");
     expect(finalStopUpdate).toBeGreaterThan(-1);
     expect(deliveredUpdate).toBeGreaterThan(finalStopUpdate);
+  });
+
+  test('brings the final POD fields and attachment actions into parity with the operational reference', () => {
+    for (const label of ['Delivered On *', 'Delivery Time *', 'Number Of Items *', 'Weight (kg)', 'Delivery Status *']) {
+      expect(podDetails).toContain(label);
+    }
+    expect(livePod).toContain('Add POD');
+    expect(livePod).toContain('Add More');
+    expect(livePod).toContain('deliveredOn: details.deliveredOn');
+    expect(livePod).toContain('deliveredTime: details.deliveredTime');
+    expect(livePod).toContain('weightKg: details.weightKg');
+    expect(lifecycle).toContain('Delivery weight:');
+  });
+
+  test('surfaces real unread driver notifications as Activity without copying CX branding', () => {
+    expect(app).toContain('driverGet("/notifications", token)');
+    expect(app).toContain('activityUnread');
+    expect(app).toContain('Activity');
+    expect(app).not.toContain('SmartPay Enabled');
   });
 
   test('renders completed stop mini-POD details in booking history', () => {
