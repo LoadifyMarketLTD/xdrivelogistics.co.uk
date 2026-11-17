@@ -15,6 +15,7 @@ import LiveInvoices from "./LiveInvoices";
 import DriverMenu from "./DriverMenu";
 import BookingDocuments from "./BookingDocuments";
 import BookingTimeline from "./BookingTimeline";
+import BookingCancellation from "./BookingCancellation";
 import PodCapture from "./PodCapture";
 import LivePodCapture from "./LivePodCapture";
 import DeliverySignature from './DeliverySignature';
@@ -260,7 +261,7 @@ function App() {
   const [routeJobId, setRouteJobId] = useState<string | null>(null);
   const [navigationChoiceOpen, setNavigationChoiceOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
-  const [bookingScreen, setBookingScreen] = useState<"details" | "status" | "pickup" | "loaded" | "history" | "delivery" | "pod" | "stop">("details");
+  const [bookingScreen, setBookingScreen] = useState<"details" | "status" | "pickup" | "loaded" | "history" | "delivery" | "pod" | "stop" | "cancel">("details");
   const [amount, setAmount] = useState("");
 
   const [notes, setNotes] = useState("");
@@ -348,6 +349,11 @@ function App() {
   const activeAdditionalStop = additionalStops.find(stop => !['completed', 'cancelled', 'skipped'].includes(stop.status));
   const completedAdditionalStops = additionalStops.filter(stop => ['completed', 'cancelled'].includes(stop.status));
   const finalDeliveryStop = dynamicRouteEnd ? undefined : lastRouteStop;
+  const beforeCollectionComplete = !!job && ["ALLOCATED","ON_WAY_TO_PICKUP","ON_SITE_PICKUP"].includes(job.status);
+  const cancellationBoundaryStop = beforeCollectionComplete
+    ? routeStops[0]
+    : (!activeAdditionalStop && !!job && ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY"].includes(job.status) ? finalDeliveryStop : undefined);
+  const cancellationGoodsInCustody = !!job && ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY"].includes(job.status);
   const openJob = (id: string) => { setCollectionPhotoFiles([]); setDeliveryPhotos([]); setDeliverySignature(null); setUploadedDeliveryPhotos([]); const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
   const [deliveryRecipient, setDeliveryRecipient] = useState('');
   const [collectionPhotoFiles, setCollectionPhotoFiles] = useState<File[]>([]);
@@ -800,11 +806,13 @@ function App() {
                     </button>
                   )}
                 </>
-              ) : bookingScreen === "status" || bookingScreen === "pickup" || bookingScreen === "loaded" || bookingScreen === "delivery" || bookingScreen === "pod" || bookingScreen === "stop" ? (
+              ) : bookingScreen === "status" || bookingScreen === "pickup" || bookingScreen === "loaded" || bookingScreen === "delivery" || bookingScreen === "pod" || bookingScreen === "stop" || bookingScreen === "cancel" ? (
                 <>
                   {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
                   {statusBusy && <p role="status" className="notification-reason">Saving booking status to XDrive...</p>}
                   {bookingScreen === "stop" && activeAdditionalStop && liveSession && <StopExecution jobId={job.id} stop={activeAdditionalStop} session={liveSession} onSession={setLiveSession} yourRef={job.yourRef || job.id} customerRef={job.customerRef} vehicle={job.vehicle} jobItems={job.items} jobWeight={job.weight} packaging={job.packaging} onRefresh={refreshLive} onClose={() => setBookingScreen("status")} />}
+                  {bookingScreen === "cancel" && cancellationBoundaryStop && liveSession && <BookingCancellation jobId={job.id} stop={cancellationBoundaryStop} session={liveSession} onSession={setLiveSession} goodsInCustodyDefault={cancellationGoodsInCustody} forceJobScope={beforeCollectionComplete} onSaved={async token => { try { await refreshLive(token); setLiveWarning("Cancellation instruction recorded. The booking remains auditable while the authorised resolution is processed."); } catch { setLiveWarning("Cancellation saved; booking synchronization is delayed."); } }} onClose={() => setBookingScreen("status")} />}
+                  {bookingScreen === "status" && liveConnected && cancellationBoundaryStop && !legacySkippedStop && <button type="button" className="stop-cancel-action" onClick={() => setBookingScreen("cancel")}>Record Job / Stop Cancellation</button>}
                   {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-approved-onsite"><header className="booking-approved-heading"><h2>On Site (Pickup)</h2></header><div className="booking-approved-route"><div><strong>{job.pickupAddress || job.from}</strong><span>{job.pickup}</span></div><div><strong>{job.deliveryAddress || job.to}</strong><span>{job.delivery}</span></div></div><div className="booking-approved-details"><h3>Job Details</h3><p>{job.vehicle}</p>{job.pickupInstructions && <p>{job.pickupInstructions}</p>}</div><label className="booking-approved-notes">Driver's Notes<textarea rows={4} value={driverNotes} onChange={e=>setDriverNotes(e.target.value)} placeholder="Please add any notes regarding arrival at the pickup location if required" /></label><button type="button" className="booking-yellow booking-approved-save" disabled={statusBusy} onClick={()=>{if(liveConnected){void saveLivePickupDraft(job)}else{update(job.id,{yourRef:yourRef||job.id,driverNotes});setBookingScreen("loaded")}}}>{statusBusy?"Saving...":"Save"}</button></section>}
                   {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<input type="datetime-local" step={900} value={etaDateTime} onChange={e => { const v=e.target.value; if (!v) {setEtaDateTime("");return;} const [date,time]=v.split("T"); const [h,m]=time.split(":").map(Number); const total=h*60+Math.round(m/15)*15; const next=new Date(date+"T00:00:00"); next.setMinutes(total); const pad=(n:number)=>String(n).padStart(2,"0"); setEtaDateTime(next.getFullYear()+"-"+pad(next.getMonth()+1)+"-"+pad(next.getDate())+"T"+pad(next.getHours())+":"+pad(next.getMinutes())); }} /></label><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label>{liveConnected && <label>Collection / Loading Photos *<input type="file" accept="image/jpeg,image/png" multiple capture="environment" onChange={e => setCollectionPhotoFiles(Array.from(e.target.files || []))} /><span>{collectionPhotoFiles.length ? `${collectionPhotoFiles.length} photo(s) selected` : 'At least one photo is required before Loaded can be saved.'}</span></label>}{!liveConnected && <PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => { setPodEvidence(true); update(job.id, { podRecorded: true, podReceivedBy: podReceivedBy || podName }); setBookingScreen("status"); }} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { void saveLiveHandover(job); } else { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); } }}>Save</button></div>}
                   
