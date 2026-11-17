@@ -56,7 +56,7 @@ export default function ReserveApp() {
   const [draft,setDraft]=useState<DeliveryDraft>({recipient:'',leftAt:'Goods Inwards',items:'',condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});
   const [signature,setSignature]=useState<string|null>(null);const [verifiedSignature,setVerifiedSignature]=useState<string|null>(null);const [podFiles,setPodFiles]=useState<File[]>([]);const [hardCopyAcknowledged,setHardCopyAcknowledged]=useState(false);
   const uploadedEvidence=useRef(new Map<File,string>());
-  const [podDone,setPodDone]=useState(false);const [deliveryArrivalSaved,setDeliveryArrivalSaved]=useState(false);const [collectionFiles,setCollectionFiles]=useState<File[]>([]);const uploadedCollectionEvidence=useRef(new Map<File,string>());
+  const [podDone,setPodDone]=useState(false);const [collectionFiles,setCollectionFiles]=useState<File[]>([]);const uploadedCollectionEvidence=useRef(new Map<File,string>());
   const [cancellationStopId,setCancellationStopId]=useState<string|null>(null);
    const [cancellationReturnView,setCancellationReturnView]=useState<View>('flow');
    const [collectionCameraOpen,setCollectionCameraOpen]=useState(false);const [collectionCameraBusy,setCollectionCameraBusy]=useState(false);const collectionVideoRef=useRef<HTMLVideoElement>(null);const collectionStreamRef=useRef<MediaStream|null>(null);
@@ -372,17 +372,7 @@ export default function ReserveApp() {
     const step=nextStates[j.status];if(!step)return;
     await run(async s=>{
       if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(j.backendStatus||'allocated'))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
-      if(j.status==='ON_SITE_DELIVERY'&&!deliveryArrivalSaved){
-        const endpoint=driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft';
-        const existingResponse=await fetch(endpoint,{headers:{Authorization:'Bearer '+s.token},cache:'no-store'});
-        if(!existingResponse.ok)throw new Error('Could not read the delivery arrival record.');
-        const existing=await existingResponse.json().catch(()=>({}));
-        const prior=existing.draft&&typeof existing.draft==='object'&&!Array.isArray(existing.draft)?existing.draft:{};
-        const deliveryArrival=JSON.stringify({confirmedAt:new Date().toISOString()});
-        const saved=await fetch(endpoint,{method:'PUT',headers:{Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:JSON.stringify({...prior,deliveryArrival})});
-        if(!saved.ok){const detail=await saved.json().catch(()=>({}));throw new Error(detail.error||'Delivery arrival could not be saved.');}
-        return;
-      }      if(j.status==='ON_SITE_PICKUP'){
+      if(j.status==='ON_SITE_PICKUP'){
         // Validate before uploading evidence so invalid inputs cannot leave orphaned files.
         if(collectionStage==='loaded'){
           if(!items.trim()||!weight.trim())throw new Error('Items and Weight (kg) are required at loading.');
@@ -416,13 +406,11 @@ export default function ReserveApp() {
       }
       await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:step.backend,notes:pickupNotes.trim()});
     },()=>{
-      if(j.status==='ON_SITE_DELIVERY'&&!deliveryArrivalSaved){setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));setDeliveryArrivalSaved(true);setError('');return;}
             if(j.status==='ON_SITE_PICKUP'&&collectionStage==='arrival'){
         setCollectionStage('loaded');setItems(pickupItems);setWeight(pickupWeight);setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setError('');return;
       }
       if(j.status==='ON_WAY_TO_DELIVERY'){
         setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));
-        setDeliveryArrivalSaved(true);
       }
       setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:step.status}:x));
     });
