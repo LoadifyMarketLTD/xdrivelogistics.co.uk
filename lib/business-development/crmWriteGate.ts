@@ -30,7 +30,7 @@ export function isCrmProductionWriteAllowed(input: CrmProductionWriteGateInput):
     const actual = new URL(input.connectedSupabaseUrl ?? '');
     return actual.origin === 'https://jqxlauexhkonixtjvljw.supabase.co' &&
       actual.pathname === '/' && !actual.username && !actual.password &&
-      !actual.search && !actual.hash;
+      !actual.search && !actual.hash && !actual.port;
   } catch {
     return false;
   }
@@ -39,8 +39,8 @@ export function isCrmProductionWriteAllowed(input: CrmProductionWriteGateInput):
 export function isCrmStagingWriteAllowed(input: CrmWriteGateInput): boolean {
   const context=(input.context??'').trim().toLowerCase();
   const vercel=(input.vercelEnvironment??'').trim().toLowerCase();
-  if(input.deploymentIsPreview || context==='production' || context==='deploy-preview' ||
-     vercel==='production' || vercel==='preview')return false;
+  if(input.deploymentIsPreview || !['branch-deploy', 'development'].includes(context) ||
+     (vercel !== '' && vercel !== 'development'))return false;
   if(input.enabled!=='enabled' || input.databaseScope!=='isolated_staging')return false;
   if(!input.stagingSupabaseUrl || !input.connectedSupabaseUrl)return false;
   try {
@@ -58,6 +58,8 @@ export function isCrmStagingWriteAllowed(input: CrmWriteGateInput): boolean {
       declared.hostname.endsWith('.supabase.co') &&
       declared.hostname!=='.supabase.co' &&
       !declared.username && !declared.password && !actual.username && !actual.password &&
-      declared.pathname==='/' && actual.pathname==='/';
+      declared.pathname==='/' && actual.pathname==='/' &&
+      !declared.port && !actual.port &&
+      !declared.search && !actual.search && !declared.hash && !actual.hash;
   } catch{return false;}
 }
