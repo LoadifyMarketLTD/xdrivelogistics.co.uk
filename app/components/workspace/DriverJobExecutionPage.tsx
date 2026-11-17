@@ -550,6 +550,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
   };
   const uploadCollectionEvidence = async (file: File) => {
+    const collectionStop=multiStops[0];
+    if(!collectionStop || collectionStop.type!=='collection') throw new Error('Collection stop is unavailable. Refresh the booking.');
     if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
     if (file.size > 10 * 1024 * 1024) throw new Error('Each collection photo must be 10 MB or smaller.');
     const auth = await authHeader();
@@ -563,6 +565,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         'Content-Type': file.type,
         'x-xdrive-evidence-kind': 'collection',
         'x-xdrive-evidence-category': 'photos',
+        'x-xdrive-stop-id': collectionStop.id,
         'x-xdrive-evidence-name': objectName,
       },
       body: file,
@@ -572,6 +575,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     return payload.storagePath;
   };
   const uploadCollectionDocument = async (file: File) => {
+    const collectionStop=multiStops[0];
+    if(!collectionStop || collectionStop.type!=='collection') throw new Error('Collection stop is unavailable. Refresh the booking.');
     if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection documents must be PDF, JPEG or PNG files.');
     if (file.size > 10 * 1024 * 1024) throw new Error('Each collection document must be 10 MB or smaller.');
     const auth = await authHeader();
@@ -585,6 +590,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         'Content-Type': file.type,
         'x-xdrive-evidence-kind': 'collection',
         'x-xdrive-evidence-category': 'documents',
+        'x-xdrive-stop-id': collectionStop.id,
         'x-xdrive-evidence-name': objectName,
       },
       body: file,
