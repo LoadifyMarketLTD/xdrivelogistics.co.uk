@@ -14,7 +14,7 @@ export type LiveJob = {
   offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; acceptanceBlocked?: boolean; offerQuoteStatus?: string; backendStatus?: string; podRecorded?: boolean;
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
-  customerRef?: string; yourRef?: string; service?: string;
+  customerRef?: string; yourRef?: string; legacyReferences?: string[]; service?: string;
   items?: number; hardCopyPodRequired?: boolean;
   statusHistory?: Array<{ status: string; at: string; notes?: string }>;
   clientName?: string; contactName?: string; contactPhone?: string;
@@ -215,6 +215,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     deliveryAddress: str(get(r, 'deliveryAddress', 'delivery_address')),
     customerRef: str(get(r, 'customerReference', 'customer_reference')),
     yourRef: platformJobReference(str(r.id), get(r, 'reference', 'publicReference', 'public_reference')),
+    legacyReferences: Array.isArray(r.legacyReferences) ? r.legacyReferences.filter((v): v is string => typeof v === 'string') : [],
     statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory.map(item=>{const e=obj(item);return {status:str(get(e,'status','nextStatus','event','eventType'))||'Status update',at:str(get(e,'at','timestamp','created_at','createdAt','occurred_at')),notes:str(get(e,'notes','message'))};}) : [],
     clientName: str(r.clientName),contactName: str(r.contactName),contactPhone: str(r.contactPhone),
     collectionPhotos: Array.isArray(r.pickupPhotos)?r.pickupPhotos.filter(v=>typeof v==='string'):[],

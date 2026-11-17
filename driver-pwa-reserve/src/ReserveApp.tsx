@@ -43,6 +43,9 @@ export default function ReserveApp() {
   const [quoteSection,setQuoteSection]=useState<QuoteSection>('Submitted');
   const [bookingSection,setBookingSection]=useState<BookingSection>('Received');
   const [bookingSearch,setBookingSearch]=useState('');
+  const [historicalSearchResults,setHistoricalSearchResults]=useState<LiveJob[]|null>(null);
+  const [historicalSearchBusy,setHistoricalSearchBusy]=useState(false);
+  const [historicalSearchError,setHistoricalSearchError]=useState('');
   const [bookingPeriod,setBookingPeriod]=useState('all');
   const [withdrawId,setWithdrawId]=useState<string|null>(null);
   const [mapReturnView,setMapReturnView]=useState<View>('list');
@@ -97,6 +100,25 @@ export default function ReserveApp() {
       }).finally(()=>{bidsPendingRef.current=false;setBidsLoading(false);});
     }
   },[]);
+  // Historical reference lookup is authenticated on every request and searches
+  // all jobs assigned to this driver, not only the recent History window.
+  useEffect(()=>{
+    if(!session || tab!=='Bookings' || bookingSection!=='Delivered' || bookingSearch.trim().length<2){
+      setHistoricalSearchResults(null);setHistoricalSearchBusy(false);setHistoricalSearchError('');return;
+    }
+    let cancelled=false;
+    setHistoricalSearchResults(null);setHistoricalSearchBusy(true);setHistoricalSearchError('');
+    const timeout=setTimeout(()=>{
+      void (async()=>{
+        const s=await renewSession(session);
+        const result=await driverGet('/mobile/jobs?scope=completed&compact=1&reference='+encodeURIComponent(bookingSearch.trim()),s.token,30000);
+        if(!cancelled)setHistoricalSearchResults((Array.isArray(result.jobs)?result.jobs:[]).map(mapAssigned));
+      })().catch(e=>{
+        if(!cancelled)setHistoricalSearchError(e instanceof Error?e.message:'Historical search unavailable. Retry.');
+      }).finally(()=>{if(!cancelled)setHistoricalSearchBusy(false);});
+    },350);
+    return ()=>{cancelled=true;clearTimeout(timeout);};
+  },[session?.token,tab,bookingSection,bookingSearch]);
   async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
 
   useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
@@ -231,12 +253,17 @@ export default function ReserveApp() {
   function list(){
     const waitingOffers=tab==='Bookings'&&bookingSection==='Received'&&offersLoading;
     const waitingQuotes=tab==='Quotes'&&bidsLoading;
-    const shown = reserveJobs(jobs, tab, '', 'All', quoteSection).filter(j=>tab!=='Bookings'||(bookingSection==='Received'?Boolean(j.acceptanceRequired):bookingSection==='Delivered'?['DELIVERED','POD_SUBMITTED'].includes(j.status)||Boolean(j.podRecorded):!j.acceptanceRequired&&!['DELIVERED','POD_SUBMITTED'].includes(j.status)&&!j.podRecorded)).filter(j=>tab!=='Bookings'||bookingSection!=='Delivered'||((!bookingSearch.trim()||[j.id,j.yourRef,j.customerRef,j.from,j.to,j.company,j.pickupAddress,j.deliveryAddress].some(v=>String(v||'').toLowerCase().includes(bookingSearch.trim().toLowerCase())))&&(bookingPeriod==='all'||(Boolean(j.postedAt)&&completedAt(j)>=Date.now()-Number(bookingPeriod)*86400000)))).sort((a,b)=>tab==='Bookings'&&bookingSection==='Delivered'?completedAt(b)-completedAt(a):0);
+    const searchingByReference=tab==='Bookings'&&bookingSection==='Delivered'&&bookingSearch.trim().length>=2;
+    const sourceJobs=searchingByReference?(historicalSearchResults||[]):jobs;
+    const shown = reserveJobs(sourceJobs, tab, '', 'All', quoteSection).filter(j=>tab!=='Bookings'||(bookingSection==='Received'?Boolean(j.acceptanceRequired):bookingSection==='Delivered'?searchingByReference||['DELIVERED','POD_SUBMITTED'].includes(j.status)||Boolean(j.podRecorded):!j.acceptanceRequired&&!['DELIVERED','POD_SUBMITTED'].includes(j.status)&&!j.podRecorded)).filter(j=>tab!=='Bookings'||bookingSection!=='Delivered'||((searchingByReference||!bookingSearch.trim()||[j.id,j.yourRef,j.customerRef,...(j.legacyReferences||[]),j.from,j.to,j.company,j.pickupAddress,j.deliveryAddress].some(v=>String(v||'').toLowerCase().includes(bookingSearch.trim().toLowerCase())))&&(searchingByReference||bookingPeriod==='all'||(Boolean(j.postedAt)&&completedAt(j)>=Date.now()-Number(bookingPeriod)*86400000)))).sort((a,b)=>tab==='Bookings'&&bookingSection==='Delivered'?completedAt(b)-completedAt(a):0);
     return <>
       {tab==='Bookings'&&<div className="rv-quote-tabs rv-booking-tabs" role="group" aria-label="Booking categories">{(['Received','Allocated','Delivered'] as BookingSection[]).map(s=><button key={s} className={bookingSection===s?'rv-selected':''} aria-pressed={bookingSection===s} onClick={()=>setBookingSection(s)}>{s==='Received'?'Pending':s==='Allocated'?'Active':'History'}</button>)}</div>}
       {tab==='Bookings'&&bookingSection==='Delivered'&&<div className="rv-booking-history-tools" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'10px 0 14px'}}><input aria-label="Search booking history" placeholder="Search reference, town, postcode, customer" value={bookingSearch} onChange={e=>setBookingSearch(e.target.value)} style={{flex:'1 1 200px',minWidth:0,padding:11,borderRadius:9,border:'1px solid #cbd5e1'}}/><select aria-label="Booking history period" value={bookingPeriod} onChange={e=>setBookingPeriod(e.target.value)} style={{padding:10,borderRadius:9,border:'1px solid #cbd5e1'}}><option value="all">All time</option><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option></select></div>}
       {tab==='Quotes'&&<div className="rv-quote-tabs" role="group" aria-label="Quote sections">{(['Submitted','Awarded','History'] as QuoteSection[]).map(s=><button key={s} className={quoteSection===s?'rv-selected':''} aria-pressed={quoteSection===s} onClick={()=>{setQuoteSection(s);setWithdrawId(null)}}>{s}</button>)}</div>}
       {loading&&shown.length===0&&<p className="rv-loading-inline" role="status">Refreshing live jobs…</p>}
+      {historicalSearchBusy&&searchingByReference&&<p className="rv-loading-inline" role="status">Searching all historical jobs by reference…</p>}
+      {historicalSearchError&&searchingByReference&&<p className="rv-warning" role="alert">Historical reference search unavailable: {historicalSearchError}</p>}
+      {searchingByReference&&historicalSearchResults&&historicalSearchResults.length>1&&<p className="rv-warning">Several jobs match this historical reference. Check the route and date; no job has been selected automatically.</p>}
       {shown.length ? shown.map(j=>card(j)) : <div className="rv-empty">
         <b>{waitingOffers?'Checking incoming booking offers…':waitingQuotes?'Loading your quote history':loading?'Loading live data…':warning?'Some sources are temporarily unavailable':jobs.length===0?'No jobs returned by the server':tab==='Bookings'&&bookingSection==='Received'?'No current booking offers':tab==='Loads'?'No available marketplace loads':'No matching '+tab.toLowerCase()}</b>
         <p>{waitingOffers?'Bookings and quotes remain accessible while incoming offers are checked.':waitingQuotes?'Your personal bids are being checked separately so Loads and Bookings stay responsive.':loading?'Refreshing XDrive…':warning?'Some live sources failed. Check the notices below or retry. This does not mean that the marketplace is empty.':tab==='Bookings'&&bookingSection==='Received'?'Pending awarded jobs appear here, including overdue collections. You can review and respond to an offer even after the scheduled collection time.':tab==='Loads'&&jobs.length>0?'No currently OPEN marketplace loads match the selected filters. Your submitted quotes remain under Quotes.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>

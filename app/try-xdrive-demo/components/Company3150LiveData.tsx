@@ -8,6 +8,7 @@ import {
 } from '../../components/workspace/useCompanyWorkspaceData';
 import type { DemoLoad } from './demoExchange';
 import { public3150StoredLocation } from '../../../lib/jobs/public3150StoredLocation';
+import { historicalJobAliases } from '../../../lib/jobs/historicalReferenceLookup';
 
 export type LiveQuote = {
   id: string;
@@ -63,7 +64,8 @@ function mapJob(job: WorkspaceJob, driverNames: Map<string, string>, publicLocat
     service: publicLocations ? (job.load_type === 'on_demand' || job.load_type === 'on demand' ? 'On Demand' : job.load_type === 'same_day' ? 'Same Day' : job.load_type === 'next_day' ? 'Next Day' : (job.load_type || job.service_mode || 'Not recorded')) : undefined,
     packaging: publicLocations ? (job.packaging || job.cargo_type || undefined) : undefined,
     dimensions: publicLocations ? (job.dimensions || undefined) : undefined,
-    displayId: publicLocations ? (job.load_reference || job.booking_reference || job.customer_reference || job.id.slice(0,8).toUpperCase()) : undefined,
+    displayId: publicLocations ? 'XDL-' + job.id.slice(0,8).toUpperCase() : undefined,
+    referenceAliases: publicLocations ? historicalJobAliases(job) : undefined,
     memberId: publicLocations ? 'Not recorded' : undefined,
     status: resolveJobStatus(job),
     quote: job.budget_amount ?? undefined,
