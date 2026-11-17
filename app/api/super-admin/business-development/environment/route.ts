@@ -7,5 +7,7 @@ export async function GET(request:NextRequest) {
   if(auth.error)return auth.error;
   return crmResponse(200,{writes_enabled:crmWriteEnabled(),
     production_writes_enabled:process.env.CONTEXT==='production' && crmWriteEnabled(),
+    real_job_attestation_enabled:process.env.CONTEXT==='production' &&
+      process.env.XDRIVE_CRM_REAL_JOB_ATTESTATION==='enabled' && crmWriteEnabled(),
     send_api_enabled:false});
 }

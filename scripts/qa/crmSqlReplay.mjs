@@ -17,7 +17,11 @@ const reject = async(sql,args,expected,label)=>{
 try {
   await db.exec([
     'CREATE SCHEMA auth','CREATE TABLE auth.users(id uuid PRIMARY KEY)',
+    'CREATE TABLE public.profiles(user_id uuid PRIMARY KEY REFERENCES auth.users(id), role text, status text)',
     'CREATE TABLE public.companies(id uuid PRIMARY KEY, name text, company_number text, status text)',
+    'CREATE TABLE public.notifications(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), company_id uuid, user_id uuid, title text, body text, type text, created_at timestamptz DEFAULT now())',
+    'CREATE TABLE public.jobs(id uuid PRIMARY KEY,posted_by_company_id uuid,assigned_company_id uuid,is_test boolean,created_at timestamptz DEFAULT now(),status text,current_status text,completed_at timestamptz,has_delivery_evidence boolean)',
+    "INSERT INTO public.jobs(id,created_at,is_test,status,current_status,completed_at,has_delivery_evidence) VALUES('99999999-9999-4999-8999-999999999999','2026-11-01',false,'completed','delivered','2026-11-02',true)",
     'CREATE ROLE anon','CREATE ROLE authenticated','CREATE ROLE service_role'
   ].join(';')+';');
   for (const name of [
@@ -25,7 +29,10 @@ try {
     '20261116192900_crm_contact_suppression_guard.sql',
     '20261117060000_crm_workflows_isolated_staging.sql',
     '20261117072000_crm_prospect_followup_workflow.sql',
-    '20261117084500_crm_privacy_support_crossref.sql'
+    '20261117084500_crm_privacy_support_crossref.sql',
+    '20261117093823_crm_owner_alerts_20261117.sql',
+    '20261117094204_crm_business_interest_intake.sql',
+    '20261117094950_crm_verified_first_job_20261117.sql'
   ]) {
     try {
       await db.exec(fs.readFileSync(path.join(root,'supabase','migrations',name),'utf8'));
@@ -38,6 +45,7 @@ try {
   const actor='11111111-1111-4111-8111-111111111111';
   const company='22222222-2222-4222-8222-222222222222';
   await run('INSERT INTO auth.users(id) VALUES ($1)',[actor]);
+  await run("INSERT INTO public.profiles(user_id,role,status) VALUES($1,'owner','active')",[actor]);
   await run("INSERT INTO public.companies(id,name,company_number,status) VALUES ($1,'Smoke Freight Ltd','12000001','active')",[company]);
   const o=await run("INSERT INTO public.crm_prospect_organisations(legal_name,company_number,website,website_domain,legal_form,segment,source_url,source_checked_at,created_by,last_actor_id) VALUES('Smoke Freight Ltd','12000001','https://smoke.example','smoke.example','ltd','customer','https://smoke.example/contact',now(),$1,$1) RETURNING id",[actor]);
   const org=o.rows[0].id;
@@ -87,8 +95,62 @@ try {
   await reject("SELECT public.crm_execute_prospect_erasure($1,$2,$3)",[activeHold.rows[0].id,actor,'Owner asks to delete despite an active legal hold'],'not eligible','active legal hold blocks erasure');
   const retained=await run('SELECT count(*)::int AS n FROM public.crm_prospect_contacts WHERE id=$1',[holdId]);
   check(retained.rows[0].n===1,'contact remains when erasure denied');
+  // New Production owner reminders: duplicate-safe and never send marketing.
+  await run("UPDATE public.crm_prospect_organisations SET owner_user_id=$1,next_follow_up_at=now()-interval '2 days' WHERE id=$2",[actor,org]);
+  const alarm1=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(alarm1.rows[0].result?.followups_notified===1,'one due follow-up generated one internal notification');
+  const alarm2=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(alarm2.rows[0].result?.followups_notified===0,'daily CRM reminder is idempotent');
+  const alertCount=await run('SELECT count(*)::int AS n FROM public.notifications');
+  check(alertCount.rows[0].n===1,'single notification, no duplicate or external message');
+
+  const oldPrivacy=await run("INSERT INTO public.crm_privacy_requests(organisation_id,request_type,request_note,created_by,status,created_at) VALUES($1,'access','Owner verified access enquiry',$2,'reviewing',now()-interval '7 days') RETURNING id",[org,actor]);
+  const gdpr=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(gdpr.rows[0].result?.privacy_notified===1,'seven-day privacy review receives internal owner alert');
+  const gdprRepeat=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(gdprRepeat.rows[0].result?.privacy_notified===0,'privacy alert is idempotent');
+  check(oldPrivacy.rows.length===1,'privacy request source remains canonical');
+
+  const interest=await run("INSERT INTO public.crm_business_interests(business_name,business_email,contact_name,interest_kind,message,source,privacy_notice_accepted_at) VALUES('Fresh Interest Ltd','director@interest.example','Director','partnership','I would like to discuss a genuine business partnership.','contact_form',now()) RETURNING id");
+  const interestId=interest.rows[0].id;
+  const reviewed=await run("SELECT public.crm_triage_business_interest($1,$2,'review','The inbound company interest is authentic enough for owner review.') AS result",[interestId,actor]);
+  check(reviewed.rows[0].result?.status==='reviewing','inbound business source enters owner review');
+  const accepted=await run("SELECT public.crm_triage_business_interest($1,$2,'accept','Verified company register source and an actual commercial enquiry.') AS result",[interestId,actor]);
+  check(accepted.rows[0].result?.status==='accepted','owner accepts only with evidence');
+  await reject("SELECT public.crm_triage_business_interest($1,$2,'accept','Trying to repeat an already final decision')",[interestId,actor],'Finalized','final inbound review cannot silently replay');
+  await reject("DELETE FROM public.crm_business_interest_audit",[],'immutable','business-interest review audit cannot be deleted');
+  const interestEvents=await run('SELECT count(*)::int AS n FROM public.crm_business_interest_audit WHERE interest_id=$1',[interestId]);
+  check(interestEvents.rows[0].n===2,'both human inbound decisions audited');
+
+  const incoming=await run("INSERT INTO public.crm_business_interests(business_name,business_email,contact_name,interest_kind,message,source,privacy_notice_accepted_at,created_at) VALUES('New Partner','new@partner.example','Partner','commercial','New business interest needs owner review.','contact_form',now(),now()-interval '2 days') RETURNING id");
+  const incomingId=incoming.rows[0].id;
+  const inboxAlert=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(inboxAlert.rows[0].result?.inbound_notified===1,'new business interest triggers one owner reminder');
+  const inboxAgain=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(inboxAgain.rows[0].result?.inbound_notified===0,'business inbox notification is repeat-safe');
+  await run("UPDATE public.crm_business_interests SET retained_until=now()-interval '1 day' WHERE id=$1",[incomingId]);
+  const retentionAlert=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(retentionAlert.rows[0].result?.retention_notified===1,'expired retention produces internal owner review reminder');
+  const retentionAgain=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
+  check(retentionAgain.rows[0].result?.retention_notified===0,'retention reminder is idempotent');
+  const baseline=await run("SELECT count(*)::int AS n FROM public.crm_job_test_baseline_exclusions WHERE job_id='99999999-9999-4999-8999-999999999999'");
+  check(baseline.rows[0].n===1,'all historical test jobs excluded without modifying jobs');
+  await run("UPDATE public.crm_prospect_organisations SET converted_company_id=$1,status='converted' WHERE id=$2",[company,org]);
+  await reject("SELECT public.crm_attest_first_real_job($1,'99999999-9999-4999-8999-999999999999',$2,$3,$4)",
+    [org,actor,'This historical platform job was always a test despite a completed status and delivery evidence.','I_VERIFIED_THIS_IS_A_REAL_PAID_OR_CONTRACTED_JOB_NOT_TEST'],
+    'Historical or flagged test jobs','historical test job never becomes real conversion');
+  const genuineId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  await run("INSERT INTO public.jobs(id,posted_by_company_id,is_test,created_at,status,current_status,completed_at,has_delivery_evidence) VALUES($1,$2,false,'2026-11-18','completed','delivered','2026-11-18',true)",[genuineId,company]);
+  const proof=await run("SELECT public.crm_attest_first_real_job($1,$2,$3,$4,$5) AS result",
+    [org,genuineId,actor,'Independent signed job and POD reviewed; contractual evidence is genuine and this work was not generated for a test.','I_VERIFIED_THIS_IS_A_REAL_PAID_OR_CONTRACTED_JOB_NOT_TEST']);
+  check(!!proof.rows[0].result?.attestation_id,'genuine documented post-baseline job can be attested once');
+  await reject("SELECT public.crm_attest_first_real_job($1,$2,$3,$4,$5)",
+    [org,genuineId,actor,'Repeat confirmation should fail because only one verified first job is permitted per prospect.','I_VERIFIED_THIS_IS_A_REAL_PAID_OR_CONTRACTED_JOB_NOT_TEST'],
+    'duplicate key','real first-job attestation cannot be duplicated');
+  await reject("UPDATE public.crm_verified_first_real_jobs SET evidence='tamper'",[],'immutable','real-job evidence proof cannot be rewritten');
+
   const rls=await run("SELECT relname,relrowsecurity,relforcerowsecurity FROM pg_class WHERE relname LIKE 'crm_%' AND relkind='r'");
-  check(rls.rows.length===8 && rls.rows.every(r=>r.relrowsecurity&&r.relforcerowsecurity),'all 8 CRM tables RLS forced');
+  check(rls.rows.length===13 && rls.rows.every(r=>r.relrowsecurity&&r.relforcerowsecurity),'all 13 CRM tables RLS forced');
   const acl=await run("SELECT has_table_privilege('anon','public.crm_prospect_contacts','SELECT') a,has_table_privilege('authenticated','public.crm_prospect_contacts','SELECT') b");
   check(acl.rows[0].a===false && acl.rows[0].b===false,'anon/authenticated CRM contact SELECT denied');
   console.log('LOCAL_SMOKE_PASS '+passed+' assertions; no hosted database accessed');
