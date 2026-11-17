@@ -27,7 +27,7 @@ describe('XDrive collection: one job reference + assigned carrier company ID', (
     expect(handover).toContain(".eq('assigned_driver_id', driver.driverId)");
     expect(handover).toContain("job.assigned_company_id !== driver.companyId");
     expect(handover).toContain("data.assigned_company_id !== driver.companyId");
-    expect(handover).toContain("collectionReferenceIdentity(jobId, publicId)");
+    expect(handover).toContain("collectionReferenceIdentity(jobId, publicId, referenceRow.public_reference)");
     expect(handover).toContain("verifiedCollectionCommercialActorId(driverType, company.xd_id, ownerProfile.data?.xd_id)");
     expect(handover).not.toContain('const yourReference = cleanString(body.yourReference');
     expect(handover).not.toContain('const customerReference = cleanString(body.customerReference');

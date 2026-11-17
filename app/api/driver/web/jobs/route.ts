@@ -30,24 +30,6 @@ type OwnerCompanyRow = {
   xd_id: string | null;
 };
 
-async function loadPosterProfiles(userIds: string[]) {
-  const memberIdByUserId = new Map<string, string>();
-  if (!supabaseAdmin || userIds.length === 0) return { memberIdByUserId, partial: false };
-
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('user_id,xd_id')
-    .in('user_id', userIds);
-
-  if (error) return { memberIdByUserId, partial: true };
-  for (const row of data ?? []) {
-    const userId = String(row.user_id ?? '');
-    const xdId = String(row.xd_id ?? '');
-    if (userId && xdId) memberIdByUserId.set(userId, xdId);
-  }
-  return { memberIdByUserId, partial: false };
-}
-
 async function loadOwnerCompanies(companyIds: string[]) {
   const companiesById = new Map<string, OwnerCompanyRow>();
   if (!supabaseAdmin || companyIds.length === 0) return { companiesById, partial: false };
@@ -189,12 +171,10 @@ export async function GET(request: NextRequest) {
 
   const rows = (data ?? []) as unknown as MobileJobWithPresentation[];
   const ownerCompanyIds = [...new Set(rows.map((row) => row.company_id).filter((id): id is string => Boolean(id)))];
-  const posterUserIds = [...new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id)))];
-  const [commercial, stopData, ownerCompanies, posterProfiles] = await Promise.all([
+  const [commercial, stopData, ownerCompanies] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, rows),
     loadStops(rows.map((row) => row.id)),
     loadOwnerCompanies(ownerCompanyIds),
-    loadPosterProfiles(posterUserIds),
   ]);
   const nextCursor = completedHistory && rows.length === limit
     ? rows[rows.length - 1]?.updated_at ?? null
@@ -230,14 +210,13 @@ export async function GET(request: NextRequest) {
       const environmentalZone = Array.from(new Set([zones.pickup?.label, zones.delivery?.label].filter((value): value is string => Boolean(value)))).join(' + ') || null;
       const persistentStops = stopData.stopsByJob.get(row.id) ?? [];
       const ownerCompany = row.company_id ? ownerCompanies.companiesById.get(row.company_id) ?? null : null;
-      const posterMemberId = row.created_by ? posterProfiles.memberIdByUserId.get(row.created_by) ?? null : null;
       return {
         ...mapJob(row),
         ...operational,
         // Photo uploads alone are not a completed POD.
         podGenerated: isDriverPodComplete(row),
         companyName: ownerCompany?.name ?? undefined,
-        companyXdId: row.company_id ? ownerCompany?.xd_id ?? undefined : posterMemberId ?? undefined,
+        companyXdId: ownerCompany?.xd_id ?? undefined,
         environmentalZone: environmentalZone ?? undefined,
         stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
         attachments: attachments.get(row.id) ?? [],
@@ -249,7 +228,7 @@ export async function GET(request: NextRequest) {
     }),
     commercialRatePartial: commercial.partial,
     multiDropPartial: stopData.partial,
-    companyPresentationPartial: ownerCompanies.partial || posterProfiles.partial,
+    companyPresentationPartial: ownerCompanies.partial,
     podPresentationPartial,
     attachmentPresentationPartial,
   });

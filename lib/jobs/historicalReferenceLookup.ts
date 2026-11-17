@@ -19,6 +19,7 @@ export type ReferenceJob = {
   cust_ref?: string | null;
   your_ref?: string | null;
   collection_handover?: unknown;
+  xdrive_job_references?: { public_reference?: string | null } | null;
 };
 
 const canonicalId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,6 +31,7 @@ export function historicalJobAliases(job: ReferenceJob): string[] {
     job.id, job.reference, job.jobRef, job.public_reference,
     job.load_reference, job.load_ref, job.booking_reference,
     job.customer_reference, job.customer_ref, job.cust_ref, job.your_ref,
+    job.xdrive_job_references?.public_reference,
   ];
   if (canonicalId.test(job.id)) {
     values.push('XDL-' + job.id.slice(0, 8).toUpperCase());

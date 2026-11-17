@@ -15,13 +15,15 @@ async function getCollectionIdentity(
   driverType: string | null,
 ) {
   const ownerDriver = driverType === 'owner_driver';
-  const [{ data: company, error: companyError }, ownerProfile] = await Promise.all([
+  const [{ data: company, error: companyError }, ownerProfile, { data: referenceRow, error: referenceError }] = await Promise.all([
     supabaseAdmin!.from('companies').select('xd_id, company_type').eq('id', companyId).maybeSingle(),
     ownerDriver
       ? supabaseAdmin!.from('profiles').select('xd_id').eq('user_id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    supabaseAdmin!.from('xdrive_job_references').select('public_reference')
+      .eq('job_id', jobId).maybeSingle(),
   ]);
-  if (companyError || ownerProfile.error || !company) {
+  if (companyError || ownerProfile.error || referenceError || !company || !referenceRow) {
     return { error: 'Transport operator identity could not be verified.', identity: null };
   }
   if (ownerDriver && !['owner_driver', 'sole_trader'].includes(String(company.company_type ?? ''))) {
@@ -33,7 +35,7 @@ async function getCollectionIdentity(
       ? 'Owner Driver XDrive IDs are inconsistent. Collection is blocked until identity reconciliation.'
       : 'Driver role or employing company XDrive ID is not verified.', identity: null };
   }
-  const identity = collectionReferenceIdentity(jobId, publicId);
+  const identity = collectionReferenceIdentity(jobId, publicId, referenceRow.public_reference);
   return identity
     ? { error: null, identity }
     : { error: 'Official job reference or transport operator ID could not be verified.', identity: null };

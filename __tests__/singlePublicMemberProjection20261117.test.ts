@@ -22,13 +22,16 @@ describe('One public commercial ID across XDrive directory, jobs and drivers',()
     for(const channel of ['mobile','web']){
       const list=src('app/api/driver/'+channel+'/jobs/route.ts');
       const detail=src('app/api/driver/'+channel+'/jobs/[id]/route.ts');
-      expect(list).toContain('companyXdId: row.company_id ? ownerCompany?.xd_id ?? undefined : posterMemberId ?? undefined');
-      expect(detail).toContain('companyXdId: row.company_id ? ownerCompany?.xd_id ?? undefined : posterMemberId ?? undefined');
+      expect(list).toContain('companyXdId: ownerCompany?.xd_id ?? undefined');
+      expect(detail).toContain('companyXdId: ownerCompany?.xd_id ?? undefined');
+      expect(detail).not.toContain('posterMemberId');
+      expect(list).not.toContain('posterMemberId');
     }
   });
   it('shows one company ID on the driver-facing job sheet',()=>{
     const sheet=src('app/api/driver/jobs/[jobId]/sheet/route.ts');
-    expect(sheet).toContain('memberCode: originCompanyId ? text(company.xd_id) : text(posterProfile.xd_id)');
+    expect(sheet).toContain('memberCode: originCompanyId ? text(company.xd_id) : null');
+    expect(sheet).toContain('reference: officialReference,');
   });
   it('never shows a personal profile ID for a company-employed driver in member profile',()=>{
     const driver=src('app/api/member-profile/driver/[driverId]/route.ts');
