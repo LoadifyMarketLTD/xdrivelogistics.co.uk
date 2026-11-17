@@ -120,31 +120,47 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     const photoPaths = pathList(raw.photoPaths);
     const documentPaths = pathList(raw.documentPaths);
     if (!photoPaths || !documentPaths) return respond(400, { error: 'Too many or invalid stop evidence files.' });
-    const itemCount = numberOrNull(raw.itemCount, 0, 100000);
-    const weightKg = numberOrNull(raw.weightKg, 0, 100000);
-    const etaMinutes = numberOrNull(raw.etaMinutes, 0, 1440);
-    if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
-      return respond(400, { error: 'Invalid stop handover quantities.' });
+    const itemCount = optionalNumber(raw.itemCount, 0, 100000);
+    const weightKg = optionalNumber(raw.weightKg, 0, 100000);
+    const etaMinutes = optionalNumber(raw.etaMinutes, 0, 1440);
+    const etaAt = optionalDateTime(raw.etaAt);
+    const deliveredOn = optionalDateTime(raw.deliveredOn);
+    if ([itemCount, weightKg, etaMinutes, etaAt, deliveredOn].some((value) => Number.isNaN(value))) {
+      return respond(400, { error: 'Invalid stop handover values.' });
     }
-    if (photoPaths.length || documentPaths.length) {
+    const packaging = cleanString(raw.packaging, 120);
+    const notes = cleanString(raw.notes, 2000);
+    const customerReference = cleanString(raw.customerReference, 120);
+    const recipientName = cleanString(raw.recipientName, 160);
+    const leftAt = cleanString(raw.leftAt, 160);
+    const deliveryStatus = cleanString(raw.deliveryStatus, 80);
+    const signaturePath = cleanString(raw.signaturePath, 500);
+    if (photoPaths.length || documentPaths.length || signaturePath) {
       if (!driver.companyId) return respond(403, { error: 'Driver company is required for evidence.' });
       const prefix = `${driver.companyId}/${jobId}/stops/${stopId}/`;
       const photosOk = await verifyStopEvidence(photoPaths, prefix + 'photos/');
       const documentsOk = await verifyStopEvidence(documentPaths, prefix + 'documents/');
-      if (!photosOk || !documentsOk) return respond(400, { error: 'Stop evidence could not be verified in storage.' });
+      const signatureOk = !signaturePath || await verifyStopEvidence([signaturePath], prefix + 'signature/');
+      if (!photosOk || !documentsOk || !signatureOk) return respond(400, { error: 'Stop evidence could not be verified in storage.' });
     }
     handover = {
-      version: 1,
+      version: 2,
       capturedAt: new Date().toISOString(),
-      itemCount: itemCount == null ? null : Math.round(itemCount),
+      customerReference: customerReference || null,
+      itemCount: itemCount === null ? null : Math.round(itemCount),
+      packaging: packaging || null,
       weightKg,
       etaMinutes,
-      packaging: typeof raw.packaging === 'string' ? raw.packaging.trim().slice(0, 120) || null : null,
-      notes: typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 2000) || null : null,
+      etaAt: etaAt === null ? null : etaAt,
+      notes: notes || null,
+      recipientName: recipientName || null,
+      leftAt: leftAt || null,
+      deliveryStatus: deliveryStatus || null,
+      deliveredOn: deliveredOn === null ? null : deliveredOn,
       photoPaths,
       documentPaths,
+      signaturePath: signaturePath || null,
     };
-  }
   // Collection handover is mandatory; do not allow skipping it by omitting the JSON object.
   if (next === 'completed' && target.stop_type === 'collection' && !handover) {
     return respond(400, { error: 'Collection stop photo handover is required.' });
