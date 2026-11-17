@@ -27,6 +27,9 @@ type Props = {
  onBack:()=>void;
  onUndo?:()=>void;
  busy:boolean;
+ hardCopyRequired?:boolean;
+ hardCopyAcknowledged?:boolean;
+ onHardCopyAcknowledged?:(value:boolean)=>void;
 };
 
 function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string|null)=>void}){
@@ -61,7 +64,7 @@ function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string
  </div>;
 }
 
-export default function DeliveryHandover({job,value,onChange,signature,onSignature,onSaveSignature,signatureVerified,photos,onPhotos,onConfirm,onBack,onUndo,busy,mode='delivery'}:Props){
+export default function DeliveryHandover({job,value,onChange,signature,onSignature,onSaveSignature,signatureVerified,photos,onPhotos,onConfirm,onBack,onUndo,busy,mode='delivery',hardCopyRequired=false,hardCopyAcknowledged=false,onHardCopyAcknowledged}:Props){
  const [savingSignature,setSavingSignature]=useState(false);
  const signatureSaved=signatureVerified;
  const [signatureError,setSignatureError]=useState('');
@@ -70,9 +73,9 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
  const requiredItems=Number.isInteger(Number(value.items))&&value.items!==''&&Number(value.items)>0;
  const hasDeliveryPhoto=photos.some(file=>file.type==='image/jpeg'||file.type==='image/png')||Boolean(job.deliveryPhotos?.length);
- const ready=value.recipient.trim().length>=2&&Boolean(signature)&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&(mode!=='delivery'||hasDeliveryPhoto);
+ const ready=value.recipient.trim().length>=2&&Boolean(signature)&&signatureVerified&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&hasDeliveryPhoto&&((job.deliveryPhotos?.length||0)+photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length)<=10&&(!hardCopyRequired||hardCopyAcknowledged);
  const docsCount=photos.filter(f=>f.type==='application/pdf').length;
- const photosCount=mode==='pod'?Math.max(photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length,job.deliveryPhotos?.length||0):photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length;
+ const photosCount=(job.deliveryPhotos?.length||0)+photos.filter(f=>f.type==='image/jpeg'||f.type==='image/png').length;
  const [fileError,setFileError]=useState('');
  const [cameraOpen,setCameraOpen]=useState(false);
  const [cameraBusy,setCameraBusy]=useState(false);
@@ -109,6 +112,9 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
    setFileError('');
    const all=[...photos,...candidates];
    const unique=all.filter((file,index)=>all.findIndex(other=>other.name===file.name&&other.size===file.size&&other.lastModified===file.lastModified)===index);
+   const imageCount=unique.filter(file=>file.type==='image/jpeg'||file.type==='image/png').length;
+   const documentCount=unique.filter(file=>file.type==='application/pdf').length;
+   if(imageCount+(job.deliveryPhotos?.length||0)>10||documentCount>10){setFileError('Maximum 10 delivery images (including saved job photos) and 10 documents per POD.');return;}
    onPhotos(unique);
  };
 
@@ -146,6 +152,7 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
     </div>
     <label className="rv-delivery-field"><span>Driver notes <small>Optional</small></span><textarea rows={2} placeholder="Access, shortages or delivery instructions" value={value.notes} onChange={e=>set('notes',e.target.value)}/></label>
   </div>
+  {mode==='pod'&&hardCopyRequired&&<label className="rv-hard-copy-ack"><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>onHardCopyAcknowledged?.(e.target.checked)}/> I acknowledge that the required paper POD must be retained and handed over as instructed.</label>}
   <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy||!ready} onClick={onConfirm}>{busy ? 'Saving...' : mode === 'pod' ? 'Save Signed POD' : 'Confirm Delivery'}</button><p>{ready?'Handover is ready. Your evidence will be verified by XDrive.':`Required: ${[!value.recipient.trim()&&'recipient name',!signature&&'recipient signature',!requiredItems&&'item count',!value.leftAt.trim()&&'Left At',!/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&'Delivered On',!/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&'Delivery Time',mode==='delivery'&&!hasDeliveryPhoto&&'at least one delivery photo',].filter(Boolean).join(', ')}.`}</p></div>
  </section>;
 }

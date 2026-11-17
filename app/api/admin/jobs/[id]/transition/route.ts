@@ -7,6 +7,7 @@ import {
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
 import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
+import { hasCompletePodEvidence } from '../../../../../../lib/jobs/podCompletion';
 
 const bodySchema = z.object({
   nextStatus: z.enum([
@@ -58,17 +59,8 @@ const eventType: Record<string, string> = {
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
-const hasCompletePod = (job: Record<string, unknown>) => {
-  const signature = job.delivery_signature_data;
-  const hasSignature = typeof signature === 'string'
-    ? signature.trim().length > 0
-    : Boolean(signature && typeof signature === 'object');
-  const recipientName = typeof job.client_signature_name === 'string'
-    ? job.client_signature_name.trim()
-    : '';
-
-  return job.pod_generated === true && hasSignature && recipientName.length > 0;
-};
+const hasCompletePod = (job: Record<string, unknown>) =>
+  hasCompletePodEvidence(job);
 
 export async function POST(
   request: NextRequest,
@@ -116,7 +108,7 @@ export async function POST(
   }
   if (parsed.data.nextStatus === 'completed' && !hasCompletePod(job as Record<string, unknown>)) {
     return respond(409, {
-      error: 'Complete POD before completing this job: save the signed POD and recipient name.',
+      error: 'Complete POD before completing this job: recipient name, drawn signature and 1-10 delivery photos are required.',
     });
   }
 

@@ -29,12 +29,12 @@ test('ETA is future-only on both client and server',()=>{
  assert.match(app,/if\(deliveryEtaAt\.trim\(\)\)/);
  assert.ok(app.indexOf('if(deliveryEtaAt.trim())')<app.indexOf('const evidence=await uploadCollectionEvidence(j,s.token)'));
 });
-test('Loaded requires photo but arrival does not; confirmed delivery requires photo; POD does not demand a second one',()=>{
+test('Loaded, delivered and POD require verified photos; a stored delivery photo may be reused',()=>{
  assert.match(handover,/stage === 'loaded' && photoPaths\.length === 0/);
  assert.match(app,/collectionStage==='loaded'&&!evidence\.photos\.length/);
- assert.match(confirmation,/if \(!evidencePath\) return respond\(409/);
+ assert.match(confirmation,/!persistedEvidence.includes\(evidencePath\)/);
  assert.match(app,/if\(!evidence\.photos\.length\)throw new Error\('XDrive requires at least one verified delivery photo/);
- assert.match(pod,/Delivery photographs are optional unless a specific customer requirement applies/);
+ assert.match(pod,/deliveryPhotos.length < 1 \|\| deliveryPhotos.length > 10/);
 });
 test('Optional arrival quantities and server-autofilled immutable collection references agree with handover API',()=>{
  assert.match(app,/pickupItems\.trim\(\)===''\?null:Number\(pickupItems\)/);

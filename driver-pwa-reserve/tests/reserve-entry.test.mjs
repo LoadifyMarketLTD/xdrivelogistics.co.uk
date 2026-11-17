@@ -44,7 +44,7 @@ test('signed delivery draft persists signature and evidence and restores securel
  assert.match(app,/signatureData:signature,photoUris:evidence\.photos,documentUris:evidence\.documents/);
  assert.match(app,/\/'\+encodeURIComponent\(job\.id\)\+'\/pod-draft'/);
  assert.match(app,/setSignature\(previous=>previous\|\|saved\.signatureData\)/);
- assert.ok(handover.includes("const photosCount=mode==='pod'?Math.max("));
+ assert.ok(handover.includes("const photosCount=(job.deliveryPhotos?.length||0)+")); // includes both stored and newly attached photos
  assert.match(api,/podRecorded: r\.podGenerated === true && Boolean\(r\.deliverySignatureData\) && Boolean\(str\(r\.clientSignatureName\)\)/);
 });
 
@@ -123,7 +123,7 @@ test('recipient signature has a distinct save button below the pad wired to veri
  assert.match(app,/async function saveRecipientSignature\(j:LiveJob\):Promise<void>/);
  assert.match(app,/method:'PUT'.*body:JSON.stringify\(body\)/);
  assert.match(app,/confirmation\?\.draft\?\.signatureData!==signature/);
- assert.equal((app.match(/onSaveSignature=\{\(\)=>saveRecipientSignature\(job\)\}/g)||[]).length,1);
+ assert.equal((app.match(/onSaveSignature=\{\(\)=>saveRecipientSignature\(job\)\}/g)||[]).length,2); // delivery and delivered-POD recovery
  assert.match(styles,/\.rv-delivery-field \.rv-signature-save/);
 });
 
@@ -143,6 +143,6 @@ test('green signature status rehydrates from authoritative saved POD draft after
  assert.match(app,/setVerifiedSignature\(saved\.signatureData\)/);
  assert.match(app,/setVerifiedSignature\(signature\)/);
  assert.match(app,/setVerifiedSignature\(null\);setError\(''\)/);
- assert.equal((app.match(/signatureVerified=\{Boolean\(signature\)&&verifiedSignature===signature\}/g)||[]).length,1);
+ assert.equal((app.match(/signatureVerified=\{Boolean\(signature\)&&verifiedSignature===signature\}/g)||[]).length,2); // both workflows
  assert.match(component,/const signatureSaved=signatureVerified/);
 });
