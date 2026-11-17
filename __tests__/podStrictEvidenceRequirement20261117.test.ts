@@ -98,7 +98,17 @@ describe('strict POD contract — recipient, drawn signature, 1-10 photographs',
     expect(reserve).toContain("'Take photo'");
     expect(reserve).toContain('Add Files');
     expect(reserve).toContain('hasDeliveryPhoto');
-    expect(reserve).toContain('Maximum 10 delivery images and 10 documents per POD.');
+    expect(reserve).toContain('Maximum 10 delivery images (including saved job photos) and 10 documents per POD.');
+    expect(reserve).toContain('Boolean(signature)&&signatureVerified');
+  });
+
+  it('lets drivers recover delivered-but-unsigned jobs in the full POD form', () => {
+    const app = source('driver-pwa-reserve/src/ReserveApp.tsx');
+    expect(app).toContain('if(delivered)return <DeliveryHandover');
+    expect(app).toContain('mode="pod"');
+    expect(app).toContain('onConfirm={()=>void savePod(job)}');
+    expect(app).toContain('onSaveSignature={()=>saveRecipientSignature(job)}');
+    expect(app).toContain('if(job.podRecorded||podDone)return');
   });
 
   it('prepares a database completion trigger hardening review without applying it', () => {
