@@ -14,7 +14,8 @@ describe('cross-workspace canonical POD / Evidence completion', () => {
   const driverPod = read('app/api/driver/web/jobs/[id]/[action]/route.ts');
 
   it('preserves the existing atomic Driver POD write contract', () => {
-    expect(driverPod).toContain("rpc('record_driver_pod_atomic'");
+    expect(driverPod).toContain("'record_driver_pod_atomic'");
+    expect(driverPod).toContain("'repair_incomplete_driver_pod_atomic'");
     expect(driverPod).toContain('At least one and at most 10 verified delivery photos are required for POD.');
     expect(driverPod).toContain('A drawn recipient signature is required for POD; a typed name is insufficient.');
     expect(driverPod).toContain('Recipient name is required for POD.');

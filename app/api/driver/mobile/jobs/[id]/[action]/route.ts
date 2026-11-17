@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
+import { isVerifiedOfficialPodComplete } from '../../../../../../../lib/server/verifiedPodCompletion';
 import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
@@ -239,6 +240,18 @@ async function savePod(
   if (!['delivered', 'completed', 'invoiced'].includes(currentStatus)) {
     return respond(409, { error: 'Mark the job Delivered before completing POD.' });
   }
+  if (job.pod_generated === true) {
+    let completed: boolean;
+    try {
+      completed = await isVerifiedOfficialPodComplete(supabaseAdmin!, jobId, job);
+    } catch {
+      return respond(503, { error: 'Official POD completion could not be verified.' });
+    }
+    if (completed) return respond(200, { ok: true, alreadySubmitted: true, job: mapJob(job) });
+    if (currentStatus !== 'delivered') {
+      return respond(409, { error: 'An incomplete historical POD on a completed or invoiced job requires administrator review.' });
+    }
+  }
 
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
@@ -341,7 +354,10 @@ async function savePod(
     hardCopyRequired && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
   ].filter(Boolean).join(' | ') || null;
 
-  const { data: updated, error: podWriteError } = await supabaseAdmin!.rpc('record_driver_pod_atomic', {
+  const rpcName = job.pod_generated === true
+    ? 'repair_incomplete_driver_pod_atomic'
+    : 'record_driver_pod_atomic';
+  const { data: updated, error: podWriteError } = await supabaseAdmin!.rpc(rpcName, {
     p_job_id: jobId,
     p_driver_id: driverId,
     p_user_id: userId,
@@ -359,6 +375,17 @@ async function savePod(
     p_photo_urls: deliveryPhotos,
   });
   if (podWriteError) return respond(500, { error: podWriteError.message });
+  if (!updated || typeof updated !== 'object') return respond(503, { error: 'POD save did not return a persisted job.' });
+  let verified: boolean;
+  try {
+    verified = await isVerifiedOfficialPodComplete(supabaseAdmin!, jobId, updated as MobileJobRow);
+  } catch {
+    return respond(503, { error: 'Saved POD could not be verified.' });
+  }
+  if (!verified) return respond(409, { error: 'POD evidence is still incomplete. Save the drawn signature and verified delivery photos.' });
+  if ('_alreadySubmitted' in updated && updated._alreadySubmitted === true) {
+    return respond(200, { ok: true, alreadySubmitted: true, job: mapJob(updated as MobileJobRow) });
+  }
 
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
   if (hardCopyRequired && hardCopyAcknowledged) {
