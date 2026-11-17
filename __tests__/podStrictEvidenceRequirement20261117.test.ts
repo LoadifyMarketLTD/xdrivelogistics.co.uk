@@ -111,12 +111,14 @@ describe('strict POD contract — recipient, drawn signature, 1-10 photographs',
     expect(app).toContain('if(job.podRecorded||podDone)return');
   });
 
-  it('prepares a database completion trigger hardening review without applying it', () => {
-    const patch = source('docs/review/POD_STRICT_DB_COMPLETION_REVIEW_20261117.sql');
+  it('has the versioned production database completion guard against typed signatures and missing photos', () => {
+    const patch = source('supabase/migrations/20261117095815_enforce_signed_pod_and_delivery_photos.sql');
     expect(patch).toContain('fn_require_complete_pod_before_completed');
     expect(patch).toContain('jsonb_array_elements_text(NEW.delivery_photos)');
     expect(patch).toContain("'recipient_typed_name_attestation'");
     expect(patch).toContain('proof_of_delivery');
-    expect(patch).toContain('REVIEW-ONLY');
+    expect(patch).toContain('Production XDrive POD strict completion');
+    expect(patch).toContain('NOT BETWEEN 1 AND 10');
+    expect(patch).toContain('Between 1 and 10 distinct JPEG/PNG delivery photographs');
   });
 });

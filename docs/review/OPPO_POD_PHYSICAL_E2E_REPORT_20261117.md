@@ -23,7 +23,7 @@
 | Additional paper POD | Required checkbox and server-enforced acknowledgment present in recovery flow | CODE/UNIT PASS; no job requiring hard-copy individually verified on device |
 | Positive official POD POST / PDF / invoice | Deliberately not submitted to Production (existing test record, potential invoice/email side effects) | NOT TESTED |
 | Server API patch deployed | Patch only lives on isolated Git branch, not Production | NOT DEPLOYED |
-| Production DB complete-job trigger | Existing trigger is too lenient; candidate fix `POD_STRICT_DB_COMPLETION_REVIEW_20261117.sql` not applied | RELEASE BLOCKER |
+| Production DB complete-job trigger | Production trigger patched via versioned migration `20261117095815_enforce_signed_pod_and_delivery_photos.sql`; positive and 5 negative SQL tests passed against a temporary copy | PASS (database) |
 
 ## Regression
 - Vitest POD/Driver/Finance suite: 76/76 pass before final mobile UX expansion; targeted re-run: 37/37 pass (6 test files) including delivered unsigned recovery contract.

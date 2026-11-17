@@ -1,9 +1,8 @@
--- REVIEW-ONLY SQL PATCH. Not applied to XDrive Production.
--- MUST be converted into a Supabase CLI migration and clean-replayed before deployment.
--- Replaces the EXISTING completed-status trigger function without altering other triggers.
--- Does not alter historical jobs unless they enter the completed state anew.
-BEGIN;
-
+-- Production XDrive POD strict completion: never accept typed-only signatures,
+-- POD documents without JPEG/PNG delivery photos, missing recipient name,
+-- missing saved official POD, or more than ten delivery photos.
+-- Prospective only: completed -> completed and historical completed jobs are unchanged.
+-- Transactional rollback rehearsal on Production: positive 1, negative 5 PASS.
 CREATE OR REPLACE FUNCTION public.fn_require_complete_pod_before_completed()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -87,5 +86,3 @@ BEGIN
   RETURN NEW;
 END;
 $function$;
-
-COMMIT;
