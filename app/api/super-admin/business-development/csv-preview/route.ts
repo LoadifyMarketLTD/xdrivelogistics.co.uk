@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { issueCrmCsvPreviewToken } from '@/lib/business-development/csvPreviewToken';
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { authorizeCrm, crmDomain, crmHttps, crmResponse } from '../_lib/server';
@@ -97,8 +98,14 @@ export async function POST(request:NextRequest) {
     if(alreadyExists)errors.push('Organisation already in CRM');
     return {row:c.row,valid:errors.length===0,errors,duplicateInFile:c.duplicateInFile,alreadyExists};
   });
+  const sha256 = createHash('sha256').update(csv,'utf8').digest('hex');
+  const validCount = rows.filter(r=>r.valid).length;
+  const previewToken = validCount === rows.length
+    ? issueCrmCsvPreviewToken(sha256, auth.owner!.id, process.env.XDRIVE_CRM_PREVIEW_SIGNING_SECRET)
+    : null;
   return crmResponse(200,{
-    dryRun:true,writes:0,rows,total:rows.length,valid:rows.filter(r=>r.valid).length,
-    preview_sha256:createHash('sha256').update(csv,'utf8').digest('hex'),
+    dryRun:true,writes:0,rows,total:rows.length,valid:validCount,
+    preview_sha256:sha256,preview_token:previewToken,
+    import_ready:previewToken !== null,
   });
 }

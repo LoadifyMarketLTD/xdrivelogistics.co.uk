@@ -87,7 +87,7 @@ export async function PATCH(request:NextRequest) {
   const body=await parse(request);
   if(!body || !crmUuid(body.id))return crmResponse(400,{error:'Contact ID required.'});
   const {data:current,error:readError}=await supabaseAdmin!.from('crm_prospect_contacts')
-    .select('id,organisation_id,contact_status').eq('id',body.id).maybeSingle();
+    .select('id,organisation_id,contact_status,tps_ctps_checked_at,first_notice_sent_at').eq('id',body.id).maybeSingle();
   if(readError)return crmResponse(503,{error:'Contact lookup unavailable.'});
   if(!current)return crmResponse(404,{error:'Contact not found.'});
   if(body.action==='retention') {
@@ -117,9 +117,9 @@ export async function PATCH(request:NextRequest) {
     ...fields,last_verified_at:new Date().toISOString(),last_actor_id:auth.owner!.id,
     last_review_note:note,corporate_subscriber_verified:body.corporate_subscriber_verified===true,
     lia_approved:body.lia_approved===true,
-    tps_ctps_checked_at:body.tps_ctps_checked===true?new Date().toISOString():null,
+    tps_ctps_checked_at:body.tps_ctps_checked===true?(current.tps_ctps_checked_at??new Date().toISOString()):null,
     tps_ctps_blocked:body.tps_ctps_blocked===true,
-    first_notice_sent_at:body.notice_delivered===true?new Date().toISOString():null,
+    first_notice_sent_at:body.notice_delivered===true?(current.first_notice_sent_at??new Date().toISOString()):null,
   }).eq('id',body.id).eq('organisation_id',current.organisation_id)
     .select('id,organisation_id,contact_status,last_verified_at').maybeSingle();
   if(error)return crmResponse(error.code==='23505'||error.code==='23514'?409:503,{

@@ -18,8 +18,15 @@ export function isCrmStagingWriteAllowed(input: CrmWriteGateInput): boolean {
   try {
     const declared=new URL(input.stagingSupabaseUrl);
     const actual=new URL(input.connectedSupabaseUrl);
+    // Known company Production projects are hard-denied even if staging env
+    // variables are accidentally pointed at the live Supabase URL.
+    const blockedProductionOrigins = new Set([
+      'https://jqxlauexhkonixtjvljw.supabase.co',
+      'https://fwdfpmfvgygvqciecesx.supabase.co',
+    ]);
     return declared.protocol==='https:' && actual.protocol==='https:' &&
       declared.origin===actual.origin &&
+      !blockedProductionOrigins.has(actual.origin) &&
       declared.hostname.endsWith('.supabase.co') &&
       declared.hostname!=='.supabase.co' &&
       !declared.username && !declared.password && !actual.username && !actual.password &&

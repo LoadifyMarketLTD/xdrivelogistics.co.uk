@@ -33,18 +33,20 @@ These are owner-controlled intake channels, **not six validated autonomous acqui
 - Existing unapplied CRM migrations: `20261116191000_b2b_crm_private_staging.sql`, `20261116192900_crm_contact_suppression_guard.sql`.
 - New source-only migration: `20261117060000_crm_workflows_isolated_staging.sql`.
 - **None of these migrations has been applied to Production.**
-- The Supabase CLI installation on the connected Windows device returned `spawn UNKNOWN`; migration source was written manually and MUST undergo clean local replay, advisors and SQL security review before any hosted write.
-- Require `XDRIVE_CRM_STAGING_WRITES=enabled`, `XDRIVE_CRM_DATABASE_SCOPE=isolated_staging`, and `XDRIVE_CRM_STAGING_SUPABASE_URL=https://<isolated-ref>.supabase.co` matching the actual Next.js Supabase origin; never point to Production or deploy preview.
+- The Supabase CLI installation on the connected Windows device returned `spawn UNKNOWN`. We added reproducible `npm run test:crm:sql`: in-memory PostgreSQL (PGlite) with minimal `auth.users` and `companies` fixtures, all three CRM migrations replayed successfully (19 SQL assertions PASS). This is **not** a full replay of the complete historical XDrive schema or hosted Supabase E2E; staging clean replay and advisors are still required.
+- Require `XDRIVE_CRM_STAGING_WRITES=enabled`, `XDRIVE_CRM_DATABASE_SCOPE=isolated_staging`, and `XDRIVE_CRM_STAGING_SUPABASE_URL=https://<isolated-ref>.supabase.co` matching the actual Next.js Supabase origin; never point to Production or deploy preview. The existing XDrive and separate Loadify Production origins are also explicitly denied by the write gate.
 - `COMPANIES_HOUSE_API_KEY` is server-only and optional; without it, registry search returns 503 with a clear message.
+- `XDRIVE_CRM_PREVIEW_SIGNING_SECRET` must be at least 32 characters, server-only and configured in isolated staging. Owner CSV preview issues a 15-minute HMAC token bound to the owner ID and exact SHA-256 file hash; import rejects missing, tampered, expired, cross-owner or unsigned previews.
 
 ## Verified local source checks
 - TypeScript noEmit PASS (twice during implementation), scoped ESLint PASS, Git whitespace checks PASS.
-- CRM target unit tests PASS: 30/30 (19 isolated write-gate cases and 11 outreach eligibility cases, via `__tests__`).
+- CRM target unit tests PASS: 37/37 (20 isolated write-gate, 11 outreach eligibility, 6 signed CSV review token tests, via `__tests__`).
+- SQL source-only ephemeral PostgreSQL replay PASS: 3 migrations and 19 assertions. Found and repaired the shared audit-protection trigger which incorrectly accessed a contact_id field on campaign audit rows. Erasure now redacts contact-linked activity notes while retaining restricted metadata. Retention legal-hold denials tested.
 - These checks do **not** count as SQL clean replay, authenticated E2E, production readiness or real commercial transactions.
 
 ## Remaining gates before claiming production readiness
-- SQL migration clean replay, RLS/service-role checks, erasure/suppression FK trigger validation, typecheck and lint.
-- Isolated staging environment and real authenticated owner/non-owner/anonymous E2E evidence.
+- Full XDrive historical-schema replay (local fixtures covered CRM migration contracts only), hosted **isolated staging** verification, security advisors and actual authenticated REST/RLS checks. Local SQL RLS/trigger/erasure contracts and TypeScript/lint pass.
+- An independently verified healthy isolated staging Supabase project and real authenticated owner/non-owner/anonymous E2E evidence. Only XDrive Production plus branches marked `MIGRATIONS_FAILED` were found in connector inspection; none qualifies as a safe CRM staging target. Do not create billable branch or project without cost approval.
 - CSV duplicates, source integrity, privacy request verification, race conditions and campaign denial validation.
 - Legal review of PECR/UK GDPR, LIA template, external-sourced contact privacy notice and data retention before live outreach.
 - Live commercial data: first 100 manually verified UK organisations with provenance; no messages without explicit separate legal sign-off.
@@ -55,4 +57,4 @@ These are owner-controlled intake channels, **not six validated autonomous acqui
 - A draft campaign approval never allows dispatch; no send action is implemented.
 - An approved onboarding application and an active company are not evidence of a completed shipment.
 - GDPR erasure may be limited by lawful audit retention; review associated free-text notes and legal exemptions before declaring all personal data deleted.
-- QA runs on the isolated worktree are static/unit until the user chooses to begin full E2E testing after feature implementation.
+- Unit/static validation and isolated in-memory PostgreSQL smoke were run; authenticated end-to-end tests involving user sessions and hosted Supabase remain unexecuted. Do not label these local results as full E2E.

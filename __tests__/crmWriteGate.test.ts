@@ -35,6 +35,14 @@ describe('CRM isolated write gate remains fail closed',()=>{
   ])('denies risky staging configuration %j',(change)=>{
     expect(isCrmStagingWriteAllowed({...valid,...change})).toBe(false);
   });
+  it('hard-blocks known XDrive and separate Loadify Production Supabase origins',()=>{
+    for(const production of [
+      'https://jqxlauexhkonixtjvljw.supabase.co/',
+      'https://fwdfpmfvgygvqciecesx.supabase.co/',
+    ]) {
+      expect(isCrmStagingWriteAllowed({...valid,stagingSupabaseUrl:production,connectedSupabaseUrl:production})).toBe(false);
+    }
+  });
   it('rejects fake production URLs which share a suffix but not a hostname boundary',()=>{
     expect(isCrmStagingWriteAllowed({...valid,
       stagingSupabaseUrl:'https://isolated-test.supabase.co.attacker.invalid/',

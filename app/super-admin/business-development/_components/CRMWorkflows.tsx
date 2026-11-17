@@ -37,7 +37,7 @@ type Metrics = {
 };
 type Preview = {
   dryRun: boolean; total: number; valid: number; writes: number;
-  preview_sha256: string; rows: { row:number;valid:boolean;errors:string[] }[];
+  preview_sha256: string; preview_token: string | null; rows: { row:number;valid:boolean;errors:string[] }[];
 };
 const sourceTypes = [
   ['companies_house','Companies House'],['company_website','Verified public website'],
@@ -183,10 +183,10 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onPopulate
     setNotice('Dry run complete: 0 writes.');
   });
   const importCsv=()=>run(async()=>{
-    if(!csvPreview || !csvConfirmed || csvPreview.valid!==csvPreview.total)
+    if(!csvPreview || !csvPreview.preview_token || !csvConfirmed || csvPreview.valid!==csvPreview.total)
       throw Error('All rows must pass preview and receive explicit owner confirmation.');
     const result=await crmApi<{imported:number}>('/csv-import','POST',{
-      csv,preview_sha256:csvPreview.preview_sha256,reviewed:true,
+      csv,preview_sha256:csvPreview.preview_sha256,preview_token:csvPreview.preview_token,reviewed:true,
       confirmation:'IMPORT_VERIFIED_PROSPECTS',
     });
     setCsvPreview(null);setCsvConfirmed(false);
@@ -372,9 +372,10 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onPopulate
       <p><button type="button" disabled={working || readOnly} onClick={()=>void previewCsv()}>Validate CSV without writes</button></p>
       {csvPreview && <>
         <p>Valid: {csvPreview.valid}/{csvPreview.total}. Writes: {csvPreview.writes}.</p>
+        {!csvPreview.preview_token && <p>Signed preview unavailable: the staging import-signing secret may not be configured. Import stays locked.</p>}
         <ul>{csvPreview.rows.filter(x=>!x.valid).map(x=><li key={x.row}>Row {x.row}: {x.errors.join(', ')}</li>)}</ul>
         <label><input type="checkbox" checked={csvConfirmed} disabled={readOnly} onChange={e=>setCsvConfirmed(e.target.checked)}/> I have reviewed every source and confirm these are permitted, accurate business records.</label>
-        <p><button type="button" disabled={readOnly || working || !csvConfirmed || csvPreview.total!==csvPreview.valid} onClick={()=>void importCsv()}>Stage reviewed organisations (no contact import)</button></p>
+        <p><button type="button" disabled={readOnly || working || !csvConfirmed || !csvPreview.preview_token || csvPreview.total!==csvPreview.valid} onClick={()=>void importCsv()}>Stage reviewed organisations (no contact import)</button></p>
       </>}
     </SuperAdminSectionCard>
 

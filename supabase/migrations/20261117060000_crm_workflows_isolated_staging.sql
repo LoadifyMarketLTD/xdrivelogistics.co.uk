@@ -190,12 +190,16 @@ FOR EACH ROW EXECUTE FUNCTION public.crm_audit_privacy_change();
 CREATE OR REPLACE FUNCTION public.crm_protect_audit_row()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
 BEGIN
-  IF TG_OP = 'UPDATE' THEN
-    IF TG_TABLE_NAME = 'crm_prospect_events'
-      AND current_setting('xdrive.crm_erasure', true) = 'yes'
-      AND OLD.contact_id IS NOT NULL AND NEW.contact_id IS NULL
-      AND (to_jsonb(NEW) - 'contact_id') = (to_jsonb(OLD) - 'contact_id')
-    THEN RETURN NEW;
+  -- PL/pgSQL evaluates record-field expressions even within a boolean AND.
+  -- Only the prospect event table has contact_id; branch before accessing it.
+  IF TG_TABLE_NAME = 'crm_prospect_events' THEN
+    IF TG_OP = 'UPDATE' THEN
+      IF current_setting('xdrive.crm_erasure', true) = 'yes'
+        AND OLD.contact_id IS NOT NULL AND NEW.contact_id IS NULL
+        AND NEW.note = '[redacted after verified contact erasure]'
+        AND (to_jsonb(NEW) - 'contact_id' - 'note') = (to_jsonb(OLD) - 'contact_id' - 'note')
+      THEN RETURN NEW;
+      END IF;
     END IF;
   END IF;
   RAISE EXCEPTION 'CRM audit entries are append-only' USING ERRCODE='23514';
@@ -228,6 +232,12 @@ BEGIN
     RAISE EXCEPTION 'Erasure not eligible or identity not verified';
   END IF;
   PERFORM set_config('xdrive.crm_erasure', 'yes', true);
+  -- Preserve activity metadata but delete direct contact references and free-text
+  -- notes attached to this contact. The narrowly-scoped audit trigger exception
+  -- only permits exactly this redaction within the approved erasure transaction.
+  UPDATE public.crm_prospect_events
+    SET contact_id = NULL, note = '[redacted after verified contact erasure]'
+    WHERE contact_id = r.contact_id;
   DELETE FROM public.crm_prospect_contacts WHERE id=r.contact_id AND organisation_id=r.organisation_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Contact not found for erasure'; END IF;
   UPDATE public.crm_privacy_requests

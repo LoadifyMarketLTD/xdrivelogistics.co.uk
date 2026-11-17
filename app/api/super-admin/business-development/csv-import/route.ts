@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { verifyCrmCsvPreviewToken } from '@/lib/business-development/csvPreviewToken';
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { authorizeCrm, crmDomain, crmHttps, crmResponse } from '../_lib/server';
@@ -32,7 +33,7 @@ function parseCsv(source: string): string[][] {
 export async function POST(request: NextRequest) {
   const auth = await authorizeCrm(request, true);
   if (auth.error) return auth.error;
-  let body: { csv?: unknown; preview_sha256?: unknown; reviewed?: unknown; confirmation?: unknown };
+  let body: { csv?: unknown; preview_sha256?: unknown; preview_token?: unknown; reviewed?: unknown; confirmation?: unknown };
   try { body = await request.json(); }
   catch { return crmResponse(400, { error: 'Invalid JSON.' }); }
   if (!body || typeof body.csv !== 'string' || body.csv.length > 250000 ||
@@ -40,8 +41,9 @@ export async function POST(request: NextRequest) {
     return crmResponse(400, { error: 'Owner-reviewed CSV (maximum 250 KB) and explicit confirmation required.' });
   const csv = body.csv.replace(/^\uFEFF/,'');
   const digest = createHash('sha256').update(csv,'utf8').digest('hex');
-  if (digest !== body.preview_sha256)
-    return crmResponse(409, { error: 'CSV content changed since preview. Review it again.' });
+  if (digest !== body.preview_sha256 ||
+      !verifyCrmCsvPreviewToken(body.preview_token, digest, auth.owner!.id, process.env.XDRIVE_CRM_PREVIEW_SIGNING_SECRET))
+    return crmResponse(409, { error: 'Signed owner preview is missing, expired or changed. Preview and review the file again.' });
   let parsed: string[][];
   try { parsed = parseCsv(csv); } catch { return crmResponse(400, { error: 'Malformed CSV.' }); }
   if (parsed.length < 2 || parsed.length > 101 ||
