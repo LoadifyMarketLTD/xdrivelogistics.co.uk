@@ -96,6 +96,72 @@ async function requireDeliveredReady(jobId: string) {
   return null;
 }
 
+const stopPhotoPaths = (handover: unknown) => {
+  if (!handover || typeof handover !== 'object' || Array.isArray(handover)) return [] as string[];
+  const value = (handover as Record<string, unknown>).photoPaths;
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
+};
+
+function validateBoundaryStop(nextStatus: string, stops: Array<{id:string;sequence:number;stop_type:string;status:string;handover:unknown}>) {
+  if (!stops.length) return { ok: true as const };
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  if (nextStatus === 'on_site_pickup' && first.stop_type === 'collection' && !['en_route','arrived'].includes(first.status)) {
+    return { ok: false as const, error: 'On My Way to Pickup must be recorded before On Site Pickup.' };
+  }
+  if (nextStatus === 'loaded' && first.stop_type === 'collection') {
+    if (first.status !== 'arrived' && !['completed','cancelled'].includes(first.status)) {
+      return { ok: false as const, error: 'On Site Pickup must be recorded before Loaded.' };
+    }
+    if (first.status === 'arrived' && stopPhotoPaths(first.handover).length < 1) {
+      return { ok: false as const, error: 'At least one stop-scoped collection photo is required before Loaded.' };
+    }
+  }
+  if (nextStatus === 'in_transit' && last.stop_type === 'delivery') {
+    const middle = stops.slice(1,-1);
+    if (middle.some(stop => !['completed','cancelled'].includes(stop.status))) {
+      return { ok: false as const, error: 'Complete or resolve every intermediate stop before travelling to final delivery.' };
+    }
+    if (!['pending','en_route'].includes(last.status)) return { ok: false as const, error: 'Final delivery stop is not ready for departure.' };
+  }
+  if (nextStatus === 'on_site_delivery' && last.stop_type === 'delivery' && !['en_route','arrived'].includes(last.status)) {
+    return { ok: false as const, error: 'On My Way to Final Delivery must be recorded before On Site Final Delivery.' };
+  }
+  if (nextStatus === 'delivered' && last.stop_type === 'delivery' && last.status !== 'completed') {
+    return { ok: false as const, error: 'Complete and submit the final POD before marking the job Delivered.' };
+  }
+  return { ok: true as const };
+}
+
+async function applyBoundaryStop(jobId: string, nextStatus: string) {
+  const loaded = await loadExecutionStops(jobId);
+  if (loaded.error) return { ok: false as const, response: loaded.error };
+  if (!loaded.stops.length) return { ok: true as const };
+  const first = loaded.stops[0];
+  const last = loaded.stops[loaded.stops.length - 1];
+  const now = new Date().toISOString();
+  let id = '';
+  let expected = '';
+  let update: Record<string, unknown> | null = null;
+  if (nextStatus === 'on_my_way' && first.stop_type === 'collection' && first.status === 'pending') {
+    id=first.id; expected='pending'; update={status:'en_route',en_route_at:now,updated_at:now};
+  } else if (nextStatus === 'on_site_pickup' && first.stop_type === 'collection' && first.status === 'en_route') {
+    id=first.id; expected='en_route'; update={status:'arrived',arrived_at:now,updated_at:now};
+  } else if (nextStatus === 'loaded' && first.stop_type === 'collection' && first.status === 'arrived') {
+    id=first.id; expected='arrived'; update={status:'completed',completed_at:now,updated_at:now};
+  } else if (nextStatus === 'in_transit' && last.stop_type === 'delivery' && last.status === 'pending') {
+    id=last.id; expected='pending'; update={status:'en_route',en_route_at:now,updated_at:now};
+  } else if (nextStatus === 'on_site_delivery' && last.stop_type === 'delivery' && last.status === 'en_route') {
+    id=last.id; expected='en_route'; update={status:'arrived',arrived_at:now,updated_at:now};
+  }
+  if (!id || !update) return { ok: true as const };
+  const { data, error } = await supabaseAdmin!.from('job_stops').update(update)
+    .eq('id',id).eq('job_id',jobId).eq('status',expected).select('id').maybeSingle();
+  if (error) return { ok:false as const, response: respond(500,{error:'Lifecycle status was saved but the matching stop could not be synchronized.',lifecycleSaved:true}) };
+  if (!data) return { ok:false as const, response: respond(409,{error:'Lifecycle status was saved but the stop changed. Refresh and retry.',lifecycleSaved:true}) };
+  return { ok:true as const };
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const driver = await requireActiveWebDriver(request);
@@ -126,6 +192,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const existingJob = existing as unknown as MobileJobRow;
+  const stopState = await loadExecutionStops(id);
+  if (stopState.error) return stopState.error;
+  const boundaryPreflight = validateBoundaryStop(nextStatus, stopState.stops);
+  if (!boundaryPreflight.ok) return respond(409, { error: boundaryPreflight.error });
   if (action === 'loaded' && (!existingJob.collection_handover || typeof existingJob.collection_handover !== 'object')) {
     return respond(409, { error: 'Complete the collection handover before marking the job loaded.' });
   }
@@ -175,6 +245,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const status = lifecycleError.code === '42501' ? 403 : lifecycleError.code === '23514' ? 409 : lifecycleError.code === 'P0002' ? 404 : 500;
     return respond(status, { error: lifecycleError.message });
   }
+
+  const boundarySync = await applyBoundaryStop(id, nextStatus);
+  if (!boundarySync.ok) return boundarySync.response;
 
   const { data: updated, error: refreshError } = await supabaseAdmin
     .from('jobs')
