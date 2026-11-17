@@ -4,11 +4,11 @@ import type { LiveJob } from './liveApi';
 // every transport movement. Final POD is canonical evidence and is saved BEFORE
 // the parent job may transition from On Site Delivery to Delivered.
 export const reserveStatusSteps: Partial<Record<LiveJob['status'], {label:string;backend:string;status:LiveJob['status']}>> = {
-  ALLOCATED:{label:'On My Way to Collection',backend:'on_my_way',status:'ON_WAY_TO_PICKUP'},
-  ON_WAY_TO_PICKUP:{label:'On Site Collection',backend:'on_site_pickup',status:'ON_SITE_PICKUP'},
-  ON_SITE_PICKUP:{label:'Complete Collection',backend:'loaded',status:'LOADED'},
-  LOADED:{label:'On My Way to Delivery',backend:'in_transit',status:'ON_WAY_TO_DELIVERY'},
-  ON_WAY_TO_DELIVERY:{label:'On Site Delivery',backend:'on_site_delivery',status:'ON_SITE_DELIVERY'},
+  ALLOCATED:{label:'On My Way to Pickup',backend:'on_my_way',status:'ON_WAY_TO_PICKUP'},
+  ON_WAY_TO_PICKUP:{label:'On Site (Pickup)',backend:'on_site_pickup',status:'ON_SITE_PICKUP'},
+  ON_SITE_PICKUP:{label:'Loaded',backend:'loaded',status:'LOADED'},
+  LOADED:{label:'On My Way to Final Delivery',backend:'in_transit',status:'ON_WAY_TO_DELIVERY'},
+  ON_WAY_TO_DELIVERY:{label:'On Site (Final Delivery)',backend:'on_site_delivery',status:'ON_SITE_DELIVERY'},
 };
 
 export const reserveUndoTargets: Partial<Record<LiveJob['status'],{expected:string;previous:LiveJob['status']}>> = {
