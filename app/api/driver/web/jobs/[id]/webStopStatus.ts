@@ -117,7 +117,7 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     return respond(403, { error: 'This booking belongs to another carrier company.' });
   }
   const jobStatus = String(job.current_status || job.status || '').toLowerCase();
-  if (['completed','invoiced','cancelled'].includes(jobStatus)) {
+  if (['delivered','disputed','completed','invoiced','paid','cancelled'].includes(jobStatus)) {
     return respond(409, { error: 'Stops cannot be changed after the booking has closed.' });
   }
 

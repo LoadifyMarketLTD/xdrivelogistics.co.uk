@@ -15,3 +15,5 @@ Reproduce in isolated directory: `npm install --no-save --ignore-scripts @electr
 - Verify hosted schema compatibility read-only; run full migration replay in an isolated database with actual schema, not just stubs.
 - Exercise authenticated mobile and web UI, actual evidence uploads and POD, and cancellation approval with completed/unfinished return.
 - Do not merge PR #840 or #835 or apply migrations to Production until gates are verified.
+Additional verification: terminal delivered bookings reject both driver stop cancellation and dispatcher custody resolution; the mobile and web route guards also reject delivered/disputed/paid statuses.
+

@@ -20,8 +20,8 @@ BEGIN
       AND d.user_id = p_actor_user_id AND d.status = 'active'
       AND d.company_id = v_job.assigned_company_id
   ) THEN RAISE EXCEPTION 'Assigned active driver required' USING ERRCODE = '42501'; END IF;
-  IF v_job.status::text IN ('completed','invoiced','paid','cancelled')
-    OR v_job.current_status::text IN ('completed','invoiced','cancelled') THEN
+  IF v_job.status::text IN ('delivered','disputed','completed','invoiced','paid','cancelled')
+    OR v_job.current_status::text IN ('delivered','disputed','completed','invoiced','paid','cancelled') THEN
     RAISE EXCEPTION 'Booking is closed' USING ERRCODE = '23514';
   END IF;
   SELECT * INTO v_stop FROM public.job_stops WHERE job_id = p_job_id AND id = p_stop_id FOR UPDATE;

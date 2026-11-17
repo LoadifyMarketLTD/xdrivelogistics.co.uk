@@ -22,8 +22,8 @@ BEGIN
       AND cm.company_id = v_job.assigned_company_id) THEN
     RAISE EXCEPTION 'Authorised company dispatcher required' USING ERRCODE='42501';
   END IF;
-  IF v_job.status::text IN ('completed','invoiced','paid','cancelled') OR
-    v_job.current_status::text IN ('completed','invoiced','cancelled') THEN
+  IF v_job.status::text IN ('delivered','disputed','completed','invoiced','paid','cancelled') OR
+    v_job.current_status::text IN ('delivered','disputed','completed','invoiced','paid','cancelled') THEN
     RAISE EXCEPTION 'Booking closed' USING ERRCODE='23514'; END IF;
   SELECT * INTO v_stop FROM public.job_stops WHERE job_id=p_job_id AND id=p_stop_id FOR UPDATE;
   IF NOT FOUND OR v_stop.status NOT IN ('pending','en_route','arrived') OR
