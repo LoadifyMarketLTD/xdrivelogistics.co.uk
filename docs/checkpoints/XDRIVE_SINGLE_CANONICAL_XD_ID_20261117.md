@@ -24,7 +24,7 @@
 6. Previous proposed PR #830 was closed unmerged because choosing between two different active IDs was wrong. Existing PR #829 auto-fill is retained. POD PR #827 remains independent.
 
 ### Verification
-- Vitest: 70/70 PASS in 12 suites.
+- Vitest: 81/81 PASS (including PR #831 historical job search) in 12 suites.
 - Driver PWA Node: 168/168 PASS.
 - Root TypeScript and PWA TypeScript: no errors.
 - Read-only Git merge test with latest main and POD PR #827: no code conflicts.
