@@ -14,7 +14,7 @@ describe('XDrive member identity contract', () => {
 
   it('uses XDrive company/member IDs on the web driver marketplace', () => {
     const market = read('app/api/driver/marketplace/loads/route.ts');
-    expect(market).toContain(".select('user_id, full_name, xd_id')");
+    expect(market).not.toContain(".from('profiles').select('xd_id')");
     expect(market).toContain('const memberId = company?.xd_id ?? null');
     expect(market).not.toContain('memberId: company?.company_number');
   });
@@ -70,10 +70,12 @@ describe('XDrive member identity contract', () => {
     expect(companyProfile).toContain('memberId: company.xd_id ?? null');
     expect(companyProfile).not.toContain('memberId: company.company_number');
 
-    expect(driverProfile).toContain(".select('id, company_id, user_id, display_name, status, availability_status')");
+    expect(driverProfile).toContain(".select('id, company_id, user_id, display_name, status, availability_status, driver_type')");
     expect(driverProfile).toContain(".from('profiles')");
     expect(driverProfile).toContain(".select('xd_id')");
-    expect(driverProfile).toContain('memberId: profileError ? null : profile?.xd_id ?? null');
+    expect(driverProfile).toContain('memberId: companyPublicId');
+    expect(driverProfile).toContain("memberType: driverType === 'owner_driver' ? 'Owner Driver' : 'Company Driver'");
+    expect(driverProfile).toContain('companyPublicId !== personalPublicId');
 
     expect(bidderIdentity).toContain("select('id, name, xd_id, phone, company_type')");
     expect(bidderIdentity).toContain('memberId: text(company?.xd_id)');
