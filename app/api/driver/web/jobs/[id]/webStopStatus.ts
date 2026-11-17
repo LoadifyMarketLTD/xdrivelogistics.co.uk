@@ -231,11 +231,6 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
       return respond(writeError ? 500 : 409, { error: writeError ? 'Stop cancellation could not be recorded.' : 'Stop state changed. Refresh the booking.' });
     }
 
-    if (cancellation.scope === 'job') {
-      await insertTrackingEvent(jobId, driver.userId, 'cancellation_requested', 'Driver recorded a whole-job cancellation instruction.', {
-        stop_id: stopId, cancellation_scope: 'job', source: 'driver_web',
-      }).catch(() => undefined);
-    }
     await insertTrackingEvent(jobId, driver.userId, 'multi_drop_stop_cancelled', `${stopLabel(target)} cancelled on instruction.`, {
       stop_id: stopId, stop_sequence: target.sequence, cancellation, source: 'driver_web',
     }).catch(() => undefined);
