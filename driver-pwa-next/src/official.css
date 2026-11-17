@@ -1,0 +1,10 @@
+/* Official PWA uses the approved main branch shell, not Reserve branding. */
+body{background:#f2f4f7}
+.reserve-pwa>header{background:#0a2239!important;border-bottom:0!important;box-shadow:none!important;padding:16px 18px!important;min-height:74px!important;height:74px!important}
+.reserve-pwa>header .headbtn{background:transparent!important;border:0!important;border-radius:0!important;padding:1px 6px!important;font-size:24px!important;font-weight:400!important}
+.reserve-pwa:not(.route-view)>main{padding:14px 14px 40px!important;background:transparent!important}
+.reserve-pwa>nav{background:#fff!important;border-top:1px solid #e5e8ed!important;max-width:680px!important;box-shadow:none!important}
+.reserve-pwa>nav button{color:#8b96a2!important;padding:5px!important}
+.reserve-pwa>nav button span{font-size:22px!important}
+.reserve-pwa>nav button.active{color:#f47716!important}
+.reserve-pwa>nav button.active:after{display:none!important}

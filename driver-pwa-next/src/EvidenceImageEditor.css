@@ -1,0 +1,16 @@
+.xe-editor{display:grid;gap:12px;background:#fff;border:2px solid #2f82bd;border-radius:12px;padding:13px;color:#1c3045}
+.xe-title{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.xe-title h3{margin:0;font-size:18px}.xe-title button{font-size:22px;border:0;border-radius:7px;background:#eaf0f6;padding:5px 12px;color:#253e59}
+.xe-editor>p{font-size:12px;color:#60758a;margin:0;line-height:1.5}
+.xe-preview{height:260px;display:flex;justify-content:center;align-items:center;overflow:hidden;background:#152638;border-radius:10px;padding:9px}
+.xe-preview img{display:block;object-fit:contain;width:auto;height:auto;max-height:100%;transition:transform .2s}
+.xe-preview.xe-crop-square{aspect-ratio:1/1;max-height:300px;width:min(100%,300px);margin-inline:auto}
+.xe-preview.xe-crop-document{aspect-ratio:1/1.414;width:min(100%,230px);height:auto;min-height:260px;max-height:325px;margin-inline:auto}
+.xe-controls,.xe-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.xe-editor button{font:inherit;min-height:42px;cursor:pointer}
+.xe-controls button{border:1px solid #bdd1e2;background:#edf4fa;border-radius:8px;color:#24577d;font-size:13px;font-weight:750}
+.xe-crop-label{display:grid;gap:7px;color:#53687e;font-weight:750;font-size:13px}
+.xe-crop-label select{border:1px solid #b7cbdb;border-radius:8px;background:white;padding:11px;color:#263c51;font-size:14px}
+.xe-actions button{padding:10px 5px;border-radius:9px;font-size:12px;font-weight:800;border:0;background:#e9eff5;color:#263c50}
+.xe-actions button:last-child{background:#f47716;color:white}
+.xe-actions button:disabled{opacity:.55;cursor:not-allowed}.xe-error{color:#9e2525!important;background:#fee;border-radius:7px;padding:9px}
