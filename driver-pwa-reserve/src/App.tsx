@@ -510,7 +510,7 @@ function App() {
       <main>
         {routeJobId && jobs.some(j => j.id === routeJobId) ? (() => {
           const routeJob = jobs.find(j => j.id === routeJobId)!;
-          return <RouteMap from={routeJob.from} to={routeJob.to} stops={routeJob.routeStops} distanceMiles={routeJob.distanceMiles} travelMinutes={routeJob.travelMinutes} onBack={() => setRouteJobId(null)} />;
+          return <RouteMap from={routeJob.from} to={routeJob.to} stops={routeJob.routeStops?.map(stop => ({ id: stop.id, kind: stop.type === 'collection' ? 'PICKUP' as const : 'DELIVERY' as const, address: stop.address, completedAt: stop.completedAt }))} distanceMiles={routeJob.distanceMiles} travelMinutes={routeJob.travelMinutes} onBack={() => setRouteJobId(null)} />;
         })() : selected && job ? (
           <>
             <button className="back" onClick={() => setSelected(null)}>
