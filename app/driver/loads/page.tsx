@@ -8,6 +8,8 @@ import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
@@ -177,6 +179,7 @@ function dimensions(load: MarketplaceLoad) {
 
 export default function AvailableLoadsPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [loads, setLoads] = useState<MarketplaceLoad[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -422,6 +425,7 @@ export default function AvailableLoadsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
               <div className="load-view-switch" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginLeft: 10 }}><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                {resolveWorkspaceRole(user) === 'owner_driver' && <button type="button" className="btn" onClick={() => router.push('/driver/posted-loads')}>My Posted Loads &amp; Drafts</button>}
                 <OperationalExpandAllControl expanded={expandAll} disabled={!filteredLoads.length} onToggle={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} noun="loads" />
                 <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
               </div>
