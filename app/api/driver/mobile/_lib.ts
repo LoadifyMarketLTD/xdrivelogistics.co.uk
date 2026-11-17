@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
+import { historicalJobAliases } from '../../../../lib/jobs/historicalReferenceLookup';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -26,6 +27,12 @@ export type DriverContext = {
 export type MobileJobRow = {
   id: string;
   created_by: string | null;
+  load_reference?: string | null;
+  load_ref?: string | null;
+  booking_reference?: string | null;
+  customer_reference?: string | null;
+  customer_ref?: string | null;
+  cust_ref?: string | null;
   status: string | null;
   current_status: string | null;
   assigned_driver_id: string | null;
@@ -174,6 +181,12 @@ export function isDriverContext(value: DriverContext | NextResponse): value is D
 export const jobSelect = [
   'id',
   'created_by',
+  'load_reference',
+  'load_ref',
+  'booking_reference',
+  'customer_reference',
+  'customer_ref',
+  'cust_ref',
   'status',
   'current_status',
   'assigned_driver_id',
@@ -262,6 +275,7 @@ export function mapJob(row: MobileJobRow) {
   return {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
+    legacyReferences: historicalJobAliases(row),
     status: mobileStatus(row),
     lifecycleStatus: row.status,
     currentStatus: row.current_status,
