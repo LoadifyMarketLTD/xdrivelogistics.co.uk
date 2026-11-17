@@ -252,3 +252,31 @@ button:disabled{cursor:wait}
 .shell:not(.route-view)>main{padding-bottom:calc(40px + env(safe-area-inset-bottom, 0px))!important}
 .shell:not(.route-view)>nav{background:#fff!important;isolation:isolate;z-index:100;box-shadow:0 -4px 12px rgba(18,36,60,.10)}
 .shell:not(.route-view)>nav::before{content:'';position:absolute;inset:0;background:#fff;z-index:-1;pointer-events:none}
+
+
+/* Multi-stop execution / stop POD */
+.stop-next-card{margin-top:14px}
+.stop-next-card .booking-next{width:100%;margin-top:10px}
+.stop-execution{display:grid;gap:14px;padding:14px;background:#fff;border:1px solid #d7dce3;border-radius:12px}
+.stop-execution__header{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.stop-execution__header>div{display:grid;gap:4px}
+.stop-execution__header strong{font-size:1.2rem;color:#152238}
+.stop-execution__header span{font-weight:700;color:#4b5563}
+.stop-execution__header button{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:8px 12px;font-weight:700}
+.stop-execution__route{display:grid;gap:5px;padding:12px;border-radius:10px;background:#f7f9fc}
+.stop-execution__route>a{color:#0e3fa9;font-weight:700}
+.stop-execution__form{display:grid;gap:12px}
+.stop-execution__form label{display:grid;gap:6px;font-weight:800;color:#4b5563}
+.stop-execution__form input,.stop-execution__form select,.stop-execution__form textarea{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#152238;padding:12px;font:inherit}
+.stop-execution__job-details{display:grid;gap:4px;padding:12px;border-top:1px solid #d1d5db;border-bottom:1px solid #d1d5db}
+.stop-execution__attachments{display:grid;gap:8px}
+.stop-execution__attachments>div{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #e5e7eb}
+.stop-execution__attachments>div span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stop-execution__attachments>div button{border:0;background:transparent;color:#b42318;font-weight:800}
+.stop-execution__attachments small{color:#6b7280}
+.stop-execution__completed{display:grid;gap:4px;padding:12px;border-radius:10px;background:#edf9e9;color:#245b20}
+.stop-history .timeline-loaded-details{margin-top:8px}
+@media (max-width:640px){
+  .stop-execution{border-radius:0;border-left:0;border-right:0;padding:12px}
+  .stop-execution__header strong{font-size:1.08rem}
+}
