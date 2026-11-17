@@ -120,6 +120,14 @@ BEGIN
               OR js.completed_at IS NULL
               OR NULLIF(trim(COALESCE(js.handover->>'recipientName','')),'') IS NULL
               OR NULLIF(trim(COALESCE(js.handover->>'signaturePath','')),'') IS NULL
+              OR NOT COALESCE(js.handover->>'signaturePath' LIKE
+                v_job.assigned_company_id::text || '/' || v_job.id::text || '/stops/' || js.id::text || '/signature/%', false)
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
+                  THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) AS photo(path)
+                WHERE photo.path NOT LIKE
+                  v_job.assigned_company_id::text || '/' || v_job.id::text || '/stops/' || js.id::text || '/photos/%'
+              )
               OR jsonb_typeof(js.handover->'photoPaths') IS DISTINCT FROM 'array'
               OR jsonb_array_length(CASE WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
                 THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) = 0
