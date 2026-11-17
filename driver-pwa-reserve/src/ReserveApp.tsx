@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './ReserveApp.css';
-import { login, loadLiveWithDiagnostics, driverPost, driverGet, bookingOffersGet, applyBookingOffers, applyPersonalBids, bookingOfferRespond, renewSession, revokeLiveSession, mapAssigned, platformJobReference, type LiveSession, type LiveJob } from './liveApi';
+import { login, loadLiveWithDiagnostics, driverPost, driverGet, bookingOffersGet, applyBookingOffers, applyPersonalBids, bookingOfferRespond, renewSession, revokeLiveSession, mapAssigned, platformJobReference, type LiveSession, type LiveJob, type LiveStop } from './liveApi';
 import { reserveStatusSteps, reserveUndoTargets } from './reserveLifecycle';
 import LiveInvoices from './LiveInvoices';
 import RouteMap from './RouteMap';
@@ -15,10 +15,12 @@ import DeliveryHandover from './DeliveryHandover';
 import { routeLabel, isDuplicateRouteAddress } from './routeLabel';
 import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
+import ReserveStopExecution from './ReserveStopExecution';
+import ReserveCancellation, { type ReserveCancellationValue } from './ReserveCancellation';
 
 type Tab = 'Loads' | 'Quotes' | 'Bookings';
 type BookingSection = 'Received' | 'Allocated' | 'Delivered';
-type View = 'list' | 'details' | 'quote' | 'quoteDetails' | 'map' | 'incoming' | 'statusHistory' | 'flow' | 'invoiceJob' | 'more' | 'invoices' | 'gps';
+type View = 'list' | 'details' | 'quote' | 'quoteDetails' | 'map' | 'incoming' | 'statusHistory' | 'flow' | 'cancel' | 'invoiceJob' | 'more' | 'invoices' | 'gps';
 type DeliveryDraft = { recipient: string; leftAt: string; items: string; condition: string; notes: string; deliveredOn: string; deliveredTime: string };
 const KEY = 'xdrive-driver-reserve-live-session-v1';
 const driverApi = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
@@ -51,11 +53,13 @@ export default function ReserveApp() {
   const [quoteAmount,setQuoteAmount]=useState('');const [quoteEta,setQuoteEta]=useState('30');const [quoteNotes,setQuoteNotes]=useState('');
   const [items,setItems]=useState('');const [weight,setWeight]=useState('');const [pickupItems,setPickupItems]=useState('');const [pickupWeight,setPickupWeight]=useState('');const [yourReference,setYourReference]=useState('');const [carrierReference,setCarrierReference]=useState('');const [pickupNotes,setPickupNotes]=useState('');const [packaging,setPackaging]=useState('');const [deliveryEtaAt,setDeliveryEtaAt]=useState('');
   const [collectionStage,setCollectionStage]=useState<'arrival'|'loaded'>('arrival');
-  const [draft,setDraft]=useState<DeliveryDraft>({recipient:'',leftAt:'Goods Inwards',items:'',condition:'Good condition',notes:'',deliveredOn:'',deliveredTime:''});
+  const [draft,setDraft]=useState<DeliveryDraft>({recipient:'',leftAt:'Goods Inwards',items:'',condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});
   const [signature,setSignature]=useState<string|null>(null);const [verifiedSignature,setVerifiedSignature]=useState<string|null>(null);const [podFiles,setPodFiles]=useState<File[]>([]);const [hardCopyAcknowledged,setHardCopyAcknowledged]=useState(false);
   const uploadedEvidence=useRef(new Map<File,string>());
   const [podDone,setPodDone]=useState(false);const [deliveryArrivalSaved,setDeliveryArrivalSaved]=useState(false);const [collectionFiles,setCollectionFiles]=useState<File[]>([]);const uploadedCollectionEvidence=useRef(new Map<File,string>());
-  const [collectionCameraOpen,setCollectionCameraOpen]=useState(false);const [collectionCameraBusy,setCollectionCameraBusy]=useState(false);const collectionVideoRef=useRef<HTMLVideoElement>(null);const collectionStreamRef=useRef<MediaStream|null>(null);
+  const [cancellationStopId,setCancellationStopId]=useState<string|null>(null);
+   const [cancellationReturnView,setCancellationReturnView]=useState<View>('flow');
+   const [collectionCameraOpen,setCollectionCameraOpen]=useState(false);const [collectionCameraBusy,setCollectionCameraBusy]=useState(false);const collectionVideoRef=useRef<HTMLVideoElement>(null);const collectionStreamRef=useRef<MediaStream|null>(null);
   const stopCollectionCamera=()=>{collectionStreamRef.current?.getTracks().forEach(track=>track.stop());collectionStreamRef.current=null;setCollectionCameraOpen(false);};
   useEffect(()=>()=>{collectionStreamRef.current?.getTracks().forEach(track=>track.stop());},[]);
   useEffect(()=>{if(collectionCameraOpen&&collectionVideoRef.current&&collectionStreamRef.current){collectionVideoRef.current.srcObject=collectionStreamRef.current;void collectionVideoRef.current.play().catch(()=>setError('Camera preview could not start. Check camera permissions.'));}},[collectionCameraOpen]);
@@ -123,7 +127,7 @@ export default function ReserveApp() {
   useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
   async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
-  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setDeliveryArrivalSaved(false);setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference('');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Good condition',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
+  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setDeliveryArrivalSaved(false);setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference('');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
     let active=true;
@@ -153,7 +157,7 @@ export default function ReserveApp() {
           recipient:previous.recipient||String(saved.recipientName||''),
           leftAt:previous.leftAt==='Goods Inwards'?String(saved.leftAt||previous.leftAt):previous.leftAt,
           items:previous.items||String(saved.itemCount||''),
-          condition:previous.condition==='Good condition'?String(saved.deliveryStatus||previous.condition):previous.condition,
+          condition:previous.condition==='Completed Delivery'?String(saved.deliveryStatus||previous.condition):previous.condition,
           notes:previous.notes||String(saved.notes||''),
           deliveredOn:String(saved.deliveredOn||previous.deliveredOn||''),
           deliveredTime:recoverDeliveredTime(saved.deliveredTime,previous.deliveredTime,job.statusHistory||[],saved.deliveredOn||previous.deliveredOn)
