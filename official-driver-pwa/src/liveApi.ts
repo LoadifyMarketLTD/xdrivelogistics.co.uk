@@ -19,6 +19,11 @@ export type LiveStopHandover = {
   photoPaths?: string[];
   documentPaths?: string[];
   signaturePath?: string | null;
+  canonicalFinalPod?: boolean;
+  stopKind?: string | null;
+  cancellation?: Record<string, unknown> | null;
+  exception?: Record<string, unknown> | null;
+  returnInstruction?: Record<string, unknown> | null;
 };
 export type LiveStop = {
   id: string;
@@ -30,10 +35,12 @@ export type LiveStop = {
   telephone?: string;
   timeWindowFrom?: string;
   timeWindowTo?: string;
-  status: 'pending' | 'arrived' | 'completed' | 'skipped';
+  status: 'pending' | 'en_route' | 'arrived' | 'completed' | 'cancelled' | 'skipped';
   notes?: string;
+  enRouteAt?: string;
   arrivedAt?: string;
   completedAt?: string;
+  cancelledAt?: string;
   handover?: LiveStopHandover | null;
 };
 export type LiveJob = {
@@ -46,6 +53,7 @@ export type LiveJob = {
   customerRef?: string; yourRef?: string; service?: string;
   items?: number; hardCopyPodRequired?: boolean;
   stops?: number; routeStops?: LiveStop[];
+  statusHistory?: Array<{ status: string; timestamp?: string; note?: string; source?: string }>;
 };
 const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
 const str = (value: unknown): string => typeof value === 'string' ? value : '';
@@ -191,7 +199,7 @@ function mapAssignedStop(raw: unknown): LiveStop | null {
   const address = str(r.address);
   if (!id || (type !== 'collection' && type !== 'delivery') || sequence === undefined || !address) return null;
   const statusRaw = str(r.status).toLowerCase();
-  const status: LiveStop['status'] = statusRaw === 'arrived' || statusRaw === 'completed' || statusRaw === 'skipped' ? statusRaw : 'pending';
+  const status: LiveStop['status'] = ['en_route','arrived','completed','cancelled','skipped'].includes(statusRaw) ? statusRaw as LiveStop['status'] : 'pending';
   const handoverRaw = obj(r.handover);
   const stringArray = (value: unknown): string[] => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.length > 0) : [];
   const handover: LiveStopHandover | null = Object.keys(handoverRaw).length ? {
@@ -211,6 +219,11 @@ function mapAssignedStop(raw: unknown): LiveStop | null {
     photoPaths: stringArray(handoverRaw.photoPaths),
     documentPaths: stringArray(handoverRaw.documentPaths),
     signaturePath: str(handoverRaw.signaturePath) || null,
+    canonicalFinalPod: handoverRaw.canonicalFinalPod === true,
+    stopKind: str(handoverRaw.stopKind) || null,
+    cancellation: Object.keys(obj(handoverRaw.cancellation)).length ? obj(handoverRaw.cancellation) : null,
+    exception: Object.keys(obj(handoverRaw.exception)).length ? obj(handoverRaw.exception) : null,
+    returnInstruction: Object.keys(obj(handoverRaw.returnInstruction)).length ? obj(handoverRaw.returnInstruction) : null,
   } : null;
   return {
     id, type, sequence, address, status,
@@ -220,8 +233,10 @@ function mapAssignedStop(raw: unknown): LiveStop | null {
     timeWindowFrom: str(r.timeWindowFrom) || undefined,
     timeWindowTo: str(r.timeWindowTo) || undefined,
     notes: str(r.notes) || undefined,
+    enRouteAt: str(r.enRouteAt) || undefined,
     arrivedAt: str(r.arrivedAt) || undefined,
     completedAt: str(r.completedAt) || undefined,
+    cancelledAt: str(r.cancelledAt) || undefined,
     handover,
   };
 }
@@ -229,6 +244,10 @@ export function mapAssigned(raw: unknown): LiveJob {
   const r = obj(raw); const details = cleanDetails(get(r, 'loadDetails', 'load_details'));
   const canonicalStatus = str(get(r, 'currentStatus', 'current_status', 'lifecycleStatus', 'lifecycle_status', 'status')).toLowerCase();
   const routeStops = Array.isArray(r.stops) ? r.stops.map(mapAssignedStop).filter((stop): stop is LiveStop => Boolean(stop)).sort((a, b) => a.sequence - b.sequence) : [];
+  const statusHistory = Array.isArray(r.statusHistory) ? r.statusHistory.map(item => {
+    const row = obj(item);
+    return { status: str(row.status), timestamp: str(row.timestamp) || undefined, note: str(row.note) || undefined, source: str(row.source) || undefined };
+  }).filter(item => item.status) : [];
   return {
     id: str(r.id), from: str(get(r, 'pickupLocation', 'pickup_location', 'pickupPostcode', 'pickup_postcode')) || 'Collection',
     to: str(get(r, 'deliveryLocation', 'delivery_location', 'deliveryPostcode', 'delivery_postcode')) || 'Delivery',
@@ -255,6 +274,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     yourRef: str(get(r, 'reference', 'driverReference', 'driver_reference')) || str(r.id),
     stops: routeStops.length,
     routeStops,
+    statusHistory,
   };
 }
 export async function loadLive(token: string): Promise<LiveJob[]> {
