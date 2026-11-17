@@ -7,8 +7,9 @@ CREATE TABLE IF NOT EXISTS public.crm_job_test_baseline_exclusions (
   recorded_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO public.crm_job_test_baseline_exclusions(job_id)
+  -- Every job already present when the safe feature migration is installed
+  -- belongs to the historical all-test baseline, regardless of is_test flag.
   SELECT id FROM public.jobs
-  WHERE created_at <= '2026-11-17T09:32:01Z'::timestamptz
   ON CONFLICT(job_id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS public.crm_verified_first_real_jobs (

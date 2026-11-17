@@ -16,7 +16,7 @@ export async function GET(request:NextRequest) {
       !['all','new','reviewing','accepted','declined'].includes(status))
     return crmResponse(400,{error:'Invalid inbox page or status.'});
   let query=supabaseAdmin!.from('crm_business_interests')
-    .select('id,business_name,business_email,contact_name,company_number,interest_kind,message,source,source_reference,marketing_opt_in,status,created_at,reviewed_at,review_note',
+    .select('id,business_name,business_email,contact_name,company_number,interest_kind,message,source,source_reference,marketing_opt_in,status,retained_until,retention_state,legal_hold,created_at,reviewed_at,review_note',
       {count:'exact'});
   if(status!=='all')query=query.eq('status',status);
   const {data,count,error}=await query.order('created_at',{ascending:false})
@@ -64,9 +64,23 @@ export async function PATCH(request:NextRequest){
   const body=await request.json().catch(()=>null);
   if(!body||typeof body!=='object'||Array.isArray(body))return crmResponse(400,{error:'Review data required.'});
   const b=body as Record<string,unknown>;
-  if(!crmUuid(b.id)||!validAction.has(String(b.action))||
+  if(!crmUuid(b.id)||!([...validAction,'retention_extend','retention_minimise','legal_hold_set','legal_hold_release'].includes(String(b.action)))||
      !crmTrimmed(b.note,2000)||(b.note as string).trim().length<20)
     return crmResponse(400,{error:'Valid request, decision and at least 20 characters of review evidence required.'});
+  if(['retention_extend','retention_minimise','legal_hold_set','legal_hold_release'].includes(String(b.action))) {
+    if(b.confirmation!=='I_REVIEWED_RETENTION_LEGAL_BASIS' ||
+       (b.note as string).trim().length<40) return crmResponse(400,{
+      error:'Retention decision requires 40+ characters of legal-basis evidence and explicit owner confirmation.',
+    });
+    const {data,error}=await supabaseAdmin!.rpc('crm_manage_business_interest_retention',{
+      p_interest_id:b.id,p_actor_id:auth.owner!.id,
+      p_action:b.action,p_note:(b.note as string).trim(),
+    });
+    if(error)return crmResponse(['P0002','23514','22023'].includes(error.code??'')?409:503,{
+      error:'Retention decision rejected. Check legal holds, expiry, enquiry state and linked commercial records.',
+    });
+    return crmResponse(200,{result:data,records_deleted:0,emails_sent:0});
+  }
   const {data,error}=await supabaseAdmin!.rpc('crm_triage_business_interest',{
     p_interest_id:b.id,p_actor_id:auth.owner!.id,
     p_action:b.action,p_note:(b.note as string).trim(),

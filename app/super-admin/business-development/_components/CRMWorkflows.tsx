@@ -31,7 +31,8 @@ type InboundInterest = {
   id:string;business_name:string;business_email:string;contact_name:string;
   company_number:string|null;interest_kind:string;message:string;
   source:string;source_reference:string|null;marketing_opt_in:boolean;
-  status:string;created_at:string;reviewed_at:string|null;review_note:string|null;
+  status:string;retained_until:string;retention_state:'active'|'minimised';legal_hold:boolean;
+  created_at:string;reviewed_at:string|null;review_note:string|null;
 };
 type SourceCandidate = {
   source_type:'existing_customer'|'inbound_enquiry'|'business_interest';source_id:string;legal_name:string;
@@ -100,6 +101,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
   const [inboundTotal,setInboundTotal]=useState<number|null>(null);
   const [inboundError,setInboundError]=useState('');
   const [inboundReviewNote,setInboundReviewNote]=useState('');
+  const [retentionConfirmed,setRetentionConfirmed]=useState(false);
   const [realJobId,setRealJobId]=useState('');
   const [realJobEvidence,setRealJobEvidence]=useState('');
   const [realJobConfirmation,setRealJobConfirmation]=useState(false);
@@ -455,6 +457,18 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     setInboundReviewNote('');
     setNotice('Canonical business-interest decision recorded with audit; no company auto-created.');
   });
+  const reviewInboundRetention=(
+    id:string,action:'retention_extend'|'retention_minimise'|'legal_hold_set'|'legal_hold_release',
+  )=>run(async()=>{
+    if(readOnly || !retentionConfirmed || inboundReviewNote.trim().length<40)
+      throw Error('Retention review must include explicit confirmation and 40+ characters of evidence.');
+    await crmApi('/inbound','PATCH',{
+      id,action,note:inboundReviewNote.trim(),
+      confirmation:'I_REVIEWED_RETENTION_LEGAL_BASIS',
+    });
+    setRetentionConfirmed(false);setInboundReviewNote('');
+    setNotice('Owner retention decision recorded in immutable audit. No messages dispatched.');
+  });
   const recordManualInbound=(event:FormEvent)=>{
     event.preventDefault();
     if(readOnly)return;
@@ -513,7 +527,10 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
         <p>{ownerAlerts.delivery}</p>
         {ownerAlerts.alerts.length>0 && <ul>
           {ownerAlerts.alerts.slice(0,10).map(alert=><li key={alert.id}>
-            {alert.alert_kind==='follow_up_due'?'Follow-up due':'Data-rights review'}
+            {alert.alert_kind==='follow_up_due'?'Follow-up due':
+             alert.alert_kind==='privacy_review'?'Data-rights review':
+             alert.alert_kind==='inbound_review'?'New commercial enquiry':
+             'Business enquiry retention review'}
             {' — '}{new Date(alert.created_at).toLocaleString('en-GB')}
           </li>)}
         </ul>}
@@ -686,15 +703,34 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
           onClick={()=>setInboundPage(n=>n+1)}>Next</button>
         <button type="button" disabled={working} onClick={()=>setReload(v=>v+1)}>Refresh</button>
       </div>
-      <label>Decision evidence (20+ characters)
+      <label>Decision evidence (20+ characters; 40+ for retention and legal holds)
         <textarea rows={3} maxLength={2000} value={inboundReviewNote}
           onChange={e=>setInboundReviewNote(e.target.value)}/>
+      </label>
+      <label><input type="checkbox" checked={retentionConfirmed}
+        onChange={event=>setRetentionConfirmed(event.target.checked)}/>
+        I independently checked retention requirements, legal holds and downstream prospect records.
+        The evidence field above contains no contact details.
       </label>
       {inbound.map(item=><div key={item.id} style={{...note,padding:12,border:'1px solid #E5E7EB',marginBottom:8}}>
         <strong>{item.business_name} — {item.status}</strong>
         <span>{item.contact_name} — {item.business_email} — {item.interest_kind} — {item.source}</span>
         <span>Registered number: {item.company_number??'not supplied'}</span>
         <p style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{item.message}</p>
+        <p>Retention: {item.retention_state} · {item.legal_hold?'Legal hold active':'No legal hold'} ·
+          Review due {new Date(item.retained_until).toLocaleDateString('en-GB')}</p>
+        {item.retention_state==='active' && <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+            onClick={()=>void reviewInboundRetention(item.id,'retention_extend')}>Extend 90 days after review</button>
+          {!item.legal_hold && <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+            onClick={()=>void reviewInboundRetention(item.id,'legal_hold_set')}>Record documented legal hold</button>}
+          {item.legal_hold && <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+            onClick={()=>void reviewInboundRetention(item.id,'legal_hold_release')}>Release legal hold</button>}
+          {!item.legal_hold && ['new','declined'].includes(item.status) &&
+           new Date(item.retained_until).getTime()<=Date.now() &&
+           <button type="button" disabled={readOnly||working||!retentionConfirmed||inboundReviewNote.trim().length<40}
+             onClick={()=>void reviewInboundRetention(item.id,'retention_minimise')}>Minimise expired unqualified enquiry</button>}
+        </div>}
         {['new','reviewing'].includes(item.status) && <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
           {(['review','accept','decline'] as const).map(action=>
             <button key={action} type="button"

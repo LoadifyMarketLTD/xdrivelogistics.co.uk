@@ -104,7 +104,7 @@ try {
   const alertCount=await run('SELECT count(*)::int AS n FROM public.notifications');
   check(alertCount.rows[0].n===1,'single notification, no duplicate or external message');
 
-  const oldPrivacy=await run("INSERT INTO public.crm_privacy_requests(organisation_id,request_type,request_note,created_by,status,created_at) VALUES($1,'access','Owner verified access enquiry',$2,'reviewing',now()-interval '7 days') RETURNING id",[org,actor]);
+  const oldPrivacy=await run("INSERT INTO public.crm_privacy_requests(organisation_id,request_type,request_note,created_by,status,created_at) VALUES($1,'access','Owner verified access enquiry',$2,'reviewing',now()-interval '8 days') RETURNING id",[org,actor]);
   const gdpr=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
   check(gdpr.rows[0].result?.privacy_notified===1,'seven-day privacy review receives internal owner alert');
   const gdprRepeat=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
@@ -133,6 +133,26 @@ try {
   check(retentionAlert.rows[0].result?.retention_notified===1,'expired retention produces internal owner review reminder');
   const retentionAgain=await run('SELECT public.crm_emit_due_owner_alerts() AS result');
   check(retentionAgain.rows[0].result?.retention_notified===0,'retention reminder is idempotent');
+  const hold=await run("SELECT public.crm_manage_business_interest_retention($1,$2,'legal_hold_set',$3) AS result",
+    [interestId,actor,'Documented contractual interest and owner retention review requires a temporary legal hold.']);
+  check(hold.rows[0].result?.action==='legal_hold_set','reviewer can document a legal hold');
+  await reject("SELECT public.crm_manage_business_interest_retention($1,$2,'retention_minimise',$3)",
+    [interestId,actor,'No minimisation of an accepted or legally held commercial source is permitted.'],
+    'Unexpired, legally held','legal hold and accepted source block minimisation');
+  const released=await run("SELECT public.crm_manage_business_interest_retention($1,$2,'legal_hold_release',$3) AS result",
+    [interestId,actor,'The documented legal hold has been reviewed and is no longer necessary for this enquiry.']);
+  check(released.rows[0].result?.action==='legal_hold_release','legal hold release is audited');
+  const minimal=await run("SELECT public.crm_manage_business_interest_retention($1,$2,'retention_minimise',$3) AS result",
+    [incomingId,actor,'Owner reviewed expiry and confirmed no contract, legal hold or downstream linked record.']);
+  check(minimal.rows[0].result?.retention_state==='minimised','expired unqualified inbound can be minimised');
+  const minimisedSource=await run("SELECT business_name,company_number,marketing_opt_in,retention_state,business_email FROM public.crm_business_interests WHERE id=$1",[incomingId]);
+  check(minimisedSource.rows[0].business_name==='Redacted'&&minimisedSource.rows[0].company_number===null&&
+    minimisedSource.rows[0].marketing_opt_in===false&&minimisedSource.rows[0].retention_state==='minimised'&&
+    minimisedSource.rows[0].business_email.includes('@example.invalid'),'privacy minimisation removes the enquiry contact fields');
+  await reject("SELECT public.crm_manage_business_interest_retention($1,$2,'retention_extend',$3)",
+    [incomingId,actor,'An already minimised source cannot be reinstated with personal data by a later workflow.'],
+    'Previously minimised','minimisation prevents silent restoration');
+
   const baseline=await run("SELECT count(*)::int AS n FROM public.crm_job_test_baseline_exclusions WHERE job_id='99999999-9999-4999-8999-999999999999'");
   check(baseline.rows[0].n===1,'all historical test jobs excluded without modifying jobs');
   await run("UPDATE public.crm_prospect_organisations SET converted_company_id=$1,status='converted' WHERE id=$2",[company,org]);

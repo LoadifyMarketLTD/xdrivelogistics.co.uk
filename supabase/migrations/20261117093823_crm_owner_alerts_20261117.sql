@@ -65,19 +65,30 @@ BEGIN
   END LOOP;
 
   FOR target IN
-    SELECT id, COALESCE(last_actor_id,created_by) AS owner_id,
-      (today_utc - (created_at AT TIME ZONE 'UTC')::date) AS age_days
-      FROM public.crm_privacy_requests
-      WHERE status IN ('received','reviewing','approved')
-        AND COALESCE(last_actor_id,created_by) IS NOT NULL
-        AND (today_utc - (created_at AT TIME ZONE 'UTC')::date) IN (1,7,21,28)
-      ORDER BY created_at ASC, id ASC
-      LIMIT 100
+    SELECT r.id, COALESCE(r.last_actor_id,r.created_by) AS owner_id,
+      ((r.created_at AT TIME ZONE 'UTC')::date + mark.days) AS milestone_date
+    FROM public.crm_privacy_requests r
+    CROSS JOIN LATERAL (
+      SELECT max(days)::int AS days
+      FROM (VALUES (1),(7),(21),(28)) milestones(days)
+      WHERE days <= (today_utc - (r.created_at AT TIME ZONE 'UTC')::date)
+    ) mark
+    WHERE r.status IN ('received','reviewing','approved')
+      AND COALESCE(r.last_actor_id,r.created_by) IS NOT NULL
+      AND mark.days IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM public.crm_owner_alert_receipts receipt
+        WHERE receipt.alert_kind='privacy_review'
+          AND receipt.entity_id=r.id AND receipt.trigger_date=
+            ((r.created_at AT TIME ZONE 'UTC')::date + mark.days)
+      )
+    ORDER BY r.created_at ASC,r.id
+    LIMIT 100
   LOOP
     receipt_id := NULL;
     INSERT INTO public.crm_owner_alert_receipts
       (alert_kind,entity_id,trigger_date,recipient_user_id)
-    VALUES ('privacy_review',target.id,today_utc,target.owner_id)
+    VALUES ('privacy_review',target.id,target.milestone_date,target.owner_id)
     ON CONFLICT (alert_kind,entity_id,trigger_date) DO NOTHING
     RETURNING id INTO receipt_id;
     IF receipt_id IS NOT NULL THEN

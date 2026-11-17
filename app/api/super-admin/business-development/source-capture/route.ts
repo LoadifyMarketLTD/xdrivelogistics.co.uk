@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
       return crmResponse(503,{error:'Public quote intake identity not configured.'});
     const {data:quote,error:quoteError}=await supabaseAdmin!.from('quotes')
       .select('id').eq('id',sourceId).eq('company_id',intake)
-      .ilike('notes','%SOURCE: app.xdrivelogistics.co.uk%').maybeSingle();
+      .or('notes.ilike.%SOURCE: app.xdrivelogistics.co.uk%,notes.ilike.%SOURCE: www.xdrivelogistics.co.uk/public-quote-request%')
+      .maybeSingle();
     if(quoteError)return crmResponse(503,{error:'Inbound service source unavailable.'});
     if(!quote)return crmResponse(404,{error:'No matching public inbound enquiry; unverified sources are not imported.'});
   }
