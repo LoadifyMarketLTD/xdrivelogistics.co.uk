@@ -18,6 +18,23 @@ type StopRow = {
 const terminalStopStatuses = new Set(['completed', 'skipped']);
 const allowedNext = new Set(['arrived', 'completed']);
 
+function cleanString(value: unknown, max: number) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+function optionalDateTime(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') return NaN;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : NaN;
+}
+
+function optionalNumber(value: unknown, min: number, max: number) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : NaN;
+}
+
 function pathList(value: unknown) {
   if (value == null) return [] as string[];
   if (!Array.isArray(value) || value.length > 10 || value.some((item) => typeof item !== 'string')) return null;
