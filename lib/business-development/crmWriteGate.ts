@@ -39,8 +39,8 @@ export function isCrmProductionWriteAllowed(input: CrmProductionWriteGateInput):
 export function isCrmStagingWriteAllowed(input: CrmWriteGateInput): boolean {
   const context=(input.context??'').trim().toLowerCase();
   const vercel=(input.vercelEnvironment??'').trim().toLowerCase();
-  if(input.deploymentIsPreview || !context || context==='production' || context==='deploy-preview' ||
-     vercel==='production' || vercel==='preview')return false;
+  if(input.deploymentIsPreview || !['branch-deploy', 'development'].includes(context) ||
+     (vercel !== '' && vercel !== 'development'))return false;
   if(input.enabled!=='enabled' || input.databaseScope!=='isolated_staging')return false;
   if(!input.stagingSupabaseUrl || !input.connectedSupabaseUrl)return false;
   try {
