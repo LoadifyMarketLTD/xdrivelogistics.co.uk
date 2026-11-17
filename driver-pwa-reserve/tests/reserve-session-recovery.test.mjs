@@ -4,7 +4,8 @@ import {readFileSync} from 'node:fs';
 const app=readFileSync(new URL('../src/ReserveApp.tsx',import.meta.url),'utf8');
 const api=readFileSync(new URL('../src/liveApi.ts',import.meta.url),'utf8');
 test('Reserve verifies server-side cached session and force-renews rejected tokens',()=>{
- assert.match(app,/let s=await renewSession\(session\);try\{await driverGet\('\/profile',s\.token,7000\)/);
+ assert.match(app,/let s=await renewSession\(session\);let profile:unknown;try\{profile=await driverGet\('\/profile',s\.token,7000\)/);
+ assert.match(app,/const verifiedRole=driverRoleFromProfile\(profile\)/);
  assert.match(app,/s=await renewSession\(s,true\)/);
  assert.match(api,/renewSession\(session: LiveSession, forceRefresh = false\)/);
 });
