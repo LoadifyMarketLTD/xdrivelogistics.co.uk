@@ -420,6 +420,10 @@ export default function ReserveApp() {
             if(j.status==='ON_SITE_PICKUP'&&collectionStage==='arrival'){
         setCollectionStage('loaded');setItems(pickupItems);setWeight(pickupWeight);setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setError('');return;
       }
+      if(j.status==='ON_WAY_TO_DELIVERY'){
+        setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));
+        setDeliveryArrivalSaved(true);
+      }
       setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:step.status}:x));
     });
   }
@@ -541,7 +545,7 @@ export default function ReserveApp() {
   }
 
   async function completeDelivery(j:LiveJob) {
-    if(!deliveryArrivalSaved){setError('Save On Site Delivery arrival before recording the delivery outcome.');return;}
+    if(j.status!=='ON_SITE_DELIVERY'){setError('Record On Site (Final Delivery) before recording the delivery outcome.');return;}
     const finalStop=j.routeStops?.at(-1);
     if(!finalStop||finalStop.type!=='delivery'){setError('Final delivery stop is unavailable. Refresh the booking before continuing.');return;}
     if(finalStop.handover?.stopKind==='return'||finalStop.handover?.stopKind==='redirect'){
@@ -667,7 +671,7 @@ export default function ReserveApp() {
         onCancel={()=>openCancellation(job,activeStop,'flow')}/>;
     }
     if(job.status==='ON_SITE_DELIVERY'){
-      return <DeliveryHandover job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onUndo={()=>void undoLatestStatus(job)} onBack={()=>setView('list')} mode={deliveryArrivalSaved?"delivery":"arrival"} onConfirm={()=>void (deliveryArrivalSaved?completeDelivery(job):transition(job))}/>;
+      return <DeliveryHandover job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onUndo={()=>void undoLatestStatus(job)} onBack={()=>setView('list')} mode="delivery" onConfirm={()=>void completeDelivery(job)}/>;
     }
     const step=nextStates[job.status];
     const delivered=job.status==='DELIVERED'||job.status==='POD_SUBMITTED';
