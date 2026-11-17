@@ -71,6 +71,7 @@ export type ParsedStopCompletion = {
   documentPaths: string[];
   signaturePath: string | null;
   canonicalFinalPod: boolean;
+  canonicalPodReference?: { jobId: string; stopId: string; signatureSource: string; photoSource: string; documentSource: string };
 };
 
 export function parseStopCompletion(
