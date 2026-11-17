@@ -147,6 +147,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const target = stops.find(stop => stop.id === stopId);
   if (!target) return respond(404, { error: 'Stop not found for this assigned job.' });
 
+  if (target.handover && typeof target.handover === 'object' &&
+      (target.handover as Record<string, unknown>).returnInstruction &&
+      ((target.handover as Record<string, unknown>).returnInstruction as Record<string, unknown>).resolutionRequired === true &&
+      action !== 'exception') {
+    return respond(409, { error: 'Goods remain in custody pending authorised instructions.' });
+  }
+
   if (action !== 'exception' && target.status === action) {
     return respond(200, { ok: true, duplicate: true, stop: mapStop(target), ...completionSummary(stops, target) });
   }
@@ -215,66 +222,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const requestResult = await requestWholeJobCancellation(jobId, driver.userId, cancellation.reason);
       if (!requestResult.ok) return respond(409, { error: requestResult.error });
     }
-    if (cancellation.goodsInCustody && cancellation.goodsDisposition === 'await_instructions') {
-      const previous = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
-        ? target.handover as Record<string, unknown> : {};
-      const { data: changed, error: writeError } = await supabaseAdmin
-        .from('job_stops')
-        .update({ handover: { ...previous, returnInstruction: { ...cancellation, reportedAt: now, resolutionRequired: true } }, updated_at: now })
-        .eq('id', stopId).eq('job_id', jobId).eq('status', target.status)
-        .select(stopSelect).maybeSingle();
-      if (writeError || !changed) return respond(writeError ? 500 : 409, { error: writeError ? 'Return instruction could not be recorded.' : 'Stop state changed. Refresh the booking.' });
-      await insertTrackingEvent(jobId, driver.userId, 'return_required', `${stopLabel(target)} is awaiting instructions with goods in custody.`, {
-        stop_id: stopId, stop_sequence: target.sequence, goods_disposition: cancellation.goodsDisposition,
-      }).catch(() => undefined);
-      return respond(200, { ok: true, resolutionRequired: true, stop: mapStop(changed as unknown as StopRow), ...completionSummary(stops, changed as unknown as StopRow) });
-    }
-
-    let followUpStop: StopRow | null = null;
-    let followUpId: string | null = null;
-    if (cancellation.goodsInCustody && cancellation.goodsDisposition !== 'none') {
-      const firstCollection = stops.find(stop => stop.stop_type === 'collection');
-      const returnAddress = cancellation.goodsDisposition === 'return_to_collection'
+    const firstCollection = stops.find(stop => stop.stop_type === 'collection');
+    const destination = cancellation.goodsInCustody
+      ? cancellation.goodsDisposition === 'return_to_collection'
         ? [firstCollection?.address, firstCollection?.postcode].filter(Boolean).join(', ')
-        : cancellation.resolutionAddress;
-      if (!returnAddress) return respond(400, { error: 'A destination is required for goods that remain in custody.' });
-      const sequence = Math.max(0, ...stops.map(stop => stop.sequence)) + 1;
-      const { data: inserted, error: insertError } = await supabaseAdmin
-        .from('job_stops')
-        .insert({
-          job_id: jobId,
-          sequence,
-          stop_type: 'delivery',
-          address: returnAddress,
-          instructions: cancellation.goodsDisposition.startsWith('return_') ? 'Return goods on authorised instruction.' : 'Replacement / redirected delivery authorised.',
-          status: 'pending',
-          handover: {
-            version: 3,
-            stopKind: cancellation.goodsDisposition.startsWith('return_') ? 'return' : 'redirect',
-            sourceStopId: stopId,
-            cancellation,
-            createdAt: now,
-          },
-        })
-        .select(stopSelect).single();
-      if (insertError || !inserted) return respond(500, { error: 'The required return or replacement stop could not be created.' });
-      followUpStop = inserted as unknown as StopRow;
-      followUpId = followUpStop.id;
+        : cancellation.resolutionAddress
+      : null;
+    if (cancellation.goodsInCustody && cancellation.goodsDisposition !== 'await_instructions' && !destination) {
+      return respond(400, { error: 'A destination is required for goods that remain in custody.' });
     }
-
-    const cancellationHandover = {
-      version: 3,
-      capturedAt: now,
-      cancellation: { ...cancellation, followUpStopId: followUpId },
-    };
-    const { data: changed, error: writeError } = await supabaseAdmin
-      .from('job_stops')
-      .update({ status: 'cancelled', cancelled_at: now, handover: cancellationHandover, updated_at: now })
-      .eq('id', stopId).eq('job_id', jobId).eq('status', target.status)
-      .select(stopSelect).maybeSingle();
-    if (writeError || !changed) {
-      if (followUpId) await supabaseAdmin.from('job_stops').delete().eq('id', followUpId).eq('job_id', jobId);
-      return respond(writeError ? 500 : 409, { error: writeError ? 'Stop cancellation could not be recorded.' : 'Stop state changed. Refresh the booking.' });
+    const { data: atomicResult, error: atomicError } = await supabaseAdmin.rpc('apply_driver_stop_cancellation_atomic', {
+      p_job_id: jobId, p_stop_id: stopId, p_actor_user_id: driver.userId,
+      p_expected_status: target.status, p_cancellation: cancellation, p_destination: destination,
+    });
+    if (atomicError || !atomicResult) {
+      return respond(409, { error: atomicError?.message || 'Cancellation could not be recorded atomically.' });
+    }
+    const atomic = atomicResult as { stop: StopRow; followUpStop: StopRow | null; resolutionRequired?: boolean };
+    const changed = atomic.stop;
+    const followUpStop = atomic.followUpStop;
+    if (atomic.resolutionRequired) {
+      await insertTrackingEvent(jobId, driver.userId, 'return_required',
+        `${stopLabel(target)} is awaiting instructions with goods in custody.`, {
+          stop_id: stopId, stop_sequence: target.sequence, goods_disposition: cancellation.goodsDisposition,
+        }).catch(() => undefined);
+      return respond(200, { ok: true, resolutionRequired: true, stop: mapStop(changed), ...completionSummary(stops, changed) });
     }
 
     await insertTrackingEvent(jobId, driver.userId, 'multi_drop_stop_cancelled', `${stopLabel(target)} cancelled on instruction.`, {
@@ -291,7 +263,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       duplicate: false,
       stop: mapStop(changed as unknown as StopRow),
       followUpStop: followUpStop ? mapStop(followUpStop) : null,
-      ...completionSummary(stops, changed as unknown as StopRow, followUpStop),
+      ...completionSummary(stops, changed, followUpStop),
     });
   }
 
@@ -323,7 +295,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         return respond(400, { error: 'Stop signature evidence could not be verified.' });
       }
     }
-    handover = { version: 3, capturedAt: now, ...parsedHandover };
+    handover = { ...(target.handover && typeof target.handover === 'object' ? target.handover as Record<string, unknown> : {}), version: 3, capturedAt: now, ...parsedHandover };
   }
 
   const update: Record<string, unknown> = action === 'en_route'
