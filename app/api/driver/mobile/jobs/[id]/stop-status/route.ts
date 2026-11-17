@@ -206,6 +206,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const parsed = parseStopCancellation(body.cancellation);
     if (!parsed.ok) return respond(400, { error: parsed.error });
     const cancellation = parsed.value;
+    if (cancellation.scope === 'job') {
+      const requestResult = await requestWholeJobCancellation(jobId, driver.userId, cancellation.reason);
+      if (!requestResult.ok) return respond(409, { error: requestResult.error });
+    }
     if (cancellation.goodsInCustody && cancellation.goodsDisposition === 'await_instructions') {
       const previous = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
         ? target.handover as Record<string, unknown> : {};
@@ -269,8 +273,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     if (cancellation.scope === 'job') {
-      const requestResult = await requestWholeJobCancellation(jobId, driver.userId, cancellation.reason);
-      if (!requestResult.ok) return respond(409, { error: requestResult.error });
       await insertTrackingEvent(jobId, driver.userId, 'cancellation_requested', 'Driver recorded a whole-job cancellation instruction.', {
         stop_id: stopId, cancellation_scope: 'job',
       }).catch(() => undefined);
