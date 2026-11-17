@@ -12,10 +12,13 @@ test('published Production PWA entry uses the vetted, explicitly approved live-w
   const html=readFileSync(resolve(root,'public/driver/reserve-pwa/index.html'),'utf8');
   const match=html.match(/\/driver\/reserve-pwa\/assets\/(index-[\w-]+\.js)/);
   assert.ok(match,'public index must refer to a versioned JS asset');
-  assert.equal(match[1],'index-BcoSWU6s.js','wrong build published: do not ship QA read-only bundle');
+  assert.equal(match[1],'index-R9AiEpad.js','wrong build published: do not ship QA read-only bundle');
   const asset=resolve(root,'public/driver/reserve-pwa/assets',match[1]);
   assert.ok(existsSync(asset),'published JS does not exist');
   const code=readFileSync(asset,'utf8');
   assert.ok(code.includes('Your stored evidence is preserved'));
   assert.ok(code.includes('Delivery Time *'));
+  assert.ok(code.includes('owner_driver'));
+  assert.ok(code.includes('company_driver'));
+  assert.ok(code.includes('Driver type could not be verified'));
 });
