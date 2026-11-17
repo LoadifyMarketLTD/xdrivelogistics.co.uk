@@ -118,7 +118,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
       .from('job_stops')
-      .select('id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at, handover')
+      .select('id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, en_route_at, arrived_at, completed_at, cancelled_at, handover')
       .eq('job_id', id)
       .order('sequence', { ascending: true }),
     supabaseAdmin
