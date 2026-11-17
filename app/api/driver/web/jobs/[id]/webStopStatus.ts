@@ -179,6 +179,12 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     const parsed = parseStopCancellation(body.cancellation);
     if (!parsed.ok) return respond(400, { error: parsed.error });
     const cancellation = parsed.value;
+    const priorCustodyInstruction = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
+      ? (target.handover as Record<string, unknown>).returnInstruction : null;
+    if (priorCustodyInstruction && typeof priorCustodyInstruction === 'object' &&
+        (priorCustodyInstruction as Record<string, unknown>).resolutionRequired === true) {
+      return respond(409, { error: 'Goods remain in custody awaiting an authorised resolution. Do not create a second cancellation or return stop.' });
+    }
     if (cancellation.scope === 'job') {
       const requestResult = await requestWholeJobCancellation(jobId, driver, cancellation.reason);
       if (!requestResult.ok) return respond(409, { error: requestResult.error });
