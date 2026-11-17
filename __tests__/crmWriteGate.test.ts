@@ -16,6 +16,9 @@ describe('CRM isolated write gate remains fail closed',()=>{
   });
   it.each([
     {context:'production'},
+    {context:undefined},
+    {context:''},
+    {context:'   '},
     {context:'deploy-preview'},
     {vercelEnvironment:'production'},
     {vercelEnvironment:'preview'},
