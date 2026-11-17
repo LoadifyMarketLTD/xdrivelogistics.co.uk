@@ -14,6 +14,7 @@ import LocalInvoices from "./LocalInvoices";
 import LiveInvoices from "./LiveInvoices";
 import DriverMenu from "./DriverMenu";
 import BookingDocuments from "./BookingDocuments";
+import BookingTimeline from "./BookingTimeline";
 import PodCapture from "./PodCapture";
 import LivePodCapture from "./LivePodCapture";
 import DeliverySignature from './DeliverySignature';
@@ -77,6 +78,7 @@ type Load = {
   zoneAlert?: string;
   stops?: number;
   routeStops?: LiveStop[];
+  statusHistory?: Array<{ status: string; timestamp?: string; note?: string; source?: string }>;
   customerPhone?: string;
   feedbackPay?: { positive: number; neutral: number; negative: number };
   feedbackDelivery?: { positive: number; neutral: number; negative: number };
