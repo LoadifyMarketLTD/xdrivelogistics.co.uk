@@ -649,9 +649,27 @@ export default function ReserveApp() {
 
   function flow(){
     if(!job)return null;
+    const routeStops=job.routeStops||[];
+    const finalRouteStop=routeStops.at(-1);
+    const dynamicRouteEnd=finalRouteStop?.handover?.stopKind==='return'||finalRouteStop?.handover?.stopKind==='redirect';
+    const operationalStops=routeStops.length>2
+      ? routeStops.slice(1,dynamicRouteEnd?undefined:-1)
+      : dynamicRouteEnd?routeStops.slice(1):[];
+    const legacySkipped=operationalStops.find(stop=>stop.status==='skipped');
+    const activeStop=operationalStops.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');
+    const collectionCancelled=routeStops[0]?.status==='cancelled'&&['ALLOCATED','ON_WAY_TO_PICKUP','ON_SITE_PICKUP'].includes(job.status);
+    if(collectionCancelled)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Cancellation recorded</h1><p>The collection stop was cancelled on instruction. XDrive will not advance this booking as a normal collection.</p><button className="rv-outline rv-wide" onClick={()=>setView('statusHistory')}>View audit history</button></section>;
+    if(legacySkipped)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Stop review required</h1><div className="rv-warning" role="alert">A legacy skipped stop exists. XDrive will not treat it as completed or cancelled until an authorised resolution is recorded.</div></section>;
+    if(activeStop&&['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)&&session){
+      return <ReserveStopExecution job={job} stop={activeStop} session={session} onSession={setSession}
+        onRefresh={async token=>{await fetchJobs(token);}}
+        onBack={()=>setView('statusHistory')}
+        onCancel={()=>openCancellation(job,activeStop,'flow')}/>;
+    }
     if(job.status==='ON_SITE_DELIVERY'){
       return <DeliveryHandover job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onUndo={()=>void undoLatestStatus(job)} onBack={()=>setView('list')} mode={deliveryArrivalSaved?"delivery":"arrival"} onConfirm={()=>void (deliveryArrivalSaved?completeDelivery(job):transition(job))}/>;
-    }    const step=nextStates[job.status];
+    }
+    const step=nextStates[job.status];
     const delivered=job.status==='DELIVERED'||job.status==='POD_SUBMITTED';
     if(job.podRecorded||podDone)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Completed booking · Signed POD</h1><Route job={job} full/><p>The signed POD is archived and read-only. Delivery cannot be repeated.</p>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{role==='Owner Driver'&&<button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button>}<p className="rv-sub">Company owners can create or view an invoice after POD validation.</p></section>;
     // Delivered jobs with an incomplete POD must remain editable as a signed POD draft.
@@ -712,7 +730,8 @@ export default function ReserveApp() {
       </section>}
       {delivered&&!podDone&&!job.podRecorded&&<section className="rv-card rv-pod-stage"><span className="rv-over">DELIVERED / POD</span><h2>Recipient details and signature saved</h2><Fact name="Received By" value={draft.recipient}/><Fact name="Left At" value={draft.leftAt}/><Fact name="Items" value={draft.items}/><Fact name="Delivered On" value={draft.deliveredOn}/><Field label="Delivery Time *"><input type="time" required value={draft.deliveredTime} onChange={e=>setDraft(previous=>({...previous,deliveredTime:e.target.value}))}/></Field><p>The delivery signature was verified before the Delivered status. Submit the final POD to archive the evidence.</p>{job.hardCopyPodRequired&&<label className="rv-hard-copy-ack"><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> I acknowledge that the required paper POD must be retained and handed over as instructed.</label>}<button className="rv-primary rv-wide" disabled={busy||!signature||verifiedSignature!==signature||(job.hardCopyPodRequired&&!hardCopyAcknowledged)} onClick={()=>void savePod(job)}>{busy?'Saving POD…':'Confirm and Save Signed POD →'}</button></section>}
       {delivered&&(podDone||job.podRecorded)&&<section className="rv-card rv-pod-stage"><div className="rv-success">Signed POD is recorded in XDrive. The official invoice generator will use the stored delivery evidence.</div>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{role==='Owner Driver'&&<button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button>}<p className="rv-sub">Company owners can create or view an invoice after POD validation.</p></section>}
-      {!delivered&&step&&<button className="rv-primary rv-wide" disabled={busy} onClick={()=>void transition(job)}>{busy?'Saving status…':job.status==='ALLOCATED'?'Save':job.status==='ON_SITE_PICKUP'?(collectionStage==='arrival'?'Save':'Save'):step.label+' →'}</button>}
+      {!delivered&&['ALLOCATED','ON_WAY_TO_PICKUP','ON_SITE_PICKUP','LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)&&<button className="rv-outline rv-wide" disabled={busy} onClick={()=>openCancellation(job,null,'flow')}>Record Job / Stop Cancellation</button>}
+      {!delivered&&step&&<button className="rv-primary rv-wide" disabled={busy} onClick={()=>void transition(job)}>{busy?'Saving status…':job.status==='ALLOCATED'?'On My Way to Pickup':job.status==='ON_SITE_PICKUP'?(collectionStage==='arrival'?'Save Arrival Details':'Confirm Loaded'):step.label+' →'}</button>}
     </section>;
   }
   const header=<header className="rv-header rv-official-header"><div className="rv-official-brand"><img src={`${import.meta.env.BASE_URL}xdrive-logo-company-3150.png`} alt="XDrive Logistics"/></div><button className="rv-official-menu" aria-label="Open driver menu" onClick={()=>{setMenuSection(null);setMenuOpen(true)}}>Menu</button></header>;
