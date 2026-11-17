@@ -8,6 +8,34 @@ export type CrmWriteGateInput = {
   stagingSupabaseUrl?: string;
   connectedSupabaseUrl?: string;
 };
+export type CrmProductionWriteGateInput = {
+  context?: string;
+  vercelEnvironment?: string;
+  deploymentIsPreview: boolean;
+  enabled?: string;
+  databaseScope?: string;
+  connectedSupabaseUrl?: string;
+};
+
+/** Production mutations require an explicit, independently configured release
+ * flag AND the exact XDrive Production Supabase origin; no previews or Loadify.
+ * A mere CRM code deployment never turns on write access by itself. */
+export function isCrmProductionWriteAllowed(input: CrmProductionWriteGateInput): boolean {
+  if (input.deploymentIsPreview ||
+      input.context !== 'production' ||
+      (input.vercelEnvironment && input.vercelEnvironment !== 'production') ||
+      input.enabled !== 'enabled' ||
+      input.databaseScope !== 'production_xdrive') return false;
+  try {
+    const actual = new URL(input.connectedSupabaseUrl ?? '');
+    return actual.origin === 'https://jqxlauexhkonixtjvljw.supabase.co' &&
+      actual.pathname === '/' && !actual.username && !actual.password &&
+      !actual.search && !actual.hash;
+  } catch {
+    return false;
+  }
+}
+
 export function isCrmStagingWriteAllowed(input: CrmWriteGateInput): boolean {
   const context=(input.context??'').trim().toLowerCase();
   const vercel=(input.vercelEnvironment??'').trim().toLowerCase();

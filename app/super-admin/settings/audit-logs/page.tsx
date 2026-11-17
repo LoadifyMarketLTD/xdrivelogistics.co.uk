@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
 import PlatformEntityLink from '@/app/super-admin/_components/control-plane/PlatformEntityLink';
 import { formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
@@ -23,12 +24,30 @@ const actionLabel = (action: string) => action
   .join(' ');
 
 export default function Page() {
+  const [source,setSource] = useState<'platform'|'prospects'|'campaigns'|'privacy'>('platform');
+  useEffect(() => {
+    const input = new URLSearchParams(window.location.search).get('source');
+    if (input === 'prospects' || input === 'campaigns' || input === 'privacy')
+      setSource(input);
+  }, []);
   return <SuperAdminLiveTablePage<Row>
     icon="audit"
     title="Audit Logs"
     sectionLabel="Platform"
-    description="Immutable Platform Owner governance trail with canonical entity drill-down."
-    endpoint="/api/super-admin/audit"
+    description={source==='platform'
+      ? 'Immutable Platform Owner governance trail with canonical entity drill-down.'
+      : 'Read-only CRM audit entries, recorded in their original protected tables. No campaign sending.'}
+    endpoint={'/api/super-admin/audit' + (source==='platform'?'':'?source='+source)}
+    toolbar={<label style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      Audit source
+      <select className="sa-input" value={source}
+        onChange={event=>setSource(event.target.value as typeof source)}>
+        <option value="platform">Platform governance</option>
+        <option value="prospects">CRM prospects and contacts</option>
+        <option value="campaigns">CRM campaign drafts</option>
+        <option value="privacy">CRM data-rights requests</option>
+      </select>
+    </label>}
     summaryField="summary"
     pageSize={100}
     emptyMessage="No audit log entries found."

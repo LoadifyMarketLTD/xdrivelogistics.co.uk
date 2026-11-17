@@ -144,6 +144,21 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
   const [conversionEvidence,setConversionEvidence]=useState('');
   const [working,setWorking]=useState(false);
 
+  // Canonical source links carry only record type and UUID, never copied
+  // client contact details. The staging-only API re-verifies the database
+  // ownership, legal identity and supporting evidence before any CRM write.
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get('source_type');
+    const id = params.get('source_id') ?? '';
+    if ((type==='existing_customer' || type==='inbound_enquiry') &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      setCanonicalSourceType(type);
+      setCanonicalSourceId(id);
+      setNotice('Canonical XDrive record selected. Confirm identity, provenance and relationship before staging CRM capture.');
+    }
+  },[]);
+
   useEffect(()=>{
     let active=true;
     const fetchMain=async()=>{

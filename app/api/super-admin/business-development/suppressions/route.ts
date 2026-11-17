@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { hasSuperAdminBearerAuthorization, verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
-import { crmIsolatedWriteEnabled } from '../_lib/server';
+import { crmWriteEnabled } from '../_lib/server';
 
 export const dynamic = 'force-dynamic';
 const respond = (status: number, payload: Record<string, unknown>) =>
@@ -13,7 +13,7 @@ const reasons = new Set(['objection', 'opt_out', 'invalid', 'legal_hold', 'other
 async function authorize(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return { error: respond(503, { error: 'CRM storage unavailable.' }) };
   if (!hasSuperAdminBearerAuthorization(request)) return { error: respond(401, { error: 'Authentication required.' }) };
-  if (request.method !== 'GET' && !crmIsolatedWriteEnabled()) return { error: respond(403, { error: 'CRM writes require isolated staging.' }) };
+  if (request.method !== 'GET' && !crmWriteEnabled()) return { error: respond(403, { error: 'CRM mutations require an approved deployment and database.' }) };
   const owner = await verifyPlatformOwner(request);
   if (!owner) return { error: respond(403, { error: 'Active Platform Owner required or preview write disabled.' }) };
   return { owner };

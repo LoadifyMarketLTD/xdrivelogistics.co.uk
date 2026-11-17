@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { isCrmStagingWriteAllowed } from '@/lib/business-development/crmWriteGate';
+import { isCrmProductionWriteAllowed, isCrmStagingWriteAllowed } from '@/lib/business-development/crmWriteGate';
 import { NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { hasSuperAdminBearerAuthorization, isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
@@ -8,11 +8,21 @@ export const crmResponse = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 
 /**
- * No CRM mutations on Production or Production-backed previews. The operator
- * must explicitly confirm staging and the configured Supabase origin.
+ * CRM mutations are permitted only on the separately attested isolated
+ * staging origin or explicitly enabled, exact XDrive Production origin.
+ * All previews remain read-only.
  */
-export function crmIsolatedWriteEnabled(): boolean {
-  return isCrmStagingWriteAllowed({
+export function crmWriteEnabled(): boolean {
+  const connectedSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim();
+  const production = isCrmProductionWriteAllowed({
+    context: process.env.CONTEXT,
+    vercelEnvironment: process.env.VERCEL_ENV,
+    deploymentIsPreview: isSuperAdminDeployPreviewReadOnly(),
+    enabled: process.env.XDRIVE_CRM_PRODUCTION_WRITES,
+    databaseScope: process.env.XDRIVE_CRM_DATABASE_SCOPE,
+    connectedSupabaseUrl,
+  });
+  return production || isCrmStagingWriteAllowed({
     context: process.env.CONTEXT,
     vercelEnvironment: process.env.VERCEL_ENV,
     deploymentIsPreview: isSuperAdminDeployPreviewReadOnly(),
@@ -30,8 +40,8 @@ export async function authorizeCrm(request: NextRequest, write = false) {
     return { error: crmResponse(401, { error: 'Authentication required.' }), owner: null };
   const owner = await verifyPlatformOwner(request);
   if (!owner) return { error: crmResponse(403, { error: 'Active Platform Owner required.' }), owner: null };
-  if (write && !crmIsolatedWriteEnabled())
-    return { error: crmResponse(403, { error: 'CRM write denied: isolated staging required.' }), owner: null };
+  if (write && !crmWriteEnabled())
+    return { error: crmResponse(403, { error: 'CRM mutations unavailable in this deployment or database; verified owner and explicit release gate required.' }), owner: null };
   return { error: null, owner };
 }
 

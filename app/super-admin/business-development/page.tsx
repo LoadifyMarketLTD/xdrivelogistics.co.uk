@@ -33,8 +33,8 @@ export default function BusinessDevelopmentPage() {
         const res = await fetch('/api/super-admin/business-development/environment', {
           headers: { Authorization: auth }, cache: 'no-store',
         });
-        const payload = await res.json() as { staging_writes_enabled?: boolean };
-        if (active) setPreviewReadOnly(!res.ok || payload.staging_writes_enabled !== true);
+        const payload = await res.json() as { writes_enabled?: boolean };
+        if (active) setPreviewReadOnly(!res.ok || payload.writes_enabled !== true);
       } catch { if (active) setPreviewReadOnly(true); }
     })();
     return () => { active = false; };
@@ -212,7 +212,7 @@ export default function BusinessDevelopmentPage() {
     <ProtectedRoute>
       <SuperAdminPage>
         <SuperAdminPageHeader eyebrow="Commercial acquisition" title="Business Development" description="Private UK B2B prospect register. No outreach is sent from this screen." />
-        {previewReadOnly && <SuperAdminNotice tone="warning">CRM writes are locked on Production and deploy previews. Only a separately configured, isolated Supabase staging project permits creation, editing, contacts, suppression and privacy actions. This view may use Production-backed read data.</SuperAdminNotice>}
+        {previewReadOnly && <SuperAdminNotice tone="warning">CRM writes are locked until an explicit owner-only production release gate is enabled against the verified XDrive database. Deploy previews remain read-only. No marketing emails or calls are sent from this module.</SuperAdminNotice>}
         {error && <SuperAdminNotice tone="danger">{error}</SuperAdminNotice>}
         <SuperAdminSectionCard title="Add verified organisation">
           <form onSubmit={(event) => void create(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>

@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       note: 'Personal data export prepared for verified owner review; do not deliver without confirming requester identity and applicable exemptions.' });
   }
   const { data, error } = await supabaseAdmin!.from('crm_privacy_requests')
-    .select('id,contact_id,organisation_id,request_type,status,requester_verified,legal_hold,legal_hold_reviewed_at,request_note,review_note,created_at,reviewed_at,completed_at')
+    .select('id,contact_id,organisation_id,request_type,status,requester_verified,legal_hold,legal_hold_reviewed_at,request_note,review_note,support_ticket_id,created_at,reviewed_at,completed_at')
     .order('created_at',{ ascending: false }).limit(100);
   if (error) return crmResponse(503, { error: 'Privacy workflow unavailable.' });
   return crmResponse(200, { requests: data ?? [] });
@@ -78,14 +78,46 @@ export async function PATCH(request: NextRequest) {
   const auth = await authorizeCrm(request, true);
   if (auth.error) return auth.error;
   const body = await parse(request);
-  if (!body || !crmUuid(body.id) || !['review','hold_review','approve','reject','fulfil_access','execute_erasure'].includes(String(body.action)))
+  if (!body || !crmUuid(body.id) || !['review','hold_review','approve','reject','fulfil_access','execute_erasure','link_support'].includes(String(body.action)))
     return crmResponse(400, { error: 'Valid request ID and action required.' });
   const { data: record, error: readError } = await supabaseAdmin!.from('crm_privacy_requests')
-    .select('id,status,request_type,contact_id,requester_verified,legal_hold,legal_hold_reviewed_at')
+    .select('id,status,request_type,contact_id,organisation_id,support_ticket_id,requester_verified,legal_hold,legal_hold_reviewed_at')
     .eq('id', body.id).maybeSingle();
   if (readError) return crmResponse(503, { error: 'Privacy request unavailable.' });
   if (!record) return crmResponse(404, { error: 'Privacy request not found.' });
   const evidence = typeof body.review_note === 'string' ? body.review_note.trim() : '';
+  if (body.action === 'link_support') {
+    if (record.support_ticket_id)
+      return crmResponse(409,{error:'Privacy request is already linked to a canonical support case; no silent relinking.'});
+    if (!crmUuid(body.support_ticket_id) || evidence.length < 30 || evidence.length > 2000)
+      return crmResponse(400,{error:'Canonical support ticket UUID and reviewed relationship evidence (30+ characters) required.'});
+    const [supportResult,organisationResult] = await Promise.all([
+      supabaseAdmin!.from('support_tickets')
+        .select('id,company_id,category').eq('id',body.support_ticket_id).maybeSingle(),
+      supabaseAdmin!.from('crm_prospect_organisations')
+        .select('id,converted_company_id').eq('id',record.organisation_id).maybeSingle(),
+    ]);
+    if (supportResult.error || organisationResult.error)
+      return crmResponse(503,{error:'Cannot verify both canonical sources; no association saved.'});
+    const ticket=supportResult.data,org=organisationResult.data;
+    if(!ticket || ticket.category!=='compliance' || !org)
+      return crmResponse(409,{error:'A verified compliance support ticket and CRM organisation are required.'});
+    if(ticket.company_id && ticket.company_id!==org.converted_company_id)
+      return crmResponse(409,{error:'Support ticket belongs to another member company; linking denied.'});
+    const {data,error}=await supabaseAdmin!.from('crm_privacy_requests')
+      .update({
+        support_ticket_id:ticket.id,last_actor_id:auth.owner!.id,
+        review_note:evidence,updated_at:new Date().toISOString(),
+      })
+      .eq('id',record.id).eq('status',record.status)
+      .is('support_ticket_id',null)
+      .select('id,status,support_ticket_id').maybeSingle();
+    if(error)return crmResponse(error.code==='23505'?409:503,{
+      error:error.code==='23505'?'Support ticket already belongs to another CRM request.':'Support case association failed.',
+    });
+    if(!data)return crmResponse(409,{error:'Privacy request changed during review; refresh.'});
+    return crmResponse(200,{request:data,source:'existing_support_ticket',tickets_created:0});
+  }
   if (body.action === 'execute_erasure') {
     if (record.request_type !== 'erasure' || record.status !== 'approved' || !record.requester_verified || record.legal_hold || !record.legal_hold_reviewed_at)
       return crmResponse(409, { error: 'Erasure not approved, identity unverified, or legal hold exists.' });

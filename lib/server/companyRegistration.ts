@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { companiesHouseRead, isMatchingCompaniesHouseIdentity, normalizeCompaniesHouseNumber } from './companiesHouseRegistry';
 
 export type CompanyRegistrationAccountType = 'broker_shipper' | 'fleet_courier';
 
@@ -33,9 +34,7 @@ export type VerifiedCompanyRegistrationResult =
       error: string;
     };
 
-export function normalizeCompanyNumber(value: string): string {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-}
+export const normalizeCompanyNumber = normalizeCompaniesHouseNumber;
 
 function failure(httpStatus: number, errorCode: string, error: string): VerifiedCompanyRegistrationResult {
   return { success: false, httpStatus, errorCode, error };
@@ -65,19 +64,7 @@ export async function registerCompaniesHouseCompany(options: {
 
   let response: Response;
   try {
-    const authorization = Buffer.from(`${apiKey}:`).toString('base64');
-    response = await fetch(
-      `https://api.company-information.service.gov.uk/company/${encodeURIComponent(requestedCompanyNumber)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Basic ${authorization}`,
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
-        signal: controller.signal,
-      },
-    );
+    response = await companiesHouseRead('company/' + encodeURIComponent(requestedCompanyNumber), apiKey, controller.signal);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[company-registration] Companies House request failed:', message);
@@ -116,7 +103,8 @@ export async function registerCompaniesHouseCompany(options: {
     ? registryCompany.company_status.trim().toLowerCase()
     : '';
 
-  if (registryCompanyNumber !== requestedCompanyNumber || !registeredName) {
+  if (!isMatchingCompaniesHouseIdentity(registryCompany, requestedCompanyNumber) ||
+      registryCompanyNumber !== requestedCompanyNumber || !registeredName) {
     return failure(502, 'REGISTRY_IDENTITY_MISMATCH', 'Companies House returned a different company identity.');
   }
 

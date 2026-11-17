@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { authorizeCrm, crmResponse } from '../_lib/server';
+import { companiesHouseRead, companiesHousePublicUrl, normalizeCompaniesHouseNumber } from '@/lib/server/companiesHouseRegistry';
 
 export const dynamic = 'force-dynamic';
 // UK Standard Industrial Classification codes. Classification signals only;
@@ -14,8 +15,6 @@ const sectors: Record<string, { sic: string; segment: string; label: string }> =
   machinery_wholesale: {sic:'46690',segment:'customer',label:'Wholesale of other machinery and equipment'},
   intermediate_wholesale: {sic:'46760',segment:'customer',label:'Wholesale of other intermediate products'},
 };
-const base='https://api.company-information.service.gov.uk/advanced-search/companies';
-const registry='https://find-and-update.company-information.service.gov.uk/company/';
 
 export async function GET(request:NextRequest) {
   const auth=await authorizeCrm(request);
@@ -35,11 +34,7 @@ export async function GET(request:NextRequest) {
     size:'20',start_index:String((page-1)*20),
   });
   try {
-    const response=await fetch(base+'?'+params.toString(),{
-      headers:{Authorization:'Basic '+Buffer.from(key+':').toString('base64'),
-        Accept:'application/json'},
-      cache:'no-store',signal:AbortSignal.timeout(12000),
-    });
+    const response=await companiesHouseRead('advanced-search/companies?'+params.toString(),key,AbortSignal.timeout(12000));
     if(response.status===404)return crmResponse(200,{
       sector,industry:category.label,page,total_registry_hits:0,candidates:[],imported:0,
       note:'No matching UK legal entities in this official register query.',
@@ -57,7 +52,7 @@ export async function GET(request:NextRequest) {
       item.company_status==='active' && typeof item.company_name==='string' &&
       typeof item.company_number==='string' && /^[A-Z0-9]{2,8}$/i.test(item.company_number)
     ).slice(0,20);
-    const numbers=companies.map(item=>item.company_number!.toUpperCase());
+    const numbers=companies.map(item=>normalizeCompaniesHouseNumber(item.company_number!));
     let existing = new Set<string>();
     if(numbers.length){
       const {data,error}=await supabaseAdmin!.from('crm_prospect_organisations')
@@ -74,7 +69,7 @@ export async function GET(request:NextRequest) {
         company_status:item.company_status,
         company_type:item.company_type??null,sic_codes:item.sic_codes??[],
         locality:item.registered_office_address?.locality??null,
-        source_url:registry+item.company_number!,
+        source_url:companiesHousePublicUrl+normalizeCompaniesHouseNumber(item.company_number!),
         already_in_crm:existing.has(item.company_number!.toUpperCase()),
       })),
       imported:0,contacts_discovered:0,

@@ -24,7 +24,8 @@ try {
     '20261116191000_b2b_crm_private_staging.sql',
     '20261116192900_crm_contact_suppression_guard.sql',
     '20261117060000_crm_workflows_isolated_staging.sql',
-    '20261117072000_crm_prospect_followup_workflow.sql'
+    '20261117072000_crm_prospect_followup_workflow.sql',
+    '20261117084500_crm_privacy_support_crossref.sql'
   ]) {
     try {
       await db.exec(fs.readFileSync(path.join(root,'supabase','migrations',name),'utf8'));
