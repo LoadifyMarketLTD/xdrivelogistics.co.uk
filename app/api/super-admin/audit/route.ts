@@ -18,6 +18,79 @@ export async function GET(request: NextRequest) {
   const limitParam = Math.min(500, Math.max(1, Number(searchParams.get('limit') ?? '100') || 100));
   const offset = (pageParam - 1) * limitParam;
   const actionTypeFilter = searchParams.get('action_type')?.trim() ?? '';
+  const source = searchParams.get('source') ?? 'platform';
+  if (!['platform','prospects','campaigns','privacy'].includes(source))
+    return respond(400, { error: 'Invalid audit source.' });
+  if (source !== 'platform') {
+    if (process.env.XDRIVE_CRM_CANONICAL_AUDIT_READS !== 'enabled')
+      return respond(503, { error: 'CRM audit integration unavailable until schema and read gate are approved.' });
+    if (actionTypeFilter && !/^[a-z_]{2,80}$/.test(actionTypeFilter))
+      return respond(400, { error: 'Invalid CRM audit event type.' });
+
+    const pagination = (total: number) => ({
+      page: pageParam, limit: limitParam, total,
+      totalPages: Math.ceil(total / limitParam),
+      hasNextPage: pageParam < Math.ceil(total / limitParam), hasPrevPage: pageParam > 1,
+    });
+    if (source === 'prospects') {
+      let q = admin.from('crm_prospect_events')
+        .select('id,organisation_id,actor_user_id,event_type,note,occurred_at', { count: 'exact' })
+        .order('occurred_at', { ascending: false })
+        .range(offset, offset + limitParam - 1);
+      if (actionTypeFilter) q = q.eq('event_type', actionTypeFilter);
+      const { data, error, count } = await q;
+      if (error || count === null) return respond(503, { error: 'CRM prospect audit unavailable, not an empty result.' });
+      return respond(200, {
+        rows: (data ?? []).map(event => ({
+          id: event.id, actor_user_id: event.actor_user_id,
+          company_name: 'CRM prospect ' + String(event.organisation_id).slice(0, 8),
+          target_company_id: null,
+          action_type: 'crm_' + event.event_type,
+          old_status: null, new_status: null, reason: event.note,
+          created_at: event.occurred_at,
+        })),
+        pagination: pagination(count), summary: { total: count }, source: 'crm_prospects',
+      });
+    }
+    if (source === 'campaigns') {
+      let q = admin.from('crm_campaign_audit')
+        .select('id,campaign_id,actor_id,action,occurred_at', { count: 'exact' })
+        .order('occurred_at', { ascending: false })
+        .range(offset, offset + limitParam - 1);
+      if (actionTypeFilter) q = q.eq('action', actionTypeFilter);
+      const { data, error, count } = await q;
+      if (error || count === null) return respond(503, { error: 'CRM campaign audit unavailable, not an empty result.' });
+      return respond(200, {
+        rows: (data ?? []).map(event => ({
+          id: event.id, actor_user_id: event.actor_id,
+          company_name: 'Campaign ' + String(event.campaign_id).slice(0, 8),
+          target_company_id: null,
+          action_type: 'crm_campaign_' + event.action,
+          old_status: null, new_status: null, reason: 'Draft-only; no dispatch is implied.',
+          created_at: event.occurred_at,
+        })),
+        pagination: pagination(count), summary: { total: count }, source: 'crm_campaigns',
+      });
+    }
+    let q = admin.from('crm_privacy_audit')
+      .select('id,request_id,actor_id,status,occurred_at', { count: 'exact' })
+      .order('occurred_at', { ascending: false })
+      .range(offset, offset + limitParam - 1);
+    if (actionTypeFilter) q = q.eq('status', actionTypeFilter);
+    const { data, error, count } = await q;
+    if (error || count === null) return respond(503, { error: 'CRM privacy audit unavailable, not an empty result.' });
+    return respond(200, {
+      rows: (data ?? []).map(event => ({
+        id: event.id, actor_user_id: event.actor_id,
+        company_name: 'CRM data-rights request ' + String(event.request_id).slice(0, 8),
+        target_company_id: null,
+        action_type: 'crm_privacy_' + event.status,
+        old_status: null, new_status: null, reason: 'Request state change recorded in immutable CRM audit.',
+        created_at: event.occurred_at,
+      })),
+      pagination: pagination(count), summary: { total: count }, source: 'crm_privacy',
+    });
+  }
 
   let query = admin
     .from('owner_audit_log')
