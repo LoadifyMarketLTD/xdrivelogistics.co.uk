@@ -115,7 +115,15 @@ BEGIN
         AND (
           (
             COALESCE(js.handover->>'stopKind', '') IN ('return', 'redirect')
-            AND js.status <> 'completed'
+            AND (
+              js.status <> 'completed'
+              OR js.completed_at IS NULL
+              OR NULLIF(trim(COALESCE(js.handover->>'recipientName','')),'') IS NULL
+              OR NULLIF(trim(COALESCE(js.handover->>'signaturePath','')),'') IS NULL
+              OR jsonb_typeof(js.handover->'photoPaths') IS DISTINCT FROM 'array'
+              OR jsonb_array_length(CASE WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
+                THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) = 0
+            )
           )
           OR (
             COALESCE((js.handover->'returnInstruction'->>'resolutionRequired')::boolean, false) = true
