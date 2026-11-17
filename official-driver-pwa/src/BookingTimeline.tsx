@@ -63,7 +63,7 @@ const str=(value:unknown)=>typeof value==='string'?value:'';
 
 export default function BookingTimeline({live,statusHistory=[],localHistory=[],routeStops=[],yourRef,customerRef,items,weight,onUndo}:Props){
   const events:TimelineEvent[]=[];
-  const parent=live
+  const parent:TimelineEvent[]=live
     ? statusHistory.map((entry,index)=>({
         key:'parent-'+index+'-'+entry.status,
         at:entry.timestamp,
