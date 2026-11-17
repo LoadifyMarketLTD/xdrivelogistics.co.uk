@@ -333,8 +333,12 @@ export default function ReserveApp() {
   async function acceptIncomingJob(j:LiveJob){
     if(!j.offerId||j.acceptanceBlocked)return;
     await run(async s=>{
-      await bookingOfferRespond(s.token,j.offerId!,'accept');
-      await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
+      const accepted=await bookingOfferRespond(s.token,j.offerId!,'accept');
+      const acceptedRecord=accepted&&typeof accepted==='object'&&!Array.isArray(accepted)?accepted as Record<string,unknown>:{};
+      const acceptedStatus=String(acceptedRecord.job_status||acceptedRecord.status||'').toLowerCase();
+      if(['allocated','assigned'].includes(acceptedStatus)){
+        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
+      }
       const response=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);
       const row=response.job&&typeof response.job==='object'&&!Array.isArray(response.job)
         ? response.job as Record<string,unknown>:null;
