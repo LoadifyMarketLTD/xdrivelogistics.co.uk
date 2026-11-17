@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import './ReserveApp.css';
-import { login, loadLiveWithDiagnostics, driverPost, driverGet, bookingOffersGet, applyBookingOffers, applyPersonalBids, bookingOfferRespond, renewSession, revokeLiveSession, mapAssigned, platformJobReference, type LiveSession, type LiveJob } from './liveApi';
-import { acceptAndStartCollection } from './acceptAndStartCollection';
+import { login, loadLiveWithDiagnostics, driverPost, driverGet, bookingOffersGet, applyBookingOffers, applyPersonalBids, bookingOfferRespond, renewSession, revokeLiveSession, mapAssigned, platformJobReference, type LiveSession, type LiveJob, type LiveStop } from './liveApi';
 import { reserveStatusSteps, reserveUndoTargets } from './reserveLifecycle';
 import LiveInvoices from './LiveInvoices';
 import RouteMap from './RouteMap';
@@ -16,10 +15,12 @@ import DeliveryHandover from './DeliveryHandover';
 import { routeLabel, isDuplicateRouteAddress } from './routeLabel';
 import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
+import ReserveStopExecution from './ReserveStopExecution';
+import ReserveCancellation, { type ReserveCancellationValue } from './ReserveCancellation';
 
 type Tab = 'Loads' | 'Quotes' | 'Bookings';
 type BookingSection = 'Received' | 'Allocated' | 'Delivered';
-type View = 'list' | 'details' | 'quote' | 'quoteDetails' | 'map' | 'incoming' | 'statusHistory' | 'flow' | 'invoiceJob' | 'more' | 'invoices' | 'gps';
+type View = 'list' | 'details' | 'quote' | 'quoteDetails' | 'map' | 'incoming' | 'statusHistory' | 'flow' | 'cancel' | 'invoiceJob' | 'more' | 'invoices' | 'gps';
 type DeliveryDraft = { recipient: string; leftAt: string; items: string; condition: string; notes: string; deliveredOn: string; deliveredTime: string };
 const KEY = 'xdrive-driver-reserve-live-session-v1';
 const driverApi = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
@@ -52,11 +53,13 @@ export default function ReserveApp() {
   const [quoteAmount,setQuoteAmount]=useState('');const [quoteEta,setQuoteEta]=useState('30');const [quoteNotes,setQuoteNotes]=useState('');
   const [items,setItems]=useState('');const [weight,setWeight]=useState('');const [pickupItems,setPickupItems]=useState('');const [pickupWeight,setPickupWeight]=useState('');const [yourReference,setYourReference]=useState('');const [carrierReference,setCarrierReference]=useState('');const [pickupNotes,setPickupNotes]=useState('');const [packaging,setPackaging]=useState('');const [deliveryEtaAt,setDeliveryEtaAt]=useState('');
   const [collectionStage,setCollectionStage]=useState<'arrival'|'loaded'>('arrival');
-  const [draft,setDraft]=useState<DeliveryDraft>({recipient:'',leftAt:'Goods Inwards',items:'',condition:'Good condition',notes:'',deliveredOn:'',deliveredTime:''});
+  const [draft,setDraft]=useState<DeliveryDraft>({recipient:'',leftAt:'Goods Inwards',items:'',condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});
   const [signature,setSignature]=useState<string|null>(null);const [verifiedSignature,setVerifiedSignature]=useState<string|null>(null);const [podFiles,setPodFiles]=useState<File[]>([]);const [hardCopyAcknowledged,setHardCopyAcknowledged]=useState(false);
   const uploadedEvidence=useRef(new Map<File,string>());
-  const [podDone,setPodDone]=useState(false);const [deliveryArrivalSaved,setDeliveryArrivalSaved]=useState(false);const [collectionFiles,setCollectionFiles]=useState<File[]>([]);const uploadedCollectionEvidence=useRef(new Map<File,string>());
-  const [collectionCameraOpen,setCollectionCameraOpen]=useState(false);const [collectionCameraBusy,setCollectionCameraBusy]=useState(false);const collectionVideoRef=useRef<HTMLVideoElement>(null);const collectionStreamRef=useRef<MediaStream|null>(null);
+  const [podDone,setPodDone]=useState(false);const [collectionFiles,setCollectionFiles]=useState<File[]>([]);const uploadedCollectionEvidence=useRef(new Map<File,string>());
+  const [cancellationStopId,setCancellationStopId]=useState<string|null>(null);
+   const [cancellationReturnView,setCancellationReturnView]=useState<View>('flow');
+   const [collectionCameraOpen,setCollectionCameraOpen]=useState(false);const [collectionCameraBusy,setCollectionCameraBusy]=useState(false);const collectionVideoRef=useRef<HTMLVideoElement>(null);const collectionStreamRef=useRef<MediaStream|null>(null);
   const stopCollectionCamera=()=>{collectionStreamRef.current?.getTracks().forEach(track=>track.stop());collectionStreamRef.current=null;setCollectionCameraOpen(false);};
   useEffect(()=>()=>{collectionStreamRef.current?.getTracks().forEach(track=>track.stop());},[]);
   useEffect(()=>{if(collectionCameraOpen&&collectionVideoRef.current&&collectionStreamRef.current){collectionVideoRef.current.srcObject=collectionStreamRef.current;void collectionVideoRef.current.play().catch(()=>setError('Camera preview could not start. Check camera permissions.'));}},[collectionCameraOpen]);
@@ -124,7 +127,7 @@ export default function ReserveApp() {
   useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
   async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
-  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setDeliveryArrivalSaved(false);setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference('');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Good condition',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
+  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference('');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
     let active=true;
@@ -154,7 +157,7 @@ export default function ReserveApp() {
           recipient:previous.recipient||String(saved.recipientName||''),
           leftAt:previous.leftAt==='Goods Inwards'?String(saved.leftAt||previous.leftAt):previous.leftAt,
           items:previous.items||String(saved.itemCount||''),
-          condition:previous.condition==='Good condition'?String(saved.deliveryStatus||previous.condition):previous.condition,
+          condition:previous.condition==='Completed Delivery'?String(saved.deliveryStatus||previous.condition):previous.condition,
           notes:previous.notes||String(saved.notes||''),
           deliveredOn:String(saved.deliveredOn||previous.deliveredOn||''),
           deliveredTime:recoverDeliveredTime(saved.deliveredTime,previous.deliveredTime,job.statusHistory||[],saved.deliveredOn||previous.deliveredOn)
@@ -187,25 +190,7 @@ export default function ReserveApp() {
       .catch(()=>{});
     return ()=>{active=false;};
   },[id,view,job?.status,session?.token]);
-  useEffect(()=>{
-    if(!session||!job||view!=='flow'||job.status!=='ON_SITE_DELIVERY')return;
-    let active=true;
-    setDeliveryArrivalSaved(false);
-    void fetch(driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft',{headers:{Authorization:'Bearer '+session.token},cache:'no-store'})
-      .then(async response=>{if(!response.ok)throw new Error('Delivery arrival record could not be read');return response.json();})
-      .then(data=>{
-        if(!active)return;
-        let saved=false;
-        try{
-          const record=JSON.parse(data?.draft?.deliveryArrival||'null');
-          saved=Boolean(record?.confirmedAt);
-          if(saved&&typeof record.notes==='string')setDraft(previous=>({...previous,notes:previous.notes||record.notes}));
-        }catch{}
-        if(saved)setDraft(previous=>({...previous,...(!previous.deliveredOn||!previous.deliveredTime?detectedDeliveryDateTime():{})}));setDeliveryArrivalSaved(saved);
-      })
-      .catch(()=>{if(active)setDeliveryArrivalSaved(false);});
-    return ()=>{active=false;};
-  },[id,view,job?.status,session?.token]);  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');if(t==='Bookings')setBookingSection('Received');}
+  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');if(t==='Bookings')setBookingSection('Received');}
   function openMap(j:LiveJob,back:View='list'){setId(j.id);setMapReturnView(back);setView('map');setError('');}
   function card(j:LiveJob, mode:'list'|'details'='list'){
     const offered=Boolean(j.acceptanceRequired&&j.offerId);
@@ -287,14 +272,6 @@ export default function ReserveApp() {
       .then(data=>{if(!active)return;const refs=data?.references as {jobReference?:unknown;carrierCompanyReference?:unknown}|undefined;if(typeof refs?.jobReference!=='string'||typeof refs.carrierCompanyReference!=='string'||!refs.jobReference||!refs.carrierCompanyReference)throw new Error('The XDrive job and carrier IDs could not be verified. Reconnect and retry.');setYourReference(refs.jobReference);setCarrierReference(refs.carrierCompanyReference);const h=data?.handover as Record<string,any>|null;if(h?.arrival){if(h.arrival.itemCount!=null)setPickupItems(String(h.arrival.itemCount));if(h.arrival.weightKg!=null)setPickupWeight(String(h.arrival.weightKg));}if(h?.loaded){if(h.loaded.itemCount!=null)setItems(String(h.loaded.itemCount));if(h.loaded.weightKg!=null)setWeight(String(h.loaded.weightKg));}setCollectionStage(h?.loaded||h?.capturedAt?'loaded':'arrival');})
       .catch(reason=>{if(active){setCarrierReference('');setError(reason instanceof Error?reason.message:'Collection identifiers could not be loaded.');setCollectionStage('arrival');}});
     return ()=>{active=false;};
-  },[id,view,job?.status,session?.token]);  useEffect(()=>{
-    if(!session||!job||view!=='flow'||job.status!=='ON_SITE_DELIVERY')return;
-    let active=true;
-    void fetch(driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft',{headers:{Authorization:'Bearer '+session.token},cache:'no-store'})
-      .then(async response=>{if(!response.ok)throw new Error('Delivery arrival record could not be read');return response.json();})
-      .then(data=>{if(!active)return;let saved=false;try{const record=JSON.parse(data?.draft?.deliveryArrival||'null');saved=Boolean(record?.confirmedAt);}catch{}setDeliveryArrivalSaved(saved);})
-      .catch(()=>{if(active)setDeliveryArrivalSaved(false);});
-    return ()=>{active=false;};
   },[id,view,job?.status,session?.token]);  function quote(){
     if(!job)return null;
     const editing = tab==='Quotes' && job.personalBid===true && job.quote != null && job.bidStatus==='submitted' && Boolean(job.bidId);
@@ -329,29 +306,25 @@ export default function ReserveApp() {
   }
   async function acceptIncomingJob(j:LiveJob){
     if(!j.offerId||j.acceptanceBlocked)return;
-    await run(s=>acceptAndStartCollection(j.id,{
-      accept:()=>bookingOfferRespond(s.token,j.offerId!,'accept'),
-      setStatus:next=>driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:next}),
-      readStatus:async()=>{
-        const response=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);
-        const row=response.job&&typeof response.job==='object'&&!Array.isArray(response.job)
-          ? response.job as Record<string,unknown>:null;
-        return String(row?.currentStatus||row?.current_status||row?.status||'');
-      },
-    }),outcome=>{
-      setTab('Bookings');
-      // A contract response we cannot verify must stay in Pending, not vanish into Active.
-      setBookingSection(outcome.accepted?'Allocated':'Received');
-      if(!outcome.departed){
-        setView('list');
-        setWarning(outcome.reason||(outcome.accepted
-          ? 'Booking accepted, but the departure status is not confirmed. Refresh before continuing.'
-          : 'Acceptance could not be confirmed. Refresh the offer before taking another action.'));
-        return;
+    await run(async s=>{
+      const accepted=await bookingOfferRespond(s.token,j.offerId!,'accept');
+      const acceptedRecord=accepted&&typeof accepted==='object'&&!Array.isArray(accepted)?accepted as Record<string,unknown>:{};
+      const acceptedStatus=String(acceptedRecord.job_status||acceptedRecord.status||'').toLowerCase();
+      if(['allocated','assigned'].includes(acceptedStatus)){
+        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
       }
+      const response=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);
+      const row=response.job&&typeof response.job==='object'&&!Array.isArray(response.job)
+        ? response.job as Record<string,unknown>:null;
+      const serverStatus=String(row?.currentStatus||row?.current_status||row?.status||'').toLowerCase();
+      if(serverStatus!=='accepted')throw new Error('Booking acceptance was not confirmed by the server. Refresh before continuing.');
+      return serverStatus;
+    },()=>{
+      setTab('Bookings');
+      setBookingSection('Allocated');
       setWarning('');
       setJobs(rows=>rows.map(row=>row.id===j.id
-        ? {...row,status:'ON_WAY_TO_PICKUP',backendStatus:'on_my_way',acceptanceRequired:false}:row));
+        ? {...row,status:'ALLOCATED',backendStatus:'accepted',acceptanceRequired:false}:row));
       setId(j.id);setView('flow');
     });
   }
@@ -370,24 +343,14 @@ export default function ReserveApp() {
         return;
       }
       setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:restored.status,backendStatus:serverStatus,statusHistory:restored.statusHistory?.length?restored.statusHistory:row.statusHistory}:row));
-      setDeliveryArrivalSaved(false);setCollectionStage('arrival');setError('');
+      setCollectionStage('arrival');setError('');
     });
   }
   async function transition(j:LiveJob) {
     const step=nextStates[j.status];if(!step)return;
     await run(async s=>{
       if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(j.backendStatus||'allocated'))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
-      if(j.status==='ON_SITE_DELIVERY'&&!deliveryArrivalSaved){
-        const endpoint=driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft';
-        const existingResponse=await fetch(endpoint,{headers:{Authorization:'Bearer '+s.token},cache:'no-store'});
-        if(!existingResponse.ok)throw new Error('Could not read the delivery arrival record.');
-        const existing=await existingResponse.json().catch(()=>({}));
-        const prior=existing.draft&&typeof existing.draft==='object'&&!Array.isArray(existing.draft)?existing.draft:{};
-        const deliveryArrival=JSON.stringify({confirmedAt:new Date().toISOString()});
-        const saved=await fetch(endpoint,{method:'PUT',headers:{Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:JSON.stringify({...prior,deliveryArrival})});
-        if(!saved.ok){const detail=await saved.json().catch(()=>({}));throw new Error(detail.error||'Delivery arrival could not be saved.');}
-        return;
-      }      if(j.status==='ON_SITE_PICKUP'){
+      if(j.status==='ON_SITE_PICKUP'){
         // Validate before uploading evidence so invalid inputs cannot leave orphaned files.
         if(collectionStage==='loaded'){
           if(!items.trim()||!weight.trim())throw new Error('Items and Weight (kg) are required at loading.');
@@ -421,9 +384,11 @@ export default function ReserveApp() {
       }
       await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:step.backend,notes:pickupNotes.trim()});
     },()=>{
-      if(j.status==='ON_SITE_DELIVERY'&&!deliveryArrivalSaved){setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));setDeliveryArrivalSaved(true);setError('');return;}
             if(j.status==='ON_SITE_PICKUP'&&collectionStage==='arrival'){
         setCollectionStage('loaded');setItems(pickupItems);setWeight(pickupWeight);setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setError('');return;
+      }
+      if(j.status==='ON_WAY_TO_DELIVERY'){
+        setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));
       }
       setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:step.status}:x));
     });
@@ -522,14 +487,159 @@ export default function ReserveApp() {
     if(confirmation?.draft?.signatureData!==signature)throw new Error('Server did not return the saved signature. It is not yet verified.');
     setVerifiedSignature(signature);
   }
-  async function completeDelivery(j:LiveJob) {if(!deliveryArrivalSaved){setError('Save On Site Delivery arrival before confirming delivery.');return}if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before confirming delivery.');return}if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.deliveredTime)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0 ){setError('Recipient, Left At, Delivered On, Delivery Time and a valid item count are required.');return}await run(async s=>{const body={recipientName:draft.recipient,leftAt:draft.leftAt,itemCount:draft.items,deliveryStatus:draft.condition,deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,notes:draft.notes};const evidence=await uploadDeliveryEvidence(j,s.token);const updatedDraft={...body,signatureData:signature,photoUris:evidence.photos,documentUris:evidence.documents};const saved=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft',{method:'PUT',headers:{Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:JSON.stringify(updatedDraft)});if(!saved.ok){const detail=await saved.json().catch(()=>({}));throw new Error(detail.error||'Signed POD draft could not be saved ('+saved.status+')')}if(!evidence.photos.length)throw new Error('XDrive requires at least one verified delivery photo before Delivered. Add a delivery photo and retry.');const confirmation=await fetch(driverApi+'/mobile/jobs/'+encodeURIComponent(j.id)+'/confirmation',{method:'POST',headers:{Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:JSON.stringify({recipientName:draft.recipient.trim(),signatureData:signature,evidencePath:evidence.photos[0]})});const confirmationResult=await confirmation.json().catch(()=>({}));if(!confirmation.ok||confirmationResult.ok!==true)throw new Error(confirmationResult.error||'Recipient signature could not be verified by XDrive ('+confirmation.status+').');await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'delivered'});},()=>{setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:'DELIVERED'}:x));});}
-  async function savePod(j:LiveJob){if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return}if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before submitting POD.');return}if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0){setError('Recipient, Left At, Delivered On and item count are required for POD.');return}await run(async s=>{const officialPodComplete=async()=>{const verification=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft',{headers:{Authorization:'Bearer '+s.token},cache:'no-store'});if(!verification.ok)throw new Error('Official POD state could not be read ('+verification.status+').');const verified=await verification.json().catch(()=>({}));return verified.completed===true;};if(await officialPodComplete())return;const {photos,documents}=await uploadDeliveryEvidence(j,s.token);let submitError:unknown=null;try{const response=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/pod',s.token,{recipientName:draft.recipient,leftAt:draft.leftAt,deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,itemCount:Number(draft.items),notes:draft.notes,signatureData:signature,photoUris:photos,documentUris:documents,hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,deliveryStatus:draft.condition==='Refused'?'Refused':draft.condition==='Shortage'?'Partial Delivery':'Completed Delivery'});if(response.ok!==true)throw new Error('XDrive did not confirm the POD submission.');}catch(e){submitError=e;}let isComplete=false;try{isComplete=await officialPodComplete();}catch(e){if(!submitError)throw e;}if(!isComplete)throw submitError instanceof Error?submitError:new Error('POD is not confirmed complete on the server. Check its status before attempting another submission.');},()=>{setPodDone(true);setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',podRecorded:true}:row));});}
+  async function uploadFinalStopExceptionEvidence(j:LiveJob, stop:LiveStop, token:string){
+    const photoPaths:string[]=[];const documentPaths:string[]=[];
+    for(const file of podFiles){
+      if(!['image/png','image/jpeg','application/pdf'].includes(file.type)||file.size<=0||file.size>10*1024*1024)throw new Error('Exception evidence must be JPEG, PNG or PDF up to 10 MB.');
+      const uploadFile=await prepareDeliveryUpload(file);
+      const category=file.type==='application/pdf'?'documents':'damage';
+      const response=await fetch(driverApi+'/mobile/jobs/'+encodeURIComponent(j.id)+'/evidence',{
+        method:'POST',
+        headers:{
+          Authorization:'Bearer '+token,'Content-Type':uploadFile.type,
+          'x-xdrive-evidence-kind':'delivery','x-xdrive-evidence-category':category,
+          'x-xdrive-stop-id':stop.id,
+          'x-xdrive-evidence-name':crypto.randomUUID()+'-'+uploadFile.name.replace(/[^A-Za-z0-9._-]/g,'_').slice(0,130),
+        },
+        body:uploadFile,
+      });
+      const data=await response.json().catch(()=>({})) as {storagePath?:string;error?:string};
+      if(!response.ok||!data.storagePath)throw new Error(data.error||'Exception evidence upload failed ('+response.status+').');
+      (category==='documents'?documentPaths:photoPaths).push(data.storagePath);
+    }
+    return {photoPaths,documentPaths};
+  }
+
+  async function completeDelivery(j:LiveJob) {
+    if(j.status!=='ON_SITE_DELIVERY'){setError('Record On Site (Final Delivery) before recording the delivery outcome.');return;}
+    const finalStop=j.routeStops?.at(-1);
+    if(!finalStop||finalStop.type!=='delivery'){setError('Final delivery stop is unavailable. Refresh the booking before continuing.');return;}
+    if(finalStop.handover?.stopKind==='return'||finalStop.handover?.stopKind==='redirect'){
+      setError('This route now ends with a return or redirected stop. Complete that stop instead of final delivery POD.');
+      return;
+    }
+    if(draft.condition==='Job Cancelled'){
+      setCancellationStopId(finalStop.id);setCancellationReturnView('flow');setView('cancel');return;
+    }
+    if(draft.condition!=='Completed Delivery'){
+      if(draft.notes.trim().length<3){setError('Describe the delivery exception in Driver Notes.');return;}
+      if(['Damaged Goods','Incorrect Goods'].includes(draft.condition)&&!podFiles.some(file=>file.type==='image/jpeg'||file.type==='image/png')){
+        setError('Photographic evidence is required for damaged or incorrect goods.');return;
+      }
+      await run(async current=>{
+        const evidence=await uploadFinalStopExceptionEvidence(j,finalStop,current.token);
+        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/stop-status',current.token,{
+          stop_id:finalStop.id,status:'exception',
+          exception:{deliveryStatus:draft.condition,notes:draft.notes.trim(),photoPaths:evidence.photoPaths,documentPaths:evidence.documentPaths},
+        });
+      },()=>{setWarning('Delivery exception recorded. The stop remains unresolved until authorised instructions are recorded.');setView('statusHistory');});
+      return;
+    }
+
+    if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before sending POD.');return;}
+    if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.deliveredTime)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0){
+      setError('Recipient, Left At, Delivered On, Delivery Time and a valid item count are required.');return;
+    }
+    if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return;}
+    await run(async current=>{
+      const evidence=await uploadDeliveryEvidence(j,current.token);
+      if(!evidence.photos.length)throw new Error('XDrive requires at least one verified delivery photo before Delivered.');
+      const pod=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/pod',current.token,{
+        recipientName:draft.recipient.trim(),leftAt:draft.leftAt.trim(),
+        deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,
+        deliveredAt:new Date(draft.deliveredOn+'T'+draft.deliveredTime+':00').toISOString(),
+        itemCount:Number(draft.items),weightKg:j.weight||null,notes:draft.notes.trim()||null,
+        signatureData:signature,photoUris:evidence.photos,documentUris:evidence.documents,
+        hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,
+        deliveryStatus:'Completed Delivery',
+      });
+      if(pod.ok!==true)throw new Error('XDrive did not confirm the canonical POD.');
+      await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',current.token,{nextStatus:'delivered'});
+    },()=>{
+      setPodDone(true);
+      setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',backendStatus:'delivered',podRecorded:true}:row));
+      setWarning('');
+      setView('statusHistory');
+    });
+  }
+
+  async function savePod(j:LiveJob){
+    if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return;}
+    if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before submitting POD.');return;}
+    if(draft.condition!=='Completed Delivery'){setError('Legacy POD recovery supports only a successful Completed Delivery. Record exceptions through the booking workflow.');return;}
+    if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.deliveredTime)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0){
+      setError('Recipient, Left At, Delivered On, Delivery Time and item count are required for POD.');return;
+    }
+    await run(async current=>{
+      const officialPodComplete=async()=>{
+        const verification=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft',{headers:{Authorization:'Bearer '+current.token},cache:'no-store'});
+        if(!verification.ok)throw new Error('Official POD state could not be read ('+verification.status+').');
+        const verified=await verification.json().catch(()=>({}));
+        return verified.completed===true;
+      };
+      if(await officialPodComplete())return;
+      const {photos,documents}=await uploadDeliveryEvidence(j,current.token);
+      const response=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/pod',current.token,{
+        recipientName:draft.recipient.trim(),leftAt:draft.leftAt.trim(),
+        deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,
+        deliveredAt:new Date(draft.deliveredOn+'T'+draft.deliveredTime+':00').toISOString(),
+        itemCount:Number(draft.items),weightKg:j.weight||null,notes:draft.notes.trim()||null,
+        signatureData:signature,photoUris:photos,documentUris:documents,
+        hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,
+        deliveryStatus:'Completed Delivery',
+      });
+      if(response.ok!==true)throw new Error('XDrive did not confirm the POD submission.');
+      if(!(await officialPodComplete()))throw new Error('POD is not confirmed complete on the server. Refresh before retrying.');
+    },()=>{setPodDone(true);setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',podRecorded:true}:row));});
+  }
+
+  function cancellationTarget(j:LiveJob):LiveStop|null{
+    const route=j.routeStops||[];
+    if(!route.length)return null;
+    const unresolved=route.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');
+    if(unresolved)return unresolved;
+    return route.at(-1)||null;
+  }
+
+  function openCancellation(j:LiveJob, stop?:LiveStop|null, returnView:View='flow'){
+    const target=stop||cancellationTarget(j);
+    if(!target){setError('A persisted route stop is required before cancellation can be recorded. Refresh the booking.');return;}
+    setCancellationStopId(target.id);setCancellationReturnView(returnView);setView('cancel');setError('');
+  }
+
+  async function recordCancellation(j:LiveJob, stop:LiveStop, value:ReserveCancellationValue){
+    await run(current=>driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/stop-status',current.token,{
+      stop_id:stop.id,status:'cancelled',cancellation:value,
+    }),()=>{
+      setCancellationStopId(null);
+      setWarning(value.goodsInCustody?'Cancellation instruction recorded. Follow the return / hold / redirect action now shown in the booking.':'Cancellation instruction recorded in the booking audit history.');
+      setView(cancellationReturnView);
+    });
+  }
 
   function flow(){
     if(!job)return null;
+    const routeStops=job.routeStops||[];
+    const finalRouteStop=routeStops.at(-1);
+    const dynamicRouteEnd=finalRouteStop?.handover?.stopKind==='return'||finalRouteStop?.handover?.stopKind==='redirect';
+    const operationalStops=routeStops.length>2
+      ? routeStops.slice(1,dynamicRouteEnd?undefined:-1)
+      : dynamicRouteEnd?routeStops.slice(1):[];
+    const legacySkipped=operationalStops.find(stop=>stop.status==='skipped');
+    const activeStop=operationalStops.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');
+    const collectionCancelled=routeStops[0]?.status==='cancelled'&&['ALLOCATED','ON_WAY_TO_PICKUP','ON_SITE_PICKUP'].includes(job.status);
+    if(collectionCancelled)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Cancellation recorded</h1><p>The collection stop was cancelled on instruction. XDrive will not advance this booking as a normal collection.</p><button className="rv-outline rv-wide" onClick={()=>setView('statusHistory')}>View audit history</button></section>;
+    if(legacySkipped)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Stop review required</h1><div className="rv-warning" role="alert">A legacy skipped stop exists. XDrive will not treat it as completed or cancelled until an authorised resolution is recorded.</div></section>;
+    if(activeStop&&['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)&&session){
+      return <ReserveStopExecution job={job} stop={activeStop} session={session} onSession={setSession}
+        onRefresh={async token=>{await fetchJobs(token);}}
+        onBack={()=>setView('statusHistory')}
+        onCancel={()=>openCancellation(job,activeStop,'flow')}/>;
+    }
     if(job.status==='ON_SITE_DELIVERY'){
-      return <DeliveryHandover job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onUndo={()=>void undoLatestStatus(job)} onBack={()=>setView('list')} mode={deliveryArrivalSaved?"delivery":"arrival"} onConfirm={()=>void (deliveryArrivalSaved?completeDelivery(job):transition(job))}/>;
-    }    const step=nextStates[job.status];
+      return <DeliveryHandover job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onUndo={()=>void undoLatestStatus(job)} onBack={()=>setView('list')} mode="delivery" onConfirm={()=>void completeDelivery(job)}/>;
+    }
+    const step=nextStates[job.status];
     const delivered=job.status==='DELIVERED'||job.status==='POD_SUBMITTED';
     if(job.podRecorded||podDone)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Completed booking · Signed POD</h1><Route job={job} full/><p>The signed POD is archived and read-only. Delivery cannot be repeated.</p>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{role==='Owner Driver'&&<button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button>}<p className="rv-sub">Company owners can create or view an invoice after POD validation.</p></section>;
     // Delivered jobs with an incomplete POD must remain editable as a signed POD draft.
@@ -590,11 +700,19 @@ export default function ReserveApp() {
       </section>}
       {delivered&&!podDone&&!job.podRecorded&&<section className="rv-card rv-pod-stage"><span className="rv-over">DELIVERED / POD</span><h2>Recipient details and signature saved</h2><Fact name="Received By" value={draft.recipient}/><Fact name="Left At" value={draft.leftAt}/><Fact name="Items" value={draft.items}/><Fact name="Delivered On" value={draft.deliveredOn}/><Field label="Delivery Time *"><input type="time" required value={draft.deliveredTime} onChange={e=>setDraft(previous=>({...previous,deliveredTime:e.target.value}))}/></Field><p>The delivery signature was verified before the Delivered status. Submit the final POD to archive the evidence.</p>{job.hardCopyPodRequired&&<label className="rv-hard-copy-ack"><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>setHardCopyAcknowledged(e.target.checked)}/> I acknowledge that the required paper POD must be retained and handed over as instructed.</label>}<button className="rv-primary rv-wide" disabled={busy||!signature||verifiedSignature!==signature||(job.hardCopyPodRequired&&!hardCopyAcknowledged)} onClick={()=>void savePod(job)}>{busy?'Saving POD…':'Confirm and Save Signed POD →'}</button></section>}
       {delivered&&(podDone||job.podRecorded)&&<section className="rv-card rv-pod-stage"><div className="rv-success">Signed POD is recorded in XDrive. The official invoice generator will use the stored delivery evidence.</div>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{role==='Owner Driver'&&<button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button>}<p className="rv-sub">Company owners can create or view an invoice after POD validation.</p></section>}
-      {!delivered&&step&&<button className="rv-primary rv-wide" disabled={busy} onClick={()=>void transition(job)}>{busy?'Saving status…':job.status==='ALLOCATED'?'Save':job.status==='ON_SITE_PICKUP'?(collectionStage==='arrival'?'Save':'Save'):step.label+' →'}</button>}
+      {!delivered&&['ALLOCATED','ON_WAY_TO_PICKUP','ON_SITE_PICKUP','LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)&&<button className="rv-outline rv-wide" disabled={busy} onClick={()=>openCancellation(job,null,'flow')}>Record Job / Stop Cancellation</button>}
+      {!delivered&&step&&<button className="rv-primary rv-wide" disabled={busy} onClick={()=>void transition(job)}>{busy?'Saving status…':job.status==='ALLOCATED'?'On My Way to Pickup':job.status==='ON_SITE_PICKUP'?(collectionStage==='arrival'?'Save Arrival Details':'Confirm Loaded'):step.label+' →'}</button>}
     </section>;
   }
   const header=<header className="rv-header rv-official-header"><div className="rv-official-brand"><img src={`${import.meta.env.BASE_URL}xdrive-logo-company-3150.png`} alt="XDrive Logistics"/></div><button className="rv-official-menu" aria-label="Open driver menu" onClick={()=>{setMenuSection(null);setMenuOpen(true)}}>Menu</button></header>;
-  return <div className="rv-shell">{header}<main key={tab+'-'+view+'-'+(id||'')} className={'rv-main'+(view==='list'&&(tab==='Quotes'||tab==='Bookings')?' rv-card-first-list':'')}>{!connected?<section className="rv-auth"><span className="rv-over">OFFICIAL XDRIVE DRIVER PWA · LIVE AUTH</span><h1>Driver Sign In</h1><p>Connect with your real XDrive driver account. No demonstration jobs are injected.</p><form onSubmit={e=>void signIn(e)}><Field label="Email"><input type="email" required autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/></Field><Field label="Password"><input type="password" required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></Field><button className="rv-primary rv-wide" disabled={loading}>{loading?'Connecting…':'Sign In →'}</button></form></section>:<>{error&&<div className="rv-error" role="alert">{error}</div>}{warning&&view!=='list'&&<details className="rv-api-notes"><summary>Some live information is temporarily unavailable</summary><p>{warning}</p></details>}{view==='list'&&list()}{view==='details'&&details()}{view==='map'&&job&&<RouteMap from={job.status==='OPEN'?job.from:(job.pickupAddress||job.from)} to={job.status==='OPEN'?job.to:(job.deliveryAddress||job.to)} status={job.status} distanceMiles={job.distanceMiles} travelMinutes={job.travelMinutes} onBack={()=>setView(mapReturnView)}/>} {view==='quoteDetails'&&quoteDetails()}{view==='quote'&&quote()}{view==='incoming'&&incoming()}{view==='statusHistory'&&job&&<><button className="rv-back" onClick={()=>setView('list')}>← Back to Bookings</button><p className="rv-over">BOOKING STATUS</p><h1>{platformJobReference(job.id,job.yourRef)||'Reference unavailable'}</h1>{!(job.podRecorded||['DELIVERED','POD_SUBMITTED','COMPLETED'].includes(job.status))&&<Route job={job} full/>}<BookingStatusTimeline job={job}/>{undoTargets[job.status]&&<button className="rv-undo-action rv-wide" disabled={busy} onClick={()=>void undoLatestStatus(job)}>Undo Last Status</button>}{job.podRecorded&&role==='Owner Driver'&&<section className="rv-card"><h3>Invoice after signed POD</h3><p>Signed POD is archived. XDrive Finance checks your permissions, invoice eligibility and whether an invoice already exists before allowing creation.</p><button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button></section>}{['DELIVERED','POD_SUBMITTED'].includes(job.status)&&!job.podRecorded&&<section className="rv-card"><h3>Finalise Proof of Delivery</h3><p>Delivery is marked as completed, but the signed POD has not yet been confirmed as archived. Complete the recipient details, signature and required evidence before invoice eligibility can be checked.</p><button className="rv-primary rv-wide" onClick={()=>setView('flow')}>Complete / Save Signed POD →</button></section>}{!['DELIVERED','POD_SUBMITTED'].includes(job.status)&&!job.podRecorded&&<button className="rv-primary rv-wide" onClick={()=>setView('flow')}>Continue Booking Workflow →</button>}</>}{view==='flow'&&flow()}{view==='invoiceJob'&&session&&job&&<LiveInvoiceFlow key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('flow')} onList={()=>setView('invoices')}/>}{view==='invoices'&&session&&<><button className="rv-back" onClick={()=>setView('more')}>← Menu</button><LiveInvoices session={session} onSession={setSession}/></>}{view==='more'&&<><div className="rv-heading"><div><span className="rv-over">DRIVER WORKSPACE</span><h1>More & Settings</h1><p>Your vehicle, documents, profile and finance.</p></div></div>{['My Profile','My Vehicle','Documents','Load Alerts','Availability','Return Journeys','Notifications','Invoices','GPS & Tracking','Settings'].map(name=><button className="rv-menuitem" key={name} onClick={()=>{if(name==='Invoices'){setView('invoices');return}if(name==='GPS & Tracking'){setView('gps');return}setMenuSection(name);setMenuOpen(true)}}>{name}<span>›</span></button>)}<button className="rv-outline rv-wide" onClick={()=>{if(session)void revokeLiveSession(session).catch(()=>{});localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setView('list');}}>Sign Out</button></>}</>}</main>{session&&<div style={{display:view==='gps'?undefined:'none'}}><GpsTracking token={session.token} jobs={jobs} visible={view==='gps'} onClose={()=>setView('more')}/></div>}<nav className="rv-nav rv-official-nav">{([{key:'Loads',label:'Loads',icon:'📦'},{key:'Quotes',label:'Quotes',icon:'💬'},{key:'Bookings',label:'Bookings',icon:'🚚'}] as const).map(item=><button key={item.key} className={(item.key===tab&&view!=='more'&&view!=='invoices'?'rv-active ':'')+(item.key==='Bookings'&&unreadBookingOffers>0?'rv-booking-unread':'')} aria-label={item.key==='Bookings'&&unreadBookingOffers>0?'Bookings - '+unreadBookingOffers+' new awarded jobs':item.label} onClick={()=>navigate(item.key)}><span>{item.icon}</span>{item.label}</button>)}</nav>{menuOpen&&<DriverMenu section={menuSection} setSection={setMenuSection} onClose={()=>setMenuOpen(false)} onNavigate={destination=>{setMenuOpen(false);if(destination==='Invoices')setView('invoices');else if(['Loads','Quotes','Bookings'].includes(destination))navigate(destination as Tab);else{setMenuSection(destination);setMenuOpen(true)}}} role={role} available={available} setAvailable={setAvailable} savedCount={0} liveConnected={connected} token={session?.token??null} sharedCache={menuCache} onLogout={()=>{if(session)void revokeLiveSession(session).catch(()=>{});localStorage.removeItem(KEY);setSession(null);setJobs([]);setMenuOpen(false);setView('list');}}/>}</div>;
+  return <div className="rv-shell">{header}<main key={tab+'-'+view+'-'+(id||'')} className={'rv-main'+(view==='list'&&(tab==='Quotes'||tab==='Bookings')?' rv-card-first-list':'')}>{!connected?<section className="rv-auth"><span className="rv-over">OFFICIAL XDRIVE DRIVER PWA · LIVE AUTH</span><h1>Driver Sign In</h1><p>Connect with your real XDrive driver account. No demonstration jobs are injected.</p><form onSubmit={e=>void signIn(e)}><Field label="Email"><input type="email" required autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/></Field><Field label="Password"><input type="password" required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></Field><button className="rv-primary rv-wide" disabled={loading}>{loading?'Connecting…':'Sign In →'}</button></form></section>:<>{error&&<div className="rv-error" role="alert">{error}</div>}{warning&&view!=='list'&&<details className="rv-api-notes"><summary>Some live information is temporarily unavailable</summary><p>{warning}</p></details>}{view==='list'&&list()}{view==='details'&&details()}{view==='map'&&job&&<RouteMap from={job.status==='OPEN'?job.from:(job.pickupAddress||job.from)} to={job.status==='OPEN'?job.to:(job.deliveryAddress||job.to)} status={job.status} distanceMiles={job.distanceMiles} travelMinutes={job.travelMinutes} onBack={()=>setView(mapReturnView)}/>} {view==='quoteDetails'&&quoteDetails()}{view==='quote'&&quote()}{view==='incoming'&&incoming()}{view==='statusHistory'&&job&&<><button className="rv-back" onClick={()=>setView('list')}>← Back to Bookings</button><p className="rv-over">BOOKING STATUS</p><h1>{platformJobReference(job.id,job.yourRef)||'Reference unavailable'}</h1>{!(job.podRecorded||['DELIVERED','POD_SUBMITTED','COMPLETED'].includes(job.status))&&<Route job={job} full/>}<BookingStatusTimeline job={job}/>{undoTargets[job.status]&&<button className="rv-undo-action rv-wide" disabled={busy} onClick={()=>void undoLatestStatus(job)}>Undo Last Status</button>}{job.podRecorded&&role==='Owner Driver'&&<section className="rv-card"><h3>Invoice after signed POD</h3><p>Signed POD is archived. XDrive Finance checks your permissions, invoice eligibility and whether an invoice already exists before allowing creation.</p><button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button></section>}{['DELIVERED','POD_SUBMITTED'].includes(job.status)&&!job.podRecorded&&<section className="rv-card"><h3>Finalise Proof of Delivery</h3><p>Delivery is marked as completed, but the signed POD has not yet been confirmed as archived. Complete the recipient details, signature and required evidence before invoice eligibility can be checked.</p><button className="rv-primary rv-wide" onClick={()=>setView('flow')}>Complete / Save Signed POD →</button></section>}{!['DELIVERED','POD_SUBMITTED'].includes(job.status)&&!job.podRecorded&&<button className="rv-primary rv-wide" onClick={()=>setView('flow')}>Continue Booking Workflow →</button>}</>}{view==='flow'&&flow()}{view==='cancel'&&job&&(()=>{
+  const target=job.routeStops?.find(stop=>stop.id===cancellationStopId)??null;
+  if(!target)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView(cancellationReturnView)}>← Back</button><div className="rv-error" role="alert">Cancellation target is unavailable. Refresh the booking before retrying.</div></section>;
+  const finalStop=job.routeStops?.at(-1);
+  const forceJobScope=['ALLOCATED','ON_WAY_TO_PICKUP','ON_SITE_PICKUP'].includes(job.status)||target.id===finalStop?.id&&target.handover?.stopKind!=='return'&&target.handover?.stopKind!=='redirect';
+  const goodsInCustody=['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY','DELIVERED','POD_SUBMITTED'].includes(job.status)||(job.routeStops?.[0]?.status==='completed');
+  return <ReserveCancellation address={target.address} goodsInCustodyDefault={Boolean(goodsInCustody)} forceJobScope={Boolean(forceJobScope)} busy={busy} error={error} onBack={()=>setView(cancellationReturnView)} onSubmit={value=>void recordCancellation(job,target,value)}/>;
+})()}{view==='invoiceJob'&&session&&job&&<LiveInvoiceFlow key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('flow')} onList={()=>setView('invoices')}/>}{view==='invoices'&&session&&<><button className="rv-back" onClick={()=>setView('more')}>← Menu</button><LiveInvoices session={session} onSession={setSession}/></>}{view==='more'&&<><div className="rv-heading"><div><span className="rv-over">DRIVER WORKSPACE</span><h1>More & Settings</h1><p>Your vehicle, documents, profile and finance.</p></div></div>{['My Profile','My Vehicle','Documents','Load Alerts','Availability','Return Journeys','Notifications','Invoices','GPS & Tracking','Settings'].map(name=><button className="rv-menuitem" key={name} onClick={()=>{if(name==='Invoices'){setView('invoices');return}if(name==='GPS & Tracking'){setView('gps');return}setMenuSection(name);setMenuOpen(true)}}>{name}<span>›</span></button>)}<button className="rv-outline rv-wide" onClick={()=>{if(session)void revokeLiveSession(session).catch(()=>{});localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setView('list');}}>Sign Out</button></>}</>}</main>{session&&<div style={{display:view==='gps'?undefined:'none'}}><GpsTracking token={session.token} jobs={jobs} visible={view==='gps'} onClose={()=>setView('more')}/></div>}<nav className="rv-nav rv-official-nav">{([{key:'Loads',label:'Loads',icon:'📦'},{key:'Quotes',label:'Quotes',icon:'💬'},{key:'Bookings',label:'Bookings',icon:'🚚'}] as const).map(item=><button key={item.key} className={(item.key===tab&&view!=='more'&&view!=='invoices'?'rv-active ':'')+(item.key==='Bookings'&&unreadBookingOffers>0?'rv-booking-unread':'')} aria-label={item.key==='Bookings'&&unreadBookingOffers>0?'Bookings - '+unreadBookingOffers+' new awarded jobs':item.label} onClick={()=>navigate(item.key)}><span>{item.icon}</span>{item.label}</button>)}</nav>{menuOpen&&<DriverMenu section={menuSection} setSection={setMenuSection} onClose={()=>setMenuOpen(false)} onNavigate={destination=>{setMenuOpen(false);if(destination==='Invoices')setView('invoices');else if(['Loads','Quotes','Bookings'].includes(destination))navigate(destination as Tab);else{setMenuSection(destination);setMenuOpen(true)}}} role={role} available={available} setAvailable={setAvailable} savedCount={0} liveConnected={connected} token={session?.token??null} sharedCache={menuCache} onLogout={()=>{if(session)void revokeLiveSession(session).catch(()=>{});localStorage.removeItem(KEY);setSession(null);setJobs([]);setMenuOpen(false);setView('list');}}/>}</div>;
 }
 
 
