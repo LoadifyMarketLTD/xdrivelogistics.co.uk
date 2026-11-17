@@ -253,6 +253,8 @@ async function savePod(
   const deliveredTime = typeof body.deliveredTime === 'string' ? body.deliveredTime.trim() : '';
   const itemCountRaw = body.itemCount == null || body.itemCount === '' ? null : Number(body.itemCount);
   const itemCount = itemCountRaw;
+  const weightKgRaw = body.weightKg == null || body.weightKg === '' ? null : Number(body.weightKg);
+  const weightKg = weightKgRaw;
   const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
   if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
@@ -264,6 +266,9 @@ async function savePod(
   if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
   if (itemCount === null || !Number.isInteger(itemCount) || itemCount < 1 || itemCount > 100000) {
     return respond(400, { error: 'A whole-number delivered item count greater than zero is required.' });
+  }
+  if (weightKg !== null && (!Number.isFinite(weightKg) || weightKg < 0 || weightKg > 100000)) {
+    return respond(400, { error: 'Delivery weight must be between 0 and 100000 kg when supplied.' });
   }
   const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
   if (hardCopyRequired && !hardCopyAcknowledged) {
@@ -338,6 +343,7 @@ async function savePod(
   const podNotes = [
     typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
     `Delivery time: ${deliveredTime}`,
+    weightKg !== null ? `Delivery weight: ${weightKg} kg` : '',
     hardCopyRequired && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
   ].filter(Boolean).join(' | ') || null;
 
