@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
+import { hasCompletePodEvidence, hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
 import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
