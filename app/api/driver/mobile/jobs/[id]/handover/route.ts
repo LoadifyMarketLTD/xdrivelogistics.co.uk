@@ -2,20 +2,27 @@ import { NextRequest } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { insertTrackingEvent, isDriverContext, requireDriver, respond } from '../../../_lib';
-import { collectionReferenceIdentity } from '../../../../../../../lib/jobs/collectionReferenceIdentity';
+import { collectionTransportIdentity } from '../../../../../../../lib/jobs/collectionReferenceIdentity';
 
 const MAX_PHOTOS = 10;
 const MAX_DOCUMENTS = 10;
 
 /** Authorised server-side reference lookup; never derive carrier IDs from form input. */
-async function getCollectionIdentity(jobId: string, companyId: string) {
-  const { data, error } = await supabaseAdmin!.from('companies')
-    .select('xd_id').eq('id', companyId).maybeSingle();
-  if (error) return { error: 'Carrier identity could not be resolved.', identity: null };
-  const identity = collectionReferenceIdentity(jobId, data?.xd_id);
+async function getCollectionIdentity(jobId: string, companyId: string, userId: string, driverType: string | null) {
+  const ownerDriver = driverType?.trim().toLowerCase() === 'owner_driver';
+  const [{ data: company, error: companyError }, profile] = await Promise.all([
+    supabaseAdmin!.from('companies').select('xd_id').eq('id', companyId).maybeSingle(),
+    ownerDriver
+      ? supabaseAdmin!.from('profiles').select('xd_id').eq('user_id', userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (companyError || profile.error) return { error: 'Verified transport operator ID could not be resolved.', identity: null };
+  const identity = collectionTransportIdentity(jobId, company?.xd_id, profile.data?.xd_id, driverType);
   return identity
     ? { error: null, identity }
-    : { error: 'Carrier public XDrive ID is missing. Contact your company administrator.', identity: null };
+    : { error: ownerDriver
+      ? 'Owner Driver public XDrive ID is missing. Contact support to verify your profile.'
+      : 'Carrier company public XDrive ID is missing. Contact your administrator.', identity: null };
 }
 
 function cleanString(value: unknown, max: number) {
@@ -101,7 +108,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) {
     return respond(403, { error: 'This job belongs to another carrier company.' });
   }
-  const references = stage === 'loaded' ? await getCollectionIdentity(jobId, driver.companyId) : null;
+  const references = stage === 'loaded' ? await getCollectionIdentity(jobId, driver.companyId, driver.userId, driver.driverType) : null;
   if (references?.error || (stage === 'loaded' && !references?.identity)) {
     return respond(409, { error: references?.error || 'Collection identifiers are not available.' });
   }
@@ -140,6 +147,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           cleanString(previousHandover.customerReference, 120) || null,
         jobReference: references!.identity!.jobReference,
         carrierCompanyReference: references!.identity!.carrierCompanyReference,
+        transportOperatorReference: references!.identity!.transportOperatorReference,
+        transportOperatorKind: references!.identity!.transportOperatorKind,
         packaging: packaging || null, weightKg, etaAt, notes: notes || null, photoPaths, documentPaths,
       };
   const handover = stage === 'arrival'
@@ -200,7 +209,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!driver.companyId || (data.assigned_company_id && data.assigned_company_id !== driver.companyId)) {
     return respond(403, { error: 'Assigned carrier company could not be verified.' });
   }
-  const references = await getCollectionIdentity(jobId, driver.companyId);
+  const references = await getCollectionIdentity(jobId, driver.companyId, driver.userId, driver.driverType);
   if (references.error || !references.identity) {
     return respond(409, { error: references.error || 'Collection identifiers are not available.' });
   }

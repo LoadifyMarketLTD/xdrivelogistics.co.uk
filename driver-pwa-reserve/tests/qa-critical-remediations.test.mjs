@@ -42,10 +42,11 @@ test('Optional arrival quantities and server-autofilled immutable collection ref
  assert.match(app,/label="Items Collected \(optional\)"/);
  assert.match(app,/label="Weight \(kg\) \(optional\)"/);
  assert.match(app,/label="XDrive Job Reference"/);
- assert.match(app,/label="Carrier Company ID"/);
+ assert.match(app,/carrierOperatorKind==='driver'\?'XDrive Owner Driver ID':'XDrive Carrier Company ID'/);
  assert.match(app,/readOnly aria-readonly="true" value=\{yourReference\}/);
  assert.match(app,/readOnly aria-readonly="true" value=\{carrierReference\}/);
- assert.match(handover,/getCollectionIdentity\(jobId, driver\.companyId\)/);
+ assert.match(handover,/getCollectionIdentity\(jobId, driver\.companyId, driver\.userId, driver\.driverType\)/);
+ assert.match(handover,/transportOperatorReference: references!\.identity!\.transportOperatorReference/);
  assert.match(handover,/carrierCompanyReference: references!\.identity!\.carrierCompanyReference/);
  assert.doesNotMatch(handover,/const yourReference = cleanString\(body\.yourReference/);
 });
