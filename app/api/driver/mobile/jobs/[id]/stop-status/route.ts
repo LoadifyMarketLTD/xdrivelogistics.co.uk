@@ -179,7 +179,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (['Damaged Goods','Incorrect Goods'].includes(outcome) && photoPaths.length < 1) {
       return respond(400, { error: 'Photographic evidence is required for damaged or incorrect goods.' });
     }
-    const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
     if (!(await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'damage'))) && !(await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) {
       return respond(400, { error: 'Exception photo evidence could not be verified.' });
     }
@@ -306,8 +305,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       parsedHandover.photoPaths = photos;
       parsedHandover.documentPaths = documents;
     } else {
-      const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
-      const category = target.stop_type === 'collection' ? 'photos/' : 'photos/';
       if (!(await verifyStopEvidence(parsedHandover.photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) {
         return respond(400, { error: 'Stop photo evidence could not be verified.' });
       }
