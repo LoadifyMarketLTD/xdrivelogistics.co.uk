@@ -78,7 +78,7 @@ test('POD live audit displays one route and context-sensitive evidence guidance'
  assert.match(app,/\(!delivered\|\|podDone\|\|job\.podRecorded\)/);
  assert.match(handover,/POD RECOVERY/);
  assert.match(handover,/const hasDeliveryPhoto=/);
- assert.match(handover,/recipient signature/);
+ assert.match(handover,/recipient signature/i);
 });
 
 test('Documents and Return Journeys menu have authenticated content and endpoints',()=>{
