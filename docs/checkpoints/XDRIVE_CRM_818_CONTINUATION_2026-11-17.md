@@ -22,9 +22,9 @@
 ## Source intake scope — six categories
 - Companies House: official API search and lookup, manual verification before CRM record creation.
 - Public company websites: provenance-based **manual** entry; no unauthorized scraping.
-- Existing XDrive customers: manual evidence reference, not unrestricted automatic copying.
+- Existing XDrive customers: registered-member read-only directory adapter; every commercial relationship requires separate proof, and no tenant contacts are copied.
 - Partner referrals: manual referral evidence; referral alone does not authorize marketing.
-- Inbound enquiries: manual source/enquiry reference; service replies remain separate from marketing.
+- Inbound enquiries: read-only XDrive public quote-request adapter from the existing `quotes` source, with source ID/provenance; no contact importing or marketing consent inferred.
 - Owner CSV research: strict preview and staging import only.
 
 These are owner-controlled intake channels, **not six validated autonomous acquisition integrations**. No real target list of 100, contacts or conversions has been imported.

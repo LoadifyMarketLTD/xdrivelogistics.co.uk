@@ -21,6 +21,8 @@ type CompanyMatch = {
   company_name:string|null;company_number:string;
   company_status:string|null;company_type?:string|null;source_url:string;
 };
+type Inbound = {id:string;submitted_name:string|null;status:string;created_at:string;source_url:string;source_reference:string};
+type RegisteredMember = {id:string;name:string|null;company_number:string|null;status:string;source_reference:string};
 type Campaign = {
   id: string; name: string; segment: string; channel: string; subject: string | null;
   body: string; status: string; approval_evidence: string | null;
@@ -61,7 +63,8 @@ async function crmApi<T>(path:string, method='GET', body?:unknown):Promise<T> {
 export default function CRMWorkflows({ selected, readOnly, onUpdated, onPopulate }: {
   selected: Org | null; readOnly: boolean;
   onUpdated: (org:Partial<Org>)=>void;
-  onPopulate: (fields:{legal_name:string;company_number:string;source_url:string;legal_form:string;source_type:string})=>void;
+  onPopulate: (fields:Partial<{legal_name:string;company_number:string;source_url:string;
+    legal_form:string;source_type:string;source_reference:string}>)=>void;
 }) {
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
@@ -78,6 +81,11 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onPopulate
   const [companyNumber,setCompanyNumber]=useState('');
   const [companySearch,setCompanySearch]=useState('');
   const [companyMatches,setCompanyMatches]=useState<CompanyMatch[]>([]);
+  const [inbounds,setInbounds]=useState<Inbound[]>([]);
+  const [registeredMembers,setRegisteredMembers]=useState<RegisteredMember[]>([]);
+  const [memberSearch,setMemberSearch]=useState('');
+  const [inboundPage,setInboundPage]=useState(1);
+  const [memberPage,setMemberPage]=useState(1);
   const [companyResult,setCompanyResult]=useState<null|{
     company_name:string;company_number:string;company_status:string;company_type?:string;source_url:string
   }>(null);
@@ -157,6 +165,17 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onPopulate
       '/companies-house?q='+encodeURIComponent(companySearch.trim()));
     setCompanyMatches(result.companies);
     setNotice('Official registry search returned '+result.companies.length+' records. None have been imported.');
+  });
+  const loadInbounds=()=>run(async()=>{
+    const result=await crmApi<{enquiries:Inbound[]}>('/inbound-enquiries?page='+inboundPage);
+    setInbounds(result.enquiries);
+    setNotice('Read-only XDrive public intake records loaded. No contacts were imported.');
+  });
+  const loadMembers=()=>run(async()=>{
+    const result=await crmApi<{members:RegisteredMember[]}>(
+      '/existing-members?page='+memberPage+'&search='+encodeURIComponent(memberSearch));
+    setRegisteredMembers(result.members);
+    setNotice('Active platform companies shown; none are represented as paying customers without proof.');
   });
   const previewCsv=()=>run(async()=>{
     const result=await crmApi<Preview>('/csv-preview','POST',{csv});
@@ -298,6 +317,53 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onPopulate
         })}>Prefill owner-reviewed prospect form</button></p>
       </div>}
       <p>Other sources: {sourceTypes.slice(1).map(x=>x[1]).join(' · ')}. All require owner-verified provenance and manual intake; no scraping or outbound contact.</p>
+    </SuperAdminSectionCard>
+
+    <SuperAdminSectionCard title="Source 5 — existing XDrive public enquiries (read-only)">
+      <p>Published website quote requests are service enquiries, not permission for marketing. No personal contact details are copied to the CRM.</p>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <button type="button" disabled={working || inboundPage<=1} onClick={()=>setInboundPage(p=>p-1)}>Previous page</button>
+        <span>Page {inboundPage}</span>
+        <button type="button" disabled={working} onClick={()=>setInboundPage(p=>p+1)}>Next page</button>
+        <button type="button" disabled={working} onClick={()=>void loadInbounds()}>Load enquiry page</button>
+      </div>
+      {inbounds.length===0?<p>No enquiry records loaded.</p>:
+        <div style={{overflowX:'auto'}}><table>
+          <thead><tr><th>Submitted name</th><th>Received</th><th>Service status</th><th>Evidence</th></tr></thead>
+          <tbody>{inbounds.map(item=><tr key={item.id}>
+            <td>{item.submitted_name}</td>
+            <td>{new Date(item.created_at).toLocaleDateString('en-GB')}</td>
+            <td>{item.status}</td>
+            <td><button type="button" onClick={()=>onPopulate({
+              source_type:'inbound_enquiry',source_reference:item.source_reference,source_url:item.source_url,
+            })}>Use as source only</button></td>
+          </tr>)}</tbody>
+        </table></div>}
+      <p>The owner must independently verify the organisation and marketing basis before saving a prospect or contact.</p>
+    </SuperAdminSectionCard>
+
+    <SuperAdminSectionCard title="Source 3 — registered XDrive members for relationship verification">
+      <p>Company registration is not proof of a paying customer. This read-only directory never imports another tenant's contacts.</p>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+        <label>Search registered companies <input value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} maxLength={100}/></label>
+        <button type="button" disabled={working} onClick={()=>void loadMembers()}>Find registered companies</button>
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <button type="button" disabled={working || memberPage<=1} onClick={()=>setMemberPage(p=>p-1)}>Previous page</button>
+        <span>Page {memberPage}</span>
+        <button type="button" disabled={working} onClick={()=>setMemberPage(p=>p+1)}>Next page</button>
+      </div>
+      {registeredMembers.length>0 && <div style={{overflowX:'auto'}}><table>
+        <thead><tr><th>Registered company</th><th>Number</th><th>Status</th><th>Review</th></tr></thead>
+        <tbody>{registeredMembers.map(item=><tr key={item.id}>
+          <td>{item.name}</td><td>{item.company_number??'—'}</td><td>{item.status}</td>
+          <td><button type="button" onClick={()=>onPopulate({
+            legal_name:item.name??'',company_number:item.company_number??'',
+            source_reference:item.source_reference,
+          })}>Prefill identity only</button></td>
+        </tr>)}</tbody>
+      </table></div>}
+      <p>To classify an existing customer, verify separate commercial evidence and choose the appropriate provenance type in the prospect form.</p>
     </SuperAdminSectionCard>
 
     <SuperAdminSectionCard title="Owner-reviewed CSV research — preview first">
