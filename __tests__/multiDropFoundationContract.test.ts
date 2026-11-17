@@ -4,6 +4,8 @@ import path from 'node:path';
 describe('Multi-drop foundation server contract', () => {
   const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
   const migration = read('supabase/migrations/20260829192913_job_stops_multidrop_foundation.sql');
+  const executionMigration = read('supabase/migrations/20261117132500_driver_stop_execution_outcomes.sql');
+  const stopContract = read('lib/jobs/driverStopExecution.ts');
   const listRoute = read('app/api/driver/mobile/jobs/route.ts');
   const detailRoute = read('app/api/driver/mobile/jobs/[id]/route.ts');
   const statusRoute = read('app/api/driver/mobile/jobs/[id]/stop-status/route.ts');
@@ -16,6 +18,9 @@ describe('Multi-drop foundation server contract', () => {
     expect(migration).toContain("stop_type in ('collection', 'delivery')");
     expect(migration).toContain('unique (job_id, sequence)');
     expect(migration).toContain("status in ('pending', 'arrived', 'completed', 'skipped')");
+    expect(executionMigration).toContain("status IN ('pending','en_route','arrived','completed','cancelled','skipped')");
+    expect(stopContract).toContain("return status === 'completed' || status === 'cancelled'");
+    expect(stopContract).toContain('skipped\" is retained only for legacy rows');
     expect(migration).toContain('must not replace or mutate the canonical parent job lifecycle implicitly');
   });
 
@@ -56,29 +61,28 @@ describe('Multi-drop foundation server contract', () => {
     expect(detailRoute).toContain('stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops');
   });
 
-  test('enforces ordered stop execution without directly mutating the parent job', () => {
-    expect(statusRoute).toContain("allowedNext = new Set(['arrived', 'completed'])");
-    expect(statusRoute).toContain('stop.sequence < target.sequence');
-    expect(statusRoute).toContain('terminalStopStatuses.has(stop.status)');
-    expect(statusRoute).toContain('completionSummary(stops, updatedStop)');
+  test('enforces explicit ordered stop execution without directly mutating the parent job', () => {
+    expect(statusRoute).toContain("const allowedActions = new Set(['en_route', 'arrived', 'completed', 'cancelled', 'exception'])");
+    expect(statusRoute).toContain('firstUnresolved(stops)');
+    expect(statusRoute).toContain('canDriverTransitionStop(target.status, action)');
+    expect(stopContract).toContain("if (next === 'en_route') return current === 'pending'");
+    expect(stopContract).toContain("if (next === 'arrived') return current === 'en_route'");
+    expect(stopContract).toContain("if (next === 'completed') return current === 'arrived'");
     expect(statusRoute).not.toMatch(/\.from\('jobs'\)\s*\.update\(/);
     expect(statusRoute).toContain(".from('job_stops')");
     expect(statusRoute).toContain('.update(update)');
   });
 
-  test('gates POD and final delivery on persisted stop completion at the server boundary', () => {
-    expect(actionRoute).toContain('async function requireMultiDropFinalizationReady');
+  test('gates POD and Delivered on persisted stop resolution at the server boundary', () => {
+    expect(actionRoute).toContain('async function requireFinalPodReady');
+    expect(actionRoute).toContain('async function requireDeliveredReady');
     expect(actionRoute).toContain(".from('job_stops')");
     expect(actionRoute).toContain("if (action === 'pod')");
     expect(actionRoute).toContain("if (action === 'delivered')");
-    expect(actionRoute).toContain('Complete all multi-drop stops before capturing POD or marking the job delivered.');
-    // The standard two-stop route must not be mistaken for multi-drop: its
-    // canonical job state already controls whether delivery/POD can proceed.
-    expect(actionRoute).toContain(".select('id, sequence, stop_type, status')");
-    expect(actionRoute).toContain('stops.length === 2');
-    expect(actionRoute).toContain("stop.sequence === 1 && stop.stop_type === 'collection'");
-    expect(actionRoute).toContain("stop.sequence === 2 && stop.stop_type === 'delivery'");
-    expect(actionRoute).toContain('if (standardRoute) return null;');
-    expect(actionRoute).toContain('const incompleteStops = stops.filter');
+    expect(actionRoute).toContain('A legacy skipped stop requires review before final POD can be submitted.');
+    expect(actionRoute).toContain("finalStop.status !== 'arrived'");
+    expect(actionRoute).toContain("finalStop.status !== 'completed'");
+    expect(actionRoute).toContain("!['completed','cancelled'].includes(stop.status)");
+    expect(actionRoute).toContain("finalHandover.stopKind === 'return'");
   });
 });
