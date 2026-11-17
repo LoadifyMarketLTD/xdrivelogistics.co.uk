@@ -14,6 +14,8 @@ DECLARE
 BEGIN
   SELECT * INTO v_job FROM public.jobs WHERE id=p_job_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Job not found' USING ERRCODE='P0002'; END IF;
+  IF v_job.assigned_company_id IS NULL THEN
+    RAISE EXCEPTION 'Carrier assignment required' USING ERRCODE='42501'; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.company_memberships cm
     WHERE cm.user_id=p_actor_user_id AND cm.status='active'
       AND cm.role_in_company::text IN ('owner','admin','dispatcher')

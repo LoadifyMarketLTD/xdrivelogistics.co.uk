@@ -31,6 +31,10 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.job_stops s WHERE s.job_id = p_job_id AND s.sequence < v_stop.sequence
       AND s.status NOT IN ('completed','cancelled')) THEN
     RAISE EXCEPTION 'Earlier stop remains unresolved' USING ERRCODE = '23514'; END IF;
+  IF p_cancellation IS NULL OR jsonb_typeof(p_cancellation) <> 'object' OR
+     NULLIF(trim(COALESCE(p_cancellation->>'reason','')),'') IS NULL OR
+     NULLIF(trim(COALESCE(p_cancellation->>'instructionChannel','')),'') IS NULL THEN
+    RAISE EXCEPTION 'Documented cancellation instruction required' USING ERRCODE='23514'; END IF;
   IF v_disposition NOT IN ('none','return_to_collection','return_to_sender_depot','await_instructions','redirect_authorised','replacement_stop') THEN
     RAISE EXCEPTION 'Unsupported goods disposition' USING ERRCODE = '23514'; END IF;
   IF v_custody AND v_disposition = 'none' THEN RAISE EXCEPTION 'Goods disposition required' USING ERRCODE = '23514'; END IF;
