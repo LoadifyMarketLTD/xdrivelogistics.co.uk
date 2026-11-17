@@ -18,6 +18,7 @@ BEGIN
   IF NOT FOUND OR NOT EXISTS (
     SELECT 1 FROM public.drivers d WHERE d.id = v_job.assigned_driver_id
       AND d.user_id = p_actor_user_id AND d.status = 'active'
+      AND d.company_id = v_job.assigned_company_id
   ) THEN RAISE EXCEPTION 'Assigned active driver required' USING ERRCODE = '42501'; END IF;
   IF v_job.status::text IN ('completed','invoiced','paid','cancelled')
     OR v_job.current_status::text IN ('completed','invoiced','cancelled') THEN

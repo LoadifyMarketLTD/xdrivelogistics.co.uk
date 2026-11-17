@@ -29,6 +29,9 @@ BEGIN
   IF NOT FOUND OR v_stop.status NOT IN ('pending','en_route','arrived') OR
     NOT COALESCE((v_stop.handover->'returnInstruction'->>'resolutionRequired')::boolean,false) THEN
     RAISE EXCEPTION 'No unresolved custody instruction on this stop' USING ERRCODE='23514'; END IF;
+  IF EXISTS (SELECT 1 FROM public.job_stops prior WHERE prior.job_id=p_job_id
+      AND prior.sequence < v_stop.sequence AND prior.status NOT IN ('completed','cancelled')) THEN
+    RAISE EXCEPTION 'Earlier stop remains unresolved' USING ERRCODE='23514'; END IF;
   IF p_disposition NOT IN ('return_to_collection','return_to_sender_depot','redirect_authorised','replacement_stop')
     OR NULLIF(trim(COALESCE(p_destination,'')),'') IS NULL
     OR length(trim(COALESCE(p_instruction,''))) < 5 THEN
