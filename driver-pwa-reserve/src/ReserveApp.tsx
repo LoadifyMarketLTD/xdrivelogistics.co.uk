@@ -544,7 +544,7 @@ export default function ReserveApp() {
         <h3>{collectionStage==='arrival'?'On Site (Pickup)':'Loaded'}</h3>
         <div className="rv-two">
           <Field label="XDrive Job Reference"><input readOnly aria-readonly="true" value={yourReference} placeholder="Loading from XDrive…"/></Field>
-          <Field label="Carrier Company ID"><input readOnly aria-readonly="true" value={carrierReference} placeholder="Loading from XDrive…"/></Field>
+          <Field label="Transport Operator XDrive ID"><input readOnly aria-readonly="true" value={carrierReference} placeholder="Loading from XDrive…"/></Field>
         </div>
         {collectionStage==='arrival'?<>
           <p>Record arrival notes or photos if useful. Quantity and weight can be confirmed once the vehicle is loaded.</p>

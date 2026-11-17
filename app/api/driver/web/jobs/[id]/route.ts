@@ -180,7 +180,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...mapJob(row),
       ...operational,
       companyName: ownerCompany?.name ?? undefined,
-      companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
+      companyXdId: row.company_id ? ownerCompany?.xd_id ?? undefined : posterMemberId ?? undefined,
       // Persisted multi-drop remains authoritative. Legacy two-point stops from
       // the operational helper are used only for historical jobs with no job_stops.
       stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,

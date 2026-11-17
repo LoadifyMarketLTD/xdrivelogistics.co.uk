@@ -16,3 +16,23 @@ export function collectionReferenceIdentity(jobId: unknown, carrierXdId: unknown
   if (!match || !/^XD-[A-Z0-9-]{3,32}$/.test(carrier)) return null;
   return { jobReference: 'XDL-' + match[1].toUpperCase(), carrierCompanyReference: carrier };
 }
+
+/**
+ * A Company Driver acts on behalf of their employing carrier company.
+ * A genuine Owner Driver shares ONE immutable public XD ID with their
+ * personal commercial workspace; never choose between mismatched IDs.
+ * Authentication and evidence remain attributable to the individual user UUID.
+ */
+export function verifiedCollectionCommercialActorId(
+  driverType: unknown,
+  carrierCompanyXdId: unknown,
+  ownerDriverXdId: unknown,
+): string | null {
+  const type = typeof driverType === 'string' ? driverType.trim().toLowerCase() : '';
+  const company = typeof carrierCompanyXdId === 'string' ? carrierCompanyXdId.trim().toUpperCase() : '';
+  const member = typeof ownerDriverXdId === 'string' ? ownerDriverXdId.trim().toUpperCase() : '';
+  if (!/^XD-[0-9]{6,}$/.test(company)) return null;
+  if (type === 'company_driver') return company;
+  if (type === 'owner_driver') return member === company ? company : null;
+  return null;
+}

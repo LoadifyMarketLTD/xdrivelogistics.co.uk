@@ -2,20 +2,41 @@ import { NextRequest } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { insertTrackingEvent, isDriverContext, requireDriver, respond } from '../../../_lib';
-import { collectionReferenceIdentity } from '../../../../../../../lib/jobs/collectionReferenceIdentity';
+import { collectionReferenceIdentity, verifiedCollectionCommercialActorId } from '../../../../../../../lib/jobs/collectionReferenceIdentity';
 
 const MAX_PHOTOS = 10;
 const MAX_DOCUMENTS = 10;
 
-/** Authorised server-side reference lookup; never derive carrier IDs from form input. */
-async function getCollectionIdentity(jobId: string, companyId: string) {
-  const { data, error } = await supabaseAdmin!.from('companies')
-    .select('xd_id').eq('id', companyId).maybeSingle();
-  if (error) return { error: 'Carrier identity could not be resolved.', identity: null };
-  const identity = collectionReferenceIdentity(jobId, data?.xd_id);
+/** One authoritative commercial actor per collection; driver login remains individually auditable. */
+async function getCollectionIdentity(
+  jobId: string,
+  companyId: string,
+  userId: string,
+  driverType: string | null,
+) {
+  const ownerDriver = driverType === 'owner_driver';
+  const [{ data: company, error: companyError }, ownerProfile] = await Promise.all([
+    supabaseAdmin!.from('companies').select('xd_id, company_type').eq('id', companyId).maybeSingle(),
+    ownerDriver
+      ? supabaseAdmin!.from('profiles').select('xd_id').eq('user_id', userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (companyError || ownerProfile.error || !company) {
+    return { error: 'Transport operator identity could not be verified.', identity: null };
+  }
+  if (ownerDriver && !['owner_driver', 'sole_trader'].includes(String(company.company_type ?? ''))) {
+    return { error: 'Owner Driver must operate through their verified personal workspace.', identity: null };
+  }
+  const publicId = verifiedCollectionCommercialActorId(driverType, company.xd_id, ownerProfile.data?.xd_id);
+  if (!publicId) {
+    return { error: ownerDriver
+      ? 'Owner Driver XDrive IDs are inconsistent. Collection is blocked until identity reconciliation.'
+      : 'Driver role or employing company XDrive ID is not verified.', identity: null };
+  }
+  const identity = collectionReferenceIdentity(jobId, publicId);
   return identity
     ? { error: null, identity }
-    : { error: 'Carrier public XDrive ID is missing. Contact your company administrator.', identity: null };
+    : { error: 'Official job reference or transport operator ID could not be verified.', identity: null };
 }
 
 function cleanString(value: unknown, max: number) {
@@ -101,7 +122,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) {
     return respond(403, { error: 'This job belongs to another carrier company.' });
   }
-  const references = stage === 'loaded' ? await getCollectionIdentity(jobId, driver.companyId) : null;
+  const references = stage === 'loaded' ? await getCollectionIdentity(jobId, driver.companyId, driver.userId, driver.driverType) : null;
   if (references?.error || (stage === 'loaded' && !references?.identity)) {
     return respond(409, { error: references?.error || 'Collection identifiers are not available.' });
   }
@@ -200,7 +221,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!driver.companyId || (data.assigned_company_id && data.assigned_company_id !== driver.companyId)) {
     return respond(403, { error: 'Assigned carrier company could not be verified.' });
   }
-  const references = await getCollectionIdentity(jobId, driver.companyId);
+  const references = await getCollectionIdentity(jobId, driver.companyId, driver.userId, driver.driverType);
   if (references.error || !references.identity) {
     return respond(409, { error: references.error || 'Collection identifiers are not available.' });
   }
