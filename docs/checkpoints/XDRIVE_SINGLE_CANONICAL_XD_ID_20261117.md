@@ -16,8 +16,8 @@
 - No invoice, POD or job snapshot is rewritten by the new migration.
 
 ### Code prepared
-1. Migration 20261117083531_unify_owner_driver_public_identity: new Owner Driver personal companies inherit creator's immutable XD ID; same creator cannot create duplicate personal company; company-type reclassification fail closed; historical alias table protected by RLS and grants.
-2. Migration 20261117083939_reconcile_verified_owner_driver_legacy_ids: guarded transactional reconciliation restricted to independently verified Owner Drivers, with collision/alias checks, temporary immutable-trigger suspension and restoration, registry activation gate.
+1. Migration 20261117092847_unify_owner_driver_public_identity: new Owner Driver personal companies inherit creator's immutable XD ID; same creator cannot create duplicate personal company; company-type reclassification fail closed; historical alias table protected by RLS and grants.
+2. Migration 20261117092858_reconcile_verified_owner_driver_legacy_ids: guarded transactional reconciliation restricted to independently verified Owner Drivers, with collision/alias checks, temporary immutable-trigger suspension and restoration, registry activation gate.
 3. Collection API: server-derived job ID and assigned carrier public ID; Owner Driver must have matching profile/company XD ID, while Company Driver acts under the employing company XD ID. The driver cannot edit either ID.
 4. Driver PWA: exactly TWO immutable identity fields — XDrive Job Reference and Transport Operator XDrive ID.
 5. Directory, driver public member profiles, web/mobile assigned-job lists and job sheet: prefer the commercial company's XD ID and never substitute a staff user's profile ID for a company job.
@@ -28,11 +28,11 @@
 - Driver PWA Node: 168/168 PASS.
 - Root TypeScript and PWA TypeScript: no errors.
 - Read-only Git merge test with latest main and POD PR #827: no code conflicts.
-- NO production database modifications, invoice or POD changes, emails, payments, deployments, or GitHub Actions.
+- Production database migrations APPLIED directly after transactional ROLLBACK dry-run. Exact three Owner Driver identities reconciled; alias RLS and immutable triggers verified. No invoices, PODs, emails, payments, application deploys, or GitHub Actions.
 
 ### Mandatory gates to release
-- Apply both migrations FIRST to a clean isolated staging database with representative test fixtures; verify Postgres SQL, trigger order, RLS, concurrency, new signups, all three reconciliations and legacy alias lookup.
+- DONE in real Production: transaction-only rollback rehearsal, two migrations applied with history, verified 3/3 matched IDs, 3 private aliases, RLS, original immutable trigger modes and invoice totals. Additional negative/concurrency signup tests remain pending.
 - Current main and two existing Supabase preview branches report MIGRATIONS_FAILED; they are not valid staging proof.
 - Verify every alias and historic invoice snapshot and complete a FK audit for orphan XD-001839.
-- Only AFTER hosted DB proof, publish API, compile versioned Driver PWA assets with approved live-writes gate, run actual authenticated OPPO test of both Owner Driver and Company Driver flows, and verify Netlify Production.
-- Never merge code that rejects Owner Driver mismatches before database reconciliation; legitimate current Production entries would be blocked.
+- Now that Production DB reconciliation is complete, publish API, compile versioned Driver PWA assets with approved live-writes gate, run actual authenticated OPPO test of both Owner Driver and Company Driver flows, and verify Netlify Production.
+- DATABASE FIRST gate satisfied for the three verified identities. Do not publish code until current-main merge, PWA versioned build and authenticated OPPO tests are checked.

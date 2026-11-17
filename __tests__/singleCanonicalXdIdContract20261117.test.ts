@@ -6,8 +6,8 @@ import {
 } from '../lib/jobs/collectionReferenceIdentity';
 
 const source = (path: string) => readFileSync(path, 'utf8');
-const create = source('supabase/migrations/20261117083531_unify_owner_driver_public_identity.sql');
-const reconcile = source('supabase/migrations/20261117083939_reconcile_verified_owner_driver_legacy_ids.sql');
+const create = source('supabase/migrations/20261117092847_unify_owner_driver_public_identity.sql');
+const reconcile = source('supabase/migrations/20261117092858_reconcile_verified_owner_driver_legacy_ids.sql');
 const handover = source('app/api/driver/mobile/jobs/[id]/handover/route.ts');
 const mobile = source('driver-pwa-reserve/src/ReserveApp.tsx');
 
