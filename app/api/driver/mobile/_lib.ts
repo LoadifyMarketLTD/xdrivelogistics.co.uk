@@ -35,6 +35,7 @@ export type MobileJobRow = {
   customer_reference?: string | null;
   customer_ref?: string | null;
   cust_ref?: string | null;
+  your_ref?: string | null;
   status: string | null;
   current_status: string | null;
   assigned_driver_id: string | null;
@@ -190,6 +191,7 @@ export const jobSelect = [
   'customer_reference',
   'customer_ref',
   'cust_ref',
+  'your_ref',
   'status',
   'current_status',
   'assigned_driver_id',
