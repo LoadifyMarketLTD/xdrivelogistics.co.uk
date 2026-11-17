@@ -498,7 +498,9 @@ function App() {
       status = 'arrived';
     }
     if (complete && status === 'arrived') {
-      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, { stop_id: first.id, status: 'completed', handover });
+      const { photoPaths: _jobPhotoPaths, documentPaths: _jobDocumentPaths, ...stopHandover } = handover as Record<string, unknown> & { photoPaths?: unknown; documentPaths?: unknown };
+      void _jobPhotoPaths; void _jobDocumentPaths;
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, { stop_id: first.id, status: 'completed', handover: { ...stopHandover, photoPaths: [], documentPaths: [] } });
     }
   };
   const uploadStopSignature = async (booking: Load, stopId: string, session: LiveSession, signature: File) => {
