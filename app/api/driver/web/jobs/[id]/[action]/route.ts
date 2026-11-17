@@ -66,6 +66,12 @@ async function requireFinalPodReady(jobId: string) {
   const stops = loaded.stops;
   if (!stops.length) return null;
   const finalStop = stops.at(-1)!;
+  const finalHandover = finalStop.handover && typeof finalStop.handover === 'object' && !Array.isArray(finalStop.handover)
+    ? finalStop.handover as Record<string, unknown>
+    : {};
+  if (finalHandover.stopKind === 'return' || finalHandover.stopKind === 'redirect') {
+    return respond(409, { error: 'This route ends with a return or redirected stop. Resolve that stop before any successful final POD or invoice.' });
+  }
   const prior = stops.slice(0, -1);
   if (prior.some(stop => stop.status === 'skipped')) {
     return respond(409, { error: 'A legacy skipped stop requires review before final POD can be submitted.' });
@@ -89,6 +95,12 @@ async function requireDeliveredReady(jobId: string) {
     return respond(409, { error: 'A legacy skipped stop requires review before the job can close.' });
   }
   const finalStop = stops.at(-1)!;
+  const finalHandover = finalStop.handover && typeof finalStop.handover === 'object' && !Array.isArray(finalStop.handover)
+    ? finalStop.handover as Record<string, unknown>
+    : {};
+  if (finalHandover.stopKind === 'return' || finalHandover.stopKind === 'redirect') {
+    return respond(409, { error: 'This route ended with a return or redirected stop and cannot be closed as a successful delivery.' });
+  }
   const prior = stops.slice(0, -1);
   if (prior.some(stop => !['completed','cancelled'].includes(stop.status)) || finalStop.status !== 'completed') {
     return respond(409, { error: 'Complete the final POD and resolve every earlier stop before marking the job Delivered.' });
