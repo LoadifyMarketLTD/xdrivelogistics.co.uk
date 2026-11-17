@@ -254,6 +254,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const [podWeight, setPodWeight] = useState('');
   const mobilePodOpen = podOnly;
   const [podDeliveredOn, setPodDeliveredOn] = useState('');
+  const [podDeliveredTime, setPodDeliveredTime] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [showFinalPod, setShowFinalPod] = useState(false);
   const [podDraftLoaded, setPodDraftLoaded] = useState(false);
   const [podDraftSaving, setPodDraftSaving] = useState(false);
   const [podDraftError, setPodDraftError] = useState('');
@@ -327,11 +329,16 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
             if (nextSheet.pod.itemCount != null) setPodItemCount(String(nextSheet.pod.itemCount));
             if (nextSheet.pod.deliveredOn) {
               setPodDeliveredOn(nextSheet.pod.deliveredOn);
+              const deliveredDate = new Date(nextSheet.pod.deliveredOn);
+              if (!Number.isNaN(deliveredDate.getTime())) setPodDeliveredTime(deliveredDate.toTimeString().slice(0, 5));
             } else {
               const deliveredEvent=nextSheet.timeline.find(entry=>entry.eventType==='delivered'&&entry.createdAt);
               if(deliveredEvent?.createdAt){
                 const deliveredDate=new Date(deliveredEvent.createdAt);
-                if(!Number.isNaN(deliveredDate.getTime()))setPodDeliveredOn(deliveredDate.toISOString().slice(0,10));
+                if(!Number.isNaN(deliveredDate.getTime())) {
+                  setPodDeliveredOn(deliveredDate.toISOString().slice(0,10));
+                  setPodDeliveredTime(deliveredDate.toTimeString().slice(0,5));
+                }
               }
             }
           }
@@ -495,7 +502,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     const id = podJobId;
     const data = {
       recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
-      itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
+      itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn, deliveredTime: podDeliveredTime,
       notes, signatureData: savedSignatureData, hardCopyAcknowledged,
       photoUris: pendingPodPhotos, documentUris: pendingPodDocuments,
     };
@@ -517,7 +524,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }, 700);
     return () => clearTimeout(timer);
   }, [podDraftActive, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,
-      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
+      podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, podDeliveredTime, notes,
       savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments]);
 
   const savePodDraftNow = async () => {
@@ -527,7 +534,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     try {
       const snapshot = {
         recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
-        itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
+        itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn, deliveredTime: podDeliveredTime,
         notes, signatureData: savedSignatureData || signatureData(),
         hardCopyAcknowledged, photoUris: pendingPodPhotos, documentUris: pendingPodDocuments,
       };
@@ -737,8 +744,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const completePod = async () => {
     if (!job || !driverId) return;
     const status = canonicalExecutionStatus(job.current_status ?? job.status);
-    if (!['delivered', 'completed', 'invoiced'].includes(status)) {
-      setError('Mark the job Delivered before completing POD.');
+    if (!['on_site_delivery', 'delivered', 'completed', 'invoiced'].includes(status)) {
+      setError('Record On Site at the final delivery before completing POD.');
       return;
     }
     if (hasCompletePodEvidence(job)) {
@@ -747,10 +754,6 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
     if (!deliveryPhotos.length) {
       setError('At least one delivery photo is required to complete POD.');
-      return;
-    }
-    if (mobilePwa && !pendingPodDocuments.length) {
-      setError('At least one delivery document or scanned image is required to complete POD.');
       return;
     }
     if (!recipientName.trim()) {
@@ -767,6 +770,10 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
 
     if (mobilePwa && !podLeftAt.trim()) { setError('Left At is required.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(podDeliveredOn) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(podDeliveredTime)) {
+      setError('Delivered On date and delivery time are required.');
+      return;
+    }
     if (mobilePwa && podDeliveryStatus !== 'Completed Delivery') { setError('Resolve delivery exception before completed POD.'); return; }
     const hardCopyRequired = requiresHardCopyPod(sheet?.hardCopyPod ?? job.hard_copy_pod);
     if (hardCopyRequired && !hardCopyAcknowledged) {
@@ -792,14 +799,28 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
           leftAt: podLeftAt.trim() || undefined,
           itemCount: podItemCount.trim() ? Number(podItemCount) : undefined,
           deliveredOn: podDeliveredOn || undefined,
+          deliveredTime: podDeliveredTime || undefined,
+          deliveredAt: new Date(`${podDeliveredOn}T${podDeliveredTime}:00`).toISOString(),
           hardCopyAcknowledged: hardCopyRequired ? hardCopyAcknowledged : false,
           notes: [notes.trim(), podWeight.trim() ? 'Weight: '+podWeight.trim()+' kg' : ''].filter(Boolean).join(' | ') || undefined,
         }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string; ok?: boolean; alreadySubmitted?: boolean };
       if (!response.ok || payload.ok !== true) throw new Error(payload.error || `POD submission was not confirmed by the server (HTTP ${response.status}).`);
+      if (status === 'on_site_delivery') {
+        const deliveredResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/delivered`, {
+          method: 'POST',
+          headers: { Authorization: auth, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driverNotes: notes.trim() || null }),
+        });
+        const deliveredPayload = await deliveredResponse.json().catch(() => ({})) as { error?: string };
+        if (!deliveredResponse.ok) {
+          throw new Error(deliveredPayload.error || 'POD was saved but Delivered status could not be recorded. Refresh and retry safely.');
+        }
+      }
+      setShowFinalPod(false);
       await loadJob();
-      setMessage(payload.alreadySubmitted ? 'POD was already recorded. No duplicate was created.' : 'POD submitted and recorded. Invoice creation is now available.');
+      setMessage(payload.alreadySubmitted ? 'POD already existed; Delivered status was synchronized without duplication.' : 'POD submitted, Delivered recorded and invoice creation is now available.');
       clearSignature();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'POD could not be completed.');
@@ -980,7 +1001,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     setWorking(false);
   };
 
-  const updateMultiStop = async (stopId: string, status: 'arrived' | 'completed', photoPaths: string[] = []) => {
+  const updateMultiStop = async (stopId: string, status: 'en_route' | 'arrived' | 'completed', photoPaths: string[] = []) => {
     const auth = await authHeader();
     if (!auth) { setError('Please sign in again.'); return; }
     setWorking(true); setError('');
@@ -992,7 +1013,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       const payload = await response.json().catch(() => ({})) as {error?:string};
       if (!response.ok) { setError(payload.error || 'Stop could not be updated.'); return; }
       await loadJob();
-      setMessage(status === 'arrived' ? 'Arrived at stop.' : 'Stop completed. Continue to the next stop.');
+      setMessage(status === 'en_route' ? 'On My Way to stop recorded.' : status === 'arrived' ? 'On Site at stop recorded.' : 'Stop completed. Continue to the next stop.');
     } catch { setError('Connection failed. Stop was not changed. Please retry.'); }
     finally { setWorking(false); }
   };
@@ -1022,20 +1043,17 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   };
   const confirmDeliveredFromPage6 = async () => {
     if (!Number.isInteger(Number(podItemCount)) || Number(podItemCount) < 1) {
-      setError('Number of items must be at least 1 before confirming delivery.');
+      setError('Number of items must be at least 1 before opening POD.');
       return;
     }
     if (podWeight.trim() && (!Number.isFinite(Number(podWeight)) || Number(podWeight) < 0)) {
       setError('Enter a valid delivery weight.');
       return;
     }
-    if (deliveryPhotos.length === 0) {
-      setError('Take at least one delivery photo before confirming delivery.');
-      return;
-    }
-    const saved=await savePodDraftNow();
-    if(!saved)return;
-    await moveStatus('delivered');
+    const saved = await savePodDraftNow();
+    if (!saved) return;
+    setShowFinalPod(true);
+    setMessage('On Site details saved. Complete the final POD before Delivered can be recorded.');
   };
 
   if (loading) return <PageFrame><EmptyState title="Loading assigned job…" /></PageFrame>;
@@ -1109,7 +1127,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     ] as const;
     const activeStep = executionSteps.findIndex(([key]) => key === currentStatus);
     const approvedScreen=driverBookingScreen(currentStatus,podComplete,invoiceRecorded?sheet?.invoices[0]?.status:null,invoiceRecorded?sheet?.invoices[0]?.paymentStatus:null);
-    if (podOnly && (!multiStopsReady || multiStops.some(stop => !['completed','skipped'].includes(stop.status)))) {
+    if (podOnly && (!multiStopsReady || multiStops.some(stop => !['completed','cancelled'].includes(stop.status)))) {
       return <PageFrame><section className="fresh-mobile-booking-card"><h1>Complete delivery stops first</h1><p>{multiStopsReady ? 'Finish the remaining stops in your booking before final POD.' : 'Stop status could not be verified. Please retry.'}</p><button type="button" onClick={() => router.push('/driver/official-pwa-live?booking=' + encodeURIComponent(jobId))}>Return to booking stops</button><button type="button" onClick={() => void loadJob()}>Retry</button></section></PageFrame>;
     }
     const paymentRecordedState=(sheet?.invoices[0]?.paymentStatus??"").toLowerCase();
@@ -1267,9 +1285,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     if (!podOnly && ['in_transit','on_site_delivery'].includes(currentStatus) && !multiStopsReady) {
       return <PageFrame><section className="fresh-mobile-booking-card"><h1>Checking delivery stops</h1><p>Stop details are unavailable. Do not confirm final delivery until all stops are verified.</p><button type="button" onClick={() => void loadJob()}>Retry loading stops</button></section></PageFrame>;
     }
-    if (!podOnly && ['in_transit','on_site_delivery'].includes(currentStatus) && multiStops.length > 0 && multiStops.some(stop => !['completed','skipped'].includes(stop.status))) {
-      const nextStop = multiStops.find(stop => !['completed','skipped'].includes(stop.status))!;
-      const finished = multiStops.filter(stop => ['completed','skipped'].includes(stop.status)).length;
+    if (!podOnly && ['in_transit','on_site_delivery'].includes(currentStatus) && multiStops.length > 0 && multiStops.some(stop => !['completed','cancelled'].includes(stop.status))) {
+      const nextStop = multiStops.find(stop => !['completed','cancelled'].includes(stop.status))!;
+      const finished = multiStops.filter(stop => ['completed','cancelled'].includes(stop.status)).length;
       return <PageFrame><section className="fresh-mobile-booking-card" aria-label="Multi-stop delivery progress">
         <h1>Stops - {finished} of {multiStops.length} completed</h1>
         <p>Complete each stop in sequence. Final POD is available only after all stops are completed.</p>
@@ -1278,8 +1296,9 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         <h2>Next stop: {nextStop.address}</h2>
         <p>{nextStop.type === 'collection' ? 'Collection' : 'Delivery'} stop {nextStop.sequence}</p>
         <a href={navigationUrl(nextStop.address,'','navigate') ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(nextStop.address)}`} target="_blank" rel="noopener noreferrer">Navigate to next stop</a>
-        {nextStop.status === 'pending' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'arrived')}>On Site at Stop</button>}
-        {nextStop.status === 'arrived' && nextStop.type === 'delivery' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'completed')}>Complete Delivery Stop</button>}
+        {nextStop.status === 'pending' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'en_route')}>On My Way to Stop</button>}
+        {nextStop.status === 'en_route' && <button type="button" className="fresh-mobile-booking-primary" disabled={working} onClick={() => void updateMultiStop(nextStop.id,'arrived')}>On Site at Stop</button>}
+        {nextStop.status === 'arrived' && nextStop.type === 'delivery' && <button type="button" className="fresh-mobile-booking-primary" onClick={() => router.push('/driver/official-pwa-live?booking=' + encodeURIComponent(job.id))}>Open Stop POD / Outcome</button>}
         {nextStop.status === 'arrived' && nextStop.type === 'collection' && <div>
           <label>Collection photo (camera or gallery)<input type="file" accept="image/jpeg,image/png" disabled={working} onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void uploadStopCollectionPhoto(nextStop.id, file); event.currentTarget.value = ''; }} /></label>
           <p>{(stopPhotoPaths[nextStop.id] ?? []).length} photo(s) saved for this stop.</p>
@@ -1319,7 +1338,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         onConfirm={()=>void confirmDeliveredFromPage6()}
       />;
     }
-    if (!podComplete && (podOnly || (approvedScreen.number===7 && ['delivered','completed'].includes(currentStatus)))) {
+    if (!podComplete && (podOnly || (currentStatus === 'on_site_delivery' && showFinalPod) || (approvedScreen.number===7 && ['delivered','completed'].includes(currentStatus)))) {
       const pickupArea=bookingAreaLabel(stops[0].place,stops[0].postcode);
       const deliveryArea=bookingAreaLabel(stops[1].place,stops[1].postcode);
       const storedSignature=job.delivery_signature_data;
@@ -1329,7 +1348,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         routeLabel={`${pickupArea} → ${deliveryArea}`}
         agreedRate={sheet?.agreedRate!=null?money(sheet.agreedRate,sheet.currency??job.currency):null}
         paymentTerms={sheet?.paymentTerms??null}
-        deliveryConfirmed={['delivered','completed','invoiced'].includes(currentStatus)}
+        deliveryConfirmed={['on_site_delivery','delivered','completed','invoiced'].includes(currentStatus)}
         deliveryStatus={podDeliveryStatus}
         itemCount={podItemCount}
         weight={podWeight}
@@ -1339,6 +1358,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         recipientName={recipientName}
         leftAt={podLeftAt}
         deliveredOn={podDeliveredOn}
+        deliveredTime={podDeliveredTime}
         notes={notes}
         signatureRef={signatureRef}
         signatureReady={signatureReady}
@@ -1350,13 +1370,14 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         working={working}
         error={error}
         message={message}
-        onBack={()=>router.push('/driver/official-pwa-live?booking='+encodeURIComponent(job.id))}
+        onBack={()=>{setShowFinalPod(false);router.push('/driver/official-pwa-live?booking='+encodeURIComponent(job.id));}}
         onDeliveryStatus={setPodDeliveryStatus}
         onItemCount={setPodItemCount}
         onWeight={setPodWeight}
         onRecipientName={setRecipientName}
         onLeftAt={setPodLeftAt}
         onDeliveredOn={setPodDeliveredOn}
+        onDeliveredTime={setPodDeliveredTime}
         onNotes={setNotes}
         onPhotos={e=>void selectDeliveryPhotos(e)}
         onDocuments={e=>void selectPodDocuments(e)}
