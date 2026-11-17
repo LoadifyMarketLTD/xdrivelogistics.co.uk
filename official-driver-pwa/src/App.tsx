@@ -336,9 +336,16 @@ function App() {
   const pendingAllocations = jobs.filter(j => j.acceptanceRequired === true && j.status === "ALLOCATED");
   const unseenAllocations = pendingAllocations.filter(j => !viewedBookingOfferIds.includes(j.offerId || j.id));
   const next = job ? nextJobStatus(job.status) : undefined;
-  const additionalStops = job?.routeStops && job.routeStops.length > 2 ? job.routeStops.slice(1, -1) : [];
-  const activeAdditionalStop = additionalStops.find(stop => !['completed', 'skipped'].includes(stop.status));
-  const completedAdditionalStops = additionalStops.filter(stop => ['completed', 'skipped'].includes(stop.status));
+  const routeStops = job?.routeStops ?? [];
+  const lastRouteStop = routeStops.at(-1);
+  const dynamicRouteEnd = lastRouteStop?.handover?.stopKind === 'return' || lastRouteStop?.handover?.stopKind === 'redirect';
+  const additionalStops = routeStops.length > 2
+    ? routeStops.slice(1, dynamicRouteEnd ? undefined : -1)
+    : dynamicRouteEnd ? routeStops.slice(1) : [];
+  const legacySkippedStop = additionalStops.find(stop => stop.status === 'skipped');
+  const activeAdditionalStop = additionalStops.find(stop => !['completed', 'cancelled', 'skipped'].includes(stop.status));
+  const completedAdditionalStops = additionalStops.filter(stop => ['completed', 'cancelled'].includes(stop.status));
+  const finalDeliveryStop = dynamicRouteEnd ? undefined : lastRouteStop;
   const openJob = (id: string) => { setCollectionPhotoFiles([]); setDeliveryPhotos([]); setDeliverySignature(null); setUploadedDeliveryPhotos([]); const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
   const [deliveryRecipient, setDeliveryRecipient] = useState('');
   const [collectionPhotoFiles, setCollectionPhotoFiles] = useState<File[]>([]);
