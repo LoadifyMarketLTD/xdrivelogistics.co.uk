@@ -36,6 +36,14 @@ const date = (value: unknown): string => {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString('en-GB', { timeZone: 'Europe/London' });
 };
 const get = (row: Json, ...keys: string[]): unknown => keys.map(k => row[k]).find(v => v !== null && v !== undefined && v !== '');
+// Same public job reference used by XDrive's assigned-job API (XDL- + first 8
+// UUID characters). Never expose an internal UUID as a customer-facing reference.
+export function platformJobReference(jobId: string, apiReference?: unknown): string {
+  const canonical = str(apiReference).trim();
+  if (/^XDL-[A-F0-9]{8}$/i.test(canonical)) return canonical.toUpperCase();
+  const match = /^([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.exec(jobId);
+  return match ? 'XDL-' + match[1].toUpperCase() : '';
+}
 async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): Promise<Json> {
   // Each feed must settle: one stalled endpoint must not freeze the entire app.
   const isWrite = init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase());
@@ -145,7 +153,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     pickupDate: date(r.pickup_datetime), deliveryDate: date(r.delivery_datetime),
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
     weight: num(r.weight_kg) || 0, notes: str(r.public_quote_notes),
-    status: 'OPEN', marketplaceListed: true, company: str(member.name) || 'Marketplace member',
+    status: 'OPEN', marketplaceListed: true, yourRef: platformJobReference(str(r.id), get(r, 'public_reference', 'publicReference')), company: str(member.name) || 'Marketplace member',
     companyPublicId: str(member.memberId) || undefined,
     terms: str(r.payment_terms) || 'Not provided',
     postedAt: str(r.exchange_posted_at) || undefined,
@@ -206,7 +214,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     pickupAddress: str(get(r, 'pickupAddress', 'pickup_address')),
     deliveryAddress: str(get(r, 'deliveryAddress', 'delivery_address')),
     customerRef: str(get(r, 'customerReference', 'customer_reference')),
-    yourRef: str(get(r, 'reference', 'driverReference', 'driver_reference')) || str(r.id),
+    yourRef: platformJobReference(str(r.id), get(r, 'reference', 'publicReference', 'public_reference')),
     statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory.map(item=>{const e=obj(item);return {status:str(get(e,'status','nextStatus','event','eventType'))||'Status update',at:str(get(e,'at','timestamp','created_at','createdAt','occurred_at')),notes:str(get(e,'notes','message'))};}) : [],
     clientName: str(r.clientName),contactName: str(r.contactName),contactPhone: str(r.contactPhone),
     collectionPhotos: Array.isArray(r.pickupPhotos)?r.pickupPhotos.filter(v=>typeof v==='string'):[],
@@ -259,7 +267,7 @@ export function applyPersonalBids(jobs:LiveJob[], bids:Json):LiveJob[] {
     if (existing) {
       result.set(id, { ...existing, ...quoteFields, acceptanceBlocked: Boolean(existing.acceptanceRequired && existing.offerId && state !== 'submitted') || existing.acceptanceBlocked });
     } else {
-      result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', fromOutcode: extractPublicOutcode(bid.pickupPostcodeArea), toOutcode: extractPublicOutcode(bid.deliveryPostcodeArea), pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
+      result.set(id, { id, yourRef: platformJobReference(id, get(bid, 'publicReference', 'jobReference')), from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', fromOutcode: extractPublicOutcode(bid.pickupPostcodeArea), toOutcode: extractPublicOutcode(bid.deliveryPostcodeArea), pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
     }
   }
   return [...result.values()];
@@ -303,7 +311,7 @@ export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[]
       acceptanceBlocked: pending && (offer.acceptance_blocked === true || str(offer.quote_status).toLowerCase() === 'withdrawn' || str(offer.quote_status).toLowerCase() === 'cancelled' || (existing?.personalBid === true && Boolean(existing.bidStatus) && existing.bidStatus !== 'submitted')),
       offerQuoteStatus: str(offer.quote_status),
       offerExpired,
-      yourRef: str(offer.public_reference) || existing?.yourRef || id,
+      yourRef: platformJobReference(id, offer.public_reference) || existing?.yourRef || '',
     });
   }
   return [...result.values()];

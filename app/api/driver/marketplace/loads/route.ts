@@ -88,6 +88,8 @@ function publicLoad(
 
   return {
     id: String(job.id),
+    // The canonical public number shown by XDrive's assigned-job API.
+    public_reference: `XDL-${String(job.id).slice(0, 8).toUpperCase()}`,
     company_id: companyId,
     status: marketplaceText(job.status) ?? 'posted',
     pickup_area: marketplaceText(job.pickup_city) ?? publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area TBC'),
