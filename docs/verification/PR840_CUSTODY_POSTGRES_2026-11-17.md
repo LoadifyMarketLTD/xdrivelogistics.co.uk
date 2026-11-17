@@ -21,3 +21,4 @@ Cancellation approval now additionally requires a completed return/redirect stop
 
 Further isolated PostgreSQL transaction evidence (2026-11-17): cancellation approval is rejected when the authorised return stop is unfinished; rejected when completed but POD recipient/signature/photo references are absent; succeeds after all required fields are populated; rejects a second approval. The test additionally verifies the job becomes cancelled. These tests use fabricated POD paths, so they prove the database gate but NOT the existence or authenticity of objects in storage.
 
+Security correction: driver-supplied return/redirect dispositions no longer create a follow-up stop or cancel the original stop. All goods-in-custody instructions remain pending until an active authorised carrier dispatcher resolves them through the separate RPC. Isolated transaction test DRIVER_CANNOT_SELF_AUTHORISE_RETURN_OK passes.

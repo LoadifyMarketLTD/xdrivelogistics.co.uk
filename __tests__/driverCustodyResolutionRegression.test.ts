@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 const read = (name: string) => fs.readFileSync(path.join(process.cwd(), name), 'utf8');
@@ -26,6 +26,12 @@ describe('driver cancellation and custody safety contracts', () => {
     expect(sql).toContain('FOR UPDATE');
     expect(sql).toContain('Assigned active driver required');
     expect(sql).toContain('TO service_role');
+  });
+  it('driver cannot directly authorise a physical return or redirect', () => {
+    const sql = read(cancellationSql);
+    expect(sql).toMatch(/IF v_custody THEN\s+UPDATE public\.job_stops SET handover/);
+    expect(sql).toContain("'authorisationStatus','pending'");
+    expect(read(resolutionSql)).toContain('Authorised company dispatcher required');
   });
   it('custody SQL checks dispatcher membership and requires unresolved custody', () => {
     const sql = read(resolutionSql);

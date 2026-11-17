@@ -43,9 +43,12 @@ BEGIN
     RAISE EXCEPTION 'Goods disposition requires custody' USING ERRCODE = '23514'; END IF;
   IF v_custody AND v_disposition <> 'await_instructions' AND NULLIF(trim(COALESCE(p_destination,'')),'') IS NULL THEN
     RAISE EXCEPTION 'Destination required' USING ERRCODE = '23514'; END IF;
-  IF v_custody AND v_disposition = 'await_instructions' THEN
+  -- A driver may record the requested destination but may not authorise the
+  -- physical disposition of goods on behalf of the carrier dispatcher.
+  -- All custody cases must pass through the separately authorised RPC.
+  IF v_custody THEN
     UPDATE public.job_stops SET handover = COALESCE(handover,'{}'::jsonb) || jsonb_build_object(
-      'returnInstruction',p_cancellation || jsonb_build_object('reportedAt',v_now,'resolutionRequired',true)), updated_at=v_now
+      'returnInstruction',p_cancellation || jsonb_build_object('reportedAt',v_now,'resolutionRequired',true,'authorisationStatus','pending')), updated_at=v_now
       WHERE id=p_stop_id RETURNING * INTO v_stop;
     RETURN jsonb_build_object('stop',to_jsonb(v_stop),'followUpStop',NULL,'resolutionRequired',true);
   END IF;

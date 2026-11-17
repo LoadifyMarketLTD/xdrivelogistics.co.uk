@@ -16,8 +16,12 @@ await db.query(`INSERT INTO jobs(id,assigned_driver_id,assigned_company_id,statu
 await db.query(`INSERT INTO drivers(id,user_id,company_id,status) VALUES($1,$2,$3,'active')`,[ids.driver,ids.actor,ids.company]);
 await db.query(`INSERT INTO company_memberships(user_id,company_id,status,role_in_company) VALUES($1,$2,'active','dispatcher')`,[ids.dispatcher,ids.company]);
 await db.query(`INSERT INTO job_stops(id,job_id,sequence,stop_type,address,status,completed_at) VALUES($1,$3,1,'collection','Depot','completed',now()),($2,$3,2,'delivery','Customer','arrived',NULL)`,[ids.first,ids.second,ids.job]);
+const driverRequested={reason:'Recipient refused goods',instructionChannel:'phone',goodsInCustody:true,goodsDisposition:'return_to_collection'};
+const direct=await db.query(`SELECT public.apply_driver_stop_cancellation_atomic($1,$2,$3,'arrived',$4::jsonb,'Depot') AS result`,[ids.job,ids.second,ids.actor,JSON.stringify(driverRequested)]);
+if(direct.rows[0].result.followUpStop!==null||direct.rows[0].result.resolutionRequired!==true||direct.rows[0].result.stop.status!=='arrived')throw Error('Driver bypassed dispatcher authorisation');
+console.log('DRIVER_CANNOT_SELF_AUTHORISE_RETURN_OK');
 const cancel={reason:'Recipient unavailable',instructionChannel:'phone',goodsInCustody:true,goodsDisposition:'await_instructions'};
-const c=await db.query(`SELECT public.apply_driver_stop_cancellation_atomic($1,$2,$3,'arrived',$4::jsonb,NULL) AS result`,[ids.job,ids.second,ids.actor,JSON.stringify(cancel)]);
+const c=direct;
 if(c.rows[0].result.resolutionRequired!==true)throw Error('Await custody failed');console.log('CUSTODY_PENDING_OK');
 try{await db.query(`SELECT public.resolve_driver_goods_custody_atomic($1,$2,$3,'return_to_collection','Depot','Return authorised by dispatcher')`,[ids.job,ids.second,ids.actor]);throw Error('unauthorized actor accepted')}catch(e){if(e.message==='unauthorized actor accepted')throw e;console.log('UNAUTHORISED_REJECTED_OK')}
 const r=await db.query(`SELECT public.resolve_driver_goods_custody_atomic($1,$2,$3,'return_to_collection','Depot','Return authorised by dispatcher') AS result`,[ids.job,ids.second,ids.dispatcher]);
