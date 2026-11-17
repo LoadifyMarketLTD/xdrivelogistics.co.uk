@@ -1,6 +1,7 @@
 -- XDrive CRM evidence-only first real job attestation.
--- All XDrive jobs created before the user's 2026-11-17 09:32 UTC
--- test-baseline declaration are excluded WITHOUT altering canonical jobs.
+-- All jobs present in the verified 2026-11-17 15:25 UTC test baseline are
+-- excluded WITHOUT altering canonical jobs; fixed UTC cutoff makes migration
+-- safe to replay without accidentally excluding future genuine jobs.
 CREATE TABLE IF NOT EXISTS public.crm_job_test_baseline_exclusions (
   job_id uuid PRIMARY KEY REFERENCES public.jobs(id) ON DELETE RESTRICT,
   reason text NOT NULL DEFAULT 'User confirmed all existing platform jobs were fictive for tests on 2026-11-17',
@@ -10,6 +11,7 @@ INSERT INTO public.crm_job_test_baseline_exclusions(job_id)
   -- Every job already present when the safe feature migration is installed
   -- belongs to the historical all-test baseline, regardless of is_test flag.
   SELECT id FROM public.jobs
+  WHERE created_at IS NULL OR created_at <= '2026-11-17T15:25:00Z'::timestamptz
   ON CONFLICT(job_id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS public.crm_verified_first_real_jobs (
@@ -64,7 +66,8 @@ BEGIN
     INTO job FROM public.jobs WHERE id=p_job_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Job not found' USING ERRCODE='P0002'; END IF;
   IF job.is_test IS DISTINCT FROM false OR
-     job.created_at <= '2026-11-17T09:32:01Z'::timestamptz OR
+     job.created_at IS NULL OR
+     job.created_at <= '2026-11-17T15:25:00Z'::timestamptz OR
      EXISTS (SELECT 1 FROM public.crm_job_test_baseline_exclusions e WHERE e.job_id=job.id) THEN
     RAISE EXCEPTION 'Historical or flagged test jobs can never be counted as real CRM conversion'
       USING ERRCODE='23514';
