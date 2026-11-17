@@ -32,6 +32,10 @@ describe('CRM isolated write gate remains fail closed',()=>{
     {stagingSupabaseUrl:'https://localhost/'},
     {connectedSupabaseUrl:'https://isolated-test.supabase.co/other'},
     {connectedSupabaseUrl:'https://user:password@isolated-test.supabase.co/'},
+    {connectedSupabaseUrl:'https://isolated-test.supabase.co:8443/'},
+    {stagingSupabaseUrl:'https://isolated-test.supabase.co:8443/',connectedSupabaseUrl:'https://isolated-test.supabase.co:8443/'},
+    {connectedSupabaseUrl:'https://isolated-test.supabase.co/?debug=1'},
+    {stagingSupabaseUrl:'https://isolated-test.supabase.co/#fragment'},
   ])('denies risky staging configuration %j',(change)=>{
     expect(isCrmStagingWriteAllowed({...valid,...change})).toBe(false);
   });
