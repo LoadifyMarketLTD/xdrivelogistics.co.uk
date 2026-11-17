@@ -18,7 +18,7 @@ test('Accept records accepted only; departure remains a separate explicit driver
 });
 
 test('On My Way to Pickup is the next manual lifecycle action after Accepted',()=>{
-  assert.match(lifecycle,/ALLOCATED:\{label:'On My Way to Collection',backend:'on_my_way',status:'ON_WAY_TO_PICKUP'\}/);
+  assert.match(lifecycle,/ALLOCATED:\{label:'On My Way to Pickup',backend:'on_my_way',status:'ON_WAY_TO_PICKUP'\}/);
   const flow=app.slice(app.indexOf('function flow()'));
   assert.match(flow,/job\.status==='ALLOCATED'/);
   assert.match(flow,/On My Way to Pickup/);
