@@ -38,6 +38,11 @@ type Campaign = {
   id: string; name: string; segment: string; channel: string; subject: string | null;
   body: string; status: string; approval_evidence: string | null;
 };
+type CommercialEvidence = {
+  linked_member:boolean;member_id?:string;total_job_records:number;page?:number;
+  verified_real_jobs:null;verified_bookings:null;
+  job_records:{id:string;recorded_status:string|null;created_at:string;verified_real_world:false}[];
+};
 type CampaignAudience = {
   scanned_organisations:number;scanned_contacts:number;
   eligible_for_manual_legal_review:number;blocked:number;
@@ -146,6 +151,8 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
   const [contactRetentionNote,setContactRetentionNote]=useState('');
   const [eligibility,setEligibility]=useState('');
   const [conversionCompanyId,setConversionCompanyId]=useState('');
+  const [commercialEvidence,setCommercialEvidence]=useState<CommercialEvidence|null>(null);
+  const [evidencePage,setEvidencePage]=useState(1);
   const [conversionEvidence,setConversionEvidence]=useState('');
   const [working,setWorking]=useState(false);
 
@@ -194,6 +201,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       owner_user_id:selected?.owner_user_id??'',note:'',
     });
     setContactId('');setManualContactId('');setContactForm(null);setEligibility('');
+    setCommercialEvidence(null);setEvidencePage(1);
     let active=true;
     if(selected)void crmApi<{contacts:Contact[]}>('/contacts?organisation_id='+encodeURIComponent(selected.id))
       .then(value=>{if(active)setContacts(value.contacts);})
@@ -361,6 +369,13 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     setManualNextDate('');
     onUpdated({status:result.result.status,next_follow_up_at:result.result.next_follow_up_at});
     setNotice('Actual activity and follow-up recorded together; no outbound message was generated.');
+  });
+  const loadCommercialEvidence=(page:number)=>run(async()=>{
+    if(!selected)throw Error('Select a linked prospect.');
+    const result=await crmApi<CommercialEvidence>(
+      '/commercial-evidence?organisation_id='+encodeURIComponent(selected.id)+'&page='+page);
+    setCommercialEvidence(result);setEvidencePage(page);
+    setNotice('Linked platform job records reviewed, but no job or payment was classified as commercially real.');
   });
   const conversion=(event:FormEvent)=>{event.preventDefault();if(!selected || readOnly)return;void run(async()=>{
     const result=await crmApi<{organisation:Org}>('/onboarding-link','POST',{
@@ -781,6 +796,37 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
         <button type="submit" disabled={readOnly || working || selected.status==='converted'}>Link verified active member</button>
       </form>
       <p>Company must exist and be active, with matching legal name or company number. No conversion from an unverified self-reported record.</p>
+    </SuperAdminSectionCard>}
+
+    {selected?.status==='converted' && <SuperAdminSectionCard title="Linked member job records — evidence only">
+      <p>Review existing XDrive job records for the independently verified member.
+        A database job, especially a test job, is not proof of real transport,
+        paid booking or freight revenue.</p>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+        <button type="button" disabled={working} onClick={()=>void loadCommercialEvidence(1)}>
+          Inspect associated job records
+        </button>
+        {commercialEvidence?.linked_member && <>
+          <button type="button" disabled={working || evidencePage<=1}
+            onClick={()=>void loadCommercialEvidence(evidencePage-1)}>Previous job page</button>
+          <button type="button" disabled={working || evidencePage*25>=commercialEvidence.total_job_records}
+            onClick={()=>void loadCommercialEvidence(evidencePage+1)}>Next job page</button>
+        </>}
+      </div>
+      {commercialEvidence && <>
+        <p>{commercialEvidence.total_job_records} platform job records linked to the active member
+          (unverified as real-world work). Page {evidencePage}.</p>
+        <p>Verified commercial jobs: not established. Completed real bookings: not established.</p>
+        {commercialEvidence.job_records.length>0 &&
+          <div style={{overflowX:'auto'}}><table>
+            <thead><tr><th>Job record ID</th><th>Stored status</th><th>Created</th><th>Commercial proof</th></tr></thead>
+            <tbody>{commercialEvidence.job_records.map(job=><tr key={job.id}>
+              <td>{job.id}</td><td>{job.recorded_status??'Unknown'}</td>
+              <td>{new Date(job.created_at).toLocaleString('en-GB')}</td>
+              <td>Not verified; could be test data</td>
+            </tr>)}</tbody>
+          </table></div>}
+      </>}
     </SuperAdminSectionCard>}
   </>;
 }

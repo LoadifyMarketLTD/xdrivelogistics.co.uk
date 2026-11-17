@@ -76,6 +76,7 @@ The following implementation was added **after** the previously recorded 37 unit
 7. **UK B2B compliance workbook:** `docs/legal/XDRIVE_CRM_B2B_LEGAL_REVIEW_WORKBOOK.md`
    contains LIA, source transparency and outbound approval templates; no legal
    signoff or automatic permission to contact anyone.
+8. **Read-only XDrive job evidence:** new owner-only `commercial-evidence` API and CRM section locate records belonging to an independently linked active member using confirmed company registration, without importing tenant details or treating platform/test job rows as real booked or delivered freight. Verified real job, booking and revenue metrics remain null pending independent proof.
 
 Scoped TypeScript noEmit and ESLint passed for these source changes, but the
 **fourth SQL migration, new API integrations and authenticated end-to-end
