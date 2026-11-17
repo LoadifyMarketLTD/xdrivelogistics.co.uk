@@ -18,12 +18,6 @@ type StopRow = {
 const terminalStopStatuses = new Set(['completed', 'skipped']);
 const allowedNext = new Set(['arrived', 'completed']);
 
-function numberOrNull(value: unknown, min: number, max: number): number | null {
-  if (value == null || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : NaN;
-}
-
 function pathList(value: unknown) {
   if (value == null) return [] as string[];
   if (!Array.isArray(value) || value.length > 10 || value.some((item) => typeof item !== 'string')) return null;
