@@ -8,6 +8,6 @@ test('Delivered and POD both require server-verified current signature',()=>{
  assert.match(delivery,/if\(!signature\|\|verifiedSignature!==signature\)/);
  assert.match(pod,/if\(!signature\|\|verifiedSignature!==signature\)/);
  assert.match(pod,/if\(await officialPodComplete\(\)\)return/);
- assert.match(pod,/isComplete=await officialPodComplete\(\)/);
+ assert.match(pod,/if\(!\(await officialPodComplete\(\)\)\)throw new Error\('POD is not confirmed complete on the server/);
  assert.match(app,/setVerifiedSignature\(null\);setError\(''\)/);
 });
