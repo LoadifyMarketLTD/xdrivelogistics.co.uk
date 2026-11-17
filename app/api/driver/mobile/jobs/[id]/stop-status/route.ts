@@ -144,6 +144,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(409, { error: 'Mark this stop arrived before completing it.' });
   }
 
+  // Delivery completion must carry its own handover; an omitted body must
+  // never bypass the server-side POD requirements.
+  if (nextStatus === 'completed' && target.stop_type === 'delivery' && body.handover === undefined) {
+    return respond(409, { error: 'A separate POD is required for every delivery stop.' });
+  }
+
   let handover: Record<string, unknown> | null = null;
   if (nextStatus === 'completed' && body.handover !== undefined) {
     if (!body.handover || typeof body.handover !== 'object' || Array.isArray(body.handover)) {
@@ -167,6 +173,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const signaturePath = cleanString(raw.signaturePath, 500);
     const photoPaths = pathList(raw.photoPaths);
     const documentPaths = pathList(raw.documentPaths);
+    // A delivery stop owns its own POD. Never accept a job-level POD or another
+    // stop's signature/photos as proof of this delivery.
+    if (target.stop_type === 'delivery') {
+      if (!recipientName || !leftAt || !deliveredOn || !signaturePath || photoPaths.length === 0) {
+        return respond(409, { error: 'This delivery stop requires its own recipient, Left At, Delivered On, signature and at least one photo.' });
+      }
+      if (deliveryStatus !== 'Completed Delivery') {
+        return respond(409, { error: 'Record and resolve the delivery exception before marking this stop completed.' });
+      }
+      if (itemCount === null || !Number.isInteger(itemCount) || itemCount < 1) {
+        return respond(400, { error: 'A positive whole-number item count is required for each delivery POD.' });
+      }
+      if (new Date(deliveredOn).getTime() > Date.now() + 5 * 60 * 1000) {
+        return respond(400, { error: 'Delivered On cannot be in the future.' });
+      }
+    }
     if (photoPaths.length > 0 || documentPaths.length > 0 || signaturePath) {
       if (!driver.companyId) return respond(403, { error: 'Driver company is required for stop evidence.' });
       const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
