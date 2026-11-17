@@ -147,6 +147,7 @@ export function parseStopCompletion(
 }
 
 export type ParsedCancellation = {
+  scope: 'stop' | 'job';
   cancelledByRole: string;
   cancelledByName: string | null;
   reason: string;
@@ -162,6 +163,7 @@ export function parseStopCancellation(rawValue: unknown): { ok: true; value: Par
     return { ok: false, error: 'Cancellation details are required.' };
   }
   const raw = rawValue as Record<string, unknown>;
+  const scope = raw.scope === 'job' ? 'job' : 'stop';
   const cancelledByRole = text(raw.cancelledByRole, 80);
   const cancelledByName = text(raw.cancelledByName, 160);
   const reason = text(raw.reason, 1000);
@@ -189,6 +191,7 @@ export function parseStopCancellation(rawValue: unknown): { ok: true; value: Par
   }
 
   return { ok: true, value: {
+    scope,
     cancelledByRole,
     cancelledByName: cancelledByName || null,
     reason,
