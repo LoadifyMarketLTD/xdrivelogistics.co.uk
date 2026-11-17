@@ -5,6 +5,7 @@ import path from 'node:path';
 import { drawOfficialPodCover } from '../../../../../../../lib/server/professionalPodPdf';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../../../_lib/supabaseAdmin';
 import { canonicalPodEvidence } from '../../../../../../../lib/pod/canonicalPodEvidence';
+import { selectOfficialPodSignatureImage } from '../../../../../../../lib/pod/officialPodSignatureImage';
 import { drawOfficialXDrivePdfLogo } from '../../../../../../../lib/server/officialXDrivePdfLogo';
 
 const jsonError = (status: number, error: string) => NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { jobId } = await params;
   const { data: job, error: jobError } = await supabaseAdmin.from('jobs')
-    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime,collection_contact_name,delivery_contact_name,no_of_items,items,weight_kg,delivery_status,customer_reference,load_reference,booking_reference,delivered_at,delivery_notes,vehicle_type,cargo_type')
+    .select('id,company_id,awarded_carrier_company_id,assigned_company_id,assigned_driver_id,created_by,pod_generated,pod_generated_at,delivery_photos,pod_photos,delivery_signature_data,client_signature_name,pickup_location,delivery_location,pickup_datetime,delivery_datetime,collection_contact_name,delivery_contact_name,no_of_items,items,weight_kg,delivery_status,customer_reference,load_reference,booking_reference,delivered_at,delivery_notes,vehicle_type,cargo_type')
     .eq('id', jobId).maybeSingle();
   if (jobError) return jsonError(500, jobError.message);
   if (!job) return jsonError(404, 'Job not found.');
@@ -47,14 +48,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const evidence = canonicalPodEvidence(job);
   if (!evidence.complete) return jsonError(409, 'Complete delivery POD with a photo, handwritten signature and recipient name first.');
   if (evidence.deliveryPhotoCount < 1) return jsonError(409, 'A delivery photograph is required for the POD PDF.');
-  const storedSignature = job.delivery_signature_data;
-  const signature = typeof storedSignature === 'string' ? storedSignature
-    : storedSignature && typeof storedSignature === 'object' && !Array.isArray(storedSignature)
-      ? String((storedSignature as Record<string, unknown>).value ?? '')
-      : '';
-  if (!/^data:image\/(png|jpeg);base64,/i.test(signature)) {
-    return jsonError(409, 'A handwritten recipient signature image is required.');
-  }
+  const { data: savedDraft, error: draftError } = await supabaseAdmin.from('driver_pod_drafts')
+    .select('form_data,driver_id,updated_at').eq('job_id', job.id)
+    .order('updated_at', { ascending: false }).limit(1).maybeSingle();
+  if (draftError) return jsonError(500, 'Saved POD details could not be retrieved.');
+  const handover = savedDraft?.form_data && typeof savedDraft.form_data === 'object' &&
+    !Array.isArray(savedDraft.form_data) ? savedDraft.form_data as Record<string, unknown> : {};
+
+  const signature = selectOfficialPodSignatureImage({
+    storedSignature: job.delivery_signature_data,
+    savedDraft,
+    jobId: job.id,
+    assignedDriverId: job.assigned_driver_id,
+    recipientName: job.client_signature_name,
+    podGeneratedAt: job.pod_generated_at,
+  });
+  if (!signature) return jsonError(409, 'A handwritten recipient signature image is required.');
   // Identify the actual executing carrier, not the marketplace or booking customer.
   const carrierId = job.awarded_carrier_company_id ?? job.assigned_company_id;
   if (!carrierId) return jsonError(409, 'An executing carrier must be assigned before a POD can be issued.');
@@ -65,12 +74,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const pdf = await PDFDocument.create();
     const logoBytes = await readFile(path.join(process.cwd(), 'public', 'xdrive-logo-primary.png'));
-    const { data: savedDraft, error: draftError } = await supabaseAdmin.from('driver_pod_drafts')
-      .select('form_data').eq('job_id', job.id).order('updated_at', { ascending: false })
-      .limit(1).maybeSingle();
-    if (draftError) throw new Error('Saved POD details could not be retrieved.');
-    const handover = savedDraft?.form_data && typeof savedDraft.form_data === 'object' &&
-      !Array.isArray(savedDraft.form_data) ? savedDraft.form_data as Record<string, unknown> : {};
     const reference = job.customer_reference || job.load_reference || job.booking_reference ||
       'XDL-' + job.id.replace(/-/g, '').slice(0, 8).toUpperCase();
     await drawOfficialPodCover(pdf, logoBytes, carrier.name, {
