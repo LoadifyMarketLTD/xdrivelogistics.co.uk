@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 const forms = new Set(['ltd','llp','sole_trader','other','unknown']);
 const segments = new Set(['customer','broker','forwarder','carrier','mixed']);
 const statuses = new Set(['discovered','researching','qualified','contacted','replied','onboarding','converted','disqualified']);
-const editableStatuses = new Set([...statuses].filter(status => status !== 'converted'));
+// Evidence-dependent stages must be recorded through the atomic follow-up workflow.
+const editableStatuses = new Set(['discovered','researching']);
 const priorities = new Set(['low','normal','high']);
 const sources = new Set(['companies_house','company_website','existing_customer','partner_referral','inbound_enquiry','owner_csv']);
 
@@ -125,7 +126,8 @@ export async function PATCH(request: NextRequest) {
     }
     patch.last_change_note=note||'Organisation evidence, priority or follow-up edited';
   } else if (body.action==='status' || body.action==null) {
-    if (!editableStatuses.has(String(body.status))) return crmResponse(400,{ error:'Invalid status; conversion requires verified onboarding.' });
+    if (!editableStatuses.has(String(body.status)) || !editableStatuses.has(String(current.status)))
+      return crmResponse(409,{ error:'Documented qualification, replies, disqualification and onboarding must use the atomic follow-up workflow.' });
     if (body.status===current.status) return crmResponse(200,{ organisation:current,unchanged:true });
     patch.status=body.status;
     patch.last_change_note=note||String(current.status)+' -> '+String(body.status);

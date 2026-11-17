@@ -296,12 +296,12 @@ export default function BusinessDevelopmentPage() {
         {selected && <SuperAdminSectionCard title={'Prospect details — ' + selected.legal_name}>
           <button type="button" onClick={() => setSelected(null)}>Close details</button>
           {detailError && <SuperAdminNotice tone="danger">{detailError}</SuperAdminNotice>}
-          <label>Prospect status <select aria-label="Prospect status" value={selected.status} disabled={savingStatus || previewReadOnly}
+          <label>Prospect status <select aria-label="Prospect status" value={selected.status} disabled={savingStatus || previewReadOnly || !['discovered','researching'].includes(selected.status)}
             onChange={event => void updateStatus(event.target.value)}>
-            {['discovered','researching','qualified','contacted','replied','onboarding','disqualified',...(selected.status === 'converted' ? ['converted'] : [])].map(value =>
+            {['discovered','researching',...(!['discovered','researching'].includes(selected.status) ? [selected.status] : [])].map(value =>
               <option key={value} value={value}>{value}</option>)}
           </select></label>
-          <p>Conversion is managed separately through verified onboarding; selecting a status does not send any message.</p>
+          <p>Qualification, replies, disqualification and onboarding require documented evidence in the Follow-up work queue. A stage change never sends a message.</p>
           <h3>Add sourced business contact</h3>
           <p>Record a verified source and lawful basis. This form never sends marketing messages.</p>
           <form onSubmit={(event) => void saveContact(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
@@ -326,14 +326,7 @@ export default function BusinessDevelopmentPage() {
           <h3>Record activity</h3>
           <form onSubmit={(event) => void saveActivity(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
             <label>Activity type <select value={eventType} onChange={event => setEventType(event.target.value)}>
-              <option value="note">Internal note</option>
-              <option value="research_completed">Research completed</option>
-              <option value="qualified">Qualified</option>
-              <option value="call_attempted">Call attempted</option>
-              <option value="meeting_scheduled">Meeting scheduled</option>
-              <option value="reply_received">Reply received</option>
-              <option value="onboarding_started">Onboarding started</option>
-              <option value="disqualified">Disqualified</option>
+              <option value="note">Internal note (does not change pipeline stage)</option>
             </select></label>
             <label>Internal note <textarea maxLength={2000} value={eventNote} onChange={event => setEventNote(event.target.value)} /></label>
             <button type="submit" disabled={savingEvent || previewReadOnly}>{savingEvent ? 'Saving…' : 'Record activity'}</button>
@@ -370,7 +363,10 @@ export default function BusinessDevelopmentPage() {
           </table></div>}
         </SuperAdminSectionCard>
         <CRMWorkflows selected={selected} readOnly={previewReadOnly}
-          onUpdated={(patch) => { if (selected) setSelected({ ...selected, ...patch }); setReloadVersion(version => version + 1); }}
+          onUpdated={(patch) => { if (selected) setSelected({ ...selected, ...patch }); setReloadVersion(version => version + 1); setDetailVersion(version => version + 1); }}
+          onSelect={(org) => setSelected({
+            ...org, company_number:org.company_number??null, created_at:org.created_at,
+          })}
           onPopulate={(fields) => { setForm(old => ({ ...old, ...fields })); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       </SuperAdminPage>
     </ProtectedRoute>

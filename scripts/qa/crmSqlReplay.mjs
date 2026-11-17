@@ -23,7 +23,8 @@ try {
   for (const name of [
     '20261116191000_b2b_crm_private_staging.sql',
     '20261116192900_crm_contact_suppression_guard.sql',
-    '20261117060000_crm_workflows_isolated_staging.sql'
+    '20261117060000_crm_workflows_isolated_staging.sql',
+    '20261117072000_crm_prospect_followup_workflow.sql'
   ]) {
     try {
       await db.exec(fs.readFileSync(path.join(root,'supabase','migrations',name),'utf8'));
@@ -43,6 +44,15 @@ try {
   check(oe.rows[0].n===1,'organisation insertion audited');
   await reject("INSERT INTO public.crm_prospect_organisations(legal_name,company_number,website_domain,legal_form,segment,source_url,source_checked_at,created_by) VALUES('Duplicate Ltd','12000001','other.example','ltd','customer','https://other.example',now(),$1)",[actor],'duplicate key','company number duplicates blocked');
   await reject("INSERT INTO public.crm_prospect_organisations(legal_name,company_number,website_domain,legal_form,segment,source_url,source_checked_at,created_by) VALUES('Duplicate Domain Ltd','X10001','smoke.example','ltd','customer','https://other.example',now(),$1)",[actor],'duplicate key','domain duplicates blocked');
+  const work=await run("SELECT public.crm_record_prospect_action($1,$2,$3,$4,$5,$6,$7,$8) AS result",
+    [org,null,actor,'research_completed','other','Research independently verified from official public company page','schedule',new Date(Date.now()+86400000).toISOString()]);
+  check(work.rows[0].result?.status==='researching','atomic workflow advances evidenced research stage');
+  const scheduled=await run('SELECT status,next_follow_up_at FROM public.crm_prospect_organisations WHERE id=$1',[org]);
+  check(scheduled.rows[0].status==='researching'&&scheduled.rows[0].next_follow_up_at,
+    'research follow-up scheduled atomically with activity');
+  const attempt=await run("SELECT public.crm_record_prospect_action($1,$2,$3,$4,$5,$6,$7,$8) AS result",
+    [org,null,actor,'call_attempted','phone','Attempted a call, no answer and no contact established','preserve',null]);
+  check(attempt.rows[0].result?.status==='researching','unsuccessful call attempt is not falsely marked contacted');
   const co=await run("INSERT INTO public.crm_prospect_contacts(organisation_id,business_email,contact_kind,lawful_basis,source_url,last_actor_id) VALUES($1,'hello@smoke.example','generic_business','undetermined','https://smoke.example/contact',$2) RETURNING id",[org,actor]);
   const cid=co.rows[0].id;
   await run("INSERT INTO public.crm_prospect_suppressions(channel,normalized_contact_value,reason,source) VALUES('email','blocked@smoke.example','opt_out','Smoke test')");

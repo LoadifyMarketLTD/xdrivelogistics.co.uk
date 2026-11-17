@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic';
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status, headers: { 'Cache-Control': 'no-store' } });
 const uuid = (v: unknown) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-const eventTypes = new Set(['research_completed','qualified','call_attempted','meeting_scheduled','reply_received','onboarding_started','disqualified','note']);
 const channels = new Set(['email','phone','other']);
 
 async function authorize(request: NextRequest) {
@@ -44,8 +43,10 @@ export async function POST(request: NextRequest) {
   const eventType = String(body.event_type ?? '');
   const channel = String(body.channel ?? 'other');
   const note = typeof body.note === 'string' ? body.note.trim() : '';
-  if (!uuid(body.organisation_id) || !eventTypes.has(eventType) || !channels.has(channel) ||
-      (body.contact_id != null && !uuid(body.contact_id)) || note.length > 2000)
+  // A stand-alone event may only be a note. All stage-changing activities
+  // must use the atomic follow-up RPC, so stage and history cannot diverge.
+  if (!uuid(body.organisation_id) || eventType !== 'note' || !channels.has(channel) ||
+      (body.contact_id != null && !uuid(body.contact_id)) || note.length < 10 || note.length > 2000)
     return respond(400, { error: 'Invalid activity fields.' });
   if (body.contact_id) {
     const { data: contact, error: contactError } = await supabaseAdmin!.from('crm_prospect_contacts')

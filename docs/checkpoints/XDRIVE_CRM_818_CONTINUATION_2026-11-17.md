@@ -44,6 +44,45 @@ These are owner-controlled intake channels, **not six validated autonomous acqui
 - SQL source-only ephemeral PostgreSQL replay PASS: 3 migrations and 19 assertions. Found and repaired the shared audit-protection trigger which incorrectly accessed a contact_id field on campaign audit rows. Erasure now redacts contact-linked activity notes while retaining restricted metadata. Retention legal-hold denials tested.
 - These checks do **not** count as SQL clean replay, authenticated E2E, production readiness or real commercial transactions.
 
+## Continuation after owner reanalysis — implementation-only sweep
+
+The following implementation was added **after** the previously recorded 37 unit /
+19 SQL assertion runs. Do not claim those old checks cover the newly added modules.
+
+1. **Manual commercial action and follow-up engine:** new owner-only
+   `GET/POST /api/super-admin/business-development/follow-ups`, overdue/today/
+   next-seven-days/unscheduled queue, evidence note, optional contact link and
+   future action date; staging-only transactional
+   `crm_record_prospect_action` writes the real activity and updates prospect
+   status, follow-up, and audit together. A call attempt never counts as a reply.
+   New **unapplied** migration:
+   `20261117072000_crm_prospect_followup_workflow.sql`.
+2. **No fake response statuses:** direct edits only cover initial research stages;
+   qualification/reply/onboarding/disqualification require evidenced atomic action.
+   Stand-alone activity recording accepts internal notes only.
+3. **Campaign audience review:** new read-only API, privacy/suppression and legal
+   flag screening for a bounded, explicitly incomplete candidate sample; no
+   recipient export and no dispatch. CRM UI presents counts and denial reasons.
+4. **Owner-reviewed internal source capture:** new staging-only API verifies
+   active registered-member record and exact company registration, or an XDrive
+   public quote source. Requires legal identity, public verification URL, and
+   owner evidence. Never copies tenant contacts or assumes marketing consent.
+5. **Companies House targeted industry research:** read-only advanced API query
+   for selected SIC sectors, active UK companies, five pages of up to 20
+   candidates, CRM company-number deduplication and owner verification/pre-fill.
+   Requires `COMPANIES_HOUSE_API_KEY`; **no real candidates imported yet**.
+6. **Observed activity metrics:** recorded manual replies, call attempts and
+   meetings plus verified active-member CRM conversions; no shipments inferred.
+7. **UK B2B compliance workbook:** `docs/legal/XDRIVE_CRM_B2B_LEGAL_REVIEW_WORKBOOK.md`
+   contains LIA, source transparency and outbound approval templates; no legal
+   signoff or automatic permission to contact anyone.
+
+Scoped TypeScript noEmit and ESLint passed for these source changes, but the
+**fourth SQL migration, new API integrations and authenticated end-to-end
+workflows have not been run against hosted staging**. Full E2E acceptance remains
+deferred until owner-requested implementation completion. Neither Production
+nor `main` was changed.
+
 ## Remaining gates before claiming production readiness
 - Full XDrive historical-schema replay (local fixtures covered CRM migration contracts only), hosted **isolated staging** verification, security advisors and actual authenticated REST/RLS checks. Local SQL RLS/trigger/erasure contracts and TypeScript/lint pass.
 - An independently verified healthy isolated staging Supabase project and real authenticated owner/non-owner/anonymous E2E evidence. Only XDrive Production plus branches marked `MIGRATIONS_FAILED` were found in connector inspection; none qualifies as a safe CRM staging target. Do not create billable branch or project without cost approval.
