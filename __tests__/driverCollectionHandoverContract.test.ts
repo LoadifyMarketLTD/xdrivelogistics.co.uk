@@ -14,7 +14,7 @@ describe('driver collection handover contract', () => {
   it('persists structured job and stop handover snapshots', () => {
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS collection_handover jsonb');
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS handover jsonb');
-    expect(handoverRoute).not.toContain('At least one collection photo is required.');
+    expect(handoverRoute).toContain('At least one collection/loading photo is required.');
     expect(handoverRoute).toContain('collection_handover: handover');
     expect(handoverRoute).toContain('pickup_photos: [...new Set');
   });
@@ -25,7 +25,9 @@ describe('driver collection handover contract', () => {
     expect(evidenceRoute).toContain('stops/${stopId}/${category}');
     expect(handoverRoute).toContain('verifyStoragePaths');
     expect(stopRoute).toContain('verifyStopEvidence');
-    expect(stopRoute).toContain('if (handover) update.handover = handover');
+    expect(stopRoute).toContain('parseStopCompletion');
+    expect(stopRoute).toContain('stopEvidencePrefix');
+    expect(stopRoute).toContain("status: 'completed', completed_at: now, handover");
   });
 
   it('requires handover before the Driver Mobile loaded transition and exposes it on reads', () => {

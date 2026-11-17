@@ -4,6 +4,47 @@ const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 const QA_MOCK = import.meta.env.VITE_CX4A_QA_MOCK === '1';
 type Json = Record<string, unknown>;
 export type LiveSession = { token: string; refreshToken: string; expiresAt: number };
+export type LiveStopHandover = {
+  version?: number;
+  capturedAt?: string | null;
+  customerReference?: string | null;
+  itemCount?: number | null;
+  packaging?: string | null;
+  weightKg?: number | null;
+  etaAt?: string | null;
+  etaMinutes?: number | null;
+  notes?: string | null;
+  recipientName?: string | null;
+  leftAt?: string | null;
+  deliveryStatus?: string | null;
+  deliveredOn?: string | null;
+  photoPaths?: string[];
+  documentPaths?: string[];
+  signaturePath?: string | null;
+  canonicalFinalPod?: boolean;
+  stopKind?: string | null;
+  cancellation?: Record<string, unknown> | null;
+  exception?: Record<string, unknown> | null;
+  returnInstruction?: Record<string, unknown> | null;
+};
+export type LiveStop = {
+  id:string;
+  type:'collection'|'delivery';
+  sequence:number;
+  address:string;
+  company?:string;
+  contactPerson?:string;
+  telephone?:string;
+  timeWindowFrom?:string;
+  timeWindowTo?:string;
+  status:'pending'|'en_route'|'arrived'|'completed'|'cancelled'|'skipped';
+  notes?:string;
+  enRouteAt?:string;
+  arrivedAt?:string;
+  completedAt?:string;
+  cancelledAt?:string;
+  handover?:LiveStopHandover|null;
+};
 export type LiveJob = {
   id: string; from: string; to: string; fromOutcode?: string; toOutcode?: string; pickup: string; delivery: string;
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
@@ -19,6 +60,7 @@ export type LiveJob = {
   statusHistory?: Array<{ status: string; at: string; notes?: string }>;
   clientName?: string; contactName?: string; contactPhone?: string;
   collectionPhotos?: string[]; deliveryPhotos?: string[]; podPhotos?: string[];
+  routeStops?: LiveStop[];
 };
 const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
 const str = (value: unknown): string => typeof value === 'string' ? value : '';
@@ -186,9 +228,56 @@ const statusMap: Record<string, LiveJob['status']> = {
   on_site_delivery: 'ON_SITE_DELIVERY', arrived_delivery: 'ON_SITE_DELIVERY', pod_submitted: 'POD_SUBMITTED',
   delivered: 'DELIVERED', completed: 'DELIVERED',
 };
+function mapAssignedStop(raw: unknown): LiveStop | null {
+  const r=obj(raw);
+  const id=str(r.id); const type=str(r.type).toLowerCase(); const sequence=num(r.sequence); const address=str(r.address);
+  if(!id||(type!=='collection'&&type!=='delivery')||sequence===undefined||!address)return null;
+  const rawStatus=str(r.status).toLowerCase();
+  const status:LiveStop['status']=['en_route','arrived','completed','cancelled','skipped'].includes(rawStatus)?rawStatus as LiveStop['status']:'pending';
+  const handoverRaw=obj(r.handover);
+  const stringArray=(value:unknown):string[]=>Array.isArray(value)?value.filter((item):item is string=>typeof item==='string'&&item.length>0):[];
+  const handover:LiveStopHandover|null=Object.keys(handoverRaw).length?{
+    version:num(handoverRaw.version),
+    capturedAt:str(handoverRaw.capturedAt)||null,
+    customerReference:str(handoverRaw.customerReference)||null,
+    itemCount:num(handoverRaw.itemCount)??null,
+    packaging:str(handoverRaw.packaging)||null,
+    weightKg:num(handoverRaw.weightKg)??null,
+    etaAt:str(handoverRaw.etaAt)||null,
+    etaMinutes:num(handoverRaw.etaMinutes)??null,
+    notes:str(handoverRaw.notes)||null,
+    recipientName:str(handoverRaw.recipientName)||null,
+    leftAt:str(handoverRaw.leftAt)||null,
+    deliveryStatus:str(handoverRaw.deliveryStatus)||null,
+    deliveredOn:str(handoverRaw.deliveredOn)||null,
+    photoPaths:stringArray(handoverRaw.photoPaths),
+    documentPaths:stringArray(handoverRaw.documentPaths),
+    signaturePath:str(handoverRaw.signaturePath)||null,
+    canonicalFinalPod:handoverRaw.canonicalFinalPod===true,
+    stopKind:str(handoverRaw.stopKind)||null,
+    cancellation:Object.keys(obj(handoverRaw.cancellation)).length?obj(handoverRaw.cancellation):null,
+    exception:Object.keys(obj(handoverRaw.exception)).length?obj(handoverRaw.exception):null,
+    returnInstruction:Object.keys(obj(handoverRaw.returnInstruction)).length?obj(handoverRaw.returnInstruction):null,
+  }:null;
+  return {
+    id,type:type as LiveStop['type'],sequence,address,status,
+    company:str(r.company)||undefined,
+    contactPerson:str(r.contactPerson)||undefined,
+    telephone:str(r.telephone)||undefined,
+    timeWindowFrom:str(r.timeWindowFrom)||undefined,
+    timeWindowTo:str(r.timeWindowTo)||undefined,
+    notes:str(r.notes)||undefined,
+    enRouteAt:str(r.enRouteAt)||undefined,
+    arrivedAt:str(r.arrivedAt)||undefined,
+    completedAt:str(r.completedAt)||undefined,
+    cancelledAt:str(r.cancelledAt)||undefined,
+    handover,
+  };
+}
 export function mapAssigned(raw: unknown): LiveJob {
   const r = obj(raw); const details = cleanDetails(get(r, 'loadDetails', 'load_details'));
   const canonicalStatus = str(get(r, 'currentStatus', 'current_status', 'lifecycleStatus', 'lifecycle_status', 'status')).toLowerCase();
+  const routeStops=Array.isArray(r.stops)?r.stops.map(mapAssignedStop).filter((stop):stop is LiveStop=>Boolean(stop)).sort((a,b)=>a.sequence-b.sequence):[];
   return {
     id: str(r.id), from: str(get(r, 'pickupLocation', 'pickup_location', 'pickupPostcode', 'pickup_postcode')) || 'Collection',
     to: str(get(r, 'deliveryLocation', 'delivery_location', 'deliveryPostcode', 'delivery_postcode')) || 'Delivery',
@@ -218,9 +307,10 @@ export function mapAssigned(raw: unknown): LiveJob {
     legacyReferences: Array.isArray(r.legacyReferences) ? r.legacyReferences.filter((v): v is string => typeof v === 'string') : [],
     statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory.map(item=>{const e=obj(item);return {status:str(get(e,'status','nextStatus','event','eventType'))||'Status update',at:str(get(e,'at','timestamp','created_at','createdAt','occurred_at')),notes:str(get(e,'notes','message'))};}) : [],
     clientName: str(r.clientName),contactName: str(r.contactName),contactPhone: str(r.contactPhone),
-    collectionPhotos: Array.isArray(r.pickupPhotos)?r.pickupPhotos.filter(v=>typeof v==='string'):[],
-    deliveryPhotos: Array.isArray(r.deliveryPhotos)?r.deliveryPhotos.filter(v=>typeof v==='string'):[],
-    podPhotos: Array.isArray(r.podPhotos)?r.podPhotos.filter(v=>typeof v==='string'):[],
+    collectionPhotos: Array.isArray(r.pickupPhotos)?r.pickupPhotos.filter((v):v is string=>typeof v==='string'):[],
+    deliveryPhotos: Array.isArray(r.deliveryPhotos)?r.deliveryPhotos.filter((v):v is string=>typeof v==='string'):[],
+    podPhotos: Array.isArray(r.podPhotos)?r.podPhotos.filter((v):v is string=>typeof v==='string'):[],
+    routeStops,
   };
 }
 export async function loadLive(token: string): Promise<LiveJob[]> {

@@ -18,7 +18,7 @@ import BookingDocuments from "./BookingDocuments";
 import PodCapture from "./PodCapture";
 import LivePodCapture from "./LivePodCapture";
 import RouteMap from "./RouteMap";
-import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
+import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession, type LiveStop } from "./liveApi";
 const LIVE_SESSION_KEY = "xdrive-driver-reserve-live-session-v1";
 function savedLiveSession(): LiveSession | null {
   try {
@@ -60,7 +60,7 @@ type Load = {
   notificationAt?: string;
   zoneAlert?: string;
   stops?: number;
-  routeStops?: { id: string; kind: "PICKUP" | "DELIVERY"; address: string; completedAt?: string }[];
+  routeStops?: LiveStop[];
   customerPhone?: string;
   feedbackPay?: { positive: number; neutral: number; negative: number };
   feedbackDelivery?: { positive: number; neutral: number; negative: number };
@@ -510,7 +510,7 @@ function App() {
       <main>
         {routeJobId && jobs.some(j => j.id === routeJobId) ? (() => {
           const routeJob = jobs.find(j => j.id === routeJobId)!;
-          return <RouteMap from={routeJob.from} to={routeJob.to} stops={routeJob.routeStops} distanceMiles={routeJob.distanceMiles} travelMinutes={routeJob.travelMinutes} onBack={() => setRouteJobId(null)} />;
+          return <RouteMap from={routeJob.from} to={routeJob.to} stops={routeJob.routeStops?.map(stop => ({ id: stop.id, kind: stop.type === 'collection' ? 'PICKUP' as const : 'DELIVERY' as const, address: stop.address, completedAt: stop.completedAt }))} distanceMiles={routeJob.distanceMiles} travelMinutes={routeJob.travelMinutes} onBack={() => setRouteJobId(null)} />;
         })() : selected && job ? (
           <>
             <button className="back" onClick={() => setSelected(null)}>

@@ -75,7 +75,9 @@ const makeJobTable = () => ({
 
 const makeJobStopsTable = () => ({
   select: () => ({
-    eq: async () => ({ data: [], error: null }),
+    eq: () => ({
+      order: async () => ({ data: [], error: null }),
+    }),
   }),
 });
 

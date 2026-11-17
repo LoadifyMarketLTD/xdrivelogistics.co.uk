@@ -14,11 +14,13 @@ import LocalInvoices from "./LocalInvoices";
 import LiveInvoices from "./LiveInvoices";
 import DriverMenu from "./DriverMenu";
 import BookingDocuments from "./BookingDocuments";
+import BookingTimeline from "./BookingTimeline";
+import BookingCancellation from "./BookingCancellation";
 import PodCapture from "./PodCapture";
 import LivePodCapture from "./LivePodCapture";
-import DeliverySignature from './DeliverySignature';
+import StopExecution from './StopExecution';
 import RouteMap from "./RouteMap";
-import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
+import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession, type LiveStop } from "./liveApi";
 const LIVE_SESSION_KEY = "xdrive-driver-live-session-v1";
 function formatServiceLabel(service?: string): string {
   const raw = service?.trim();
@@ -75,7 +77,8 @@ type Load = {
   notificationAt?: string;
   zoneAlert?: string;
   stops?: number;
-  routeStops?: { id: string; kind: "PICKUP" | "DELIVERY"; address: string; completedAt?: string }[];
+  routeStops?: LiveStop[];
+  statusHistory?: Array<{ status: string; timestamp?: string; note?: string; source?: string }>;
   customerPhone?: string;
   feedbackPay?: { positive: number; neutral: number; negative: number };
   feedbackDelivery?: { positive: number; neutral: number; negative: number };
@@ -153,6 +156,7 @@ function App() {
   const [liveError, setLiveError] = useState("");
   const [liveWarning, setLiveWarning] = useState("");
   const [liveConnected, setLiveConnected] = useState(false);
+  const [activityUnread, setActivityUnread] = useState(0);
   useEffect(() => { if (liveSession) localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(liveSession)); }, [liveSession]);
   useEffect(() => {
     let active = true;
@@ -200,6 +204,10 @@ function App() {
     setBookingsPending(false);
     setLiveWarning(records.warnings.join(" | "));
     setLiveConnected(true);
+    void driverGet("/notifications", token).then(response => {
+      const rows = Array.isArray(response.notifications) ? response.notifications : [];
+      setActivityUnread(rows.filter(row => row && typeof row === "object" && !(row as Record<string, unknown>).read_at).length);
+    }).catch(() => { /* Notification count must never block job refresh. */ });
   };
   useEffect(() => {
     if (!liveConnected || !liveSession) return;
@@ -252,7 +260,7 @@ function App() {
   const [routeJobId, setRouteJobId] = useState<string | null>(null);
   const [navigationChoiceOpen, setNavigationChoiceOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
-  const [bookingScreen, setBookingScreen] = useState<"details" | "status" | "pickup" | "loaded" | "history" | "delivery" | "pod">("details");
+  const [bookingScreen, setBookingScreen] = useState<"details" | "status" | "pickup" | "loaded" | "history" | "delivery" | "pod" | "stop" | "cancel">("details");
   const [amount, setAmount] = useState("");
 
   const [notes, setNotes] = useState("");
@@ -330,14 +338,22 @@ function App() {
   const pendingAllocations = jobs.filter(j => j.acceptanceRequired === true && j.status === "ALLOCATED");
   const unseenAllocations = pendingAllocations.filter(j => !viewedBookingOfferIds.includes(j.offerId || j.id));
   const next = job ? nextJobStatus(job.status) : undefined;
-  const openJob = (id: string) => { setDeliveryPhotos([]); setDeliverySignature(null); setUploadedDeliveryPhotos([]); const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
-  const [deliveryRecipient, setDeliveryRecipient] = useState('');
-  const [deliveryPhotos, setDeliveryPhotos] = useState<File[]>([]);
-  const [deliverySignature, setDeliverySignature] = useState<File | null>(null);
-  const [uploadedDeliveryPhotos, setUploadedDeliveryPhotos] = useState<string[]>([]);
-  const [deliveryItems, setDeliveryItems] = useState('');
-  const [deliveryCondition, setDeliveryCondition] = useState('Good condition');
-  const [deliveryLeftAt, setDeliveryLeftAt] = useState('Goods Inwards');
+  const routeStops = job?.routeStops ?? [];
+  const lastRouteStop = routeStops.at(-1);
+  const dynamicRouteEnd = lastRouteStop?.handover?.stopKind === 'return' || lastRouteStop?.handover?.stopKind === 'redirect';
+  const additionalStops = routeStops.length > 2
+    ? routeStops.slice(1, dynamicRouteEnd ? undefined : -1)
+    : dynamicRouteEnd ? routeStops.slice(1) : [];
+  const legacySkippedStop = additionalStops.find(stop => stop.status === 'skipped');
+  const activeAdditionalStop = additionalStops.find(stop => !['completed', 'cancelled', 'skipped'].includes(stop.status));
+  const finalDeliveryStop = dynamicRouteEnd ? undefined : lastRouteStop;
+  const beforeCollectionComplete = !!job && ["ALLOCATED","ON_WAY_TO_PICKUP","ON_SITE_PICKUP"].includes(job.status);
+  const cancellationBoundaryStop = beforeCollectionComplete
+    ? routeStops[0]
+    : (!activeAdditionalStop && !!job && ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY"].includes(job.status) ? finalDeliveryStop : undefined);
+  const cancellationGoodsInCustody = !!job && ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY"].includes(job.status);
+  const openJob = (id: string) => { setCollectionPhotoFiles([]); const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
+  const [collectionPhotoFiles, setCollectionPhotoFiles] = useState<File[]>([]);
   const [statusBusy, setStatusBusy] = useState(false);
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const downloadPodPdf = async (booking: Load) => {
@@ -406,115 +422,94 @@ function App() {
   };  const submitLiveStatus = async (booking: Load, nextStatus: JobStatus) => {
     if (!liveSession || statusOperationRef.current) return;
     statusOperationRef.current = true;
-    const apiStatuses: Partial<Record<JobStatus, string>> = { ON_WAY_TO_PICKUP: 'on_my_way', ON_SITE_PICKUP: 'on_site_pickup', LOADED: 'loaded', ON_WAY_TO_DELIVERY: 'in_transit', ON_SITE_DELIVERY: 'on_site_delivery', DELIVERED: 'delivered' };
+    const apiStatuses: Partial<Record<JobStatus, string>> = {
+      ON_WAY_TO_PICKUP: 'on_my_way',
+      ON_SITE_PICKUP: 'on_site_pickup',
+      LOADED: 'loaded',
+      ON_WAY_TO_DELIVERY: 'in_transit',
+      ON_SITE_DELIVERY: 'on_site_delivery',
+      DELIVERED: 'delivered',
+    };
     const apiStatus = apiStatuses[nextStatus];
-    if (!apiStatus) { statusOperationRef.current = false; setLiveError('This status requires a separate evidence or POD workflow.'); return; }
+    if (!apiStatus) {
+      statusOperationRef.current = false;
+      setLiveError('This status requires a separate evidence or POD workflow.');
+      return;
+    }
     setStatusBusy(true);
     setLiveError('');
-    // Keep the server-confirmed stage visible until the status write succeeds.
     try {
       const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
       if (session !== liveSession) setLiveSession(session);
-      // The authoritative driver RPC requires allocated -> accepted -> on_my_way.
-      // Booking acceptance via the offer endpoint can leave the job at allocated.
       if (booking.status === 'ALLOCATED' && nextStatus === 'ON_WAY_TO_PICKUP' && ['allocated', 'assigned'].includes(booking.backendStatus || 'allocated')) {
         await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'accepted' });
       }
       await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: apiStatus });
       setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: nextStatus, backendStatus: apiStatus } : row));
-      setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: nextStatus, at: new Date().toISOString() }] }));
       if (nextStatus === 'ON_SITE_PICKUP') setBookingScreen('pickup');
-      else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('delivery');
-      else if (nextStatus === 'LOADED') setBookingScreen('status');
-      void refreshLive(session.token).catch(() => setLiveWarning('Status saved, but refreshing booking details failed.'));
+      else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('pod');
+      else setBookingScreen('status');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Status saved, but refreshing booking details failed.'); }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not update booking status';
-      // A stale client must recover from the server's authoritative lifecycle rather than replay acceptance.
       const expected = message.match(/Invalid driver status transition:\s*([a-z_]+)\s*->\s*[a-z_]+\.\s*Expected\s*([a-z_]+)/i);
       if (expected) {
         const serverState = expected[1].toLowerCase();
-        const recovered = ({ allocated: 'ALLOCATED', accepted: 'ALLOCATED', on_my_way: 'ON_WAY_TO_PICKUP', on_site_pickup: 'ON_SITE_PICKUP', loaded: 'LOADED', in_transit: 'ON_WAY_TO_DELIVERY', on_site_delivery: 'ON_SITE_DELIVERY', delivered: 'DELIVERED' } as Record<string, JobStatus>)[serverState];
+        const recovered = ({
+          allocated: 'ALLOCATED', accepted: 'ALLOCATED', on_my_way: 'ON_WAY_TO_PICKUP',
+          on_site_pickup: 'ON_SITE_PICKUP', loaded: 'LOADED', in_transit: 'ON_WAY_TO_DELIVERY',
+          on_site_delivery: 'ON_SITE_DELIVERY', delivered: 'DELIVERED',
+        } as Record<string, JobStatus>)[serverState];
         if (recovered) setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: recovered, backendStatus: serverState } : row));
         setLiveWarning('Booking status synchronized with the server. Please confirm the next step.');
         setLiveError('');
-        try { await refreshLive((await renewSession(liveSession)).token); } catch { /* Preserve recovered state when refresh is unavailable. */ }
+        try { await refreshLive((await renewSession(liveSession)).token); } catch { /* Keep recovered state. */ }
       } else {
         setJobs(rows => rows.map(row => row.id === booking.id ? booking : row));
         setBookingScreen('status');
         setLiveError('Status not saved. Previous stage restored. ' + message);
       }
+    } finally {
+      statusOperationRef.current = false;
+      setStatusBusy(false);
     }
-    finally { statusOperationRef.current = false; setStatusBusy(false); }
   };
-  const completeLiveDelivery = async (booking: Load) => {
-    if (!liveSession || statusBusy || statusOperationRef.current) return;
-    if (!deliveryRecipient.trim() || !deliveryLeftAt.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 1) {
-      setLiveError('Complete the recipient, delivered items and delivery location before confirming delivery.');
-      return;
-    }
-    statusOperationRef.current = true;
-    setStatusBusy(true);
-    setLiveError('');
-    try {
-      const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
-      if (session !== liveSession) setLiveSession(session);
-      const deliveryNotes = [
-        'Received by: ' + deliveryRecipient.trim(),
-        'Items delivered: ' + Number(deliveryItems),
-        'Condition: ' + deliveryCondition,
-        'Left at: ' + deliveryLeftAt.trim(),
-        driverNotes.trim() ? 'Driver notes: ' + driverNotes.trim() : '',
-      ].filter(Boolean).join(' | ');
-      const draftResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(booking.id) + '/pod-draft', {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientName: deliveryRecipient.trim(),
-          leftAt: deliveryLeftAt.trim(),
-          itemCount: String(Number(deliveryItems)),
-          deliveryStatus: deliveryCondition,
-          notes: deliveryNotes,
-        }),
+
+  const uploadCollectionEvidence = async (booking: Load, session: LiveSession) => {
+    if (collectionPhotoFiles.length === 0) throw new Error('Attach at least one collection/loading photo before confirming Loaded.');
+    const collectionStop = booking.routeStops?.[0];
+    if (!collectionStop || collectionStop.type !== 'collection') throw new Error('Collection stop is unavailable. Refresh the booking.');
+    const paths: string[] = [];
+    for (const photo of collectionPhotoFiles) {
+      if (!['image/jpeg', 'image/png'].includes(photo.type) || photo.size === 0 || photo.size > 10 * 1024 * 1024) {
+        throw new Error('Collection photos must be JPG or PNG and no larger than 10 MB.');
+      }
+      const extension = photo.type === 'image/png' ? 'png' : 'jpg';
+      const response = await fetch('/api/driver/mobile/jobs/' + encodeURIComponent(booking.id) + '/evidence', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer ' + session.token,
+          'Content-Type': photo.type,
+          'x-xdrive-evidence-kind': 'collection',
+          'x-xdrive-evidence-category': 'photos',
+          'x-xdrive-stop-id': collectionStop.id,
+          'x-xdrive-evidence-name': 'collection-' + crypto.randomUUID() + '.' + extension,
+        },
+        body: photo,
       });
-      if (!draftResponse.ok) {
-        const details = await draftResponse.json().catch(() => ({})) as { error?: string };
-        throw new Error(details.error || 'Delivery details could not be saved.');
-      }
-      if (!deliverySignature) throw new Error('Save the recipient signature before completing delivery.');
-      if (deliveryPhotos.length === 0) throw new Error('Attach at least one delivery photo before completing delivery.');
-      const savedPhotoPaths: string[] = [];
-      for (const photo of deliveryPhotos) {
-        if (!['image/jpeg', 'image/png'].includes(photo.type)) throw new Error('Delivery photos must be JPEG or PNG.');
-        if (photo.size === 0 || photo.size > 10 * 1024 * 1024) throw new Error('Each delivery photo must be between 1 byte and 10 MB.');
-        const extension = photo.type === 'image/png' ? 'png' : 'jpg';
-        const filename = `${crypto.randomUUID()}.${extension}`;
-        const uploaded = await fetch('/api/driver/mobile/jobs/' + encodeURIComponent(booking.id) + '/evidence', {
-          method: 'POST',
-          headers: {
-            Authorization: 'Bearer ' + session.token,
-            'Content-Type': photo.type,
-            'x-xdrive-evidence-kind': 'delivery',
-            'x-xdrive-evidence-category': 'photos',
-            'x-xdrive-evidence-name': filename,
-          },
-          body: photo,
-        });
-        const result = await uploaded.json().catch(() => ({})) as { error?: string; storagePath?: string };
-        if (!uploaded.ok || !result.storagePath) throw new Error(result.error || 'Delivery photo upload failed.');
-        savedPhotoPaths.push(result.storagePath);
-      }
-      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'delivered' });
-      setUploadedDeliveryPhotos(savedPhotoPaths);
-      setDeliveryPhotos([]);
-      setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'DELIVERED', backendStatus: 'delivered' } : row));
-      setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: 'DELIVERED', at: new Date().toISOString() }] }));
-      setBookingScreen('pod');
-      setLiveWarning('Delivery completed. Save POD signature and evidence to finish the booking.');
-      try { await refreshLive(session.token); } catch { setLiveWarning('Delivery saved; booking refresh is delayed.'); }
-    } catch (error) {
-      setLiveError('Delivery not completed. ' + (error instanceof Error ? error.message : 'Please retry.'));
-    } finally { statusOperationRef.current = false; setStatusBusy(false); }
-  };  const saveLivePickupDraft = async (booking: Load) => {
+      const result = await response.json().catch(() => ({})) as { storagePath?: string; error?: string };
+      if (!response.ok || !result.storagePath) throw new Error(result.error || 'Collection photo upload failed.');
+      paths.push(result.storagePath);
+    }
+    return paths;
+  };
+
+  const openAdditionalStop = async (_booking: Load, _stop: LiveStop) => {
+    setLiveError('');
+    setBookingScreen('stop');
+  };
+
+  const saveLivePickupDraft = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
     setStatusBusy(true);
     setLiveError('');
@@ -522,19 +517,25 @@ function App() {
       const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
       if (session !== liveSession) setLiveSession(session);
       await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
+        stage: 'arrival',
         itemCount: itemCount === '' ? null : Number(itemCount),
         weightKg: collectionWeight === '' ? null : Number(collectionWeight),
         notes: driverNotes,
       });
       setBookingScreen('loaded');
-      setLiveWarning('Collection details saved to XDrive. Confirm Loaded when collection is complete.');
-      try { await refreshLive(session.token); } catch { setLiveWarning('Collection saved, but booking refresh is delayed.'); }
+      setLiveWarning('Collection details saved. Confirm Loaded only after the goods and collection evidence are ready.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Collection details saved, but booking refresh is delayed.'); }
     } catch (error) {
       setLiveError('Collection details not saved. ' + (error instanceof Error ? error.message : 'Please retry.'));
-    } finally { setStatusBusy(false); }
-  };  const saveLiveHandover = async (booking: Load) => {
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
+  const saveLiveHandover = async (booking: Load) => {
     if (!liveSession || statusBusy || statusOperationRef.current) return;
-    if (itemCount === '' || !Number.isInteger(Number(itemCount)) || Number(itemCount) < 1 || (collectionWeight !== '' && (!Number.isFinite(Number(collectionWeight)) || Number(collectionWeight) < 0))) {
+    if (itemCount === '' || !Number.isInteger(Number(itemCount)) || Number(itemCount) < 1 ||
+        (collectionWeight !== '' && (!Number.isFinite(Number(collectionWeight)) || Number(collectionWeight) < 0))) {
       setLiveError('Enter a valid positive number of collected items and a non-negative weight.');
       return;
     }
@@ -544,25 +545,30 @@ function App() {
     try {
       const session = await renewSession(liveSession);
       setLiveSession(session);
+      const photoPaths = await uploadCollectionEvidence(booking, session);
       await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
-        itemCount: itemCount === '' ? null : Number(itemCount),
+        stage: 'loaded',
+        itemCount: Number(itemCount),
         weightKg: collectionWeight === '' ? null : Number(collectionWeight),
+        etaAt: etaDateTime || null,
+        packaging: booking.packaging || null,
         notes: driverNotes,
+        photoPaths,
+        documentPaths: [],
+        customerReference: booking.customerRef || null,
       });
-      if (booking.status === 'ON_SITE_PICKUP') {
-        await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'loaded' });
-        setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'LOADED', backendStatus: 'loaded' } : row));
-        setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: 'LOADED', at: new Date().toISOString() }] }));
-        setBookingScreen('status');
-        setLiveWarning('Collection handover and Loaded status saved to XDrive.');
-      } else {
-        setBookingScreen('status');
-        setLiveWarning('Collection handover saved to XDrive.');
-      }
-      try { await refreshLive(session.token); } catch { setLiveWarning('Collection saved successfully; booking synchronization is delayed. Retry when connected.'); }
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'loaded' });
+      setCollectionPhotoFiles([]);
+      setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'LOADED', backendStatus: 'loaded' } : row));
+      setBookingScreen('status');
+      setLiveWarning('Collection handover, evidence and Loaded status saved to XDrive.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Loaded saved successfully; booking synchronization is delayed.'); }
     } catch (error) {
       setLiveError(error instanceof Error ? error.message : 'Could not save collection handover');
-    } finally { statusOperationRef.current = false; setStatusBusy(false); }
+    } finally {
+      statusOperationRef.current = false;
+      setStatusBusy(false);
+    }
   };
   const undoLiveStatus = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
@@ -628,7 +634,7 @@ function App() {
       <main>
         {routeJobId && jobs.some(j => j.id === routeJobId) ? (() => {
           const routeJob = jobs.find(j => j.id === routeJobId)!;
-          return <RouteMap from={routeJob.from} to={routeJob.to} stops={routeJob.routeStops} distanceMiles={routeJob.distanceMiles} travelMinutes={routeJob.travelMinutes} onBack={() => setRouteJobId(null)} />;
+          return <RouteMap from={routeJob.from} to={routeJob.to} stops={routeJob.routeStops?.map(stop => ({ id: stop.id, kind: stop.type === 'collection' ? 'PICKUP' as const : 'DELIVERY' as const, address: stop.address, completedAt: stop.completedAt }))} distanceMiles={routeJob.distanceMiles} travelMinutes={routeJob.travelMinutes} onBack={() => setRouteJobId(null)} />;
         })() : selected && job ? (
           <>
             <button className="back" onClick={() => setSelected(null)}>
@@ -711,8 +717,49 @@ function App() {
                 <section className="booking-detail-group"><h3>Documents</h3>{job.hardCopyPodRequired && <p><strong>Hard copy POD required</strong></p>}{job.acceptanceRequired ? <p>Booking documents become available after you accept the booking and it is assigned to you.</p> : <BookingDocuments key={job.id} jobId={job.id} session={liveSession} live={liveConnected} />}{job.attachmentDocuments?.length ? job.attachmentDocuments.map(doc=><p key={doc.name}>{doc.url ? <a href={doc.url} target="_blank" rel="noopener noreferrer">{doc.name}</a> : doc.name}</p>) : job.attachmentNames?.length ? job.attachmentNames.map(n => <p key={n}>{n}</p>) : <p>No documents attached in Post Load</p>}</section>
                 {!job.acceptanceRequired && <button className="booking-history-action" type="button" onClick={() => setBookingScreen("history")}>Booking Status History</button>}
               </section>}
-              {job.status === "ON_SITE_DELIVERY" && bookingScreen === "history" && <button type="button" className="booking-yellow booking-approved-save" onClick={() => setBookingScreen("delivery")}>Continue Delivery - Signature, Photos and POD</button>}
-              {job.status !== "OPEN" && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "history") && <section className="booking-timeline" aria-label="Booking status"><h2>{bookingScreen === "history" ? "Booking Status History" : "Booking Status"}</h2><div className="timeline-step current"><span className="timeline-dot" /><button type="button" className="timeline-current-label" onClick={() => { if (job.status === "ON_WAY_TO_PICKUP") { if (liveConnected) void submitLiveStatus(job, "ON_SITE_PICKUP"); else { update(job.id, { status: "ON_SITE_PICKUP" }); setBookingScreen("pickup"); } } else if (job.status === "ON_SITE_PICKUP") { setBookingScreen("pickup"); } else if (job.status === "LOADED") { if (liveConnected) void submitLiveStatus(job, "ON_WAY_TO_DELIVERY"); else update(job.id, { status: "ON_WAY_TO_DELIVERY" }); } else if (job.status === "ON_WAY_TO_DELIVERY") { if (liveConnected) void submitLiveStatus(job, "ON_SITE_DELIVERY"); else { update(job.id, { status: "ON_SITE_DELIVERY" }); setBookingScreen("delivery"); } } else if (job.status === "ON_SITE_DELIVERY") { setBookingScreen("delivery"); } }}>{({ ALLOCATED: job.acceptanceRequired ? "Acceptance Required" : "On my Way to Pickup", ON_WAY_TO_PICKUP: "On Site (Pickup)", ON_SITE_PICKUP: "Loaded", LOADED: "On my Way to Delivery", ON_WAY_TO_DELIVERY: "On Site (Delivery)", ON_SITE_DELIVERY: "POD / Delivered", POD_SUBMITTED: "Delivered", DELIVERED: "Delivery Completed" } as Record<string, string>)[job.status]}</button></div>{["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].filter(status => status !== "ALLOCATED" || !job.acceptanceRequired).filter(status => ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(status) <= ["ALLOCATED", "ON_WAY_TO_PICKUP", "ON_SITE_PICKUP", "LOADED", "ON_WAY_TO_DELIVERY", "ON_SITE_DELIVERY", "POD_SUBMITTED", "DELIVERED"].indexOf(job.status)).filter(status => !liveConnected || status === job.status || (bookingHistory[job.id] || []).some(entry => entry.status === status)).reverse().map((status, index) => { const event = bookingHistory[job.id]?.find(entry => entry.status === status); const title = ({ ALLOCATED: "Accepted", ON_WAY_TO_PICKUP: "On my Way to Pickup", ON_SITE_PICKUP: "On Site (Pickup)", LOADED: "Loaded", ON_WAY_TO_DELIVERY: "On my Way to Delivery", ON_SITE_DELIVERY: "On Site (Delivery)", POD_SUBMITTED: "POD Submitted", DELIVERED: "Delivered" } as Record<string, string>)[status]; return <div key={status} className="timeline-step done"><span className="timeline-dot">&#10003;</span><div className="timeline-copy"><strong>{title}</strong>{event && <small>at {new Date(event.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</small>}{status === "LOADED" && <div className="timeline-loaded-details"><div>Your Ref: {job.yourRef || job.id}</div><div>Customer Ref: {job.customerRef || "Not provided"}</div><div>Items: {job.items ?? "Not provided"}</div></div>}</div>{index === 0 && status !== "ALLOCATED" && status !== "POD_SUBMITTED" && status !== "DELIVERED" && <button className="timeline-undo" type="button" onClick={() => { if (liveConnected) { void undoLiveStatus(job); return; } const history = bookingHistory[job.id] || []; const previous = history[history.length - 2]; if (!previous) return; setBookingHistory(h => ({ ...h, [job.id]: history.slice(0, -1) })); setJobs(js => js.map(j => j.id === job.id ? { ...j, status: previous.status as JobStatus } : j)); }}>Undo</button>}</div>; })}</section>}
+              {job.status === "ON_SITE_DELIVERY" && bookingScreen === "history" && <button type="button" className="booking-yellow booking-approved-save" onClick={() => setBookingScreen("pod")}>Continue Final Delivery - POD / Outcome</button>}
+              {job.status !== "OPEN" && !job.acceptanceRequired && bookingScreen === "status" && <>
+                {legacySkippedStop && <p role="alert" className="notification-reason">A legacy skipped stop requires operational review before this booking can continue.</p>}
+                {job.status !== "DELIVERED" && <section className="booking-timeline booking-current-action" aria-label="Current booking action">
+                  <h2>Booking Status</h2>
+                  <div className="timeline-step current"><span className="timeline-dot" />
+                    <button type="button" className="timeline-current-label" onClick={() => {
+                      if (activeAdditionalStop) { void openAdditionalStop(job, activeAdditionalStop); return; }
+                      if (job.status === "ALLOCATED") { if (liveConnected) void submitLiveStatus(job, "ON_WAY_TO_PICKUP"); else update(job.id,{status:"ON_WAY_TO_PICKUP"}); }
+                      else if (job.status === "ON_WAY_TO_PICKUP") { if (liveConnected) void submitLiveStatus(job,"ON_SITE_PICKUP"); else { update(job.id,{status:"ON_SITE_PICKUP"}); setBookingScreen("pickup"); } }
+                      else if (job.status === "ON_SITE_PICKUP") setBookingScreen("pickup");
+                      else if (job.status === "LOADED") { if (liveConnected) void submitLiveStatus(job,"ON_WAY_TO_DELIVERY"); else update(job.id,{status:"ON_WAY_TO_DELIVERY"}); }
+                      else if (job.status === "ON_WAY_TO_DELIVERY") { if (liveConnected) void submitLiveStatus(job,"ON_SITE_DELIVERY"); else { update(job.id,{status:"ON_SITE_DELIVERY"}); setBookingScreen("pod"); } }
+                      else if (job.status === "ON_SITE_DELIVERY") setBookingScreen("pod");
+                    }}>
+                      {activeAdditionalStop
+                        ? activeAdditionalStop.handover?.stopKind === "return"
+                          ? activeAdditionalStop.status === "pending" ? "On My Way to Return" : activeAdditionalStop.status === "en_route" ? "On Site - Return" : "Complete Return / Proof of Return"
+                          : `${activeAdditionalStop.status === "pending" ? "On My Way to" : activeAdditionalStop.status === "en_route" ? "On Site -" : "Complete"} ${activeAdditionalStop.type === "delivery" ? "Delivery" : "Collection"} Stop ${additionalStops.findIndex(stop => stop.id === activeAdditionalStop.id) + 1}`
+                        : ({ALLOCATED:"On My Way to Pickup",ON_WAY_TO_PICKUP:"On Site (Pickup)",ON_SITE_PICKUP:"Loaded",LOADED:"On My Way to Final Delivery",ON_WAY_TO_DELIVERY:"On Site (Final Delivery)",ON_SITE_DELIVERY:"POD / Delivery Outcome"} as Partial<Record<JobStatus,string>>)[job.status]}
+                    </button>
+                  </div>
+                </section>}
+              </>}
+              {job.status !== "OPEN" && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "history") &&
+                <BookingTimeline
+                  live={liveConnected}
+                  statusHistory={job.statusHistory}
+                  localHistory={bookingHistory[job.id] || []}
+                  routeStops={job.routeStops}
+                  yourRef={job.yourRef || job.id}
+                  customerRef={job.customerRef}
+                  items={job.items}
+                  weight={job.weight}
+                  onUndo={() => {
+                    if (liveConnected) { void undoLiveStatus(job); return; }
+                    const history=bookingHistory[job.id]||[];
+                    const previous=history[history.length-2];
+                    if(!previous)return;
+                    setBookingHistory(h=>({...h,[job.id]:history.slice(0,-1)}));
+                    setJobs(js=>js.map(row=>row.id===job.id?{...row,status:previous.status as JobStatus}:row));
+                  }}
+                />}
               {job.status === "OPEN" ? (
                 <>
                   <button
@@ -750,31 +797,48 @@ function App() {
                     </button>
                   )}
                 </>
-              ) : bookingScreen === "status" || bookingScreen === "pickup" || bookingScreen === "loaded" || bookingScreen === "delivery" || bookingScreen === "pod" ? (
+              ) : bookingScreen === "status" || bookingScreen === "pickup" || bookingScreen === "loaded" || bookingScreen === "delivery" || bookingScreen === "pod" || bookingScreen === "stop" || bookingScreen === "cancel" ? (
                 <>
                   {liveError && <p role="alert" className="notification-reason">{liveError}</p>}
                   {statusBusy && <p role="status" className="notification-reason">Saving booking status to XDrive...</p>}
+                  {bookingScreen === "stop" && activeAdditionalStop && liveSession && <StopExecution jobId={job.id} stop={activeAdditionalStop} session={liveSession} onSession={setLiveSession} yourRef={job.yourRef || job.id} customerRef={job.customerRef} vehicle={job.vehicle} jobItems={job.items} jobWeight={job.weight} packaging={job.packaging} onRefresh={refreshLive} onClose={() => setBookingScreen("status")} />}
+                  {bookingScreen === "cancel" && cancellationBoundaryStop && liveSession && <BookingCancellation jobId={job.id} stop={cancellationBoundaryStop} session={liveSession} onSession={setLiveSession} goodsInCustodyDefault={cancellationGoodsInCustody} forceJobScope={beforeCollectionComplete} onSaved={async token => { try { await refreshLive(token); setLiveWarning("Cancellation instruction recorded. The booking remains auditable while the authorised resolution is processed."); } catch { setLiveWarning("Cancellation saved; booking synchronization is delayed."); } }} onClose={() => setBookingScreen("status")} />}
+                  {bookingScreen === "status" && liveConnected && cancellationBoundaryStop && !legacySkippedStop && <button type="button" className="stop-cancel-action" onClick={() => setBookingScreen("cancel")}>Record Job / Stop Cancellation</button>}
                   {job.status === "ON_SITE_PICKUP" && bookingScreen === "pickup" && <section className="booking-approved-onsite"><header className="booking-approved-heading"><h2>On Site (Pickup)</h2></header><div className="booking-approved-route"><div><strong>{job.pickupAddress || job.from}</strong><span>{job.pickup}</span></div><div><strong>{job.deliveryAddress || job.to}</strong><span>{job.delivery}</span></div></div><div className="booking-approved-details"><h3>Job Details</h3><p>{job.vehicle}</p>{job.pickupInstructions && <p>{job.pickupInstructions}</p>}</div><label className="booking-approved-notes">Driver's Notes<textarea rows={4} value={driverNotes} onChange={e=>setDriverNotes(e.target.value)} placeholder="Please add any notes regarding arrival at the pickup location if required" /></label><button type="button" className="booking-yellow booking-approved-save" disabled={statusBusy} onClick={()=>{if(liveConnected){void saveLivePickupDraft(job)}else{update(job.id,{yourRef:yourRef||job.id,driverNotes});setBookingScreen("loaded")}}}>{statusBusy?"Saving...":"Save"}</button></section>}
-                  {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<input type="datetime-local" step={900} value={etaDateTime} onChange={e => { const v=e.target.value; if (!v) {setEtaDateTime("");return;} const [date,time]=v.split("T"); const [h,m]=time.split(":").map(Number); const total=h*60+Math.round(m/15)*15; const next=new Date(date+"T00:00:00"); next.setMinutes(total); const pad=(n:number)=>String(n).padStart(2,"0"); setEtaDateTime(next.getFullYear()+"-"+pad(next.getMonth()+1)+"-"+pad(next.getDate())+"T"+pad(next.getHours())+":"+pad(next.getMinutes())); }} /></label><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label>{!liveConnected && <PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => { setPodEvidence(true); update(job.id, { podRecorded: true, podReceivedBy: podReceivedBy || podName }); setBookingScreen("status"); }} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { void saveLiveHandover(job); } else { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); } }}>Save</button></div>}
+                  {(job.status === "ON_SITE_PICKUP" || job.status === "LOADED") && bookingScreen === "loaded" && <div className="settings booking-collection-form"><div className="collection-pair"><label>Your Ref.<input value={yourRef || job.id} readOnly aria-label="Automatically assigned job reference" /></label><label>Cust Ref. (from Post Load)<input value={job.customerRef || "Not provided in Post Load"} readOnly aria-label="Customer reference from Post Load" /></label></div><div className="collection-pair"><label>Number Of Items<input type="number" min="1" value={itemCount} onChange={e => setItemCount(e.target.value)} /></label><label>Weight (kg)<input type="number" min="0" value={collectionWeight} onChange={e => setCollectionWeight(e.target.value)} /></label></div><label>Enter your ETA for this Delivery<input type="datetime-local" step={900} value={etaDateTime} onChange={e => { const v=e.target.value; if (!v) {setEtaDateTime("");return;} const [date,time]=v.split("T"); const [h,m]=time.split(":").map(Number); const total=h*60+Math.round(m/15)*15; const next=new Date(date+"T00:00:00"); next.setMinutes(total); const pad=(n:number)=>String(n).padStart(2,"0"); setEtaDateTime(next.getFullYear()+"-"+pad(next.getMonth()+1)+"-"+pad(next.getDate())+"T"+pad(next.getHours())+":"+pad(next.getMinutes())); }} /></label><label>Driver's Notes<textarea value={driverNotes} onChange={e => setDriverNotes(e.target.value)} /></label>{liveConnected && <label>Collection / Loading Photos *<input type="file" accept="image/jpeg,image/png" multiple capture="environment" onChange={e => setCollectionPhotoFiles(Array.from(e.target.files || []))} /><span>{collectionPhotoFiles.length ? `${collectionPhotoFiles.length} photo(s) selected` : 'At least one photo is required before Loaded can be saved.'}</span></label>}{!liveConnected && <PodCapture key={'loaded-' + job.id} jobId={job.id} recipient="" initialStage="LOADED" onSaved={() => { setPodEvidence(true); update(job.id, { podRecorded: true, podReceivedBy: podReceivedBy || podName }); setBookingScreen("status"); }} />}<button type="button" className="booking-yellow" onClick={() => { if (liveConnected) { void saveLiveHandover(job); } else { update(job.id, { customerRef: job.customerRef, yourRef: yourRef || job.id, collectionWeight: collectionWeight === "" ? undefined : Number(collectionWeight), driverNotes, items: itemCount === "" ? undefined : Number(itemCount), etaDateTime, status: "LOADED" }); setBookingScreen("status"); } }}>Save</button></div>}
                   
-                  {job.status === "ON_SITE_DELIVERY" && bookingScreen === "delivery" && <section className="booking-approved-onsite booking-delivery-form"><header className="booking-approved-heading"><h2>On Site (Delivery)</h2></header><div className="booking-approved-route"><div><strong>{job.pickupAddress || job.from}</strong><span>Collection</span></div><div><strong>{job.deliveryAddress || job.to}</strong><span>Delivery</span></div></div><div className="booking-approved-details"><h3>Job Details</h3><p>{job.vehicle}</p><p>Customer Ref: {job.customerRef || 'Not provided'}</p><p>Items: {job.items ?? 'Not provided'}</p></div><label className="booking-approved-notes">Received By (Full Name)<input required value={deliveryRecipient} onChange={e => setDeliveryRecipient(e.target.value)} placeholder="Person receiving goods" /></label><DeliverySignature recipient={deliveryRecipient} saved={!!deliverySignature} onSave={setDeliverySignature} onClear={() => setDeliverySignature(null)} /><label className="booking-approved-notes">Number Of Items Delivered<input required type="number" min="1" value={deliveryItems} onChange={e => setDeliveryItems(e.target.value)} placeholder={String(job.items ?? '')} /></label><label className="booking-approved-notes">Delivery Condition<select value={deliveryCondition} onChange={e => setDeliveryCondition(e.target.value)}><option>Good condition</option><option>Damaged</option><option>Shortage</option><option>Refused</option></select></label><label className="booking-approved-notes">Left At<input value={deliveryLeftAt} onChange={e => setDeliveryLeftAt(e.target.value)} placeholder="Goods Inwards / Reception" /></label><label className="booking-approved-notes">Driver's Notes<textarea rows={4} value={driverNotes} onChange={e => setDriverNotes(e.target.value)} placeholder="Delivery observations and exceptions" /></label><label className="booking-approved-notes">Delivery Photos (required)<input type="file" accept="image/jpeg,image/png" multiple capture="environment" onChange={e => setDeliveryPhotos(Array.from(e.target.files || []))} /><span>{deliveryPhotos.length ? `${deliveryPhotos.length} photo(s) selected` : 'Take a photo or select images from your gallery'}</span></label><button className="booking-yellow booking-approved-save" type="button" disabled={statusBusy || (liveConnected && (deliveryPhotos.length === 0 || !deliverySignature)) || !deliveryRecipient.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 1 || !deliveryLeftAt.trim()} onClick={() => { if (liveConnected) void completeLiveDelivery(job); else { update(job.id, { status: 'DELIVERED', podReceivedBy: deliveryRecipient.trim(), podLeftAt: deliveryLeftAt.trim(), items: Number(deliveryItems), driverNotes: [deliveryCondition, driverNotes].filter(Boolean).join(' | ') }); setBookingScreen('pod'); } }}>Complete Delivery</button><p className="notification-reason">POD and recipient signature are recorded separately after delivery.</p></section>}
+                  {bookingScreen === "status" && activeAdditionalStop && ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY"].includes(job.status) && <section className="booking-approved-onsite stop-next-card">
+                    <header className="booking-approved-heading"><h2>{activeAdditionalStop.handover?.stopKind === "return" ? "Return" : activeAdditionalStop.type === "delivery" ? "Delivery" : "Collection"} Stop {additionalStops.findIndex(stop => stop.id === activeAdditionalStop.id) + 1} | {activeAdditionalStop.address}</h2></header>
+                    <p>{activeAdditionalStop.timeWindowFrom ? new Date(activeAdditionalStop.timeWindowFrom).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "ASAP"}</p>
+                    <button type="button" className="accept-action booking-next" disabled={statusBusy} onClick={() => void openAdditionalStop(job, activeAdditionalStop)}>
+                      {activeAdditionalStop.status === "pending" ? (activeAdditionalStop.handover?.stopKind === "return" ? "On My Way to Return" : "On My Way to Stop") : activeAdditionalStop.status === "en_route" ? (activeAdditionalStop.handover?.stopKind === "return" ? "On Site - Return" : "On Site - Stop") : activeAdditionalStop.handover?.stopKind === "return" ? "Complete Return / Proof of Return" : "Complete / Resolve Stop"}
+                    </button>
+                  </section>}
                   {job.status === "DELIVERED" && bookingScreen === "status" && (job.podRecorded ? <><p className="success">POD already recorded for this booking.</p>{role === "Owner Driver" && <button className="primary" type="button" disabled={invoiceBusy || !liveConnected} onClick={() => void createInvoiceAfterPod(job)}>{invoiceBusy ? "Creating invoice..." : "Create Invoice"}</button>}<button type="button" onClick={() => void downloadPodPdf(job)}>Download POD PDF</button><button type="button" onClick={() => setTab("Invoices")}>View Invoices</button></> : <button className="primary" type="button" onClick={() => setBookingScreen('pod')}>Open POD</button>)}
-                  {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && (
-                    <label>
-                      Recipient / POD reference
-                      <input
-                        value={podName}
-                        onChange={(e) => {
-                          setPodName(e.target.value);
-                          setPodEvidence(false);
-                        }}
-                        placeholder="Recipient name"
-                      />
-                    </label>
-                  )}
-                  {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && <div className="settings"><label>Received by<input value={podReceivedBy} onChange={e => { setPodReceivedBy(e.target.value); setPodEvidence(false); }} /></label><label>Left at<input value={podLeftAt} onChange={e => setPodLeftAt(e.target.value)} /></label></div>}
-                  {job.status === "DELIVERED" && bookingScreen === "pod" && liveConnected && liveSession && (
-                    <LivePodCapture key={job.id} jobId={job.id} alreadyDelivered={job.status === 'DELIVERED' && ['delivered', 'completed'].includes(job.backendStatus || '')} reference={job.customerRef || job.yourRef || job.id} initialItems={Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1} initialRecipient={deliveryRecipient} initialSignature={deliverySignature} initialPhotoUris={uploadedDeliveryPhotos} initialDelivery={{ leftAt: deliveryLeftAt, condition: deliveryCondition, items: Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1, notes: driverNotes }} session={liveSession} onSession={setLiveSession} onCompleted={async token => { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); setBookingScreen("status"); setAvailabilityPrompt(true); try { await refreshLive(token); } catch { setLiveWarning("POD saved successfully. Booking synchronization is delayed; retry when connected."); } finally { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); } }} />
+                  {job.status === "ON_SITE_DELIVERY" && bookingScreen === "pod" && liveConnected && liveSession && finalDeliveryStop && (
+                    <LivePodCapture
+                      key={job.id + "-" + finalDeliveryStop.id}
+                      jobId={job.id}
+                      finalStop={finalDeliveryStop}
+                      reference={job.customerRef || job.yourRef || job.id}
+                      initialItems={job.items || 1}
+                      initialDelivery={{ leftAt: "Goods Inwards", condition: "Completed Delivery", items: job.items || 1, weightKg: job.weight || null, deliveredOn: "", deliveredTime: "", notes: driverNotes }}
+                      session={liveSession}
+                      onSession={setLiveSession}
+                      onOutcomeRecorded={async token => {
+                        setBookingScreen("status");
+                        try { await refreshLive(token); setLiveWarning("Delivery outcome recorded. Follow the next authorised action shown in the booking."); }
+                        catch { setLiveWarning("Outcome saved; booking synchronization is delayed. Retry when connected."); }
+                      }}
+                      onCompleted={async token => {
+                        await driverPost('/mobile/jobs/' + encodeURIComponent(job.id) + '/status', token, { nextStatus: 'delivered' });
+                        setJobs(rows => rows.map(row => row.id === job.id ? { ...row, status: 'DELIVERED', backendStatus: 'delivered', podRecorded: true } : row));
+                        setBookingScreen("status");
+                        setAvailabilityPrompt(true);
+                        try { await refreshLive(token); }
+                        catch { setLiveWarning("POD and Delivered status saved. Booking synchronization is delayed; retry when connected."); }
+                      }}
+                    />
                   )}
                   {job.status === "DELIVERED" && bookingScreen === "pod" && !liveConnected && (
                     <PodCapture
@@ -790,7 +854,7 @@ function App() {
                     />
                   )}
                   
-                  {next && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "pod") && next !== "LOADED" && !(liveConnected && next === "POD_SUBMITTED") && (bookingScreen !== "pod" || next !== "POD_SUBMITTED") && (
+                  {!liveConnected && next && !job.acceptanceRequired && (bookingScreen === "status" || bookingScreen === "pod") && next !== "LOADED" && (bookingScreen !== "pod" || next !== "POD_SUBMITTED") && (
                     <button
                       className="primary"
                       disabled={
@@ -826,7 +890,7 @@ function App() {
                         setPodReceivedBy("");
                         setPodLeftAt("");
                         setPodEvidence(false);
-                        if (next === "POD_SUBMITTED") { setAvailabilityPrompt(true); setBookingScreen("status"); } else if (next === "ON_SITE_DELIVERY") { setBookingScreen("delivery"); }
+                        if (next === "POD_SUBMITTED") { setAvailabilityPrompt(true); setBookingScreen("status"); } else if (next === "ON_SITE_DELIVERY") { setBookingScreen("pod"); }
                       }}
                     >
                       Confirm: {next.replaceAll("_", " ")}
@@ -892,7 +956,8 @@ function App() {
                           <small>{tab === "Bookings" ? j.delivery : `${j.delivery} · Delivery`}</small>
                         </div>
                       </div>
-                      {j.distanceMiles !== undefined && <p className={tab === "Bookings" ? "booking-distance" : "job-distance"}><b>{tab === "Bookings" ? "Distance:" : "Dist:"}</b> {j.distanceMiles.toFixed(2)} miles{j.travelMinutes !== undefined ? ` (${Math.floor(j.travelMinutes / 60) ? `${Math.floor(j.travelMinutes / 60)}h ` : ""}${j.travelMinutes % 60}mins)` : ""}</p>}
+                      {tab === "Bookings" && j.routeStops && j.routeStops.length > 2 && <p className="booking-distance"><b>Stops:</b> {j.routeStops.length - 2}</p>}
+                       {j.distanceMiles !== undefined && <p className={tab === "Bookings" ? "booking-distance" : "job-distance"}><b>{tab === "Bookings" ? "Distance:" : "Dist:"}</b> {j.distanceMiles.toFixed(2)} miles{j.travelMinutes !== undefined ? ` (${Math.floor(j.travelMinutes / 60) ? `${Math.floor(j.travelMinutes / 60)}h ` : ""}${j.travelMinutes % 60}mins)` : ""}</p>}
                       {tab !== "Bookings" && tab !== "Loads" && <div className="quote-customer">{j.customerPhone && <div><b>Tel:</b> <a href={`tel:${j.customerPhone}`}>{j.customerPhone}</a> <a className="call-action" href={`tel:${j.customerPhone}`}>Call</a></div>}</div>}
                       {tab !== "Bookings" && (j.feedbackPay || j.feedbackDelivery) && <div className="quote-feedback"><strong>Feedback (Last 90 days)</strong>{j.feedbackPay && <div>Pay: Pos: {j.feedbackPay.positive} · Neu: {j.feedbackPay.neutral} · Neg: {j.feedbackPay.negative}</div>}{j.feedbackDelivery && <div>Del: Pos: {j.feedbackDelivery.positive} · Neu: {j.feedbackDelivery.neutral} · Neg: {j.feedbackDelivery.negative}</div>}</div>}
                       {j.notes && (tab === "Bookings" ? <><p className="booking-notes"><b>Notes:</b><span>{j.notes}</span></p><p className="booking-hint">View Booking Details for full notes...</p></> : <p>Notes: {j.notes}</p>)}
@@ -979,6 +1044,10 @@ function App() {
             {t}
           </button>
         ))}
+        <button className="activity-nav" type="button" onClick={() => { setMenuSection("Notifications"); setMenuOpen(true); }}>
+          <span>🔔</span>
+          <span>Activity{activityUnread > 0 && <b className="activity-badge">{activityUnread > 99 ? "99+" : activityUnread}</b>}</span>
+        </button>
       </nav>
       {menuOpen && <DriverMenu section={menuSection} setSection={setMenuSection} onClose={() => setMenuOpen(false)} onNavigate={destination => { setMenuOpen(false); setSelected(null); setRouteJobId(null); if (destination === "Notifications") { setMenuSection("Notifications"); setMenuOpen(true); } else { if (destination === "Alerts") setAlertSection("Inbox"); setTab(destination); } }} role={role} available={available} setAvailable={setAvailable} savedCount={savedIds.length} liveConnected={liveConnected} token={liveSession?.token ?? null} onLogout={() => { if (liveSession) void revokeLiveSession(liveSession).catch(() => { console.warn('Server session revocation could not be confirmed; local credentials cleared.'); }); localStorage.removeItem(LIVE_SESSION_KEY); setLiveSession(null); setLiveConnected(false); setJobs([]); setSelected(null); setLiveError(""); setLiveWarning(""); setLoginPassword(""); setMode("unconfigured"); setTab("More"); setRole("Company Driver"); setMenuOpen(false); setMenuSection(null); }} />}
       {availabilityPrompt && <div className="overlay"><div className="modal"><h2>Update driver availability?</h2><p>Delivery POD saved to XDrive. Would you like to mark yourself available for new loads?</p><div className="actions"><button onClick={() => setAvailabilityPrompt(false)}>No, keep current setting</button><button className="primary" onClick={() => { setAvailable(true); setAvailabilityPrompt(false); }}>Yes, available</button></div></div></div>}
