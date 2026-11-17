@@ -10,9 +10,9 @@ test('reserve uses new React application, not original main App',()=>{
 test('independent incoming booking, quote, delivery and real POD actions',()=>{
   const app=text('ReserveApp.tsx');
   const lifecycle=text('reserveLifecycle.ts');
-  for(const phrase of ['New Job Received','View Booking Details','Decline Job','Accept Job','Submit Quote','On My Way to Collection','On Site Collection','Complete Collection','On My Way to Delivery','On Site Delivery','<DeliveryHandover']) assert.ok(app.includes(phrase)||lifecycle.includes(phrase), 'Missing '+phrase);
+  for(const phrase of ['New Job Received','View Booking Details','Decline Job','Accept Job','Submit Quote','On My Way to Pickup','On Site (Pickup)','Loaded','On My Way to Final Delivery','On Site (Final Delivery)','<DeliveryHandover']) assert.ok(app.includes(phrase)||lifecycle.includes(phrase), 'Missing '+phrase);
   const handover=text('DeliveryHandover.tsx');
-  assert.ok(handover.includes('Save Signed POD'), 'Missing Save Signed POD in handover component');
+  assert.ok(handover.includes('Send POD & Complete Delivery'), 'Missing canonical POD-first completion action');
   const form=handover.slice(handover.lastIndexOf('return <section className="rv-delivery-page">'));
   assert.ok(form.indexOf('Received By')<form.indexOf('Recipient signature'));
   assert.match(app,/bookingOfferRespond/);assert.match(app,/driverPost/);
@@ -29,10 +29,11 @@ test('separate manifest and no production app replacement',()=>{
 test('delivery evidence uploads before delivered transition and is reused for signed POD',()=>{
   const app=text('ReserveApp.tsx');
   const delivery=app.slice(app.indexOf('async function completeDelivery('),app.indexOf('async function savePod('));
-  assert.ok(delivery.includes('await uploadDeliveryEvidence(j,s.token)'), 'Missing delivery upload');
-  assert.ok(delivery.indexOf('await uploadDeliveryEvidence(j,s.token)')<delivery.indexOf("nextStatus:'delivered'"), 'Delivery status must follow evidence upload');
-  const pod=app.slice(app.indexOf('async function savePod('),app.indexOf('function flow()'));
-  assert.ok(pod.includes('await uploadDeliveryEvidence(j,s.token)'), 'POD must reuse uploaded evidence');
+  assert.ok(delivery.includes('await uploadDeliveryEvidence(j,current.token)'), 'Missing delivery upload');
+  assert.ok(delivery.includes("/pod',current.token"), 'Canonical POD request must be made during final delivery');
+  assert.ok(delivery.indexOf("/pod',current.token")<delivery.indexOf("nextStatus:'delivered'"), 'POD must be confirmed before Delivered');
+  const pod=app.slice(app.indexOf('async function savePod('),app.indexOf('function cancellationTarget'));
+  assert.ok(pod.includes('await uploadDeliveryEvidence(j,current.token)'), 'Legacy POD recovery must reuse uploaded evidence');
   assert.match(app,/uploadedEvidence\.current\.get\(file\)/);
   assert.match(app,/uploadedEvidence\.current\.set\(file,confirmedPath\)/);
 });
@@ -61,7 +62,8 @@ test('POD handover has one recipient signature form, no nested duplicate wrapper
  const flow=app.slice(app.indexOf('function flow()'),app.indexOf('const header='));
  assert.doesNotMatch(flow, /<h3>Complete Signed POD<\/h3>/);
  assert.doesNotMatch(flow, /Captured recipient signature/);
- assert.ok(flow.includes("onClick={()=>void savePod(job)}")); assert.ok(flow.includes("disabled={busy||!signature||verifiedSignature!==signature||(job.hardCopyPodRequired&&!hardCopyAcknowledged)}"));
+ assert.ok(flow.includes("onConfirm={()=>void savePod(job)}"));
+ assert.match(text('DeliveryHandover.tsx'),/successfulReady=.*signatureVerified/);
 });
 
 test('map normalises duplicate UK postcode and requests GPS only when chosen',()=>{
@@ -74,7 +76,7 @@ test('map normalises duplicate UK postcode and requests GPS only when chosen',()
 test('POD live audit displays one route and context-sensitive evidence guidance',()=>{
  const app=text('ReserveApp.tsx'),handover=text('DeliveryHandover.tsx');
  assert.match(app,/\(!delivered\|\|podDone\|\|job\.podRecorded\)/);
- assert.match(handover,/08 \/ 11.*POD/);
+ assert.match(handover,/POD RECOVERY/);
  assert.match(handover,/photosCount>0/);
  assert.match(handover,/recipient signature/);
 });
@@ -99,9 +101,8 @@ test('booking offers are loaded independently of core bookings and merged into l
 test('signed POD performs authoritative preflight and postflight to avoid duplicate submissions',()=>{
  const app=text('ReserveApp.tsx');
  assert.match(app,/if\(await officialPodComplete\(\)\)return/);
- assert.match(app,/submitError=e/);
- assert.match(app,/isComplete=await officialPodComplete\(\)/);
- assert.match(app,/POD is not confirmed complete on the server/);
+ assert.match(app,/if\(!\(await officialPodComplete\(\)\)\)throw new Error\('POD is not confirmed complete on the server/);
+ assert.match(app,/deliveryStatus:'Completed Delivery'/);
 });
 
 test('incoming offer loading is explicit and timeout does not block core booking feeds',()=>{
