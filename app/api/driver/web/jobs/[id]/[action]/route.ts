@@ -26,7 +26,6 @@ const actionToCanonicalStatus: Record<string, string> = {
   completed: 'completed',
 };
 
-const terminalStopStatuses = new Set(['completed', 'skipped']);
 type PodEvidenceKind = 'photos' | 'damage' | 'documents';
 type MobileJobWithDamageEvidence = MobileJobRow & { damage_photos?: unknown };
 
@@ -317,10 +316,6 @@ const storageObjectExists = async (path: string) => {
   if (error) throw new Error(error.message);
   return (data ?? []).some((entry) => entry.name === fileName);
 };
-
-function nowDateUtc() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function requiresHardCopyPod(value: unknown) {
   const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
