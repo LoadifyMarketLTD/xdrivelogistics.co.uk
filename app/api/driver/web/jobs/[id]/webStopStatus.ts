@@ -185,6 +185,10 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     const parsed = parseStopCancellation(body.cancellation);
     if (!parsed.ok) return respond(400, { error: parsed.error });
     const cancellation = parsed.value;
+    if (cancellation.scope === 'job') {
+      const requestResult = await requestWholeJobCancellation(jobId, driver, cancellation.reason);
+      if (!requestResult.ok) return respond(409, { error: requestResult.error });
+    }
 
     if (cancellation.goodsInCustody && cancellation.goodsDisposition === 'await_instructions') {
       const previous = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
@@ -228,8 +232,6 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     }
 
     if (cancellation.scope === 'job') {
-      const result = await requestWholeJobCancellation(jobId, driver, cancellation.reason);
-      if (!result.ok) return respond(409, { error: result.error });
       await insertTrackingEvent(jobId, driver.userId, 'cancellation_requested', 'Driver recorded a whole-job cancellation instruction.', {
         stop_id: stopId, cancellation_scope: 'job', source: 'driver_web',
       }).catch(() => undefined);
