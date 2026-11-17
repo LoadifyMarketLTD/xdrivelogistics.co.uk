@@ -517,8 +517,135 @@ export default function ReserveApp() {
     if(confirmation?.draft?.signatureData!==signature)throw new Error('Server did not return the saved signature. It is not yet verified.');
     setVerifiedSignature(signature);
   }
-  async function completeDelivery(j:LiveJob) {if(!deliveryArrivalSaved){setError('Save On Site Delivery arrival before confirming delivery.');return}if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before confirming delivery.');return}if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.deliveredTime)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0 ){setError('Recipient, Left At, Delivered On, Delivery Time and a valid item count are required.');return}await run(async s=>{const body={recipientName:draft.recipient,leftAt:draft.leftAt,itemCount:draft.items,deliveryStatus:draft.condition,deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,notes:draft.notes};const evidence=await uploadDeliveryEvidence(j,s.token);const updatedDraft={...body,signatureData:signature,photoUris:evidence.photos,documentUris:evidence.documents};const saved=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft',{method:'PUT',headers:{Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:JSON.stringify(updatedDraft)});if(!saved.ok){const detail=await saved.json().catch(()=>({}));throw new Error(detail.error||'Signed POD draft could not be saved ('+saved.status+')')}if(!evidence.photos.length)throw new Error('XDrive requires at least one verified delivery photo before Delivered. Add a delivery photo and retry.');const confirmation=await fetch(driverApi+'/mobile/jobs/'+encodeURIComponent(j.id)+'/confirmation',{method:'POST',headers:{Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:JSON.stringify({recipientName:draft.recipient.trim(),signatureData:signature,evidencePath:evidence.photos[0]})});const confirmationResult=await confirmation.json().catch(()=>({}));if(!confirmation.ok||confirmationResult.ok!==true)throw new Error(confirmationResult.error||'Recipient signature could not be verified by XDrive ('+confirmation.status+').');await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'delivered'});},()=>{setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:'DELIVERED'}:x));});}
-  async function savePod(j:LiveJob){if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return}if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before submitting POD.');return}if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0){setError('Recipient, Left At, Delivered On and item count are required for POD.');return}await run(async s=>{const officialPodComplete=async()=>{const verification=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft',{headers:{Authorization:'Bearer '+s.token},cache:'no-store'});if(!verification.ok)throw new Error('Official POD state could not be read ('+verification.status+').');const verified=await verification.json().catch(()=>({}));return verified.completed===true;};if(await officialPodComplete())return;const {photos,documents}=await uploadDeliveryEvidence(j,s.token);let submitError:unknown=null;try{const response=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/pod',s.token,{recipientName:draft.recipient,leftAt:draft.leftAt,deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,itemCount:Number(draft.items),notes:draft.notes,signatureData:signature,photoUris:photos,documentUris:documents,hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,deliveryStatus:draft.condition==='Refused'?'Refused':draft.condition==='Shortage'?'Partial Delivery':'Completed Delivery'});if(response.ok!==true)throw new Error('XDrive did not confirm the POD submission.');}catch(e){submitError=e;}let isComplete=false;try{isComplete=await officialPodComplete();}catch(e){if(!submitError)throw e;}if(!isComplete)throw submitError instanceof Error?submitError:new Error('POD is not confirmed complete on the server. Check its status before attempting another submission.');},()=>{setPodDone(true);setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',podRecorded:true}:row));});}
+  async function uploadFinalStopExceptionEvidence(j:LiveJob, stop:LiveStop, token:string){
+    const photoPaths:string[]=[];const documentPaths:string[]=[];
+    for(const file of podFiles){
+      if(!['image/png','image/jpeg','application/pdf'].includes(file.type)||file.size<=0||file.size>10*1024*1024)throw new Error('Exception evidence must be JPEG, PNG or PDF up to 10 MB.');
+      const uploadFile=await prepareDeliveryUpload(file);
+      const category=file.type==='application/pdf'?'documents':'damage';
+      const response=await fetch(driverApi+'/mobile/jobs/'+encodeURIComponent(j.id)+'/evidence',{
+        method:'POST',
+        headers:{
+          Authorization:'Bearer '+token,'Content-Type':uploadFile.type,
+          'x-xdrive-evidence-kind':'delivery','x-xdrive-evidence-category':category,
+          'x-xdrive-stop-id':stop.id,
+          'x-xdrive-evidence-name':crypto.randomUUID()+'-'+uploadFile.name.replace(/[^A-Za-z0-9._-]/g,'_').slice(0,130),
+        },
+        body:uploadFile,
+      });
+      const data=await response.json().catch(()=>({})) as {storagePath?:string;error?:string};
+      if(!response.ok||!data.storagePath)throw new Error(data.error||'Exception evidence upload failed ('+response.status+').');
+      (category==='documents'?documentPaths:photoPaths).push(data.storagePath);
+    }
+    return {photoPaths,documentPaths};
+  }
+
+  async function completeDelivery(j:LiveJob) {
+    if(!deliveryArrivalSaved){setError('Save On Site Delivery arrival before recording the delivery outcome.');return;}
+    const finalStop=j.routeStops?.at(-1);
+    if(!finalStop||finalStop.type!=='delivery'){setError('Final delivery stop is unavailable. Refresh the booking before continuing.');return;}
+    if(finalStop.handover?.stopKind==='return'||finalStop.handover?.stopKind==='redirect'){
+      setError('This route now ends with a return or redirected stop. Complete that stop instead of final delivery POD.');
+      return;
+    }
+    if(draft.condition==='Job Cancelled'){
+      setCancellationStopId(finalStop.id);setCancellationReturnView('flow');setView('cancel');return;
+    }
+    if(draft.condition!=='Completed Delivery'){
+      if(draft.notes.trim().length<3){setError('Describe the delivery exception in Driver Notes.');return;}
+      if(['Damaged Goods','Incorrect Goods'].includes(draft.condition)&&!podFiles.some(file=>file.type==='image/jpeg'||file.type==='image/png')){
+        setError('Photographic evidence is required for damaged or incorrect goods.');return;
+      }
+      await run(async current=>{
+        const evidence=await uploadFinalStopExceptionEvidence(j,finalStop,current.token);
+        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/stop-status',current.token,{
+          stop_id:finalStop.id,status:'exception',
+          exception:{deliveryStatus:draft.condition,notes:draft.notes.trim(),photoPaths:evidence.photoPaths,documentPaths:evidence.documentPaths},
+        });
+      },()=>{setWarning('Delivery exception recorded. The stop remains unresolved until authorised instructions are recorded.');setView('statusHistory');});
+      return;
+    }
+
+    if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before sending POD.');return;}
+    if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.deliveredTime)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0){
+      setError('Recipient, Left At, Delivered On, Delivery Time and a valid item count are required.');return;
+    }
+    if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return;}
+    await run(async current=>{
+      const evidence=await uploadDeliveryEvidence(j,current.token);
+      if(!evidence.photos.length)throw new Error('XDrive requires at least one verified delivery photo before Delivered.');
+      const pod=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/pod',current.token,{
+        recipientName:draft.recipient.trim(),leftAt:draft.leftAt.trim(),
+        deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,
+        deliveredAt:new Date(draft.deliveredOn+'T'+draft.deliveredTime+':00').toISOString(),
+        itemCount:Number(draft.items),weightKg:j.weight||null,notes:draft.notes.trim()||null,
+        signatureData:signature,photoUris:evidence.photos,documentUris:evidence.documents,
+        hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,
+        deliveryStatus:'Completed Delivery',
+      });
+      if(pod.ok!==true)throw new Error('XDrive did not confirm the canonical POD.');
+      await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',current.token,{nextStatus:'delivered'});
+    },()=>{
+      setPodDone(true);
+      setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',backendStatus:'delivered',podRecorded:true}:row));
+      setWarning('');
+      setView('statusHistory');
+    });
+  }
+
+  async function savePod(j:LiveJob){
+    if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return;}
+    if(!signature||verifiedSignature!==signature){setError('Save and verify the recipient signature before submitting POD.');return;}
+    if(draft.condition!=='Completed Delivery'){setError('Legacy POD recovery supports only a successful Completed Delivery. Record exceptions through the booking workflow.');return;}
+    if(!draft.recipient.trim()||!draft.leftAt.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(draft.deliveredOn)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(draft.deliveredTime)||!Number.isInteger(Number(draft.items))||Number(draft.items)<=0){
+      setError('Recipient, Left At, Delivered On, Delivery Time and item count are required for POD.');return;
+    }
+    await run(async current=>{
+      const officialPodComplete=async()=>{
+        const verification=await fetch(driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft',{headers:{Authorization:'Bearer '+current.token},cache:'no-store'});
+        if(!verification.ok)throw new Error('Official POD state could not be read ('+verification.status+').');
+        const verified=await verification.json().catch(()=>({}));
+        return verified.completed===true;
+      };
+      if(await officialPodComplete())return;
+      const {photos,documents}=await uploadDeliveryEvidence(j,current.token);
+      const response=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/pod',current.token,{
+        recipientName:draft.recipient.trim(),leftAt:draft.leftAt.trim(),
+        deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,
+        deliveredAt:new Date(draft.deliveredOn+'T'+draft.deliveredTime+':00').toISOString(),
+        itemCount:Number(draft.items),weightKg:j.weight||null,notes:draft.notes.trim()||null,
+        signatureData:signature,photoUris:photos,documentUris:documents,
+        hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,
+        deliveryStatus:'Completed Delivery',
+      });
+      if(response.ok!==true)throw new Error('XDrive did not confirm the POD submission.');
+      if(!(await officialPodComplete()))throw new Error('POD is not confirmed complete on the server. Refresh before retrying.');
+    },()=>{setPodDone(true);setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',podRecorded:true}:row));});
+  }
+
+  function cancellationTarget(j:LiveJob):LiveStop|null{
+    const route=j.routeStops||[];
+    if(!route.length)return null;
+    const unresolved=route.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');
+    if(unresolved)return unresolved;
+    return route.at(-1)||null;
+  }
+
+  function openCancellation(j:LiveJob, stop?:LiveStop|null, returnView:View='flow'){
+    const target=stop||cancellationTarget(j);
+    if(!target){setError('A persisted route stop is required before cancellation can be recorded. Refresh the booking.');return;}
+    setCancellationStopId(target.id);setCancellationReturnView(returnView);setView('cancel');setError('');
+  }
+
+  async function recordCancellation(j:LiveJob, stop:LiveStop, value:ReserveCancellationValue){
+    await run(current=>driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/stop-status',current.token,{
+      stop_id:stop.id,status:'cancelled',cancellation:value,
+    }),()=>{
+      setCancellationStopId(null);
+      setWarning(value.goodsInCustody?'Cancellation instruction recorded. Follow the return / hold / redirect action now shown in the booking.':'Cancellation instruction recorded in the booking audit history.');
+      setView(cancellationReturnView);
+    });
+  }
 
   function flow(){
     if(!job)return null;
