@@ -154,6 +154,7 @@ function App() {
   const [liveError, setLiveError] = useState("");
   const [liveWarning, setLiveWarning] = useState("");
   const [liveConnected, setLiveConnected] = useState(false);
+  const [activityUnread, setActivityUnread] = useState(0);
   useEffect(() => { if (liveSession) localStorage.setItem(LIVE_SESSION_KEY, JSON.stringify(liveSession)); }, [liveSession]);
   useEffect(() => {
     let active = true;
@@ -201,6 +202,10 @@ function App() {
     setBookingsPending(false);
     setLiveWarning(records.warnings.join(" | "));
     setLiveConnected(true);
+    void driverGet("/notifications", token).then(response => {
+      const rows = Array.isArray(response.notifications) ? response.notifications : [];
+      setActivityUnread(rows.filter(row => row && typeof row === "object" && !(row as Record<string, unknown>).read_at).length);
+    }).catch(() => { /* Notification count must never block job refresh. */ });
   };
   useEffect(() => {
     if (!liveConnected || !liveSession) return;
@@ -912,7 +917,7 @@ function App() {
                   )}
                   {next === "POD_SUBMITTED" && bookingScreen === "pod" && false && <div className="settings"><label>Received by<input value={podReceivedBy} onChange={e => { setPodReceivedBy(e.target.value); setPodEvidence(false); }} /></label><label>Left at<input value={podLeftAt} onChange={e => setPodLeftAt(e.target.value)} /></label></div>}
                   {job.status === "DELIVERED" && bookingScreen === "pod" && liveConnected && liveSession && (
-                    <LivePodCapture key={job.id} jobId={job.id} alreadyDelivered={job.status === 'DELIVERED' && ['delivered', 'completed'].includes(job.backendStatus || '')} reference={job.customerRef || job.yourRef || job.id} initialItems={Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1} initialRecipient={deliveryRecipient} initialSignature={deliverySignature} initialPhotoUris={uploadedDeliveryPhotos} initialDelivery={{ leftAt: deliveryLeftAt, condition: deliveryCondition, items: Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1, notes: driverNotes }} session={liveSession} onSession={setLiveSession} onCompleted={async token => { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); setBookingScreen("status"); setAvailabilityPrompt(true); try { await refreshLive(token); } catch { setLiveWarning("POD saved successfully. Booking synchronization is delayed; retry when connected."); } finally { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); } }} />
+                    <LivePodCapture key={job.id} jobId={job.id} alreadyDelivered={job.status === 'DELIVERED' && ['delivered', 'completed'].includes(job.backendStatus || '')} reference={job.customerRef || job.yourRef || job.id} initialItems={Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1} initialRecipient={deliveryRecipient} initialSignature={deliverySignature} initialPhotoUris={uploadedDeliveryPhotos} initialDelivery={{ leftAt: deliveryLeftAt, condition: deliveryCondition, items: Number(deliveryItems) > 0 ? Number(deliveryItems) : job.items || 1, weightKg: job.weight || null, deliveredOn: '', deliveredTime: '', notes: driverNotes }} session={liveSession} onSession={setLiveSession} onCompleted={async token => { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); setBookingScreen("status"); setAvailabilityPrompt(true); try { await refreshLive(token); } catch { setLiveWarning("POD saved successfully. Booking synchronization is delayed; retry when connected."); } finally { setJobs(rows => rows.map(row => row.id === job.id ? { ...row, podRecorded: true } : row)); } }} />
                   )}
                   {job.status === "DELIVERED" && bookingScreen === "pod" && !liveConnected && (
                     <PodCapture
@@ -1118,6 +1123,10 @@ function App() {
             {t}
           </button>
         ))}
+        <button className="activity-nav" type="button" onClick={() => { setMenuSection("Notifications"); setMenuOpen(true); }}>
+          <span>🔔</span>
+          <span>Activity{activityUnread > 0 && <b className="activity-badge">{activityUnread > 99 ? "99+" : activityUnread}</b>}</span>
+        </button>
       </nav>
       {menuOpen && <DriverMenu section={menuSection} setSection={setMenuSection} onClose={() => setMenuOpen(false)} onNavigate={destination => { setMenuOpen(false); setSelected(null); setRouteJobId(null); if (destination === "Notifications") { setMenuSection("Notifications"); setMenuOpen(true); } else { if (destination === "Alerts") setAlertSection("Inbox"); setTab(destination); } }} role={role} available={available} setAvailable={setAvailable} savedCount={savedIds.length} liveConnected={liveConnected} token={liveSession?.token ?? null} onLogout={() => { if (liveSession) void revokeLiveSession(liveSession).catch(() => { console.warn('Server session revocation could not be confirmed; local credentials cleared.'); }); localStorage.removeItem(LIVE_SESSION_KEY); setLiveSession(null); setLiveConnected(false); setJobs([]); setSelected(null); setLiveError(""); setLiveWarning(""); setLoginPassword(""); setMode("unconfigured"); setTab("More"); setRole("Company Driver"); setMenuOpen(false); setMenuSection(null); }} />}
       {availabilityPrompt && <div className="overlay"><div className="modal"><h2>Update driver availability?</h2><p>Delivery POD saved to XDrive. Would you like to mark yourself available for new loads?</p><div className="actions"><button onClick={() => setAvailabilityPrompt(false)}>No, keep current setting</button><button className="primary" onClick={() => { setAvailable(true); setAvailabilityPrompt(false); }}>Yes, available</button></div></div></div>}
