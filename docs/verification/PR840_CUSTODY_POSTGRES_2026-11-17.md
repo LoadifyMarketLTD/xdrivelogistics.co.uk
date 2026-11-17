@@ -18,3 +18,6 @@ Reproduce in isolated directory: `npm install --no-save --ignore-scripts @electr
 Additional verification: terminal delivered bookings reject both driver stop cancellation and dispatcher custody resolution; the mobile and web route guards also reject delivered/disputed/paid statuses.
 
 Cancellation approval now additionally requires a completed return/redirect stop with completion timestamp, recipient, signature path, and at least one photo path. This SQL guard passed isolated migration execution; full authenticated approval/POD storage E2E remains unverified.
+
+Further isolated PostgreSQL transaction evidence (2026-11-17): cancellation approval is rejected when the authorised return stop is unfinished; rejected when completed but POD recipient/signature/photo references are absent; succeeds after all required fields are populated; rejects a second approval. The test additionally verifies the job becomes cancelled. These tests use fabricated POD paths, so they prove the database gate but NOT the existence or authenticity of objects in storage.
+

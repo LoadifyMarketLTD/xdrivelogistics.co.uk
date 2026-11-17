@@ -1,10 +1,12 @@
 const fs=require('fs');const {PGlite}=require('@electric-sql/pglite');
 (async()=>{const db=new PGlite(); const p=require('path').resolve(__dirname,'../../supabase/migrations')+'/';
 await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
-CREATE TABLE public.jobs(id uuid primary key,assigned_driver_id uuid,assigned_company_id uuid,status text,current_status text);
+CREATE TABLE public.jobs(id uuid primary key,assigned_driver_id uuid,assigned_company_id uuid,status text,current_status text,exchange_visibility text,updated_at timestamptz);
 CREATE TABLE public.drivers(id uuid primary key,user_id uuid,company_id uuid,status text);
 CREATE TABLE public.company_memberships(user_id uuid,company_id uuid,status text,role_in_company text);
 CREATE TABLE public.job_stops(id uuid primary key default gen_random_uuid(),job_id uuid,sequence integer,stop_type text,address text,instructions text,status text,completed_at timestamptz,updated_at timestamptz,arrived_at timestamptz,handover jsonb,unique(job_id,sequence));
+CREATE TABLE public.loads(job_id uuid,status text);
+CREATE TABLE public.owner_audit_log(actor_user_id uuid,target_company_id uuid,action_type text,old_status text,new_status text,reason text);
 CREATE TABLE public.job_tracking_events(id uuid,event_type text);
 CREATE TABLE public.job_cancellation_requests(id uuid primary key,job_id uuid,status text,owner_company_id uuid,carrier_company_id uuid,requester_party text,decided_by_user_id uuid,decision_notes text,decided_at timestamptz,updated_at timestamptz);
 `);
@@ -29,4 +31,19 @@ const state=await db.query(`SELECT status, handover->'returnInstruction'->>'reso
 await db.query(`UPDATE jobs SET status='delivered',current_status='delivered' WHERE id=$1`,[ids.job]);
 try{await db.query(`SELECT public.apply_driver_stop_cancellation_atomic($1,$2,$3,'pending',$4::jsonb,NULL)`,[ids.job,follow,ids.actor,JSON.stringify({...cancel,goodsInCustody:false,goodsDisposition:'none'})]);throw Error('delivered job accepted cancellation')}catch(e){if(e.message==='delivered job accepted cancellation')throw e;console.log('DELIVERED_JOB_REJECTED_OK')}
 try{await db.query(`SELECT public.resolve_driver_goods_custody_atomic($1,$2,$3,'return_to_collection','Depot','Authorised after closure')`,[ids.job,ids.second,ids.dispatcher]);throw Error('delivered job accepted resolution')}catch(e){if(e.message==='delivered job accepted resolution')throw e;console.log('DELIVERED_RESOLUTION_REJECTED_OK')}
+const request='00000000-0000-4000-8000-000000000008',owner='00000000-0000-4000-8000-000000000009',ownerActor='00000000-0000-4000-8000-000000000010';
+await db.query(`UPDATE jobs SET status='allocated',current_status='allocated' WHERE id=$1`,[ids.job]);
+await db.query(`INSERT INTO company_memberships(user_id,company_id,status,role_in_company) VALUES($1,$2,'active','owner')`,[ownerActor,owner]);
+await db.query(`INSERT INTO job_cancellation_requests(id,job_id,status,owner_company_id,carrier_company_id,requester_party) VALUES($1,$2,'pending',$3,$4,'carrier')`,[request,ids.job,owner,ids.company]);
+await db.query(`INSERT INTO loads(job_id,status) VALUES($1,'allocated')`,[ids.job]);
+async function decisionBlocked(label){try{await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'approved','Confirmed')`,[request,ownerActor]);throw Error(label+' accepted')}catch(e){if(e.message===label+' accepted')throw e;console.log(label+'_REJECTED_OK')}}
+await decisionBlocked('INCOMPLETE_RETURN');
+await db.query(`UPDATE job_stops SET status='completed',completed_at=now() WHERE id=$1`,[follow]);
+await decisionBlocked('MISSING_POD');
+await db.query(`UPDATE job_stops SET handover=coalesce(handover,'{}'::jsonb)||$2::jsonb WHERE id=$1`,[follow,JSON.stringify({recipientName:'Warehouse recipient',signaturePath:'test/signature.png',photoPaths:['test/photo.png']})]);
+const approved=await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'approved','Physical return evidenced') AS result`,[request,ownerActor]);
+if(approved.rows[0].result.status!=='approved')throw Error('approval missing');
+const after=await db.query(`SELECT status FROM jobs WHERE id=$1`,[ids.job]);if(after.rows[0].status!=='cancelled')throw Error('job not cancelled');
+console.log('EVIDENCED_RETURN_APPROVAL_OK');
+await decisionBlocked('REPEATED_APPROVAL');
 await db.close()})().catch(e=>{console.error('HARNESS_FAIL',e.message);process.exitCode=1})
