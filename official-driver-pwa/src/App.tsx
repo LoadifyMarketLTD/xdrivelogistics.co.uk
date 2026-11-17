@@ -18,7 +18,6 @@ import BookingTimeline from "./BookingTimeline";
 import BookingCancellation from "./BookingCancellation";
 import PodCapture from "./PodCapture";
 import LivePodCapture from "./LivePodCapture";
-import DeliverySignature from './DeliverySignature';
 import StopExecution from './StopExecution';
 import RouteMap from "./RouteMap";
 import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession, type LiveStop } from "./liveApi";
@@ -347,22 +346,14 @@ function App() {
     : dynamicRouteEnd ? routeStops.slice(1) : [];
   const legacySkippedStop = additionalStops.find(stop => stop.status === 'skipped');
   const activeAdditionalStop = additionalStops.find(stop => !['completed', 'cancelled', 'skipped'].includes(stop.status));
-  const completedAdditionalStops = additionalStops.filter(stop => ['completed', 'cancelled'].includes(stop.status));
   const finalDeliveryStop = dynamicRouteEnd ? undefined : lastRouteStop;
   const beforeCollectionComplete = !!job && ["ALLOCATED","ON_WAY_TO_PICKUP","ON_SITE_PICKUP"].includes(job.status);
   const cancellationBoundaryStop = beforeCollectionComplete
     ? routeStops[0]
     : (!activeAdditionalStop && !!job && ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY"].includes(job.status) ? finalDeliveryStop : undefined);
   const cancellationGoodsInCustody = !!job && ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY"].includes(job.status);
-  const openJob = (id: string) => { setCollectionPhotoFiles([]); setDeliveryPhotos([]); setDeliverySignature(null); setUploadedDeliveryPhotos([]); const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
-  const [deliveryRecipient, setDeliveryRecipient] = useState('');
+  const openJob = (id: string) => { setCollectionPhotoFiles([]); const found = jobs.find(j => j.id === id); if (found?.acceptanceRequired && found.offerId) setViewedBookingOfferIds(ids => ids.includes(found.offerId!) ? ids : [...ids, found.offerId!]); setSelected(id); setBookingScreen("details"); setYourRef(found?.yourRef || found?.id || ""); setCollectionWeight(found?.collectionWeight ? String(found.collectionWeight) : ""); setDriverNotes(found?.driverNotes || ""); setItemCount(found?.items ? String(found.items) : ""); setEtaDateTime(found?.etaDateTime || ""); };
   const [collectionPhotoFiles, setCollectionPhotoFiles] = useState<File[]>([]);
-  const [deliveryPhotos, setDeliveryPhotos] = useState<File[]>([]);
-  const [deliverySignature, setDeliverySignature] = useState<File | null>(null);
-  const [uploadedDeliveryPhotos, setUploadedDeliveryPhotos] = useState<string[]>([]);
-  const [deliveryItems, setDeliveryItems] = useState('');
-  const [deliveryCondition, setDeliveryCondition] = useState('Good condition');
-  const [deliveryLeftAt, setDeliveryLeftAt] = useState('Goods Inwards');
   const [statusBusy, setStatusBusy] = useState(false);
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const downloadPodPdf = async (booking: Load) => {
