@@ -78,7 +78,8 @@ describe('strict POD contract — recipient, drawn signature, 1-10 photographs',
       const code = source('app/api/driver/' + channel + '/jobs/[id]/[action]/route.ts');
       expect(code).toContain('if (!hasStoredSignature(signatureData))');
       expect(code).toContain('deliveryPhotos.length < 1 || deliveryPhotos.length > 10');
-      expect(code).toContain("rpc('record_driver_pod_atomic'");
+      expect(code).toContain("'record_driver_pod_atomic'");
+      expect(code).toContain("'repair_incomplete_driver_pod_atomic'");
     }
     const transition = source('app/api/admin/jobs/[id]/transition/route.ts');
     expect(transition).toContain('hasCompletePodEvidence(job)');

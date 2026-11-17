@@ -5,7 +5,7 @@ const read = (p: string) => readFileSync(new URL('../' + p, import.meta.url), 'u
 const api = read('app/api/driver/web/jobs/[id]/pod-draft/route.ts');
 const page = read('app/components/workspace/DriverJobExecutionPage.tsx');
 const liveDetail = read('app/driver/jobs/[id]/page.tsx');
-const migration = read('supabase/migrations/20261028035400_driver_pod_draft_persistence.sql');
+const migration = read('supabase/migrations/20261028095239_driver_pod_draft_persistence.sql');
 const podAction = read('app/api/driver/web/jobs/[id]/[action]/route.ts');
 
 describe('driver PWA persistent mobile POD contract', () => {
