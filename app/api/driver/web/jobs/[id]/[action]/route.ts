@@ -47,28 +47,52 @@ const isMissingJobStopsRelation = (
   return (error.code === '42P01' || error.code === 'PGRST205') && text.includes('job_stops');
 };
 
-async function requireMultiDropFinalizationReady(jobId: string) {
+async function loadExecutionStops(jobId: string) {
   const { data, error } = await supabaseAdmin!
     .from('job_stops')
-    .select('id, status')
-    .eq('job_id', jobId);
-
+    .select('id,sequence,stop_type,status,handover')
+    .eq('job_id', jobId)
+    .order('sequence', { ascending: true });
   if (error) {
-    if (isMissingJobStopsRelation(error)) return null;
-    return respond(503, { error: 'Multi-drop completion could not be verified. Please retry.' });
+    if (isMissingJobStopsRelation(error)) return { stops: [] as Array<{id:string;sequence:number;stop_type:string;status:string;handover:unknown}>, error: null };
+    return { stops: [], error: respond(503, { error: 'Stop completion could not be verified. Please retry.' }) };
   }
+  return { stops: (data ?? []) as Array<{id:string;sequence:number;stop_type:string;status:string;handover:unknown}>, error: null };
+}
 
-  const stops = (data ?? []) as Array<{ id: string; status: string | null }>;
-  if (stops.length === 0) return null;
-
-  const incompleteStops = stops.filter((stop) => !terminalStopStatuses.has(String(stop.status ?? 'pending').toLowerCase()));
-  if (incompleteStops.length > 0) {
-    return respond(409, {
-      error: 'Complete all multi-drop stops before capturing POD or marking the job delivered.',
-      remainingStops: incompleteStops.length,
-    });
+async function requireFinalPodReady(jobId: string) {
+  const loaded = await loadExecutionStops(jobId);
+  if (loaded.error) return loaded.error;
+  const stops = loaded.stops;
+  if (!stops.length) return null;
+  const finalStop = stops.at(-1)!;
+  const prior = stops.slice(0, -1);
+  if (prior.some(stop => stop.status === 'skipped')) {
+    return respond(409, { error: 'A legacy skipped stop requires review before final POD can be submitted.' });
   }
+  const unresolved = prior.filter(stop => !['completed','cancelled'].includes(stop.status));
+  if (unresolved.length) {
+    return respond(409, { error: 'Complete or resolve all earlier stops before final POD.', remainingStops: unresolved.length });
+  }
+  if (finalStop.stop_type !== 'delivery' || finalStop.status !== 'arrived') {
+    return respond(409, { error: 'Record On Site at the final delivery stop before submitting POD.' });
+  }
+  return null;
+}
 
+async function requireDeliveredReady(jobId: string) {
+  const loaded = await loadExecutionStops(jobId);
+  if (loaded.error) return loaded.error;
+  const stops = loaded.stops;
+  if (!stops.length) return null;
+  if (stops.some(stop => stop.status === 'skipped')) {
+    return respond(409, { error: 'A legacy skipped stop requires review before the job can close.' });
+  }
+  const finalStop = stops.at(-1)!;
+  const prior = stops.slice(0, -1);
+  if (prior.some(stop => !['completed','cancelled'].includes(stop.status)) || finalStop.status !== 'completed') {
+    return respond(409, { error: 'Complete the final POD and resolve every earlier stop before marking the job Delivered.' });
+  }
   return null;
 }
 
@@ -83,7 +107,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
-    const stopGate = await requireMultiDropFinalizationReady(id);
+    const stopGate = await requireFinalPodReady(id);
     if (stopGate) return stopGate;
     return savePod(request, id, driver.userId, driver.driverId, driver.companyId);
   }
@@ -107,7 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (action === 'delivered') {
-    const stopGate = await requireMultiDropFinalizationReady(id);
+    const stopGate = await requireDeliveredReady(id);
     if (stopGate) return stopGate;
   }
 
