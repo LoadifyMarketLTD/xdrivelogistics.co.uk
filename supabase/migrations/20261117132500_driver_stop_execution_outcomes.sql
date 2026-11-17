@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 ALTER TABLE public.job_stops
   ADD COLUMN IF NOT EXISTS en_route_at timestamptz,
