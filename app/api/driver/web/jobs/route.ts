@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
         // Photo uploads alone are not a completed POD.
         podGenerated: isDriverPodComplete(row),
         companyName: ownerCompany?.name ?? undefined,
-        companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
+        companyXdId: row.company_id ? ownerCompany?.xd_id ?? undefined : posterMemberId ?? undefined,
         environmentalZone: environmentalZone ?? undefined,
         stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
         attachments: attachments.get(row.id) ?? [],

@@ -271,7 +271,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       bookedAt: acceptedAt,
       postingCompanyId: originCompanyId,
       bookedBy: text(company.name) || 'Marketplace member',
-      memberCode: text(posterProfile.xd_id) ?? text(company.xd_id),
+      memberCode: originCompanyId ? text(company.xd_id) : text(posterProfile.xd_id),
       memberPhone: text(company.phone),
       executingCompanyId: text(agreement.supplier_company_id) ?? text(job.awarded_carrier_company_id) ?? driver.companyId,
       driverId: driver.driverId,

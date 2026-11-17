@@ -22,11 +22,13 @@ describe('XDrive collection: one job reference + assigned carrier company ID', (
   });
   it('gets carrier ID from the authenticated assigned company rather than client-supplied fields', () => {
     expect(handover).toContain(".from('companies')");
-    expect(handover).toContain(".select('xd_id').eq('id', companyId).maybeSingle()");
+    expect(handover).toContain(".select('xd_id, company_type').eq('id', companyId).maybeSingle()");
+    expect(handover).toContain(".select('xd_id').eq('user_id', userId).maybeSingle()");
     expect(handover).toContain(".eq('assigned_driver_id', driver.driverId)");
     expect(handover).toContain("job.assigned_company_id !== driver.companyId");
     expect(handover).toContain("data.assigned_company_id !== driver.companyId");
-    expect(handover).toContain("collectionReferenceIdentity(jobId, data?.xd_id)");
+    expect(handover).toContain("collectionReferenceIdentity(jobId, publicId)");
+    expect(handover).toContain("verifiedCollectionCommercialActorId(driverType, company.xd_id, ownerProfile.data?.xd_id)");
     expect(handover).not.toContain('const yourReference = cleanString(body.yourReference');
     expect(handover).not.toContain('const customerReference = cleanString(body.customerReference');
   });
@@ -44,7 +46,7 @@ describe('XDrive collection: one job reference + assigned carrier company ID', (
   });
   it('renders auto-filled fields read-only with explicit meaning, without manual input or client-supplied identity on POST', () => {
     expect(mobile).toContain('label="XDrive Job Reference"');
-    expect(mobile).toContain('label="Carrier Company ID"');
+    expect(mobile).toContain('label="Transport Operator XDrive ID"');
     expect(mobile).toContain('readOnly aria-readonly="true" value={yourReference}');
     expect(mobile).toContain('readOnly aria-readonly="true" value={carrierReference}');
     expect(mobile).not.toContain('label="Customer Reference (optional)"');

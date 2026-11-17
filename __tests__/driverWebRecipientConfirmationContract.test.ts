@@ -17,15 +17,15 @@ describe('driver web recipient confirmation contract', () => {
 
   it('requires recipient identity and persisted delivery evidence', () => {
     expect(route).toContain("Recipient name is required.");
-    expect(route).toContain("Upload POD evidence first.");
+    expect(route).toContain("Upload and attach 1-10 delivery photographs");
     expect(route).toContain("POD evidence does not belong to this driver assignment.");
     expect(route).toContain(".from('pod-photos')");
   });
 
-  it('persists the recipient attestation before Delivered', () => {
+  it('persists the drawn recipient signature before Delivered', () => {
     expect(route).toContain("client_signature_name: recipientName");
     expect(route).toContain("delivery_signature_data: confirmation");
-    expect(route).toContain("signature_method: 'typed_name_attestation'");
+    expect(route).toContain("signature_method: 'drawn_signature'");
     expect(route).toContain("source: 'xdrive_driver_web'");
   });
 });

@@ -532,6 +532,29 @@ export default function ReserveApp() {
     }    const step=nextStates[job.status];
     const delivered=job.status==='DELIVERED'||job.status==='POD_SUBMITTED';
     if(job.podRecorded||podDone)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Completed booking · Signed POD</h1><Route job={job} full/><p>The signed POD is archived and read-only. Delivery cannot be repeated.</p>{session&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{role==='Owner Driver'&&<button className="rv-primary rv-wide" onClick={()=>setView('invoiceJob')}>Create / View Invoice</button>}<p className="rv-sub">Company owners can create or view an invoice after POD validation.</p></section>;
+    // Delivered jobs with an incomplete POD must remain editable as a signed POD draft.
+    // Never claim the signature is saved until the driver captures and verifies it.
+    if(delivered)return <DeliveryHandover
+      job={job}
+      value={draft}
+      onChange={value=>{
+        if(value.recipient!==draft.recipient||value.leftAt!==draft.leftAt||value.items!==draft.items||value.condition!==draft.condition||value.notes!==draft.notes)setVerifiedSignature(null);
+        setDraft(value);setError('');
+      }}
+      signature={signature}
+      onSignature={value=>{setSignature(value);setVerifiedSignature(null);setError('');}}
+      signatureVerified={Boolean(signature)&&verifiedSignature===signature}
+      onSaveSignature={()=>saveRecipientSignature(job)}
+      photos={podFiles}
+      onPhotos={value=>{setPodFiles(value);setError('');}}
+      busy={busy}
+      onBack={()=>setView('statusHistory')}
+      mode="pod"
+      hardCopyRequired={Boolean(job.hardCopyPodRequired)}
+      hardCopyAcknowledged={hardCopyAcknowledged}
+      onHardCopyAcknowledged={setHardCopyAcknowledged}
+      onConfirm={()=>void savePod(job)}
+    />;
     return <section className="rv-operation-screen">
       {(!delivered||podDone||job.podRecorded)&&<><button className="rv-back" onClick={()=>setView('list')}>← Back to Bookings</button>
       <span className="rv-over">BOOKING OPERATIONS</span>
@@ -544,7 +567,7 @@ export default function ReserveApp() {
         <h3>{collectionStage==='arrival'?'On Site (Pickup)':'Loaded'}</h3>
         <div className="rv-two">
           <Field label="XDrive Job Reference"><input readOnly aria-readonly="true" value={yourReference} placeholder="Loading from XDrive…"/></Field>
-          <Field label="Carrier Company ID"><input readOnly aria-readonly="true" value={carrierReference} placeholder="Loading from XDrive…"/></Field>
+          <Field label="Transport Operator XDrive ID"><input readOnly aria-readonly="true" value={carrierReference} placeholder="Loading from XDrive…"/></Field>
         </div>
         {collectionStage==='arrival'?<>
           <p>Record arrival notes or photos if useful. Quantity and weight can be confirmed once the vehicle is loaded.</p>

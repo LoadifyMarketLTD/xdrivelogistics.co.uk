@@ -31,10 +31,10 @@ describe('Mobile Signed POD must agree with Finance POD completion', () => {
     expect(hasCompletePodEvidence({ ...delivered, client_signature_name: '' })).toBe(false);
   });
 
-  it('retains legacy typed-name POD attestation compatibility', () => {
+  it('rejects legacy typed-name attestations as a substitute for a drawn signature', () => {
     const legacy = { type:'recipient_typed_name_attestation', recipient_name:'Test Recipient', confirmed_at:'2026-11-16T12:00:00.000Z', evidence_path:'secure/test/pod.png', job_id:'test-job-id' };
-    expect(hasStoredSignature(legacy)).toBe(true);
-    expect(hasCompletePodEvidence({ ...delivered, delivery_signature_data: legacy })).toBe(true);
+    expect(hasStoredSignature(legacy)).toBe(false);
+    expect(hasCompletePodEvidence({ ...delivered, delivery_signature_data: legacy })).toBe(false);
   });
 
   it('uses exactly the Finance completion predicate in the API response', () => {

@@ -30,7 +30,8 @@ export function canonicalPodEvidence(record: CanonicalPodRecord) {
   const signatureRecorded = hasStoredSignature(record.delivery_signature_data);
   const recipientRecorded = Boolean(record.client_signature_name?.trim());
   const generated = record.pod_generated === true;
-  const evidenceReady = signatureRecorded && recipientRecorded;
+  const evidenceReady = signatureRecorded && recipientRecorded
+    && deliveryPhotos.length >= 1 && deliveryPhotos.length <= 10;
   const complete = generated && evidenceReady;
   const hasAnyEvidence = generated || deliveryPhotos.length > 0 || documents.length > 0 || signatureRecorded || recipientRecorded;
 

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
 import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
@@ -303,10 +304,11 @@ async function savePod(
     && storedSignature.signature_data === rawSignature
     ? job.delivery_signature_data
     : rawSignature || job.delivery_signature_data || null;
-  // Delivery photographs are optional unless a specific customer requirement applies.
-  // Preserve uploaded evidence without imposing a universal photograph requirement.
-  if (!signatureData) {
-    return respond(400, { error: 'Recipient signature is required for POD.' });
+  if (!hasStoredSignature(signatureData)) {
+    return respond(400, { error: 'A drawn recipient signature is required for POD; a typed name is insufficient.' });
+  }
+  if (deliveryStatus !== 'Completed Delivery') {
+    return respond(409, { error: 'Resolve the delivery exception before final POD submission.' });
   }
 
   try {
@@ -325,6 +327,9 @@ async function savePod(
   }
 
   const deliveryPhotos = Array.from(new Set([...existingPhotos, ...photoPaths]));
+  if (deliveryPhotos.length < 1 || deliveryPhotos.length > 10) {
+    return respond(409, { error: 'At least one and at most 10 verified delivery photos are required for POD.' });
+  }
   const damagePhotos = Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths]));
   const podDocuments = Array.from(new Set([...existingDocuments, ...documentPaths]));
   const driverNotes = typeof body.notes === 'string' && body.notes.trim()

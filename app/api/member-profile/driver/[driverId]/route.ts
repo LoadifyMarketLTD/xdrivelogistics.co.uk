@@ -63,7 +63,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { driverId } = await params;
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, user_id, display_name, status, availability_status')
+    .select('id, company_id, user_id, display_name, status, availability_status, driver_type')
     .eq('id', driverId)
     .maybeSingle();
 
@@ -84,30 +84,57 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // This endpoint exists for the independent/owner-driver identity case and is
   // deliberately conservative: personal phone/email/address and compliance
   // evidence are not part of the member-facing projection.
-  const [{ data: vehicle, error: vehicleError }, { data: profile, error: profileError }] = await Promise.all([
+  const [{ data: vehicle, error: vehicleError }, { data: profile, error: profileError }, { data: carrier, error: carrierError }] = await Promise.all([
     supabaseAdmin
       .from('vehicles')
       .select('type')
       .eq('assigned_driver_id', driver.id)
       .limit(1)
       .maybeSingle(),
-    driver.user_id
+    driver.driver_type === 'owner_driver' && driver.user_id
       ? supabaseAdmin
           .from('profiles')
           .select('xd_id')
           .eq('user_id', driver.user_id)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    driver.company_id
+      ? supabaseAdmin
+          .from('companies')
+          .select('xd_id, company_type')
+          .eq('id', driver.company_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
+
+  if (carrierError || profileError) {
+    return operationalError({
+      status: 500,
+      message: 'Transport operator identity could not be verified.',
+      context: 'member-profile.driver.commercial-identity',
+      cause: carrierError ?? profileError,
+      retryable: true,
+    });
+  }
+  const driverType = String(driver.driver_type ?? '').trim().toLowerCase();
+  const companyPublicId = String(carrier?.xd_id ?? '').trim();
+  const personalPublicId = String(profile?.xd_id ?? '').trim();
+  // A driver employed by a company appears under its single commercial XD ID.
+  // An Owner Driver must share the same XD ID with the verified personal workspace.
+  if (!companyPublicId || (driverType !== 'company_driver' && driverType !== 'owner_driver')
+      || (driverType === 'owner_driver' && (companyPublicId !== personalPublicId
+        || !['owner_driver', 'sole_trader'].includes(String(carrier?.company_type ?? ''))))) {
+    return respond(409, { error: 'Transport operator identity must be reconciled before publication.' });
+  }
 
   return respond(200, {
     member: {
       companyId: driver.company_id ?? null,
       driverId: driver.id,
       name: driver.display_name?.trim() || 'Owner Driver',
-      memberId: profileError ? null : profile?.xd_id ?? null,
+      memberId: companyPublicId,
       businessPhone: null,
-      memberType: driver.company_id ? 'Company Driver' : 'Owner Driver',
+      memberType: driverType === 'owner_driver' ? 'Owner Driver' : 'Company Driver',
       memberSince: null,
       status: 'active',
       availability: driver.availability_status ?? null,
