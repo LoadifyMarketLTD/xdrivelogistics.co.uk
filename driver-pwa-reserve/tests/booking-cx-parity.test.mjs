@@ -6,7 +6,9 @@ test('Bookings separates received, allocated and delivered live records',()=>{
  const app=src('ReserveApp.tsx');
  assert.match(app,/type BookingSection = 'Received' \| 'Allocated' \| 'Delivered'/);
  assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired\)/);
- assert.match(app,/bookingSection==='Delivered'\?\['DELIVERED','POD_SUBMITTED'\]/);
+ assert.match(app,/bookingSection==='Delivered'\?searchingByReference\|\|\['DELIVERED','POD_SUBMITTED'\]/);
+ assert.match(app,/scope=completed&compact=1&reference=/);
+ assert.match(app,/Several jobs match this historical reference/);
  assert.match(app,/Review Incoming Job/);
  assert.doesNotMatch(app,/Booking is not actionable because its collection time has passed/);
  assert.match(app,/Booking awarded\. Your response is required/);

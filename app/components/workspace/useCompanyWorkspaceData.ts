@@ -35,6 +35,8 @@ export type WorkspaceJob = {
   packaging?: string | null;
   dimensions?: string | null;
   load_reference?: string | null;
+  load_ref?: string | null;
+  customer_ref?: string | null;
   pallets?: number | null;
   payment_terms?: string | null;
   assigned_driver_id?: string | null;
@@ -296,12 +298,12 @@ const uniqueById = <T extends { id: string }>(rows: T[]): T[] => {
 };
 
 const CARRIER_DASHBOARD_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, pallets, payment_terms, assigned_driver_id, awarded_carrier_company_id, assigned_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, pallets, payment_terms, assigned_driver_id, awarded_carrier_company_id, assigned_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, customer_ref, load_reference, load_ref, created_at, updated_at, client_name';
 
 const EXECUTION_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, pallets, payment_terms, assigned_driver_id, vehicle_id, awarded_carrier_company_id, assigned_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, pallets, payment_terms, assigned_driver_id, vehicle_id, awarded_carrier_company_id, assigned_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, customer_ref, load_reference, load_ref, created_at, updated_at, client_name';
 
-const CUSTOMER_3150_LOADS_JOB_SELECT = EXECUTION_JOB_SELECT + ', load_type, service_mode, weight_kg, weight, cargo_type, requested_cargo_label, packaging, dimensions, load_reference';
+const CUSTOMER_3150_LOADS_JOB_SELECT = EXECUTION_JOB_SELECT + ', load_type, service_mode, weight_kg, weight, cargo_type, requested_cargo_label, packaging, dimensions';
 
 const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
   .split(',')

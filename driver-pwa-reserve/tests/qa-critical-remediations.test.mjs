@@ -36,15 +36,18 @@ test('Loaded requires photo but arrival does not; confirmed delivery requires ph
  assert.match(app,/if\(!evidence\.photos\.length\)throw new Error\('XDrive requires at least one verified delivery photo/);
  assert.match(pod,/Delivery photographs are optional unless a specific customer requirement applies/);
 });
-test('Optional arrival quantities and optional reference fields agree with handover API',()=>{
+test('Optional arrival quantities and server-autofilled immutable collection references agree with handover API',()=>{
  assert.match(app,/pickupItems\.trim\(\)===''\?null:Number\(pickupItems\)/);
  assert.match(app,/pickupWeight\.trim\(\)===''\?null:Number\(pickupWeight\)/);
  assert.match(app,/label="Items Collected \(optional\)"/);
  assert.match(app,/label="Weight \(kg\) \(optional\)"/);
- assert.match(app,/label="Your Reference \(optional\)"/);
- assert.match(app,/label="Customer Reference \(optional\)"/);
- assert.match(handover,/const yourReference = cleanString/);
- assert.match(handover,/const customerReference = cleanString/);
+ assert.match(app,/label="XDrive Job Reference"/);
+ assert.match(app,/label="Carrier Company ID"/);
+ assert.match(app,/readOnly aria-readonly="true" value=\{yourReference\}/);
+ assert.match(app,/readOnly aria-readonly="true" value=\{carrierReference\}/);
+ assert.match(handover,/getCollectionIdentity\(jobId, driver\.companyId\)/);
+ assert.match(handover,/carrierCompanyReference: references!\.identity!\.carrierCompanyReference/);
+ assert.doesNotMatch(handover,/const yourReference = cleanString\(body\.yourReference/);
 });
 test('Active Reserve PWA shares one lifecycle for status buttons, Undo and timeline',()=>{
  const tl=src('BookingStatusTimeline.tsx');

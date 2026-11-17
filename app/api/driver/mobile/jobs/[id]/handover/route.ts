@@ -2,9 +2,21 @@ import { NextRequest } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { insertTrackingEvent, isDriverContext, requireDriver, respond } from '../../../_lib';
+import { collectionReferenceIdentity } from '../../../../../../../lib/jobs/collectionReferenceIdentity';
 
 const MAX_PHOTOS = 10;
 const MAX_DOCUMENTS = 10;
+
+/** Authorised server-side reference lookup; never derive carrier IDs from form input. */
+async function getCollectionIdentity(jobId: string, companyId: string) {
+  const { data, error } = await supabaseAdmin!.from('companies')
+    .select('xd_id').eq('id', companyId).maybeSingle();
+  if (error) return { error: 'Carrier identity could not be resolved.', identity: null };
+  const identity = collectionReferenceIdentity(jobId, data?.xd_id);
+  return identity
+    ? { error: null, identity }
+    : { error: 'Carrier public XDrive ID is missing. Contact your company administrator.', identity: null };
+}
 
 function cleanString(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -74,20 +86,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(400, { error: 'Delivery ETA must be in the future.' });
   }
   const packaging = cleanString(body.packaging, 120);
-  const yourReference = cleanString(body.yourReference, 120);
-  const customerReference = cleanString(body.customerReference, 120);
   const notes = cleanString(body.notes, 2000);
   const photoPaths = stringPaths(body.photoPaths, MAX_PHOTOS);
   const documentPaths = stringPaths(body.documentPaths, MAX_DOCUMENTS);
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, assigned_driver_id, status, current_status, pickup_photos, collection_handover')
+    .select('id, assigned_driver_id, assigned_company_id, status, current_status, customer_reference, customer_ref, pickup_photos, collection_handover')
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
   if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
   if (!job) return respond(404, { error: 'Job not found.' });
+  if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) {
+    return respond(403, { error: 'This job belongs to another carrier company.' });
+  }
+  const references = stage === 'loaded' ? await getCollectionIdentity(jobId, driver.companyId) : null;
+  if (references?.error || (stage === 'loaded' && !references?.identity)) {
+    return respond(409, { error: references?.error || 'Collection identifiers are not available.' });
+  }
 
   const rawStatus = String(job.current_status || job.status || '').toLowerCase();
   const status = rawStatus === 'arrived_pickup' ? 'on_site_pickup' : rawStatus;
@@ -114,7 +131,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const previousHandover = job.collection_handover && typeof job.collection_handover === 'object' && !Array.isArray(job.collection_handover) ? job.collection_handover as Record<string, unknown> : {};
   const stageRecord = stage === 'arrival'
     ? { version: 1, capturedAt, itemCount, weightKg, notes: notes || null, photoPaths, documentPaths }
-    : { version: 1, capturedAt, itemCount, yourReference, customerReference, packaging: packaging || null, weightKg, etaAt, notes: notes || null, photoPaths, documentPaths };
+    : {
+        version: 1, capturedAt, itemCount,
+        // Legacy names remain for compatibility; the carrier company ID is
+        // NOT stored as customerReference, which belongs to the posting client.
+        yourReference: references!.identity!.jobReference,
+        customerReference: cleanString(job.customer_reference || job.customer_ref, 120) ||
+          cleanString(previousHandover.customerReference, 120) || null,
+        jobReference: references!.identity!.jobReference,
+        carrierCompanyReference: references!.identity!.carrierCompanyReference,
+        packaging: packaging || null, weightKg, etaAt, notes: notes || null, photoPaths, documentPaths,
+      };
   const handover = stage === 'arrival'
     ? { ...previousHandover, arrival: stageRecord }
     : { ...previousHandover, ...stageRecord, loaded: stageRecord };
@@ -164,11 +191,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!isDriverContext(driver)) return driver;
   const { id: jobId } = await params;
   const { data, error } = await supabaseAdmin.from('jobs')
-    .select('id, collection_handover')
+.select('id, collection_handover, assigned_company_id')
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
   if (error) return respond(500, { error: 'Collection workflow could not be read.' });
   if (!data) return respond(404, { error: 'Job not found.' });
-  return respond(200, { ok: true, handover: data.collection_handover ?? null });
+  if (!driver.companyId || (data.assigned_company_id && data.assigned_company_id !== driver.companyId)) {
+    return respond(403, { error: 'Assigned carrier company could not be verified.' });
+  }
+  const references = await getCollectionIdentity(jobId, driver.companyId);
+  if (references.error || !references.identity) {
+    return respond(409, { error: references.error || 'Collection identifiers are not available.' });
+  }
+  return respond(200, { ok: true, handover: data.collection_handover ?? null, references: references.identity });
 }

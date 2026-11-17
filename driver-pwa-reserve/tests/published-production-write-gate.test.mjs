@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync,existsSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {dirname,resolve} from 'node:path';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'../..');
+test('published Production PWA entry uses the vetted, explicitly approved live-writes build',()=>{
+  const source=readFileSync(resolve(root,'driver-pwa-reserve/src/main.tsx'),'utf8');
+  assert.match(source,/VITE_XDRIVE_DRIVER_APPROVED_LIVE_WRITES === '1'/);
+  assert.match(source,/location\.pathname === '\/driver\/reserve-pwa\/index\.html'/);
+  assert.match(source,/const qaMode = !explicitLiveRelease/);
+  const html=readFileSync(resolve(root,'public/driver/reserve-pwa/index.html'),'utf8');
+  const match=html.match(/\/driver\/reserve-pwa\/assets\/(index-[\w-]+\.js)/);
+  assert.ok(match,'public index must refer to a versioned JS asset');
+  assert.equal(match[1],'index-RmKlRCI0.js','wrong build published: do not ship QA read-only bundle');
+  const asset=resolve(root,'public/driver/reserve-pwa/assets',match[1]);
+  assert.ok(existsSync(asset),'published JS does not exist');
+  const code=readFileSync(asset,'utf8');
+  assert.ok(code.includes('Your stored evidence is preserved'));
+  assert.ok(code.includes('Delivery Time *'));
+  assert.ok(code.includes('owner_driver'));
+  assert.ok(code.includes('company_driver'));
+  assert.ok(code.includes('Driver type could not be verified'));
+  assert.ok(code.includes('XDL-'), 'Published bundle must retain official XDrive public reference format');
+  assert.ok(code.includes('Carrier Company ID'), 'Published collection form must show the assigned carrier identity');
+  assert.ok(code.includes('Searching all historical jobs by reference'), 'Published PWA must provide authenticated all-history lookup');
+  assert.ok(code.includes('XDrive Job Reference'), 'Published collection form must show the job number');
+});
