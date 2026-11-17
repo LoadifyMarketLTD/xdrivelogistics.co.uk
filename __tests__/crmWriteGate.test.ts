@@ -16,6 +16,12 @@ describe('CRM isolated write gate remains fail closed',()=>{
   });
   it.each([
     {context:'production'},
+    {context:'staging'},
+    {context:'untrusted-deployment'},
+    {vercelEnvironment:'untrusted'},
+    {context:undefined},
+    {context:''},
+    {context:'   '},
     {context:'deploy-preview'},
     {vercelEnvironment:'production'},
     {vercelEnvironment:'preview'},
@@ -32,8 +38,16 @@ describe('CRM isolated write gate remains fail closed',()=>{
     {stagingSupabaseUrl:'https://localhost/'},
     {connectedSupabaseUrl:'https://isolated-test.supabase.co/other'},
     {connectedSupabaseUrl:'https://user:password@isolated-test.supabase.co/'},
+    {connectedSupabaseUrl:'https://isolated-test.supabase.co:8443/'},
+    {stagingSupabaseUrl:'https://isolated-test.supabase.co:8443/',connectedSupabaseUrl:'https://isolated-test.supabase.co:8443/'},
+    {connectedSupabaseUrl:'https://isolated-test.supabase.co/?debug=1'},
+    {stagingSupabaseUrl:'https://isolated-test.supabase.co/#fragment'},
   ])('denies risky staging configuration %j',(change)=>{
     expect(isCrmStagingWriteAllowed({...valid,...change})).toBe(false);
+  });
+  it('accepts only explicitly named non-production contexts',()=>{
+    expect(isCrmStagingWriteAllowed({...valid,context:'development'})).toBe(true);
+    expect(isCrmStagingWriteAllowed({...valid,vercelEnvironment:undefined})).toBe(true);
   });
   it('hard-blocks known XDrive and separate Loadify Production Supabase origins',()=>{
     for(const production of [
