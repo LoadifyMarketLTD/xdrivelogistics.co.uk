@@ -18,7 +18,7 @@ import BookingDocuments from "./BookingDocuments";
 import PodCapture from "./PodCapture";
 import LivePodCapture from "./LivePodCapture";
 import RouteMap from "./RouteMap";
-import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession } from "./liveApi";
+import { login as liveLogin, loadLiveWithDiagnostics, driverGet, driverPost, bookingOfferRespond, renewSession, revokeLiveSession, type LiveSession, type LiveStop } from "./liveApi";
 const LIVE_SESSION_KEY = "xdrive-driver-reserve-live-session-v1";
 function savedLiveSession(): LiveSession | null {
   try {
@@ -60,7 +60,7 @@ type Load = {
   notificationAt?: string;
   zoneAlert?: string;
   stops?: number;
-  routeStops?: { id: string; kind: "PICKUP" | "DELIVERY"; address: string; completedAt?: string }[];
+  routeStops?: LiveStop[];
   customerPhone?: string;
   feedbackPay?: { positive: number; neutral: number; negative: number };
   feedbackDelivery?: { positive: number; neutral: number; negative: number };
