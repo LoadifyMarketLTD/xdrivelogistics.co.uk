@@ -25,7 +25,6 @@ const actionToCanonicalStatus: Record<string, string> = {
   completed: 'completed',
 };
 
-const terminalStopStatuses = new Set(['completed', 'skipped']);
 type PodEvidenceKind = 'photos' | 'damage' | 'documents';
 type MobileJobWithDamageEvidence = MobileJobRow & { damage_photos?: unknown };
 
