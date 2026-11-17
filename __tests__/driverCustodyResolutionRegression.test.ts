@@ -15,6 +15,15 @@ describe('driver cancellation and custody safety contracts', () => {
       expect(source).not.toMatch(/if \(followUpId\) await supabaseAdmin!?\.from\('job_stops'\)\.delete\(/);
     });
   }
+  for (const route of [mobile, web]) {
+    it(`${route} requires independent return POD instead of reusing canonical final POD`, () => {
+      const source = read(route);
+      expect(source).toContain("stopKind === 'return' || stopKind === 'redirect'");
+      expect(source).toContain('parsedHandover.canonicalFinalPod');
+      expect(source).toContain('requires its own stop-specific signature and photo evidence');
+      expect(source).toContain('verifyStopEvidence([parsedHandover.signaturePath]');
+    });
+  }
   it('custody endpoint verifies bearer identity and calls authorised atomic RPC', () => {
     const source = read(endpoint);
     expect(source).toContain('getBearerToken(request)');

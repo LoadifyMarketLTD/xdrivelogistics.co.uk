@@ -273,6 +273,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const parsed = parseStopCompletion(body.handover, target.stop_type, { finalStop });
     if (!parsed.ok) return respond(400, { error: parsed.error });
     const parsedHandover = parsed.value;
+    const stopKind = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
+      ? (target.handover as Record<string, unknown>).stopKind : null;
+    if ((stopKind === 'return' || stopKind === 'redirect') && parsedHandover.canonicalFinalPod) {
+      return respond(400, { error: 'Physical return or redirect requires its own stop-specific signature and photo evidence.' });
+    }
 
     if (target.stop_type === 'delivery' && finalStop && parsedHandover.canonicalFinalPod) {
       if (!hasCompletePodEvidence(job)) {

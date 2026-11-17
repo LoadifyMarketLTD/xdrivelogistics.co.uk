@@ -242,6 +242,11 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     const parsed = parseStopCompletion(body.handover, target.stop_type, { finalStop });
     if (!parsed.ok) return respond(400, { error: parsed.error });
     const parsedHandover = parsed.value;
+    const stopKind = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
+      ? (target.handover as Record<string, unknown>).stopKind : null;
+    if ((stopKind === 'return' || stopKind === 'redirect') && parsedHandover.canonicalFinalPod) {
+      return respond(400, { error: 'Physical return or redirect requires its own stop-specific signature and photo evidence.' });
+    }
     if (target.stop_type === 'delivery' && finalStop && parsedHandover.canonicalFinalPod) {
       if (!hasCompletePodEvidence(job)) return respond(409, { error: 'Complete the canonical final POD before completing the final stop.' });
       parsedHandover.photoPaths = Array.isArray(job.delivery_photos) ? job.delivery_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
