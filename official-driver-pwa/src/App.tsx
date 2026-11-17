@@ -416,60 +416,63 @@ function App() {
   };  const submitLiveStatus = async (booking: Load, nextStatus: JobStatus) => {
     if (!liveSession || statusOperationRef.current) return;
     statusOperationRef.current = true;
-    const apiStatuses: Partial<Record<JobStatus, string>> = { ON_WAY_TO_PICKUP: 'on_my_way', ON_SITE_PICKUP: 'on_site_pickup', LOADED: 'loaded', ON_WAY_TO_DELIVERY: 'in_transit', ON_SITE_DELIVERY: 'on_site_delivery', DELIVERED: 'delivered' };
+    const apiStatuses: Partial<Record<JobStatus, string>> = {
+      ON_WAY_TO_PICKUP: 'on_my_way',
+      ON_SITE_PICKUP: 'on_site_pickup',
+      LOADED: 'loaded',
+      ON_WAY_TO_DELIVERY: 'in_transit',
+      ON_SITE_DELIVERY: 'on_site_delivery',
+      DELIVERED: 'delivered',
+    };
     const apiStatus = apiStatuses[nextStatus];
-    if (!apiStatus) { statusOperationRef.current = false; setLiveError('This status requires a separate evidence or POD workflow.'); return; }
-    const middleStops = booking.routeStops && booking.routeStops.length > 2 ? booking.routeStops.slice(1, -1) : [];
-    if (nextStatus === 'ON_SITE_DELIVERY' && middleStops.some(stop => !['completed', 'skipped'].includes(stop.status))) {
+    if (!apiStatus) {
       statusOperationRef.current = false;
-      setLiveError('Complete every intermediate stop before proceeding to final delivery.');
+      setLiveError('This status requires a separate evidence or POD workflow.');
       return;
     }
     setStatusBusy(true);
     setLiveError('');
-    // Keep the server-confirmed stage visible until the status write succeeds.
     try {
       const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
       if (session !== liveSession) setLiveSession(session);
-      // The authoritative driver RPC requires allocated -> accepted -> on_my_way.
-      // Booking acceptance via the offer endpoint can leave the job at allocated.
       if (booking.status === 'ALLOCATED' && nextStatus === 'ON_WAY_TO_PICKUP' && ['allocated', 'assigned'].includes(booking.backendStatus || 'allocated')) {
         await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'accepted' });
       }
       await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: apiStatus });
-      if (nextStatus === 'ON_SITE_DELIVERY' && booking.routeStops && booking.routeStops.length > 2) {
-        const finalStop = booking.routeStops[booking.routeStops.length - 1];
-        if (finalStop?.type === 'delivery' && finalStop.status === 'pending') {
-          await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, { stop_id: finalStop.id, status: 'arrived' });
-        }
-      }
       setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: nextStatus, backendStatus: apiStatus } : row));
-      setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: nextStatus, at: new Date().toISOString() }] }));
       if (nextStatus === 'ON_SITE_PICKUP') setBookingScreen('pickup');
-      else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('delivery');
-      else if (nextStatus === 'LOADED') setBookingScreen('status');
-      void refreshLive(session.token).catch(() => setLiveWarning('Status saved, but refreshing booking details failed.'));
+      else if (nextStatus === 'ON_SITE_DELIVERY') setBookingScreen('pod');
+      else setBookingScreen('status');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Status saved, but refreshing booking details failed.'); }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Could not update booking status';
-      // A stale client must recover from the server's authoritative lifecycle rather than replay acceptance.
       const expected = message.match(/Invalid driver status transition:\s*([a-z_]+)\s*->\s*[a-z_]+\.\s*Expected\s*([a-z_]+)/i);
       if (expected) {
         const serverState = expected[1].toLowerCase();
-        const recovered = ({ allocated: 'ALLOCATED', accepted: 'ALLOCATED', on_my_way: 'ON_WAY_TO_PICKUP', on_site_pickup: 'ON_SITE_PICKUP', loaded: 'LOADED', in_transit: 'ON_WAY_TO_DELIVERY', on_site_delivery: 'ON_SITE_DELIVERY', delivered: 'DELIVERED' } as Record<string, JobStatus>)[serverState];
+        const recovered = ({
+          allocated: 'ALLOCATED', accepted: 'ALLOCATED', on_my_way: 'ON_WAY_TO_PICKUP',
+          on_site_pickup: 'ON_SITE_PICKUP', loaded: 'LOADED', in_transit: 'ON_WAY_TO_DELIVERY',
+          on_site_delivery: 'ON_SITE_DELIVERY', delivered: 'DELIVERED',
+        } as Record<string, JobStatus>)[serverState];
         if (recovered) setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: recovered, backendStatus: serverState } : row));
         setLiveWarning('Booking status synchronized with the server. Please confirm the next step.');
         setLiveError('');
-        try { await refreshLive((await renewSession(liveSession)).token); } catch { /* Preserve recovered state when refresh is unavailable. */ }
+        try { await refreshLive((await renewSession(liveSession)).token); } catch { /* Keep recovered state. */ }
       } else {
         setJobs(rows => rows.map(row => row.id === booking.id ? booking : row));
         setBookingScreen('status');
         setLiveError('Status not saved. Previous stage restored. ' + message);
       }
+    } finally {
+      statusOperationRef.current = false;
+      setStatusBusy(false);
     }
-    finally { statusOperationRef.current = false; setStatusBusy(false); }
   };
+
   const uploadCollectionEvidence = async (booking: Load, session: LiveSession) => {
     if (collectionPhotoFiles.length === 0) throw new Error('Attach at least one collection/loading photo before confirming Loaded.');
+    const collectionStop = booking.routeStops?.[0];
+    if (!collectionStop || collectionStop.type !== 'collection') throw new Error('Collection stop is unavailable. Refresh the booking.');
     const paths: string[] = [];
     for (const photo of collectionPhotoFiles) {
       if (!['image/jpeg', 'image/png'].includes(photo.type) || photo.size === 0 || photo.size > 10 * 1024 * 1024) {
@@ -483,6 +486,7 @@ function App() {
           'Content-Type': photo.type,
           'x-xdrive-evidence-kind': 'collection',
           'x-xdrive-evidence-category': 'photos',
+          'x-xdrive-stop-id': collectionStop.id,
           'x-xdrive-evidence-name': 'collection-' + crypto.randomUUID() + '.' + extension,
         },
         body: photo,
@@ -493,176 +497,39 @@ function App() {
     }
     return paths;
   };
-  const syncPrimaryCollectionStop = async (booking: Load, session: LiveSession, handover: Record<string, unknown>, complete: boolean) => {
-    if (!booking.routeStops || booking.routeStops.length <= 2) return;
-    const first = booking.routeStops[0];
-    if (!first || first.type !== 'collection' || ['completed', 'skipped'].includes(first.status)) return;
-    let status = first.status;
-    if (status === 'pending') {
-      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, { stop_id: first.id, status: 'arrived' });
-      status = 'arrived';
-    }
-    if (complete && status === 'arrived') {
-      const { photoPaths: _jobPhotoPaths, documentPaths: _jobDocumentPaths, ...stopHandover } = handover as Record<string, unknown> & { photoPaths?: unknown; documentPaths?: unknown };
-      void _jobPhotoPaths; void _jobDocumentPaths;
-      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, { stop_id: first.id, status: 'completed', handover: { ...stopHandover, photoPaths: [], documentPaths: [] } });
-    }
-  };
-  const uploadStopSignature = async (booking: Load, stopId: string, session: LiveSession, signature: File) => {
-    const response = await fetch('/api/driver/mobile/jobs/' + encodeURIComponent(booking.id) + '/evidence', {
-      method: 'POST',
-      headers: {
-        Authorization: 'Bearer ' + session.token,
-        'Content-Type': signature.type || 'image/png',
-        'x-xdrive-evidence-kind': 'delivery',
-        'x-xdrive-evidence-category': 'signature',
-        'x-xdrive-stop-id': stopId,
-        'x-xdrive-evidence-name': 'recipient-signature-' + crypto.randomUUID() + '.png',
-      },
-      body: signature,
-    });
-    const result = await response.json().catch(() => ({})) as { storagePath?: string; error?: string };
-    if (!response.ok || !result.storagePath) throw new Error(result.error || 'Recipient signature upload failed.');
-    return result.storagePath;
-  };
-  const openAdditionalStop = async (booking: Load, stop: LiveStop) => {
-    if (!liveSession || statusBusy) return;
+
+  const openAdditionalStop = async (_booking: Load, _stop: LiveStop) => {
     setLiveError('');
-    setStatusBusy(true);
-    try {
-      const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
-      if (session !== liveSession) setLiveSession(session);
-      if (stop.status === 'pending') {
-        await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, { stop_id: stop.id, status: 'arrived' });
-        await refreshLive(session.token);
-      }
-      setBookingScreen('stop');
-    } catch (error) {
-      setLiveError(error instanceof Error ? error.message : 'Stop could not be opened.');
-    } finally { setStatusBusy(false); }
+    setBookingScreen('stop');
   };
-  const completeLiveDelivery = async (booking: Load) => {
-    if (!liveSession || statusBusy || statusOperationRef.current) return;
-    if (!deliveryRecipient.trim() || !deliveryLeftAt.trim() || deliveryItems === '' || !Number.isInteger(Number(deliveryItems)) || Number(deliveryItems) < 1) {
-      setLiveError('Complete the recipient, delivered items and delivery location before confirming delivery.');
-      return;
-    }
-    statusOperationRef.current = true;
-    setStatusBusy(true);
-    setLiveError('');
-    try {
-      const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
-      if (session !== liveSession) setLiveSession(session);
-      const deliveryNotes = [
-        'Received by: ' + deliveryRecipient.trim(),
-        'Items delivered: ' + Number(deliveryItems),
-        'Condition: ' + deliveryCondition,
-        'Left at: ' + deliveryLeftAt.trim(),
-        driverNotes.trim() ? 'Driver notes: ' + driverNotes.trim() : '',
-      ].filter(Boolean).join(' | ');
-      const draftResponse = await fetch('/api/driver/web/jobs/' + encodeURIComponent(booking.id) + '/pod-draft', {
-        method: 'PUT',
-        headers: { Authorization: 'Bearer ' + session.token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          recipientName: deliveryRecipient.trim(),
-          leftAt: deliveryLeftAt.trim(),
-          itemCount: String(Number(deliveryItems)),
-          deliveryStatus: deliveryCondition,
-          notes: deliveryNotes,
-        }),
-      });
-      if (!draftResponse.ok) {
-        const details = await draftResponse.json().catch(() => ({})) as { error?: string };
-        throw new Error(details.error || 'Delivery details could not be saved.');
-      }
-      if (!deliverySignature) throw new Error('Save the recipient signature before completing delivery.');
-      if (deliveryPhotos.length === 0) throw new Error('Attach at least one delivery photo before completing delivery.');
-      const savedPhotoPaths: string[] = [];
-      for (const photo of deliveryPhotos) {
-        if (!['image/jpeg', 'image/png'].includes(photo.type)) throw new Error('Delivery photos must be JPEG or PNG.');
-        if (photo.size === 0 || photo.size > 10 * 1024 * 1024) throw new Error('Each delivery photo must be between 1 byte and 10 MB.');
-        const extension = photo.type === 'image/png' ? 'png' : 'jpg';
-        const filename = `${crypto.randomUUID()}.${extension}`;
-        const uploaded = await fetch('/api/driver/mobile/jobs/' + encodeURIComponent(booking.id) + '/evidence', {
-          method: 'POST',
-          headers: {
-            Authorization: 'Bearer ' + session.token,
-            'Content-Type': photo.type,
-            'x-xdrive-evidence-kind': 'delivery',
-            'x-xdrive-evidence-category': 'photos',
-            'x-xdrive-evidence-name': filename,
-          },
-          body: photo,
-        });
-        const result = await uploaded.json().catch(() => ({})) as { error?: string; storagePath?: string };
-        if (!uploaded.ok || !result.storagePath) throw new Error(result.error || 'Delivery photo upload failed.');
-        savedPhotoPaths.push(result.storagePath);
-      }
-      if (booking.routeStops && booking.routeStops.length > 2) {
-        const finalStop = booking.routeStops[booking.routeStops.length - 1];
-        if (finalStop?.type === 'delivery' && !['completed', 'skipped'].includes(finalStop.status)) {
-          if (finalStop.status === 'pending') {
-            await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, { stop_id: finalStop.id, status: 'arrived' });
-          }
-          const signaturePath = await uploadStopSignature(booking, finalStop.id, session, deliverySignature);
-          const deliveryStatus = deliveryCondition === 'Shortage' ? 'Partial Delivery' : deliveryCondition === 'Refused' ? 'Refused' : 'Completed Delivery';
-          await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/stop-status', session.token, {
-            stop_id: finalStop.id,
-            status: 'completed',
-            handover: {
-              customerReference: booking.customerRef || null,
-              itemCount: Number(deliveryItems),
-              weightKg: booking.weight || null,
-              packaging: booking.packaging || null,
-              notes: driverNotes.trim() || null,
-              recipientName: deliveryRecipient.trim(),
-              leftAt: deliveryLeftAt.trim(),
-              deliveredOn: new Date().toISOString(),
-              deliveryStatus,
-              signaturePath,
-              photoPaths: [],
-              documentPaths: [],
-            },
-          });
-        }
-      }
-      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'delivered' });
-      setUploadedDeliveryPhotos(savedPhotoPaths);
-      setDeliveryPhotos([]);
-      setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'DELIVERED', backendStatus: 'delivered' } : row));
-      setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: 'DELIVERED', at: new Date().toISOString() }] }));
-      setBookingScreen('pod');
-      setLiveWarning('Delivery completed. Save POD signature and evidence to finish the booking.');
-      try { await refreshLive(session.token); } catch { setLiveWarning('Delivery saved; booking refresh is delayed.'); }
-    } catch (error) {
-      setLiveError('Delivery not completed. ' + (error instanceof Error ? error.message : 'Please retry.'));
-    } finally { statusOperationRef.current = false; setStatusBusy(false); }
-  };  const saveLivePickupDraft = async (booking: Load) => {
+
+  const saveLivePickupDraft = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
     setStatusBusy(true);
     setLiveError('');
     try {
       const session = liveSession.expiresAt > Date.now() + 60_000 ? liveSession : await renewSession(liveSession);
       if (session !== liveSession) setLiveSession(session);
-      const arrivalHandover = {
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
+        stage: 'arrival',
         itemCount: itemCount === '' ? null : Number(itemCount),
         weightKg: collectionWeight === '' ? null : Number(collectionWeight),
         notes: driverNotes,
-      };
-      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
-        stage: 'arrival',
-        ...arrivalHandover,
       });
-      await syncPrimaryCollectionStop(booking, session, arrivalHandover, false);
       setBookingScreen('loaded');
-      setLiveWarning('Collection details saved to XDrive. Confirm Loaded when collection is complete.');
-      try { await refreshLive(session.token); } catch { setLiveWarning('Collection saved, but booking refresh is delayed.'); }
+      setLiveWarning('Collection details saved. Confirm Loaded only after the goods and collection evidence are ready.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Collection details saved, but booking refresh is delayed.'); }
     } catch (error) {
       setLiveError('Collection details not saved. ' + (error instanceof Error ? error.message : 'Please retry.'));
-    } finally { setStatusBusy(false); }
-  };  const saveLiveHandover = async (booking: Load) => {
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
+  const saveLiveHandover = async (booking: Load) => {
     if (!liveSession || statusBusy || statusOperationRef.current) return;
-    if (itemCount === '' || !Number.isInteger(Number(itemCount)) || Number(itemCount) < 1 || (collectionWeight !== '' && (!Number.isFinite(Number(collectionWeight)) || Number(collectionWeight) < 0))) {
+    if (itemCount === '' || !Number.isInteger(Number(itemCount)) || Number(itemCount) < 1 ||
+        (collectionWeight !== '' && (!Number.isFinite(Number(collectionWeight)) || Number(collectionWeight) < 0))) {
       setLiveError('Enter a valid positive number of collected items and a non-negative weight.');
       return;
     }
@@ -673,8 +540,9 @@ function App() {
       const session = await renewSession(liveSession);
       setLiveSession(session);
       const photoPaths = await uploadCollectionEvidence(booking, session);
-      const loadedHandover = {
-        itemCount: itemCount === '' ? null : Number(itemCount),
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
+        stage: 'loaded',
+        itemCount: Number(itemCount),
         weightKg: collectionWeight === '' ? null : Number(collectionWeight),
         etaAt: etaDateTime || null,
         packaging: booking.packaging || null,
@@ -682,27 +550,19 @@ function App() {
         photoPaths,
         documentPaths: [],
         customerReference: booking.customerRef || null,
-      };
-      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/handover', session.token, {
-        stage: 'loaded',
-        ...loadedHandover,
       });
-      await syncPrimaryCollectionStop(booking, session, loadedHandover, true);
+      await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'loaded' });
       setCollectionPhotoFiles([]);
-      if (booking.status === 'ON_SITE_PICKUP') {
-        await driverPost('/mobile/jobs/' + encodeURIComponent(booking.id) + '/status', session.token, { nextStatus: 'loaded' });
-        setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'LOADED', backendStatus: 'loaded' } : row));
-        setBookingHistory(history => ({ ...history, [booking.id]: [...(history[booking.id] || []), { status: 'LOADED', at: new Date().toISOString() }] }));
-        setBookingScreen('status');
-        setLiveWarning('Collection handover and Loaded status saved to XDrive.');
-      } else {
-        setBookingScreen('status');
-        setLiveWarning('Collection handover saved to XDrive.');
-      }
-      try { await refreshLive(session.token); } catch { setLiveWarning('Collection saved successfully; booking synchronization is delayed. Retry when connected.'); }
+      setJobs(rows => rows.map(row => row.id === booking.id ? { ...row, status: 'LOADED', backendStatus: 'loaded' } : row));
+      setBookingScreen('status');
+      setLiveWarning('Collection handover, evidence and Loaded status saved to XDrive.');
+      try { await refreshLive(session.token); } catch { setLiveWarning('Loaded saved successfully; booking synchronization is delayed.'); }
     } catch (error) {
       setLiveError(error instanceof Error ? error.message : 'Could not save collection handover');
-    } finally { statusOperationRef.current = false; setStatusBusy(false); }
+    } finally {
+      statusOperationRef.current = false;
+      setStatusBusy(false);
+    }
   };
   const undoLiveStatus = async (booking: Load) => {
     if (!liveSession || statusBusy) return;
