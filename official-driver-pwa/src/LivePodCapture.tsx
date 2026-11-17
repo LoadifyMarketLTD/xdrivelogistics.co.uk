@@ -6,7 +6,7 @@ type Props = { jobId: string; reference: string; initialItems: number; alreadyDe
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 export default function LivePodCapture({ jobId, reference, initialItems, alreadyDelivered, initialRecipient = "", initialSignature = null, initialPhotoUris = [], initialDelivery, session, onSession, onCompleted }: Props) {
   const [recipient, setRecipient] = useState(initialRecipient);
-  const [details, setDetails] = useState<PodForm>(initialDelivery ?? { leftAt: 'Goods Inwards', condition: 'Good condition', items: initialItems, notes: '' });
+  const [details, setDetails] = useState<PodForm>(initialDelivery ?? { leftAt: 'Goods Inwards', condition: 'Good condition', items: initialItems, weightKg: null, deliveredOn: '', deliveredTime: '', notes: '' });
   const [signature, setSignature] = useState<File | null>(initialSignature);
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -16,6 +16,8 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
   const [hardCopyAcknowledged, setHardCopyAcknowledged] = useState(false);
   // Preserve successful uploads across retries in this mounted form.
   const uploaded = useRef(new Map<File, string>());
+  const addPodInput = useRef<HTMLInputElement>(null);
+  const addMoreInput = useRef<HTMLInputElement>(null);
   const onDetailsChange = useCallback((value: PodForm) => setDetails(value), []);
   const onSignatureSaved = useCallback((file: File) => setSignature(file), []);
   async function submit() {
@@ -27,6 +29,8 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
     const documents = files.filter(f => f.type === 'application/pdf');
     if (photos.length > 10 || documents.length > 10) { setError('Maximum 10 delivery photos and 10 documents per POD.'); return; }
     if (details.items < 1 || details.items > 100000 || !Number.isInteger(details.items)) { setError('Enter a valid delivered item count.'); return; }
+    if (details.weightKg !== null && (!Number.isFinite(details.weightKg) || details.weightKg < 0 || details.weightKg > 100000)) { setError('Enter a valid delivery weight.'); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(details.deliveredOn) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(details.deliveredTime)) { setError('Delivered On date and delivery time are required.'); return; }
     setBusy(true); setError('');
     try {
       const current = await renewSession(session); onSession(current);
@@ -49,7 +53,7 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
       const signatureData = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error('Could not read signature')); reader.readAsDataURL(signature); });
       // Delivery must be completed independently before POD can be submitted.
       if (!deliveredSaved) throw new Error('Complete Delivery must be saved before POD.');
-      await driverPost(`/mobile/jobs/${encodeURIComponent(jobId)}/pod`, current.token, { recipientName: recipient.trim(), leftAt: details.leftAt, itemCount: details.items, notes: [details.condition, details.notes].filter(Boolean).join(' | '), signatureData, photoUris, documentUris, hardCopyAcknowledged, deliveryStatus: details.condition === 'Refused' ? 'Refused' : details.condition === 'Shortage' ? 'Partial Delivery' : 'Completed Delivery' });
+      await driverPost(`/mobile/jobs/${encodeURIComponent(jobId)}/pod`, current.token, { recipientName: recipient.trim(), leftAt: details.leftAt, itemCount: details.items, weightKg: details.weightKg, deliveredOn: details.deliveredOn, deliveredTime: details.deliveredTime, notes: [details.condition, details.notes].filter(Boolean).join(' | '), signatureData, photoUris, documentUris, hardCopyAcknowledged, deliveryStatus: details.condition === 'Refused' ? 'Refused' : details.condition === 'Shortage' ? 'Partial Delivery' : 'Completed Delivery' });
       setDone(true);
       // POD signature and evidence are now authoritative in the backend.
       await onCompleted(current.token);
@@ -58,8 +62,15 @@ export default function LivePodCapture({ jobId, reference, initialItems, already
   }
   return <section className="settings evidence-panel" aria-label="Live delivery POD">
     <PodDetails jobId={jobId} reference={reference} initialItems={initialItems} initialDelivery={initialDelivery} recipient={recipient} onRecipient={setRecipient} onChange={onDetailsChange} onSignature={onSignatureSaved} initialSignatureSaved={!!initialSignature} />
-    <label>Delivery photos / documents<input type="file" multiple accept="image/jpeg,image/png,application/pdf" onChange={event => setFiles(Array.from(event.target.files || []))} /></label>
-    {files.length > 0 && <p>{files.map(file => file.name).join(', ')}</p>}
+    <div className="stop-execution__attachments">
+      <strong>Attach files</strong>
+      {files.map((file,index)=><div key={file.name+index}><span>{file.name}</span><button type="button" onClick={()=>setFiles(current=>current.filter((_,i)=>i!==index))}>Remove</button></div>)}
+      <input ref={addPodInput} hidden type="file" accept="image/jpeg,image/png,application/pdf" onChange={event=>{const next=Array.from(event.currentTarget.files||[]);setFiles(current=>[...current,...next].slice(0,20));event.currentTarget.value=''}}/>
+      <input ref={addMoreInput} hidden multiple type="file" accept="image/jpeg,image/png,application/pdf" onChange={event=>{const next=Array.from(event.currentTarget.files||[]);setFiles(current=>[...current,...next].slice(0,20));event.currentTarget.value=''}}/>
+      <button type="button" className="booking-yellow" onClick={()=>addPodInput.current?.click()}>Add POD</button>
+      <button type="button" className="booking-yellow" onClick={()=>addMoreInput.current?.click()}>Add More</button>
+      <small>JPG, PNG or PDF. Maximum 10 MB per file.</small>
+    </div>
     <label><input type="checkbox" checked={hardCopyAcknowledged} onChange={event => setHardCopyAcknowledged(event.target.checked)} /> Hard-copy POD requirement acknowledged (if required by the job)</label>
     <button className="primary" type="button" disabled={busy || done} onClick={() => void submit()}>{busy ? 'Saving delivery evidence...' : done ? 'POD saved' : 'Save POD and complete delivery'}</button>
     {error && <p role="alert">{error}</p>}
