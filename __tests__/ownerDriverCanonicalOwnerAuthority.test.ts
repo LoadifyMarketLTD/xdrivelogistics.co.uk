@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const migrationPath = path.join(
   process.cwd(),
-  'supabase/migrations/20261021143000_enforce_owner_driver_canonical_owner_authority.sql',
+  'supabase/migrations/20261021142653_enforce_owner_driver_canonical_owner_authority.sql',
 );
 
 const sql = fs.readFileSync(migrationPath, 'utf8');

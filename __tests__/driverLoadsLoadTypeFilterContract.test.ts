@@ -6,9 +6,10 @@ const source = fs.readFileSync(path.join(process.cwd(), 'app/driver/loads/page.t
 describe('Driver Loads load type tabs', () => {
   it('makes the visible load-type tabs functional instead of decorative', () => {
     expect(source).toContain("type LoadTypeFilter = 'all' | 'on_demand' | 'regular_load' | 'daily_hire'");
-    expect(source).toContain("onClick={() => setLoadTypeFilter('on_demand')}");
-    expect(source).toContain("onClick={() => setLoadTypeFilter('regular_load')}");
-    expect(source).toContain("onClick={() => setLoadTypeFilter('daily_hire')}");
+    expect(source).toContain("selectLoadWindowTab(tab.id)");
+    expect(source).toContain("setLoadTypeFilter(next === 'on_demand' ? 'on_demand' : 'all')");
+    expect(source).toContain("(['regular_load','daily_hire'] as const).map(category=>");
+    expect(source).toContain('setLoadTypeFilter(category)');
     expect(source).toContain("loadTypeFilter !== 'all' && loadType(load) !== loadTypeFilter");
   });
 

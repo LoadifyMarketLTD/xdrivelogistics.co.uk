@@ -10,7 +10,7 @@ describe('driver diary refresh stability contract', () => {
     expect(page).toContain('const hasLoadedRef = useRef(false)');
     expect(page).toContain('if (hasLoadedRef.current) setRefreshing(true); else setLoading(true)');
     expect(page).toContain('loading && jobs.length === 0');
-    expect(page).toContain("{refreshing ? 'Refreshing...' : 'Refresh'}");
+    expect(page).toMatch(/\{refreshing\s*\?\s*'Refreshing\.\.\.'\s*:\s*'Refresh'\}/);
   });
 
   it('does not clear previously loaded rows when a background refresh fails', () => {
