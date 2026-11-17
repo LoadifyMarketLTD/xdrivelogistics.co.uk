@@ -304,6 +304,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const documents = Array.isArray(job.pod_photos) ? job.pod_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
       parsedHandover.photoPaths = photos;
       parsedHandover.documentPaths = documents;
+      parsedHandover.canonicalPodReference = { jobId, stopId, signatureSource: 'jobs.delivery_signature_data', photoSource: 'jobs.delivery_photos', documentSource: 'jobs.pod_photos' };
     } else {
       if (!(await verifyStopEvidence(parsedHandover.photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) {
         return respond(400, { error: 'Stop photo evidence could not be verified.' });
