@@ -119,6 +119,18 @@ function validateBoundaryStop(nextStatus: string, stops: Array<{id:string;sequen
   if (!stops.length) return { ok: true as const };
   const first = stops[0];
   const last = stops[stops.length - 1];
+  const lastHandover = last.handover && typeof last.handover === 'object' && !Array.isArray(last.handover)
+    ? last.handover as Record<string, unknown>
+    : {};
+  if (['on_my_way','on_site_pickup','loaded'].includes(nextStatus) && ['cancelled','skipped'].includes(first.status)) {
+    return { ok: false as const, error: first.status === 'cancelled'
+      ? 'The collection stop was cancelled on instruction. This booking cannot continue as a normal collection.'
+      : 'A legacy skipped collection stop requires review before this booking can continue.' };
+  }
+  if (['in_transit','on_site_delivery','delivered'].includes(nextStatus) &&
+      (lastHandover.stopKind === 'return' || lastHandover.stopKind === 'redirect')) {
+    return { ok: false as const, error: 'Resolve the active return or redirected stop instead of advancing the normal final-delivery lifecycle.' };
+  }
   if (nextStatus === 'on_site_pickup' && first.stop_type === 'collection' && !['en_route','arrived'].includes(first.status)) {
     return { ok: false as const, error: 'On My Way to Pickup must be recorded before On Site Pickup.' };
   }
