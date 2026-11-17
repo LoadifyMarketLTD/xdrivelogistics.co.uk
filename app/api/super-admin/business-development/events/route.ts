@@ -1,64 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { hasSuperAdminBearerAuthorization, verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
-
-import { crmIsolatedWriteEnabled } from '../_lib/server';
+import { NextRequest } from 'next/server';
+import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { authorizeCrm, crmResponse, crmUuid } from '../_lib/server';
 
 export const dynamic = 'force-dynamic';
-const respond = (status: number, payload: Record<string, unknown>) =>
-  NextResponse.json(payload, { status, headers: { 'Cache-Control': 'no-store' } });
-const uuid = (v: unknown) => typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-const channels = new Set(['email','phone','other']);
 
-async function authorize(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return { error: respond(503, { error: 'CRM storage unavailable.' }) };
-  if (!hasSuperAdminBearerAuthorization(request)) return { error: respond(401, { error: 'Authentication required.' }) };
-  if (request.method !== 'GET' && !crmIsolatedWriteEnabled()) return { error: respond(403, { error: 'CRM writes require isolated staging.' }) };
-  const owner = await verifyPlatformOwner(request);
-  if (!owner) return { error: respond(403, { error: 'Active Platform Owner required or preview write disabled.' }) };
-  return { owner };
-}
-
+// Read-only CRM activity history. The atomic follow-up workflow owns all
+// activity insertion and status transitions so parallel editors cannot disagree.
 export async function GET(request: NextRequest) {
-  const auth = await authorize(request);
+  const auth = await authorizeCrm(request);
   if (auth.error) return auth.error;
   const organisationId = request.nextUrl.searchParams.get('organisation_id');
-  if (!uuid(organisationId)) return respond(400, { error: 'Valid organisation_id required.' });
+  if (!crmUuid(organisationId))
+    return crmResponse(400, { error: 'Valid organisation ID required.' });
   const { data, error } = await supabaseAdmin!.from('crm_prospect_events')
     .select('id,organisation_id,contact_id,channel,event_type,occurred_at,note')
-    .eq('organisation_id', organisationId).order('occurred_at', { ascending: false }).limit(100);
-  if (error) return respond(503, { error: 'CRM activity unavailable.' });
-  return respond(200, { events: data ?? [] });
-}
-
-export async function POST(request: NextRequest) {
-  const auth = await authorize(request);
-  if (auth.error) return auth.error;
-  let body: Record<string, unknown>;
-  try {
-    const value: unknown = await request.json();
-    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid');
-    body = value as Record<string, unknown>;
-  } catch { return respond(400, { error: 'Invalid JSON object.' }); }
-  const eventType = String(body.event_type ?? '');
-  const channel = String(body.channel ?? 'other');
-  const note = typeof body.note === 'string' ? body.note.trim() : '';
-  // A stand-alone event may only be a note. All stage-changing activities
-  // must use the atomic follow-up RPC, so stage and history cannot diverge.
-  if (!uuid(body.organisation_id) || eventType !== 'note' || !channels.has(channel) ||
-      (body.contact_id != null && !uuid(body.contact_id)) || note.length < 10 || note.length > 2000)
-    return respond(400, { error: 'Invalid activity fields.' });
-  if (body.contact_id) {
-    const { data: contact, error: contactError } = await supabaseAdmin!.from('crm_prospect_contacts')
-      .select('id').eq('id', body.contact_id).eq('organisation_id', body.organisation_id).maybeSingle();
-    if (contactError) return respond(503, { error: 'Contact relationship unavailable.' });
-    if (!contact) return respond(400, { error: 'Contact does not belong to organisation.' });
-  }
-  // Record historical facts only. No email, phone call or campaign is initiated.
-  const { data, error } = await supabaseAdmin!.from('crm_prospect_events').insert({
-    organisation_id: body.organisation_id, contact_id: body.contact_id ?? null,
-    channel, event_type: eventType, note: note || null, actor_user_id: auth.owner!.id,
-  }).select('id,organisation_id,event_type,occurred_at').single();
-  if (error) return respond(503, { error: 'CRM activity could not be saved.' });
-  return respond(201, { event: data });
+    .eq('organisation_id', organisationId)
+    .order('occurred_at', { ascending: false }).limit(100);
+  if (error) return crmResponse(503, { error: 'CRM activity unavailable.' });
+  return crmResponse(200, { events: data ?? [], read_only: true });
 }

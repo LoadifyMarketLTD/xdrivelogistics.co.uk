@@ -22,9 +22,9 @@
 ## Source intake scope — six categories
 - Companies House: official API search and lookup, manual verification before CRM record creation.
 - Public company websites: provenance-based **manual** entry; no unauthorized scraping.
-- Existing XDrive customers: registered-member read-only directory adapter; every commercial relationship requires separate proof, and no tenant contacts are copied.
+- Existing XDrive customers: canonical `/super-admin/members-directory` and `/super-admin/companies` remain the only directory screens; CRM uses a verified source UUID and staging-only source capture. Registration alone is not a customer relationship.
 - Partner referrals: manual referral evidence; referral alone does not authorize marketing.
-- Inbound enquiries: read-only XDrive public quote-request adapter from the existing `quotes` source, with source ID/provenance; no contact importing or marketing consent inferred.
+- Inbound enquiries: canonical `/super-admin/xdrive-logistics` retains service-request/quote-to-job operations; CRM accepts the verified quote UUID as provenance only, never as automatic marketing consent.
 - Owner CSV research: strict preview and staging import only.
 
 These are owner-controlled intake channels, **not six validated autonomous acquisition integrations**. No real target list of 100, contacts or conversions has been imported.
@@ -59,7 +59,7 @@ The following implementation was added **after** the previously recorded 37 unit
    `20261117072000_crm_prospect_followup_workflow.sql`.
 2. **No fake response statuses:** direct edits only cover initial research stages;
    qualification/reply/onboarding/disqualification require evidenced atomic action.
-   Stand-alone activity recording accepts internal notes only.
+   The parallel stand-alone activity POST editor was removed; CRM event history is read-only and the evidenced atomic follow-up route owns new activity.
 3. **Campaign audience review:** new read-only API, privacy/suppression and legal
    flag screening for a bounded, explicitly incomplete candidate sample; no
    recipient export and no dispatch. CRM UI presents counts and denial reasons.
@@ -76,13 +76,58 @@ The following implementation was added **after** the previously recorded 37 unit
 7. **UK B2B compliance workbook:** `docs/legal/XDRIVE_CRM_B2B_LEGAL_REVIEW_WORKBOOK.md`
    contains LIA, source transparency and outbound approval templates; no legal
    signoff or automatic permission to contact anyone.
-8. **Read-only XDrive job evidence:** new owner-only `commercial-evidence` API and CRM section locate records belonging to an independently linked active member using confirmed company registration, without importing tenant details or treating platform/test job rows as real booked or delivered freight. Verified real job, booking and revenue metrics remain null pending independent proof.
+8. **Canonical job and finance evidence:** removed redundant `commercial-evidence` API and CRM job table. CRM now links to the existing `/super-admin/operations/jobs`, `/super-admin/operations/pods` and `/super-admin/finance/revenue` screens. Test job records are never automatically reported as real commercial revenue.
 
 Scoped TypeScript noEmit and ESLint passed for these source changes, but the
 **fourth SQL migration, new API integrations and authenticated end-to-end
 workflows have not been run against hosted staging**. Full E2E acceptance remains
 deferred until owner-requested implementation completion. Neither Production
 nor `main` was changed.
+
+## Canonical Super Admin deduplication — 2026-11-17
+
+Owner requested an explicit duplicate-screen audit against current main before
+further implementation. Existing Super Admin modules were verified in current
+GitHub main and in the checked-out source:
+
+- Public XDrive enquiries and pricing/accepted-quote-to-job: `/super-admin/xdrive-logistics`.
+- Existing XDrive registered member directory: `/super-admin/members-directory`.
+- Company governance: `/super-admin/companies`.
+- Onboarding decisions: existing `/api/super-admin/onboarding`.
+- Canonical platform jobs, POD and Finance: `/super-admin/operations/jobs`,
+  `/super-admin/operations/pods`, `/super-admin/finance/revenue`.
+- Control-plane analytics and notifications already have their own modules.
+
+Actions in this PR:
+- Removed redundant CRM public enquiry/member/job list UI and the three
+  corresponding read-only API endpoints `inbound-enquiries`, `existing-members`
+  and `commercial-evidence`; their platform source data remains untouched.
+- CRM now links to canonical Super Admin pages, with separately verified
+  stage-only source UUID capture for business provenance, not personal data.
+- Removed the extra Command Centre quick-action link introduced by this PR;
+  existing approved Super Admin page stays byte-equivalent to current main.
+  CRM remains accessible by direct owner-only route during DRAFT development.
+- Removed duplicate independent CRM activity editor; retained read-only
+  activity history and owner-only atomic action/follow-up workflow.
+- Generic prospect CRUD must not masquerade as an independently verified
+  inbound enquiry or registered customer; such source types require canonical
+  source-capture verification. Preserve verified source evidence on edits.
+- Keep truly distinct prospect records, lawful-basis/suppression compliance,
+  B2B research, pipeline actions and draft-only campaign review in the CRM.
+
+Additional PR checks:
+- [PR #431](https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/pull/431):
+  legacy Super Admin visual rebuild, CLOSED/NOT MERGED, marked SUPERSEDED;
+  its 138-file historical diff must not be cherry-picked wholesale.
+- [PR #689](https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk/pull/689):
+  canonical Super Admin authorization/touch-accessibility remediation, MERGED.
+  Reuse existing `verifyPlatformOwner` guards and enterprise primitives.
+- Other PRs sampled around #815–#829 primarily concern Driver/POD/Finance,
+  not a replacement Super Admin CRM. This does not prove no other historical
+  branch or PR exists; do not make assumptions about unknown agent work.
+
+Do not merge or deploy. This audit compared repository code and PR metadata,
+not a complete authenticated production-browser visual inspection.
 
 ## Remaining gates before claiming production readiness
 - Full XDrive historical-schema replay (local fixtures covered CRM migration contracts only), hosted **isolated staging** verification, security advisors and actual authenticated REST/RLS checks. Local SQL RLS/trigger/erasure contracts and TypeScript/lint pass.

@@ -54,9 +54,6 @@ export default function BusinessDevelopmentPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [detailVersion, setDetailVersion] = useState(0);
-  const [eventType, setEventType] = useState('note');
-  const [eventNote, setEventNote] = useState('');
-  const [savingEvent, setSavingEvent] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [suppressions, setSuppressions] = useState<Suppression[]>([]);
@@ -193,27 +190,6 @@ export default function BusinessDevelopmentPage() {
     } finally { setSavingStatus(false); }
   };
 
-  const saveActivity = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selected || savingEvent || previewReadOnly) return;
-    setSavingEvent(true); setDetailError(null);
-    try {
-      const auth = await getAuthHeader();
-      if (!auth) throw new Error('Platform Owner session required.');
-      const response = await fetch('/api/super-admin/business-development/events', {
-        method: 'POST',
-        headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organisation_id: selected.id, event_type: eventType, channel: 'other', note: eventNote }),
-      });
-      const body = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(body.error ?? 'Unable to record activity.');
-      setEventNote('');
-      setDetailVersion(version => version + 1);
-    } catch (e) {
-      setDetailError(e instanceof Error ? e.message : 'Unable to record activity.');
-    } finally { setSavingEvent(false); }
-  };
-
   const create = async (event: FormEvent) => {
     event.preventDefault();
     if (busy || previewReadOnly) return;
@@ -254,9 +230,7 @@ export default function BusinessDevelopmentPage() {
             <label>Provenance type <select value={form.source_type} onChange={e => setForm({ ...form, source_type: e.target.value })}>
               <option value="company_website">Verified website</option>
               <option value="companies_house">Companies House</option>
-              <option value="existing_customer">Existing customer</option>
               <option value="partner_referral">Partner referral</option>
-              <option value="inbound_enquiry">Inbound enquiry</option>
               <option value="owner_csv">Owner-reviewed CSV</option>
             </select></label>
             <label>Source reference / relationship evidence <input maxLength={500} value={form.source_reference} onChange={e => setForm({ ...form, source_reference: e.target.value })} /></label>
@@ -323,15 +297,8 @@ export default function BusinessDevelopmentPage() {
           {contacts.length ? <ul>{contacts.map(contact => <li key={contact.id}>
             {contact.person_name ?? 'General business contact'} — {contact.business_email ?? contact.business_phone ?? 'No contact details'}
           </li>)}</ul> : <p>No contacts recorded or details not loaded.</p>}
-          <h3>Record activity</h3>
-          <form onSubmit={(event) => void saveActivity(event)} style={{ display: 'grid', gap: 12, maxWidth: 700 }}>
-            <label>Activity type <select value={eventType} onChange={event => setEventType(event.target.value)}>
-              <option value="note">Internal note (does not change pipeline stage)</option>
-            </select></label>
-            <label>Internal note <textarea maxLength={2000} value={eventNote} onChange={event => setEventNote(event.target.value)} /></label>
-            <button type="submit" disabled={savingEvent || previewReadOnly}>{savingEvent ? 'Saving…' : 'Record activity'}</button>
-          </form>
           <h3>Activity history ({activities.length})</h3>
+          <p>Record a documented commercial action in the CRM Follow-up work queue. This history is read-only.</p>
           {activities.length ? <ul>{activities.map(activity => <li key={activity.id}>
             {new Date(activity.occurred_at).toLocaleString('en-GB')} — {activity.event_type}
             {activity.note ? ': ' + activity.note : ''}

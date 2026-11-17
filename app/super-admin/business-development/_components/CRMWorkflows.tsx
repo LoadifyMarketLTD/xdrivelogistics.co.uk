@@ -27,8 +27,6 @@ type CompanyMatch = {
   company_name:string|null;company_number:string;
   company_status:string|null;company_type?:string|null;source_url:string;
 };
-type Inbound = {id:string;submitted_name:string|null;status:string;created_at:string;source_url:string;source_reference:string};
-type RegisteredMember = {id:string;name:string|null;company_number:string|null;status:string;source_reference:string};
 type SourceCandidate = {
   source_type:'existing_customer'|'inbound_enquiry';source_id:string;legal_name:string;
   company_number:string;website:string;verified_source_url:string;
@@ -37,11 +35,6 @@ type SourceCandidate = {
 type Campaign = {
   id: string; name: string; segment: string; channel: string; subject: string | null;
   body: string; status: string; approval_evidence: string | null;
-};
-type CommercialEvidence = {
-  linked_member:boolean;member_id?:string;total_job_records:number;page?:number;
-  verified_real_jobs:null;verified_bookings:null;
-  job_records:{id:string;recorded_status:string|null;created_at:string;verified_real_world:false}[];
 };
 type CampaignAudience = {
   scanned_organisations:number;scanned_contacts:number;
@@ -121,12 +114,9 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
   const [researchCandidates,setResearchCandidates]=useState<ResearchCandidate[]>([]);
   const [researchHits,setResearchHits]=useState(0);
   const [companyMatches,setCompanyMatches]=useState<CompanyMatch[]>([]);
-  const [inbounds,setInbounds]=useState<Inbound[]>([]);
-  const [registeredMembers,setRegisteredMembers]=useState<RegisteredMember[]>([]);
   const [sourceCandidate,setSourceCandidate]=useState<SourceCandidate|null>(null);
-  const [memberSearch,setMemberSearch]=useState('');
-  const [inboundPage,setInboundPage]=useState(1);
-  const [memberPage,setMemberPage]=useState(1);
+  const [canonicalSourceType,setCanonicalSourceType]=useState<SourceCandidate['source_type']>('inbound_enquiry');
+  const [canonicalSourceId,setCanonicalSourceId]=useState('');
   const [companyResult,setCompanyResult]=useState<null|{
     company_name:string;company_number:string;company_status:string;company_type?:string;source_url:string
   }>(null);
@@ -151,8 +141,6 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
   const [contactRetentionNote,setContactRetentionNote]=useState('');
   const [eligibility,setEligibility]=useState('');
   const [conversionCompanyId,setConversionCompanyId]=useState('');
-  const [commercialEvidence,setCommercialEvidence]=useState<CommercialEvidence|null>(null);
-  const [evidencePage,setEvidencePage]=useState(1);
   const [conversionEvidence,setConversionEvidence]=useState('');
   const [working,setWorking]=useState(false);
 
@@ -201,7 +189,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       owner_user_id:selected?.owner_user_id??'',note:'',
     });
     setContactId('');setManualContactId('');setContactForm(null);setEligibility('');
-    setCommercialEvidence(null);setEvidencePage(1);
+
     let active=true;
     if(selected)void crmApi<{contacts:Contact[]}>('/contacts?organisation_id='+encodeURIComponent(selected.id))
       .then(value=>{if(active)setContacts(value.contacts);})
@@ -235,17 +223,6 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       '/companies-house?q='+encodeURIComponent(companySearch.trim()));
     setCompanyMatches(result.companies);
     setNotice('Official registry search returned '+result.companies.length+' records. None have been imported.');
-  });
-  const loadInbounds=()=>run(async()=>{
-    const result=await crmApi<{enquiries:Inbound[]}>('/inbound-enquiries?page='+inboundPage);
-    setInbounds(result.enquiries);
-    setNotice('Read-only XDrive public intake records loaded. No contacts were imported.');
-  });
-  const loadMembers=()=>run(async()=>{
-    const result=await crmApi<{members:RegisteredMember[]}>(
-      '/existing-members?page='+memberPage+'&search='+encodeURIComponent(memberSearch));
-    setRegisteredMembers(result.members);
-    setNotice('Active platform companies shown; none are represented as paying customers without proof.');
   });
   const captureInternalSource=()=>run(async()=>{
     if(readOnly || !sourceCandidate)throw Error('Select and verify an internal source in isolated staging.');
@@ -369,13 +346,6 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
     setManualNextDate('');
     onUpdated({status:result.result.status,next_follow_up_at:result.result.next_follow_up_at});
     setNotice('Actual activity and follow-up recorded together; no outbound message was generated.');
-  });
-  const loadCommercialEvidence=(page:number)=>run(async()=>{
-    if(!selected)throw Error('Select a linked prospect.');
-    const result=await crmApi<CommercialEvidence>(
-      '/commercial-evidence?organisation_id='+encodeURIComponent(selected.id)+'&page='+page);
-    setCommercialEvidence(result);setEvidencePage(page);
-    setNotice('Linked platform job records reviewed, but no job or payment was classified as commercially real.');
   });
   const conversion=(event:FormEvent)=>{event.preventDefault();if(!selected || readOnly)return;void run(async()=>{
     const result=await crmApi<{organisation:Org}>('/onboarding-link','POST',{
@@ -548,62 +518,36 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
         or has given marketing permission. Never import personal details from the register by default.</p>
     </SuperAdminSectionCard>
 
-    <SuperAdminSectionCard title="Source 5 — existing XDrive public enquiries (read-only)">
-      <p>Published website quote requests are service enquiries, not permission for marketing. No personal contact details are copied to the CRM.</p>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-        <button type="button" disabled={working || inboundPage<=1} onClick={()=>setInboundPage(p=>p-1)}>Previous page</button>
-        <span>Page {inboundPage}</span>
-        <button type="button" disabled={working} onClick={()=>setInboundPage(p=>p+1)}>Next page</button>
-        <button type="button" disabled={working} onClick={()=>void loadInbounds()}>Load enquiry page</button>
+    <SuperAdminSectionCard title='Existing XDrive records — open canonical workspaces'>
+      <p>Enquiries, approved member details and job records belong in the existing
+        Super Admin modules. Inspect them there, then separately verify a commercial
+        source for the CRM. Do not count registrations or quotes as marketing permission.</p>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+        <a href='/super-admin/xdrive-logistics'>Public Enquiries / Business Operations</a>
+        <a href='/super-admin/members-directory'>Member Directory</a>
+        <a href='/super-admin/companies'>Company Governance</a>
+        <a href='/super-admin/search'>Global Platform Search</a>
       </div>
-      {inbounds.length===0?<p>No enquiry records loaded.</p>:
-        <div style={{overflowX:'auto'}}><table>
-          <thead><tr><th>Submitted name</th><th>Received</th><th>Service status</th><th>Evidence</th></tr></thead>
-          <tbody>{inbounds.map(item=><tr key={item.id}>
-            <td>{item.submitted_name}</td>
-            <td>{new Date(item.created_at).toLocaleDateString('en-GB')}</td>
-            <td>{item.status}</td>
-            <td><button type="button" onClick={()=>onPopulate({
-              source_type:'inbound_enquiry',source_reference:item.source_reference,source_url:item.source_url,
-            })}>Use as source only</button>
-              <button type="button" onClick={()=>setSourceCandidate({
-                source_type:'inbound_enquiry',source_id:item.id,legal_name:'',company_number:'',
-                website:'',verified_source_url:'',relationship_evidence:'',legal_form:'unknown',segment:'customer',
-              })}>Review and capture</button></td>
-          </tr>)}</tbody>
-        </table></div>}
-      <p>The owner must independently verify the organisation and marketing basis before saving a prospect or contact.</p>
+      <p>For a documented CRM connection, enter the UUID from the canonical record.
+        The backend rechecks that record in isolated staging before accepting anything.</p>
+      <div style={note}>
+        <label>Canonical source type
+          <select value={canonicalSourceType} onChange={e=>setCanonicalSourceType(e.target.value as SourceCandidate['source_type'])}>
+            <option value='inbound_enquiry'>Public XDrive enquiry</option>
+            <option value='existing_customer'>Existing active registered company</option>
+          </select>
+        </label>
+        <label>Verified source record UUID
+          <input maxLength={36} value={canonicalSourceId} onChange={e=>setCanonicalSourceId(e.target.value.trim())}/>
+        </label>
+        <button type='button' disabled={!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(canonicalSourceId)}
+          onClick={()=>setSourceCandidate({
+            source_type:canonicalSourceType,source_id:canonicalSourceId,
+            legal_name:'',company_number:'',website:'',verified_source_url:'',
+            relationship_evidence:'',legal_form:'unknown',segment:'customer',
+          })}>Verify source for CRM prospect capture</button>
+      </div>
     </SuperAdminSectionCard>
-
-    <SuperAdminSectionCard title="Source 3 — registered XDrive members for relationship verification">
-      <p>Company registration is not proof of a paying customer. This read-only directory never imports another tenant's contacts.</p>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-        <label>Search registered companies <input value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} maxLength={100}/></label>
-        <button type="button" disabled={working} onClick={()=>void loadMembers()}>Find registered companies</button>
-      </div>
-      <div style={{display:'flex',gap:8}}>
-        <button type="button" disabled={working || memberPage<=1} onClick={()=>setMemberPage(p=>p-1)}>Previous page</button>
-        <span>Page {memberPage}</span>
-        <button type="button" disabled={working} onClick={()=>setMemberPage(p=>p+1)}>Next page</button>
-      </div>
-      {registeredMembers.length>0 && <div style={{overflowX:'auto'}}><table>
-        <thead><tr><th>Registered company</th><th>Number</th><th>Status</th><th>Review</th></tr></thead>
-        <tbody>{registeredMembers.map(item=><tr key={item.id}>
-          <td>{item.name}</td><td>{item.company_number??'—'}</td><td>{item.status}</td>
-          <td><button type="button" onClick={()=>onPopulate({
-            legal_name:item.name??'',company_number:item.company_number??'',
-            source_reference:item.source_reference,
-          })}>Prefill identity only</button>
-            <button type="button" onClick={()=>setSourceCandidate({
-              source_type:'existing_customer',source_id:item.id,legal_name:item.name??'',
-              company_number:item.company_number??'',website:'',verified_source_url:'',
-              relationship_evidence:'',legal_form:'unknown',segment:'customer',
-            })}>Review relationship and capture</button></td>
-        </tr>)}</tbody>
-      </table></div>}
-      <p>To classify an existing customer, verify separate commercial evidence and choose the appropriate provenance type in the prospect form.</p>
-    </SuperAdminSectionCard>
-
     {sourceCandidate && <SuperAdminSectionCard title="Verify internal source before CRM capture">
       <p>Selected source: {sourceCandidate.source_type==='inbound_enquiry'?'XDrive public service enquiry':'Registered XDrive member'} — {sourceCandidate.source_id}.</p>
       <p>Neither an enquiry nor registration proves commercial consent or a completed booking.
@@ -674,7 +618,7 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
         <label>Website <input type="url" value={edit.website} onChange={e=>setEdit({...edit,website:e.target.value})}/></label>
         <label>Segment <select value={edit.segment} onChange={e=>setEdit({...edit,segment:e.target.value})}>{['customer','broker','forwarder','carrier','mixed'].map(x=><option key={x}>{x}</option>)}</select></label>
         <label>Legal form <select value={edit.legal_form} onChange={e=>setEdit({...edit,legal_form:e.target.value})}>{['ltd','llp','sole_trader','other','unknown'].map(x=><option key={x}>{x}</option>)}</select></label>
-        <label>Source channel <select value={edit.source_type} onChange={e=>setEdit({...edit,source_type:e.target.value})}>{sourceTypes.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Source channel <select value={edit.source_type} onChange={e=>setEdit({...edit,source_type:e.target.value})}>{sourceTypes.map(([value,label])=><option key={value} value={value} disabled={['existing_customer','inbound_enquiry'].includes(value) && value!==selected?.source_type}>{label}</option>)}</select></label>
         <label>Source reference ID / relationship evidence <input value={edit.source_reference} maxLength={500} onChange={e=>setEdit({...edit,source_reference:e.target.value})}/></label>
         <label>Verified source (HTTPS) <input required type="url" value={edit.source_url} onChange={e=>setEdit({...edit,source_url:e.target.value})}/></label>
         <label>Priority <select value={edit.priority} onChange={e=>setEdit({...edit,priority:e.target.value})}>{['low','normal','high'].map(x=><option key={x}>{x}</option>)}</select></label>
@@ -798,35 +742,15 @@ export default function CRMWorkflows({ selected, readOnly, onUpdated, onSelect, 
       <p>Company must exist and be active, with matching legal name or company number. No conversion from an unverified self-reported record.</p>
     </SuperAdminSectionCard>}
 
-    {selected?.status==='converted' && <SuperAdminSectionCard title="Linked member job records — evidence only">
-      <p>Review existing XDrive job records for the independently verified member.
-        A database job, especially a test job, is not proof of real transport,
-        paid booking or freight revenue.</p>
-      <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-        <button type="button" disabled={working} onClick={()=>void loadCommercialEvidence(1)}>
-          Inspect associated job records
-        </button>
-        {commercialEvidence?.linked_member && <>
-          <button type="button" disabled={working || evidencePage<=1}
-            onClick={()=>void loadCommercialEvidence(evidencePage-1)}>Previous job page</button>
-          <button type="button" disabled={working || evidencePage*25>=commercialEvidence.total_job_records}
-            onClick={()=>void loadCommercialEvidence(evidencePage+1)}>Next job page</button>
-        </>}
+    {selected?.status==='converted' && <SuperAdminSectionCard title='Commercial records — canonical workspaces'>
+      <p>Being an active member does not prove a real job, POD or paid booking.
+        Existing workspaces remain the source of truth; test records are never
+        automatically included in CRM revenue or conversion claims.</p>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
+        <a href='/super-admin/operations/jobs'>Open Jobs ledger</a>
+        <a href='/super-admin/operations/pods'>Open POD ledger</a>
+        <a href='/super-admin/finance/revenue'>Open Finance reporting</a>
       </div>
-      {commercialEvidence && <>
-        <p>{commercialEvidence.total_job_records} platform job records linked to the active member
-          (unverified as real-world work). Page {evidencePage}.</p>
-        <p>Verified commercial jobs: not established. Completed real bookings: not established.</p>
-        {commercialEvidence.job_records.length>0 &&
-          <div style={{overflowX:'auto'}}><table>
-            <thead><tr><th>Job record ID</th><th>Stored status</th><th>Created</th><th>Commercial proof</th></tr></thead>
-            <tbody>{commercialEvidence.job_records.map(job=><tr key={job.id}>
-              <td>{job.id}</td><td>{job.recorded_status??'Unknown'}</td>
-              <td>{new Date(job.created_at).toLocaleString('en-GB')}</td>
-              <td>Not verified; could be test data</td>
-            </tr>)}</tbody>
-          </table></div>}
-      </>}
     </SuperAdminSectionCard>}
   </>;
 }

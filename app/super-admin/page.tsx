@@ -377,7 +377,6 @@ function CommandCentre() {
           <Link href="/super-admin/compliance/documents">Document Review <span>→</span></Link>
           <Link href="/super-admin/finance/control">Trade Control <span>→</span></Link>
           <Link href="/super-admin/companies">Companies <span>→</span></Link>
-          <Link href="/super-admin/business-development">Business Development CRM <span>→</span></Link>
           <Link href="/super-admin/support/tickets">Support Tickets <span>→</span></Link>
           <Link href="/super-admin/health">Platform Health <span>→</span></Link>
           <Link href="/super-admin/settings/audit-logs">Audit Logs <span>→</span></Link>

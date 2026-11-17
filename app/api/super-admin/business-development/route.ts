@@ -90,6 +90,8 @@ export async function POST(request: NextRequest) {
   if (auth.error) return auth.error;
   const body=await parse(request);
   if (!body || !validateFields(body)) return crmResponse(400,{ error:'Invalid prospect fields or HTTPS provenance.' });
+  if (['existing_customer','inbound_enquiry'].includes(String(body.source_type)))
+    return crmResponse(409,{error:'Existing members and public enquiries must be verified through the canonical source-capture workflow.'});
   const record=companyPayload(body);
   const { data,error }=await supabaseAdmin!.from('crm_prospect_organisations').insert({
     ...record, source_checked_at:new Date().toISOString(), created_by:auth.owner!.id,
@@ -107,7 +109,7 @@ export async function PATCH(request: NextRequest) {
   const body=await parse(request);
   if (!body || !crmUuid(body.id)) return crmResponse(400,{ error:'Valid prospect ID required.' });
   const { data:current,error:readError }=await supabaseAdmin!.from('crm_prospect_organisations')
-    .select('id,status,owner_user_id').eq('id',body.id).maybeSingle();
+    .select('id,status,owner_user_id,source_type,source_reference,source_url,company_number').eq('id',body.id).maybeSingle();
   if (readError) return crmResponse(503,{ error:'Organisation unavailable.' });
   if (!current) return crmResponse(404,{ error:'Organisation not found.' });
   if (current.status==='converted') return crmResponse(409,{ error:'Converted organisations are immutable without verified onboarding reconciliation.' });
@@ -116,7 +118,17 @@ export async function PATCH(request: NextRequest) {
   const patch:Record<string,unknown>={ updated_at:new Date().toISOString(),last_actor_id:auth.owner!.id };
   if (body.action==='edit') {
     if (!validateFields(body)) return crmResponse(400,{ error:'Invalid edited prospect fields.' });
-    Object.assign(patch,companyPayload(body));
+    const edited = companyPayload(body);
+    if (['existing_customer','inbound_enquiry'].includes(String(edited.source_type)) &&
+        edited.source_type !== current.source_type)
+      return crmResponse(409,{error:'Canonical source classification requires verified internal record capture.'});
+    if (['existing_customer','inbound_enquiry'].includes(String(current.source_type)) &&
+        (edited.source_type!==current.source_type ||
+         edited.source_reference!==current.source_reference ||
+         edited.source_url!==current.source_url ||
+         edited.company_number!==current.company_number))
+      return crmResponse(409,{error:'Verified canonical provenance and legal identity must not change in generic CRM editing.'});
+    Object.assign(patch,edited);
     if (body.owner_user_id!=null && body.owner_user_id!=='') {
       if (!crmUuid(body.owner_user_id)) return crmResponse(400,{ error:'Valid CRM owner required.' });
       const {data:assigned,error:ownerError}=await supabaseAdmin!.from('profiles')
