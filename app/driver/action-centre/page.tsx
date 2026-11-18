@@ -7,6 +7,8 @@ import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import '../xdrive-owner-actions-messages.css';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type ActionCentreEvent = {
@@ -46,6 +48,7 @@ function formatDate(value: string) {
 
 export default function DriverActionCentrePage() {
   const { user } = useAuth();
+  const isOwnerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const [view, setView] = useState<ViewId>('all');
   const [dateRange, setDateRange] = useState<DateRange>('7d');
   const [rows, setRows] = useState<ActionCentreEvent[]>([]);
@@ -127,13 +130,14 @@ export default function DriverActionCentrePage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
+        hideHeader={isOwnerDriver}
         driverName="Action Centre"
         subtitle="Prioritised driver actions requiring review or acknowledgement."
-        headerActions={<ActionButton tone="primary" disabled={loading} onClick={() => void loadRows()}>Refresh</ActionButton>}
+        headerActions={isOwnerDriver ? undefined : <ActionButton tone="primary" disabled={loading} onClick={() => void loadRows()}>Refresh</ActionButton>}
       >
-        <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />
+        {!isOwnerDriver && <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />}
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-        <div className="driver-board-layout driver-action-centre-board">
+        <div className={isOwnerDriver ? "driver-board-layout driver-action-centre-board xd-owner-action" : "driver-board-layout driver-action-centre-board"}>
           {rail}
           <main className="driver-board-main">
             <div className="driver-tab-strip" role="tablist" aria-label="Action queue views">
@@ -155,9 +159,9 @@ export default function DriverActionCentrePage() {
                         <div className="driver-load-cell"><span className="driver-cell-label">Action</span><strong className="driver-cell-primary">{formatLabel(row.event_type)}</strong><span className="driver-cell-secondary">{formatLabel(row.entity_type)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Reference</span><strong className="driver-cell-primary">{row.event_id?.slice(0, 8).toUpperCase() ?? row.id.slice(0, 8).toUpperCase()}</strong><span className="driver-cell-secondary">{row.source === 'operational' ? 'Live operational action' : 'Workspace notification'}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Created</span><strong className="driver-cell-primary">{formatDate(row.created_at)}</strong><span className="driver-cell-secondary">Driver queue</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary">{formatLabel(row.status)}</strong><span className="driver-cell-secondary"><StatusBadge value={formatLabel(row.status)} tone={tone} /></span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Status</span>{isOwnerDriver ? <StatusBadge value={formatLabel(row.status)} tone={tone} /> : <><strong className="driver-cell-primary">{formatLabel(row.status)}</strong><span className="driver-cell-secondary"><StatusBadge value={formatLabel(row.status)} tone={tone} /></span></>}</div>
                       </div>
-                      <div className="driver-load-row__meta"><span>Action #{row.id.slice(0, 8).toUpperCase()}</span><StatusBadge value={formatLabel(row.status)} tone={tone} /><div className="driver-row-actions">{row.cta_href ? <ActionButton tone="secondary" onClick={() => { window.location.href = row.cta_href; }}>Open details</ActionButton> : null}</div></div>
+                      <div className="driver-load-row__meta"><span>{isOwnerDriver ? (row.source === 'operational' ? 'Operational action' : 'Notification') : 'Action #' + row.id.slice(0, 8).toUpperCase()}</span>{!isOwnerDriver && <StatusBadge value={formatLabel(row.status)} tone={tone} />}<div className="driver-row-actions">{row.cta_href ? <ActionButton tone="secondary" onClick={() => { window.location.href = row.cta_href; }}>Open details</ActionButton> : null}</div></div>
                     </article>
                   );
                 })}

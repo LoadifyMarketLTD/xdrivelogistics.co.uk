@@ -168,3 +168,18 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Read-only grouping for repeated generic load alerts. Original notifications remain individually actionable. */
+.driver-alert-group-toggle{display:block;margin-top:5px;padding:4px 7px;border:1px solid #c6d9ef;border-radius:5px;background:#eef6ff;color:#174b85;text-align:left;font-size:11px;font-weight:700;cursor:pointer}
+.driver-alert-group-toggle:focus-visible{outline:2px solid #1a69be;outline-offset:2px}
+
+/* Real driver Network & Tools navigation, distinct from the Directory module. */
+.driver-network-tools{display:grid;gap:10px;padding:7px 3px 22px}
+.driver-network-tools>h1{margin:0;font-size:21px;font-weight:800;color:#112d55}
+.driver-network-tools>p{margin:0 0 10px;font-size:12px;color:#62788f}
+.driver-network-tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.driver-network-tools-card{display:flex;flex-direction:column;min-height:160px;padding:17px;background:#fff;border:1px solid #d6e1ed;border-radius:10px;box-shadow:0 2px 8px rgba(8,40,78,.06)}
+.driver-network-tools-card h2{font-size:15px;font-weight:750;color:#153a69;margin:0 0 5px}
+.driver-network-tools-card p{flex:1;font-size:12px;line-height:1.5;color:#536d8a;margin:0 0 12px}
+.driver-network-tools-card a{display:inline-block;align-self:flex-start;padding:7px 10px;border:1px solid #2169ba;border-radius:5px;color:#1456a3;font-size:12px;font-weight:700;text-decoration:none}
+.driver-network-tools-card a:hover,.driver-network-tools-card a:focus-visible{background:#eaf4ff;outline:0}

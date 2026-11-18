@@ -1,6 +1,5 @@
 'use client';
 
-import WorkspaceRestrictionBanner from '../../../components/workspace/WorkspaceRestrictionBanner';
 import { WORKSPACE_READINESS_CHANGED } from '../../../../lib/workspaceReadiness';
 
 import { use, useCallback, useEffect, useState } from 'react';
@@ -8,11 +7,11 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
-import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
-import { ActionButton, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import { EmptyState } from '../../../components/workspace/WorkspaceUI';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../../_components/MarketplaceQuoteModal';
 
 type MarketplaceLoad = {
+  route_stops?: {sequence:number;stop_type:string;area:string;window_start:string|null;window_end:string|null}[];
   id: string;
   company_id: string;
   status: string;
@@ -86,8 +85,6 @@ const formatDT = (value: string | null) =>
     ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     : 'TBC';
 
-const formatDate = (value: string | null) =>
-  value ? new Date(value).toLocaleDateString('en-GB', { dateStyle: 'medium' }) : 'Not supplied';
 
 function dimensions(load: MarketplaceLoad) {
   const values = [load.length_cm, load.width_cm, load.height_cm];
@@ -105,7 +102,6 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
   const [bidAmount, setBidAmount] = useState('');
   const [bidMessage, setBidMessage] = useState('');
   const [bidLoading, setBidLoading] = useState(false);
-  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
 
   const getAccessToken = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -175,7 +171,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       setSuccess('Quote submitted successfully. The posting member will review it.');
       setBidMessage('');
-      setQuoteModalOpen(false);
+      router.push('/driver/loads');
       await fetchLoad();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Your quote could not be submitted.');
@@ -184,60 +180,25 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  const hasProposedPrice = Boolean(load?.budget_amount != null && load.budget_amount > 0);
-
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <div className="driver-board-summary" style={{ justifyContent: 'space-between' }}><span><button type="button" onClick={() => router.back()} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700, padding: 0 }}>← Back to Loads</button></span><span>Pre-award marketplace view · exact execution details protected</span></div>
-          {error && <div role="alert" style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #fecaca', borderRadius: 4, background: '#fef2f2', color: '#b91c1c', fontSize: 12, fontWeight: 700 }}>{error}</div>}
-          {error && <WorkspaceRestrictionBanner operation="quote" inline />}
-          {success && <div style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #bbf7d0', borderRadius: 4, background: '#ecfdf3', color: '#166534', fontSize: 12, fontWeight: 700 }}>{success}</div>}
-
-          {loading ? <div className="driver-load-row"><EmptyState compact title="Loading marketplace load…" /></div> : load ? (
-            <article className="driver-load-row" data-state={load.myBid?.status ? 'quoted' : 'open'}>
-              <div className="driver-load-row__top">
-                <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{load.pickup_area}</strong><span className="driver-cell-secondary">Area only · {formatDT(load.pickup_datetime)}{load.pickup_time_slot ? ` · ${load.pickup_time_slot}` : ''}</span></div>
-                <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{load.delivery_area}</strong><span className="driver-cell-secondary">Area only · {formatDT(load.delivery_datetime)}{load.delivery_time_slot ? ` · ${load.delivery_time_slot}` : ''}</span></div>
-                <div className="driver-load-cell"><span className="driver-cell-label">Load</span><strong className="driver-cell-primary">{load.requested_vehicle_label ?? load.requested_vehicle_type?.replace(/_/g, ' ') ?? load.vehicle_type?.replace(/_/g, ' ') ?? 'Vehicle TBC'}</strong><span className="driver-cell-secondary">{load.requested_cargo_label ?? load.cargo_type?.replace(/_/g, ' ') ?? 'Freight'}{load.weight_kg != null ? ` · ${load.weight_kg} kg` : ''}{load.pallets != null ? ` · ${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : ''}</span></div>
-                <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{hasProposedPrice ? money(load.budget_amount, load.currency) : 'Quote required'}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink>{load.member.memberId ? ` · ${load.member.memberId}` : ''}</span></div>
-              </div>
-
-              <div className="driver-load-row__meta"><span>Load #{load.id.slice(0, 8).toUpperCase()}</span><span><strong>To Collection:</strong> {load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available'}</span><span><strong>Job Distance:</strong> {load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available'}</span><span>Posted {formatDT(load.exchange_posted_at)}</span>{load.member.postedBy && <span>Posted by {load.member.postedBy}</span>}{load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}{load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}{load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}</div>
-
-              <div className="driver-row-details" style={{ display: 'grid', gap: 8 }}>
-                <div className="driver-detail-grid">
-                  <div className="driver-detail-item"><span>Posting member</span><strong><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink></strong><small>{[load.member.memberType, load.member.memberId].filter(Boolean).join(' · ') || 'Member identity supplied'}</small></div>
-                  <div className="driver-detail-item"><span>Quote contact</span><strong>{load.member.phone ?? 'Business phone not supplied'}</strong><small>{load.member.postedBy ? `Posted by ${load.member.postedBy}` : 'Posted-by name not supplied'}</small></div>
-                  <div className="driver-detail-item"><span>Member since</span><strong>{formatDate(load.member.memberSince)}</strong></div>
-                  <div className="driver-detail-item"><span>To Collection</span><strong>{load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available'}</strong></div><div className="driver-detail-item"><span>Job Distance</span><strong>{load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available'}</strong></div>
-                  <div className="driver-detail-item"><span>Dimensions</span><strong>{dimensions(load)}</strong></div>
-                  <div className="driver-detail-item"><span>Cargo value</span><strong>{load.cargo_value_gbp != null ? money(load.cargo_value_gbp) : 'Not supplied'}</strong></div>
-                  <div className="driver-detail-item"><span>Stackable</span><strong>{load.pallet_stackable == null ? 'Not supplied' : load.pallet_stackable ? 'Yes' : 'No'}</strong></div>
-                  <div className="driver-detail-item"><span>Payment terms</span><strong>{load.payment_terms ?? 'Not supplied on this job'}</strong></div>
-                  <div className="driver-detail-item"><span>Digital POD</span><strong>Required for every job</strong><small>Hard-copy: {load.hard_copy_pod ?? 'No additional hard-copy requirement supplied'}</small></div>
-                </div>
-
-                {load.handling_requirements.length > 0 && <div style={{ padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Quote-safe requirements: </strong>{load.handling_requirements.join(' · ')}</div>}
-                {load.public_quote_notes && <div style={{ padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Public quote notes: </strong>{load.public_quote_notes}</div>}
-                <div style={{ padding: '8px 9px', border: '1px solid #bfdbfe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Execution privacy boundary:</strong> exact street addresses, collection/delivery contacts, customer reference, PO number, booking reference, access instructions and private execution notes are intentionally not delivered to this pre-award page. After an authorised award/allocation, use Won Work / Jobs / Diary for the full job sheet.</div>
-
-                {load.myBid ? <div style={{ padding: 8, border: '1px solid #bae6fd', borderRadius: 4, background: '#f0f9ff', color: '#0369a1', fontSize: 12 }}><strong>Quote already submitted</strong><div style={{ marginTop: 3 }}>Amount: {money(load.myBid.amount)} · Status: {load.myBid.status ?? 'submitted'}</div>{load.myBid.message && <div style={{ marginTop: 3 }}>Message: {load.myBid.message}</div>}</div> : (
-                  <div className="driver-inline-quote driver-inline-quote--marketplace">
-                    {hasProposedPrice ? <ActionButton tone="success" disabled={bidLoading} onClick={() => { setBidAmount(String(load.budget_amount ?? '')); setQuoteModalOpen(true); }}>{`Accept proposed price (${money(load.budget_amount, load.currency)})`}</ActionButton> : null}
-                    <ActionButton tone="primary" disabled={bidLoading} onClick={() => setQuoteModalOpen(true)}>Quote Now</ActionButton>
-                    <ActionButton tone="secondary" onClick={() => router.back()}>Cancel</ActionButton>
-                  </div>
-                )}
-              </div>
-            </article>
-          ) : null}
+        <div>
+          {loading && <EmptyState compact title="Loading marketplace load..." />}
+          {!load && !loading && <div role="alert">{error || 'Load unavailable'} <button onClick={() => router.push('/driver/loads')}>Back to Loads</button></div>}
+          {success && <p role="status">{success}</p>}
+          {load?.myBid && <div><p>Quote already submitted: {money(load.myBid.amount)} / {load.myBid.status ?? 'submitted'}</p><button onClick={() => router.push('/driver/loads')}>Back to Loads</button></div>}
           <MarketplaceQuoteModal
-            target={load && quoteModalOpen ? {
+            target={load ? {
               id: load.id,
+              reference: "XDL-" + load.id.slice(0,8).toUpperCase(),
+              distanceMiles: load.distance_miles, durationMinutes: load.distance_minutes,
+              stops: (load.route_stops ?? []).map((s,i,all)=>({label:s.stop_type==="collection"?"Collection":"Delivery",area:i===0?[load.pickup_area,load.pickup_postcode_area].filter(Boolean).join(", "):i===all.length-1?[load.delivery_area,load.delivery_postcode_area].filter(Boolean).join(", "):s.area,when:s.window_start?formatDT(s.window_start)+(s.window_end?" - "+formatDT(s.window_end):""):"Time not specified"})),
+              pallets: load.pallets, weight: load.weight_kg != null ? load.weight_kg+" kg" : null, dimensions: dimensions(load), cargo: load.requested_cargo_label ?? load.cargo_type,
+              service: ((load.route_stops?.length ?? 0)>2 ? ((load.route_stops ?? []).filter(s=>s.stop_type==="collection").length>1?"Multi-stop / ":"Multi-drop / "):"")+(load.service_mode?.replace(/_/g," ")??"On Demand"),
+              notes:load.public_quote_notes,paymentTerms:load.payment_terms,hardPod:load.hard_copy_pod,
               memberName: load.member.postedBy ?? load.member.name,
-              memberCode: load.member.memberId,
+              companyId: load.company_id, memberCode: load.member.memberId,
               pickup: `${load.pickup_area}${load.pickup_postcode_area ? `, ${load.pickup_postcode_area}` : ''}`,
               delivery: `${load.delivery_area}${load.delivery_postcode_area ? `, ${load.delivery_postcode_area}` : ''}`,
               pickupAt: load.pickup_datetime,
@@ -256,7 +217,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
             onSubmit={(payload) => void handleBidSubmit(payload)}
             onClose={() => {
               if (!bidLoading) {
-                setQuoteModalOpen(false);
+                router.push('/driver/loads');
                 setBidMessage('');
               }
             }}

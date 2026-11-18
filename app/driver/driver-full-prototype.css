@@ -2388,3 +2388,32 @@
     flex-wrap: wrap;
   }
 }
+
+/* Driver Loads: preserve approved board proportions, give result controls readable separation. */
+.driver-prototype-port .driver-loads-prototype .load-result-head{
+  height:auto!important;
+  min-height:42px!important;
+  flex-wrap:wrap!important;
+  column-gap:14px!important;
+  row-gap:6px!important;
+  padding:6px 9px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head>div:first-child{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:flex-start!important;
+  gap:3px!important;
+  min-width:190px;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head>div:first-child span{
+  display:block;
+  margin-top:1px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head .load-view-switch{
+  margin-left:0!important;
+  gap:6px!important;
+  flex-wrap:wrap!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head .load-view-switch button+button{
+  border-left:1px solid #cbd3dc!important;
+}

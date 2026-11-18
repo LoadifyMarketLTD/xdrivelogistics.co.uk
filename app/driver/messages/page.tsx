@@ -7,6 +7,9 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
+import { useAuth } from '../../components/AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import '../xdrive-owner-actions-messages.css';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type MessageDirection = 'inbound' | 'outbound';
@@ -50,6 +53,8 @@ function fmtDateTime(value: string | null) {
 
 export default function DriverMessagesPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isOwnerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const searchParams = useSearchParams();
   const targetConversation = searchParams.get('conversation');
   const targetBidId = searchParams.get('bidId');
@@ -157,21 +162,22 @@ export default function DriverMessagesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Participant messages are separate from operational notifications. Messages are immutable once sent; the current schema does not store read/unread state."
-        headerActions={<ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        hideHeader={isOwnerDriver}
+        subtitle={isOwnerDriver ? undefined : "Participant messages are separate from operational notifications. Messages are immutable once sent; the current schema does not store read/unread state."}
+        headerActions={isOwnerDriver ? undefined : <ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       >
-        <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />
+        {!isOwnerDriver && <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />}
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {sendError && <AlertBanner tone="danger">{sendError}</AlertBanner>}
         {contextPartial && <AlertBanner tone="warning">Some message context could not be enriched. Participant message history remains available without inferred context.</AlertBanner>}
         {contextTargetMissing && <AlertBanner tone="warning">No verified conversation exists for the requested job, quote or member context. XDrive will not create an arbitrary recipient thread.</AlertBanner>}
 
-        <div className="driver-board-layout driver-messages-board">
+        <div className={isOwnerDriver ? "driver-board-layout driver-messages-board xd-owner-messages" : "driver-board-layout driver-messages-board"}>
           <aside className="driver-filter-rail" aria-label="Message conversations">
             <div className="driver-filter-rail__header">Messages</div>
             <div className="driver-filter-rail__body">
               <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '16px' }}>
-                Existing participant conversations. New arbitrary recipients are not exposed by the verified messaging contract.
+                {isOwnerDriver ? 'Conversations connected to your transport jobs and quotes.' : 'Existing participant conversations. New arbitrary recipients are not exposed by the verified messaging contract.'}
               </div>
               {threads.map((thread) => (
                 <button
@@ -194,12 +200,12 @@ export default function DriverMessagesPage() {
           </aside>
 
           <main className="driver-board-main">
-            <div className="driver-tab-strip" role="tablist" aria-label="Messaging workspace">
+            {!isOwnerDriver && <div className="driver-tab-strip" role="tablist" aria-label="Messaging workspace">
               <button type="button" data-active="true">Conversations <span>{threads.length}</span></button>
-            </div>
+            </div>}
             <div className="driver-board-summary">
-              <span>{threads.length} conversation{threads.length === 1 ? '' : 's'} · no fabricated read-state</span>
-              <StatusBadge value="Participant scoped" tone="green" />
+              <span>{threads.length} conversation{threads.length === 1 ? '' : 's'}{isOwnerDriver ? '' : ' · no fabricated read-state'}</span>
+              <StatusBadge value={isOwnerDriver ? 'Verified participants' : 'Participant scoped'} tone="green" />
             </div>
 
             {loading ? (

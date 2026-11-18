@@ -24,6 +24,9 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
+import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
+import { Company3150LiveProvider } from '../try-xdrive-demo/components/Company3150LiveData';
+import OwnerDriver3150LiveDashboard from './_components/OwnerDriver3150LiveDashboard';
 
 type DriverProfile = {
   availability_status: string | null;
@@ -129,7 +132,7 @@ const vehicleLabel = (value: string | null | undefined) =>
 const money = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value || 0));
 
-export default function DriverDashboard() {
+function DriverDashboardContent() {
   const router = useRouter();
   const { user } = useAuth();
   const data = useCompanyWorkspaceData();
@@ -787,4 +790,12 @@ export default function DriverDashboard() {
       </DriverWorkspaceShell>
     </div>
   );
+}
+
+export default function DriverDashboard(){
+  const { user } = useAuth();
+  const workspace = resolveWorkspaceRole(user);
+  const role = workspace === 'owner_driver' ? 'Owner Driver' : 'Company Driver';
+  const view = <MasterWorkspace role={role} authenticated dashboard={role === 'Owner Driver' ? <OwnerDriver3150LiveDashboard/> : <DriverDashboardContent/>}/>;
+  return role === 'Owner Driver' ? <Company3150LiveProvider>{view}</Company3150LiveProvider> : view;
 }

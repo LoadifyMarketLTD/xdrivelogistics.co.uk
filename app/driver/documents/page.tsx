@@ -106,6 +106,8 @@ export default function DriverDocumentsPage() {
 
     const payload = await response.json().catch(() => ({})) as {
       documents?: DriverDoc[];
+      driverId?: string;
+      companyId?: string | null;
       error?: string;
     };
 
@@ -116,6 +118,8 @@ export default function DriverDocumentsPage() {
     }
 
     setLoadError('');
+    setDriverId(payload.driverId ?? null);
+    setCompanyId(payload.companyId ?? null);
     setDocs(payload.documents ?? []);
   };
 
@@ -127,20 +131,9 @@ export default function DriverDocumentsPage() {
 
     setLoading(true);
     setLoadError('');
-    const { data, error } = await supabase
-      .from('drivers')
-      .select('id, company_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (error || !data) {
-      setLoadError('Your driver profile could not be resolved for document management.');
-      setLoading(false);
-      return;
-    }
-
-    setDriverId(data.id as string);
-    setCompanyId((data as { id: string; company_id: string | null }).company_id);
+    // Resolve the authorized driver and company IDs via the same server endpoint
+    // that reads their documents. Client-side drivers RLS can differ from the
+    // server's validated driver context, and must not hide valid records.
     await loadDocs();
     setLoading(false);
   };
@@ -275,7 +268,7 @@ export default function DriverDocumentsPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Keep the three Driver compliance records current. Expired and replaced copies are removed automatically."
+        subtitle="Manage current Driver compliance documents and access retained upload history, including expired and replaced records."
         headerActions={<ActionButton tone="secondary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
       >
         <DriverIntegratedNav label="Fleet resources" items={[{ href: '/driver/drivers-vehicles', label: 'Drivers & Vehicles' }, { href: '/driver/documents', label: 'Documents' }]} />
@@ -364,6 +357,34 @@ export default function DriverDocumentsPage() {
             </div>
           )}
         </div>
+        {!loading && (
+          <section className="driver-compliance-register" aria-label="Uploaded document history">
+            <div className="driver-register-toolbar">
+              <div>
+                <strong>Uploaded document history</strong>
+                <span>{docs.length} stored record(s). Expired and replaced documents remain accessible.</span>
+              </div>
+            </div>
+            {docs.length === 0
+              ? <EmptyState compact title="No previously uploaded Driver documents found" />
+              : <div className="driver-register-table-wrap">
+                  <table className="driver-register-table">
+                    <thead><tr><th>Document</th><th>Uploaded</th><th>Expiry</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>{docs.map((document) => (
+                      <tr key={document.id}>
+                        <td><strong>{document.doc_type}</strong></td>
+                        <td>{fmtDate(document.created_at)}</td>
+                        <td>{fmtDate(document.expiry_date)}</td>
+                        <td><StatusBadge value={document.status} tone={STATUS_TONES[document.status]} /></td>
+                        <td>{document.file_path
+                          ? <ActionButton tone="secondary" onClick={() => void getSignedUrl(document.file_path as string, document.id)}>View</ActionButton>
+                          : 'File not available'}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>}
+          </section>
+        )}
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

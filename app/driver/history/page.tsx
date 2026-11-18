@@ -8,18 +8,18 @@ import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal'
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
-import { sendGeneratedInvoice } from '../../../lib/client/invoiceDelivery';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
+import { isDeliveredAwaitingPod } from '../../../lib/jobs/podCompletion';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
-import workspaceStyles from '../../components/workspace/WorkspaceUI.module.css';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import ApprovedDriverDiaryCard from './ApprovedDriverDiaryCard';
+import { Broker3150DiaryHeader, Broker3150DiaryTabs } from '../../components/workspace/Broker3150DiaryChrome';
 import { operationalLocationLabel } from '../../components/workspace/locationPresentation';
 import CxDiaryActions from '../../components/workspace/CxDiaryActions';
 
@@ -294,7 +294,9 @@ export default function JobHistoryPage() {
   const companyId = typeof user?.companyId === 'string' ? user.companyId.trim() : '';
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const canViewCompanyDiary = canGenerateInvoices && Boolean(companyId);
-  const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('company');
+  // Open the driver's own authenticated job history by default. Owners may
+  // explicitly switch to Company Diary without losing the wider scope.
+  const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('mine');
   const diaryScope: 'company' | 'mine' = canViewCompanyDiary ? selectedDiaryScope : 'mine';
   const feedbackReviewerCompanyId = canViewCompanyDiary && diaryScope === 'company' ? companyId : null;
   const historyFilters = useMemo(() => getCanonicalDiaryTabs(canViewCompanyDiary ? 'owner_driver' : 'driver'), [canViewCompanyDiary]);
@@ -316,6 +318,12 @@ export default function JobHistoryPage() {
   const [appliedSearch, setAppliedSearch] = useState<SearchFilters>(EMPTY_SEARCH);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [page, setPage] = useState(1);
+  const [selectedDiaryDate, setSelectedDiaryDate] = useState<string | null>(null);
+  const [pickupAreaFilter, setPickupAreaFilter] = useState('');
+  const [deliveryAreaFilter, setDeliveryAreaFilter] = useState('');
+  const [vehicleTypeFilter, setVehicleTypeFilter] = useState('');
+  const [diarySortBy, setDiarySortBy] = useState<'earliest'|'latest'>('earliest');
+  const [diaryViewMode, setDiaryViewMode] = useState<'list'|'calendar'>('list');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
@@ -487,8 +495,8 @@ export default function JobHistoryPage() {
         throw new Error(payload?.error ?? 'Invoice could not be created.');
       }
 
-      await sendGeneratedInvoice(payload.invoice.id, token);
-      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+      // Creating a Draft never sends email; the authorised user must review it first.
+      router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
     } catch (reason) {
       setDetailWarning(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
@@ -539,18 +547,32 @@ export default function JobHistoryPage() {
     if (!withinDateRange(refDate, appliedSearch.dateRange)) return false;
     if (!withinHours(job.pickup_datetime ?? job.collection_window_start, appliedSearch.pickupWithin)) return false;
     if (!withinHours(job.delivery_datetime ?? job.delivery_window_start, appliedSearch.deliveryWithin)) return false;
+    const pickupNeedle=pickupAreaFilter.trim().toLowerCase();
+    const deliveryNeedle=deliveryAreaFilter.trim().toLowerCase();
+    if(pickupNeedle && ![job.pickup_location,job.pickup_postcode].filter(Boolean).join(' ').toLowerCase().includes(pickupNeedle))return false;
+    if(deliveryNeedle && ![job.delivery_location,job.delivery_postcode].filter(Boolean).join(' ').toLowerCase().includes(deliveryNeedle))return false;
+    if(vehicleTypeFilter && job.vehicle_type!==vehicleTypeFilter)return false;
     if (appliedSearch.archive === 'active' && isClosedRecord(job)) return false;
     if (appliedSearch.archive === 'closed' && !isClosedRecord(job)) return false;
     const refNeedle = appliedSearch.loadRef.trim().toLowerCase(); const memberNeedle = appliedSearch.memberName.trim().toLowerCase();
     if (refNeedle && ![job.id, job.customer_reference, job.booking_reference].filter(Boolean).join(' ').toLowerCase().includes(refNeedle)) return false;
     if (memberNeedle && !(job.companies?.name ?? '').toLowerCase().includes(memberNeedle)) return false;
     return true;
-  }), [appliedSearch, jobs]);
-  const visibleFiltered = useMemo(() => searchedJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)), [feedbackReviewerCompanyId, reviewsByJob, searchedJobs, statusFilter]);
+  }), [appliedSearch, jobs, pickupAreaFilter, deliveryAreaFilter, vehicleTypeFilter]);
+  const visibleFiltered = useMemo(() => searchedJobs.filter((job) => {
+    if (!filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)) return false;
+    if (!selectedDiaryDate) return true;
+    const pickupDate = job.pickup_datetime?.slice(0, 10) ?? '';
+    const deliveryDate = job.delivery_datetime?.slice(0, 10) ?? '';
+    return pickupDate === selectedDiaryDate || deliveryDate === selectedDiaryDate;
+  }).sort((a,b)=>diarySortBy==='earliest'
+    ? String(a.pickup_datetime??a.created_at??'').localeCompare(String(b.pickup_datetime??b.created_at??''))
+    : String(b.pickup_datetime??b.created_at??'').localeCompare(String(a.pickup_datetime??a.created_at??''))),
+    [feedbackReviewerCompanyId, reviewsByJob, searchedJobs, statusFilter, selectedDiaryDate, diarySortBy]);
   const totalPages = Math.max(1, Math.ceil(visibleFiltered.length / itemsPerPage));
   const safePage = Math.min(page, totalPages);
   const visibleJobs = visibleFiltered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
-  useEffect(() => { setPage(1); }, [statusFilter, appliedSearch, itemsPerPage]);
+  useEffect(() => { setPage(1); }, [statusFilter, appliedSearch, itemsPerPage, selectedDiaryDate]);
   useEffect(() => { if (!historyFilters.some((item) => item.id === statusFilter)) setStatusFilter('all'); }, [historyFilters, statusFilter]);
 
   const allExpanded = visibleJobs.length > 0 && visibleJobs.every((job) => expandedIds.has(job.id));
@@ -567,14 +589,37 @@ export default function JobHistoryPage() {
     if (expanding) void prefetchOrderSheets(visibleJobs);
   };
 
+  const today = new Date().toDateString();
+  const totalToday = jobs.filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === today).length;
+  const completedToday = jobs.filter((job) => jobStage(job) === 'completed' && job.delivery_datetime && new Date(job.delivery_datetime).toDateString() === today).length;
+  const awaitingPod = jobs.filter(isDeliveredAwaitingPod).length;
+  const upcomingJobs = jobs.filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).getTime() >= Date.now() && new Date(job.pickup_datetime).getTime() <= Date.now() + 7 * 86400000).length;
+  const tabCount = (bucket: HistoryFilter) => jobs.filter((job) => filterMatches(job, bucket, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length;
+
+  const vehicleTypes=useMemo(()=>[...new Set(jobs.map(job=>job.vehicle_type).filter((v):v is string=>Boolean(v)))].sort(),[jobs]);
+  const clearBrokerDiaryFilters=()=>{
+    setSearch(EMPTY_SEARCH);setAppliedSearch(EMPTY_SEARCH);setSelectedDiaryDate(null);
+    setPickupAreaFilter('');setDeliveryAreaFilter('');setVehicleTypeFilter('');
+    setStatusFilter('all');setPage(1);
+  };
+
   const filterRail = (
-    <aside className="left driver-filter-rail diary-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
-      <div className="cx-diary-rail-nav">
-        <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Contacts</ActionButton>
-        <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Payment Report</ActionButton>
-      </div>
-      <div className="left-title">Search Panel</div>
-      <div className="diary-filter-body">
+    <aside className="xd-diary-filters left driver-filter-rail diary-filter-rail cx-diary-filter-rail xd3150-diary-rail workspace-filter-rail" aria-label="Diary search filters">
+      <div className="left-title workspace-filter-rail__header">Find Bookings</div>
+      <div className="diary-filter-body workspace-filter-rail__body">
+        <label>From (Town/Postcode)<input value={pickupAreaFilter} onChange={e=>setPickupAreaFilter(e.target.value)} placeholder="e.g. BB1 or Blackburn"/></label>
+        <label>To (Town/Postcode)<input value={deliveryAreaFilter} onChange={e=>setDeliveryAreaFilter(e.target.value)} placeholder="e.g. LS1 or Leeds"/></label>
+        <label>Driver<select value={diaryScope} disabled={!canViewCompanyDiary} onChange={e=>setSelectedDiaryScope(e.target.value as 'company'|'mine')}><option value="mine">My assigned jobs</option>{canViewCompanyDiary&&<option value="company">All company drivers</option>}</select></label>
+        <label>Vehicle<select value={vehicleTypeFilter} onChange={e=>setVehicleTypeFilter(e.target.value)}><option value="">Any Vehicle</option>{vehicleTypes.map(type=><option key={type} value={type}>{type.replaceAll('_',' ')}</option>)}</select></label>
+        <label>Status<select value={statusFilter} onChange={e=>setStatusFilter(e.target.value as HistoryFilter)}>{historyFilters.map(item=><option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+        <label>Date<input type="date" value={selectedDiaryDate??''} onChange={e=>setSelectedDiaryDate(e.target.value||null)}/></label>
+        <button type="button" className="xd3150-diary-clear" onClick={clearBrokerDiaryFilters}>Clear Filters</button>
+        <button type="button" className="xd3150-diary-search" onClick={()=>{setAppliedSearch(search);setPage(1)}}>Search Diary</button>
+        <details className="xd3150-diary-extra-filters"><summary>Additional search &amp; tools</summary><div className="xd3150-diary-extra-body">
+        <div className="cx-diary-rail-nav">
+          <ActionButton tone="secondary" onClick={()=>router.push('/driver/directory')}>Contacts</ActionButton>
+          <ActionButton tone="secondary" onClick={()=>router.push('/driver/finance')}>Payment Report</ActionButton>
+        </div>
         <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">Company Diary</option><option value="mine">My assigned jobs</option></select></div>
         <div className="filter"><span className="label">Date</span><select value={search.dateRange} onChange={(e) => setSearch((current) => ({ ...current, dateRange: e.target.value as DateRange }))}><option value="any">Anytime</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></div>
         <div className="filter"><span className="label">Pickup Time Within</span><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
@@ -582,7 +627,7 @@ export default function JobHistoryPage() {
         <div className="filter"><span className="label">Load ID / Ref</span><input value={search.loadRef} onChange={(e) => setSearch((current) => ({ ...current, loadRef: e.target.value }))} placeholder="Job, booking or ref" /></div>
         <div className="filter"><span className="label">Member Name / ID</span><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Company name" /></div>
         <div className="filter"><span className="label">Archived</span><select value={search.archive} onChange={(e) => setSearch((current) => ({ ...current, archive: e.target.value as ArchiveFilter }))}><option value="all">All records</option><option value="active">Active register</option><option value="closed">Closed records</option></select></div>
-        <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); }}>Clear</ActionButton></div>
+        </div></details>
       </div>
     </aside>
   );
@@ -592,7 +637,23 @@ export default function JobHistoryPage() {
       <DriverWorkspaceShell hideHeader>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
-        <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity">
+        <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity xd-diary-v2 xd3150-broker-diary" data-diary-source="broker-3150">
+          <Broker3150DiaryHeader date={selectedDiaryDate??''}
+            onDateChange={(value)=>setSelectedDiaryDate(value||null)}/>
+          <Broker3150DiaryTabs
+            tabs={historyFilters.map(item=>({...item,count:tabCount(item.id)}))}
+            selected={statusFilter} onSelect={setStatusFilter}
+            label="Driver Diary states"
+          />
+          <section className="xd-diary-kpis xd-approved-board-kpis" aria-label="Real booking statistics">
+            <div className="xd-diary-kpi xd-approved-board-kpi"><strong>Total Bookings</strong><b>{jobs.length}</b><small>All statuses</small></div>
+            <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Today's Bookings</strong><b>{totalToday}</b><small>Pickup scheduled today</small></div>
+            <div className="xd-diary-kpi xd-approved-board-kpi green"><strong>Completed Today</strong><b>{completedToday}</b><small>Confirmed deliveries</small></div>
+            <div className="xd-diary-kpi xd-approved-board-kpi amber"><strong>Awaiting POD</strong><b>{awaitingPod}</b><small>Real evidence required</small></div>
+            <div className="xd-diary-kpi xd-approved-board-kpi blue"><strong>Next 7 Days</strong><b>{upcomingJobs}</b><small>Scheduled collections</small></div>
+          </section>
+
+          <div className="xd-diary-layout">
           {filterRail}
           <main className="driver-board-main main diary-main">
             <div className="driver-diary-controlbar">
@@ -603,19 +664,24 @@ export default function JobHistoryPage() {
                   <ActionButton tone="secondary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>
                 </span>
               </div>
-              <div className={`diary-tabs workspace-tab-strip cx-diary-state-tabs ${workspaceStyles.jobsStatusTabs}`} role="tablist" aria-label="Diary states">
-                {historyFilters.map((item) => <button key={item.id} type="button" role="tab" className={`${workspaceStyles.jobsStatusTab} ${statusFilter === item.id ? workspaceStyles.jobsStatusTabActive : ''}`} aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label}</button>)}
+              <div className="xd-diary-results-head">
+                <h2>{selectedDiaryDate ? 'Selected Day Diary' : 'Diary Bookings'} <small>({visibleFiltered.length} bookings)</small></h2>
+                <div className="xd3150-diary-result-tools">
+                  <label>Sort by <select value={diarySortBy} onChange={e=>setDiarySortBy(e.target.value as 'earliest'|'latest')}><option value="earliest">Collection Time (Earliest)</option><option value="latest">Collection Time (Latest)</option></select></label>
+                  <button type="button" aria-label="List view" aria-pressed={diaryViewMode==='list'} onClick={()=>setDiaryViewMode('list')}>≡</button>
+                  <button type="button" aria-label="Calendar view" aria-pressed={diaryViewMode==='calendar'} onClick={()=>setDiaryViewMode('calendar')}>▦</button>
+                </div>
                 <span className="cx-diary-pagination">
-                  <label>Items per Page: <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                  <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
+                  <label>Items per Page: <select value={itemsPerPage} onChange={(event) => setItemsPerPage(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+                  <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1,current-1))} aria-label="Previous Diary page">&lsaquo;</button>
                   <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
-                  <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
+                  <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages,current+1))} aria-label="Next Diary page">&rsaquo;</button>
                 </span>
               </div>
             </div>
 
             {loading && jobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
-              <div className="diary-bookings">
+              <div className={diaryViewMode==='calendar'?'diary-bookings xd3150-diary-calendar-view':'diary-bookings'}>
                 {visibleJobs.map((job) => {
                   const expanded = expandedIds.has(job.id); const reviews = reviewsByJob[job.id] ?? [];
                   const documents = documentsByJob[job.id] ?? []; const trackingEvents = eventsByJob[job.id] ?? []; const detailTab = detailTabs[job.id] ?? 'order';
@@ -653,8 +719,9 @@ export default function JobHistoryPage() {
                   const memberLabel = job.companies?.name ?? 'Member not supplied';
 
                   return (
-                    <CxDiaryCard
+                    <ApprovedDriverDiaryCard
                       key={job.id}
+                      onDetails={() => { const willExpand = !expanded; setExpandedIds(previous => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}
                       from={formatExecutionAddress(job.pickup_location, job.pickup_postcode)}
                       to={formatExecutionAddress(job.delivery_location, job.delivery_postcode)}
                       pickup={pickupWhen}
@@ -669,7 +736,14 @@ export default function JobHistoryPage() {
                       expanded={expanded}
                       footerRole="toolbar"
                       footerAriaLabel={`Booking ${job.id} actions`}
-                      footer={<CxDiaryActions
+                      footer={<div className="xd3150-diary-card-actions">
+                        <button type="button" className="xd3150-diary-booking-action" onClick={()=>{
+                          const willExpand=!expanded;
+                          setExpandedIds(previous=>{const next=new Set(previous);if(next.has(job.id))next.delete(job.id);else next.add(job.id);return next;});
+                          if(willExpand&&isOwnAssignedJob)void fetchOrderSheet(job.id);
+                        }}>Booking Details</button>
+                        <details className="xd3150-diary-more-actions"><summary>More actions</summary>
+                        <CxDiaryActions
                         expanded={expanded}
                         onToggle={() => { const willExpand = !expanded; setExpandedIds(previous => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}
                         visibleTabs={isOwnAssignedJob ? DETAIL_TABS.filter(item => item.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices)).map(item => item.id) : []}
@@ -687,7 +761,7 @@ export default function JobHistoryPage() {
                         {canRequestCancellation ? <button type="button" data-operation="cancel" disabled={cancellingJobId === job.id} onClick={() => void requestDiaryCancellation(job)}>{cancellingJobId === job.id ? 'Sending…' : cancellationLabel}</button> : null}
                         {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open booking</button>}
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds(current => new Set(current).add(job.id))}>View feedback</button>}
-                      </CxDiaryActions>}
+                      </CxDiaryActions></details></div>}
                       expandedContent={<>
                       {expanded && !isOwnAssignedJob && (
                         <div className="driver-row-details driver-diary-details"><CompanyJobSheetPanel jobId={job.id} mode="carrier" /></div>
@@ -749,6 +823,7 @@ export default function JobHistoryPage() {
             )}
 
           </main>
+          </div>
         </div>
 
         {feedbackJobId && feedbackReviewerCompanyId ? (() => {
