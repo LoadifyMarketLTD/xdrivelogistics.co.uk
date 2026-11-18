@@ -52,6 +52,11 @@ BEGIN
     RAISE EXCEPTION 'Job not found.' USING ERRCODE = 'P0002';
   END IF;
 
+  -- Reject stale or mismatched carrier identities before either decision.
+  IF v_job.assigned_company_id IS DISTINCT FROM v_request.carrier_company_id THEN
+    RAISE EXCEPTION 'Cancellation request carrier does not match assigned job carrier.' USING ERRCODE = '42501';
+  END IF;
+
   SELECT cm.company_id
   INTO v_actor_company_id
   FROM public.company_memberships cm

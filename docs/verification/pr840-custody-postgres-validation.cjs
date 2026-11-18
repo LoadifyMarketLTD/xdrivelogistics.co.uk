@@ -40,6 +40,9 @@ await db.query(`UPDATE jobs SET status='allocated',current_status='allocated' WH
 await db.query(`INSERT INTO company_memberships(user_id,company_id,status,role_in_company) VALUES($1,$2,'active','owner')`,[ownerActor,owner]);
 await db.query(`INSERT INTO job_cancellation_requests(id,job_id,status,owner_company_id,carrier_company_id,requester_party) VALUES($1,$2,'pending',$3,$4,'carrier')`,[request,ids.job,owner,ids.company]);
 await db.query(`INSERT INTO loads(job_id,status) VALUES($1,'allocated')`,[ids.job]);
+const mismatchedRequest='00000000-0000-4000-8000-000000000013',mismatchedCarrier='00000000-0000-4000-8000-000000000014';
+await db.query(`INSERT INTO job_cancellation_requests(id,job_id,status,owner_company_id,carrier_company_id,requester_party) VALUES($1,$2,'pending',$3,$4,'carrier')`,[mismatchedRequest,ids.job,owner,mismatchedCarrier]);
+try{await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'approved','Mismatched carrier')`,[mismatchedRequest,ownerActor]);throw Error('mismatched carrier accepted')}catch(e){if(e.message==='mismatched carrier accepted')throw e;console.log('MISMATCHED_REQUEST_CARRIER_DENIED_OK')}
 const spoofRequest='00000000-0000-4000-8000-000000000011',foreignCompany='00000000-0000-4000-8000-000000000012';
 await db.query(`INSERT INTO job_cancellation_requests(id,job_id,status,owner_company_id,carrier_company_id,requester_party) VALUES($1,$2,'pending',$3,$4,'load_owner')`,[spoofRequest,ids.job,owner,ids.company]);
 await db.query(`UPDATE drivers SET company_id=$1 WHERE id=$2`,[foreignCompany,ids.driver]);
