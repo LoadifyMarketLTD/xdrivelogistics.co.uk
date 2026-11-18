@@ -25,8 +25,6 @@ import { readRouteAuthAccessToken } from '../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
-import { Company3150LiveProvider } from '../try-xdrive-demo/components/Company3150LiveData';
-import OwnerDriver3150LiveDashboard from './_components/OwnerDriver3150LiveDashboard';
 
 type DriverProfile = {
   availability_status: string | null;
@@ -637,7 +635,7 @@ function DriverDashboardContent() {
           <>
             {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
 
-            <div className="driver-owner-parity-grid xdrive-owner-dashboard-grid">
+            <div className="driver-owner-parity-grid xdrive-owner-dashboard-grid xd-owner-commercial-dashboard">
               <div className="xdrive-owner-dashboard-column">
                 <OperationalCard
                   title="Reports & Statistics"
@@ -795,7 +793,6 @@ function DriverDashboardContent() {
 export default function DriverDashboard(){
   const { user } = useAuth();
   const workspace = resolveWorkspaceRole(user);
-  const role = workspace === 'owner_driver' ? 'Owner Driver' : 'Company Driver';
-  const view = <MasterWorkspace role={role} authenticated dashboard={role === 'Owner Driver' ? <OwnerDriver3150LiveDashboard/> : <DriverDashboardContent/>}/>;
-  return role === 'Owner Driver' ? <Company3150LiveProvider>{view}</Company3150LiveProvider> : view;
+  if (workspace === 'owner_driver') return <DriverDashboardContent/>;
+  return <MasterWorkspace role="Company Driver" authenticated dashboard={<DriverDashboardContent/>}/>;
 }

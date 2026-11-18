@@ -27,6 +27,7 @@ import './driver-mobile-readability-blueprint.css';
 // Reuse the already approved 3118 Master card geometry in real Driver pages.
 import '../try-xdrive-demo/components/xdrive-unified-board.css';
 import './driver-approved-boards.css';
+import './driver-owner-pr807.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.

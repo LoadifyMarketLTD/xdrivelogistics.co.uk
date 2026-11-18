@@ -67,6 +67,7 @@ const cxWhen = (value?: string | null) => {
 
 export default function MarketplaceQuoteModal({
   target,
+  readOnlyBid,
   amount,
   message,
   working,
@@ -77,6 +78,7 @@ export default function MarketplaceQuoteModal({
   onClose,
 }: {
   target: QuoteTarget | null;
+  readOnlyBid?: { status: string | null; amount: number | null; message: string | null };
   amount: string;
   message: string;
   working: boolean;
@@ -134,6 +136,7 @@ export default function MarketplaceQuoteModal({
         hardPod: target.hardPod,
       }}
       working={working}
+      readOnlyContent={readOnlyBid ? <><h3>Your existing quote</h3><p>Status: {readOnlyBid.status ?? 'Unknown'}</p><p>Amount: {readOnlyBid.amount == null ? 'Not supplied' : new Intl.NumberFormat('en-GB', {style:'currency',currency:'GBP'}).format(readOnlyBid.amount)}</p>{readOnlyBid.message && <p>{readOnlyBid.message}</p>}<p>Use the available quote action on the load board to change your quotation.</p></> : undefined}
       errorContent={error ? (
         <div className="xdrive-quote-modal__error">
           <AlertBanner tone="danger">{error}</AlertBanner>

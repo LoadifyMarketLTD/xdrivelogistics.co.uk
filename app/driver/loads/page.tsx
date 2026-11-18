@@ -17,6 +17,7 @@ import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import {usePublicPickupRadius} from '../../try-xdrive-demo/components/usePublicPickupRadius';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxLoadCard from '../../components/workspace/OwnerPR807LoadCard';
+import { ActionButton, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -81,6 +82,7 @@ type MarketplaceLoad = {
   public_quote_notes: string | null;
   member: MarketplaceMember;
   myBid: {
+    id: string;
     status: BidStatus;
     amount: number | null;
     message: string | null;
@@ -181,6 +183,7 @@ function dimensions(load: MarketplaceLoad) {
 export default function AvailableLoadsPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const isOwnerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const [loads, setLoads] = useState<MarketplaceLoad[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -192,6 +195,10 @@ export default function AvailableLoadsPage() {
   const [bidAmount, setBidAmount] = useState('');
   const [bidMessage, setBidMessage] = useState('');
   const [bidLoading, setBidLoading] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<{ loadId: string; bidId: string } | null>(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const withdrawInFlight = useRef(false);
+  const mutationVersion = useRef(0);
   const [vehicleFilter, setVehicleFilter] = useState('any');
   const [pickupFilter, setPickupFilter] = useState('');
   const [pickupRadiusMiles, setPickupRadiusMiles] = useState('10');
@@ -219,6 +226,7 @@ export default function AvailableLoadsPage() {
     if (!isSupabaseConfigured) { setLoads([]); setLoading(false); setRefreshing(false); return; }
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
+    const versionAtStart = mutationVersion.current;
     if (background) setRefreshing(true); else setLoading(true);
     setError('');
     try {
@@ -227,7 +235,7 @@ export default function AvailableLoadsPage() {
       const response = await fetch('/api/driver/marketplace/loads', { headers: { Authorization: auth }, cache: 'no-store' });
       const payload = (await response.json().catch(() => ({}))) as { loads?: MarketplaceLoad[]; error?: string };
       if (!response.ok) throw new Error(payload.error || 'The live load board could not be loaded.');
-      setLoads(payload.loads ?? []);
+      if (versionAtStart === mutationVersion.current) setLoads(payload.loads ?? []);
     } catch (reason) {
       if (!background) setLoads([]);
       setError(reason instanceof Error ? reason.message : 'The live load board could not be loaded. Please refresh and try again.');
@@ -340,8 +348,18 @@ export default function AvailableLoadsPage() {
     return () => window.removeEventListener('xdrive:loads-reselect', resetLoads);
   }, []);
 
+  const openMarketplaceQuote = (loadId: string) => {
+    const target = loads.find(load => load.id === loadId);
+    if (!target || bidLoading || withdrawing) return;
+    setExpandedLoadId(loadId); setBidLoadId(loadId);
+    setBidAmount(target.budget_amount != null && target.budget_amount > 0 ? String(target.budget_amount) : '');
+    setBidMessage(''); setError('');
+  };
+  const selectedQuoteLoad = loads.find(load => load.id === bidLoadId);
+  const quoteReadOnly = Boolean(isOwnerDriver && selectedQuoteLoad?.myBid?.status && selectedQuoteLoad.myBid.status !== 'withdrawn');
+
   const handleBidSubmit = async (loadId: string, quote: MarketplaceQuoteSubmitPayload) => {
-    if (bidLoading) return;
+    if (bidLoading || quoteReadOnly || withdrawing) return;
     const amount = quote.totalAmount;
     if (!Number.isFinite(amount) || amount <= 0) { setError('Enter a valid quote amount greater than £0.'); return; }
     setBidLoading(true); setError('');
@@ -359,8 +377,11 @@ export default function AvailableLoadsPage() {
           message: quote.message,
         }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[]; success?: boolean; bidId?: string };
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
+      if (payload.success !== true || !payload.bidId) throw Error('Quote result could not be verified. Refresh before trying again.');
+      mutationVersion.current++;
+      setLoads(current => current.map(load => load.id === loadId ? {...load, myBid: {id: payload.bidId!, status: 'submitted', amount, message: quote.message}} : load));
       setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
       await fetchLoads({ background: true });
     } catch (reason) {
@@ -368,6 +389,24 @@ export default function AvailableLoadsPage() {
     } finally {
       setBidLoading(false);
     }
+  };
+
+  const handleWithdrawQuote = async () => {
+    if (!cancelTarget || withdrawInFlight.current || bidLoading) return;
+    const target = cancelTarget;
+    withdrawInFlight.current = true; setWithdrawing(true); setError(''); setSuccessMsg('');
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw Error('Your session has expired. Sign in again.');
+      const response = await fetch('/api/driver/bids/' + encodeURIComponent(target.bidId) + '/withdraw', { method: 'POST', headers: { Authorization: auth } });
+      const payload = await response.json().catch(() => ({})) as { success?: boolean; status?: string; bidId?: string; error?: string };
+      if (!response.ok || payload.success !== true || payload.status !== 'withdrawn' || payload.bidId !== target.bidId) throw Error(payload.error || 'Quote withdrawal could not be verified. Refresh and try again.');
+      mutationVersion.current++;
+      setLoads(current => current.map(load => load.id === target.loadId && load.myBid?.id === target.bidId ? {...load, myBid: {...load.myBid, status: 'withdrawn'}} : load));
+      setCancelTarget(null); setSuccessMsg('Quote cancelled successfully.');
+      await fetchLoads({background: true});
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'The quote could not be cancelled.'); }
+    finally { withdrawInFlight.current = false; setWithdrawing(false); }
   };
 
   const visibleLoads = filteredLoads.slice(0, visibleCount);
@@ -453,8 +492,8 @@ export default function AvailableLoadsPage() {
             {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads...</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (
               <MarketplaceLoadMap
                 loads={mapLoads}
-                onQuote={(loadId) => { setViewMode('list'); setExpandedLoadId(loadId); setBidLoadId(loadId); setBidAmount(''); setBidMessage(''); }}
-                onDetails={(loadId) => router.push(`/driver/loads/${loadId}`)}
+                onQuote={(loadId) => { setViewMode('list'); openMarketplaceQuote(loadId); }}
+                onDetails={(loadId) => isOwnerDriver ? openMarketplaceQuote(loadId) : router.push(`/driver/loads/${loadId}`)}
               />
             ) : (
               <div className="load-list">
@@ -466,7 +505,6 @@ export default function AvailableLoadsPage() {
                   const dim = dimensions(load);
                   const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
-                  const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
                   const pickupLabel = [load.pickup_area, load.pickup_postcode_area].filter(Boolean).filter((v,i,arr)=>i===0 || !String(arr[0]).toUpperCase().endsWith(String(v).toUpperCase())).join(", ");
                   const deliveryLabel = [load.delivery_area, load.delivery_postcode_area].filter(Boolean).filter((v,i,arr)=>i===0 || !String(arr[0]).toUpperCase().endsWith(String(v).toUpperCase())).join(", ");
@@ -503,8 +541,9 @@ export default function AvailableLoadsPage() {
                       notes={<><span>Load Notes:</span><strong>{load.public_quote_notes ?? 'No public quote notes supplied.'}</strong>{load.handling_requirements.length > 0 ? <><span>Requirements:</span><strong>{load.handling_requirements.join(' · ')}</strong></> : null}<span>To Collection:</span><strong>{toCollection}</strong></>}
                       footer={<>
                         <button type="button" className="load-expand xdrive-cx-load-footer__expander" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '▴' : '▾'}</button>
-                        {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
-                        <button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button>
+                        {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" disabled={bidLoading || withdrawing} onClick={() => openMarketplaceQuote(load.id)}>Quote Now</button>}
+                        {isOwnerDriver && load.myBid?.status === 'submitted' && load.myBid.id && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote xd-owner-cancel-quote" disabled={bidLoading || withdrawing} onClick={() => {setError('');setCancelTarget({loadId:load.id,bidId:load.myBid!.id});}}>Cancel Quote</button>}
+                        <button type="button" className="text-action" disabled={bidLoading || withdrawing} onClick={() => isOwnerDriver ? openMarketplaceQuote(load.id) : router.push(`/driver/loads/${load.id}`)}>View Details</button>
                       </>}
                     />
 
@@ -514,7 +553,12 @@ export default function AvailableLoadsPage() {
             )}
           </main>
         </div>
+        {cancelTarget && <WorkspaceDialog ariaLabel="Cancel marketplace quote" title="Cancel Quote" description="Withdraw this submitted quote from the marketplace?" dismissDisabled={withdrawing} onDismiss={() => {setCancelTarget(null);setError('');}} actions={<><ActionButton tone="secondary" disabled={withdrawing} onClick={() => {setCancelTarget(null);setError('');}}>Keep Quote</ActionButton><ActionButton tone="danger" disabled={withdrawing} onClick={() => void handleWithdrawQuote()}>{withdrawing ? 'Cancelling…' : 'Confirm Cancel Quote'}</ActionButton></>}>
+          <p>This withdraws the quotation only. A booking offer must be declined in Bookings and accepted bookings cannot be cancelled here.</p>
+          {error && <p role="alert">{error}</p>}
+        </WorkspaceDialog>}
         <MarketplaceQuoteModal
+          readOnlyBid={quoteReadOnly ? selectedQuoteLoad?.myBid ?? undefined : undefined}
           target={(() => {
             const load = loads.find((candidate) => candidate.id === bidLoadId);
             if (!load) return null;
@@ -549,7 +593,7 @@ export default function AvailableLoadsPage() {
           onAmountChange={setBidAmount}
           onMessageChange={setBidMessage}
           onSubmit={(payload) => {
-            if (bidLoadId) void handleBidSubmit(bidLoadId, payload);
+            if (bidLoadId && !quoteReadOnly) void handleBidSubmit(bidLoadId, payload);
           }}
           onClose={() => {
             if (!bidLoading) {

@@ -441,6 +441,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/official-pwa', workspace: 'owner_operator' },
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/posted-loads', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['jobs.view'] },
   { prefix: '/driver/support', workspace: 'owner_operator' },
   { prefix: '/driver/vehicle-readiness', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },

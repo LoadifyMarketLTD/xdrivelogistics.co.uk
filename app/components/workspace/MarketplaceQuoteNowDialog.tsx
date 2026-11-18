@@ -41,6 +41,7 @@ type QuoteProps = {
   target: MarketplaceQuoteNowTarget;
   working: boolean;
   errorContent?: ReactNode;
+  readOnlyContent?: ReactNode;
   vehicleValue: string;
   vehiclePlaceholder?: string;
   vehicleOptions?: MarketplaceQuoteNowOption[];
@@ -69,7 +70,7 @@ type QuoteProps = {
 };
 
 export default function MarketplaceQuoteNowDialog({
-  target, working, errorContent, vehicleValue, vehiclePlaceholder = 'Choose vehicle later',
+  target, working, errorContent, readOnlyContent, vehicleValue, vehiclePlaceholder = 'Choose vehicle later',
   vehicleOptions = [], vehicleLoading = false, onVehicleChange, selectedVehicleImageSrc,
   currencyValue, currencyOptions, onCurrencyChange, currencySymbol, amount, onAmountChange,
   extras, extraOptions, onAddExtra, onExtraKindChange, onExtraAmountChange, onRemoveExtra,
@@ -109,20 +110,20 @@ export default function MarketplaceQuoteNowDialog({
     } catch { setDraftNotice('Saved draft is unavailable.'); }
   };
   const submit = () => {
-    if (working || !(Number(amount) > 0) || !(total > 0) || !eta) return;
+    if (readOnlyContent || working || !(Number(amount) > 0) || !(total > 0) || !eta) return;
     onSubmit({ service, etaToCollection: eta, validityHours: validity });
   };
   return <div className="xdrive3150-live-quote">
     <div className="xd-quote-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !working) onClose(); }}>
-      <section className="xd-quote-panel" role="dialog" aria-modal="true" aria-label="Submit marketplace quote">
-        <header className="xd-quote-top"><h2>Submit Quote - Load {target.reference ?? target.id}</h2><button type="button" disabled={working} onClick={onClose} aria-label="Close quote panel">×</button></header>
+      <section className="xd-quote-panel" role="dialog" aria-modal="true" aria-label={readOnlyContent ? "View marketplace load details" : "Submit marketplace quote"}>
+        <header className="xd-quote-top"><h2>{readOnlyContent ? "Load Details" : "Submit Quote"} - Load {target.reference ?? target.id}</h2><button type="button" disabled={working} onClick={onClose} aria-label="Close quote panel">×</button></header>
         <div className="xd-quote-route"><strong>{load.from.toUpperCase()} <span aria-hidden="true">→</span> {load.to.toUpperCase()}</strong><small>{load.pickupDate || 'Date TBC'} | {load.service || 'On Demand'} | Posted by {load.customer}</small></div>
         <nav className="xd-quote-nav" aria-label="Quote details sections">
           {CANONICAL_3150_QUOTE_TABS.map((tab) => <button type="button" key={tab} className={activeTab === tab ? 'active' : ''} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => setActiveTab(tab)}>{tab}</button>)}
         </nav>
         {activeTab === 'Quote' ? <div className="xd-quote-grid">
           <Canonical3150QuoteInformation tab="Quote" load={load} onReturn={() => setActiveTab('Quote')} />
-          <form className="xd-quote-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+          {readOnlyContent ? <section className="xd-quote-form" aria-label="Existing quotation">{readOnlyContent}</section> : <form className="xd-quote-form" onSubmit={(event) => { event.preventDefault(); submit(); }}>
             <h3>Your Quote</h3>
             {errorContent}
             <label>Your Price ({currencyValue}) *<div className="xd-quote-price"><span>{currencySymbol}</span><input id="marketplace-quote-amount" type="number" inputMode="decimal" min="0.01" step="0.01" required placeholder="0.00" value={amount} onChange={(event) => onAmountChange(event.target.value)}/></div></label>
@@ -152,7 +153,7 @@ export default function MarketplaceQuoteNowDialog({
             {draftNotice && <p role="status" className="xd-quote-message">{draftNotice}</p>}
             <button className="xd-quote-submit" disabled={working || !(total > 0) || !eta} type="submit">{working ? 'Submitting...' : 'Submit Quote'}</button>
             <div className="xd-quote-bottom"><button type="button" disabled={!draftKey || working} onClick={saveDraft}>Save Draft</button><button type="button" disabled={!draftKey || working} onClick={restoreDraft}>Restore Draft</button><button type="button" disabled={working} onClick={onClose}>Cancel</button></div>
-          </form>
+          </form>}
         </div> : <Canonical3150QuoteInformation tab={activeTab} load={load} onReturn={() => setActiveTab('Quote')} />}
       </section>
     </div>

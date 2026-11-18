@@ -26,6 +26,8 @@ const additionalStopSchema = z.object({
   contact: optionalText,
   phone: optionalText,
   dateTime: z.string().trim().optional().nullable(),
+  timeMode: z.enum(["ASAP","On Time","At","Before","By","Between"]).optional(),
+  endDateTime: z.string().trim().optional().nullable(),
   instructions: optionalText,
 });
 
@@ -115,6 +117,27 @@ const bodySchema = z.object({
   specialRequirementsList: z.array(z.string().trim().max(300)).max(30).optional().default([]),
   isFixedPrice: z.boolean().optional().default(false),
   publicQuoteNotes: optionalText,
+  operationalDetails: z.object({
+    jobDescription: z.string().trim().max(100).optional(),
+    bodyType: z.string().trim().max(100).optional(),
+    jobType: z.enum(['Hotshot','Backload']).optional(),
+    pickupMode: z.enum(['Between','At','Before','ASAP','On Time']).optional(),
+    pickupWindowEnd: z.string().trim().max(10).optional(),
+    deliveryMode: z.enum(['ASAP','At','By','Between','On Time']).optional(),
+    deliveryWindowEnd: z.string().trim().max(10).optional(),
+    loadingMetres: optionalNumber,
+    cubicMetres: optionalNumber,
+    waitReturn: z.boolean().optional(),
+    hiab: z.boolean().optional(),
+    trailer: z.boolean().optional(),
+    moffett: z.boolean().optional(),
+    trackedDriverPreferred: z.boolean().optional(),
+    electronicQuotes: z.boolean().optional(),
+    smartPayOnly: z.boolean().optional(),
+    allowEuMembers: z.boolean().optional(),
+    notifyRadiusMiles: z.number().int().min(1).max(100).optional(),
+    repeatable: z.boolean().optional(),
+  }).optional(),
   executionInstructions: optionalText,
   // Legacy input remains accepted so older clients do not break. Legacy notes
   // are execution-private by default and are never promoted to Marketplace.
@@ -671,6 +694,7 @@ export async function POST(request: NextRequest) {
       height: input.heightCm ?? null,
     },
     publicQuoteNotes: input.publicQuoteNotes || null,
+    operationalDetails: input.operationalDetails ?? null,
     additionalStopCount: input.additionalStops.length,
     // `notes` is retained as the backwards-compatible execution-private key.
     notes: executionInstructions,
@@ -859,7 +883,8 @@ export async function POST(request: NextRequest) {
         contact_name: stop.contact || null,
         contact_phone: stop.phone || null,
         window_start: stop.dateTime || null,
-        instructions: stop.instructions || null,
+        window_end: stop.endDateTime || null,
+        instructions: [stop.timeMode ? "Schedule: "+stop.timeMode : null, stop.instructions].filter(Boolean).join("\n") || null,
       })),
       {
         job_id: createdJob.id,

@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../components/AuthContext';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import AuthenticatedMasterShell from '../components/workspace/AuthenticatedMasterShell';
+import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
 
 const DRIVER_MASTER_TAB_BY_ROUTE: Readonly<Record<string,number>> = {
@@ -18,13 +19,14 @@ const DRIVER_MASTER_TAB_BY_ROUTE: Readonly<Record<string,number>> = {
 export default function DriverMasterLayoutGate({children}:{children:ReactNode}){
  const pathname=usePathname();
  const {user}=useAuth();
- if(pathname==='/driver')return <>{children}</>;
  const workspace=resolveWorkspaceRole(user);
+ if(pathname==='/driver' && workspace!=='owner_driver')return <>{children}</>;
  const role=workspace==='owner_driver'?'Owner Driver':'Company Driver';
  const section=pathname.split('/')[2]||'';
  const activeTab=DRIVER_MASTER_TAB_BY_ROUTE[section]??0;
- if(section==='post-load'){
-  return <MasterWorkspace key={pathname} role={role} authenticated initialTab={activeTab} dashboard={children}/>;
+ if(workspace==='owner_driver'){
+  return <div className="xd-owner-pr807" style={{display:'contents'}}>{section==='post-load' ? <MasterWorkspace key={pathname} role={role} authenticated initialTab={activeTab} dashboard={children}/> : <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>}</div>;
  }
+ if(section==='post-load')return <MasterWorkspace key={pathname} role={role} authenticated initialTab={activeTab} dashboard={children}/>;
  return <AuthenticatedMasterShell role={role} activeTab={activeTab}>{children}</AuthenticatedMasterShell>;
 }

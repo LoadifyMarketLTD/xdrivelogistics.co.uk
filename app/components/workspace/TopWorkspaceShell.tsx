@@ -1067,7 +1067,13 @@ export default function TopWorkspaceShell({
                     data-active={active ? 'true' : 'false'}
                     onPointerEnter={() => prefetchRoute(item.href)}
                     onFocus={() => prefetchRoute(item.href)}
-                    onClick={() => setOpenGroupId(null)}
+                    onClick={(event) => {
+                      setOpenGroupId(null);
+                      if (role === 'owner_driver' && item.href === '/driver/availability/live') {
+                        event.preventDefault();
+                        window.location.assign(fixtureRouteFor(item.href));
+                      }
+                    }}
                     aria-current={active ? 'page' : undefined}
                   >
                     {item.label}

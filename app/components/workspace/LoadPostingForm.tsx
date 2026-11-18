@@ -787,7 +787,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         : mode === 'customer'
           ? `/customer/loads?created=${payload.job.id}`
           : mode === 'owner'
-            ? `/driver/loads?created=${payload.job.id}`
+            ? `/driver/posted-loads?created=${payload.job.id}`
             : `/admin/jobs?created=${payload.job.id}`;
       idempotencyKeyRef.current = null;
       setDocumentFiles([]);
@@ -807,7 +807,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           {LOAD_TYPES.map((option) => <button key={option.value} type="button" aria-pressed={form.loadType === option.value} onClick={() => setForm((current) => ({ ...current, loadType: option.value, regularDays: option.value === 'regular_load' ? current.regularDays : [], regularEndDate: option.value === 'regular_load' ? current.regularEndDate : '', hireEndTime: option.value === 'daily_hire' ? current.hireEndTime : '' }))}>{option.label}</button>)}
         </div>
         <div className="approved-postload-header-actions">
-          <button type="button" onClick={() => router.push(mode === 'broker' ? '/broker/loads' : mode === 'customer' ? '/customer/loads' : mode === 'owner' ? '/driver/loads' : '/admin/jobs')}>Open Saved Loads</button>
+          <button type="button" onClick={() => router.push(mode === 'broker' ? '/broker/loads' : mode === 'customer' ? '/customer/loads' : mode === 'owner' ? '/driver/posted-loads' : '/admin/jobs')}>Open Saved Loads</button>
           <button type="button" aria-pressed={!showOptional} onClick={() => setShowOptional((current) => !current)}>{showOptional ? 'Close All Optional' : 'Open All Optional'}</button>
         </div>
       </div>
@@ -1418,6 +1418,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       <div className="xdrive-postload-actions" style={{order:99}}>
         <span className="approved-postload-required-note">* Required Inputs</span>
         <button type="button" className="approved-postload-cancel" disabled={saving} onClick={() => router.back()}>Cancel</button>
+        {mode === 'owner' && <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>Save Draft</ActionButton>}
         <ActionButton tone="secondary" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true, true)}>{saving ? 'Posting…' : 'Post Load & Save for Repeat Use'}</ActionButton>
         <ActionButton tone="warning" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
           {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : directTargetMode === 'external_subcontractor' ? 'Confirm External Booking' : directTargetMode === 'internal_resource' ? 'Create & Allocate Booking' : 'Post Load'}
