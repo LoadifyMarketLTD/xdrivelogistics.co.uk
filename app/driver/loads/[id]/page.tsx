@@ -220,7 +220,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                 <section className='xd-overview' style={{...panel,background:'#0A234F',color:'#FFFFFF',display:'flex',flexWrap:'wrap',gap:24,alignItems:'center'}}>
                   <div><small>XDrive Reference</small><h2>XDL-{load.id.slice(0,8).toUpperCase()}</h2></div>
                   <div><small>Transport / Service</small><strong style={{display:'block'}}>{routeLabel+serviceLabel}</strong></div>
-                  <div><small>Job distance / Driving time</small><strong style={{display:'block'}}>{load.distance_miles??'Not supplied'} mi / {load.distance_minutes??'Not supplied'} min</strong></div>
+                  <div><small>Job Distance / Driving time</small><strong style={{display:'block'}}>{load.distance_miles??'Not supplied'} mi / {load.distance_minutes??'Not supplied'} min</strong></div>
                   <div><small>Payment terms</small><strong style={{display:'block'}}>{load.payment_terms??'Not supplied'}</strong></div>
                   <div><small>{hasProposedPrice?'Proposed rate':'Commercial status'}</small><strong style={{display:'block',color:'#F5A300'}}>{hasProposedPrice?money(load.budget_amount,load.currency):'Quote required'}</strong></div>
                   <div><small>Posted</small><strong style={{display:'block'}}>{formatDT(load.exchange_posted_at)}</strong></div>
