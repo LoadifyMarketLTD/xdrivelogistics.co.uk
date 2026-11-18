@@ -120,11 +120,11 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
     });
   });
 
-  return <section className="rv-operation-screen">
+  return <section className="rv-operation-screen rv-stop-workspace">
     <button type="button" className="rv-back" onClick={onBack}>← Booking status</button>
     <span className="rv-over">MULTI-STOP EXECUTION</span>
     <h1>{title}</h1>
-    <section className="rv-card"><strong>{stop.address}</strong>{stop.timeWindowFrom&&<p>{new Date(stop.timeWindowFrom).toLocaleString('en-GB')}</p>}{stop.notes&&<p>{stop.notes}</p>}</section>
+    <section className="rv-card rv-stop-destination"><span className="rv-over">DESTINATION</span><strong>{stop.address}</strong><div className="rv-stop-progress" aria-label="Stop progress">{["pending","en_route","arrived","completed"].map((stage,index)=><span key={stage} className={stop.status===stage?"active":""}>{["Pending","En route","On site","Complete"][index]}</span>)}</div>{stop.timeWindowFrom&&<p>{new Date(stop.timeWindowFrom).toLocaleString('en-GB')}</p>}{stop.notes&&<p>{stop.notes}</p>}</section>
     {error&&<div className="rv-error" role="alert">{error}</div>}
 
     {stop.status==='pending'&&<><button className="rv-primary rv-wide" disabled={busy} onClick={()=>transition('en_route')}>{busy?'Saving…':returnStop?'On My Way to Return':'On My Way to Stop'}</button><button className="rv-outline rv-wide" disabled={busy} onClick={onCancel}>Record Stop / Job Cancellation</button></>}
@@ -141,7 +141,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
         </>}
         {(stop.type==='collection'||outcome==='Completed Delivery')&&<div className="rv-two"><label className="rv-field"><span>Items *</span><input type="number" min={stop.type==='delivery'?1:0} value={items} onChange={e=>setItems(e.target.value)}/></label><label className="rv-field"><span>Weight (kg)</span><input type="number" min="0" step="0.01" value={weight} onChange={e=>setWeight(e.target.value)}/></label></div>}
         <label className="rv-field"><span>Evidence</span><input type="file" accept="image/jpeg,image/png,application/pdf" multiple onChange={e=>{setFiles(Array.from(e.currentTarget.files||[]).slice(0,20));e.currentTarget.value='';}}/></label>
-        {files.length>0&&<ul>{files.map((file,index)=><li key={file.name+'-'+index}>{file.name}</li>)}</ul>}
+        {files.length>0&&<ul className="rv-delivery-files">{files.map((file,index)=><li key={file.name+'-'+index}><span>{file.name}</span><button type="button" disabled={busy} onClick={()=>setFiles(previous=>previous.filter((_,i)=>i!==index))}>Remove</button></li>)}</ul>}
         <label className="rv-field"><span>Driver Notes {stop.type==='delivery'&&outcome!=='Completed Delivery'?'*':''}</span><textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)} maxLength={2000}/></label>
         {stop.type==='delivery'&&outcome!=='Completed Delivery'
           ?<button className="rv-primary rv-wide" disabled={busy} onClick={()=>reportException()}>{busy?'Saving…':'Report Delivery Exception'}</button>

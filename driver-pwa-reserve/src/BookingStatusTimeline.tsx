@@ -15,6 +15,7 @@ const obj=(value:unknown):Record<string,unknown>=>value&&typeof value==='object'
 const str=(value:unknown)=>typeof value==='string'?value:'';
 
 type AuditEvent={status:string;at:string;notes?:string};
+const needsAttention=(status:string)=>/cancel|exception|refused|incorrect|damaged|skipped|awaiting|no unloading|return required/i.test(status);
 
 function stopLabel(stop:LiveStop,index:number){
   if(stop.handover?.stopKind==='return')return 'Return Stop';
@@ -90,7 +91,7 @@ export default function BookingStatusTimeline({job}:{job:LiveJob}){
   const earlyEvents=eventDates.filter(item=>{const status=item.event.status.toLowerCase();return (status==='delivered'||status==='completed'||status==='pod_submitted')&&((Number.isFinite(collectionTime)&&item.at<collectionTime)||(Number.isFinite(deliveryTime)&&item.at<deliveryTime));});
   const completed=Boolean(job.podRecorded)||String(job.backendStatus||'').toLowerCase()==='completed';
 
-  const history=<>{events.length?<ol className="rv-event-history">{[...events].reverse().map((event,index)=><li key={(event.at||'no-time')+'-'+event.status+'-'+index}><span className="rv-history-check" aria-hidden="true">✓</span><div><strong>{label(event.status)}</strong><small>{time(event.at)}</small>{event.notes&&<p>{event.notes}</p>}</div></li>)}</ol>
+  const history=<>{events.length?<ol className="rv-event-history">{[...events].reverse().map((event,index)=><li key={(event.at||'no-time')+'-'+event.status+'-'+index}><span className={"rv-history-check"+(needsAttention(event.status)?" rv-history-attention":"")} aria-hidden="true">{needsAttention(event.status)?"!":"\u2713"}</span><div><strong>{label(event.status)}</strong><small>{time(event.at)}</small>{event.notes&&<div className="rv-event-facts">{event.notes.split(" · ").map((note,i)=>{const colon=note.indexOf(":");return <div className="rv-event-fact" key={i}>{colon>0?<><span>{note.slice(0,colon)}</span><b>{note.slice(colon+1).trim()}</b></>:<span>{note}</span>}</div>})}</div>}</div></li>)}</ol>
     :<div className="rv-history-unavailable">No event history was returned by the server. No timestamps have been invented.</div>}</>;
 
   if(completed)return <section className="rv-booking-timeline" aria-label="Completed job event history">
@@ -103,14 +104,14 @@ export default function BookingStatusTimeline({job}:{job:LiveJob}){
   const currentTitle=job.podRecorded?'Signed POD archived':stages[current]?.title||label(job.backendStatus||job.status);
   return <section className="rv-booking-timeline" aria-label="Complete Booking Workflow">
     <h3>Complete Booking Workflow</h3>
-    <p className="rv-workflow-current">Current stage: <strong>{currentTitle}</strong></p>
+    <p className="rv-workflow-current"><span>Current stage</span><strong>{currentTitle}</strong></p>
     {job.routeStops?.some(stop=>stop.status==='skipped')&&<div className="rv-warning" role="alert"><strong>Legacy skipped stop requires review.</strong> It is not treated as a valid completed/cancelled stop.</div>}
     {earlyEvents.length>0&&<div className="rv-warning" role="alert"><strong>Timeline discrepancy detected.</strong> A recorded delivery/completion event predates the scheduled collection or delivery time. These are the original server timestamps; no event was changed.</div>}
     <details className="rv-workflow-details"><summary>View primary workflow — 8 stages</summary><ol className="rv-workflow-steps">
       {stages.map((stage,index)=>{
         const done=index<current||(index===7&&job.podRecorded);
         const active=index===current&&!done;
-        return <li key={stage.key} className={done?'is-done':active?'is-current':'is-pending'}><span className="rv-workflow-marker" aria-hidden="true">{done?'✓':index+1}</span><div><strong>{stage.title}</strong><small>{done?'Completed':active?'Current stage':'Next stage'}</small></div></li>;
+        return <li key={stage.key} className={done?'is-done':active?'is-current':'is-pending'}><span className="rv-workflow-marker" aria-hidden="true">{done?'✓':index+1}</span><div><strong>{stage.title}</strong><small>{done?'Earlier stage':active?'Current stage':'Next stage'}</small></div></li>;
       })}
     </ol></details>
     <details className="rv-workflow-details" open><summary>View event history — {events.length} records</summary>{history}</details>

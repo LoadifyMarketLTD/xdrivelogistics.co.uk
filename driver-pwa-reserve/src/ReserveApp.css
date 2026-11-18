@@ -604,3 +604,36 @@
 /* Dedicated acknowledgment required by the backend when paper POD is requested. */
 .rv-hard-copy-ack{display:flex;align-items:flex-start;gap:12px;padding:15px;margin:14px 0;background:#fff9ef;border:1px solid #e4c9a4;border-radius:10px;color:#243d57;font-weight:600;line-height:1.4}
 .rv-hard-copy-ack input[type=checkbox]{width:22px;height:22px;min-width:22px;margin-top:1px;accent-color:#16466a}
+
+/* Operational history cards: mobile-first, scoped to booking timeline. */
+.rv-booking-timeline{border:1px solid #e5e7eb;border-radius:14px;padding:16px 12px;background:#fff}
+.rv-booking-timeline h3{color:#0a234f;font-size:19px;letter-spacing:-.025em}
+.rv-booking-timeline .rv-workflow-current{display:grid;gap:5px;background:#f4f6f8;border-left:4px solid #f5a300;padding:14px;border-radius:8px;margin:12px 0 18px}
+.rv-workflow-current span{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#4b5563}
+.rv-workflow-current strong{font-size:18px;color:#0a234f}
+.rv-booking-timeline .rv-event-history li{gap:12px;padding-bottom:15px;min-height:68px}
+.rv-booking-timeline .rv-event-history li>div{flex:1;min-width:0;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;box-shadow:0 2px 5px #0a234f08}
+.rv-booking-timeline .rv-event-history li strong{font-size:15px;line-height:1.35;color:#0a234f}
+.rv-booking-timeline .rv-event-history li small{font-size:12px;color:#4b5563;margin-top:5px}
+.rv-booking-timeline .rv-event-history li:not(:last-child):before{border-left:2px solid #81bb8d;top:26px;bottom:0}
+.rv-event-facts{display:grid;gap:0;background:#f4f6f8;border-radius:8px;margin-top:10px;padding:3px 9px}
+.rv-event-fact{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 0;font-size:12px;overflow-wrap:anywhere}
+.rv-event-fact+.rv-event-fact{border-top:1px solid #e5e7eb}
+.rv-event-fact span{color:#4b5563;flex:1}.rv-event-fact b{color:#1f2937;text-align:right;flex:1;font-weight:650}
+
+/* Shared operational surfaces, not changes to transaction rules. */
+.rv-stop-destination{border-left:4px solid #f5a300!important}
+.rv-stop-destination>strong{display:block;font-size:19px;line-height:1.4;color:#0a234f;margin:8px 0}
+.rv-stop-progress{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:12px 0}
+.rv-stop-progress span{font-size:11px;text-align:center;padding:8px 2px;border-top:3px solid #dbe3ed;color:#4b5563;background:#f4f6f8;border-radius:4px}
+.rv-stop-progress span.active{border-color:#f5a300;background:#fff4da;color:#0a234f;font-weight:800}
+.rv-operation-screen>.rv-card,.rv-delivery-page .rv-delivery-form,.rv-finance>.rv-card{border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:16px;box-shadow:0 2px 8px #0a234f08}
+.rv-operation-screen>.rv-card>h3,.rv-finance>.rv-card>h3{color:#0a234f;font-size:17px;border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin:0 0 14px}
+.rv-operation-screen .rv-field,.rv-finance .rv-field{margin-bottom:14px}
+.rv-operation-screen .rv-field input:not([type=checkbox]),.rv-operation-screen .rv-field select,.rv-finance .rv-field input,.rv-finance .rv-field select{min-height:48px;font-size:16px;border-radius:8px}
+.rv-operation-screen .rv-field input[type=file]{max-width:100%;padding:10px;background:#f4f6f8}
+.rv-operation-screen .rv-delivery-signature{border:1px solid #dbe3ed;border-radius:10px;padding:10px;margin:14px 0}
+.rv-operation-screen .rv-delivery-signature canvas{width:100%;height:auto;touch-action:none}
+.rv-operation-screen .rv-delivery-files li{overflow-wrap:anywhere}
+.rv-delivery-page .rv-delivery-upload{border:1px dashed #a9bfd8;background:#f4f6f8;border-radius:12px;padding:14px}
+.rv-booking-timeline .rv-history-check.rv-history-attention{background:#fff4da;color:#854d0e;border:2px solid #f5a300}
