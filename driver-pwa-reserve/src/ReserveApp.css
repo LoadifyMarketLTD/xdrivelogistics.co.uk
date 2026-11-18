@@ -642,3 +642,6 @@
 .rv-collection-group .rv-two{align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .rv-collection-group input{min-width:0;width:100%;box-sizing:border-box}
 .rv-booking-decision{border-top:4px solid #f5a300!important}
+.rv-commercial-panel{border:1px solid #dbe3ee;border-radius:12px;padding:14px;background:#f6f8fc;margin-top:12px}
+.rv-commercial-panel h3{color:#0a234f;margin:0 0 12px}
+.rv-booking-instructions{white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f6f8;padding:12px;border-radius:8px;line-height:1.5}
