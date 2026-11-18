@@ -1,5 +1,3 @@
-import {canonicalWorkspaceJobStatus} from './workspaceJobStage';
-
 export type PodCompletionRecord = {
   pod_generated?: unknown;
   delivery_photos?: unknown;
@@ -13,33 +11,21 @@ const nonEmptyEvidence = (value: unknown) =>
     ? value.filter((item) => typeof item === 'string' && item.trim().length > 0)
     : [];
 
-/** A typed recipient name is never a drawn recipient signature. */
 export const hasStoredSignature = (value: unknown): boolean => {
   if (typeof value === 'string') {
-    const signature = value.trim();
-    return /^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/i.test(signature)
-      || /^[^/\s]+\/[^/\s]+\/(?:[^/\s]+\/)*[^/\s]+\.(png|jpe?g)$/i.test(signature);
+    return /^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/i.test(value.trim())
+      || /^[^/\s]+\/[^/\s]+\/[^\s]+$/.test(value.trim());
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  if (record.type === 'recipient_typed_name_attestation' || record.signature_method === 'typed_name_attestation') {
-    return false;
+  if (record.type === 'recipient_typed_name_attestation') {
+    return typeof record.recipient_name === 'string' && Boolean(record.recipient_name.trim())
+      && typeof record.confirmed_at === 'string' && Number.isFinite(Date.parse(record.confirmed_at))
+      && typeof record.evidence_path === 'string' && Boolean(record.evidence_path.trim())
+      && typeof record.job_id === 'string' && Boolean(record.job_id.trim());
   }
-  return (typeof record.signature_data === 'string' && hasStoredSignature(record.signature_data))
-    || (typeof record.value === 'string' && hasStoredSignature(record.value));
+  return typeof record.value === 'string' && hasStoredSignature(record.value);
 };
-
-/** Rejected or requested-for-resubmission PODs are not invoice-ready. */
-export function isPodApprovedForInvoicing(reviewStatus: unknown): boolean {
-  const status = String(reviewStatus ?? '').trim().toLowerCase();
-  return status !== 'rejected' && status !== 'missing_requested';
-}
-
-/** Unified read-only POD backlog: delivered jobs with incomplete required evidence. */
-export function isDeliveredAwaitingPod(record: PodCompletionRecord & {status?: unknown;current_status?: unknown}): boolean {
-  const lifecycle=canonicalWorkspaceJobStatus(record.current_status??record.status);
-  return lifecycle==='delivered' && !hasCompletePodEvidence(record);
-}
 
 export function hasCompletePodEvidence(record: PodCompletionRecord) {
   const recipientName =
@@ -47,11 +33,13 @@ export function hasCompletePodEvidence(record: PodCompletionRecord) {
       ? record.client_signature_name.trim()
       : '';
 
-  // A document or damage image cannot replace a delivery photograph.
-  const deliveryPhotoCount = new Set(nonEmptyEvidence(record.delivery_photos)).size;
+  const evidenceCount =
+    nonEmptyEvidence(record.delivery_photos).length +
+    nonEmptyEvidence(record.pod_photos).length;
+
   return (
     record.pod_generated === true &&
-    deliveryPhotoCount >= 1 && deliveryPhotoCount <= 10 &&
+    evidenceCount > 0 &&
     hasStoredSignature(record.delivery_signature_data) &&
     recipientName.length > 0
   );

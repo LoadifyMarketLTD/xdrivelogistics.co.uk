@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { submitDriverQuote } from '../../../driver/_lib/submitQuote';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
-import { publicAreaLabel, publicOutcode } from '../../_lib/marketplacePublic';
+import { publicAreaLabel } from '../../_lib/marketplacePublic';
 import { isDriverContext, requireDriver, respond } from '../_lib';
 
 export async function GET(request: NextRequest) {
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   const { data: jobs, error: jobsError } = jobIds.length
     ? await supabaseAdmin
         .from('jobs')
-        .select('id, assigned_driver_id, pickup_location, pickup_city, pickup_postcode, pickup_country_code, delivery_location, delivery_city, delivery_postcode, delivery_country_code, pickup_datetime, client_name')
+        .select('id, assigned_driver_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, client_name')
         .in('id', jobIds)
     : { data: [], error: null };
   if (jobsError) return respond(500, { error: jobsError.message });
@@ -71,7 +71,6 @@ export async function GET(request: NextRequest) {
       return {
         id: bid.id,
         jobId: bid.job_id,
-        publicReference: `XDL-${String(bid.job_id).slice(0, 8).toUpperCase()}`,
         amount: Number.isFinite(total) ? total : null,
         baseAmount: Number.isFinite(base) ? Number(base.toFixed(2)) : null,
         additionalExtrasGbp: Number.isFinite(extras) ? Number(extras.toFixed(2)) : 0,
@@ -88,15 +87,13 @@ export async function GET(request: NextRequest) {
         pickupLocation: job
           ? executionUnlocked
             ? (job.pickup_location || job.pickup_postcode || 'Collection')
-            : (job.pickup_city || publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area'))
+            : publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area')
           : 'Collection area',
         deliveryLocation: job
           ? executionUnlocked
             ? (job.delivery_location || job.delivery_postcode || 'Delivery')
-            : (job.delivery_city || publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area'))
+            : publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area')
           : 'Delivery area',
-        pickupPostcodeArea: job ? publicOutcode(job.pickup_postcode) : null,
-        deliveryPostcodeArea: job ? publicOutcode(job.delivery_postcode) : null,
         pickupDatetime: job?.pickup_datetime ?? null,
         clientName: executionUnlocked ? (job?.client_name || '') : '',
         executionUnlocked,

@@ -22,8 +22,8 @@ const shell = readFileSync(
   'utf8',
 );
 
-const visualE2e = readFileSync(
-  resolve(process.cwd(), 'e2e/workspace-visual-auth-gate.spec.ts'),
+const visualWorkflow = readFileSync(
+  resolve(process.cwd(), '.github/workflows/visual-fixture-gate.yml'),
   'utf8',
 );
 
@@ -81,8 +81,16 @@ describe('workspace visual fixture harness contract', () => {
     expect(shell).toContain('fixtureOverrides?.unreadCount');
   });
 
-  it('retains a local Playwright visual auth gate without GitHub Actions', () => {
-    expect(visualE2e).toContain('visual-fixture');
-    expect(visualE2e).toContain('test(');
+  it('wires a dedicated CI visual gate workflow with artifacts', () => {
+    expect(visualWorkflow).toContain('name: Visual Fixture Gate');
+    expect(visualWorkflow).toContain('workspace-visual-fixture-gate');
+    expect(visualWorkflow).toContain('E2E_VISUAL_FIXTURE: "true"');
+    expect(visualWorkflow).toContain('NODE_ENV: development');
+    expect(visualWorkflow).toContain('workspace-visual-auth-gate.spec.ts');
+    expect(visualWorkflow).toContain('--project=chromium');
+    expect(visualWorkflow).toContain('if: always()');
+    expect(visualWorkflow).toContain('actions/upload-artifact@v4');
+    expect(visualWorkflow).toContain('playwright-report/**');
+    expect(visualWorkflow).toContain('test-results/**');
   });
 });

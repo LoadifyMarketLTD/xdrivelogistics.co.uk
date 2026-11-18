@@ -287,16 +287,13 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
       companyStatus: 'active',
     };
 
-    for (const path of ['/driver/loads', '/driver/quotes', '/driver/won-work', '/driver/returns', '/driver/nearby']) {
+    for (const path of ['/driver/loads', '/driver/quotes', '/driver/won-work', '/driver/returns', '/driver/directory', '/driver/nearby']) {
       expect(isRoleAllowedForPath(path, DRIVER_ROLE, context)).toBe(false);
     }
 
     for (const path of ['/driver/jobs', '/driver/history', '/driver/availability', '/driver/vehicles', '/driver/documents', '/driver/messages', '/driver/event-log', '/driver/freight-vision']) {
       expect(isRoleAllowedForPath(path, DRIVER_ROLE, context)).toBe(true);
     }
-
-    // Directory is a shared, read-only network surface for Company Drivers (AGENTS.md).
-    expect(isRoleAllowedForPath('/driver/directory', DRIVER_ROLE, context)).toBe(true);
 
     expect(isRoleAllowedForPath('/driver/finance', DRIVER_ROLE, context)).toBe(false);
     expect(isRoleAllowedForPath('/driver/drivers-vehicles', DRIVER_ROLE, context)).toBe(false);

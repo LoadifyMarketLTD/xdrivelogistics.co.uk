@@ -739,7 +739,6 @@ function JobsPageInner() {
  <ProtectedRoute>
  <PendingBookingOffers onChanged={() => { void loadJobs(); }} />
  <JobsOperationalTable
-  cardLayout
   filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map(jobToRow)}
   page={jobsPage}
   perPage={JOBS_PER_PAGE}
@@ -760,7 +759,7 @@ function JobsPageInner() {
   onDeliveryFilterChange={setDeliveryFilter}
   onDateFilterChange={setDateFilter}
   onCustomerFilterChange={setCustomerFilter}
-  onNewJob={() => router.push('/admin/post-load')}
+  onNewJob={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
   canCreateJob={canManageOwnedJobs}
   onViewJob={(id) => router.push(`/admin/jobs/${id}`)}
   onEditJob={(id) => router.push(`/admin/jobs/${id}/edit`)}

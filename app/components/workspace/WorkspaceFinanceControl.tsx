@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { AGING_BUCKET_LABELS, type AgingBucket } from '../../../lib/finance/accounts';
 import { AlertBanner, StatusBadge } from './WorkspaceUI';
-import { InvoiceProDashboard, InvoiceProHero, InvoiceProMetrics, InvoiceProMasterTabs, InvoiceProRegister, InvoiceProStatusTabs, InvoiceProSurface } from './InvoiceProMasterFrame';
 import styles from './InvoiceProFinance.module.css';
 
 type Role = 'carrier' | 'broker' | 'customer';
@@ -29,8 +28,6 @@ type Invoice = {
   invoiceDate: string | null;
   dueDate: string | null;
   agingBucket: AgingBucket;
-  latePaymentReviewRequired?: boolean;
-  latePaymentAssessment?: { daysOverdue: number; annualRatePercent: number; interestGbp: number; compensationGbp: number; totalPotentialClaimGbp: number; requiresReview: true } | null;
 };
 type ReadyJob = { id: string; pickupLocation: string | null; deliveryLocation: string | null; clientName: string | null; updatedAt: string | null };
 type Counterparty = {
@@ -108,33 +105,29 @@ const detailHref = (role: Role, invoice: Invoice) => {
   return `/admin/invoices/${invoice.id}`;
 };
 
-export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { role: Role; initialView?: View }) {
+export function WorkspaceFinanceControl({ role }: { role: Role }) {
   const router = useRouter();
   const [payload, setPayload] = useState<Payload | null>(null);
-  const [view, setView] = useState<View>(initialView);
+  const [view, setView] = useState<View>('dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
-  const [baseRateInput, setBaseRateInput] = useState('');
-  const [reviewedBaseRate, setReviewedBaseRate] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    setPayload(null);
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) { setError('Your session has expired. Please sign in again.'); setLoading(false); return; }
     try {
-      const rateQuery = reviewedBaseRate === null ? '' : `?applicableBaseRatePercent=${encodeURIComponent(String(reviewedBaseRate))}`;
-      const response = await fetch(`/api/workspace/finance/control${rateQuery}`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch('/api/workspace/finance/control', { headers: { Authorization: `Bearer ${token}` } });
       const body = await response.json().catch(() => null) as Payload | null;
       if (!response.ok || !body) throw new Error(body?.error ?? 'Finance control could not be loaded.');
       setPayload(body);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Finance control could not be loaded.');
     } finally { setLoading(false); }
-  }, [reviewedBaseRate]);
+  }, []);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -142,9 +135,7 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
   const visibleInvoices = useMemo(() => {
     const scoped = role === 'carrier'
       ? invoices.filter((invoice) => invoice.direction === 'receivable')
-      : role === 'customer'
-        ? invoices.filter((invoice) => invoice.direction === 'payable')
-        : invoices;
+      : invoices;
     if (view === 'dashboard' || view === 'all' || view === 'customers' || view === 'counterparties' || view === 'ready' || view === 'aging' || view === 'statements') return scoped;
     if (view === 'receivable') return invoices.filter((invoice) => invoice.direction === 'receivable');
     if (view === 'payable') return invoices.filter((invoice) => invoice.direction === 'payable');
@@ -161,29 +152,31 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
         || counterparty.customerId.toLowerCase().includes(query));
   }, [customerQuery, payload?.counterparties]);
   const showReceivables = role !== 'customer';
-  // Approved 3193 Driver Finance menu: one navigation order in every workspace.
-  const tabs: Array<[View, string]> = [
-    ['dashboard', 'Dashboard'],
-    ['all', 'All'],
-    ...(role === 'customer' ? [] : [['ready', 'Ready To Invoice'] as [View, string]]),
-    ['awaiting', 'Awaiting Payment'],
-    ['paid', 'Paid'],
-    [role === 'carrier' ? 'customers' : 'counterparties', role === 'customer' ? 'Suppliers' : 'Customers'],
-    ['archive', 'Archive'],
-    ['statements', 'Statements'],
-  ];
+  const tabs: Array<[View, string]> = role === 'carrier'
+    ? [
+      ['dashboard', 'Dashboard'], ['all', 'All'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
+      ['paid', 'Paid'], ['customers', 'Customers'], ['archive', 'Archive'], ['statements', 'Statements'],
+    ]
+    : [
+      ['dashboard', 'Dashboard'], ['all', 'All'],
+      ...(role === 'customer' ? [] : [['receivable', 'Accounts Receivable'] as [View, string]]),
+      ['payable', 'Accounts Payable'],
+      ...(role === 'customer' ? [] : [['ready', 'Ready to Invoice'] as [View, string]]),
+      ['awaiting', 'Awaiting Payment'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['aging', 'Aging'],
+      ['counterparties', 'Counterparties'], ['archive', 'Archive'], ['statements', 'Statements'],
+    ];
+
   return (
-    <InvoiceProSurface data-testid={'workspace-finance-control-' + role}>
+    <div data-testid={'workspace-finance-control-' + role} className={styles.surface}>
       {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
 
-      <InvoiceProMasterTabs tabs={tabs.map(([id, label]) => ({
-          id,
-          label,
-          active: view === id || (id === 'all' && ['receivable', 'payable', 'overdue', 'aging'].includes(view)),
-          onSelect: () => setView(id),
-        }))} />
+      <nav className={styles.nav} aria-label="Finance navigation">
+        {tabs.map(([id, label]) => (
+          <button key={id} className={styles.navButton} data-active={view === id} onClick={() => setView(id)}>{label}</button>
+        ))}
+      </nav>
 
-      <InvoiceProHero>
+      <header className={styles.hero}>
         <div>
           <div className={styles.eyebrow}>Finance overview</div>
           <h1 className={styles.title}>{role === 'customer' ? 'Control your payables.' : 'Command your cashflow.'}</h1>
@@ -191,29 +184,26 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
         </div>
         <div className={styles.heroActions}>
           <button className={styles.button} onClick={() => setView('statements')}>Statements</button>
-          {role !== 'customer' && <button className={styles.button} onClick={() => setView(view === 'payable' ? 'receivable' : 'payable')}>{view === 'payable' ? 'Accounts Receivable' : 'Accounts Payable'}</button>}
-          <button className={styles.button} onClick={() => setView('overdue')}>Overdue</button>
-          <button className={styles.button} onClick={() => setView('aging')}>Aging</button>
           <button className={styles.button} onClick={() => void load()} disabled={loading}>Refresh</button>
           <button className={styles.button} onClick={() => downloadRows(visibleInvoices)} disabled={!visibleInvoices.length}>Export CSV</button>
           {role !== 'customer' && <button className={[styles.button, styles.buttonPrimary].join(' ')} onClick={() => setView('ready')}>+ Create invoice</button>}
         </div>
-      </InvoiceProHero>
+      </header>
 
-      <InvoiceProMetrics>
+      <section className={styles.metrics}>
         <article className={[styles.metric, styles.metricGold].join(' ')}>
           <div className={styles.metricLabel}>{role === 'customer' ? 'Accounts payable' : 'Ready to invoice'}</div>
-          <div className={styles.metricValue}>{!summary ? '—' : role === 'customer' ? money(summary.payableOutstanding) : String(summary.readyToInvoiceCount)}</div>
+          <div className={styles.metricValue}>{role === 'customer' ? money(summary?.payableOutstanding ?? 0) : String(summary?.readyToInvoiceCount ?? 0)}</div>
           <div className={styles.metricSub}>{role === 'customer' ? 'Open supplier balance' : (summary?.readyToInvoiceCount ?? 0) + ' jobs'}</div>
         </article>
         <article className={[styles.metric, styles.metricBlue].join(' ')}>
           <div className={styles.metricLabel}>{role === 'customer' ? 'Outstanding' : 'Awaiting payment'}</div>
-          <div className={styles.metricValue}>{!summary ? '—' : money(role === 'customer' ? summary.payableOutstanding : summary.receivableOutstanding)}</div>
+          <div className={styles.metricValue}>{money(role === 'customer' ? summary?.payableOutstanding ?? 0 : summary?.receivableOutstanding ?? 0)}</div>
           <div className={styles.metricSub}>{summary?.overdueCount ?? 0} overdue</div>
         </article>
         <article className={[styles.metric, styles.metricGreen].join(' ')}>
           <div className={styles.metricLabel}>Paid</div>
-          <div className={styles.metricValue}>{!summary ? '—' : money(summary.paidValue)}</div>
+          <div className={styles.metricValue}>{money(summary?.paidValue ?? 0)}</div>
           <div className={styles.metricSub}>Recorded settlements</div>
         </article>
         <article className={[styles.metric, styles.metricNavy].join(' ')}>
@@ -221,11 +211,10 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
           <div className={styles.metricValue}>GBP</div>
           <div className={styles.metricSub}>Primary finance ledger</div>
         </article>
-      </InvoiceProMetrics>
+      </section>
 
-      {view === 'dashboard' && !payload && !loading && <section className={styles.panel}><div className={styles.empty}><strong>Finance records unavailable</strong><span>{error || 'The finance service did not return a verified company ledger.'}</span></div></section>}
-      {view === 'dashboard' && payload && (
-        <InvoiceProDashboard>
+      {view === 'dashboard' && (
+        <section className={styles.dashboard}>
           <article className={styles.panel}>
             <div className={styles.panelHeader}>
               <div><div className={styles.panelKicker}>Cashflow workspace</div><h2 className={styles.panelTitle}>{role === 'customer' ? 'Payables flow' : 'Receivables flow'}</h2></div>
@@ -244,26 +233,26 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
             <button className={styles.actionButton} onClick={() => setView(role === 'carrier' ? 'customers' : 'counterparties')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>{role === 'customer' ? 'Suppliers' : 'Customers'}</span><span className={styles.actionSub}>Review account performance</span></span><span className={styles.arrow}></span></button>
             <button className={styles.actionButton} onClick={() => setView('statements')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>Statements</span><span className={styles.actionSub}>Review finance summaries</span></span><span className={styles.arrow}></span></button>
           </aside>
-        </InvoiceProDashboard>
+        </section>
       )}
 
       {view === 'ready' && (
-        <InvoiceProRegister>
+        <section className={styles.register}>
           <div className={styles.registerHead}><div><div className={styles.panelKicker}>Invoice readiness</div><div className={styles.registerTitle}>Ready to Invoice</div></div><span className={styles.registerMeta}>{payload?.readyToInvoice?.length ?? 0} jobs</span></div>
           {(payload?.readyToInvoice ?? []).length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading invoice readiness' : 'No completed jobs waiting for an invoice'}</strong></div> : (
             <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Job</th><th>Customer</th><th>Route</th><th>Updated</th><th>Action</th></tr></thead><tbody>{(payload?.readyToInvoice ?? []).map((job) => <tr key={job.id}><td>{'XDL-' + job.id.slice(0,8).toUpperCase()}</td><td>{job.clientName ?? 'Customer'}</td><td>{job.pickupLocation ?? 'Collection'}  {job.deliveryLocation ?? 'Delivery'}</td><td>{date(job.updatedAt)}</td><td><button className={styles.button} onClick={() => router.push(role === 'broker' ? '/broker/jobs' : '/admin/jobs/' + job.id)}>Open job</button></td></tr>)}</tbody></table></div>
           )}
-        </InvoiceProRegister>
+        </section>
       )}
 
-      {view === 'customers' && (role === 'carrier') && (
-        <InvoiceProRegister>
+      {view === 'customers' && role === 'carrier' && (
+        <section className={styles.register}>
           <div className={styles.registerHead}><div><div className={styles.panelKicker}>Account performance</div><div className={styles.registerTitle}>Customers</div></div><button className={styles.button} onClick={() => downloadCustomers(customers)} disabled={!customers.length}>Export CSV</button></div>
           <div style={{padding:14,borderBottom:'1px solid #e4eaf1'}}><input value={customerQuery} onChange={(event) => setCustomerQuery(event.target.value)} placeholder="Customer name or ID" style={{minHeight:38,width:'min(360px,100%)',border:'1px solid #cbd5e1',borderRadius:8,padding:'0 12px'}} /></div>
           {customers.length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading customers' : 'No customer invoice activity'}</strong></div> : (
             <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Customer ID</th><th>Customer</th><th>Invoices</th><th>Net</th><th>Gross</th><th>Payments</th><th>Paid gross</th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td>{customer.customerId || ''}</td><td><strong>{customer.name}</strong></td><td>{customer.totalInvoicedCount}</td><td>{money(customer.totalInvoicedNet)}</td><td>{money(customer.totalInvoicedGross)}</td><td>{customer.paymentsReceivedCount}</td><td>{money(customer.paymentsReceivedGross)}</td></tr>)}</tbody></table></div>
           )}
-        </InvoiceProRegister>
+        </section>
       )}
 
       {(view === 'aging' || view === 'statements') && (
@@ -276,43 +265,24 @@ export function WorkspaceFinanceControl({ role, initialView = 'dashboard' }: { r
       )}
 
       {view === 'counterparties' && (
-        <InvoiceProRegister>
+        <section className={styles.register}>
           <div className={styles.registerHead}><div><div className={styles.panelKicker}>Accounts</div><div className={styles.registerTitle}>Counterparties</div></div></div>
           {(payload?.counterparties ?? []).length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading counterparties' : 'No counterparty finance activity'}</strong></div> : (
             <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Counterparty</th><th>Invoices</th><th>Receivable</th><th>Payable</th><th>Overdue</th></tr></thead><tbody>{(payload?.counterparties ?? []).map((counterparty) => <tr key={counterparty.id}><td><strong>{counterparty.name}</strong></td><td>{counterparty.invoices}</td><td>{money(counterparty.receivable)}</td><td>{money(counterparty.payable)}</td><td>{money(counterparty.overdue)}</td></tr>)}</tbody></table></div>
           )}
-        </InvoiceProRegister>
-      )}
-
-      {showReceivables && (view === 'overdue' || view === 'receivable' || view === 'dashboard') && (
-        <section className={styles.panel} aria-label="UK statutory late payment review">
-          <div className={styles.panelHeader}><div><div className={styles.panelKicker}>Credit control</div><h2 className={styles.panelTitle}>UK late-payment rights (review only)</h2></div></div>
-          <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-            <p>Potential statutory interest: 8 percentage points above the applicable Bank of England reference rate, plus fixed recovery compensation of GBP 40 / 70 / 100 where legally eligible. These estimates are NOT added to invoices or balances.</p>
-            <label>Applicable Bank of England reference rate (%) — verify the correct statutory reference period before entering
-              <input type="number" min="0" max="100" step="0.01" value={baseRateInput} onChange={(event) => setBaseRateInput(event.target.value)} placeholder="Enter verified rate" style={{ display:'block', width:'min(250px,100%)', minHeight:40, marginTop:8, padding:8, border:'1px solid #cbd5e1', borderRadius:8 }} />
-            </label>
-            <div><button className={styles.button} disabled={baseRateInput.trim() === '' || !Number.isFinite(Number(baseRateInput)) || Number(baseRateInput) < 0 || Number(baseRateInput) > 100} onClick={() => setReviewedBaseRate(Number(baseRateInput))}>Calculate estimates</button></div>
-            <p>Eligibility, contract terms, disputes, historical rate periods and partial payments require creditor review. No automatic claim, invoice adjustment or collection is performed.</p>
-            {reviewedBaseRate !== null && (
-              <div style={{ overflowX:'auto' }}><table className={styles.table}><thead><tr><th>Invoice</th><th>Overdue days</th><th>Interest estimate</th><th>Fixed compensation</th><th>Review status</th></tr></thead><tbody>
-                {invoices.filter((invoice) => invoice.direction === 'receivable' && invoice.latePaymentReviewRequired).map((invoice) => <tr key={invoice.id}><td>{invoice.invoiceNumber}</td><td>{invoice.latePaymentAssessment?.daysOverdue ?? '—'}</td><td>{invoice.latePaymentAssessment ? money(invoice.latePaymentAssessment.interestGbp) : 'Not available'}</td><td>{invoice.latePaymentAssessment ? money(invoice.latePaymentAssessment.compensationGbp) : 'Not available'}</td><td>Requires review</td></tr>)}
-              </tbody></table></div>
-            )}
-          </div>
         </section>
       )}
+
       {!['dashboard','ready','customers','aging','statements','counterparties'].includes(view) && (
-        <InvoiceProRegister>
+        <section className={styles.register}>
           <div className={styles.registerHead}><div><div className={styles.panelKicker}>Invoice operations</div><div className={styles.registerTitle}>{view === 'receivable' ? 'Accounts Receivable' : view === 'payable' ? 'Accounts Payable' : 'Invoice register'}</div></div><span className={styles.registerMeta}>{visibleInvoices.length} records</span></div>
-          <InvoiceProStatusTabs tabs={([['all','All'],['awaiting','Awaiting Payment'],['overdue','Overdue'],['paid','Paid'],['archive','Archive']] as Array<[View,string]>).map(([id,label]) => ({ id, label, active: view === id || (id === 'all' && (view === 'receivable' || view === 'payable')), onSelect: () => setView(id) }))} />
           {visibleInvoices.length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading finance control' : 'No finance records in this view'}</strong></div> : (
             <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Direction</th><th>Invoice</th><th>Counterparty</th><th>Net</th><th>VAT</th><th>Gross</th><th>Paid</th><th>Outstanding</th><th>Due</th><th>Aging</th><th>State</th><th>Action</th></tr></thead><tbody>{visibleInvoices.map((invoice) => <tr key={invoice.id}><td><StatusBadge value={invoice.direction === 'receivable' ? 'AR' : 'AP'} tone={invoice.direction === 'receivable' ? 'blue' : 'orange'} /></td><td><strong>{invoice.invoiceNumber}</strong></td><td>{invoice.counterpartyName}</td><td>{money(invoice.net, invoice.currency)}</td><td>{money(invoice.vat, invoice.currency)}</td><td>{money(invoice.gross, invoice.currency)}</td><td>{money(invoice.paidAmount, invoice.currency)}</td><td>{money(invoice.outstandingAmount, invoice.currency)}</td><td>{date(invoice.dueDate)}</td><td>{AGING_BUCKET_LABELS[invoice.agingBucket]}</td><td><StatusBadge value={invoice.lifecycle.replace(/_/g,' ')} tone={invoice.lifecycle === 'paid' ? 'green' : invoice.lifecycle === 'overdue' ? 'red' : invoice.lifecycle === 'archive' ? 'grey' : 'orange'} /></td><td><button className={styles.button} onClick={() => router.push(detailHref(role, invoice))}>Open</button></td></tr>)}</tbody></table></div>
           )}
-        </InvoiceProRegister>
+        </section>
       )}
 
       {payload?.note ? <div className={styles.registerMeta}>{payload.note}</div> : null}
-    </InvoiceProSurface>
+    </div>
   );
 }

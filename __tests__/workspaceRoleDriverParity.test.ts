@@ -63,7 +63,6 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/action-centre',
       '/driver/availability',
       '/driver/change-password',
-      '/driver/directory',
       '/driver/documents',
       '/driver/event-log',
       '/driver/history',
@@ -83,6 +82,7 @@ describe('driver parity across dual identity contexts', () => {
     expect(hrefs('owner_driver')).toEqual([
       ...hrefs('driver'),
       '/driver/availability/live',
+      '/driver/directory',
       '/driver/drivers-vehicles',
       '/driver/drivers',
       '/driver/finance',

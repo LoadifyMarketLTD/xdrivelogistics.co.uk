@@ -16,7 +16,6 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'global-search', label: 'Global Search', href: '/super-admin/search' },
       { id: 'analytics', label: 'Platform Analytics', href: '/super-admin/analytics' },
       { id: 'directory', label: 'Explore all areas', href: '/super-admin/directory' },
-      { id: 'member-directory', label: 'Member Directory', href: '/super-admin/members-directory' },
     ] },
     { id: 'marketplace-jobs', label: 'Marketplace & Jobs', items: [
       { id: 'marketplace', label: 'Live Marketplace', href: '/super-admin/marketplace' },
@@ -54,13 +53,6 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'verification', label: 'Verification', href: '/super-admin/companies/verification' },
       { id: 'company-compliance', label: 'Company Compliance', href: '/super-admin/companies/compliance' },
       { id: 'buyer-risk', label: 'Buyer Risk & Exposure', href: '/super-admin/companies/buyer-risk' },
-    ] },
-    { id: 'commercial', label: 'Business Development', items: [
-      { id: 'business-development-crm', label: 'B2B Prospect CRM', href: '/super-admin/business-development' },
-      { id: 'crm-research', label: 'UK Company Research', href: '/super-admin/business-development#crm-research' },
-      { id: 'crm-inbound', label: 'Commercial Enquiry Inbox', href: '/super-admin/business-development#crm-inbound' },
-      { id: 'crm-followups', label: 'Prospect Follow-ups', href: '/super-admin/business-development#crm-follow-ups' },
-      { id: 'crm-privacy', label: 'CRM Privacy & Suppression', href: '/super-admin/business-development#crm-privacy' },
     ] },
     { id: 'finance', label: 'Finance', items: [
       { id: 'finance-overview', label: 'Finance Overview', href: '/super-admin/finance' },

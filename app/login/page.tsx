@@ -50,8 +50,8 @@ export default function LoginPage() {
   useEffect(() => {
     if (authLoading || !user) return;
     const canonicalRoute = getResponsivePostLoginRoute(user, isMobileDriverBrowser());
-    const mobileDriver = canonicalRoute === '/driver/official-pwa-live';
-    const destination = mobileDriver ? '/driver/official-pwa-live' : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
+    const mobileDriver = isMobileDriverBrowser() && user.canAccessDriverMode === true && Boolean(user.driverId) && !user.mustChangePassword;
+    const destination = mobileDriver ? (safeNextPath?.startsWith('/driver-pwa-fresh/') && roleCanAccessPath(user, safeNextPath) ? safeNextPath : '/driver-pwa-fresh/jobs') : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
 
@@ -67,7 +67,7 @@ export default function LoginPage() {
       } else if (result.route) {
         const selfServiceDocuments = safeNextPath === '/onboarding/documents' || safeNextPath?.startsWith('/onboarding/documents?')
           || safeNextPath === '/settings/payments' || safeNextPath?.startsWith('/settings/payments?');
-        router.replace(selfServiceDocuments ? safeNextPath! : result.route === '/driver-pwa-fresh/jobs' ? (isMobileDriverBrowser() ? '/driver/official-pwa-live' : '/driver/jobs') : result.route);
+        router.replace(selfServiceDocuments ? safeNextPath! : result.route);
       }
     } finally {
       setIsLoading(false);
@@ -208,7 +208,7 @@ export default function LoginPage() {
                   Need an account? <Link href="/register">Register</Link>
                 </p>
                 <div className={styles.registerRow} aria-label="Legal documents">
-                  <Link href="/legal">Legal Centre</Link> | <Link href="/terms">Terms</Link> | <Link href="/privacy">Privacy</Link> | <Link href="/cookies">Cookies</Link>
+                  <Link href="/legal">Legal Centre</Link> Â· <Link href="/terms">Terms</Link> Â· <Link href="/privacy">Privacy</Link> Â· <Link href="/cookies">Cookies</Link>
                 </div>
               </form>
             ) : (

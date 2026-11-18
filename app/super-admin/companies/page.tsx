@@ -132,14 +132,7 @@ export default function Page() {
       if (entries.length===0) return <span style={{color:'#667085'}}>No entries</span>;
       return <div>{entries.slice(0,3).map((entry)=><div key={entry.id} style={{fontSize:11}}><strong>{entry.action_type}</strong> · {formatDateTime(entry.created_at)}</div>)}</div>;
     }},
-    { key:'inspect', label:'Inspect', render:(row)=><div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-      <PlatformEntityLink entityType="company" entityId={row.id} compact>Inspect</PlatformEntityLink>
-      {row.status.toLowerCase()==='active' &&
-        <a className="sa-button" href={'/super-admin/business-development?source_type=existing_customer&source_id='+encodeURIComponent(row.id)}
-          style={{minHeight:40,padding:'0 12px',display:'inline-flex',alignItems:'center',textDecoration:'none'}}>
-          Review CRM source
-        </a>}
-    </div> },
+    { key:'inspect', label:'Inspect', render:(row)=><PlatformEntityLink entityType="company" entityId={row.id} compact>Inspect</PlatformEntityLink> },
   ];
 
   return <ProtectedRoute allowedRoles={['owner']}>

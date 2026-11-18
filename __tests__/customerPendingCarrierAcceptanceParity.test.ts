@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
 const customerQuotes = fs.readFileSync(path.join(root, 'app/customer/quotes/CustomerQuotesCxPage.tsx'), 'utf8');
-const bookingConfirmation = fs.readFileSync(path.join(root, 'app/customer/quotes/BookingConfirmationFullPage.tsx'), 'utf8');
 const customerOffers = fs.readFileSync(path.join(root, 'app/api/customer/booking-offers/route.ts'), 'utf8');
 const awardRoute = fs.readFileSync(path.join(root, 'app/api/customer/bids/[id]/award/route.ts'), 'utf8');
 const carrierOffers = fs.readFileSync(path.join(root, 'app/api/booking-offers/route.ts'), 'utf8');
@@ -14,18 +13,16 @@ describe('customer pending carrier acceptance parity', () => {
   it('projects server-authoritative pending booking offers into Customer Quotes', () => {
     expect(customerOffers).toContain(".from('job_booking_offers')");
     expect(customerOffers).toContain(".in('buyer_company_id', companyIds)");
-    expect(customerQuotes).toContain("fetchAllBookingOfferPages<BuyerBookingOffer>('/api/customer/booking-offers', token)");
+    expect(customerQuotes).toContain("fetch('/api/customer/booking-offers'");
     expect(customerQuotes).toContain("statusFilter === 'received'");
     expect(customerQuotes).toContain("pendingOffer?.bid_id === bid.id");
     expect(customerQuotes).toContain('Awaiting Carrier Acceptance');
-    expect(customerQuotes).toContain('Booking offer sent - awaiting carrier acceptance.');
+    expect(customerQuotes).toContain('Offer sent - awaiting carrier');
   });
 
   it('never presents buyer award as an already-formed transport agreement', () => {
-    expect(customerQuotes).toContain('<BookingConfirmationFullPage');
-    expect(bookingConfirmation).toContain('Send Booking Offer');
-    expect(bookingConfirmation).toContain('A transport agreement is formed only when the carrier accepts this offer.');
-    expect(bookingConfirmation).toContain('Sending the offer creates a pending carrier acceptance request, not an accepted booking.');
+    expect(customerQuotes).toContain('Send Booking Offer');
+    expect(customerQuotes).toContain('No transport agreement is formed until the carrier accepts.');
     expect(customerQuotes).not.toContain('Selecting Confirm Award records this acknowledgement');
   });
 

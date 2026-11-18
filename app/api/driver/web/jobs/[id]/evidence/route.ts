@@ -9,7 +9,7 @@ import { isWebDriverContext, requireActiveWebDriver } from '../../../../_lib/web
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,180}$/;
-type EvidenceCategory = 'photos' | 'damage' | 'documents' | 'signature';
+type EvidenceCategory = 'photos' | 'damage' | 'documents';
 
 function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
   if (contentType === 'application/pdf') return payload.subarray(0, 5).toString('ascii') === '%PDF-';
@@ -28,7 +28,7 @@ function evidenceCategory(request: NextRequest, kind: 'collection' | 'delivery')
     return category === 'documents' ? 'documents' : null;
   }
   if (!category) return 'photos';
-  return category === 'photos' || category === 'damage' || category === 'documents' || category === 'signature' ? category : null;
+  return category === 'photos' || category === 'damage' || category === 'documents' ? category : null;
 }
 
 // Recover private, previously uploaded collection documents after refresh or device change.
@@ -43,25 +43,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .eq('id', id).eq('assigned_driver_id', driver.driverId).maybeSingle();
   if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
   if (!job) return respond(404, { error: 'Job not found.' });
-  const { data: collectionStop } = await supabaseAdmin.from('job_stops').select('id')
-    .eq('job_id', id).eq('stop_type','collection').order('sequence',{ascending:true}).limit(1).maybeSingle();
-  const folders = [
-    collectionStop?.id ? `${driver.companyId}/${id}/stops/${collectionStop.id}/documents` : '',
-    `${driver.companyId}/${id}/collection-documents`,
-  ].filter(Boolean);
-  const paths: string[] = [];
-  for (const folder of folders) {
-    const { data, error } = await supabaseAdmin.storage.from('pod-photos').list(folder, { limit: 100 });
-    if (error) continue;
-    for (const entry of data ?? []) {
-      if (SAFE_NAME.test(entry.name) && Boolean(entry.id)) paths.push(`${folder}/${entry.name}`);
-    }
-  }
-  const signed = await Promise.all(paths.map(async path => {
-    const { data: link, error: linkError } = await supabaseAdmin!.storage.from('pod-photos').createSignedUrl(path, 300);
-    return linkError || !link?.signedUrl ? null : { name: path.split('/').pop() ?? 'Document', signedUrl: link.signedUrl };
-  }));
-  return respond(200, { ok: true, paths, documents: signed.filter((item): item is NonNullable<typeof item> => item !== null) });
+  const folder = `${driver.companyId}/${id}/collection-documents`;
+  const { data, error } = await supabaseAdmin.storage.from('pod-photos').list(folder, { limit: 100 });
+  if (error) return respond(500, { error: 'Collection documents could not be recovered.' });
+  const paths = (data ?? []).filter(entry => SAFE_NAME.test(entry.name) && Boolean(entry.id))
+    .map(entry => `${folder}/${entry.name}`);
+  return respond(200, { ok: true, paths });
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -91,11 +78,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!ALLOWED_TYPES.has(contentType)) {
     return respond(415, { error: 'Evidence must be a PDF, JPEG or PNG file.' });
   }
-  if ((category === 'photos' || category === 'damage' || category === 'signature') && contentType === 'application/pdf') {
-    return respond(415, { error: 'Photo/signature evidence must be a JPEG or PNG image.' });
-  }
-  if (category === 'signature' && !stopId) {
-    return respond(400, { error: 'Signature evidence is available only for a specific stop.' });
+  if ((category === 'photos' || category === 'damage') && contentType === 'application/pdf') {
+    return respond(415, { error: 'Photo evidence must be a JPEG or PNG image.' });
   }
 
   const objectName = request.headers.get('x-xdrive-evidence-name')?.trim() ?? '';

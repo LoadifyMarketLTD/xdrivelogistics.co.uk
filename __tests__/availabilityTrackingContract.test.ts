@@ -41,8 +41,10 @@ describe('opt-in availability tracking contract', () => {
     expect(page).not.toContain('navigator.geolocation.watchPosition');
   });
 
-  it('allows on-job opt-in while suppressing non-available drivers', () => {
-    expect(driverApi).toContain('Availability sharing is independent of an active booking.');
+  it('suppresses availability for active jobs and non-available drivers', () => {
+    expect(driverApi).toContain('const ACTIVE_JOB_STATUSES = new Set([');
+    expect(driverApi).toContain(".eq('assigned_driver_id', driverId)");
+    expect(driverApi).toContain('Availability sharing is disabled while you have an active assigned job.');
     expect(driverApi).toContain('clearPresenceWhenIneligible');
     expect(driverApi).toContain(".from('driver_availability_presence')");
     expect(driverApi).toContain(".delete()");
@@ -50,8 +52,7 @@ describe('opt-in availability tracking contract', () => {
     expect(nearbyApi).toContain(".select('id, company_id, status, app_access, availability_status')");
     expect(nearbyApi).toContain("availability_status ?? '').toLowerCase() === 'available'");
     expect(nearbyApi).toContain('driversWithActiveJobs');
-    expect(nearbyApi).toContain('if (!eligibleDriverIds.has(driverId)) return [];');
-    expect(nearbyApi).toContain('on_job: driversWithActiveJobs.has(driverId)');
+    expect(nearbyApi).toContain('if (!eligibleDriverIds.has(driverId) || driversWithActiveJobs.has(driverId)) return [];');
   });
 
   it('gives exact coordinates only to the same fleet and rounded coordinates to exchange users', () => {

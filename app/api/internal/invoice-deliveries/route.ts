@@ -20,18 +20,7 @@ export async function POST(request: NextRequest) {
   if (!secret || Buffer.byteLength(supplied) !== Buffer.byteLength(secret) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  // A newly generated Draft is automatically queued by a legacy DB trigger.
-  // It must NEVER be emailed by the cron worker without an explicit Send attempt.
-  // Only resume a previously attempted immutable provider delivery.
-  const { data: pending, error } = await supabaseAdmin
-    .from('invoice_delivery_outbox')
-    .select('invoice_id')
-    .is('completed_at', null)
-    .not('payload', 'is', null)
-    .not('first_provider_attempt_at', 'is', null)
-    .lte('next_attempt_at', new Date().toISOString())
-    .order('next_attempt_at')
-    .limit(1);
+  const { data: pending, error } = await supabaseAdmin.from('invoice_delivery_outbox').select('invoice_id').is('completed_at', null).lte('next_attempt_at', new Date().toISOString()).order('next_attempt_at').limit(1);
   if (error) return NextResponse.json({ error: error.message }, { status: 503 });
   const results = [];
   for (const item of pending ?? []) {

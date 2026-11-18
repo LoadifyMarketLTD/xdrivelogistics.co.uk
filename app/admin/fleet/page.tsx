@@ -1,9 +1,12 @@
 'use client';
+
 import ProtectedRoute from '../../components/ProtectedRoute';
-import MemberFleetOverview from '../../components/workspace/MemberFleetOverview';
+import { FleetControlDashboardHome } from '../../components/workspace/AdminRoleDashboardHome';
 
 export default function FleetWorkspacePage() {
-  return <ProtectedRoute allowedRoles={['owner','company_admin','company_staff']}>
-    <MemberFleetOverview section="fleet" canManage manageHref="/admin/fleet/vehicles" />
-  </ProtectedRoute>;
+  return (
+    <ProtectedRoute allowedRoles={['owner', 'company_admin', 'company_staff']}>
+      <FleetControlDashboardHome />
+    </ProtectedRoute>
+  );
 }

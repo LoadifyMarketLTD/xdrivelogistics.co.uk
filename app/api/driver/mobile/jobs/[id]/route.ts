@@ -5,7 +5,6 @@ import { buildSignedJobAttachments } from '../../jobAttachmentPresentation';
 import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../../jobOperationalPresentation';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../../_lib';
 import { buildSignedPodPresentations } from '../../podPresentation';
-import { hasCompletePodEvidence } from '../../../../../../lib/jobs/podCompletion';
 
 type JobStopRow = {
   id: string;
@@ -117,7 +116,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
       .from('job_stops')
-      .select('id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, en_route_at, arrived_at, completed_at, cancelled_at, handover')
+      .select('id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at, handover')
       .eq('job_id', id)
       .order('sequence', { ascending: true }),
     supabaseAdmin
@@ -179,16 +178,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...mapJob(row),
       ...operational,
       companyName: ownerCompany?.name ?? undefined,
-      companyXdId: row.company_id ? ownerCompany?.xd_id ?? undefined : posterMemberId ?? undefined,
+      companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
       // Persisted multi-drop remains authoritative. Legacy two-point stops from
       // the operational helper are used only for historical jobs with no job_stops.
       stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
       specialInstructions,
       attachments,
       pod,
-      // Present partial evidence for review, but never report archived POD
-      // unless the exact Finance completion gate confirms all requirements.
-      podCompleted: hasCompletePodEvidence(row),
+      podCompleted: Boolean(pod),
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       budgetAmount: agreedRate,

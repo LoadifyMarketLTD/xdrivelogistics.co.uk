@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { driverJobStatusesForScope } from '../../../../../lib/jobs/jobLifecyclePresentation';
-import { selectHistoricalJobMatches } from '../../../../../lib/jobs/historicalReferenceLookup';
 import { inspectJobEnvironmentalZones } from '../../../../../lib/environmentalZone';
 import { loadDriverAgreedRates } from '../../_lib/commercialRate';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../_lib';
@@ -104,7 +103,7 @@ async function loadStops(jobIds: string[]) {
 
   const { data, error } = await supabaseAdmin
     .from('job_stops')
-    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, en_route_at, arrived_at, completed_at, cancelled_at, handover')
+    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at, handover')
     .in('job_id', jobIds)
     .order('sequence', { ascending: true });
 
@@ -131,14 +130,12 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') || 'active';
-  const referenceTerm = searchParams.get('reference')?.trim() || '';
-  if (referenceTerm.length > 128 || (referenceTerm.length > 0 && referenceTerm.length < 2)) return respond(400, { error: 'Reference search requires 2–128 characters.' });
   const compact = searchParams.get('compact') === '1';
   const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? 100) || 100, 1), 250);
   const statusList = driverJobStatusesForScope(scope);
   const completedHistory = scope === 'completed';
   const requestedHistoryDays = Number(searchParams.get('historyDays') ?? 365);
-  const historyDays = completedHistory && !referenceTerm
+  const historyDays = completedHistory
     ? Math.min(365, Math.max(1, Number.isFinite(requestedHistoryDays) ? Math.round(requestedHistoryDays) : 365))
     : null;
   const cursor = completedHistory ? validIsoDate(searchParams.get('cursor')) : null;
@@ -156,33 +153,12 @@ export async function GET(request: NextRequest) {
     if (cursor) query = query.lt('updated_at', cursor);
   }
 
-  if (statusList && !referenceTerm) {
+  if (statusList) {
     const statuses = statusList.join(',');
     query = query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
   }
 
-  // Exact historical lookup spans every archived/terminal job, regardless
-  // of the normal 365-day History window. Scope every page to this driver.
-  const fetchReferenceMatches = async () => {
-    const all: MobileJobWithPresentation[] = [];
-    const pageSize = 500;
-    for (let offset = 0; offset < 20000; offset += pageSize) {
-      const page = await supabaseAdmin!
-        .from('jobs')
-        .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes,${driverJobOperationalSelect}`)
-        .eq('assigned_driver_id', driver.driverId)
-        .order('id', { ascending: true })
-        .range(offset, offset + pageSize - 1);
-      if (page.error) return { data: null as MobileJobWithPresentation[] | null, error: page.error };
-      const items = (page.data ?? []) as unknown as MobileJobWithPresentation[];
-      all.push(...items);
-      if (items.length < pageSize) {
-        return { data: selectHistoricalJobMatches(all, referenceTerm).slice(0, limit), error: null };
-      }
-    }
-    return { data: null as MobileJobWithPresentation[] | null, error: new Error('Historical search exceeded the safe page limit. No partial results returned.') };
-  };
-  const { data, error } = referenceTerm ? await fetchReferenceMatches() : await query;
+  const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
   const rows = (data ?? []) as unknown as MobileJobWithPresentation[];
@@ -233,7 +209,7 @@ export async function GET(request: NextRequest) {
         ...mapJob(row),
         ...operational,
         companyName: ownerCompany?.name ?? undefined,
-        companyXdId: row.company_id ? ownerCompany?.xd_id ?? undefined : posterMemberId ?? undefined,
+        companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
         environmentalZone: environmentalZone ?? undefined,
         stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
         attachments: attachments.get(row.id) ?? [],

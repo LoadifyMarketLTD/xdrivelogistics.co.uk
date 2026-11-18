@@ -113,9 +113,7 @@ export async function POST(request: Request) {
       notes: [
         data.quantity ? `Qty: ${data.quantity}` : null,
         data.notes || null,
-        // Canonical provenance for owner-reviewed CRM source capture.
-        'SOURCE: www.xdrivelogistics.co.uk/public-quote-request',
-      ].filter(Boolean).join(' | '),
+      ].filter(Boolean).join(' | ') || null,
     })
     .select('id')
     .single();

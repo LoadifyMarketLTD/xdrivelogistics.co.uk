@@ -14,13 +14,7 @@ import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
-import Canonical3150TransportSummary from './Canonical3150TransportSummary';
-import { formatPublicOutcode } from '../../../lib/jobs/formatPublicOutcode';
-import { public3150RouteLabel } from '../../../lib/jobs/public3150RouteLabel';
-import './canonical3150-transport-summary.css';
-import './master3150-unified-loads.css';
-import Master3150QuotesKpis from './Master3150QuotesKpis';
-import MarketplaceQuoteNowDialog, { type Canonical3150QuoteMeta } from './MarketplaceQuoteNowDialog';
+import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
 import { MemberProfileOverlay } from './MemberProfile';
 import {
@@ -76,11 +70,11 @@ const DEFAULT_FILTERS: Filters = { from: '', fromRadius: '10', to: '', toRadius:
 const VEHICLE_OPTIONS = [['', 'Any vehicle'], ['swb_van', 'SWB Van'], ['mwb_van', 'MWB Van'], ['lwb_van', 'LWB Van'], ['xlwb_van', 'XLWB Van'], ['luton', 'Luton'], ['luton_tail_lift', 'Luton Tail Lift'], ['curtainside_van', 'Curtainside Van'], ['truck_7_5t', '7.5T'], ['truck_18t', '18T'], ['truck_26t', '26T'], ['artic', 'Artic']] as const;
 const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 const DESCRIPTION_OPTIONS = [['any', 'Any timing'], ['same_day_timed', 'Same Day - Timed'], ['same_day_non_timed', 'Same Day - Non Timed'], ['next_day_timed', 'Next Day - Timed'], ['next_day_non_timed', 'Next Day - Non Timed'], ['3_5_days', '3 - 5 Days'], ['multi_drop', 'Multi-Drop'], ['other_notes', 'Other - Specified in Notes'], ['deliver_direct', 'Deliver Direct']] as const;
-const LOAD_TYPES = [['all', 'All Loads'], ['on_demand', 'On Demand'], ['regular_load', 'Regular Load'], ['daily_hire', 'Daily Hire']] as const;
-const radiusOptions = ['5', '10', '20', '30', '50', '100', '200', '300'];
+const LOAD_TYPES = [['all', 'All Live'], ['on_demand', 'On Demand'], ['regular_load', 'Regular Load'], ['daily_hire', 'Daily Hire']] as const;
+const radiusOptions = ['10', '20', '30', '50', '100', '200', '300'];
 const fieldStyle = { height: 28, border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 7px', background: '#fff', color: '#0f172a', fontSize: '11px', minWidth: 0 } as const;
 const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 500, lineHeight: '14px', marginBottom: 3 } as const;
-const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return '-'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `GBP ${amount.toFixed(2)}`; } };
+const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return 'â€”'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `Â£${amount.toFixed(2)}`; } };
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not set';
 const cxWhen = (value: string | null | undefined) => {
   if (!value) return 'Not set';
@@ -105,7 +99,7 @@ const cxSlotParts = (value: string | null | undefined, slot: string | null | und
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return { primary: cleanSlot || 'Not set', meta: '' };
   const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
-  const primary = cleanSlot ? cleanSlot.replace(/\s*[--]\s*/g, ' - ') : date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const primary = cleanSlot ? cleanSlot.replace(/\s*[â€“-]\s*/g, ' â€“ ') : date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   return { primary, meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}` };
 };
 const cxQuoteServiceLabel = (job: BidJob | null | undefined) => {
@@ -165,7 +159,6 @@ export default function CompanyMarketplaceExchange({
   const [companyId, setCompanyId] = useState<string | null>(() => fixtureData?.companyId ?? null);
   const [tab] = useState<'loads' | 'bids' | 'won'>(initialTab);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [masterLoadsTab, setMasterLoadsTab] = useState<'all' | 'on_demand' | 'same_day' | 'next_day'>('all');
   const [page, setPage] = useState(1);
   const [loads, setLoads] = useState<LoadRow[]>(() => fixtureData?.loads ?? []);
   const [bids, setBids] = useState<BidRow[]>(() => fixtureData?.bids ?? []);
@@ -182,7 +175,6 @@ export default function CompanyMarketplaceExchange({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   const [memberTarget, setMemberTarget] = useState<LoadRow | null>(null);
-  const [detailsTarget, setDetailsTarget] = useState<LoadRow | null>(null);
   const [bidTarget, setBidTarget] = useState<LoadRow | null>(null);
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteMessage, setQuoteMessage] = useState('');
@@ -213,7 +205,7 @@ export default function CompanyMarketplaceExchange({
   const rememberSearch = useCallback(() => {
     if (!recentKey) return;
     const parts = [filters.from && `FROM ${filters.from}`, filters.to && `TO ${filters.to}`, filters.minVehicle && `Min ${VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.minVehicle)?.label ?? filters.minVehicle}`, filters.maxVehicle && `Max ${VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.maxVehicle)?.label ?? filters.maxVehicle}`, filters.vehicle && vehicleLabel({ requested_vehicle_label: null, requested_vehicle_type: filters.vehicle, vehicle_type: null }), filters.member && `Member ${filters.member}`, filters.loadType !== 'all' && loadTypeLabel(filters.loadType)].filter(Boolean);
-    const item: RecentSearch = { id: `${Date.now()}`, label: parts.length ? parts.join('  /  ') : 'All live loads', filters: { ...filters }, createdAt: new Date().toISOString() };
+    const item: RecentSearch = { id: `${Date.now()}`, label: parts.length ? parts.join(' Â· ') : 'All live loads', filters: { ...filters }, createdAt: new Date().toISOString() };
     setRecentSearches((current) => { const next = [item, ...current.filter((entry) => entry.label !== item.label)].slice(0, 6); localStorage.setItem(recentKey, JSON.stringify(next)); return next; });
   }, [filters, recentKey]);
 
@@ -283,40 +275,8 @@ export default function CompanyMarketplaceExchange({
   }, [autoLoadsFilterKey, companyId, tab]);
   const applyDefault = () => { if (!defaultKey) return; try { const saved = JSON.parse(localStorage.getItem(defaultKey) ?? 'null') as Partial<Filters> | null; if (saved) { setFilters({ ...DEFAULT_FILTERS, ...saved }); setPage(1); setNotice('Saved default search loaded. Press Search to refresh results.'); } else setNotice('No default marketplace search has been saved yet.'); } catch { setNotice('The saved default search could not be read.'); } };
   const saveDefault = () => { if (!defaultKey) return; localStorage.setItem(defaultKey, JSON.stringify(filters)); setNotice('Default marketplace search saved for this company workspace.'); };
-  const clearFilters = () => { setFilters(DEFAULT_FILTERS); setMasterLoadsTab('all'); setPage(1); setNotice('Filters cleared. Results will refresh automatically.'); };
-  useEffect(() => {
-    if (tab !== 'loads') return;
-    const resetLoads = () => {
-      setFilters(DEFAULT_FILTERS);
-      setMasterLoadsTab('all');
-      setPage(1);
-      setViewMode('list');
-      setAdvancedSearchOpen(false);
-      setExpanded(new Set());
-      setDetailsTarget(null);
-      setMemberTarget(null);
-      setBidTarget(null);
-      setNotice('');
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    };
-    window.addEventListener('xdrive:loads-reselect', resetLoads);
-    return () => window.removeEventListener('xdrive:loads-reselect', resetLoads);
-  }, [tab]);
+  const clearFilters = () => { setFilters(DEFAULT_FILTERS); setPage(1); setNotice('Filters cleared. Results will refresh automatically.'); };
   const setFilter = (key: keyof Filters, value: string) => { setFilters((current) => ({ ...current, [key]: value })); setPage(1); };
-  const selectMasterLoadsTab = (next: 'all' | 'on_demand' | 'same_day' | 'next_day') => {
-    const today = new Date();
-    const toLocalIso = (date: Date) => [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
-    const collection = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (next === 'next_day' ? 1 : 0));
-    const date = toLocalIso(collection);
-    setFilters(current => ({
-      ...current,
-      loadType: next === 'on_demand' ? 'on_demand' : 'all',
-      dateFrom: next === 'same_day' || next === 'next_day' ? date : '',
-      dateTo: next === 'same_day' || next === 'next_day' ? date : '',
-    }));
-    setMasterLoadsTab(next);
-    setPage(1);
-  };
   const setVehicleRangeBoundary = (boundary: 'min' | 'max', nextIndex: number) => { setFilters((current) => { const last = Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1); const minIndex = current.minVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === current.minVehicle)) : 0; const maxIndex = current.maxVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === current.maxVehicle)) : last; const safeIndex = Math.max(0, Math.min(last, nextIndex)); const nextMin = boundary === 'min' ? Math.min(safeIndex, maxIndex) : minIndex; const nextMax = boundary === 'max' ? Math.max(safeIndex, minIndex) : maxIndex; return { ...current, minVehicle: VEHICLE_SIZE_OPTIONS[nextMin]?.value ?? '', maxVehicle: nextMax >= last ? '' : (VEHICLE_SIZE_OPTIONS[nextMax]?.value ?? '') }; }); setPage(1); };
   const toggleDescriptionFilter = (value: string) => setFilters((current) => { const allValues = DESCRIPTION_OPTIONS.filter(([item]) => item !== 'any').map(([item]) => item); const selected = current.description === 'any' ? [...allValues] : current.description.split(',').filter(Boolean); const next = selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]; return { ...current, description: next.length === allValues.length ? 'any' : next.join(',') }; });
   const applyDatePreset = (days: number | null) => { if (days == null) { setFilters((current) => ({ ...current, dateFrom: '', dateTo: '' })); setPage(1); return; } const start = new Date(); const end = new Date(); end.setDate(end.getDate() + days); const iso = (date: Date) => date.toISOString().slice(0, 10); setFilters((current) => ({ ...current, dateFrom: iso(start), dateTo: iso(end) })); setPage(1); };
@@ -383,7 +343,7 @@ export default function CompanyMarketplaceExchange({
     setError('');
   }, [bidTarget?.id, fixtureData]);
 
-  const submitQuote = async (meta?: Canonical3150QuoteMeta) => {
+  const submitQuote = async () => {
     if (!companyId || !bidTarget) return;
     const baseAmount = Number(quoteAmount);
     const extrasTotal = quoteExtras.reduce((sum, extra) => {
@@ -394,9 +354,6 @@ export default function CompanyMarketplaceExchange({
     if (!Number.isFinite(baseAmount) || baseAmount <= 0 || amount <= 0) { setError('Enter a valid quote amount greater than 0.'); return; }
     const selectedVehicle = quoteVehicles.find((vehicle) => vehicle.id === quoteVehicleId) ?? null;
     const commercialContext = [
-      meta ? `Service: ${meta.service}` : null,
-      meta ? `ETA to Collection: ${meta.etaToCollection === 'ONTIME' ? 'On Time' : meta.etaToCollection === 'ASAP' ? 'ASAP' : `${meta.etaToCollection} minutes`}` : null,
-      meta ? `Quote valid for: ${meta.validityHours} hours` : null,
       selectedVehicle ? `Vehicle: ${selectedVehicle.reg_plate || 'No registration'}${selectedVehicle.type ? ` (${selectedVehicle.type.replace(/_/g, ' ')})` : ''}` : null,
       ...quoteExtras
         .map((extra) => ({ extra, amount: Number(extra.amount) }))
@@ -485,20 +442,14 @@ export default function CompanyMarketplaceExchange({
   }, 0);
   const quoteBaseAmount = Number(quoteAmount);
   const quoteTotal = (Number.isFinite(quoteBaseAmount) && quoteBaseAmount > 0 ? quoteBaseAmount : 0) + quoteExtrasTotal;
-
-  const quoteCurrencySymbol = quoteCurrency === 'EUR' ? '\u20ac' : quoteCurrency === 'USD' ? '$' : '\u00a3';
+  const quoteCurrencySymbol = quoteCurrency === 'EUR' ? 'â‚¬' : quoteCurrency === 'USD' ? '$' : 'Â£';
   const selectedQuoteVehicle = quoteVehicles.find((vehicle) => vehicle.id === quoteVehicleId) ?? null;
   return (
     <PageFrame>
-      {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace...</AlertBanner>}
+      {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspaceâ€¦</AlertBanner>}
 
       {tab === 'loads' && <>
-        <h1 className="master3150-loads-heading">Loads</h1>
-        <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads primary tabs">
-          {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={masterLoadsTab===item.id} aria-pressed={masterLoadsTab===item.id} onClick={()=>selectMasterLoadsTab(item.id)}>{item.label}</button>)}
-          <a className="master3150-loads-my-jobs" href="/admin/jobs">My Loads</a>
-        </nav>
-        <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout xdrive-admin-marketplace-identity master3150-unified-loads" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout xdrive-admin-marketplace-identity" style={{ display: 'flex', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 196px)', width: 'var(--ws-filter-rail-w, 196px)', minWidth: 0, alignSelf: 'flex-start' }}>
             <Panel title="Search Loads">
               <div style={{ display: 'grid', gap: 7 }}>
@@ -508,23 +459,23 @@ export default function CompanyMarketplaceExchange({
                 <label><span style={labelStyle}>Radius Search:</span><select value={filters.fromRadius} onChange={(e) => setFilter('fromRadius', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
                 <label><span style={labelStyle}>TO:</span><input value={filters.to} onChange={(e) => setFilter('to', e.target.value)} placeholder="Enter location" style={{ ...fieldStyle, width: '100%' }} /></label>
                 <label><span style={labelStyle}>Radius Search:</span><select value={filters.toRadius} onChange={(e) => setFilter('toRadius', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
-                <label><span style={labelStyle}>Vehicle Size:</span><div className="xdrive-vehicle-size-range"><div className="xdrive-vehicle-size-range__track"><input className="xdrive-vehicle-size-range__input xdrive-vehicle-size-range__input--min" aria-label="Minimum vehicle size" type="range" min="0" max={Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1)} value={Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === filters.minVehicle))} onChange={(event) => setVehicleRangeBoundary('min', Number(event.target.value))} /><input className="xdrive-vehicle-size-range__input xdrive-vehicle-size-range__input--max" aria-label="Maximum vehicle size" type="range" min="0" max={Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1)} value={filters.maxVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === filters.maxVehicle)) : Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1)} onChange={(event) => setVehicleRangeBoundary('max', Number(event.target.value))} /></div><div className="xdrive-vehicle-size-range__labels"><span>{(VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.minVehicle)?.label ?? VEHICLE_SIZE_OPTIONS[0]?.label ?? 'Smallest').replace('Motorbike', 'Motorcycle')} - {VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.maxVehicle)?.label ?? VEHICLE_SIZE_OPTIONS[VEHICLE_SIZE_OPTIONS.length - 1]?.label ?? 'Largest'}</span></div></div></label>
+                <label><span style={labelStyle}>Vehicle Size:</span><div className="xdrive-vehicle-size-range"><div className="xdrive-vehicle-size-range__track"><input className="xdrive-vehicle-size-range__input xdrive-vehicle-size-range__input--min" aria-label="Minimum vehicle size" type="range" min="0" max={Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1)} value={Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === filters.minVehicle))} onChange={(event) => setVehicleRangeBoundary('min', Number(event.target.value))} /><input className="xdrive-vehicle-size-range__input xdrive-vehicle-size-range__input--max" aria-label="Maximum vehicle size" type="range" min="0" max={Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1)} value={filters.maxVehicle ? Math.max(0, VEHICLE_SIZE_OPTIONS.findIndex((option) => option.value === filters.maxVehicle)) : Math.max(0, VEHICLE_SIZE_OPTIONS.length - 1)} onChange={(event) => setVehicleRangeBoundary('max', Number(event.target.value))} /></div><div className="xdrive-vehicle-size-range__labels"><span>{(VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.minVehicle)?.label ?? VEHICLE_SIZE_OPTIONS[0]?.label ?? 'Smallest').replace('Motorbike', 'Motorcycle')} â€“ {VEHICLE_SIZE_OPTIONS.find((option) => option.value === filters.maxVehicle)?.label ?? VEHICLE_SIZE_OPTIONS[VEHICLE_SIZE_OPTIONS.length - 1]?.label ?? 'Largest'}</span></div></div></label>
                 <label><span style={labelStyle}>Body Type:</span><input value={filters.body} onChange={(e) => setFilter('body', e.target.value)} placeholder="Any body type" style={{ ...fieldStyle, width: '100%' }} /></label>
                 <label><span style={labelStyle}>Date:</span><select defaultValue="" onChange={(event) => { const value = event.target.value; applyDatePreset(value === '' ? null : Number(value)); }} style={{ ...fieldStyle, width: '100%' }}><option value="">Any date</option><option value="0">Today</option><option value="1">Today + 1 Day</option><option value="3">Today + 3 Days</option><option value="10">Today + 10 Days</option></select></label>
                 <label><span style={labelStyle}>Freight Type:</span><input value={filters.freight} onChange={(e) => setFilter('freight', e.target.value)} placeholder="Any freight type" style={{ ...fieldStyle, width: '100%' }} /></label>
                 <label><span style={labelStyle}>Member Name / ID:</span><input value={filters.member} onChange={(e) => setFilter('member', e.target.value)} placeholder="Member or ID" style={{ ...fieldStyle, width: '100%' }} /></label>
                 <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ ...labelStyle, marginBottom: 4 }}>Job Description</legend><div style={{ display: 'grid', gap: 3 }}>{DESCRIPTION_OPTIONS.filter(([value]) => value !== 'any').map(([value, label]) => { const selected = filters.description === 'any' || filters.description.split(',').includes(value); return <label key={value} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 5, fontSize: 11 }}><input type="checkbox" checked={selected} onChange={() => toggleDescriptionFilter(value)} /> {label}</label>; })}</div></fieldset>
-                <button type="button" onClick={() => setAdvancedSearchOpen((open) => !open)} style={{ minHeight: 28, border: '1px solid #cbd5e1', borderRadius: 4, background: '#f8fafc', color: '#0b2f6b', fontSize: 11, fontWeight: 800, cursor: 'pointer', textAlign: 'left', padding: '0 8px' }}>Advanced Search {advancedSearchOpen ? 'Collapse' : 'Expand'}</button>
+                <button type="button" onClick={() => setAdvancedSearchOpen((open) => !open)} style={{ minHeight: 28, border: '1px solid #cbd5e1', borderRadius: 4, background: '#f8fafc', color: '#0b2f6b', fontSize: 11, fontWeight: 800, cursor: 'pointer', textAlign: 'left', padding: '0 8px' }}>Advanced Search {advancedSearchOpen ? 'â–´' : 'â–¾'}</button>
                 {advancedSearchOpen && <div style={{ display: 'grid', gap: 8, paddingTop: 2 }}>
                   <label><span style={labelStyle}>Exact vehicle</span><select value={filters.vehicle} onChange={(e) => setFilter('vehicle', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{VEHICLE_OPTIONS.map(([value, label]) => <option key={value || 'any'} value={value}>{label}</option>)}</select></label>
                   <label><span style={labelStyle}>Posted within</span><select value={filters.postedWithinHours} onChange={(e) => setFilter('postedWithinHours', e.target.value)} style={{ ...fieldStyle, width: '100%' }}><option value="">Any time</option><option value="1">1 hour</option><option value="3">3 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option><option value="48">48 hours</option></select></label>
                   <label><span style={labelStyle}>Pickup from</span><input type="date" value={filters.dateFrom} onChange={(e) => setFilter('dateFrom', e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
                   <label><span style={labelStyle}>Pickup to</span><input type="date" value={filters.dateTo} onChange={(e) => setFilter('dateTo', e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
-                  <label><span style={labelStyle}>Budget</span><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}><input type="number" min="0" value={filters.minBudget} onChange={(e) => setFilter('minBudget', e.target.value)} placeholder="Min GBP" style={{ ...fieldStyle, width: '100%' }} /><input type="number" min="0" value={filters.maxBudget} onChange={(e) => setFilter('maxBudget', e.target.value)} placeholder="Max GBP" style={{ ...fieldStyle, width: '100%' }} /></div></label>
+                  <label><span style={labelStyle}>Budget</span><div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}><input type="number" min="0" value={filters.minBudget} onChange={(e) => setFilter('minBudget', e.target.value)} placeholder="Min Â£" style={{ ...fieldStyle, width: '100%' }} /><input type="number" min="0" value={filters.maxBudget} onChange={(e) => setFilter('maxBudget', e.target.value)} placeholder="Max Â£" style={{ ...fieldStyle, width: '100%' }} /></div></label>
                   <label><span style={labelStyle}>Results</span><select value={filters.pageSize} onChange={(e) => setFilter('pageSize', e.target.value)} style={{ ...fieldStyle, width: '100%' }}><option value="10">10 / page</option><option value="25">25 / page</option><option value="50">50 / page</option></select></label>
-                  <label><span style={labelStyle}>Recent searches</span><select defaultValue="" onChange={(e) => { const found = recentSearches.find((item) => item.id === e.target.value); if (found) { setFilters({ ...DEFAULT_FILTERS, ...found.filters }); setPage(1); setNotice('Recent search loaded: ' + found.label + '. Press Search to refresh results.'); } e.currentTarget.value = ''; }} style={{ ...fieldStyle, width: '100%' }}><option value="">Select recent search...</option>{recentSearches.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
+                  <label><span style={labelStyle}>Recent searches</span><select defaultValue="" onChange={(e) => { const found = recentSearches.find((item) => item.id === e.target.value); if (found) { setFilters({ ...DEFAULT_FILTERS, ...found.filters }); setPage(1); setNotice('Recent search loaded: ' + found.label + '. Press Search to refresh results.'); } e.currentTarget.value = ''; }} style={{ ...fieldStyle, width: '100%' }}><option value="">Select recent searchâ€¦</option>{recentSearches.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
                 </div>}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton><ActionButton tone="success" onClick={() => void loadLoads(1, true)} disabled={loading}>{loading ? 'Searching...' : 'Search'}</ActionButton></div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton><ActionButton tone="success" onClick={() => void loadLoads(1, true)} disabled={loading}>{loading ? 'Searchingâ€¦' : 'Search'}</ActionButton></div>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={applyDefault}>Load Default</ActionButton><ActionButton tone="secondary" onClick={saveDefault}>Save Default</ActionButton></div>
               </div>
             </Panel>
@@ -533,7 +484,7 @@ export default function CompanyMarketplaceExchange({
           <main style={{ flex: '1 1 760px', minWidth: 0 }}>
             <div className="workspace-record-meta workspace-list-controls cx-loads-toolbar">
               <span className="cx-loads-toolbar__title">
-                <span className="cx-loads-toolbar__calendar" aria-hidden="true">Calendar</span>
+                <span className="cx-loads-toolbar__calendar" aria-hidden="true">â–£</span>
                 <strong>Search Loads Results{generatedAt ? ` at ${new Date(generatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}` : ''}</strong>
                 <span role="group" aria-label="Loads view mode" className="cx-loads-view-toggle">
                   <label><input type="radio" name="loads-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label>
@@ -543,18 +494,18 @@ export default function CompanyMarketplaceExchange({
               </span>
               <span className="workspace-list-controls__right">
                 {viewMode === 'list' && <button type="button" className="cx-expand-entries-control" disabled={!visibleLoads.length} onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>}
-                <ActionButton tone="secondary" onClick={() => void loadLoads(page, false)} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</ActionButton>
+                <ActionButton tone="secondary" onClick={() => void loadLoads(page, false)} disabled={loading}>{loading ? 'Refreshingâ€¦' : 'Refresh'}</ActionButton>
               </span>
             </div>
             <div className="carrier-exchange-secondary-tabs cx-loads-secondary-tabs">
-              <label className="master3150-loads-service-selector">Service type <select aria-label="Service type" value={filters.loadType} onChange={(event) => {setMasterLoadsTab('all'); setFilters(current=>({...current,loadType:event.target.value,dateFrom:'',dateTo:''}));setPage(1);}}>{LOAD_TYPES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+              {LOAD_TYPES.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter('loadType', value)} className={`carrier-exchange-tab${filters.loadType === value ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}
               <select aria-label="Quick Search" defaultValue="" className="cx-loads-quick-search" onChange={(event) => { const found = recentSearches.find((item) => item.id === event.target.value); if (found) { setFilters({ ...DEFAULT_FILTERS, ...found.filters }); setPage(1); setNotice('Quick Search loaded: ' + found.label + '. Press Search to refresh results.'); } event.currentTarget.value = ''; }}><option value="">Quick Search</option>{recentSearches.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>
               <label className="cx-loads-posted-within">Show loads posted within last <select value={filters.postedWithinHours} onChange={(event) => setFilter('postedWithinHours', event.target.value)}><option value="">all</option><option value="1">1 hour</option><option value="3">3 hours</option><option value="6">6 hours</option><option value="12">12 hours</option><option value="24">24 hours</option><option value="48">48 hours</option></select></label>
               <span className="cx-loads-pagination">
                 <label>Items per Page: <select aria-label="Loads per page" value={filters.pageSize} onChange={(event) => setFilter('pageSize', event.target.value)}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label>
-                <button type="button" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)} aria-label="Previous loads page">Previous</button>
+                <button type="button" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)} aria-label="Previous loads page">â€¹</button>
                 <span>{total === 0 ? '0' : `${(page - 1) * Number(filters.pageSize) + 1}-${Math.min(page * Number(filters.pageSize), total)} of ${total}`}</span>
-                <button type="button" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)} aria-label="Next loads page">Next</button>
+                <button type="button" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)} aria-label="Next loads page">â€º</button>
               </span>
             </div>
 
@@ -573,11 +524,10 @@ export default function CompanyMarketplaceExchange({
                   pickup={pickupWhen}
                   delivery={deliveryWhen}
                   band={descriptionLabel(load.jobDescription)}
-                  posted={load.posterName}
+                  posted={<>Posted by {load.posterName}</>}
                   postedAt={load.exchange_posted_at ? <>@ {cxWhen(load.exchange_posted_at)}</> : null}
                   loadId={load.id.slice(0, 8).toUpperCase()}
                   vehicle={requestedVehicle}
-                  paymentTerms={load.payment_terms || 'Not Supplied'}
                   expanded={isExpanded}
                   freight={<>
                     <div><span>Dist:</span><strong>{load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
@@ -592,10 +542,10 @@ export default function CompanyMarketplaceExchange({
                   </>}
                   notes={notes ? <><span>Load Notes:</span><strong>{notes}</strong></> : null}
                   footer={<>
-                    <button type="button" className="xdrive-cx-load-footer__details" onClick={() => setDetailsTarget(load)}>View Details</button>
-                    <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'}>{isExpanded ? 'Less' : 'More'}</button>
+                    <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'}>{isExpanded ? 'â–´' : 'â–¾'}</button>
                     {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => openQuote(load)}>Quote Now</button> : null}
                     <span className="xdrive-cx-load-footer__member">
+                      <button className="xdrive-inline-link" type="button" onClick={() => setExpanded((current) => new Set(current).add(load.id))}>View Details</button>
                       {load.posterMemberCode ? <span> ({load.posterMemberCode})</span> : null}
                       <button className="xdrive-inline-link xdrive-cx-load-footer__company" type="button" onClick={() => setMemberTarget(load)}>{load.posterName}</button>
                       {load.posterPhone ? <a href={`tel:${load.posterPhone.replace(/\s+/g, '')}`}>{load.posterPhone}</a> : null}
@@ -605,7 +555,7 @@ export default function CompanyMarketplaceExchange({
               })}
               {!loading && visibleLoads.length === 0 && <div className="carrier-exchange-empty" style={{ minHeight: 52, padding: 10, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748b', border: '1px solid #dbe2ea', background: '#fff' }}>No live loads match this search.</div>}
             </div>}
-            <div hidden><span>Page {page} of {totalPages}  /  {total} results</span><div style={{ display: 'flex', gap: 4 }}><ActionButton tone="secondary" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)}>Previous</ActionButton><ActionButton tone="secondary" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)}>Next</ActionButton></div></div>
+            <div hidden><span>Page {page} of {totalPages} Â· {total} results</span><div style={{ display: 'flex', gap: 4 }}><ActionButton tone="secondary" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)}>Previous</ActionButton><ActionButton tone="secondary" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)}>Next</ActionButton></div></div>
           </main>
         </div>
       </>}
@@ -629,7 +579,6 @@ export default function CompanyMarketplaceExchange({
             ['submitted', 'Submitted'],
             ['unsuccessful', 'Unsuccessful'],
           ] as const).map(([id, label]) => <button key={id} type="button" aria-selected={quoteStateView === id} onClick={() => setQuoteStateView(id)} className={`carrier-exchange-tab${quoteStateView === id ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}<span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleAllVisibleQuotes} disabled={!visibleBids.length}>{allVisibleQuotesExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span></div>
-          <Master3150QuotesKpis stages={bids.map(bid => bidStage(bid))} />
           <div className="xdrive-cx-quote-list">
             {visibleBids.map((bid) => {
               const expandedQuote = expandedQuotes.has(bid.id);
@@ -640,7 +589,7 @@ export default function CompanyMarketplaceExchange({
               const vehicle = bid.job?.requested_vehicle_label || bid.job?.vehicle_type?.replace(/_/g, ' ') || 'Vehicle not supplied';
               const pickupLabel = cxSlotParts(bid.job?.pickup_datetime, bid.job?.pickup_time_slot);
               const deliveryLabel = cxSlotParts(bid.job?.delivery_datetime, bid.job?.delivery_time_slot || (!bid.job?.delivery_datetime ? 'ASAP' : null));
-              const loadNotes = [bid.job?.load_details, bid.job?.special_requirements].filter(Boolean).join('  /  ');
+              const loadNotes = [bid.job?.load_details, bid.job?.special_requirements].filter(Boolean).join(' Â· ');
               const quoteAmount = money(bidAmount(bid), bid.currency || 'GBP');
               const activeQuote = ['submitted', 'viewed', 'shortlisted'].includes(stage);
               const footerState = stage === 'unsuccessful'
@@ -668,9 +617,9 @@ export default function CompanyMarketplaceExchange({
                 vehicle={vehicle}
                 stage={stage}
                 expanded={expandedQuote}
-                expandedContent={<><div className="xdrive-cx-quote-card__freight"><div><span>Dist:</span><strong>Unknown</strong></div><div><span>Weight:</span><strong>{Number.isFinite(Number(bid.job?.weight_kg)) && Number(bid.job?.weight_kg) > 0 ? `${Number(bid.job?.weight_kg)} kg` : 'Not Supplied'}</strong></div><div><span>Packaging:</span><strong>{bid.job?.pallets ? `${bid.job.pallets} Pallet${bid.job.pallets === 1 ? '' : 's'}` : bid.job?.requested_cargo_label || bid.job?.cargo_type?.replace(/_/g, ' ') || 'Not Supplied'}</strong></div><div><span>Dims:</span><strong>{[bid.job?.length_cm, bid.job?.width_cm, bid.job?.height_cm].every((value) => Number(value) > 0) ? `${Number(bid.job?.length_cm)} x ${Number(bid.job?.width_cm)} x ${Number(bid.job?.height_cm)} cm` : 'Not Supplied'}</strong></div></div>{loadNotes ? <div className="xdrive-cx-quote-card__notes"><span>Load Notes:</span><strong>{loadNotes}</strong></div> : null}<div className="xdrive-cx-quote-table"><div className="xdrive-cx-quote-table__head"><span>Quote from Member</span><span>Vehicle</span><span>Rating</span><span>Phone</span><span>Created</span><span>Quote</span><span>ETA</span><span>Distance</span></div><div className="xdrive-cx-quote-table__row"><strong>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode ? ` (${bid.job.posterMemberCode})` : ''}</strong><span>{vehicle}</span><span>-</span><span>{bid.job?.posterPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.created_at)}</span><strong>{quoteAmount}</strong><span>Not Supplied</span><span>Unknown</span></div></div></>}
+                expandedContent={<><div className="xdrive-cx-quote-card__freight"><div><span>Dist:</span><strong>Unknown</strong></div><div><span>Weight:</span><strong>{Number.isFinite(Number(bid.job?.weight_kg)) && Number(bid.job?.weight_kg) > 0 ? `${Number(bid.job?.weight_kg)} kg` : 'Not Supplied'}</strong></div><div><span>Packaging:</span><strong>{bid.job?.pallets ? `${bid.job.pallets} Pallet${bid.job.pallets === 1 ? '' : 's'}` : bid.job?.requested_cargo_label || bid.job?.cargo_type?.replace(/_/g, ' ') || 'Not Supplied'}</strong></div><div><span>Dims:</span><strong>{[bid.job?.length_cm, bid.job?.width_cm, bid.job?.height_cm].every((value) => Number(value) > 0) ? `${Number(bid.job?.length_cm)} x ${Number(bid.job?.width_cm)} x ${Number(bid.job?.height_cm)} cm` : 'Not Supplied'}</strong></div></div>{loadNotes ? <div className="xdrive-cx-quote-card__notes"><span>Load Notes:</span><strong>{loadNotes}</strong></div> : null}<div className="xdrive-cx-quote-table"><div className="xdrive-cx-quote-table__head"><span>Quote from Member</span><span>Vehicle</span><span>Rating</span><span>Phone</span><span>Created</span><span>Quote</span><span>ETA</span><span>Distance</span></div><div className="xdrive-cx-quote-table__row"><strong>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode ? ` (${bid.job.posterMemberCode})` : ''}</strong><span>{vehicle}</span><span>â€”</span><span>{bid.job?.posterPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.created_at)}</span><strong>{quoteAmount}</strong><span>Not Supplied</span><span>Unknown</span></div></div></>}
                 footer={<>
-                  <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => setExpandedQuotes((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expandedQuote ? 'Collapse quote' : 'Expand quote'}>{expandedQuote ? '\u25b4' : '\u25be'}</button>
+                  <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => setExpandedQuotes((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expandedQuote ? 'Collapse quote' : 'Expand quote'}>{expandedQuote ? 'â–´' : 'â–¾'}</button>
                   {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Cancel Quote</button> : null}
                   <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${stage}`}>{footerState}</span>
                   <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>
@@ -706,7 +655,7 @@ export default function CompanyMarketplaceExchange({
             { id: 'route', header: 'Route', cell: (job) => <strong>{routeLabel(job.pickup_location, job.pickup_postcode)} â†’ {routeLabel(job.delivery_location, job.delivery_postcode)}</strong> },
             { id: 'member', header: 'Member', cell: (job) => <>{job.posterName || 'Marketplace member'}{job.posterMemberCode ? <div className="workspace-record-meta">ID {job.posterMemberCode}</div> : null}</> },
             { id: 'pickup', header: 'Pickup', cell: (job) => when(job.pickup_datetime) },
-            { id: 'vehicle', header: 'Vehicle', cell: (job) => job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || '-' },
+            { id: 'vehicle', header: 'Vehicle', cell: (job) => job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || 'â€”' },
             { id: 'status', header: 'Status', semanticStatus: true, cell: (job) => workspaceJobOperationalLabel(job) },
             { id: 'budget', header: 'Budget', align: 'right', cell: (job) => money(job.budget_amount, job.currency || 'GBP') },
             { id: 'action', header: 'Action', isAction: true, align: 'right', cell: (job) => <ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton> },
@@ -720,52 +669,6 @@ export default function CompanyMarketplaceExchange({
         </main>
       </div>}
 
-      {detailsTarget && <div className="xdrive3150-marketplace-detail-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetailsTarget(null); }}>
-        <div className="xdrive3150-marketplace-detail-dialog" role="dialog" aria-modal="true" aria-label="Load transport details">
-          <Canonical3150TransportSummary
-            reference={detailsTarget.id.slice(0, 8).toUpperCase()}
-            route={`${formatPublicOutcode(detailsTarget.pickup_postcode)} → ${formatPublicOutcode(detailsTarget.delivery_postcode)}`}
-            status="Open for quotes"
-            sections={[
-              { title: 'Load & Posting Company', fields: [
-                { label: 'Load Reference', value: detailsTarget.id.slice(0, 8).toUpperCase() },
-                { label: 'Posted By', value: detailsTarget.posterName },
-                { label: 'Member ID', value: detailsTarget.posterMemberCode || 'Not recorded' },
-                { label: 'Service', value: detailsTarget.loadType?.replace(/_/g, ' ') || 'On Demand' },
-              ] },
-              { title: 'Collection Details', fields: [
-                { label: 'Collection Town / Outcode', value: formatPublicOutcode(detailsTarget.pickup_postcode) },
-                { label: 'Collection Date / Time', value: detailsTarget.pickup_datetime ? cxWhen(detailsTarget.pickup_datetime) : detailsTarget.pickup_time_slot || 'Not recorded' },
-                { label: 'Collection Window', value: detailsTarget.pickup_time_slot || 'Not recorded' },
-                { label: 'Full Address & Contact', value: 'Available only to authorised parties after award' },
-              ] },
-              { title: 'Delivery Details', fields: [
-                { label: 'Delivery Town / Outcode', value: formatPublicOutcode(detailsTarget.delivery_postcode) },
-                { label: 'Delivery Date / Time', value: detailsTarget.delivery_datetime ? cxWhen(detailsTarget.delivery_datetime) : detailsTarget.delivery_time_slot || 'Not recorded' },
-                { label: 'Delivery Window', value: detailsTarget.delivery_time_slot || 'Not recorded' },
-                { label: 'Full Address & Contact', value: 'Available only to authorised parties after award' },
-              ] },
-              { title: 'Vehicle & Cargo', fields: [
-                { label: 'Vehicle Type', value: detailsTarget.requested_vehicle_label || detailsTarget.vehicle_type?.replace(/_/g, ' ') || 'Not recorded' },
-                { label: 'Packaging / Pallets', value: detailsTarget.pallets != null ? `${detailsTarget.pallets} pallets` : detailsTarget.requested_cargo_label || detailsTarget.cargo_type || 'Not recorded' },
-                { label: 'Weight', value: detailsTarget.weight_kg != null ? `${detailsTarget.weight_kg} kg` : 'Not recorded' },
-                { label: 'Handling Requirements', value: detailsTarget.special_requirements || 'Not recorded' },
-              ] },
-              { title: 'Terms & Documents', fields: [
-                { label: 'Payment Terms', value: detailsTarget.payment_terms || 'Not recorded' },
-                { label: 'Hard Copy POD', value: detailsTarget.hard_copy_pod || 'Not recorded' },
-                { label: 'Special Instructions', value: detailsTarget.jobDescription || 'Not recorded' },
-                { label: 'Documents & POD', value: 'Available through authorised booking records after award' },
-              ] },
-            ]}
-          />
-          <footer className="xdrive3150-marketplace-detail-actions">
-            <small>Verified public load fields only. Private addresses, customer prices and documents remain restricted.</small>
-            <button type="button" onClick={() => setDetailsTarget(null)}>Close Details</button>
-          </footer>
-        </div>
-      </div>}
-
       {memberTarget?.company_id && <MemberProfileOverlay companyId={memberTarget.company_id} onClose={() => setMemberTarget(null)} />}
 
       {bidTarget && <MarketplaceQuoteNowDialog
@@ -774,28 +677,17 @@ export default function CompanyMarketplaceExchange({
           memberName: bidTarget.posterName,
           memberCode: bidTarget.posterMemberCode,
           requestedVehicle: vehicleLabel(bidTarget),
-          pickup: public3150RouteLabel(bidTarget.pickup_location, bidTarget.pickup_postcode),
-          delivery: public3150RouteLabel(bidTarget.delivery_location, bidTarget.delivery_postcode),
+          pickup: `${routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)}, GB`,
+          delivery: `${routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)}, GB`,
           pickupWhen: cxWhen(bidTarget.pickup_datetime),
           deliveryWhen: bidTarget.delivery_datetime ? cxWhen(bidTarget.delivery_datetime) : 'ASAP',
-          pickupDate: bidTarget.pickup_datetime ? cxWhen(bidTarget.pickup_datetime) : bidTarget.pickup_time_slot,
-          deliveryDate: bidTarget.delivery_datetime ? cxWhen(bidTarget.delivery_datetime) : bidTarget.delivery_time_slot,
-          pickupStart: bidTarget.pickup_time_slot,
-          deliveryTime: bidTarget.delivery_time_slot,
-          pallets: bidTarget.pallets,
-          weight: bidTarget.weight_kg != null ? `${bidTarget.weight_kg} kg` : null,
-          cargo: bidTarget.requested_cargo_label || bidTarget.cargo_type,
-          service: bidTarget.loadType,
-          notes: bidTarget.special_requirements || bidTarget.jobDescription,
-          paymentTerms: bidTarget.payment_terms,
-          hardPod: bidTarget.hard_copy_pod,
         }}
         working={working}
         errorContent={error ? <div className="xdrive-quote-modal__error"><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner companyId={companyId} operation="quote" inline /></div> : null}
         vehicleValue={quoteVehicleId}
         vehicleOptions={quoteVehicles.map((vehicle) => ({
           value: vehicle.id,
-          label: [vehicle.reg_plate, vehicle.make, vehicle.model, vehicle.type?.replace(/_/g, ' ')].filter(Boolean).join('  /  '),
+          label: [vehicle.reg_plate, vehicle.make, vehicle.model, vehicle.type?.replace(/_/g, ' ')].filter(Boolean).join(' Â· '),
         }))}
         vehicleLoading={quoteVehiclesLoading}
         onVehicleChange={setQuoteVehicleId}
@@ -821,8 +713,7 @@ export default function CompanyMarketplaceExchange({
         message={quoteMessage}
         onMessageChange={setQuoteMessage}
         onClose={() => setBidTarget(null)}
-        draftOwnerId={user?.id}
-        onSubmit={(meta) => void submitQuote(meta)}
+        onSubmit={() => void submitQuote()}
       />}
     </PageFrame>
   );

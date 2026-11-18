@@ -8,7 +8,7 @@ const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver': 'Dashboard',
   '/driver/loads': 'Loads',
   '/driver/quotes': 'Quotes',
-  '/driver/jobs': 'Bookings',
+  '/driver/jobs': 'Jobs',
   '/driver/history': 'Diary',
   '/driver/availability': 'Availability',
   '/driver/availability/live': 'Live Availability',

@@ -79,17 +79,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
   if (!job) return respond(404, { error: 'Job not found.' });
 
-  const { data: collectionStop, error: collectionStopError } = await supabaseAdmin
-    .from('job_stops')
-    .select('id,handover')
-    .eq('job_id', jobId)
-    .eq('stop_type', 'collection')
-    .order('sequence', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (collectionStopError) return respond(503, { error: 'Collection stop could not be resolved.' });
-  if (!collectionStop) return respond(409, { error: 'This booking has no persisted collection stop.' });
-
   const rawStatus = String(job.current_status || job.status || '').toLowerCase();
   const status = rawStatus === 'arrived_pickup' ? 'on_site_pickup' : rawStatus;
   if (!['on_site_pickup', 'loaded'].includes(status)) {
@@ -97,22 +86,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   const companyPrefix = `${driver.companyId}/${jobId}/`;
-  const stopPrefix = `${companyPrefix}stops/${collectionStop.id}/`;
-  const photosValid = await verifyStoragePaths(photoPaths, [`${stopPrefix}photos/`]);
+  const photosValid = await verifyStoragePaths(photoPaths, [
+    `${companyPrefix}collection-photos/`,
+    `${companyPrefix}collection/`,
+  ]);
   if (!photosValid) {
     return respond(400, { error: 'Collection photo evidence could not be verified.' });
   }
-  const documentsValid = await verifyStoragePaths(documentPaths, [`${stopPrefix}documents/`]);
+  const documentsValid = await verifyStoragePaths(documentPaths, [
+    `${companyPrefix}collection-documents/`,
+  ]);
   if (!documentsValid) {
     return respond(400, { error: 'Collection document evidence could not be verified.' });
   }
 
   const capturedAt = new Date().toISOString();
-  if (photoPaths.length === 0) {
-    return respond(400, { error: 'At least one collection/loading photo is required.' });
-  }
   const handover = {
-    version: 3,
+    version: 1,
     capturedAt,
     itemCount,
     packaging: packaging || null,
@@ -136,20 +126,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (weightKg !== null) update.weight_kg = weightKg;
   if (notes) update.collection_notes = notes;
 
-  const previousStopHandover = collectionStop.handover && typeof collectionStop.handover === 'object' && !Array.isArray(collectionStop.handover)
-    ? collectionStop.handover as Record<string, unknown>
-    : {};
-  const { data: stopUpdated, error: stopUpdateError } = await supabaseAdmin
-    .from('job_stops')
-    .update({ handover: { ...previousStopHandover, ...handover, loaded: handover }, updated_at: capturedAt })
-    .eq('id', collectionStop.id)
-    .eq('job_id', jobId)
-    .select('id')
-    .maybeSingle();
-  if (stopUpdateError || !stopUpdated) {
-    return respond(stopUpdateError ? 500 : 409, { error: 'Collection evidence could not be linked to its stop.' });
-  }
-
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('jobs')
     .update(update)
@@ -168,8 +144,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     jobId,
     driver.userId,
     'collection_handover',
-    'Collection handover and stop-scoped collection evidence recorded.',
-    { stop_id: collectionStop.id, source: 'driver_web' },
+    'Collection handover recorded.',
   ).catch(() => undefined);
 
   return respond(200, { ok: true, handover: updated.collection_handover });

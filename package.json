@@ -9,6 +9,9 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "mobile:dev": "npm --prefix apps/driver-mobile run start",
+    "mobile:android": "npm --prefix apps/driver-mobile run android",
+    "mobile:apk": "npm --prefix apps/driver-mobile run build:android:apk",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "audit:interactive": "node ./scripts/audit-interactive-elements.mjs",
@@ -18,8 +21,7 @@
     "validate:vehicle-advertising-contract": "bash ./scripts/validate_vehicle_advertising_contract.sh",
     "audit:auto": "node ./scripts/run-automated-audit.mjs",
     "audit:auto:fast": "node ./scripts/run-automated-audit.mjs --skip-tests --skip-lint",
-    "test:unit": "vitest run",
-    "test:crm:sql": "node scripts/qa/crmSqlReplay.mjs"
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
@@ -81,20 +83,14 @@
   "overrides": {
     "postcss": "8.5.28",
     "sharp": "0.35.5",
+    "minimatch@10.2.6": {
+      "brace-expansion": "5.0.12"
+    },
     "exceljs": {
       "uuid": "11.1.1"
     },
     "source-map-js": "1.2.2",
-    "postcss-selector-parser": "7.1.6",
-    "eslint": {
-      "minimatch": "11.0.5"
-    },
-    "@eslint/config-array": {
-      "minimatch": "11.0.5"
-    },
-    "@typescript-eslint/typescript-estree": {
-      "minimatch": "11.0.5"
-    }
+    "postcss-selector-parser": "7.1.6"
   },
   "browserslist": [
     ">0.3%",
@@ -104,7 +100,6 @@
     "not op_mini all"
   ],
   "devDependencies": {
-    "@electric-sql/pglite": "0.3.15",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.60.0",
     "@types/node": "^24.10.1",

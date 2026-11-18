@@ -9,7 +9,7 @@ const deliveredGuard = fs.readFileSync(path.join(root, 'supabase/migrations/2026
 
 describe('Driver Job Execution mandatory POD to invoice contract', () => {
   it('requires complete POD evidence before job completion', () => {
-    expect(page).toContain("import { hasCompletePodEvidence, hasStoredSignature } from '../../../lib/jobs/podCompletion'");
+    expect(page).toContain("import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion'");
     expect(page).toContain("if (nextStatus === 'completed' && !hasCompletePodEvidence(job))");
     expect(page).toContain('Complete POD before completing this job.');
   });
@@ -19,7 +19,7 @@ describe('Driver Job Execution mandatory POD to invoice contract', () => {
     expect(page).toContain('Recipient name is required to complete POD.');
     expect(page).toContain('Recipient signature is required to complete POD.');
     expect(page).toContain('/api/driver/web/jobs/${encodeURIComponent(job.id)}/pod');
-    expect(helper).toContain('deliveryPhotoCount >= 1 && deliveryPhotoCount <= 10');
+    expect(helper).toContain('evidenceCount > 0');
     expect(helper).toContain('hasStoredSignature(record.delivery_signature_data)');
     expect(helper).toContain('recipientName.length > 0');
   });

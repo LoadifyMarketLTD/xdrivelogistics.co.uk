@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { readRouteAuthHeader } from '../../lib/routeAuthCookie';
 import 'leaflet/dist/leaflet.css';
 
@@ -23,7 +24,7 @@ async function geocode(value: string | null, signal: AbortSignal): Promise<Point
 }
 const formatLeg = (route: Route | null) => route && Number.isFinite(route.distanceMiles) && Number.isFinite(route.durationMinutes)
   ? `${route.distanceMiles} miles · ${route.durationMinutes} mins` : 'Distance unavailable';
-export default function LoadRoutePreview({ pickup, delivery }: { pickup: string | null; delivery: string | null; loadId: string }) {
+export default function LoadRoutePreview({ pickup, delivery, loadId }: { pickup: string | null; delivery: string | null; loadId: string }) {
   const host = useRef<HTMLDivElement>(null);
   const [pickupLeg, setPickupLeg] = useState<Route | null>(null);
   const [jobLeg, setJobLeg] = useState<Route | null>(null);
@@ -93,6 +94,7 @@ export default function LoadRoutePreview({ pickup, delivery }: { pickup: string 
     <div className="xd-route-summary">
       <div><strong>To collection</strong><span>{driverLocated ? formatLeg(pickupLeg) : 'Allow location to calculate'}</span></div>
       <div><strong>Job distance</strong><span>{formatLeg(jobLeg)}</span></div>
+      <Link href={'/driver-pwa-fresh/jobs?view=map&load=' + encodeURIComponent(loadId)}>View on Map</Link>
     </div>
     {notice ? <p className="xd-route-notice" role="status">{notice}</p> : null}
   </section>;

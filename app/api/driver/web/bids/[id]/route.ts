@@ -59,33 +59,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'withdraw') {
     if (status === 'withdrawn') return respond(200, { ok: true, status: 'withdrawn', idempotent: true });
     if (status !== 'submitted') return respond(409, { error: 'Only a submitted quote can be withdrawn.' });
-
-    // Once the buyer sends a booking offer, it becomes a separate contractual
-    // action. Do not orphan that offer by withdrawing the underlying bid.
-    // This matches the already protected web /driver/bids/[id]/withdraw route.
-    const { data: pendingOffers, error: pendingError } = await supabaseAdmin
-      .from('job_booking_offers')
-      .select('id')
-      .eq('bid_id', id)
-      .eq('status', 'pending')
-      .limit(1);
-    if (pendingError) return respond(503, { error: 'Pending booking offers could not be verified.' });
-    if (pendingOffers?.length) return respond(409, {
-      code: 'PENDING_BOOKING_OFFER',
-      error: 'A booking offer is awaiting your response. Accept or decline it in Bookings before withdrawing this quotation.',
-    });
-
-    const { data: relatedJob, error: jobError } = await supabaseAdmin
-      .from('jobs')
-      .select('id,awarded_carrier_company_id,assigned_company_id,assigned_driver_id')
-      .eq('id', bid.job_id)
-      .maybeSingle();
-    if (jobError) return respond(503, { error: 'The booking allocation could not be verified.' });
-    if (!relatedJob) return respond(409, { error: 'The related load no longer exists.' });
-    if (relatedJob.awarded_carrier_company_id || relatedJob.assigned_company_id || relatedJob.assigned_driver_id) {
-      return respond(409, { error: 'This load is already awarded or allocated, so its quotation cannot be withdrawn.' });
-    }
-
     const { data: withdrawnRows, error: withdrawError } = await supabaseAdmin
       .from('job_bids')
       .update({ status: 'withdrawn', updated_at: new Date().toISOString() })

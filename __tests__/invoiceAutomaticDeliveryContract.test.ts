@@ -12,7 +12,7 @@ const diary = read('app/driver/history/page.tsx');
 const finance = read('app/driver/finance/page.tsx');
 const pdfContext = read('lib/server/invoicePdfContext.ts');
 
-describe('POD-bound Draft, review and explicit invoice delivery', () => {
+describe('automatic POD + invoice delivery after invoice creation', () => {
   it('targets the buyer finance email first and falls back to the company email', () => {
     expect(generate).toContain(".from('company_settings')");
     expect(generate).toContain(".select('finance_email')");
@@ -21,23 +21,19 @@ describe('POD-bound Draft, review and explicit invoice delivery', () => {
     expect(generate).toContain('buyerEmail = validEmail(financeEmail) ? financeEmail : companyEmail');
   });
 
-  it('uses the canonical invoice submit endpoint for explicit delivery', () => {
+  it('uses the canonical invoice submit endpoint for automatic delivery', () => {
     expect(deliveryHelper).toContain('/api/driver/finance/invoices/');
     expect(deliveryHelper).toContain('/submit');
     expect(deliveryHelper).toContain("method: 'POST'");
     expect(deliveryHelper).toContain("throw new Error(payload?.error ?? 'Invoice was created but could not be sent.')");
   });
 
-  it('creates editable drafts in execution, diary and finance without sending any email', () => {
+  it('auto-sends after invoice creation from execution, diary and finance surfaces', () => {
     for (const source of [execution, diary, finance]) {
-      expect(source).toContain('/generate-invoice');
-      expect(source).toContain('router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`)');
-      expect(source).not.toContain('sendGeneratedInvoice(');
+      expect(source).toContain('sendGeneratedInvoice(');
     }
-    expect(execution).toContain('Draft invoice created. Review it before sending to the buyer.');
-    const explicitSendPanel = read('app/driver/finance/invoices/[id]/DriverInvoiceEmailPanel.tsx');
-    expect(explicitSendPanel).toContain('const sendInvoice = async () => {');
-    expect(explicitSendPanel).toContain('/submit');
+    expect(execution).toContain('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
+    expect(execution).not.toContain('Draft invoice created. Review it before sending.');
   });
 
   it('keeps POD and signature evidence inside the generated invoice PDF context', () => {
@@ -48,11 +44,9 @@ describe('POD-bound Draft, review and explicit invoice delivery', () => {
   });
 
   it('persists a SHA-256 fingerprint for the exact generated PDF attachment', () => {
-    expect(sender).toContain("createHash('sha256').update(invoiceBytes).digest('hex')");
+    expect(sender).toContain("createHash('sha256').update(pdfBytes).digest('hex')");
     expect(sender).toContain('content_sha256: pdfSha256');
-    expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(invoiceBytes).toString('base64') }");
-    expect(sender).toContain('...(podBytes ? [{');
-    expect(sender).toContain('Separate invoice and POD PDF attachments are required.');
+    expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }]");
   });
 
   it('keeps a private issuer copy of the exact delivered invoice', () => {

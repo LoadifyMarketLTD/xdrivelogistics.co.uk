@@ -57,7 +57,7 @@ const bodySchema = z.object({
       email: z.string().trim().email().optional().nullable().or(z.literal('')),
       phone: z.string().trim().min(5).max(60),
       agreedRate: optionalNumber,
-      paymentTerms: z.enum(['Pay now', '7 days', '14 days', '30 days']).optional().nullable(),
+      paymentTerms: z.enum(['Pay now', '14 days', '30 days']).optional().nullable(),
     }),
     z.object({
       type: z.literal('internal_resource'),
@@ -97,7 +97,7 @@ const bodySchema = z.object({
   bookingReference: optionalText,
   customerPrice: optionalNumber,
   targetCarrierCost: optionalNumber,
-  paymentTerms: z.enum(['Pay now', '7 days', '14 days', '30 days']).optional().default('30 days'),
+  paymentTerms: z.enum(['Pay now', '14 days', '30 days']).optional().default('14 days'),
   tailLift: z.boolean(),
   forklift: z.boolean(),
   handball: z.boolean(),
@@ -115,27 +115,6 @@ const bodySchema = z.object({
   specialRequirementsList: z.array(z.string().trim().max(300)).max(30).optional().default([]),
   isFixedPrice: z.boolean().optional().default(false),
   publicQuoteNotes: optionalText,
-  operationalDetails: z.object({
-    jobDescription: z.string().trim().max(100).optional(),
-    bodyType: z.string().trim().max(100).optional(),
-    jobType: z.enum(['Hotshot','Backload']).optional(),
-    pickupMode: z.enum(['Between','At','Before','ASAP']).optional(),
-    pickupWindowEnd: z.string().trim().max(10).optional(),
-    deliveryMode: z.enum(['ASAP','At','By','Between']).optional(),
-    deliveryWindowEnd: z.string().trim().max(10).optional(),
-    loadingMetres: optionalNumber,
-    cubicMetres: optionalNumber,
-    waitReturn: z.boolean().optional(),
-    hiab: z.boolean().optional(),
-    trailer: z.boolean().optional(),
-    moffett: z.boolean().optional(),
-    trackedDriverPreferred: z.boolean().optional(),
-    electronicQuotes: z.boolean().optional(),
-    smartPayOnly: z.boolean().optional(),
-    allowEuMembers: z.boolean().optional(),
-    notifyRadiusMiles: z.number().int().min(1).max(100).optional(),
-    repeatable: z.boolean().optional(),
-  }).optional(),
   executionInstructions: optionalText,
   // Legacy input remains accepted so older clients do not break. Legacy notes
   // are execution-private by default and are never promoted to Marketplace.
@@ -219,7 +198,7 @@ export async function POST(request: NextRequest) {
 
   const membershipRole = String(membership?.role_in_company ?? '').trim().toLowerCase();
   let canPostForCompany = ['owner', 'admin', 'dispatcher'].includes(membershipRole);
-  if (!canPostForCompany && (input.mode === 'broker' || input.mode === 'customer') && membershipRole === 'member') {
+  if (!canPostForCompany && input.mode === 'broker' && membershipRole === 'member') {
     const { data: brokerProfile, error: brokerProfileError } = await supabaseAdmin
       .from('profiles')
       .select('role,status,company_id')
@@ -228,14 +207,14 @@ export async function POST(request: NextRequest) {
     if (brokerProfileError) {
       return operationalError({
         status: 500,
-        message: 'We could not verify your workspace access. Please try again.',
+        message: 'We could not verify your broker workspace access. Please try again.',
         context: `jobs.create.broker-profile.company:${input.companyId}.user:${authData.user.id}`,
         cause: brokerProfileError,
         retryable: true,
       });
     }
     canPostForCompany =
-      String(brokerProfile?.role ?? '').trim().toLowerCase() === input.mode
+      String(brokerProfile?.role ?? '').trim().toLowerCase() === 'broker'
       && String(brokerProfile?.status ?? '').trim().toLowerCase() === 'active'
       && String(brokerProfile?.company_id ?? '') === input.companyId;
   }
@@ -692,7 +671,6 @@ export async function POST(request: NextRequest) {
       height: input.heightCm ?? null,
     },
     publicQuoteNotes: input.publicQuoteNotes || null,
-    operationalDetails: input.operationalDetails ?? null,
     additionalStopCount: input.additionalStops.length,
     // `notes` is retained as the backwards-compatible execution-private key.
     notes: executionInstructions,

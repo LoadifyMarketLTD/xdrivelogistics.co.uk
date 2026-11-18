@@ -25,7 +25,7 @@ import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '..
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
-const OPERATOR_ROLES = new Set(['owner', 'admin', 'dispatcher', 'fleet_manager', 'member']);
+const OPERATOR_ROLES = new Set(['owner', 'admin', 'dispatcher', 'member']);
 const RADIUS_VALUES = new Set([10, 20, 30, 50, 100, 200, 300]);
 const PAGE_SIZES = new Set([10, 25, 50]);
 
@@ -775,20 +775,6 @@ export async function POST(request: NextRequest) {
     }
     if (!bid) return respond(404, { error: 'Quote not found.' });
     if (bid.status !== 'submitted') return respond(409, { error: 'Only a submitted quote can be withdrawn.' });
-
-    // A pending carrier booking offer must be answered through Bookings.
-    // Do not leave an orphaned pending offer by withdrawing its awarded quote.
-    const { data: pendingBookingOffers, error: pendingBookingError } = await supabaseAdmin
-      .from('job_booking_offers')
-      .select('id')
-      .eq('bid_id', input.bidId)
-      .eq('status', 'pending')
-      .limit(1);
-    if (pendingBookingError) return respond(503, { error: 'Pending booking offers could not be verified.' });
-    if (pendingBookingOffers?.length) return respond(409, {
-      code: 'PENDING_BOOKING_OFFER',
-      error: 'A booking offer is awaiting a response. Accept or decline it in Bookings before withdrawing this quotation.',
-    });
 
     const { error: updateError } = await supabaseAdmin
       .from('job_bids')

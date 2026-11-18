@@ -155,11 +155,6 @@ export default function Page() {
       {detailLoading && <div style={panel}>Loading enquiry…</div>}
 
       {!detailLoading && enquiry && <section style={{ display: 'grid', gap: 12 }}>
-        <div style={{...panel,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
-          <span style={{fontSize:12,color:X.muted}}>The public quote remains in this canonical operations module. CRM only reviews a separately verified commercial relationship.</span>
-          <a href={'/super-admin/business-development?source_type=inbound_enquiry&source_id='+encodeURIComponent(enquiry.id)}
-            style={secondaryButton}>Review source in CRM</a>
-        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
           <Info title="Customer" value={enquiry.customer_name ?? '—'} sub={[enquiry.customer_email, enquiry.customer_phone].filter(Boolean).join(' · ')} />
           <Info title="Route" value={`${enquiry.pickup_location ?? '—'} → ${enquiry.delivery_location ?? '—'}`} sub={`${enquiry.cargo_type ?? '—'}${enquiry.vehicle_type ? ` · ${enquiry.vehicle_type}` : ''}`} />

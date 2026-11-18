@@ -6,7 +6,6 @@ import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, trans
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
 import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
-import { inspectBookingReadiness } from '../../../../_lib/bookingReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -33,7 +32,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ── 3. Pre-check caller role on owning company ──────────────────────────────
   const { data: bidJob, error: bidJobError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, company_id, bid_price_gbp, amount, jobs!job_bids_job_id_fkey(company_id)')
+    .select('id, company_id, bid_price_gbp, amount, jobs!job_bids_job_id_fkey(company_id)')
     .eq('id', bidId)
     .maybeSingle();
 
@@ -57,9 +56,6 @@ export async function POST(request: NextRequest, { params }: Params) {
       { status: 409 }
     );
   }
-
-  const readiness = await inspectBookingReadiness(supabaseAdmin, String(bidJob.job_id), bidId);
-  if (!readiness.ok) return NextResponse.json({error:readiness.error,code:readiness.code},{status:409});
 
   const blockState = await areCompaniesBlocked(supabaseAdmin, jobCompanyId, carrierCompanyId);
   if (blockState.error) {

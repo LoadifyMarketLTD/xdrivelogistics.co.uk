@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, Headphones, Mail, MapPin, Phone, ReceiptText, Truck } from 'lucide-react';
 import { COMPANY_CONFIG } from '../config/company';
-import BusinessInterestForm from './BusinessInterestForm';
 
 export const metadata: Metadata = {
   title: 'Contact XDrive Logistics',
@@ -107,8 +106,6 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
-
-      <BusinessInterestForm />
 
       <section className="bg-[#002B6C] px-5 py-14 text-white sm:px-8 lg:py-16">
         <div className="mx-auto grid max-w-[1120px] gap-8 lg:grid-cols-[1fr_auto] lg:items-center">

@@ -34,21 +34,8 @@ export function filterMarketplaceLoads<T extends MarketplaceLoad>(loads: T[], fi
       if (!Number.isFinite(pickup) || pickup < now) return false;
       if (filters.collectWithin && pickup > now + Number(filters.collectWithin) * 60_000) return false;
     } else if (filters.collectWithin) return false;
-    if (filters.pickupRadius) {
-      const radius = Number(filters.pickupRadius);
-      // A missing or stale Driver GPS position produces a null distance in the API.
-      // Do not hide an otherwise eligible marketplace job just because its proximity
-      // cannot be measured. Only apply the radius to a known, finite distance.
-      if (!Number.isFinite(radius) || radius < 0) return false;
-      if (load.distance_to_pickup_miles != null &&
-          (!Number.isFinite(load.distance_to_pickup_miles) || load.distance_to_pickup_miles > radius)) return false;
-    }
-    if (filters.destinationRadius) {
-      const radius = Number(filters.destinationRadius);
-      if (!Number.isFinite(radius) || radius < 0) return false;
-      if (load.distance_to_delivery_miles != null &&
-          (!Number.isFinite(load.distance_to_delivery_miles) || load.distance_to_delivery_miles > radius)) return false;
-    }
+    if (filters.pickupRadius && load.distance_to_pickup_miles != null && load.distance_to_pickup_miles > Number(filters.pickupRadius)) return false;
+    if (filters.destinationRadius && (load.distance_to_delivery_miles == null || load.distance_to_delivery_miles > Number(filters.destinationRadius))) return false;
     if (filters.from.trim() && !label(load.pickup_area, load.pickup_postcode_area).includes(filters.from.trim().toLowerCase())) return false;
     if (filters.to.trim() && !label(load.delivery_area, load.delivery_postcode_area).includes(filters.to.trim().toLowerCase())) return false;
     const vehicleLabel = [load.requested_vehicle_label, load.requested_vehicle_type, load.vehicle_type].filter(Boolean).join(' ').toLowerCase();

@@ -14,7 +14,7 @@ describe('XDrive member identity contract', () => {
 
   it('uses XDrive company/member IDs on the web driver marketplace', () => {
     const market = read('app/api/driver/marketplace/loads/route.ts');
-    expect(market).not.toContain(".from('profiles').select('xd_id')");
+    expect(market).toContain(".select('user_id, full_name, xd_id')");
     expect(market).toContain('const memberId = company?.xd_id ?? null');
     expect(market).not.toContain('memberId: company?.company_number');
   });
@@ -70,12 +70,10 @@ describe('XDrive member identity contract', () => {
     expect(companyProfile).toContain('memberId: company.xd_id ?? null');
     expect(companyProfile).not.toContain('memberId: company.company_number');
 
-    expect(driverProfile).toContain(".select('id, company_id, user_id, display_name, status, availability_status, driver_type')");
+    expect(driverProfile).toContain(".select('id, company_id, user_id, display_name, status, availability_status')");
     expect(driverProfile).toContain(".from('profiles')");
     expect(driverProfile).toContain(".select('xd_id')");
-    expect(driverProfile).toContain('memberId: companyPublicId');
-    expect(driverProfile).toContain("memberType: driverType === 'owner_driver' ? 'Owner Driver' : 'Company Driver'");
-    expect(driverProfile).toContain('companyPublicId !== personalPublicId');
+    expect(driverProfile).toContain('memberId: profileError ? null : profile?.xd_id ?? null');
 
     expect(bidderIdentity).toContain("select('id, name, xd_id, phone, company_type')");
     expect(bidderIdentity).toContain('memberId: text(company?.xd_id)');
@@ -106,8 +104,8 @@ describe('XDrive member identity contract', () => {
     const nearbyUi = read('app/driver/nearby/page.tsx');
     const settingsUi = read('app/components/workspace/RoleSettingsWorkspace.tsx');
 
-    expect(directoryUi).toContain('MEMBER NAME / ID');
-    expect(directoryUi).toContain('Company, driver or XDrive ID');
+    expect(directoryUi).toContain('Member Name / ID');
+    expect(directoryUi).toContain('Name or XD member ID');
     expect(directoryUi).toContain('Member ID ${company.memberId}');
     expect(directoryUi).not.toContain('Company no. ${company.memberId}');
 

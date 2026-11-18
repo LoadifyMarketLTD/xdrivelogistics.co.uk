@@ -1,7 +1,7 @@
 'use client';
 
-import { WorkspaceFinanceControl } from '../../../components/workspace/WorkspaceFinanceControl';
+import InvoiceRegisterPage from '../../../components/workspace/InvoiceRegisterPage';
 
 export default function FinanceCarrierInvoicesPage() {
-  return <WorkspaceFinanceControl role="carrier" initialView="payable" />;
+  return <InvoiceRegisterPage mode="finance-carrier" />;
 }

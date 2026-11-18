@@ -2,14 +2,12 @@
 
 import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { useAuth } from '../../components/AuthContext';
-import { matchesHistoricalJobReference } from '../../../lib/jobs/historicalReferenceLookup';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxLoadCard from '../../components/workspace/CxLoadCard';
-import '../../components/workspace/master3150-unified-loads.css';
 import {
   ActionButton,
   AlertBanner,
@@ -18,8 +16,6 @@ import {
 } from '../../components/workspace/WorkspaceUI';
 
 type LoadTab = 'all' | 'draft' | 'open' | 'awarded' | 'active' | 'completed';
-type Master3150LoadType = 'all' | 'on_demand' | 'same_day' | 'next_day';
-const loadTypeMatches = (job:WorkspaceJob, type:Master3150LoadType) => type === 'all' || [job.load_type,job.service_mode].some(value => String(value || '').toLowerCase().replaceAll(' ','_') === type);
 
 const cxTimeParts = (value: string | null | undefined) => {
   if (!value) return { primary: 'ASAP', meta: '' };
@@ -57,7 +53,6 @@ export default function BrokerLoadsPage() {
   const deepCustomer = searchParams.get('customer');
 
   const [tab, setTab] = useState<LoadTab>('all');
-  const [loadType,setLoadType] = useState<Master3150LoadType>('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [vehicle, setVehicle] = useState('');
@@ -74,14 +69,14 @@ export default function BrokerLoadsPage() {
     const referenceTerm = reference.trim().toLowerCase();
 
     return data.jobs
-      .filter((job) => (referenceTerm || matchesTab(job, tab)) && loadTypeMatches(job,loadType))
-      .filter((job) => !referenceTerm || matchesHistoricalJobReference(job, referenceTerm))
+      .filter((job) => matchesTab(job, tab))
+      .filter((job) => !referenceTerm || job.id.toLowerCase().includes(referenceTerm))
       .filter((job) => !customerTerm || String(job.client_name || '').toLowerCase().includes(customerTerm))
       .filter((job) => !fromTerm || `${job.pickup_postcode || ''} ${job.pickup_location || ''}`.toLowerCase().includes(fromTerm))
       .filter((job) => !toTerm || `${job.delivery_postcode || ''} ${job.delivery_location || ''}`.toLowerCase().includes(toTerm))
       .filter((job) => !vehicleTerm || String(job.vehicle_type || '').replaceAll('_', ' ').toLowerCase().includes(vehicleTerm))
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  }, [customer, data.jobs, from, reference, tab, loadType, to, vehicle]);
+  }, [customer, data.jobs, from, reference, tab, to, vehicle]);
 
   const counts = useMemo(() => ({
     all: data.jobs.length,
@@ -109,34 +104,12 @@ export default function BrokerLoadsPage() {
     if (deepJob || deepCustomer) router.push('/broker/loads');
   };
 
-  useEffect(() => {
-    const resetLoads = () => {
-      setFrom('');
-      setTo('');
-      setVehicle('');
-      setCustomer('');
-      setReference('');
-      setTab('all');
-      setLoadType('all');
-      setExpanded(null);
-      setExpandedAllIds(new Set());
-      window.scrollTo({ top: 0, behavior: 'instant' });
-    };
-    window.addEventListener('xdrive:loads-reselect', resetLoads);
-    return () => window.removeEventListener('xdrive:loads-reselect', resetLoads);
-  }, []);
-
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
   return (
     <PageFrame>
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
-      <section className="master3150-unified-loads" aria-label="Broker Loads 3150">
-      <h1 className="master3150-loads-heading">Loads</h1>
-      <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads service types">
-        {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={loadType===item.id} aria-pressed={loadType===item.id} onClick={()=>setLoadType(item.id)}>{item.label} <b>{data.jobs.filter(job=>loadTypeMatches(job,item.id)).length}</b></button>)}
-      </nav>
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail" aria-label="Load filters">
           <div className="workspace-filter-rail__header">Search Loads</div>
@@ -179,7 +152,6 @@ export default function BrokerLoadsPage() {
                     postedAt={<>{budget > 0 ? `Budget ${money(budget)}` : 'Budget not set'} · {quotes.length} quote{quotes.length === 1 ? '' : 's'}</>}
                     loadId={job.id.slice(0, 8).toUpperCase()}
                     vehicle={vehicleLabel}
-                    paymentTerms={job.payment_terms ?? 'Not supplied'}
                     expanded={open}
                     dataState={statusOf(job)}
                     freight={<>
@@ -193,14 +165,12 @@ export default function BrokerLoadsPage() {
                       <div><span>Status:</span><strong>{workspaceJobOperationalLabel(job)}</strong></div>
                     </>}
                     footer={<>
-                      <button type="button" className="xdrive-cx-load-footer__details" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>View Details</button>
-                      <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & Award</button>
-                      <details className="master3150-loads-more"><summary>More actions</summary><div>
-                        <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }}>{open ? 'Collapse load' : 'Expand load'}</button>
-                        {canEditOwnedJobs && job.company_id === data.companyId && <button type="button" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</button>}
-                        {stage === 'completed' && <button type="button" onClick={() => router.push('/broker/pod-review')}>POD</button>}
-                      </div></details>
-                      <span className="master3150-loads-state">{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span>
+                      <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse load' : 'Expand load'}>{open ? '▴' : '▾'}</button>
+                      <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & award</button>
+                      {canEditOwnedJobs && job.company_id === data.companyId && <button type="button" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</button>}
+                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Job view</button>
+                      {stage === 'completed' && <button type="button" onClick={() => router.push('/broker/pod-review')}>POD</button>}
+                      <span style={{ marginLeft: 'auto' }}>{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span>
                     </>}
                   />
                 );
@@ -209,7 +179,6 @@ export default function BrokerLoadsPage() {
           )}
         </main>
       </div>
-      </section>
     </PageFrame>
   );
 }

@@ -21,9 +21,6 @@ const PUBLIC_ROUTE = [
   /^app\/api\/driver\/mobile\/config\/route\.ts$/,
   /^app\/api\/tracking\/share\//,
   /^app\/api\/onboarding\/submit\/route\.ts$/,
-  // These endpoints perform bounded public postcode lookups without tenant data.
-  /^app\/api\/location\/postcode-area\/route\.ts$/,
-  /^app\/api\/try-xdrive-demo\/postcode\/route\.ts$/,
 ];
 
 const AUTH_MARKERS = [
@@ -33,8 +30,6 @@ const AUTH_MARKERS = [
   /verifyPlatformOwner/,
   /buildSessionHandlers/,
   /buildSubmitHandler/,
-  // The invoice route delegates to invoiceDelivery.submitInvoice, which resolves finance access.
-  /submitInvoice\(request, context\)/,
   /Authorization/,
   /x-admin-key/i,
   /x-cron/i,
@@ -46,19 +41,10 @@ const AUTH_MARKERS = [
 const DELEGATE_MARKERS = [
   /buildSessionHandlers/,
   /buildSubmitHandler/,
-  // The invoice route delegates to invoiceDelivery.submitInvoice, which resolves finance access.
-  /submitInvoice\(request, context\)/,
   /readiness\/route/,
 ];
 
 describe('current API contract audit closure', () => {
-  it('requires finance authorization inside the delegated invoice sender', () => {
-    const source = fs.readFileSync(path.join(root, 'lib/server/invoiceDelivery.ts'), 'utf8');
-    expect(source).toContain('requireDriverFinanceAccess(request)');
-    expect(source).toContain('await resolveInvoiceSender(request, id)');
-    expect(source).toContain('.eq(' + String.fromCharCode(39) + 'company_id' + String.fromCharCode(39) + ', sender.companyId)');
-  });
-
   it('inventories the complete current App Router API surface', () => {
     expect(routeFiles.length).toBeGreaterThanOrEqual(230);
   });

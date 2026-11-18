@@ -45,9 +45,8 @@ describe('role-scoped billing and support routing', () => {
     expect(settings).not.toContain("router.push('/help')");
   });
 
-  it('keeps the Driver Master Workspace gate and approved stylesheet', () => {
-    expect(read('app/driver/layout.tsx')).toContain('DriverMasterLayoutGate');
-    expect(read('app/driver/DriverMasterLayoutGate.tsx')).toContain('MasterWorkspace');
+  it('does not change the protected Owner Driver shell or stylesheet from this routing slice', () => {
+    expect(read('app/driver/layout.tsx')).toContain('DriverTopWorkspaceShell');
     expect(read('app/driver/layout.tsx')).toContain('driver-full-prototype.css');
   });
 });

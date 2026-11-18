@@ -22,7 +22,6 @@ describe('visible workspace navigation', () => {
   it('keeps the full Customer canonical navigation visible', () => {
     expect(visibleHrefs('customer')).toEqual([
       '/customer',
-      '/customer/network/directory',
       '/customer/loads',
       '/customer/bulk-import',
       '/customer/quotes',
@@ -34,6 +33,7 @@ describe('visible workspace navigation', () => {
       '/customer/notifications',
       '/customer/messages',
       '/customer/event-log',
+      '/customer/network',
       '/customer/disputes',
       '/customer/settings/billing',
       '/customer/account',

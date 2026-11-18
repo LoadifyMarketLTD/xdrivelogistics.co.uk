@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
     baseAmount?: unknown;
     additionalExtrasGbp?: unknown;
     message?: unknown;
-    collectWithinMinutes?: unknown;
   } | null;
 
   const result = await submitDriverQuote(supabaseAdmin, driver, {
@@ -34,7 +33,6 @@ export async function POST(request: NextRequest) {
     baseAmount: body?.baseAmount == null ? null : Number(body.baseAmount),
     additionalExtrasGbp: body?.additionalExtrasGbp == null ? null : Number(body.additionalExtrasGbp),
     message: typeof body?.message === 'string' ? body.message : '',
-    collectWithinMinutes: body?.collectWithinMinutes == null || body.collectWithinMinutes === '' ? null : Number(body.collectWithinMinutes),
   });
 
   if (!result.ok) {

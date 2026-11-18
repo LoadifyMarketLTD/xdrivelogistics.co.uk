@@ -19,7 +19,6 @@ import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdm
 import { resolveEnvironment } from '../_lib/envDetection';
 import { runPlatformHealthChecks } from '../_lib/platformHealth';
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
-import { readCrmActionQueue } from '@/lib/business-development/canonicalSuperAdminQueue';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -315,17 +314,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Add CRM data-rights and follow-up work to the EXISTING canonical queue,
-  // not a second Super Admin dashboard. Opt-in only after isolated CRM schema
-  // is available. Production without CRM remains behaviorally unchanged.
-  const crmBridgeEnabled = process.env.XDRIVE_CRM_CANONICAL_QUEUE_READS === 'enabled';
-  const crmSnapshot = crmBridgeEnabled ? await readCrmActionQueue(supabaseAdmin, now) : null;
-  const crmBridgeUnavailable = crmBridgeEnabled && !crmSnapshot?.ready;
-  const crmPrivacyCount = crmSnapshot?.ready ? crmSnapshot.privacyCount : 0;
-  const crmFollowUpCount = crmSnapshot?.ready ? crmSnapshot.followUpCount : 0;
-  const crmInboundCount = crmSnapshot?.ready ? crmSnapshot.inboundCount : 0;
-  const crmRetentionCount = crmSnapshot?.ready ? crmSnapshot.retentionCount : 0;
-
   const queue: ActionQueueItem[] = [];
 
   for (const company of (companiesPendingPreviewResult.data ?? []) as Array<{ id: string; name: string; created_at: string }>) {
@@ -491,8 +479,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (crmSnapshot?.ready) queue.push(...crmSnapshot.items);
-
   queue.sort((a, b) => {
     const severityDiff = (SEVERITY_ORDER[a.severity] ?? 3) - (SEVERITY_ORDER[b.severity] ?? 3);
     if (severityDiff !== 0) return severityDiff;
@@ -556,10 +542,8 @@ export async function GET(request: NextRequest) {
     + fraudCasesP1Count
     + overdueInvoiceP1Count
     + supportCriticalP1Count
-    + gdprRequestsP1Count
-    + crmPrivacyCount
-    + crmRetentionCount;
-  const p2Count = docsExpiringSoonP2Count + overdueInvoiceP2Count + crmFollowUpCount + crmInboundCount;
+    + gdprRequestsP1Count;
+  const p2Count = docsExpiringSoonP2Count + overdueInvoiceP2Count;
   const totalQueueCount = p0Count + p1Count + p2Count;
   const criticalActionsCount = p0Count + p1Count;
   const exactJobsAtRiskCount =
@@ -600,26 +584,13 @@ export async function GET(request: NextRequest) {
   if (invoicesUnavailable) unavailableSources.push('invoices');
   if (supportCriticalUnavailable) unavailableSources.push('support_tickets');
   if (gdprUnavailable) unavailableSources.push('support_tickets_gdpr');
-  if (crmBridgeUnavailable) unavailableSources.push('crm_governance_optional');
 
-  const criticalCoverageUnavailable = fraudUnavailable || supportCriticalUnavailable || gdprUnavailable || crmBridgeUnavailable;
+  const criticalCoverageUnavailable = fraudUnavailable || supportCriticalUnavailable || gdprUnavailable;
   const queueCoverageUnavailable = criticalCoverageUnavailable || invoicesUnavailable;
 
   return respond(200, {
     environment: resolveEnvironment(),
     refreshedAt: now.toISOString(),
-    crmGovernance: {
-      enabled: crmBridgeEnabled,
-      ready: crmBridgeEnabled ? (crmSnapshot?.ready === true) : false,
-      privacyPending: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.privacyCount : null,
-      followUpsDue: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.followUpCount : null,
-      inboundAwaitingReview: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.inboundCount : null,
-      retentionReviewsDue: crmBridgeEnabled && crmSnapshot?.ready ? crmSnapshot.retentionCount : null,
-      explanation: !crmBridgeEnabled
-        ? 'Read-only CRM bridge disabled until isolated schema review.'
-        : crmSnapshot?.ready ? 'Read-only, source-specific CRM cases; no tickets or messages created.'
-          : 'CRM sources unavailable; cannot report zero.',
-    },
     ...(unavailableSources.length > 0 ? { unavailableSources } : {}),
     attentionIndicators: {
       p0p1Incidents: criticalCoverageUnavailable

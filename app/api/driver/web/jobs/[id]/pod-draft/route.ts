@@ -7,7 +7,7 @@ const respond = (status: number, body: Record<string, unknown>) =>
 const MAX_DRAFT_BYTES = 2_800_000;
 const DRAFT_FIELDS = [
   'recipientName', 'leftAt', 'deliveryStatus', 'itemCount', 'weight',
-  'deliveredOn', 'deliveredTime', 'notes', 'signatureData', 'photoUris', 'documentUris', 'hardCopyAcknowledged', 'deliveryArrival',
+  'deliveredOn', 'notes', 'signatureData', 'photoUris', 'documentUris', 'hardCopyAcknowledged',
 ] as const;
 
 async function authorisedDriverJob(request: NextRequest, jobId: string) {
@@ -63,8 +63,6 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           path.startsWith(`${access.driver.companyId}/${id}/`) && path.length <= 500)) {
         return respond(400, { error: 'POD attachment reference is invalid.' });
       }
-      draft[key] = value;
-    } else if (key === 'deliveryArrival' && typeof value === 'string' && value.length <= 12000) {
       draft[key] = value;
     } else if (key === 'hardCopyAcknowledged' && typeof value === 'boolean') {
       draft[key] = value;

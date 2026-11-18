@@ -6,15 +6,13 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
-import { fetchAllBookingOfferPages } from '../../../lib/bookingOfferPages';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
-import { canonicalQuoteStage, isTerminalQuoteStage } from '../../../lib/quotes/canonicalQuote';
+import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import ApprovedDriverQuoteCard from '../_components/ApprovedDriverQuoteCard';
+import CxQuoteCard from '../../components/workspace/CxQuoteCard';
 
 type QuoteDirection = 'outgoing' | 'incoming';
-type TabId = 'submitted' | 'awarded';
-type SubmittedQuoteView = 'active' | 'history' | 'all';
+type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful';
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DetailAccess = 'marketplace' | 'assigned' | 'own' | 'protected';
 
@@ -136,7 +134,9 @@ function withinWindow(value: string | null, window: TimeWindow) {
 }
 function quoteBucket(bid: BidRow): TabId {
   const stage = canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
-  return stage === 'accepted' ? 'awarded' : 'submitted';
+  if (stage === 'archived' || stage === 'accepted') return 'archived';
+  if (stage === 'unsuccessful' || stage === 'withdrawn' || stage === 'expired') return 'unsuccessful';
+  return bid.direction === 'incoming' ? 'received' : 'submitted';
 }
 function normaliseCompany(value: unknown): { name: string } | null {
   if (Array.isArray(value)) return (value[0] as { name?: string | null } | undefined)?.name ? { name: String((value[0] as { name: string }).name) } : null;
@@ -187,7 +187,6 @@ export default function MyQuotesPage() {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
-  const canViewCompanyReceivedQuotes = Boolean(user && ['owner','admin','dispatcher'].includes(String(user.membershipRole??'').toLowerCase()));
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [bids, setBids] = useState<BidRow[]>([]);
   const [marketplaceByJob, setMarketplaceByJob] = useState<Record<string, MarketplaceQuoteLoad>>({});
@@ -196,20 +195,15 @@ export default function MyQuotesPage() {
   const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // Keep the approved Submitted / Awarded split; completed and unsuccessful quotes
-  // remain visible within Submitted, including received quotes awaiting award.
-  const [activeTab, setActiveTab] = useState<TabId>('submitted');
-  const [quoteScope, setQuoteScope] = useState<'total' | 'submitted' | 'awarded' | 'received'>('submitted');
-  const [submittedView, setSubmittedView] = useState<SubmittedQuoteView>('active');
+  const [activeTab, setActiveTab] = useState<TabId>('received');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [pageSize, setPageSize] = useState(25);
+  const pageSize = 25;
   const [visibleCount, setVisibleCount] = useState(25);
   const refreshInFlightRef = useRef(false);
   const pendingWithdrawalsRef = useRef<Set<string>>(new Set());
   const [pendingWithdrawals, setPendingWithdrawals] = useState<Set<string>>(new Set());
-  const [pendingOfferBidIds,setPendingOfferBidIds] = useState<Set<string>>(new Set());
 
   const fetchBids = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
@@ -219,24 +213,14 @@ export default function MyQuotesPage() {
     setError('');
 
     const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at';
-    const outgoingRows: Array<Omit<BidRow, 'direction'>> = [];
-    let outgoingError = false;
-    for (let page = 0; page <= 10000; page++) {
-      const start = page * 150;
-      const result = await supabase
-        .from('job_bids')
-        .select(bidSelect)
-        .or(driverId ? `bidder_user_id.eq.${userId},bidder_driver_id.eq.${driverId}` : `bidder_user_id.eq.${userId}`)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(start, start + 149);
-      if (result.error) { outgoingError = true; break; }
-      const rows = (result.data ?? []) as Array<Omit<BidRow, 'direction'>>;
-      outgoingRows.push(...rows);
-      if (rows.length < 150) break;
-    }
+    const outgoingRes = await supabase
+      .from('job_bids')
+      .select(bidSelect)
+      .eq('bidder_user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(150);
 
-    if (outgoingError) {
+    if (outgoingRes.error) {
       setError('Your submitted quotes could not be loaded. Please refresh and try again.');
       if (!background) setBids([]);
       refreshInFlightRef.current = false;
@@ -244,13 +228,13 @@ export default function MyQuotesPage() {
       return;
     }
 
-    const outgoing = outgoingRows.map((bid) => ({ ...bid, direction: 'outgoing' as const }));
+    const outgoing = ((outgoingRes.data ?? []) as Array<Omit<BidRow, 'direction'>>).map((bid) => ({ ...bid, direction: 'outgoing' as const }));
     const outgoingJobIds = [...new Set(outgoing.map((bid) => bid.job_id))];
 
     const fullJobSelect = 'id, company_id, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, job_distance_miles, job_distance_minutes, vehicle_type, budget_amount, status, current_status, exchange_posted_at, service_mode, direct_delivery_required, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)';
 
     let ownJobs: FullJob[] = [];
-    if (companyId && canViewCompanyReceivedQuotes) {
+    if (companyId) {
       const ownJobsRes = await supabase
         .from('jobs')
         .select(fullJobSelect)
@@ -314,18 +298,9 @@ export default function MyQuotesPage() {
     setOwnJobsById(Object.fromEntries(ownJobs.map((job) => [job.id, job])));
     setCompanyNames(nameMap);
     setBids(allRows);
-    const token=readRouteAuthAccessToken();
-    if(token){
-      try{
-        const offers=await fetchAllBookingOfferPages<{bid_id:string;status:string}>('/api/booking-offers',token);
-        setPendingOfferBidIds(new Set(offers.filter(offer=>offer.status==='pending').map(offer=>offer.bid_id)));
-      }catch{
-        setError(previous=>previous||'Booking offer statuses could not be verified; use Bookings to check current offers.');
-      }
-    }
     refreshInFlightRef.current = false;
     setLoading(false);
-  }, [canViewCompanyReceivedQuotes, companyId, driverId, userId]);
+  }, [companyId, driverId, userId]);
 
   useEffect(() => { void fetchBids(); }, [fetchBids]);
   useVisibleRefresh(
@@ -443,15 +418,7 @@ export default function MyQuotesPage() {
     return true;
   }), [appliedFilters, bids, companyNames, viewForBid]);
 
-  const tabBids = useMemo(() => filteredBids.filter((bid) => {
-    if (quoteScope === 'total') return true;
-    if (quoteScope === 'received') return bid.direction === 'incoming';
-    if (quoteBucket(bid) !== activeTab) return false;
-    if (activeTab === 'awarded' || submittedView === 'all') return true;
-    const stage=canonicalQuoteStage(bid,bid.direction==='incoming'?'poster':'bidder');
-    const historic=isTerminalQuoteStage(stage);
-    return submittedView === 'history' ? historic : !historic;
-  }), [activeTab, filteredBids, submittedView, quoteScope]);
+  const tabBids = useMemo(() => filteredBids.filter((bid) => quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
   const visibleBids = useMemo(() => tabBids.slice(0, visibleCount), [tabBids, visibleCount]);
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
   const canLoadMore = visibleCount < tabBids.length;
@@ -459,7 +426,7 @@ export default function MyQuotesPage() {
   useEffect(() => {
     setVisibleCount(pageSize);
     setExpandedIds(new Set());
-  }, [activeTab, appliedFilters, pageSize, submittedView, quoteScope]);
+  }, [activeTab, appliedFilters, pageSize]);
   const toggleExpandAll = () => setExpandedIds((previous) => {
     const next = new Set(previous);
     visibleBids.forEach((bid) => { if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id); });
@@ -486,20 +453,16 @@ export default function MyQuotesPage() {
           </aside>
 
           <main className="main">
-            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Quotes</h1><p className="xd-approved-board-subtitle">Submitted &amp; Awarded — real quotation history</p></div></header>
-            <div className="xd-approved-board-kpis xd-quote-kpi-navigation" role="group" aria-label="Quote filters and page size">
-              <button type="button" className="xd-approved-board-kpi" aria-pressed={quoteScope === 'total'} onClick={() => setQuoteScope('total')}><strong>Total Quotes</strong><b>{bids.length}</b><small>All quote records</small></button>
-              <button type="button" className="xd-approved-board-kpi blue" aria-pressed={quoteScope === 'submitted'} onClick={() => { setActiveTab('submitted'); setQuoteScope('submitted'); setSubmittedView('all'); }}><strong>Submitted</strong><b>{bids.filter(bid => quoteBucket(bid) === 'submitted').length}</b><small>Active and historical quotations</small></button>
-              <button type="button" className="xd-approved-board-kpi green" aria-pressed={quoteScope === 'awarded'} onClick={() => { setActiveTab('awarded'); setQuoteScope('awarded'); }}><strong>Awarded</strong><b>{bids.filter(bid => quoteBucket(bid) === 'awarded').length}</b><small>Accepted quotations</small></button>
-              <button type="button" className="xd-approved-board-kpi amber" aria-pressed={quoteScope === 'received'} onClick={() => setQuoteScope('received')}><strong>Received</strong><b>{bids.filter(bid => bid.direction === 'incoming').length}</b><small>Quotes on posted loads</small></button>
-              <label className="xd-approved-board-kpi blue xd-quote-page-size"><strong>Results Per Page</strong><select aria-label="Results Per Page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select><small>Choose 10, 25 or 50</small></label>
-            </div>
             {error && <div className="vision-note">{error}</div>}
-            <div className="xd-quote-list-tools"><span>{quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
-            {quoteScope === 'submitted' && <div className="xd3150-quote-history-toggle" role="group" aria-label="Submitted quote activity">
-              {(['active','history','all'] as const).map(view=><button key={view} type="button" className={submittedView===view?'active':''} aria-pressed={submittedView===view} onClick={()=>setSubmittedView(view)}>{view==='active'?'Active quotes':view==='history'?'Withdrawn / expired / unsuccessful':'All submitted records'}</button>)}
-            </div>}
-            {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {quoteScope} quotes found.</span></div> : (
+            <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Driver quote statuses">
+              <button type="button" role="tab" aria-selected={activeTab === 'received'} data-active={activeTab === 'received' ? 'true' : 'false'} className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received</button>
+              <button type="button" role="tab" aria-selected={activeTab === 'archived'} data-active={activeTab === 'archived' ? 'true' : 'false'} className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived</button>
+              <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted</button>
+              <button type="button" role="tab" aria-selected={activeTab === 'unsuccessful'} data-active={activeTab === 'unsuccessful' ? 'true' : 'false'} className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful</button>
+              <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span>
+            </div>
+
+            {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
               <div className="xdrive-cx-quote-list">
                 {visibleBids.map((bid) => {
                   const view = viewForBid(bid);
@@ -515,12 +478,8 @@ export default function MyQuotesPage() {
                   const jobStatus = String(view.jobStatus ?? '').toLowerCase();
                   const sold = quoteStage === 'unsuccessful' || quoteStage === 'accepted' || ['awarded', 'allocated', 'booked', 'in_progress', 'completed', 'delivered'].includes(jobStatus);
                   const quoteAmount = money(bidPrice, bid.currency || 'GBP');
-                  const pendingBookingOffer = bid.direction === 'outgoing' && pendingOfferBidIds.has(bid.id);
-                  const fullDetailsRestricted = view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)));
-                  const activeQuote = bid.direction === 'outgoing' && !pendingBookingOffer && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
-                  const footerState = pendingBookingOffer
-                    ? `Booking offer pending your acceptance · ${quoteAmount}`
-                    : quoteStage === 'unsuccessful'
+                  const activeQuote = bid.direction === 'outgoing' && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
+                  const footerState = quoteStage === 'unsuccessful'
                     ? `Your Quote was Unsuccessful ${quoteAmount}`
                     : quoteStage === 'accepted'
                       ? `Your Quote was Accepted ${quoteAmount}`
@@ -534,7 +493,7 @@ export default function MyQuotesPage() {
                               ? `Quote ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`
                               : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
 
-                  return <ApprovedDriverQuoteCard
+                  return <CxQuoteCard
                     key={bid.id}
                     routeFrom={view.pickup}
                     routeTo={view.delivery}
@@ -568,15 +527,10 @@ export default function MyQuotesPage() {
                     </>}
                     footer={<>
                       <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && bid.direction === 'incoming' && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={expanded ? 'Collapse quote' : 'Expand quote'}>{expanded ? '▴' : '▾'}</button>
-                      {pendingBookingOffer && <button type="button" className="xdrive-cx-quote-card__cancel" onClick={()=>router.push('/driver/won-work')}>Review Booking Offer</button>}
                       {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={pendingWithdrawals.has(bid.id)} onClick={() => void handleWithdrawBid(bid.id)}>{pendingWithdrawals.has(bid.id) ? 'Cancelling…' : 'Cancel Quote'}</button> : null}
                       <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${quoteStage}`}>{footerState}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>
-                        <button type="button" className="xdrive-inline-link" title={fullDetailsRestricted ? 'Only your saved quotation is available; private job details remain protected' : undefined} onClick={() => {
-                          if (pendingBookingOffer) router.push('/driver/won-work');
-                          else if (fullDetailsRestricted) setExpandedIds(previous => {const next=new Set(previous);if(next.has(bid.id))next.delete(bid.id);else next.add(bid.id);return next;});
-                          else router.push(view.access === 'assigned' || view.access === 'own' ? `/driver/jobs/${bid.job_id}` : `/driver/loads/${bid.job_id}`);
-                        }}>{pendingBookingOffer ? 'Review Booking Offer' : fullDetailsRestricted ? (expanded?'Hide quote summary':'View saved quote') : 'View Details'}</button>
+                        <button type="button" className="xdrive-inline-link" disabled={view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)))} title={view.access === 'protected' ? 'This load is no longer available to this account' : undefined} onClick={() => router.push(view.access === 'assigned' || view.access === 'own' ? `/driver/jobs/${bid.job_id}` : `/driver/loads/${bid.job_id}`)}>{view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage))) ? 'Details unavailable' : 'View Details'}</button>
                         {view.postingMemberId ? <span> ({view.postingMemberId})</span> : null}
                         <strong>{counterpartName}</strong>
                         {view.postingPhone ? <a href={`tel:${view.postingPhone.replace(/\s+/g, '')}`}>{view.postingPhone}</a> : null}

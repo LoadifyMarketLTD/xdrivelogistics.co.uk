@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
-import { historicalJobAliases } from '../../../../lib/jobs/historicalReferenceLookup';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -27,12 +25,6 @@ export type DriverContext = {
 export type MobileJobRow = {
   id: string;
   created_by: string | null;
-  load_reference?: string | null;
-  load_ref?: string | null;
-  booking_reference?: string | null;
-  customer_reference?: string | null;
-  customer_ref?: string | null;
-  cust_ref?: string | null;
   status: string | null;
   current_status: string | null;
   assigned_driver_id: string | null;
@@ -181,12 +173,6 @@ export function isDriverContext(value: DriverContext | NextResponse): value is D
 export const jobSelect = [
   'id',
   'created_by',
-  'load_reference',
-  'load_ref',
-  'booking_reference',
-  'customer_reference',
-  'customer_ref',
-  'cust_ref',
   'status',
   'current_status',
   'assigned_driver_id',
@@ -275,7 +261,6 @@ export function mapJob(row: MobileJobRow) {
   return {
     id: row.id,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
-    legacyReferences: historicalJobAliases(row),
     status: mobileStatus(row),
     lifecycleStatus: row.status,
     currentStatus: row.current_status,
@@ -297,9 +282,7 @@ export function mapJob(row: MobileJobRow) {
     podRequired: true,
     hardCopyPod: row.hard_copy_pod || '',
     collectionPassRequired: row.collection_pass_required === true,
-    // A signature or photo is only draft evidence. Match the Finance server gate
-    // before claiming the signed POD has been officially archived.
-    podGenerated: hasCompletePodEvidence(row),
+    podGenerated: hasPod(row),
     itemCount: row.no_of_items ?? null,
     packaging: row.packaging || '',
     weightKg: Number(row.weight_kg ?? 0) || null,
@@ -321,18 +304,11 @@ export function mapJob(row: MobileJobRow) {
     clientPhone: row.client_phone || contactPhone || '',
     loadDetails: row.load_details || '',
     requirements: [row.load_details, row.special_requirements, row.access_restrictions].filter(Boolean).join('\n'),
-    createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-export async function insertTrackingEvent(
-  jobId: string,
-  userId: string,
-  eventType: string,
-  message: string,
-  meta: Record<string, unknown> = {},
-) {
+export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, message: string) {
   if (!supabaseAdmin) return;
   await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
@@ -341,6 +317,6 @@ export async function insertTrackingEvent(
     event_type: eventType,
     event_time: new Date().toISOString(),
     message,
-    meta: { source: 'driver_mobile', ...meta },
+    meta: { source: 'driver_mobile' },
   });
 }

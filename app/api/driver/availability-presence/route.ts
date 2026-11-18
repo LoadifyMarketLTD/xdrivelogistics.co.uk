@@ -8,11 +8,7 @@ const MAX_HOURS = 8;
 function roundedForExchange(value: number): number {
   return Math.round(value * 100) / 100;
 }
-type AvailabilityDriver = { id: string; company_id?: string | null; availability_status?: string | null };
-
-async function authenticatedDriver(
-  request: NextRequest,
-): Promise<{ error: NextResponse } | { driver: AvailabilityDriver }> {
+async function authenticatedDriver(request: NextRequest) {
   const context = await requireActiveWebDriver(request);
   if (!isWebDriverContext(context)) return { error: context };
 
@@ -39,12 +35,10 @@ async function ensureAvailabilityEligible(
     return !error;
   };
 
-  // Availability sharing is independent of an active booking. Drivers may advertise future capacity.
   if (String(driver.availability_status ?? '').toLowerCase() !== 'available') {
     if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
     return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
   }
-
   return null;
 }
 
@@ -58,11 +52,8 @@ function parseCoordinates(body: { lat?: number; lng?: number }) {
 export async function GET(request: NextRequest) {
   const auth = await authenticatedDriver(request);
   if ('error' in auth) return auth.error;
-  const eligibilityError = await ensureAvailabilityEligible(auth.driver, true);
-  if (eligibilityError) {
-    if (eligibilityError.status === 409) return NextResponse.json({ active: false, presence: null });
-    return eligibilityError;
-  }
+  const eligibilityError = await ensureAvailabilityEligible(auth.driver);
+  if (eligibilityError) return NextResponse.json({ active: false, presence: null });
 
   const { data, error } = await supabaseAdmin!
     .from('driver_availability_presence')
