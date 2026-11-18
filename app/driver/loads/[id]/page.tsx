@@ -9,7 +9,7 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
-import { ActionButton, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import { ActionButton, EmptyState } from '../../../components/workspace/WorkspaceUI';
 import QuotePublicRouteMap from '../../../components/workspace/QuotePublicRouteMap';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../../_components/MarketplaceQuoteModal';
 
