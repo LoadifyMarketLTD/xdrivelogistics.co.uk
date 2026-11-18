@@ -21,7 +21,7 @@ export interface InvoiceData {
   deliveryRecipient: string;
   serviceDescription: string;
   amount: number;
-  paymentTerms: 'Pay now' | '14 days' | '30 days';
+  paymentTerms: 'Pay now' | '7 days' | '14 days' | '30 days';
   lateFee: string;
   vatRate: 0 | 5 | 20;
   netAmount: number;

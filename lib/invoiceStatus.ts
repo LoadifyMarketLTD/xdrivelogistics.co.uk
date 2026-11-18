@@ -8,6 +8,35 @@ export const CANONICAL_INVOICE_STATUSES = [
 ] as const;
 
 export type CanonicalInvoiceStatus = (typeof CANONICAL_INVOICE_STATUSES)[number];
+
+/** Issued invoices still requiring settlement, including overdue and disputed debt. */
+export const isAwaitingPaymentInvoiceStatus = (status: CanonicalInvoiceStatus): boolean =>
+  status === 'Sent' || status === 'Overdue' || status === 'Disputed';
+
+/** Separate ledger totals (including drafts) from issued commercial receivables. */
+export const summarizeInvoiceValueScopes = (rows: Array<{
+  status: CanonicalInvoiceStatus;
+  amount?: unknown;
+  net_amount?: unknown;
+  vat_amount?: unknown;
+  paid_amount?: unknown;
+  outstanding_amount?: unknown;
+}>) => rows.reduce((acc, row) => {
+  const net = Number(row.net_amount ?? 0);
+  const vat = Number(row.vat_amount ?? 0);
+  const gross = Number(row.amount ?? 0);
+  const paid = Number(row.paid_amount ?? 0);
+  const outstanding = Number(row.outstanding_amount ?? 0);
+  acc.net += net; acc.vat += vat; acc.gross += gross;
+  acc.paid += paid; acc.outstanding += outstanding;
+  if (row.status !== 'Draft' && row.status !== 'Cancelled') {
+    acc.issuedNet += net; acc.issuedVat += vat;
+    acc.issuedGross += gross;
+    if (isAwaitingPaymentInvoiceStatus(row.status)) acc.issuedOutstanding += outstanding;
+  }
+  return acc;
+}, { net: 0, vat: 0, gross: 0, paid: 0, outstanding: 0,
+  issuedNet: 0, issuedVat: 0, issuedGross: 0, issuedOutstanding: 0 });
 export const CANONICAL_PAYMENT_STATUSES = [
   'unpaid',
   'partially_paid',

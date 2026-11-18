@@ -114,8 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   // Keep a ref so isPasswordSetupContext does not need pathname in its deps array.
-  // Without this, every SPA navigation changes pathname â†’ new isPasswordSetupContext
-  // reference â†’ useEffect re-runs â†’ bootstrapAuth() fires â†’ 4â€“6 Supabase queries.
+  // Without this, SPA navigation can recreate isPasswordSetupContext, rerun
+  // useEffect, restart bootstrapAuth, and trigger 4-6 Supabase queries.
   const pathnameRef = useRef(pathname);
   useEffect(() => { pathnameRef.current = pathname; }, [pathname]);
   // Prevents onAuthStateChange from firing a concurrent hydrateUser while
@@ -156,11 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (pathnameRef.current === RESET_PASSWORD_PATH) return true;
     if (event === 'PASSWORD_RECOVERY') return true;
     return false;
-  }, []); // stable â€” uses ref, never needs to be recreated
+  }, []); // stable - uses ref, never needs to be recreated
 
   const hydrateUser = useCallback(async (sessionUser: SessionUser): Promise<AuthResolutionResult> => {
     // If the same user is already fully resolved, return immediately without re-running
-    // resolveAuthenticatedUser() (which fires 4â€“6 Supabase queries). This prevents
+    // resolveAuthenticatedUser() (which fires 4-6 Supabase queries). This prevents
     // re-hydration when the auth subscription re-fires for the same identity.
     const existing = userRef.current;
     if (existing && existing.id === sessionUser.id) {
@@ -326,7 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       syncRouteAuthCookie(session);
 
       // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
-      // Profile, role, and company context are unchanged â€” re-running the full
+      // Profile, role, and company context are unchanged - re-running the full
       // database hydration would fire 4+ unnecessary Supabase queries and can
       // cascade into repeated dashboard/driver page reloads.
       if (event === 'TOKEN_REFRESHED' && userRef.current) {

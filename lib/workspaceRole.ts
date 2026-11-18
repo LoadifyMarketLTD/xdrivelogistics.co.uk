@@ -199,7 +199,6 @@ const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
     { id: 'auto-match', label: 'Auto-match & Alerts', href: '/driver/load-alerts', icon: '◷' },
     { id: 'nearby', label: "Who's Nearby", href: '/driver/nearby', icon: '⌖' },
     { id: 'tracking', label: 'Tracking', href: '/driver/freight-vision', icon: '◎' },
-    { id: 'directory', label: 'Directory', href: '/driver/directory', icon: '⊕' },
     { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩' },
   ] },
   { id: 'business', label: 'Business', items: [
@@ -219,8 +218,8 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   carrier_admin: new Set<WorkspaceCapability>([...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award']),
   broker: new Set<WorkspaceCapability>(['company.manage', 'billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'documents.company.manage', 'invoices.customer.manage', 'invoices.carrier.manage', 'margins.view', 'incidents.manage', 'settings.manage']),
   customer: new Set<WorkspaceCapability>(['billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
-  fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage']),
-  dispatcher: new Set<WorkspaceCapability>(['loads.create', 'loads.publish', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'quotes.receive', 'quotes.compare', 'quotes.award', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage', 'settings.manage']),
+  fleet_manager: new Set<WorkspaceCapability>(['loads.view.marketplace', 'quotes.submit', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage']),
+  dispatcher: new Set<WorkspaceCapability>(['loads.create', 'loads.publish', 'loads.view.marketplace', 'quotes.submit', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'quotes.receive', 'quotes.compare', 'quotes.award', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage', 'settings.manage']),
   driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
   owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'drivers.manage', 'company.members.manage', 'invoices.carrier.manage', 'billing.manage']),
   finance: new Set<WorkspaceCapability>(['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view', 'settings.manage']),
@@ -378,10 +377,10 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     ],
   },
   driver: {
-    role: 'driver', label: 'Driver Workspace', subtitle: 'Assigned transport execution and driver readiness', homeHref: '/driver', nav: DRIVER_EXECUTION_NAV,
+    role: 'driver', label: 'Driver Workspace', subtitle: 'Assigned transport execution and driver readiness', homeHref: '/driver/jobs', nav: DRIVER_EXECUTION_NAV,
   },
   owner_driver: {
-    role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: OWNER_DRIVER_NAV,
+    role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver/jobs', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: OWNER_DRIVER_NAV,
   },
   finance: {
     role: 'finance', label: 'Finance Workspace', subtitle: 'Invoices, payments, balances and reporting', homeHref: '/admin/invoices',

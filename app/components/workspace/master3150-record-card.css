@@ -1,0 +1,411 @@
+/* Exact shared production card geometry derived from approved 3150 XDriveLoadCard.
+   Shared across Loads, Quotes, Bookings and Diary, never loaded from demo data. */
+.master3150-record.xd-board-card {
+  display:grid !important;
+  grid-template-columns:110px minmax(0,1fr) 230px !important;
+  background:#fff !important;
+  color:#0c1930;
+  border:1px solid #d7e1ec !important;
+  border-left:4px solid #ff7900 !important;
+  border-radius:10px !important;
+  box-shadow:0 2px 5px rgba(16,43,80,.08) !important;
+  margin:0 0 13px !important;
+  min-height:138px;
+  padding:0 !important;
+  overflow:hidden;
+  gap:0 !important;
+  font:inherit;
+}
+.master3150-record.xd-board-card:nth-of-type(even){border-left-color:#60758f !important}
+.master3150-record .xd-card-date{
+  background:#f5f7fa !important;
+  border-right:1px solid #e5ebf2;
+  display:flex !important;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:10px;
+  min-height:130px;
+  color:#091b3a;
+}
+.master3150-record .xd-card-date>span{font-size:14px;font-weight:800}
+.master3150-record .xd-card-date>strong{font-size:19px;line-height:1.2;text-align:center;white-space:nowrap}
+.master3150-record .xd-card-date>em{
+  font-style:normal;
+  background:#61bb00;
+  color:#fff;
+  padding:5px 8px;
+  border-radius:5px;
+  font-size:10px;
+  font-weight:800;
+  max-width:100%;
+  text-align:center;
+  overflow-wrap:anywhere;
+}
+.master3150-record .xd-card-date>em.blue{background:#1268d6}
+.master3150-record .xd-card-date>em.amber{background:#e29b00}
+.master3150-record .xd-card-date>em.muted{background:#64748b}
+.master3150-record .xd-card-main{
+  background:#fff !important;
+  padding:10px 13px 8px !important;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  border:0 !important;
+}
+.master3150-record .master3150-record__route,
+.master3150-record .master3150-record__times,
+.master3150-record .xd-card-facts,
+.master3150-record .xd-card-terms {
+  grid-column:auto !important;
+  border-radius:0 !important;
+  background:transparent !important;
+}
+.master3150-record .master3150-record__route h3{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  color:#071a38;
+  font-size:16px;
+  font-weight:850;
+  line-height:1.3;
+  margin:0 0 4px;
+}
+.master3150-record .master3150-record__route h3 span{
+  color:inherit !important;
+  font-size:inherit !important;
+  font-weight:inherit !important;
+  overflow-wrap:anywhere;
+}
+.master3150-record .master3150-record__route h3 i{font-style:normal;font-size:23px;font-weight:400;color:#304c70}
+.master3150-record .master3150-record__times{
+  display:flex !important;
+  gap:7px;
+  color:#45556b;
+  font-size:11px;
+  padding:0 !important;
+  margin:0 0 5px !important;
+  border:0 !important;
+  min-width:0;
+}
+.master3150-record .master3150-record__times>div{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline;min-width:0}
+.master3150-record .master3150-record__times span{color:#52657e !important;font-size:11px}
+.master3150-record .master3150-record__times strong{color:#0e2c57;font-weight:750}
+.master3150-record .master3150-record__times small{color:#64748b;font-weight:400}
+.master3150-record .xd-card-facts{
+  display:flex !important;
+  flex-wrap:wrap;
+  gap:7px;
+  border-top:1px solid #edf1f6 !important;
+  border-bottom:1px solid #edf1f6 !important;
+  padding:6px 0 !important;
+  font-size:11px;
+  font-weight:650;
+  min-height:26px;
+}
+.master3150-record .xd-card-facts>div{display:flex;gap:4px;align-items:center}
+.master3150-record .xd-card-facts>span{font-size:11px;color:#273950}
+.master3150-record .xd-card-facts strong{font-weight:750}
+.master3150-record .xd-card-terms{
+  font-size:11px;
+  margin:5px 0 0 !important;
+  padding:0 !important;
+  color:#35445a;
+  line-height:1.4;
+  border:0 !important;
+}
+.master3150-record .xd-card-terms b{color:#14233d}
+.master3150-record .xd-card-company{
+  display:flex !important;
+  flex-direction:column;
+  gap:5px;
+  justify-content:center;
+  align-items:stretch;
+  margin:8px 0 !important;
+  padding:0 13px !important;
+  background:#fff !important;
+  border-left:1px solid #e6ecf4 !important;
+  min-width:0;
+  font-size:12px;
+  color:#0c1930;
+}
+.master3150-record .xd-card-company>small,
+.master3150-record .xd-card-company>span{font-size:11px;color:#4c596b}
+.master3150-record .xd-card-company>strong{font-size:12px;line-height:1.5;font-weight:800;overflow-wrap:anywhere}
+.master3150-record .xd-card-actions{
+  display:flex !important;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:auto !important;
+  justify-content:flex-end;
+  align-items:center;
+  background:transparent !important;
+  border:0 !important;
+  padding:5px 0 0 !important;
+  min-height:0;
+  width:100%;
+}
+.master3150-record .xd-card-actions button{
+  border:1px solid #1268d6;
+  background:#fff;
+  color:#1256ae;
+  border-radius:6px;
+  padding:8px 10px;
+  min-height:32px;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.master3150-record .xd-card-actions button:disabled{opacity:.5;cursor:not-allowed}
+.master3150-record .xd-card-actions .xdrive-cx-load-footer__quote,
+.master3150-record .xd-card-actions [data-operation=primary]{
+  background:#16a34a;
+  border-color:#16a34a;
+  color:#fff;
+}
+.master3150-record .xd-card-actions a,
+.master3150-record .xd-card-actions span{font-size:11px}
+.master3150-record .xd-card-actions button:not([aria-label]){max-width:100%}
+.master3150-record .xd-card-expanded{
+  grid-column:1/-1;
+  border-top:1px solid #e2e8f0;
+  background:#f8fafc;
+  padding:14px 18px;
+  font-size:12px;
+  min-width:0;
+}
+.master3150-record .xd-card-expanded>div{max-width:100%}
+.master3150-record--quote .xd-card-date>em{font-size:10px}
+.master3150-record--quote .xd-card-actions .xdrive-cx-quote-card__member{margin-left:0 !important;display:flex;flex-wrap:wrap;gap:4px}
+.master3150-record--quote .xd-card-actions .xdrive-cx-quote-card__quote-state{flex-basis:100%}
+.master3150-record--quote .xd-card-actions .xdrive-cx-quote-card__expander{min-width:35px}
+.master3150-record--diary .xd-card-actions [role=toolbar]{display:flex;flex-wrap:wrap;gap:4px;min-width:0}
+.master3150-record--diary .xd-card-actions button{font-size:10px;padding:6px 8px}
+.master3150-record--diary .xd-card-date{min-height:164px}
+@media(max-width:1100px){
+ .master3150-record.xd-board-card{grid-template-columns:90px minmax(0,1fr) !important}
+ .master3150-record .xd-card-company{
+   grid-column:2;
+   border-left:0 !important;
+   border-top:1px solid #e6ecf4;
+   margin:0 12px !important;
+   padding:6px 0 !important;
+ }
+ .master3150-record .xd-card-date{grid-row:1 / span 2}
+ .master3150-record .xd-card-actions{margin-top:8px !important;justify-content:flex-start}
+}
+@media(max-width:680px){
+ .master3150-record.xd-board-card{grid-template-columns:74px minmax(0,1fr) !important}
+ .master3150-record .xd-card-main{padding:10px !important}
+ .master3150-record .master3150-record__route h3{font-size:13px}
+ .master3150-record .xd-card-date>strong{font-size:15px}
+ .master3150-record .xd-card-facts{gap:6px}
+ .master3150-record .xd-card-company{grid-column:1/-1}
+ .master3150-record .xd-card-date{grid-row:auto}
+ .master3150-record .master3150-record__times{flex-wrap:wrap}
+}
+
+/* Override legacy Courier Exchange grid mechanics inside the new 3150 card only. */
+.master3150-record .xdrive-cx-load-card__freight,
+.master3150-record .xdrive-cx-quote-card__freight,
+.master3150-record .xdrive-cx-diary-card__freight{
+ display:flex !important;
+ flex-wrap:wrap !important;
+ align-items:baseline !important;
+ gap:9px 14px !important;
+ margin:0 !important;
+ padding:0 !important;
+ width:auto !important;
+ border:0 !important;
+ background:transparent !important;
+ position:static !important;
+ grid-template-columns:none !important;
+}
+.master3150-record .xdrive-cx-load-card__freight>div,
+.master3150-record .xdrive-cx-quote-card__freight>div,
+.master3150-record .xdrive-cx-diary-card__freight>div{
+ display:inline-flex !important;
+ align-items:baseline !important;
+ justify-content:flex-start !important;
+ gap:3px !important;
+ width:auto !important;
+ min-width:0 !important;
+ margin:0 !important;
+ padding:0 !important;
+ grid-template-columns:none !important;
+ border:0 !important;
+}
+.master3150-record .xdrive-cx-load-card__freight>div>span,
+.master3150-record .xdrive-cx-load-card__freight>div>strong{
+ display:inline !important;
+ color:#334155 !important;
+ font-size:11px !important;
+ line-height:1.4 !important;
+ white-space:normal !important;
+}
+.master3150-record .master3150-record__times>div{
+ display:flex !important;
+ flex:0 1 auto !important;
+ gap:4px !important;
+ padding:0 !important;
+ width:auto !important;
+ max-width:100% !important;
+ min-width:0 !important;
+ grid-template-columns:none !important;
+ align-items:baseline !important;
+ justify-content:flex-start !important;
+ margin:0 !important;
+ border:0 !important;
+}
+.master3150-record .master3150-record__times small{
+ font-size:11px !important;
+ color:#64748b !important;
+ white-space:nowrap !important;
+}
+.master3150-record .master3150-record__route h3 span{text-transform:uppercase;letter-spacing:.025em}
+.master3150-record .xd-card-date>em{
+ max-width:100% !important;
+ min-width:0 !important;
+ overflow-wrap:anywhere !important;
+}
+.master3150-record .xd-card-actions .xdrive-cx-load-footer__quote,
+.master3150-record .xd-card-actions button[data-operation="primary"]{
+ background:#16a34a !important;
+ border-color:#16a34a !important;
+ color:#fff !important;
+}
+.master3150-record .xd-card-actions button:hover:not(:disabled){filter:brightness(.97)}
+
+/* Legacy CX layout used !important grid; 3150 requires stacked route, times, facts, terms. */
+.master3150-record.xd-board-card .xd-card-main,
+.master3150-record.xd-board-card .xdrive-cx-load-card__main,
+.master3150-record.xd-board-card .xdrive-cx-quote-card__main,
+.master3150-record.xd-board-card .xdrive-cx-diary-card__main{
+ display:flex !important;
+ flex-direction:column !important;
+ align-items:stretch !important;
+ justify-content:flex-start !important;
+ grid-template-columns:none !important;
+ grid-template-rows:none !important;
+ gap:0 !important;
+ min-width:0 !important;
+}
+.master3150-record.xd-board-card .master3150-record__route{
+ display:block !important;
+ width:100% !important;
+ min-width:0 !important;
+ padding:0 !important;
+ margin:0 0 6px !important;
+}
+.master3150-record.xd-board-card .master3150-record__times{
+ display:flex !important;
+ flex-wrap:wrap !important;
+ gap:6px 15px !important;
+ width:100% !important;
+ min-height:0 !important;
+ padding:0 !important;
+ margin:0 0 5px !important;
+}
+.master3150-record.xd-board-card .xd-card-facts{
+ display:flex !important;
+ align-items:baseline !important;
+ justify-content:flex-start !important;
+ width:100% !important;
+ min-height:35px !important;
+ margin:0 !important;
+}
+.master3150-record.xd-board-card .xd-card-terms{
+ display:block !important;
+ width:100% !important;
+ margin:9px 0 0 !important;
+}
+
+/* State borders from the former CX styles must not replace approved 3150 outline. */
+:is(.master3150-production,.xdrive-workspace-measured) .master3150-record.xd-board-card.xdrive-cx-load-card,
+:is(.master3150-production,.xdrive-workspace-measured) .master3150-record.xd-board-card.xdrive-cx-quote-card,
+:is(.master3150-production,.xdrive-workspace-measured) .master3150-record.xd-board-card.xdrive-cx-diary-card{
+ border:1px solid #d7e1ec !important;
+ border-left:4px solid #ff7900 !important;
+ border-radius:10px !important;
+ background:#fff !important;
+}
+:is(.master3150-production,.xdrive-workspace-measured) .master3150-record.xd-board-card:nth-of-type(even){
+ border-left-color:#60758f !important;
+}
+:is(.master3150-production,.xdrive-workspace-measured) .master3150-record--diary[data-state=delivered],
+:is(.master3150-production,.xdrive-workspace-measured) .master3150-record--diary[data-state=completed]{
+ border-left-color:#16a34a !important;
+}
+
+/* Quote actions span the full card width: never squeeze booking acceptance into the 230px company column. */
+.master3150-record--quote .master3150-record__full-footer.xd-card-actions {
+  grid-column:1 / -1;
+  display:flex !important;
+  justify-content:flex-start;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  padding:5px 12px !important;
+  margin:0 !important;
+  border-top:1px solid #e6ecf4 !important;
+  min-width:0;
+}
+.master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__quote-state {flex:1 1 220px;white-space:normal;line-height:1.4}
+.master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__member {margin-left:auto;min-width:180px;max-width:100%;overflow-wrap:anywhere;white-space:normal}
+.master3150-record--quote .master3150-record__full-footer .xdrive-cx-quote-card__cancel {width:auto !important;min-width:160px !important;max-width:100%;height:auto !important;min-height:34px !important;line-height:1.3 !important;padding:7px 12px !important;white-space:normal;overflow-wrap:anywhere}
+
+/* All operational cards use one three-column body and one full-width action rail. */
+.master3150-record.xd-board-card {
+  grid-template-columns:110px minmax(0,1fr) 230px !important;
+  grid-template-rows:minmax(138px,auto) auto;
+  align-items:stretch;
+}
+.master3150-record .xd-card-date {grid-column:1;grid-row:1;min-height:138px}
+.master3150-record .xd-card-main {grid-column:2;grid-row:1;min-width:0}
+.master3150-record .xd-card-company {grid-column:3;grid-row:1;min-width:0}
+.master3150-record .master3150-record__full-footer.xd-card-actions {
+  grid-column:1 / -1 !important;
+  grid-row:2;
+  display:flex !important;
+  align-items:center;
+  justify-content:flex-start !important;
+  flex-wrap:wrap;
+  gap:10px;
+  width:100%;
+  min-width:0;
+  margin:0 !important;
+  padding:5px 12px !important;
+  border-top:1px solid #e6ecf4 !important;
+  background:#fff !important;
+}
+.master3150-record .master3150-record__full-footer button,
+.master3150-record .master3150-record__full-footer a[role="button"] {
+  min-height:34px !important;
+  max-width:100%;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  touch-action:manipulation;
+}
+.master3150-record .master3150-record__full-footer button:focus-visible,
+.master3150-record .master3150-record__full-footer a:focus-visible {
+  outline:3px solid #2563eb;
+  outline-offset:2px;
+}
+.master3150-record .xd-card-expanded {grid-row:auto;grid-column:1 / -1}
+@media(max-width:1100px) {
+  .master3150-record.xd-board-card {grid-template-columns:90px minmax(0,1fr) !important;grid-template-rows:auto auto auto}
+  .master3150-record .xd-card-date {grid-column:1;grid-row:1 / span 2}
+  .master3150-record .xd-card-main {grid-column:2;grid-row:1}
+  .master3150-record .xd-card-company {grid-column:2;grid-row:2}
+  .master3150-record .master3150-record__full-footer.xd-card-actions {grid-column:1 / -1 !important;grid-row:3}
+}
+@media(max-width:680px) {
+  .master3150-record.xd-board-card {grid-template-columns:74px minmax(0,1fr) !important}
+  .master3150-record .xd-card-date {grid-column:1;grid-row:1}
+  .master3150-record .xd-card-main {grid-column:2;grid-row:1}
+  .master3150-record .xd-card-company {grid-column:1 / -1;grid-row:2}
+  .master3150-record .master3150-record__full-footer.xd-card-actions {grid-column:1 / -1 !important;grid-row:3;padding:10px !important}
+  .master3150-record .master3150-record__full-footer button {min-height:44px !important}
+}

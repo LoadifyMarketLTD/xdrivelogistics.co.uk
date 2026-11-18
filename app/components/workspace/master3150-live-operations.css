@@ -1,0 +1,402 @@
+/* Canonical approved 3150 presentation for authenticated Loads, Quotes and Diary.
+   No event handlers, no data changes, and no new demo operation paths. */
+:where(.workspace-board-layout.xdrive-admin-marketplace-identity,.xdrive-loads-workspace-layout,.driver-loads-prototype .pagebody) {
+  --x3150-orange:#ff7900;
+  --x3150-blue:#1268d6;
+  --x3150-border:#d9e2ee;
+  --x3150-font:Inter,Arial,sans-serif;
+  color:#0c1930;
+  font-family:var(--x3150-font);
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity,
+.xdrive-loads-workspace-layout {
+  background:#f7f9fc;
+  padding:12px 16px 24px;
+  border-radius:10px;
+  gap:18px;
+  align-items:start;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity {
+  display:grid;
+  grid-template-columns:220px minmax(0,1fr);
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity>.workspace-filter-rail,
+.xdrive-loads-workspace-layout>.carrier-exchange-rail {
+  min-width:0;
+  width:100%;
+  border:1px solid #d9e2ee;
+  border-radius:9px;
+  overflow:hidden;
+  background:#fff;
+  box-shadow:0 2px 6px rgba(11,47,107,.08);
+  align-self:start;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__header,
+.xdrive-loads-workspace-layout .carrier-exchange-rail .workspace-panel__header,
+.xdrive-loads-workspace-layout .carrier-exchange-rail [class*="panel-header"] {
+  background:#eef2f8;
+  padding:12px;
+  margin:0;
+  font-size:16px;
+  line-height:1.25;
+  color:#0b1f40;
+  font-weight:800;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__body {
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__body label,
+.xdrive-loads-workspace-layout .carrier-exchange-rail label {
+  font-size:11px;
+  color:#17233a;
+  font-weight:700;
+  line-height:1.35;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__body input:not([type="checkbox"]):not([type="radio"]),
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__body select,
+.xdrive-loads-workspace-layout .carrier-exchange-rail input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.xdrive-loads-workspace-layout .carrier-exchange-rail select {
+  min-height:34px;
+  background:#fff;
+  color:#17233a;
+  border:1px solid #cbd5e1;
+  border-radius:5px;
+  font-size:12px;
+  max-width:100%;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity>.workspace-board-main,
+.workspace-board-layout.xdrive-admin-marketplace-identity>main,
+.xdrive-loads-workspace-layout>main {
+  min-width:0;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip,
+.xdrive-loads-workspace-layout .carrier-exchange-secondary-tabs {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:2px 6px;
+  border-bottom:1px solid #dbe4f0;
+  background:transparent;
+  padding:0 0 1px;
+  margin-bottom:14px;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip>button[role="tab"],
+.xdrive-loads-workspace-layout .carrier-exchange-secondary-tabs .carrier-exchange-tab {
+  border:none;
+  border-radius:0;
+  background:transparent;
+  color:#101d35;
+  font-size:13px;
+  font-weight:750;
+  white-space:nowrap;
+  padding:11px 15px 12px;
+  border-bottom:3px solid transparent;
+  min-height:40px;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip>button[aria-selected="true"],
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip>button[data-active="true"],
+.xdrive-loads-workspace-layout .carrier-exchange-secondary-tabs .carrier-exchange-tab--active {
+  border-bottom-color:#ff7900;
+  color:#0c1930;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip>button:not([aria-selected="true"]):hover,
+.xdrive-loads-workspace-layout .carrier-exchange-secondary-tabs .carrier-exchange-tab:hover {
+  background:#eef4fc;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-record-meta,
+.xdrive-loads-workspace-layout .workspace-record-meta {
+  color:#13233c;
+  font-size:12px;
+  font-weight:650;
+  min-height:39px;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-record-list,
+.workspace-board-layout.xdrive-admin-marketplace-identity .xdrive-cx-quote-list,
+.xdrive-loads-workspace-layout .xdrive-cx-load-list {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:0;
+  min-width:0;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .master3150-record.xd-board-card,
+.xdrive-loads-workspace-layout .master3150-record.xd-board-card {
+  border:1px solid #d7e1ec;
+  border-left:4px solid #ff7900;
+  border-radius:10px;
+  box-shadow:0 2px 5px rgba(16,43,80,.08);
+  margin-bottom:13px;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .master3150-record .xd-card-actions,
+.xdrive-loads-workspace-layout .master3150-record .xd-card-actions {
+  display:flex;
+  align-items:stretch;
+  flex-wrap:wrap;
+  gap:7px;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .master3150-record .xd-card-actions button,
+.xdrive-loads-workspace-layout .master3150-record .xd-card-actions button {
+  min-height:33px;
+  line-height:1.2;
+  border-radius:6px;
+  font-weight:750;
+}
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__body button:not(:disabled):focus-visible,
+.workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip button:focus-visible,
+.xdrive-loads-workspace-layout .carrier-exchange-rail button:focus-visible {
+  outline:2px solid #1268d6;
+  outline-offset:2px;
+}
+@media(max-width:1100px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity {
+    grid-template-columns:185px minmax(0,1fr);
+    gap:10px;
+    padding:8px;
+  }
+  .xdrive-loads-workspace-layout {gap:10px;padding:8px}
+}
+@media(max-width:700px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity {
+    grid-template-columns:minmax(0,1fr);
+  }
+  .workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__body {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+  .workspace-board-layout.xdrive-admin-marketplace-identity .workspace-filter-rail__body>* {
+    min-width:0;
+  }
+  .workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip,
+  .xdrive-loads-workspace-layout .carrier-exchange-secondary-tabs {
+    overflow-x:auto;
+    flex-wrap:nowrap;
+    max-width:100%;
+    scrollbar-width:thin;
+  }
+  .workspace-board-layout.xdrive-admin-marketplace-identity .workspace-tab-strip>button[role="tab"],
+  .xdrive-loads-workspace-layout .carrier-exchange-secondary-tabs .carrier-exchange-tab {
+    font-size:11px;
+    padding:9px 10px;
+  }
+  .workspace-board-layout.xdrive-admin-marketplace-identity .workspace-record-meta {
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .xdrive-loads-workspace-layout>main {flex-basis:100%!important}
+  .xdrive-loads-workspace-layout>.carrier-exchange-rail {
+    flex:1 1 100%!important;
+    width:100%!important;
+  }
+}
+
+/* Driver presentation uses the same 3150 layout without replacing the driver APIs. */
+.driver-loads-prototype .pagebody,
+.driver-quotes-prototype .pagebody {
+  display:grid;
+  grid-template-columns:220px minmax(0,1fr);
+  align-items:start;
+  gap:18px;
+  background:#f7f9fc;
+  padding:12px 16px 24px;
+  border-radius:10px;
+  font-family:Inter,Arial,sans-serif;
+}
+.driver-loads-prototype .pagebody>.left,
+.driver-quotes-prototype .pagebody>.left,
+.driver-diary-board .xd-diary-layout>aside {
+  border:1px solid #d9e2ee;
+  border-radius:9px;
+  box-shadow:0 2px 6px rgba(11,47,107,.08);
+  background:#fff;
+  overflow:hidden;
+  min-width:0;
+  width:100%;
+}
+.driver-loads-prototype .left-title,
+.driver-quotes-prototype .left-title,
+.driver-diary-board .diary-filter-head {
+  padding:12px;
+  background:#eef2f8;
+  font-size:16px;
+  font-weight:800;
+  color:#071a38;
+}
+.driver-loads-prototype .left>.filter,
+.driver-quotes-prototype .left>.filter {
+  margin:0;
+  padding:6px 12px;
+  border:0;
+}
+.driver-loads-prototype .left .label,
+.driver-quotes-prototype .left .label {
+  color:#17233a;
+  font-size:11px;
+  font-weight:800;
+}
+.driver-loads-prototype .left .input,
+.driver-loads-prototype .left .select,
+.driver-quotes-prototype .left .input,
+.driver-quotes-prototype .left .select {
+  height:34px;
+  max-width:100%;
+  font-size:12px;
+  border:1px solid #cbd5e1;
+  border-radius:5px;
+}
+.driver-loads-prototype .pagebody>.main,
+.driver-quotes-prototype .pagebody>.main {
+  min-width:0;
+}
+.driver-loads-prototype .xd-approved-board-header h1,
+.driver-quotes-prototype .xd-approved-board-header h1,
+.driver-diary-board .xd-diary-header h1 {
+  color:#071a38;
+  font-size:20px;
+  font-weight:800;
+  margin:0 0 3px;
+}
+.driver-loads-prototype .load-tabs,
+.driver-quotes-prototype .workspace-tab-strip,
+.driver-diary-board .xd-diary-tabs {
+  border-bottom:1px solid #dbe4f0;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:3px;
+  background:transparent;
+}
+.driver-loads-prototype .load-tabs>button,
+.driver-quotes-prototype .workspace-tab-strip>button[role="tab"],
+.driver-diary-board .xd-diary-tabs>button[role="tab"] {
+  border:0;
+  border-bottom:3px solid transparent;
+  border-radius:0;
+  padding:10px 13px 12px;
+  background:transparent;
+  color:#101d35;
+  font-size:12px;
+  font-weight:750;
+  min-height:40px;
+}
+.driver-loads-prototype .load-tabs>button.active,
+.driver-quotes-prototype .workspace-tab-strip>button[aria-selected="true"],
+.driver-diary-board .xd-diary-tabs>button[aria-selected="true"] {
+  border-bottom-color:#ff7900;
+  color:#071a38;
+}
+.driver-loads-prototype .load-list,
+.driver-quotes-prototype .xdrive-cx-quote-list,
+.driver-diary-board .diary-bookings {
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:0;
+  min-width:0;
+}
+.driver-diary-board.xd-diary-v2 {
+  background:#f7f9fc;
+  border-radius:10px;
+  padding:12px 16px 24px;
+  font-family:Inter,Arial,sans-serif;
+}
+.driver-diary-board .xd-diary-layout {
+  display:grid;
+  grid-template-columns:235px minmax(0,1fr);
+  gap:18px;
+  align-items:start;
+}
+.driver-diary-board .xd-diary-layout>main {min-width:0}
+.driver-diary-board .xd-diary-kpis {
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:14px;
+}
+.driver-diary-board .xd-diary-kpi {
+  min-height:92px;
+  border:1px solid #dce5f0;
+  border-left-width:5px;
+  border-radius:12px;
+  padding:12px;
+  background:#fff;
+  box-shadow:0 2px 6px rgba(11,47,107,.06);
+}
+.driver-diary-board .xd-diary-header {
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+}
+.driver-diary-board .xd-diary-date-nav {
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  align-items:center;
+}
+@media(max-width:1400px) {
+  .driver-diary-board .xd-diary-kpis {grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:1100px) {
+  .driver-loads-prototype .pagebody,
+  .driver-quotes-prototype .pagebody,
+  .driver-diary-board .xd-diary-layout {
+    grid-template-columns:200px minmax(0,1fr);
+    gap:12px;
+  }
+}
+@media(max-width:700px) {
+  .driver-loads-prototype .pagebody,
+  .driver-quotes-prototype .pagebody,
+  .driver-diary-board .xd-diary-layout {
+    grid-template-columns:minmax(0,1fr);
+    padding:8px;
+  }
+  .driver-loads-prototype .load-tabs,
+  .driver-quotes-prototype .workspace-tab-strip,
+  .driver-diary-board .xd-diary-kpis {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .driver-diary-board .xd-diary-tabs {
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    scrollbar-width:thin;
+  }
+  .driver-loads-prototype .load-tabs>button,
+  .driver-quotes-prototype .workspace-tab-strip>button[role="tab"],
+  .driver-diary-board .xd-diary-tabs>button[role="tab"] {
+    flex:0 0 auto;
+    white-space:nowrap;
+    font-size:11px;
+    padding:8px 11px;
+  }
+}
+
+/* Exact diary grid measurements from the approved 3150 xdrive-design-system.css.
+   Applied only when the operational Diary rail is present. */
+@media(min-width:1101px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.cx-diary-filter-rail) {
+    grid-template-columns:235px minmax(0,1fr);
+    gap:18px;
+  }
+}
+@media(min-width:801px) and (max-width:1100px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.cx-diary-filter-rail) {
+    grid-template-columns:200px minmax(0,1fr);
+    gap:12px;
+  }
+}
+@media(max-width:800px) {
+  .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.cx-diary-filter-rail) {
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+
+/* Quotes: KPI cards are the sole status navigation; align the filter rail with them. */
+@media (min-width: 901px) {
+  .driver-quotes-prototype .pagebody > .carrier-exchange-rail { margin-top: 50px; }
+}
+.driver-quotes-prototype .xd-quote-kpi-navigation > button { cursor:pointer; text-align:left; font:inherit; transition:border-color .12s,box-shadow .12s; }
+.driver-quotes-prototype .xd-quote-kpi-navigation > button[aria-pressed="true"] { border-color:#ff7900; box-shadow:0 0 0 2px rgba(255,121,0,.16); }
+.driver-quotes-prototype .xd-quote-kpi-navigation > button:focus-visible { outline:2px solid #0b4fa3; outline-offset:2px; }
+.driver-quotes-prototype .xd-quote-page-size select { width:100%; max-width:140px; height:28px; font-size:12px; border:1px solid #cbd5e1; border-radius:4px; background:#fff; }
+.driver-quotes-prototype .xd-quote-list-tools { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:4px 0 8px; font-size:12px; font-weight:700; }

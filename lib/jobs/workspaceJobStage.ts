@@ -182,6 +182,19 @@ export function fleetQueueStage(job: WorkspaceStageJob) {
   return stage;
 }
 
+/** A Diary booking is an awarded/execution transport, not an open marketplace load.
+ * Cancelled or expired rows are retained only when a carrier/driver allocation
+ * was recorded; a never-awarded expired load belongs in Loads, not Diary.
+ */
+export function isDiaryBookingJob(job: WorkspaceStageJob) {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'open' || stage === 'unknown') return false;
+  if (stage === 'cancelled' || stage === 'expired') {
+    return Boolean(job.awarded_carrier_company_id || job.assigned_company_id || job.assigned_driver_id);
+  }
+  return true;
+}
+
 export function brokerDiaryStage(job: WorkspaceStageJob) {
   const stage = classifyWorkspaceJobStage(job);
   if (stage === 'open') return 'unallocated' as const;

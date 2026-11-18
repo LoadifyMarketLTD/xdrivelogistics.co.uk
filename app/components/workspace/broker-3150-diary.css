@@ -1,0 +1,90 @@
+/* Approved 3150 Diary visual structure, backed by authenticated Broker operations. */
+.xd3150-broker-diary{font-family:Inter,Arial,sans-serif;color:#0b1c38;background:#f5f8fc;padding:8px 10px 22px;min-width:0}
+.xd3150-diary-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 13px}
+.xd3150-diary-header h1{font-size:29px;line-height:1.2;font-weight:850;letter-spacing:-.5px;margin:0 0 6px;color:#071a38}
+.xd3150-diary-header p{font-size:12px;color:#52637c;margin:0}
+.xd3150-diary-date-nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.xd3150-diary-date-nav button,.xd3150-diary-date-nav input{border:1px solid #cbd7e6;border-radius:7px;background:#fff;color:#0c294f;font-size:12px;min-height:36px;padding:7px 9px}
+.xd3150-diary-date-nav button{cursor:pointer;font-weight:700}
+.xd3150-diary-date-nav .xd3150-diary-today{color:#1264dc;border-color:#1264dc}
+.xd3150-diary-status-tabs{display:flex;flex-wrap:wrap;align-items:stretch;gap:1px;margin-bottom:15px;border-bottom:1px solid #dce5f0;padding-bottom:8px}
+.xd3150-diary-status-tabs>button{display:flex;align-items:center;justify-content:center;gap:8px;background:#f2f6fb;border:1px solid #d9e3ef;border-radius:5px;color:#0c2343;font-size:11px;font-weight:800;white-space:nowrap;padding:10px 10px;min-height:40px;cursor:pointer}
+.xd3150-diary-status-tabs>button[aria-selected=true]{background:#235fd9;border-color:#235fd9;color:#fff}
+.xd3150-diary-status-tabs>button>span{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;background:#dce8f9;color:#133f85;border-radius:50%;font-size:10px;padding:0 5px}
+.xd3150-diary-status-tabs>button[aria-selected=true]>span{background:#167ee4;color:#fff}
+.xd3150-broker-diary .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.xd3150-diary-rail){display:grid;grid-template-columns:235px minmax(0,1fr);gap:18px;align-items:start;padding:0;background:transparent}
+.xd3150-broker-diary .xd3150-diary-rail{border:1px solid #dce5ef;border-radius:8px;background:#fff;overflow:hidden;box-shadow:0 2px 5px rgba(20,45,76,.06)}
+.xd3150-broker-diary .xd3150-diary-rail .workspace-filter-rail__header{margin:0;padding:13px 14px;background:#edf3fa;font-size:17px;color:#10264c;font-weight:850}
+.xd3150-broker-diary .xd3150-diary-rail .workspace-filter-rail__body{display:flex;flex-direction:column;gap:10px;padding:12px 13px}
+.xd3150-broker-diary .xd3150-diary-rail label{display:flex;flex-direction:column;gap:6px;color:#152846;font-size:11px;font-weight:800}
+.xd3150-broker-diary .xd3150-diary-rail input,.xd3150-broker-diary .xd3150-diary-rail select{width:100%;min-height:34px;border:1px solid #cdd8e6;border-radius:5px;background:#fff;font-size:12px;color:#223a58;padding:5px 8px}
+.xd3150-broker-diary .xd3150-diary-rail .xd3150-diary-clear{background:transparent;border:0;text-align:left;color:#0764d8;font-weight:800;font-size:12px;min-height:22px;cursor:pointer}
+.xd3150-broker-diary .xd3150-diary-rail .xd3150-diary-search{background:#ff7900;border:1px solid #ff7900;border-radius:6px;color:#fff;font-weight:800;font-size:12px;min-height:42px;cursor:pointer}
+.xd3150-diary-extra-filters{border-top:1px solid #e6edf6;margin-top:3px;padding-top:9px;font-size:11px}
+.xd3150-diary-extra-filters summary{cursor:pointer;color:#315178;font-weight:750}
+.xd3150-diary-extra-body{display:grid;gap:9px;padding-top:10px}
+.xd3150-diary-extra-body>button{border:1px solid #d3dce8;background:#fff;color:#0c2f63;border-radius:5px;padding:7px;font-size:11px;cursor:pointer}
+.xd3150-diary-results-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 11px;min-height:32px}
+.xd3150-diary-results-head h2{font-size:15px;font-weight:850;margin:0;color:#091e3d}
+.xd3150-diary-results-head h2 small{font-size:11px;font-weight:600}
+.xd3150-diary-result-tools{display:flex;gap:5px;align-items:center}
+.xd3150-diary-result-tools label{font-size:11px;color:#172b4b;font-weight:750;white-space:nowrap}
+.xd3150-diary-result-tools select{border:1px solid #cdd8e6;border-radius:5px;background:#fff;font-weight:650;font-size:11px;margin-left:5px;padding:8px;min-height:35px;max-width:190px}
+.xd3150-diary-result-tools>button{border:1px solid #cdd8e6;border-radius:5px;background:#fff;color:#1262cb;min-width:35px;min-height:35px;font-size:18px;cursor:pointer}
+.xd3150-diary-result-tools>button[aria-pressed=true]{background:#1568dd;color:white}
+.xd3150-diary-paging{font-size:11px;color:#5b6c80;margin-bottom:7px}
+.xd3150-diary-paging summary{cursor:pointer;font-weight:600}
+.xd3150-diary-paging>div{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px}
+.xd3150-diary-paging button,.xd3150-diary-paging select{border:1px solid #d4dfeb;border-radius:5px;padding:6px;background:#fff;color:#174476;cursor:pointer;font-size:11px}
+.xd3150-broker-diary .workspace-record-list{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.xd3150-diary-card-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end;width:100%}
+.xd3150-broker-diary .master3150-record .xd3150-diary-card-actions>button{border:1px solid #1268d6;background:#fff;color:#1256ae;min-height:35px;padding:8px 9px;font-weight:800;font-size:11px;border-radius:5px;white-space:nowrap;cursor:pointer}
+.xd3150-broker-diary .master3150-record .xd3150-diary-card-actions>.xd3150-diary-booking-action{background:#16a34a;color:#fff;border-color:#16a34a}
+.xd3150-diary-more-actions{flex-basis:100%;font-size:10px;text-align:right}
+.xd3150-diary-more-actions summary{color:#315178;font-weight:700;cursor:pointer}
+.xd3150-diary-more-actions [role=toolbar]{display:flex;flex-wrap:wrap;gap:5px;padding:7px 0}
+.xd3150-diary-calendar-view{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+.xd3150-diary-calendar-view .master3150-record{grid-template-columns:75px minmax(0,1fr)!important;min-height:200px}
+.xd3150-diary-calendar-view .xd-card-company{grid-column:2!important;border-left:0!important;border-top:1px solid #e9eef6!important}
+.xd3150-broker-diary .xd3150-diary-status-tabs+section{margin-bottom:16px}
+@media(max-width:1250px){.xd3150-broker-diary .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.xd3150-diary-rail){grid-template-columns:200px minmax(0,1fr);gap:12px}.xd3150-diary-status-tabs{overflow-x:auto;flex-wrap:nowrap}}
+@media(max-width:780px){.xd3150-broker-diary{padding:8px}.xd3150-diary-header{flex-wrap:wrap}.xd3150-broker-diary .workspace-board-layout.xdrive-admin-marketplace-identity:has(>.xd3150-diary-rail){grid-template-columns:minmax(0,1fr)}.xd3150-broker-diary .xd3150-diary-rail .workspace-filter-rail__body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.xd3150-diary-extra-filters{grid-column:1/-1}.xd3150-diary-results-head{flex-wrap:wrap}.xd3150-diary-calendar-view{grid-template-columns:minmax(0,1fr)!important}}
+
+/* The same approved Broker pagination controls when other real workspaces preserve their native paging handlers. */
+.xd3150-broker-diary .cx-diary-paging-toolbar{display:flex;justify-content:flex-end;align-items:center;min-height:36px;margin:0 0 8px}
+.xd3150-broker-diary .cx-diary-paging-toolbar .cx-diary-pagination{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.xd3150-broker-diary .cx-diary-paging-toolbar button,.xd3150-broker-diary .cx-diary-paging-toolbar select{border:1px solid #d4dfeb;border-radius:5px;min-height:30px;background:white;color:#174476;padding:5px 8px}
+/* Broker Diary uses a vertical page skeleton. The legacy Driver marketplace identity
+ * forcibly made the outer Diary board a flex/grid row; override only the Diary route. */
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board.diary-pagebody.xd3150-broker-diary,
+.driver-prototype-port .driver-diary-board.diary-pagebody.xd3150-broker-diary{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+}
+.driver-diary-board.xd3150-broker-diary>.xd3150-diary-header,
+.driver-diary-board.xd3150-broker-diary>.xd3150-diary-status-tabs,
+.driver-diary-board.xd3150-broker-diary>.xd-diary-kpis,
+.driver-diary-board.xd3150-broker-diary>.xd-diary-layout{
+  width:100%;
+  min-width:0;
+}
+.driver-diary-board.xd3150-broker-diary>.xd-diary-kpis{margin:0 0 16px}
+/* Exact Broker Diary filter rail and actions in the authenticated Driver workspace. */
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail{width:235px;min-width:0;padding:0!important;overflow:hidden}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .diary-filter-body{display:flex;flex-direction:column;gap:10px;padding:12px 13px!important}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .left-title{margin:0;padding:13px 14px;background:#edf3fa;color:#10264c;font-size:17px;font-weight:850}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .diary-filter-body>label{display:flex;flex-direction:column;gap:6px;font-weight:800;font-size:11px;color:#152846}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .diary-filter-body>label>input,.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .diary-filter-body>label>select{min-height:34px;width:100%;background:#fff;border:1px solid #cdd8e6;border-radius:5px;padding:5px 8px;color:#223a58;font-size:12px}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .xd3150-diary-search{width:100%;background:#ff7900;color:#fff;border:1px solid #ff7900;font-size:12px;font-weight:800;min-height:42px;border-radius:6px;cursor:pointer}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .xd3150-diary-clear{background:transparent;border:0;color:#0764d8;font-size:12px;font-weight:800;text-align:left;cursor:pointer}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .xd3150-diary-extra-filters{width:100%;min-width:0}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-rail .xd3150-diary-extra-body{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-card-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;min-width:0}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-more-actions{flex-basis:100%;text-align:right}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-card-actions>.xd3150-diary-booking-action{background:#16a34a;color:white;border:1px solid #16a34a;border-radius:5px;min-height:35px;padding:8px 9px;font-weight:800;font-size:11px;cursor:pointer}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-more-actions summary{cursor:pointer;color:#315178;font-size:10px;font-weight:700}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-results-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-result-tools{display:flex;align-items:center;gap:5px}
+.driver-diary-board.xd3150-broker-diary .xd3150-diary-calendar-view{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(max-width:1100px){.driver-diary-board.xd3150-broker-diary .xd3150-diary-calendar-view{grid-template-columns:minmax(0,1fr)}}
