@@ -27,7 +27,7 @@ test('Loads begins immediately with the first job card, no heading/search/filter
  const list=app.split('  function list(){')[1].split('  function quoteDetails()')[0];
  assert.doesNotMatch(list,/<h1>Bookings<\/h1>|tab === 'Bookings' && <div className="rv-heading/);
  assert.doesNotMatch(list,/rv-search|Search town|Filter by vehicle|setSearch|setVehicleFilter|tab === 'Loads' && <div className="rv-heading"/);
- assert.match(list,/shown.length \? shown.map\(card\)/);
+ assert.match(list,/shown.length \? shown.map\(j=>card\(j\)\)/);
 });
 test('Quotes tabs and their cards begin immediately below header, without My Quotes/Refresh row',()=>{
  const list=app.split('  function list(){')[1].split('  function quoteDetails()')[0];
@@ -47,7 +47,7 @@ test('Bookings tabs and cards are immediately beneath the navbar without heading
  assert.match(styles,/\.rv-main\.rv-card-first-list\{padding:4px 10px 24px/);
 });
 test('Every View on Map button shares the colored teal treatment',()=>{
- const card=app.split('  function card(j:LiveJob)')[1].split('  async function withdrawQuote')[0];
+ const card=app.split('  function card(j:LiveJob, mode:')[1].split('  async function withdrawQuote')[0];
  assert.doesNotMatch(card,/tab!=='Quotes'&&<button className="rv-map-action"/);
  assert.doesNotMatch(card,/className="rv-map-action" onClick=/);
  assert.match(app,/className="rv-map-action rv-wide" onClick=\{\(\)=>openMap\(job,'details'\)\}/);

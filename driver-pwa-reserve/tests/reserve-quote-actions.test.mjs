@@ -11,7 +11,7 @@ test('Personal bids have ID status ETA and notes, separate from company bids',()
 });
 test('Loads has Load Details, Quote Now or View Quote; Edit and Withdraw remain in Quotes',()=>{
  const app=read('ReserveApp.tsx');
- const card=app.split('  function card(j:LiveJob)')[1].split('  async function withdrawQuote')[0];
+ const card=app.split('  function card(j:LiveJob, mode:')[1].split('  async function withdrawQuote')[0];
  assert.match(card,/tab==='Loads'\?<div className="rv-actions">/);
  assert.match(card,/>Load Details<\/button>/);
  assert.match(card,/>Quote Now<\/button>/);

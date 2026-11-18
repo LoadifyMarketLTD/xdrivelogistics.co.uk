@@ -274,7 +274,7 @@ export default function BrokerQuotesPage() {
                 const carrierType = identity?.companyType?.replace(/_/g, ' ') || (carrierCompanyId ? 'Carrier / Fleet' : carrierDriverId ? 'Owner Driver' : 'Member');
                 const quoteStage = canonicalQuoteStage(bid, 'poster');
                 const pendingBookingOffer = pendingOfferByJob.get(job.id);
-                const awaitingCarrierAcceptance = pendingBookingOffer?.bid_id === bid.id;
+                const awaitingCarrierAcceptance = pendingBookingOffer?.bid_id === bid.id && String(bid.status).toLowerCase() === 'submitted';
                 const bookingPendingForJob = Boolean(pendingBookingOffer);
 
                 const vehicleLabel = (job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ');

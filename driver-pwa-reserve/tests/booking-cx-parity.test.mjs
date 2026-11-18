@@ -6,7 +6,9 @@ test('Bookings separates received, allocated and delivered live records',()=>{
  const app=src('ReserveApp.tsx');
  assert.match(app,/type BookingSection = 'Received' \| 'Allocated' \| 'Delivered'/);
  assert.match(app,/bookingSection==='Received'\?Boolean\(j\.acceptanceRequired\)/);
- assert.match(app,/bookingSection==='Delivered'\?\['DELIVERED','POD_SUBMITTED'\]/);
+ assert.match(app,/bookingSection==='Delivered'\?searchingByReference\|\|\['DELIVERED','POD_SUBMITTED'\]/);
+ assert.match(app,/scope=completed&compact=1&reference=/);
+ assert.match(app,/Several jobs match this historical reference/);
  assert.match(app,/Review Incoming Job/);
  assert.doesNotMatch(app,/Booking is not actionable because its collection time has passed/);
  assert.match(app,/Booking awarded\. Your response is required/);
@@ -29,6 +31,11 @@ test('Booking cards keep recipient-offer review and details-only map without com
  const app=src('ReserveApp.tsx');
  assert.doesNotMatch(app,/openMap\(j,'list'\)/);
  assert.match(app,/openMap\(job,'details'\)/);
- assert.match(app,/bookingOfferRespond\(s\.token,job\.offerId!,'accept'\)/);
+ assert.match(app,/acceptIncomingJob\(job\)/);
+ assert.match(app,/acceptAndStartCollection\(j\.id/);
+ const accept=src('acceptAndStartCollection.ts');
+ assert.match(accept,/await operations\.accept\(\)/);
+ assert.match(accept,/await operations\.setStatus\('accepted'\)/);
+ assert.match(accept,/await operations\.setStatus\('on_my_way'\)/);
  assert.match(app,/bookingOfferRespond\(s\.token,job\.offerId!,'decline'\)/);
 });

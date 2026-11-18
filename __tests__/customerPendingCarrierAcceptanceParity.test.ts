@@ -14,11 +14,11 @@ describe('customer pending carrier acceptance parity', () => {
   it('projects server-authoritative pending booking offers into Customer Quotes', () => {
     expect(customerOffers).toContain(".from('job_booking_offers')");
     expect(customerOffers).toContain(".in('buyer_company_id', companyIds)");
-    expect(customerQuotes).toContain("fetch('/api/customer/booking-offers'");
+    expect(customerQuotes).toContain("fetchAllBookingOfferPages<BuyerBookingOffer>('/api/customer/booking-offers', token)");
     expect(customerQuotes).toContain("statusFilter === 'received'");
     expect(customerQuotes).toContain("pendingOffer?.bid_id === bid.id");
     expect(customerQuotes).toContain('Awaiting Carrier Acceptance');
-    expect(customerQuotes).toContain('Offer sent - awaiting carrier');
+    expect(customerQuotes).toContain('Booking offer sent - awaiting carrier acceptance.');
   });
 
   it('never presents buyer award as an already-formed transport agreement', () => {

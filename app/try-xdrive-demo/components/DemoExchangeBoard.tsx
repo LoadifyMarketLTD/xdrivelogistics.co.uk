@@ -8,6 +8,7 @@ import DemoQuotePanel from "./DemoQuotePanel";
 import XDriveLoadCard from "./XDriveLoadCard";
 import {usePublicPickupRadius,publicPickupOutcode} from "./usePublicPickupRadius";
 import {useCustomerSecureLoadDetails,formatAuthorisedStop} from "./useCustomerSecureLoadDetails";
+import { normalizedReference } from '../../../lib/jobs/historicalReferenceLookup';
 import "./xdrive-unified-board.css";
 
 const LiveMarketplaceMap=dynamic(()=>import("../../components/workspace/MarketplaceLoadMap"),{ssr:false});
@@ -17,7 +18,7 @@ export default function DemoExchangeBoard({role,productionMode=false}:{role:Role
  const canQuote=["Owner Driver","Driver","Fleet","Broker","Carrier","Company / Carrier","Dispatcher"].includes(role);
  const live=useDemoLoads(),exchange=useExchangeLoads();
  
- const [tab,setTab]=useState("All Loads"),[from,setFrom]=useState(""),[to,setTo]=useState(""),[radius,setRadius]=useState("10"),[vehicle,setVehicle]=useState(""),[service,setService]=useState(""),[date,setDate]=useState(""),[same,setSame]=useState(false),[next,setNext]=useState(false),[sort,setSort]=useState("new"),[page,setPage]=useState(1),[map,setMap]=useState(false),[selected,_setSelected]=useState<string|null>(null),[details,setDetails]=useState<string|null>(null),[quoteLoad,setQuoteLoad]=useState<string|null>(null),[amount,setAmount]=useState(""),[_notice,setNotice]=useState("");
+ const [tab,setTab]=useState("All Loads"),[reference,setReference]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState(""),[radius,setRadius]=useState("10"),[vehicle,setVehicle]=useState(""),[service,setService]=useState(""),[date,setDate]=useState(""),[same,setSame]=useState(false),[next,setNext]=useState(false),[sort,setSort]=useState("new"),[page,setPage]=useState(1),[map,setMap]=useState(false),[selected,_setSelected]=useState<string|null>(null),[details,setDetails]=useState<string|null>(null),[quoteLoad,setQuoteLoad]=useState<string|null>(null),[amount,setAmount]=useState(""),[_notice,setNotice]=useState("");
  const actual=tab==="My Loads"||!canQuote?live:exchange.loads;
 
  const preview=false;
@@ -25,6 +26,7 @@ export default function DemoExchangeBoard({role,productionMode=false}:{role:Role
  const pickupRadius=usePublicPickupRadius(loads,from,productionMode);
  const secureDetails=useCustomerSecureLoadDetails(details,productionMode&&role==="Customer");
  const shown=useMemo(()=>loads.filter(x=>{
+  if(productionMode && reference.trim().length>=2){const needle=normalizedReference(reference);return [x.id,x.displayId,...(x.referenceAliases||[])].some(v=>normalizedReference(v).includes(needle));}
   if(tab==="My Loads"&&preview)return Number(x.id.slice(-2))>7; if(tab==="My Loads"&&!preview&&!live.some(j=>j.id===x.id))return false; if(productionMode&&pickupRadius.centre&&!pickupRadius.withinRadius(x.from,Number(radius)))return false; if(from&&!pickupRadius.centre&&!x.from.toLowerCase().includes(from.toLowerCase()))return false;
   if(to&&!x.to.toLowerCase().includes(to.toLowerCase()))return false;
   if(vehicle&&!x.vehicle.toLowerCase().includes(vehicle.toLowerCase()))return false;
@@ -37,12 +39,13 @@ export default function DemoExchangeBoard({role,productionMode=false}:{role:Role
   if(same&&!tag.includes("same"))return false;
   if(next&&!tag.includes("next"))return false;
   return true;
- }).sort((a,b)=>sort==="old"?a.postedAt.localeCompare(b.postedAt):b.postedAt.localeCompare(a.postedAt)),[loads,live,preview,from,to,vehicle,service,date,tab,same,next,sort,pickupRadius,productionMode,radius]);
- const pageCount=Math.max(1,Math.ceil(shown.length/10)); const visible=shown.slice((Math.min(page,pageCount)-1)*10,Math.min(page,pageCount)*10); const reset=useCallback(()=>{setFrom("");setTo("");setRadius("10");setVehicle("");setService("");setDate("");setSame(false);setNext(false);setTab("All Loads");setSort("new");setPage(1);setMap(false);setDetails(null);setQuoteLoad(null);setAmount("");setNotice("");_setSelected(null);},[]);
+ }).sort((a,b)=>sort==="old"?a.postedAt.localeCompare(b.postedAt):b.postedAt.localeCompare(a.postedAt)),[loads,live,preview,reference,from,to,vehicle,service,date,tab,same,next,sort,pickupRadius,productionMode,radius]);
+ const pageCount=Math.max(1,Math.ceil(shown.length/10)); const visible=shown.slice((Math.min(page,pageCount)-1)*10,Math.min(page,pageCount)*10); const reset=useCallback(()=>{setReference("");setFrom("");setTo("");setRadius("10");setVehicle("");setService("");setDate("");setSame(false);setNext(false);setTab("All Loads");setSort("new");setPage(1);setMap(false);setDetails(null);setQuoteLoad(null);setAmount("");setNotice("");_setSelected(null);},[]);
  useEffect(()=>{if(!productionMode)return;const onLoadsReselect=()=>{reset();window.scrollTo({top:0,behavior:"instant"});};window.addEventListener("xdrive:loads-reselect",onLoadsReselect);return()=>window.removeEventListener("xdrive:loads-reselect",onLoadsReselect);},[productionMode,reset]);
  return <section className="xd-board">
   <header className="xd-board-head"><h1>Loads</h1><nav className="xd-board-tabs">{["All Loads","On Demand","Same Day","Next Day","My Loads"].map(t=><button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{t}<b>{t==="All Loads"?loads.length:t==="My Loads"?preview?7:live.length:loads.filter(x=>String(x.service||"").toLowerCase().includes(t.toLowerCase())).length}</b></button>)}<div className="xd-board-sort"><label>Sort by: <select value={sort} onChange={e=>setSort(e.target.value)}><option value="new">Date Posted (Newest)</option><option value="old">Date Posted (Oldest)</option></select></label><button aria-label="List view" className={!map?"active":""} onClick={()=>setMap(false)}>{"\u2630"}</button><button aria-label="Map view" className={map?"active":""} onClick={()=>setMap(true)}>{"\u25A7"}</button></div></nav></header>
   <div className="xd-board-layout"><aside className="xd-board-filters"><h2>Find Loads</h2><div className="xd-filter-fields">
+  {productionMode&&<label>Job / Load Reference<input aria-label="Find historical job by reference" placeholder="XDL-, booking or customer ref" value={reference} onChange={e=>{setReference(e.target.value);setPage(1);}}/></label>}
   <label>From (Town/Postcode)<input placeholder="e.g. BB1 or Blackburn" value={from} onChange={e=>setFrom(e.target.value)}/></label>
   <label>To (Town/Postcode)<input placeholder="e.g. DA8 or Erith" value={to} onChange={e=>setTo(e.target.value)}/></label>
   <label>Radius<select value={radius} onChange={e=>setRadius(e.target.value)}>{["5","10","20","30","50","100","200","300"].map(v=><option key={v} value={v}>{v} mile</option>)}</select></label>

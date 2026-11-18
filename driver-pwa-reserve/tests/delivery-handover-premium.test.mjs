@@ -11,21 +11,24 @@ test('compact delivery screen uses real job and a single grouped handover',()=>{
 });
 test('signature uses pointer capture and retains actual captured PNG, not a fake checkbox',()=>{
  for(const part of ['setPointerCapture','releasePointerCapture','onPointerDown','onPointerMove','onPointerUp','onPointerCancel',"toDataURL('image/png')",'touch-action:none','onChange(null)'])assert.ok((view+'\n'+css).includes(part),part);
- assert.doesNotMatch(view,/signature confirmed|type="checkbox"/i);
+ assert.doesNotMatch(view,/signature confirmed/i);
+ assert.match(view,/hardCopyRequired&&<label className="rv-hard-copy-ack"/); // paper-POD acknowledgment is a separate optional obligation
 });
-test('required handover and at least one actual photo gate the delivery action',()=>{
+test('Recipient, verified drawn signature, item count and delivery photo gate delivery and POD',()=>{
  assert.match(view,/value.recipient.trim\(\).length>=2/);
- assert.match(view,/Boolean\(signature\)/);
+ assert.match(view,/Boolean\(signature\)&&signatureVerified/);
  assert.match(view,/Number\.isInteger\(Number\(value.items\)\)/);
- assert.match(view,/photos.some\(f=>f.type==='image\/jpeg'\|\|f.type==='image\/png'\)/);
+ assert.match(view,/&&hasDeliveryPhoto&&/);
  assert.match(view,/disabled=\{busy\|\|!ready\}/);
- assert.match(app,/podFiles.some\(f=>\['image\/png','image\/jpeg'\].includes\(f.type\)\)/);
+ assert.match(view,/Maximum 10 delivery images \(including saved job photos\) and 10 documents per POD/);
+ assert.match(app,/const evidence=await uploadDeliveryEvidence\(j,s\.token\)/);
+ assert.match(app,/photoUris:evidence\.photos,documentUris:evidence\.documents/);
 });
 test('camera and multi-file uploads carry the original File objects into official POD flow',()=>{
  assert.match(view,/navigator\.mediaDevices\.getUserMedia/);
  assert.match(view,/videoRef\.current/);
- assert.match(view,/Capture photo/);
- assert.match(view,/Add files/);
+ assert.match(view,/Capture Photo/);
+ assert.match(view,/Add Files/);
  assert.match(view,/onPhotos\(unique\)/);
  assert.match(view,/file.size>10\*1024\*1024/);
  assert.match(view,/file.type==='application\/pdf'/);
@@ -40,7 +43,7 @@ test('production and preview use respective real XDrive driver API paths',()=>{
  assert.match(app,/fetch\(driverApi\+'\/mobile\/jobs\/'/);
 });
 test('real invoice generator and a separate read-only booking status remain connected',()=>{
- assert.match(app,/Create Invoice \+ Complete POD/);
+ assert.match(app,/Create \/ View Invoice/);
  assert.match(app,/<LiveInvoiceFlow/);
  assert.match(app,/<BookingStatusTimeline job=\{job\}\/>/);
  assert.match(app,/view==='statusHistory'/);
@@ -49,5 +52,5 @@ test('compact UX avoids 300px-high notes and limits canvas while retaining botto
  assert.match(css,/\.rv-delivery-signature canvas\{[^}]*height:113px/);
  assert.match(css,/\.rv-delivery-field textarea\{[^}]*min-height:56px/);
  assert.match(css,/\.rv-delivery-attach-actions\{[^}]*grid-template-columns:1fr 1fr/);
- assert.match(app,/className="rv-nav"/);
+ assert.match(app,/className="rv-nav rv-official-nav"/);
 });

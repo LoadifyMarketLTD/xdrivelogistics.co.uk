@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { hasCompletePodEvidence } from '../../../../../../../lib/jobs/podCompletion';
+import { getGlobalSettingNumber } from '../../../../../_lib/platformFlags';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const statuses = completedStatuses.join(',');
   const { data: jobs, error: jobsError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, status, current_status, customer_reference, updated_at, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, client_email, status, current_status, customer_reference, updated_at, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .or(`company_id.eq.${driver.companyId},assigned_company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
     .or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`)
     .eq('id', jobId)
@@ -106,6 +107,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const agreementByJob = new Map(
     (agreementResult.data ?? []).map((agreement) => [String(agreement.job_id), agreement])
   );
+
+  const configuredVatRate = await getGlobalSettingNumber(supabaseAdmin, 'vat_rate_default_pct');
+  const directVatRate: 0 | 5 | 20 = configuredVatRate === 0 ? 0 : configuredVatRate === 5 ? 5 : 20;
 
   const rows = (jobs ?? []).flatMap((job) => {
     if (!hasCompletePodEvidence(job)) return [];
@@ -150,12 +154,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       pickup_datetime: job.pickup_datetime,
       delivery_datetime: job.delivery_datetime,
       client_name: job.client_name,
+      client_email: job.client_email,
       customer_reference: job.customer_reference,
       status: job.current_status ?? job.status,
       invoice: invoiceByJob.get(String(job.id)) ?? null,
       commercial_mode: marketplace ? 'marketplace' : 'direct',
       agreed_amount: marketplace ? agreedAmount : null,
       direct_invoice_amount: marketplace ? null : directInvoiceAmount,
+      direct_vat_rate: marketplace ? null : directVatRate,
       currency: marketplace ? agreedCurrency : (job.currency || 'GBP'),
     }];
   });

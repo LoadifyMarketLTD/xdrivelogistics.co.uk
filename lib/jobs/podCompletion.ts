@@ -13,20 +13,20 @@ const nonEmptyEvidence = (value: unknown) =>
     ? value.filter((item) => typeof item === 'string' && item.trim().length > 0)
     : [];
 
+/** A typed recipient name is never a drawn recipient signature. */
 export const hasStoredSignature = (value: unknown): boolean => {
   if (typeof value === 'string') {
-    return /^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/i.test(value.trim())
-      || /^[^/\s]+\/[^/\s]+\/[^\s]+$/.test(value.trim());
+    const signature = value.trim();
+    return /^data:image\/(png|jpe?g);base64,[A-Za-z0-9+/=]+$/i.test(signature)
+      || /^[^/\s]+\/[^/\s]+\/(?:[^/\s]+\/)*[^/\s]+\.(png|jpe?g)$/i.test(signature);
   }
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  if (record.type === 'recipient_typed_name_attestation') {
-    return typeof record.recipient_name === 'string' && Boolean(record.recipient_name.trim())
-      && typeof record.confirmed_at === 'string' && Number.isFinite(Date.parse(record.confirmed_at))
-      && typeof record.evidence_path === 'string' && Boolean(record.evidence_path.trim())
-      && typeof record.job_id === 'string' && Boolean(record.job_id.trim());
+  if (record.type === 'recipient_typed_name_attestation' || record.signature_method === 'typed_name_attestation') {
+    return false;
   }
-  return typeof record.value === 'string' && hasStoredSignature(record.value);
+  return (typeof record.signature_data === 'string' && hasStoredSignature(record.signature_data))
+    || (typeof record.value === 'string' && hasStoredSignature(record.value));
 };
 
 /** Rejected or requested-for-resubmission PODs are not invoice-ready. */
@@ -47,13 +47,11 @@ export function hasCompletePodEvidence(record: PodCompletionRecord) {
       ? record.client_signature_name.trim()
       : '';
 
-  const evidenceCount =
-    nonEmptyEvidence(record.delivery_photos).length +
-    nonEmptyEvidence(record.pod_photos).length;
-
+  // A document or damage image cannot replace a delivery photograph.
+  const deliveryPhotoCount = new Set(nonEmptyEvidence(record.delivery_photos)).size;
   return (
     record.pod_generated === true &&
-    evidenceCount > 0 &&
+    deliveryPhotoCount >= 1 && deliveryPhotoCount <= 10 &&
     hasStoredSignature(record.delivery_signature_data) &&
     recipientName.length > 0
   );

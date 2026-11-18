@@ -1,8 +1,50 @@
 // Production driver API adapter. Only publishable Supabase keys are accepted.
 import { extractPublicOutcode } from './routeLabel';
 const base = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
+const QA_MOCK = import.meta.env.VITE_CX4A_QA_MOCK === '1';
 type Json = Record<string, unknown>;
 export type LiveSession = { token: string; refreshToken: string; expiresAt: number };
+export type LiveStopHandover = {
+  version?: number;
+  capturedAt?: string | null;
+  customerReference?: string | null;
+  itemCount?: number | null;
+  packaging?: string | null;
+  weightKg?: number | null;
+  etaAt?: string | null;
+  etaMinutes?: number | null;
+  notes?: string | null;
+  recipientName?: string | null;
+  leftAt?: string | null;
+  deliveryStatus?: string | null;
+  deliveredOn?: string | null;
+  photoPaths?: string[];
+  documentPaths?: string[];
+  signaturePath?: string | null;
+  canonicalFinalPod?: boolean;
+  stopKind?: string | null;
+  cancellation?: Record<string, unknown> | null;
+  exception?: Record<string, unknown> | null;
+  returnInstruction?: Record<string, unknown> | null;
+};
+export type LiveStop = {
+  id:string;
+  type:'collection'|'delivery';
+  sequence:number;
+  address:string;
+  company?:string;
+  contactPerson?:string;
+  telephone?:string;
+  timeWindowFrom?:string;
+  timeWindowTo?:string;
+  status:'pending'|'en_route'|'arrived'|'completed'|'cancelled'|'skipped';
+  notes?:string;
+  enRouteAt?:string;
+  arrivedAt?:string;
+  completedAt?:string;
+  cancelledAt?:string;
+  handover?:LiveStopHandover|null;
+};
 export type LiveJob = {
   id: string; from: string; to: string; fromOutcode?: string; toOutcode?: string; pickup: string; delivery: string;
   vehicle: string; weight: number; notes: string; status: 'OPEN' | 'ALLOCATED' | 'ON_WAY_TO_PICKUP' | 'ON_SITE_PICKUP' | 'LOADED' | 'ON_WAY_TO_DELIVERY' | 'ON_SITE_DELIVERY' | 'POD_SUBMITTED' | 'DELIVERED';
@@ -10,14 +52,15 @@ export type LiveJob = {
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
   bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
   personalBid?: boolean; // true only for records returned by authenticated /mobile/bids personal quote history
-  offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; backendStatus?: string; podRecorded?: boolean;
+  offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; acceptanceBlocked?: boolean; offerQuoteStatus?: string; backendStatus?: string; podRecorded?: boolean;
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
-  customerRef?: string; yourRef?: string; service?: string;
+  customerRef?: string; yourRef?: string; legacyReferences?: string[]; service?: string;
   items?: number; hardCopyPodRequired?: boolean;
   statusHistory?: Array<{ status: string; at: string; notes?: string }>;
   clientName?: string; contactName?: string; contactPhone?: string;
   collectionPhotos?: string[]; deliveryPhotos?: string[]; podPhotos?: string[];
+  routeStops?: LiveStop[];
 };
 const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
 const str = (value: unknown): string => typeof value === 'string' ? value : '';
@@ -35,6 +78,14 @@ const date = (value: unknown): string => {
   return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString('en-GB', { timeZone: 'Europe/London' });
 };
 const get = (row: Json, ...keys: string[]): unknown => keys.map(k => row[k]).find(v => v !== null && v !== undefined && v !== '');
+// Same public job reference used by XDrive's assigned-job API (XDL- + first 8
+// UUID characters). Never expose an internal UUID as a customer-facing reference.
+export function platformJobReference(jobId: string, apiReference?: unknown): string {
+  const canonical = str(apiReference).trim();
+  if (/^XDL-[A-F0-9]{8}$/i.test(canonical)) return canonical.toUpperCase();
+  const match = /^([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.exec(jobId);
+  return match ? 'XDL-' + match[1].toUpperCase() : '';
+}
 async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): Promise<Json> {
   // Each feed must settle: one stalled endpoint must not freeze the entire app.
   const isWrite = init?.method && !['GET', 'HEAD'].includes(init.method.toUpperCase());
@@ -59,6 +110,7 @@ async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): P
   }
 }
 export async function login(email: string, password: string): Promise<LiveSession> {
+  if (QA_MOCK) { latestSession = { token: 'cx4a-qa-driver-token', refreshToken: 'cx4a-qa-refresh-token', expiresAt: Date.now() + 86400000 }; return latestSession; }
   const config = await jsonFetch(base + '/mobile/config');
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
@@ -74,9 +126,10 @@ export async function login(email: string, password: string): Promise<LiveSessio
 }
 let latestSession: LiveSession | null = null;
 let renewalInFlight: Promise<LiveSession> | null = null;
-export async function renewSession(session: LiveSession): Promise<LiveSession> {
+export async function renewSession(session: LiveSession, forceRefresh = false): Promise<LiveSession> {
+  if (QA_MOCK) { latestSession = { ...session, expiresAt: Date.now() + 86400000 }; return latestSession; }
   const current = latestSession && latestSession.expiresAt > session.expiresAt ? latestSession : session;
-  if (current.expiresAt > Date.now() + 120000) return current;
+  if (!forceRefresh && current.expiresAt > Date.now() + 120000) return current;
   if (renewalInFlight) return renewalInFlight;
   renewalInFlight = renewSessionOnce(current).then(next => { latestSession = next; return next; }).finally(() => { renewalInFlight = null; });
   return renewalInFlight;
@@ -108,6 +161,7 @@ async function renewSessionOnce(session: LiveSession): Promise<LiveSession> {
   };
 }
 export async function revokeLiveSession(session: LiveSession): Promise<void> {
+  if (QA_MOCK) return;
   const config = await jsonFetch(base + '/mobile/config');
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
@@ -141,7 +195,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     pickupDate: date(r.pickup_datetime), deliveryDate: date(r.delivery_datetime),
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
     weight: num(r.weight_kg) || 0, notes: str(r.public_quote_notes),
-    status: 'OPEN', marketplaceListed: true, company: str(member.name) || 'Marketplace member',
+    status: 'OPEN', marketplaceListed: true, yourRef: platformJobReference(str(r.id), get(r, 'public_reference', 'publicReference')), company: str(member.name) || 'Marketplace member',
     companyPublicId: str(member.memberId) || undefined,
     terms: str(r.payment_terms) || 'Not provided',
     postedAt: str(r.exchange_posted_at) || undefined,
@@ -174,9 +228,56 @@ const statusMap: Record<string, LiveJob['status']> = {
   on_site_delivery: 'ON_SITE_DELIVERY', arrived_delivery: 'ON_SITE_DELIVERY', pod_submitted: 'POD_SUBMITTED',
   delivered: 'DELIVERED', completed: 'DELIVERED',
 };
+function mapAssignedStop(raw: unknown): LiveStop | null {
+  const r=obj(raw);
+  const id=str(r.id); const type=str(r.type).toLowerCase(); const sequence=num(r.sequence); const address=str(r.address);
+  if(!id||(type!=='collection'&&type!=='delivery')||sequence===undefined||!address)return null;
+  const rawStatus=str(r.status).toLowerCase();
+  const status:LiveStop['status']=['en_route','arrived','completed','cancelled','skipped'].includes(rawStatus)?rawStatus as LiveStop['status']:'pending';
+  const handoverRaw=obj(r.handover);
+  const stringArray=(value:unknown):string[]=>Array.isArray(value)?value.filter((item):item is string=>typeof item==='string'&&item.length>0):[];
+  const handover:LiveStopHandover|null=Object.keys(handoverRaw).length?{
+    version:num(handoverRaw.version),
+    capturedAt:str(handoverRaw.capturedAt)||null,
+    customerReference:str(handoverRaw.customerReference)||null,
+    itemCount:num(handoverRaw.itemCount)??null,
+    packaging:str(handoverRaw.packaging)||null,
+    weightKg:num(handoverRaw.weightKg)??null,
+    etaAt:str(handoverRaw.etaAt)||null,
+    etaMinutes:num(handoverRaw.etaMinutes)??null,
+    notes:str(handoverRaw.notes)||null,
+    recipientName:str(handoverRaw.recipientName)||null,
+    leftAt:str(handoverRaw.leftAt)||null,
+    deliveryStatus:str(handoverRaw.deliveryStatus)||null,
+    deliveredOn:str(handoverRaw.deliveredOn)||null,
+    photoPaths:stringArray(handoverRaw.photoPaths),
+    documentPaths:stringArray(handoverRaw.documentPaths),
+    signaturePath:str(handoverRaw.signaturePath)||null,
+    canonicalFinalPod:handoverRaw.canonicalFinalPod===true,
+    stopKind:str(handoverRaw.stopKind)||null,
+    cancellation:Object.keys(obj(handoverRaw.cancellation)).length?obj(handoverRaw.cancellation):null,
+    exception:Object.keys(obj(handoverRaw.exception)).length?obj(handoverRaw.exception):null,
+    returnInstruction:Object.keys(obj(handoverRaw.returnInstruction)).length?obj(handoverRaw.returnInstruction):null,
+  }:null;
+  return {
+    id,type:type as LiveStop['type'],sequence,address,status,
+    company:str(r.company)||undefined,
+    contactPerson:str(r.contactPerson)||undefined,
+    telephone:str(r.telephone)||undefined,
+    timeWindowFrom:str(r.timeWindowFrom)||undefined,
+    timeWindowTo:str(r.timeWindowTo)||undefined,
+    notes:str(r.notes)||undefined,
+    enRouteAt:str(r.enRouteAt)||undefined,
+    arrivedAt:str(r.arrivedAt)||undefined,
+    completedAt:str(r.completedAt)||undefined,
+    cancelledAt:str(r.cancelledAt)||undefined,
+    handover,
+  };
+}
 export function mapAssigned(raw: unknown): LiveJob {
   const r = obj(raw); const details = cleanDetails(get(r, 'loadDetails', 'load_details'));
   const canonicalStatus = str(get(r, 'currentStatus', 'current_status', 'lifecycleStatus', 'lifecycle_status', 'status')).toLowerCase();
+  const routeStops=Array.isArray(r.stops)?r.stops.map(mapAssignedStop).filter((stop):stop is LiveStop=>Boolean(stop)).sort((a,b)=>a.sequence-b.sequence):[];
   return {
     id: str(r.id), from: str(get(r, 'pickupLocation', 'pickup_location', 'pickupPostcode', 'pickup_postcode')) || 'Collection',
     to: str(get(r, 'deliveryLocation', 'delivery_location', 'deliveryPostcode', 'delivery_postcode')) || 'Delivery',
@@ -202,12 +303,14 @@ export function mapAssigned(raw: unknown): LiveJob {
     pickupAddress: str(get(r, 'pickupAddress', 'pickup_address')),
     deliveryAddress: str(get(r, 'deliveryAddress', 'delivery_address')),
     customerRef: str(get(r, 'customerReference', 'customer_reference')),
-    yourRef: str(get(r, 'reference', 'driverReference', 'driver_reference')) || str(r.id),
+    yourRef: platformJobReference(str(r.id), get(r, 'reference', 'publicReference', 'public_reference')),
+    legacyReferences: Array.isArray(r.legacyReferences) ? r.legacyReferences.filter((v): v is string => typeof v === 'string') : [],
     statusHistory: Array.isArray(r.statusHistory) ? r.statusHistory.map(item=>{const e=obj(item);return {status:str(get(e,'status','nextStatus','event','eventType'))||'Status update',at:str(get(e,'at','timestamp','created_at','createdAt','occurred_at')),notes:str(get(e,'notes','message'))};}) : [],
     clientName: str(r.clientName),contactName: str(r.contactName),contactPhone: str(r.contactPhone),
-    collectionPhotos: Array.isArray(r.pickupPhotos)?r.pickupPhotos.filter(v=>typeof v==='string'):[],
-    deliveryPhotos: Array.isArray(r.deliveryPhotos)?r.deliveryPhotos.filter(v=>typeof v==='string'):[],
-    podPhotos: Array.isArray(r.podPhotos)?r.podPhotos.filter(v=>typeof v==='string'):[],
+    collectionPhotos: Array.isArray(r.pickupPhotos)?r.pickupPhotos.filter((v):v is string=>typeof v==='string'):[],
+    deliveryPhotos: Array.isArray(r.deliveryPhotos)?r.deliveryPhotos.filter((v):v is string=>typeof v==='string'):[],
+    podPhotos: Array.isArray(r.podPhotos)?r.podPhotos.filter((v):v is string=>typeof v==='string'):[],
+    routeStops,
   };
 }
 export async function loadLive(token: string): Promise<LiveJob[]> {
@@ -253,9 +356,9 @@ export function applyPersonalBids(jobs:LiveJob[], bids:Json):LiveJob[] {
     const quoteFields = { quote: amount, quoteSubmittedAt: str(bid.createdAt), quoteOutcome: outcome,
       bidId: str(bid.id), bidStatus: state, quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message), personalBid: true };
     if (existing) {
-      result.set(id, { ...existing, ...quoteFields });
+      result.set(id, { ...existing, ...quoteFields, acceptanceBlocked: Boolean(existing.acceptanceRequired && existing.offerId && state !== 'submitted') || existing.acceptanceBlocked });
     } else {
-      result.set(id, { id, from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', fromOutcode: extractPublicOutcode(bid.pickupPostcodeArea), toOutcode: extractPublicOutcode(bid.deliveryPostcodeArea), pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
+      result.set(id, { id, yourRef: platformJobReference(id, get(bid, 'publicReference', 'jobReference')), from: str(bid.pickupLocation) || 'Collection area', to: str(bid.deliveryLocation) || 'Delivery area', fromOutcode: extractPublicOutcode(bid.pickupPostcodeArea), toOutcode: extractPublicOutcode(bid.deliveryPostcodeArea), pickup: dateTime(bid.pickupDatetime), delivery: 'Not provided', vehicle: str(bid.quotedVehicleType) || 'Not provided', weight: 0, notes: str(bid.message), status: 'OPEN', company: str(bid.clientName) || 'Marketplace member', pickupDate: date(bid.pickupDatetime), ...quoteFields });
     }
   }
   return [...result.values()];
@@ -296,8 +399,10 @@ export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[]
       quoteOutcome: 'AWARDED',
       offerId: str(offer.id),
       acceptanceRequired: pending,
+      acceptanceBlocked: pending && (offer.acceptance_blocked === true || str(offer.quote_status).toLowerCase() === 'withdrawn' || str(offer.quote_status).toLowerCase() === 'cancelled' || (existing?.personalBid === true && Boolean(existing.bidStatus) && existing.bidStatus !== 'submitted')),
+      offerQuoteStatus: str(offer.quote_status),
       offerExpired,
-      yourRef: str(offer.public_reference) || existing?.yourRef || id,
+      yourRef: platformJobReference(id, offer.public_reference) || existing?.yourRef || '',
     });
   }
   return [...result.values()];

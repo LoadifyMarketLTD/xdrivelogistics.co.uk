@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
       return {
         id: bid.id,
         jobId: bid.job_id,
+        publicReference: `XDL-${String(bid.job_id).slice(0, 8).toUpperCase()}`,
         amount: Number.isFinite(total) ? total : null,
         baseAmount: Number.isFinite(base) ? Number(base.toFixed(2)) : null,
         additionalExtrasGbp: Number.isFinite(extras) ? Number(extras.toFixed(2)) : 0,

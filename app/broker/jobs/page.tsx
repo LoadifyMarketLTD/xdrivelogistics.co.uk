@@ -8,6 +8,7 @@ import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperational
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
 import DriverInstructionPanel from '../../components/workspace/DriverInstructionPanel';
 import { useAuth } from '../../components/AuthContext';
+import { matchesHistoricalJobReference } from '../../../lib/jobs/historicalReferenceLookup';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -65,11 +66,11 @@ export default function BrokerJobsPage() {
     const referenceTerm = reference.trim().toLowerCase();
 
     return data.jobs
-      .filter((job) => matchesTab(job, tab))
+      .filter((job) => !referenceTerm || matchesTab(job, tab))
       .filter((job) => !customerTerm || String(job.client_name || '').toLowerCase().includes(customerTerm))
       .filter((job) => !fromTerm || `${job.pickup_postcode || ''} ${job.pickup_location || ''}`.toLowerCase().includes(fromTerm))
       .filter((job) => !toTerm || `${job.delivery_postcode || ''} ${job.delivery_location || ''}`.toLowerCase().includes(toTerm))
-      .filter((job) => !referenceTerm || job.id.toLowerCase().includes(referenceTerm))
+      .filter((job) => !referenceTerm || matchesHistoricalJobReference(job, referenceTerm))
       .sort((a, b) => String(a.pickup_datetime || a.created_at).localeCompare(String(b.pickup_datetime || b.created_at)));
   }, [customer, data.jobs, from, reference, tab, to]);
 
@@ -144,7 +145,7 @@ export default function BrokerJobsPage() {
                     band={workspaceJobOperationalLabel(job)}
                     posted={job.client_name || 'Customer'}
                     postedAt={job.awarded_carrier_company_id ? 'Carrier awarded' : 'Carrier not recorded'}
-                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    loadId={'XDL-' + job.id.slice(0, 8).toUpperCase()}
                     vehicle={(job.vehicle_type || 'Vehicle not recorded').replaceAll('_',' ')}
                     dataState={statusOf(job)}
                     paymentTerms={job.payment_terms || 'Not supplied'}

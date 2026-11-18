@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { useAuth } from '../../components/AuthContext';
+import { matchesHistoricalJobReference } from '../../../lib/jobs/historicalReferenceLookup';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxLoadCard from '../../components/workspace/CxLoadCard';
 import '../../components/workspace/master3150-unified-loads.css';
@@ -73,8 +74,8 @@ export default function BrokerLoadsPage() {
     const referenceTerm = reference.trim().toLowerCase();
 
     return data.jobs
-      .filter((job) => matchesTab(job, tab) && loadTypeMatches(job,loadType))
-      .filter((job) => !referenceTerm || job.id.toLowerCase().includes(referenceTerm))
+      .filter((job) => (referenceTerm || matchesTab(job, tab)) && loadTypeMatches(job,loadType))
+      .filter((job) => !referenceTerm || matchesHistoricalJobReference(job, referenceTerm))
       .filter((job) => !customerTerm || String(job.client_name || '').toLowerCase().includes(customerTerm))
       .filter((job) => !fromTerm || `${job.pickup_postcode || ''} ${job.pickup_location || ''}`.toLowerCase().includes(fromTerm))
       .filter((job) => !toTerm || `${job.delivery_postcode || ''} ${job.delivery_location || ''}`.toLowerCase().includes(toTerm))

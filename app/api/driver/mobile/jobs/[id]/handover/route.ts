@@ -2,9 +2,42 @@ import { NextRequest } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { insertTrackingEvent, isDriverContext, requireDriver, respond } from '../../../_lib';
+import { collectionReferenceIdentity, verifiedCollectionCommercialActorId } from '../../../../../../../lib/jobs/collectionReferenceIdentity';
 
 const MAX_PHOTOS = 10;
 const MAX_DOCUMENTS = 10;
+
+/** One authoritative commercial actor per collection; driver login remains individually auditable. */
+async function getCollectionIdentity(
+  jobId: string,
+  companyId: string,
+  userId: string,
+  driverType: string | null,
+) {
+  const ownerDriver = driverType === 'owner_driver';
+  const [{ data: company, error: companyError }, ownerProfile] = await Promise.all([
+    supabaseAdmin!.from('companies').select('xd_id, company_type').eq('id', companyId).maybeSingle(),
+    ownerDriver
+      ? supabaseAdmin!.from('profiles').select('xd_id').eq('user_id', userId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (companyError || ownerProfile.error || !company) {
+    return { error: 'Transport operator identity could not be verified.', identity: null };
+  }
+  if (ownerDriver && !['owner_driver', 'sole_trader'].includes(String(company.company_type ?? ''))) {
+    return { error: 'Owner Driver must operate through their verified personal workspace.', identity: null };
+  }
+  const publicId = verifiedCollectionCommercialActorId(driverType, company.xd_id, ownerProfile.data?.xd_id);
+  if (!publicId) {
+    return { error: ownerDriver
+      ? 'Owner Driver XDrive IDs are inconsistent. Collection is blocked until identity reconciliation.'
+      : 'Driver role or employing company XDrive ID is not verified.', identity: null };
+  }
+  const identity = collectionReferenceIdentity(jobId, publicId);
+  return identity
+    ? { error: null, identity }
+    : { error: 'Official job reference or transport operator ID could not be verified.', identity: null };
+}
 
 function cleanString(value: unknown, max: number) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -58,11 +91,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
-  const itemCount = optionalNumber(body.itemCount, 0, 100000);
-  const weightKg = optionalNumber(body.weightKg, 0, 100000);
-  const etaMinutes = optionalNumber(body.etaMinutes, 0, 1440);
-  if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
-    return respond(400, { error: 'Item count, weight and ETA must be valid positive numbers.' });
+  const stage = body.stage === 'arrival' ? 'arrival' : 'loaded';
+  const itemCount = optionalNumber(body.itemCount, 1, 100000);
+  const weightKg = optionalNumber(body.weightKg, 0.000001, 100000);
+  const etaProvided = typeof body.etaAt === 'string' && body.etaAt.trim().length > 0;
+  const etaDate = etaProvided ? new Date(String(body.etaAt)) : null;
+  const etaAt = etaDate && Number.isFinite(etaDate.getTime()) ? etaDate.toISOString() : null;
+  if ([itemCount, weightKg].some((value) => Number.isNaN(value))) {
+    return respond(400, { error: 'Item count and weight must be valid positive numbers when supplied.' });
+  }
+  if (etaProvided && !etaAt) {
+    return respond(400, { error: 'ETA must be a valid date and time when supplied.' });
+  }
+  if (etaDate && Number.isFinite(etaDate.getTime()) && etaDate.getTime() <= Date.now()) {
+    return respond(400, { error: 'Delivery ETA must be in the future.' });
   }
   const packaging = cleanString(body.packaging, 120);
   const notes = cleanString(body.notes, 2000);
@@ -71,46 +113,66 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, assigned_driver_id, status, current_status, pickup_photos')
+    .select('id, assigned_driver_id, assigned_company_id, status, current_status, customer_reference, customer_ref, pickup_photos, collection_handover')
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
   if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
   if (!job) return respond(404, { error: 'Job not found.' });
+  if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) {
+    return respond(403, { error: 'This job belongs to another carrier company.' });
+  }
+  const { data: collectionStop, error: collectionStopError } = await supabaseAdmin
+    .from('job_stops')
+    .select('id,status,handover')
+    .eq('job_id', jobId)
+    .eq('stop_type', 'collection')
+    .order('sequence', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (collectionStopError) return respond(503, { error: 'Collection stop could not be resolved.' });
+  if (!collectionStop) return respond(409, { error: 'This booking has no persisted collection stop.' });
+
+  const references = stage === 'loaded' ? await getCollectionIdentity(jobId, driver.companyId, driver.userId, driver.driverType) : null;
+  if (references?.error || (stage === 'loaded' && !references?.identity)) {
+    return respond(409, { error: references?.error || 'Collection identifiers are not available.' });
+  }
 
   const rawStatus = String(job.current_status || job.status || '').toLowerCase();
   const status = rawStatus === 'arrived_pickup' ? 'on_site_pickup' : rawStatus;
-  if (!['on_site_pickup', 'loaded'].includes(status)) {
-    return respond(409, { error: 'Collection handover is available only after arriving at collection.' });
-  }
+  if (stage === 'arrival' && status !== 'on_site_pickup') return respond(409, { error: 'Collection arrival is available only after arriving at collection.' });
+  if (stage === 'loaded' && !['on_site_pickup','loaded'].includes(status)) return respond(409, { error: 'Loaded information is available only after arriving at collection.' });
 
   const companyPrefix = `${driver.companyId}/${jobId}/`;
-  const photosValid = await verifyStoragePaths(photoPaths, [
-    `${companyPrefix}collection-photos/`,
-    `${companyPrefix}collection/`,
-  ]);
+  const stopPrefix = `${companyPrefix}stops/${collectionStop.id}/`;
+  const photosValid = await verifyStoragePaths(photoPaths, [`${stopPrefix}photos/`]);
   if (!photosValid) {
     return respond(400, { error: 'Collection photo evidence could not be verified.' });
   }
-  const documentsValid = await verifyStoragePaths(documentPaths, [
-    `${companyPrefix}collection-documents/`,
-  ]);
+  if (stage === 'loaded' && photoPaths.length === 0) return respond(400, { error: 'At least one collection/loading photo is required.' });
+  const documentsValid = await verifyStoragePaths(documentPaths, [`${stopPrefix}documents/`]);
   if (!documentsValid) {
     return respond(400, { error: 'Collection document evidence could not be verified.' });
   }
 
   const capturedAt = new Date().toISOString();
-  const handover = {
-    version: 1,
-    capturedAt,
-    itemCount,
-    packaging: packaging || null,
-    weightKg,
-    etaMinutes,
-    notes: notes || null,
-    photoPaths,
-    documentPaths,
-  };
+  const previousHandover = job.collection_handover && typeof job.collection_handover === 'object' && !Array.isArray(job.collection_handover) ? job.collection_handover as Record<string, unknown> : {};
+  const stageRecord = stage === 'arrival'
+    ? { version: 1, capturedAt, itemCount, weightKg, notes: notes || null, photoPaths, documentPaths }
+    : {
+        version: 1, capturedAt, itemCount,
+        // Legacy names remain for compatibility; the carrier company ID is
+        // NOT stored as customerReference, which belongs to the posting client.
+        yourReference: references!.identity!.jobReference,
+        customerReference: cleanString(job.customer_reference || job.customer_ref, 120) ||
+          cleanString(previousHandover.customerReference, 120) || null,
+        jobReference: references!.identity!.jobReference,
+        carrierCompanyReference: references!.identity!.carrierCompanyReference,
+        packaging: packaging || null, weightKg, etaAt, notes: notes || null, photoPaths, documentPaths,
+      };
+  const handover = stage === 'arrival'
+    ? { ...previousHandover, arrival: stageRecord }
+    : { ...previousHandover, ...stageRecord, loaded: stageRecord };
   const existingPhotos = Array.isArray(job.pickup_photos)
     ? job.pickup_photos.filter((value): value is string => typeof value === 'string')
     : [];
@@ -120,10 +182,29 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     pickup_photos: [...new Set([...existingPhotos, ...photoPaths])],
     updated_at: capturedAt,
   };
-  if (itemCount !== null) update.no_of_items = Math.round(itemCount);
-  if (packaging) update.packaging = packaging;
-  if (weightKg !== null) update.weight_kg = weightKg;
-  if (notes) update.collection_notes = notes;
+  if (stage === 'loaded') {
+    if (itemCount !== null) update.no_of_items = itemCount;
+    if (packaging) update.packaging = packaging;
+    if (weightKg !== null) update.weight_kg = weightKg;
+    if (notes) update.collection_notes = notes;
+  }
+
+  const previousStopHandover = collectionStop.handover && typeof collectionStop.handover === 'object' && !Array.isArray(collectionStop.handover)
+    ? collectionStop.handover as Record<string, unknown>
+    : {};
+  const stopHandover = stage === 'arrival'
+    ? { ...previousStopHandover, arrival: stageRecord }
+    : { ...previousStopHandover, ...stageRecord, loaded: stageRecord };
+  const { data: stopUpdated, error: stopUpdateError } = await supabaseAdmin
+    .from('job_stops')
+    .update({ handover: stopHandover, updated_at: capturedAt })
+    .eq('id', collectionStop.id)
+    .eq('job_id', jobId)
+    .select('id')
+    .maybeSingle();
+  if (stopUpdateError || !stopUpdated) {
+    return respond(stopUpdateError ? 500 : 409, { error: 'Collection evidence could not be linked to its stop.' });
+  }
 
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('jobs')
@@ -139,12 +220,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(409, { error: 'Collection handover could not be linked to this assignment.' });
   }
 
-  await insertTrackingEvent(
-    jobId,
-    driver.userId,
-    'collection_handover',
-    'Collection handover recorded.',
-  ).catch(() => undefined);
+  if (stage === 'loaded') {
+    await insertTrackingEvent(
+      jobId,
+      driver.userId,
+      'collection_handover',
+      'Loaded information and stop-scoped collection evidence recorded.',
+      { stop_id: collectionStop.id },
+    ).catch(() => undefined);
+  }
 
   return respond(200, { ok: true, handover: updated.collection_handover });
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const driver = await requireDriver(request);
+  if (!isDriverContext(driver)) return driver;
+  const { id: jobId } = await params;
+  const { data, error } = await supabaseAdmin.from('jobs')
+.select('id, collection_handover, assigned_company_id')
+    .eq('id', jobId)
+    .eq('assigned_driver_id', driver.driverId)
+    .maybeSingle();
+  if (error) return respond(500, { error: 'Collection workflow could not be read.' });
+  if (!data) return respond(404, { error: 'Job not found.' });
+  if (!driver.companyId || (data.assigned_company_id && data.assigned_company_id !== driver.companyId)) {
+    return respond(403, { error: 'Assigned carrier company could not be verified.' });
+  }
+  const references = await getCollectionIdentity(jobId, driver.companyId, driver.userId, driver.driverType);
+  if (references.error || !references.identity) {
+    return respond(409, { error: references.error || 'Collection identifiers are not available.' });
+  }
+  return respond(200, { ok: true, handover: data.collection_handover ?? null, references: references.identity });
 }

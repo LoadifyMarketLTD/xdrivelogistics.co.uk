@@ -1,6 +1,16 @@
 import { NextRequest } from 'next/server';
 
 import { supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { hasCompletePodEvidence } from '../../../../../../lib/jobs/podCompletion';
+import {
+  canDriverTransitionStop,
+  deliveryOutcomeIsException,
+  isTerminalStopStatus,
+  parseStopCancellation,
+  parseStopCompletion,
+  scopedStopEvidenceObject,
+  stopEvidencePrefix,
+} from '../../../../../../lib/jobs/driverStopExecution';
 import { WebDriverContext } from '../../../_lib/webDriverContext';
 import { insertTrackingEvent, respond } from '../../../mobile/_lib';
 
@@ -10,34 +20,25 @@ type StopRow = {
   stop_type: 'collection' | 'delivery';
   address: string;
   postcode: string | null;
-  status: 'pending' | 'arrived' | 'completed' | 'skipped';
+  company_name?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  status: 'pending' | 'en_route' | 'arrived' | 'completed' | 'cancelled' | 'skipped';
+  en_route_at: string | null;
   arrived_at: string | null;
   completed_at: string | null;
+  cancelled_at: string | null;
   handover: unknown;
 };
-const terminalStopStatuses = new Set(['completed', 'skipped']);
-const allowedNext = new Set(['arrived', 'completed']);
 
-function numberOrNull(value: unknown, min: number, max: number): number | null {
-  if (value == null || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : NaN;
-}
+const allowedActions = new Set(['en_route','arrived','completed','cancelled','exception']);
 
-function pathList(value: unknown) {
+const pathList = (value: unknown, max = 10) => {
   if (value == null) return [] as string[];
-  if (!Array.isArray(value) || value.length > 10 || value.some((item) => typeof item !== 'string')) return null;
-  const paths = value.map((item: string) => item.trim());
-  if (paths.some((item: string) => !item)) return null;
-  return paths as string[];
-}
-
-export function scopedStopEvidenceObject(path: string, prefix: string) {
-  if (!path.startsWith(prefix) || path.includes('..') || path.includes('\\') || path.includes('://')) return null;
-  const splitAt = path.lastIndexOf('/');
-  if (splitAt < prefix.length - 1 || splitAt === path.length - 1) return null;
-  return { folder: path.slice(0, splitAt), fileName: path.slice(splitAt + 1) };
-}
+  if (!Array.isArray(value) || value.length > max || value.some(item => typeof item !== 'string')) return null;
+  const result = value.map(item => String(item).trim());
+  return result.some(item => !item) ? null : result;
+};
 
 async function verifyStopEvidence(paths: string[], prefix: string) {
   for (const path of paths) {
@@ -45,139 +46,242 @@ async function verifyStopEvidence(paths: string[], prefix: string) {
     if (!object) return false;
     const { data, error } = await supabaseAdmin!.storage.from('pod-photos')
       .list(object.folder, { limit: 100, search: object.fileName });
-    if (error || !(data ?? []).some((entry) => entry.name === object.fileName)) return false;
+    if (error || !(data ?? []).some(entry => entry.name === object.fileName)) return false;
   }
   return true;
 }
 
 function mapStop(stop: StopRow) {
   return {
-    id: stop.id,
-    sequence: stop.sequence,
-    type: stop.stop_type,
+    id: stop.id, sequence: stop.sequence, type: stop.stop_type,
     address: [stop.address, stop.postcode].filter(Boolean).join(', '),
     status: stop.status,
+    enRouteAt: stop.en_route_at ?? undefined,
     arrivedAt: stop.arrived_at ?? undefined,
     completedAt: stop.completed_at ?? undefined,
+    cancelledAt: stop.cancelled_at ?? undefined,
     handover: stop.handover && typeof stop.handover === 'object' ? stop.handover : null,
   };
 }
 
-function stopSummary(stops: StopRow[], updated: StopRow) {
-  const projected = stops.map((stop) => stop.id === updated.id ? updated : stop);
-  const remainingStops = projected.filter((stop) => !terminalStopStatuses.has(stop.status)).length;
+function stopSummary(stops: StopRow[], updated: StopRow, appended?: StopRow | null) {
+  const projected = stops.map(stop => stop.id === updated.id ? updated : stop);
+  if (appended) projected.push(appended);
+  projected.sort((a,b) => a.sequence - b.sequence);
+  const remainingStops = projected.filter(stop => !isTerminalStopStatus(stop.status)).length;
   return {
     remainingStops,
     allStopsCompleted: projected.length > 0 && remainingStops === 0,
-    finalStopCompleted: projected[projected.length - 1]?.id === updated.id && terminalStopStatuses.has(updated.status),
+    finalStopCompleted: projected.at(-1)?.id === updated.id && isTerminalStopStatus(updated.status),
   };
 }
 
+const firstUnresolved = (stops: StopRow[]) => stops.find(stop => !isTerminalStopStatus(stop.status));
+
+function stopLabel(stop: StopRow) {
+  const h = stop.handover && typeof stop.handover === 'object' && !Array.isArray(stop.handover)
+    ? stop.handover as Record<string, unknown> : null;
+  if (h?.stopKind === 'return') return `Return stop ${stop.sequence}`;
+  return `${stop.stop_type === 'collection' ? 'Collection' : 'Delivery'} stop ${stop.sequence}`;
+}
+
+async function requestWholeJobCancellation(jobId: string, driver: WebDriverContext, reason: string) {
+  const { data, error } = await supabaseAdmin!.rpc('request_awarded_job_cancellation_atomic', {
+    p_job_id: jobId,
+    p_actor_user_id: driver.userId,
+    p_reason: reason,
+  });
+  if (error) {
+    const duplicate = /duplicate|pending|unique/i.test(error.message ?? '');
+    if (!duplicate) return { ok: false as const, error: error.message || 'Job cancellation could not be requested.' };
+  }
+  return { ok: true as const, result: data ?? null };
+}
+
 export async function updateWebDriverStop(request: NextRequest, jobId: string, driver: WebDriverContext) {
+  if (!driver.companyId) return respond(403, { error: 'Driver company is required for stop execution.' });
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return respond(400, { error: 'Invalid JSON body.' });
+
   const stopId = typeof body.stop_id === 'string' ? body.stop_id.trim() : '';
-  const next = typeof body.status === 'string' ? body.status.trim().toLowerCase() : '';
+  const action = typeof body.status === 'string' ? body.status.trim().toLowerCase() : '';
   if (!stopId) return respond(400, { error: 'stop_id is required.' });
-  if (!allowedNext.has(next)) return respond(400, { error: 'Stop status must be arrived or completed.' });
+  if (!allowedActions.has(action)) return respond(400, { error: 'Unsupported stop action.' });
 
   const { data: job, error: jobError } = await supabaseAdmin!.from('jobs')
-    .select('id, status, current_status')
-    .eq('id', jobId)
-    .eq('assigned_driver_id', driver.driverId)
-    .maybeSingle();
+    .select('id,status,current_status,assigned_company_id,pod_generated,delivery_photos,pod_photos,delivery_signature_data,client_signature_name')
+    .eq('id', jobId).eq('assigned_driver_id', driver.driverId).maybeSingle();
   if (jobError) return respond(500, { error: 'Assigned booking could not be resolved.' });
   if (!job) return respond(404, { error: 'Booking not found.' });
-  if (['delivered', 'completed', 'invoiced', 'cancelled'].includes(
-    String(job.current_status || job.status || '').toLowerCase()
-  )) return respond(409, { error: 'Stops cannot be updated after the booking has finished.' });
+  if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) {
+    return respond(403, { error: 'This booking belongs to another carrier company.' });
+  }
+  const jobStatus = String(job.current_status || job.status || '').toLowerCase();
+  if (['delivered','disputed','completed','invoiced','paid','cancelled'].includes(jobStatus)) {
+    return respond(409, { error: 'Stops cannot be changed after the booking has closed.' });
+  }
 
-  const { data, error } = await supabaseAdmin!.from('job_stops')
-    .select('id,sequence,stop_type,address,postcode,status,arrived_at,completed_at,handover')
-    .eq('job_id', jobId)
-    .order('sequence', { ascending: true });
+  const select = 'id,sequence,stop_type,address,postcode,company_name,contact_name,contact_phone,status,en_route_at,arrived_at,completed_at,cancelled_at,handover';
+  const { data, error } = await supabaseAdmin!.from('job_stops').select(select)
+    .eq('job_id', jobId).order('sequence', { ascending: true });
   if (error) return respond(503, { error: 'Booking stops are temporarily unavailable.' });
+
   const stops = (data ?? []) as unknown as StopRow[];
-  const target = stops.find((stop) => stop.id === stopId);
+  const target = stops.find(stop => stop.id === stopId);
   if (!target) return respond(404, { error: 'Stop not found for this booking.' });
 
-  if (target.status === next || (next === 'arrived' && target.status === 'completed')) {
-    return respond(200, { ok: true, duplicate: true, stop: mapStop(target), ...stopSummary(stops, target) });
-  }
-  const expected = next === 'arrived' ? 'pending' : 'arrived';
-  if (target.status !== expected) return respond(409, { error: 'Stop state changed. Reload this booking.' });
-  if (next === 'arrived' && stops.some((stop) =>
-    stop.sequence < target.sequence && !terminalStopStatuses.has(stop.status))) {
-    return respond(409, { error: 'Complete earlier stops before arriving at this stop.' });
+  if (target.handover && typeof target.handover === 'object' &&
+      (target.handover as Record<string, unknown>).returnInstruction &&
+      ((target.handover as Record<string, unknown>).returnInstruction as Record<string, unknown>).resolutionRequired === true &&
+      action !== 'exception') {
+    return respond(409, { error: 'Goods remain in custody pending authorised instructions.' });
   }
 
-  let handover: Record<string, unknown> | null = null;
-  if (next === 'completed' && body.handover != null) {
-    if (typeof body.handover !== 'object' || Array.isArray(body.handover)) {
-      return respond(400, { error: 'Stop handover must be an object.' });
-    }
-    const raw = body.handover as Record<string, unknown>;
-    const photoPaths = pathList(raw.photoPaths);
-    const documentPaths = pathList(raw.documentPaths);
-    if (!photoPaths || !documentPaths) return respond(400, { error: 'Too many or invalid stop evidence files.' });
-    const itemCount = numberOrNull(raw.itemCount, 0, 100000);
-    const weightKg = numberOrNull(raw.weightKg, 0, 100000);
-    const etaMinutes = numberOrNull(raw.etaMinutes, 0, 1440);
-    if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
-      return respond(400, { error: 'Invalid stop handover quantities.' });
-    }
-    if (photoPaths.length || documentPaths.length) {
-      if (!driver.companyId) return respond(403, { error: 'Driver company is required for evidence.' });
-      const prefix = `${driver.companyId}/${jobId}/stops/${stopId}/`;
-      const photosOk = await verifyStopEvidence(photoPaths, prefix + 'photos/');
-      const documentsOk = await verifyStopEvidence(documentPaths, prefix + 'documents/');
-      if (!photosOk || !documentsOk) return respond(400, { error: 'Stop evidence could not be verified in storage.' });
-    }
-    handover = {
-      version: 1,
-      capturedAt: new Date().toISOString(),
-      itemCount: itemCount == null ? null : Math.round(itemCount),
-      weightKg,
-      etaMinutes,
-      packaging: typeof raw.packaging === 'string' ? raw.packaging.trim().slice(0, 120) || null : null,
-      notes: typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 2000) || null : null,
-      photoPaths,
-      documentPaths,
-    };
+  if (action !== 'exception' && target.status === action) {
+    return respond(200, { ok: true, duplicate: true, stop: mapStop(target), ...stopSummary(stops, target) });
   }
-  // Collection handover is mandatory; do not allow skipping it by omitting the JSON object.
-  if (next === 'completed' && target.stop_type === 'collection' && !handover) {
-    return respond(400, { error: 'Collection stop photo handover is required.' });
+  const active = firstUnresolved(stops);
+  if (active && active.id !== target.id && action !== 'exception') {
+    return respond(409, { error: 'Complete or resolve the earlier stop before changing this stop.' });
+  }
+  if (!canDriverTransitionStop(target.status, action)) {
+    return respond(409, { error: `Stop cannot move from ${target.status} to ${action}. Refresh the booking.` });
   }
 
   const now = new Date().toISOString();
-  const update: Record<string, unknown> = next === 'arrived'
-    ? { status: 'arrived', arrived_at: now, updated_at: now }
-    : { status: 'completed', completed_at: now, updated_at: now };
-  if (handover) update.handover = handover;
+
+  if (action === 'exception') {
+    if (target.stop_type !== 'delivery') return respond(400, { error: 'Delivery exceptions apply only to delivery stops.' });
+    const raw = body.exception && typeof body.exception === 'object' && !Array.isArray(body.exception)
+      ? body.exception as Record<string, unknown> : null;
+    if (!raw) return respond(400, { error: 'Delivery exception details are required.' });
+    const outcome = typeof raw.deliveryStatus === 'string' ? raw.deliveryStatus.trim() : '';
+    if (!deliveryOutcomeIsException(outcome) || outcome === 'Job Cancelled') return respond(400, { error: 'Select a supported delivery exception.' });
+    const notes = typeof raw.notes === 'string' ? raw.notes.trim().slice(0,2000) : '';
+    const photoPaths = pathList(raw.photoPaths);
+    const documentPaths = pathList(raw.documentPaths);
+    if (!photoPaths || !documentPaths) return respond(400, { error: 'Too many or invalid exception evidence files.' });
+    if (['Damaged Goods','Incorrect Goods'].includes(outcome) && photoPaths.length < 1) {
+      return respond(400, { error: 'Photographic evidence is required for damaged or incorrect goods.' });
+    }
+    const damageOk = await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'damage'));
+    const photoOk = damageOk ? true : await verifyStopEvidence(photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos'));
+    const docsOk = await verifyStopEvidence(documentPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'documents'));
+    if (!photoOk || !docsOk) return respond(400, { error: 'Exception evidence could not be verified in storage.' });
+
+    const previous = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
+      ? target.handover as Record<string, unknown> : {};
+    const { data: changed, error: writeError } = await supabaseAdmin!.from('job_stops')
+      .update({ handover: { ...previous, exception: { outcome, notes: notes || null, photoPaths, documentPaths, reportedAt: now } }, updated_at: now })
+      .eq('id', stopId).eq('job_id', jobId).eq('status', target.status).select(select).maybeSingle();
+    if (writeError) return respond(500, { error: 'Delivery exception could not be recorded.' });
+    if (!changed) return respond(409, { error: 'Stop state changed. Refresh the booking.' });
+    await insertTrackingEvent(jobId, driver.userId, 'delivery_exception', `${stopLabel(target)}: ${outcome}.`, {
+      stop_id: stopId, stop_sequence: target.sequence, outcome, source: 'driver_web',
+    }).catch(() => undefined);
+    return respond(200, { ok: true, exception: true, stop: mapStop(changed as unknown as StopRow), ...stopSummary(stops, changed as unknown as StopRow) });
+  }
+
+  if (action === 'cancelled') {
+    const parsed = parseStopCancellation(body.cancellation);
+    if (!parsed.ok) return respond(400, { error: parsed.error });
+    const cancellation = parsed.value;
+    const priorCustodyInstruction = target.handover && typeof target.handover === 'object' && !Array.isArray(target.handover)
+      ? (target.handover as Record<string, unknown>).returnInstruction : null;
+    if (priorCustodyInstruction && typeof priorCustodyInstruction === 'object' &&
+        (priorCustodyInstruction as Record<string, unknown>).resolutionRequired === true) {
+      return respond(409, { error: 'Goods remain in custody awaiting an authorised resolution. Do not create a second cancellation or return stop.' });
+    }
+    if (cancellation.scope === 'job') {
+      const requestResult = await requestWholeJobCancellation(jobId, driver, cancellation.reason);
+      if (!requestResult.ok) return respond(409, { error: requestResult.error });
+    }
+
+    const firstCollection = stops.find(stop => stop.stop_type === 'collection');
+    const destination = cancellation.goodsInCustody
+      ? cancellation.goodsDisposition === 'return_to_collection'
+        ? [firstCollection?.address, firstCollection?.postcode].filter(Boolean).join(', ')
+        : cancellation.resolutionAddress
+      : null;
+    if (cancellation.goodsInCustody && cancellation.goodsDisposition !== 'await_instructions' && !destination) {
+      return respond(400, { error: 'A destination is required for goods that remain in custody.' });
+    }
+    const { data: atomicResult, error: atomicError } = await supabaseAdmin!.rpc('apply_driver_stop_cancellation_atomic', {
+      p_job_id: jobId, p_stop_id: stopId, p_actor_user_id: driver.userId,
+      p_expected_status: target.status, p_cancellation: cancellation, p_destination: destination,
+    });
+    if (atomicError || !atomicResult) {
+      return respond(409, { error: atomicError?.message || 'Cancellation could not be recorded atomically.' });
+    }
+    const atomic = atomicResult as { stop: StopRow; followUpStop: StopRow | null; resolutionRequired?: boolean };
+    const changed = atomic.stop;
+    const followUpStop = atomic.followUpStop;
+    if (atomic.resolutionRequired) {
+      await insertTrackingEvent(jobId, driver.userId, 'return_required',
+        `${stopLabel(target)} is awaiting instructions with goods in custody.`, {
+          stop_id: stopId, stop_sequence: target.sequence, goods_disposition: cancellation.goodsDisposition,
+        }).catch(() => undefined);
+      return respond(200, { ok: true, resolutionRequired: true, stop: mapStop(changed), ...stopSummary(stops, changed) });
+    }
+
+    await insertTrackingEvent(jobId, driver.userId, 'multi_drop_stop_cancelled', `${stopLabel(target)} cancelled on instruction.`, {
+      stop_id: stopId, stop_sequence: target.sequence, cancellation, source: 'driver_web',
+    }).catch(() => undefined);
+    if (followUpStop) {
+      await insertTrackingEvent(jobId, driver.userId, 'return_required',
+        `Goods require ${cancellation.goodsDisposition.replaceAll('_',' ')}; follow-up stop ${followUpStop.sequence} created.`, {
+          stop_id: stopId, follow_up_stop_id: followUpStop.id, goods_disposition: cancellation.goodsDisposition, source: 'driver_web',
+        }).catch(() => undefined);
+    }
+    return respond(200, { ok: true, stop: mapStop(changed as unknown as StopRow), followUpStop: followUpStop ? mapStop(followUpStop) : null, ...stopSummary(stops, changed, followUpStop) });
+  }
+
+  let handover: Record<string, unknown> | null = null;
+  if (action === 'completed') {
+    const finalStop = stops.at(-1)?.id === target.id;
+    const parsed = parseStopCompletion(body.handover, target.stop_type, { finalStop });
+    if (!parsed.ok) return respond(400, { error: parsed.error });
+    const parsedHandover = parsed.value;
+    if (target.stop_type === 'delivery' && finalStop && parsedHandover.canonicalFinalPod) {
+      if (!hasCompletePodEvidence(job)) return respond(409, { error: 'Complete the canonical final POD before completing the final stop.' });
+      parsedHandover.photoPaths = Array.isArray(job.delivery_photos) ? job.delivery_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
+      parsedHandover.documentPaths = Array.isArray(job.pod_photos) ? job.pod_photos.filter((v): v is string => typeof v === 'string' && v.trim().length > 0) : [];
+      parsedHandover.canonicalPodReference = { jobId, stopId, signatureSource: 'jobs.delivery_signature_data', photoSource: 'jobs.delivery_photos', documentSource: 'jobs.pod_photos' };
+    } else {
+      if (!(await verifyStopEvidence(parsedHandover.photoPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'photos')))) return respond(400, { error: 'Stop photo evidence could not be verified.' });
+      if (!(await verifyStopEvidence(parsedHandover.documentPaths, stopEvidencePrefix(driver.companyId, jobId, stopId, 'documents')))) return respond(400, { error: 'Stop document evidence could not be verified.' });
+      if (target.stop_type === 'delivery' && parsedHandover.signaturePath &&
+          !(await verifyStopEvidence([parsedHandover.signaturePath], stopEvidencePrefix(driver.companyId, jobId, stopId, 'signature')))) {
+        return respond(400, { error: 'Stop signature evidence could not be verified.' });
+      }
+    }
+    handover = { ...(target.handover && typeof target.handover === 'object' ? target.handover as Record<string, unknown> : {}), version: 3, capturedAt: now, ...parsedHandover };
+  }
+
+  const update: Record<string, unknown> = action === 'en_route'
+    ? { status: 'en_route', en_route_at: now, updated_at: now }
+    : action === 'arrived'
+      ? { status: 'arrived', arrived_at: now, updated_at: now }
+      : { status: 'completed', completed_at: now, handover, updated_at: now };
 
   const { data: changed, error: writeError } = await supabaseAdmin!.from('job_stops')
-    .update(update)
-    .eq('id', stopId)
-    .eq('job_id', jobId)
-    .eq('status', expected)
-    .select('id,sequence,stop_type,address,postcode,status,arrived_at,completed_at,handover')
-    .maybeSingle();
-  if (writeError) return respond(500, { error: 'Could not save stop status.' });
-  if (!changed) {
-    const { data: latest } = await supabaseAdmin!.from('job_stops')
-      .select('id,sequence,stop_type,address,postcode,status,arrived_at,completed_at,handover')
-      .eq('id', stopId).eq('job_id', jobId).maybeSingle();
-    const current = latest as unknown as StopRow | null;
-    if (current && (current.status === next || (next === 'arrived' && current.status === 'completed'))) {
-      return respond(200, { ok: true, duplicate: true, stop: mapStop(current), ...stopSummary(stops, current) });
-    }
-    return respond(409, { error: 'Stop changed during update. Reload this booking.' });
-  }
+    .update(update).eq('id', stopId).eq('job_id', jobId).eq('status', target.status)
+    .select(select).maybeSingle();
+  if (writeError) return respond(500, { error: 'Stop status could not be updated.' });
+  if (!changed) return respond(409, { error: 'Stop state changed. Refresh this booking.' });
+
   const updated = changed as unknown as StopRow;
-  const label = `${updated.stop_type === 'collection' ? 'Collection' : 'Delivery'} stop ${updated.sequence}`;
-  await insertTrackingEvent(jobId, driver.userId,
-    next === 'arrived' ? 'multi_drop_stop_arrived' : 'multi_drop_stop_completed',
-    `${label} ${next}.`).catch(() => undefined);
-  return respond(200, { ok: true, duplicate: false, stop: mapStop(updated), ...stopSummary(stops, updated) });
+  const eventType = action === 'en_route'
+    ? 'multi_drop_stop_en_route'
+    : action === 'arrived'
+      ? 'multi_drop_stop_arrived'
+      : (updated.handover && typeof updated.handover === 'object' && !Array.isArray(updated.handover) &&
+          (updated.handover as Record<string, unknown>).stopKind === 'return')
+        ? 'return_completed'
+        : 'multi_drop_stop_completed';
+  await insertTrackingEvent(jobId, driver.userId, eventType, `${stopLabel(updated)} ${action.replace('_',' ')}.`, {
+    stop_id: stopId, stop_sequence: updated.sequence, stop_type: updated.stop_type, source: 'driver_web',
+  }).catch(() => undefined);
+
+  return respond(200, { ok: true, stop: mapStop(updated), ...stopSummary(stops, updated) });
 }

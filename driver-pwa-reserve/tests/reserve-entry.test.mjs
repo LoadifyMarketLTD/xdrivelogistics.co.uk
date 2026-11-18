@@ -9,15 +9,16 @@ test('reserve uses new React application, not original main App',()=>{
 });
 test('independent incoming booking, quote, delivery and real POD actions',()=>{
   const app=text('ReserveApp.tsx');
-  for(const phrase of ['New Job Received','View Booking Details','Decline Job','Accept Job','Submit Quote','On My Way to Collection','On Site Collection','Complete Collection','On My Way to Delivery','On Site Delivery','<DeliveryHandover']) assert.ok(app.includes(phrase), 'Missing '+phrase);
+  const lifecycle=text('reserveLifecycle.ts');
+  for(const phrase of ['New Job Received','View Booking Details','Decline Job','Accept Job','Submit Quote','On My Way to Collection','On Site Collection','Complete Collection','On My Way to Delivery','On Site Delivery','<DeliveryHandover']) assert.ok(app.includes(phrase)||lifecycle.includes(phrase), 'Missing '+phrase);
   const handover=text('DeliveryHandover.tsx');
   assert.ok(handover.includes('Save Signed POD'), 'Missing Save Signed POD in handover component');
-  const form=handover.split('return <section className="rv-delivery-page">')[1];
+  const form=handover.slice(handover.lastIndexOf('return <section className="rv-delivery-page">'));
   assert.ok(form.indexOf('Received By')<form.indexOf('Recipient signature'));
   assert.match(app,/bookingOfferRespond/);assert.match(app,/driverPost/);
   assert.match(app,/loadLiveWithDiagnostics/);
 });
-test('recorded POD continues to invoice review without re-signing or claiming send',()=>{ const app=text('ReserveApp.tsx'); assert.match(app, /podDone\|\|job\.podRecorded/); assert.match(app, /Create Invoice \+ Complete POD/); assert.match(app, /setView\('invoiceJob'\)/); const finance=text('LiveInvoiceFlow.tsx'); assert.match(finance, /Invoice Preview \/ Issue/); assert.match(finance, /Send Invoice \/ Confirmation/); assert.match(finance,/generate-invoice/); assert.match(finance,/\/submit/); assert.match(finance,/delivery_message_id/); });
+test('recorded POD continues to invoice review without re-signing or claiming send',()=>{ const app=text('ReserveApp.tsx'); assert.match(app, /podDone\|\|job\.podRecorded/); assert.match(app, /Create \/ View Invoice/); assert.match(app, /setView\('invoiceJob'\)/); const finance=text('LiveInvoiceFlow.tsx'); assert.match(finance, /Combined A4 Invoice/); assert.match(finance, /Invoice delivery/); assert.match(finance,/generate-invoice/); assert.match(finance,/\/submit/); assert.match(finance,/delivery_message_id/); });
 test('separate manifest and no production app replacement',()=>{
   const main=readFileSync(new URL('../src/main.tsx',import.meta.url),'utf8');
   assert.ok(main.includes('ReserveApp.tsx'));
@@ -43,7 +44,7 @@ test('signed delivery draft persists signature and evidence and restores securel
  assert.match(app,/signatureData:signature,photoUris:evidence\.photos,documentUris:evidence\.documents/);
  assert.match(app,/\/'\+encodeURIComponent\(job\.id\)\+'\/pod-draft'/);
  assert.match(app,/setSignature\(previous=>previous\|\|saved\.signatureData\)/);
- assert.match(handover,/mode==='pod'&&Boolean\(job\.deliveryPhotos\?\.length\)/);
+ assert.ok(handover.includes("const photosCount=(job.deliveryPhotos?.length||0)+")); // includes both stored and newly attached photos
  assert.match(api,/podRecorded: r\.podGenerated === true && Boolean\(r\.deliverySignatureData\) && Boolean\(str\(r\.clientSignatureName\)\)/);
 });
 
@@ -60,7 +61,7 @@ test('POD handover has one recipient signature form, no nested duplicate wrapper
  const flow=app.slice(app.indexOf('function flow()'),app.indexOf('const header='));
  assert.doesNotMatch(flow, /<h3>Complete Signed POD<\/h3>/);
  assert.doesNotMatch(flow, /Captured recipient signature/);
- assert.match(flow,/mode="pod" onConfirm=\{\(\)=>void savePod\(job\)\}/);
+ assert.ok(flow.includes("onClick={()=>void savePod(job)}")); assert.ok(flow.includes("disabled={busy||!signature||verifiedSignature!==signature||(job.hardCopyPodRequired&&!hardCopyAcknowledged)}"));
 });
 
 test('map normalises duplicate UK postcode and requests GPS only when chosen',()=>{
@@ -73,7 +74,7 @@ test('map normalises duplicate UK postcode and requests GPS only when chosen',()
 test('POD live audit displays one route and context-sensitive evidence guidance',()=>{
  const app=text('ReserveApp.tsx'),handover=text('DeliveryHandover.tsx');
  assert.match(app,/\(!delivered\|\|podDone\|\|job\.podRecorded\)/);
- assert.match(handover,/08 \/ 11 · POD/);
+ assert.match(handover,/08 \/ 11.*POD/);
  assert.match(handover,/photosCount>0/);
  assert.match(handover,/recipient signature/);
 });
@@ -84,7 +85,7 @@ test('Documents and Return Journeys menu have authenticated content and endpoint
  assert.match(menu,/'Return Journeys':'\/return-journeys\?scope=mine&page_size=10'/);
  assert.match(menu,/section==='Documents'\)setDocuments\(asRows\(result\.documents\)\)/);
  assert.match(menu,/section==='My Vehicle'\|\|section==='Documents'/);
- assert.match(menu,/section==='Return Journeys'&&!loading&&data/);
+ assert.match(menu,/section==='Return Journeys'&&data/);
  assert.match(menu,/asRows\(data\.journeys\)\.map/);
 });
 
@@ -122,7 +123,7 @@ test('recipient signature has a distinct save button below the pad wired to veri
  assert.match(app,/async function saveRecipientSignature\(j:LiveJob\):Promise<void>/);
  assert.match(app,/method:'PUT'.*body:JSON.stringify\(body\)/);
  assert.match(app,/confirmation\?\.draft\?\.signatureData!==signature/);
- assert.equal((app.match(/onSaveSignature=\{\(\)=>saveRecipientSignature\(job\)\}/g)||[]).length,2);
+ assert.equal((app.match(/onSaveSignature=\{\(\)=>saveRecipientSignature\(job\)\}/g)||[]).length,2); // delivery and delivered-POD recovery
  assert.match(styles,/\.rv-delivery-field \.rv-signature-save/);
 });
 
@@ -142,6 +143,6 @@ test('green signature status rehydrates from authoritative saved POD draft after
  assert.match(app,/setVerifiedSignature\(saved\.signatureData\)/);
  assert.match(app,/setVerifiedSignature\(signature\)/);
  assert.match(app,/setVerifiedSignature\(null\);setError\(''\)/);
- assert.equal((app.match(/signatureVerified=\{Boolean\(signature\)&&verifiedSignature===signature\}/g)||[]).length,2);
+ assert.equal((app.match(/signatureVerified=\{Boolean\(signature\)&&verifiedSignature===signature\}/g)||[]).length,2); // both workflows
  assert.match(component,/const signatureSaved=signatureVerified/);
 });

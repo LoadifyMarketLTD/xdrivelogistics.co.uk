@@ -18,7 +18,8 @@
     "validate:vehicle-advertising-contract": "bash ./scripts/validate_vehicle_advertising_contract.sh",
     "audit:auto": "node ./scripts/run-automated-audit.mjs",
     "audit:auto:fast": "node ./scripts/run-automated-audit.mjs --skip-tests --skip-lint",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run",
+    "test:crm:sql": "node scripts/qa/crmSqlReplay.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
@@ -103,6 +104,7 @@
     "not op_mini all"
   ],
   "devDependencies": {
+    "@electric-sql/pglite": "0.3.15",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.60.0",
     "@types/node": "^24.10.1",

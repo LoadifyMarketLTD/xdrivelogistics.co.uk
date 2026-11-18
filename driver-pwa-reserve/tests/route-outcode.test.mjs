@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {routeLabel,normalizeRouteAddress} from '../src/routeLabel.ts';
+import {routeLabel,normalizeRouteAddress,isDuplicateRouteAddress} from '../src/routeLabel.ts';
 
 test('Completed booking route removes duplicated GB and postal code without losing an actual postcode',()=>{
  assert.equal(normalizeRouteAddress('Cornelian Street, Blackburn, BB1 9QL, GB, BB1 9QL'),'Cornelian Street, Blackburn, BB1 9QL');
@@ -27,4 +27,12 @@ test('Both job locations obtain outcode only from authentic API data',()=>{
  assert.match(api,/toOutcode: str\(r.delivery_postcode_area\)/);
  assert.match(view,/routeLabel\(job.from,job.fromOutcode\)/);
  assert.match(view,/routeLabel\(job.to,job.toOutcode\)/);
+});
+
+test('Full booking view does not repeat the same town and outcode twice',()=>{
+ assert.equal(isDuplicateRouteAddress('Blackburn, BB1','Blackburn BB1'),true);
+ assert.equal(isDuplicateRouteAddress('Leeds, LS22','Leeds LS22'),true);
+ assert.equal(isDuplicateRouteAddress('Blackburn, BB1','15 Main Street, Blackburn BB1 9AB'),false);
+ assert.match(view,/!isDuplicateRouteAddress\(routeLabel\(job.from,job.fromOutcode\),job.pickupAddress\)/);
+ assert.match(view,/!isDuplicateRouteAddress\(routeLabel\(job.to,job.toOutcode\),job.deliveryAddress\)/);
 });
