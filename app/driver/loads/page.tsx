@@ -6,15 +6,17 @@ import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRest
 import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import {usePublicPickupRadius} from '../../try-xdrive-demo/components/usePublicPickupRadius';
-import '../../components/workspace/master3150-unified-loads.css';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import ApprovedDriverLoadCard from '../_components/ApprovedDriverLoadCard';
+import CxLoadCard from '../../components/workspace/OwnerPR807LoadCard';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -29,7 +31,6 @@ type MarketplaceMember = {
 };
 
 type MarketplaceLoad = {
-  public_reference?: string;
   route_stops?: {sequence:number;stop_type:string;area:string;window_start:string|null;window_end:string|null}[];
   id: string;
   company_id: string;
@@ -178,6 +179,8 @@ function dimensions(load: MarketplaceLoad) {
 }
 
 export default function AvailableLoadsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [loads, setLoads] = useState<MarketplaceLoad[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -202,7 +205,7 @@ export default function AvailableLoadsPage() {
   const [postedWithinFilter, setPostedWithinFilter] = useState<PostedWithinFilter>('any');
   const [jobTimingFilter, setJobTimingFilter] = useState<JobTimingFilter>('any');
   const [loadTypeFilter, setLoadTypeFilter] = useState<LoadTypeFilter>('all');
-  const [masterLoadsTab, setMasterLoadsTab] = useState<'all' | 'on_demand' | 'same_day' | 'next_day'>('all');
+  const [loadWindowTab, setLoadWindowTab] = useState<'all' | 'on_demand' | 'same_day' | 'next_day'>('all');
   const [sortBy, setSortBy] = useState<SortMode>('date_desc');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -302,7 +305,7 @@ export default function AvailableLoadsPage() {
   const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
     setVehicleFilter('any'); setPickupFilter(''); setPickupRadiusMiles('10'); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
-    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setMasterLoadsTab('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setLoadWindowTab('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   useEffect(() => {
     const resetLoads = () => {
@@ -319,7 +322,7 @@ export default function AvailableLoadsPage() {
       setPostedWithinFilter('any');
       setJobTimingFilter('any');
       setLoadTypeFilter('all');
-      setMasterLoadsTab('all');
+      setLoadWindowTab('all');
       setSortBy('date_desc');
       setVisibleCount(25);
       setPageSize(25);
@@ -381,12 +384,12 @@ export default function AvailableLoadsPage() {
     postedAt: load.exchange_posted_at,
   })), [filteredLoads]);
 
-  const selectMasterLoadsTab = (next: 'all' | 'on_demand' | 'same_day' | 'next_day') => {
+  const selectLoadWindowTab = (next: 'all' | 'on_demand' | 'same_day' | 'next_day') => {
     const date = new Date();
     date.setHours(12, 0, 0, 0);
     if (next === 'next_day') date.setDate(date.getDate() + 1);
     const localDate = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
-    setMasterLoadsTab(next);
+    setLoadWindowTab(next);
     setLoadTypeFilter(next === 'on_demand' ? 'on_demand' : 'all');
     setDateFromFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
     setDateToFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
@@ -396,12 +399,7 @@ export default function AvailableLoadsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-loads-prototype xdrive-admin-marketplace-identity master3150-unified-loads">
-        <header className="xd-approved-board-header master3150-driver-loads-heading"><h1 className="xd-approved-board-title">Loads</h1></header>
-        <nav className="master3150-loads-primary-tabs" aria-label="3150 Loads primary tabs">
-          {([{id:'all',label:'All Loads'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(item=><button key={item.id} type="button" data-active={masterLoadsTab===item.id} aria-pressed={masterLoadsTab===item.id} onClick={()=>selectMasterLoadsTab(item.id)}>{item.label}</button>)}
-          <a className="master3150-loads-my-jobs" href="/driver/jobs">My Loads</a>
-        </nav>
+      <section className="page driver-loads-prototype xdrive-admin-marketplace-identity">
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Loads</div>
@@ -422,28 +420,29 @@ export default function AvailableLoadsPage() {
             <div className="filter"><button type="button" className="btn primary" onClick={applySearch}>Search</button> <button type="button" className="btn" onClick={clearFilters}>Clear</button></div>
           </aside>
           <main className="main">
-            <details className="master3150-driver-load-stats"><summary>Live exchange statistics</summary>
-            <div className="xd-approved-board-kpis" aria-label="Real freight exchange statistics">
-              <div className="xd-approved-board-kpi"><strong>Available Loads</strong><b>{loads.length}</b><small>Live authorised records</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Matching Loads</strong><b>{filteredLoads.length}</b><small>Current search</small></div>
-              <div className="xd-approved-board-kpi green"><strong>Not Quoted</strong><b>{loads.filter(load => !load.myBid).length}</b><small>May request a quote</small></div>
-              <div className="xd-approved-board-kpi amber"><strong>Already Quoted</strong><b>{loads.filter(load => Boolean(load.myBid)).length}</b><small>Existing quote records</small></div>
-              <div className="xd-approved-board-kpi blue"><strong>Results Per Page</strong><b>{pageSize}</b><small>Adjust below</small></div>
-            </div></details>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-result-head" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', height: 'auto', minHeight: 42, paddingTop: 6, paddingBottom: 6 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
               <div className="load-view-switch" style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginLeft: 10 }}><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                {resolveWorkspaceRole(user) === 'owner_driver' && <button type="button" className="btn" onClick={() => router.push('/driver/posted-loads')}>My Posted Loads &amp; Drafts</button>}
                 <OperationalExpandAllControl expanded={expandAll} disabled={!filteredLoads.length} onToggle={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} noun="loads" />
                 <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
               </div>
             </div>
             <div className="load-nav-unified">
-              <label className="master3150-loads-service-selector">Service type <select aria-label="Service type" value={loadTypeFilter} onChange={(event)=>{setMasterLoadsTab('all');setLoadTypeFilter(event.target.value as LoadTypeFilter);setDateFromFilter('');setDateToFilter('');}}>
-                <option value="all">All Loads</option><option value="on_demand">On Demand</option><option value="regular_load">Regular Load</option><option value="daily_hire">Daily Hire</option>
-              </select></label>
+                             <div className="load-tabs" role="group" aria-label="Freight load categories">
+                 {([{id:'all',label:'All Live'},{id:'on_demand',label:'On Demand'},{id:'same_day',label:'Same Day'},{id:'next_day',label:'Next Day'}] as const).map(tab=>
+                   <button key={tab.id} type="button" className={loadWindowTab===tab.id && (tab.id!=='all'||loadTypeFilter==='all')?'active':''}
+                     aria-pressed={loadWindowTab===tab.id && (tab.id!=='all'||loadTypeFilter==='all')}
+                     onClick={()=>selectLoadWindowTab(tab.id)}>{tab.label}</button>)}
+                 {(['regular_load','daily_hire'] as const).map(category=>
+                   <button key={category} type="button" className={loadTypeFilter===category?'active':''} aria-pressed={loadTypeFilter===category}
+                     onClick={()=>{setLoadWindowTab('all');setLoadTypeFilter(category);setDateFromFilter('');setDateToFilter('');setViewMode('list');}}>
+                     {category==='regular_load'?'Regular Load':'Daily Hire'}
+                   </button>)}
+               </div>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
@@ -455,12 +454,13 @@ export default function AvailableLoadsPage() {
               <MarketplaceLoadMap
                 loads={mapLoads}
                 onQuote={(loadId) => { setViewMode('list'); setExpandedLoadId(loadId); setBidLoadId(loadId); setBidAmount(''); setBidMessage(''); }}
-                onDetails={(loadId) => { setExpandedLoadId(loadId); setBidLoadId(loadId); setBidAmount(''); setBidMessage(''); }}
+                onDetails={(loadId) => router.push(`/driver/loads/${loadId}`)}
               />
             ) : (
               <div className="load-list">
                 {visibleLoads.map((load) => {
                   const expanded = expandAll || expandedLoadId === load.id;
+                  const quoted = Boolean(load.myBid?.status && load.myBid.status !== 'withdrawn');
                   const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g,' ')) : 'Any vehicle');
                   const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g,' ') ?? 'Freight';
                   const dim = dimensions(load);
@@ -468,26 +468,27 @@ export default function AvailableLoadsPage() {
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
+                  const pickupLabel = [load.pickup_area, load.pickup_postcode_area].filter(Boolean).filter((v,i,arr)=>i===0 || !String(arr[0]).toUpperCase().endsWith(String(v).toUpperCase())).join(", ");
+                  const deliveryLabel = [load.delivery_area, load.delivery_postcode_area].filter(Boolean).filter((v,i,arr)=>i===0 || !String(arr[0]).toUpperCase().endsWith(String(v).toUpperCase())).join(", ");
                   const stops = load.route_stops ?? [];
                   const intermediate = stops.slice(1,-1);
                   const collections = stops.filter(s => s.stop_type === "collection").length;
                   const deliveries = stops.filter(s => s.stop_type === "delivery").length;
                   const routeLabel = stops.length > 2 ? (collections > 1 && deliveries > 1 ? "Multi-stop" : collections > 1 ? "Multi-collection" : deliveries > 1 ? "Multi-drop" : "Multi-stop") : null;
                   return <Fragment key={load.id}>
-                    <ApprovedDriverLoadCard
+                    <CxLoadCard showXDriveContext
                       className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}
-                      from={load.pickup_area}
-                      to={load.delivery_area}
+                      from={pickupLabel}
+                      to={deliveryLabel}
                       pickup={cxTimeParts(load.pickup_datetime)}
                       delivery={cxTimeParts(load.delivery_datetime)}
                       band={<>{routeLabel ? routeLabel + " / " : ""}{serviceLabel}</>}
-                      routeMeta={intermediate.length > 0 ? <details style={{marginTop:8}}><summary style={{cursor:"pointer",color:"#0E3FA9",fontWeight:600}}>{intermediate.length} intermediate {intermediate.length === 1 ? "stop" : "stops"} / {stops.length} total stops</summary><ol style={{paddingLeft:20,margin:"6px 0"}}>{stops.map((stop,index)=><li key={stop.sequence} style={{marginBottom:6}}><strong>{stop.stop_type === "collection" ? "Collection" : stop.stop_type === "delivery" ? "Delivery" : stop.stop_type} / {index === 0 ? load.pickup_area : index === stops.length-1 ? load.delivery_area : stop.area}</strong><div>{stop.window_start ? fmtDate(stop.window_start) : "Time not specified"}{stop.window_end ? " - " + fmtDate(stop.window_end) : ""}</div></li>)}</ol></details> : null}
+                      routeMeta={intermediate.length > 0 ? <details style={{marginTop:8}}><summary style={{cursor:"pointer",color:"#0E3FA9",fontWeight:600}}>{intermediate.length} intermediate {intermediate.length === 1 ? "stop" : "stops"} / {stops.length} total stops</summary><ol style={{paddingLeft:20,margin:"6px 0"}}>{stops.map((stop,index)=><li key={stop.sequence} style={{marginBottom:6}}><strong>{stop.stop_type === "collection" ? "Collection" : stop.stop_type === "delivery" ? "Delivery" : stop.stop_type} / {index === 0 ? pickupLabel : index === stops.length-1 ? deliveryLabel : stop.area}</strong><div>{stop.window_start ? fmtDate(stop.window_start) : "Time not specified"}{stop.window_end ? " - " + fmtDate(stop.window_end) : ""}</div></li>)}</ol></details> : null}
                       posted={load.member.postedBy ?? load.member.name}
                       postedAt={<>{fmtDate(load.exchange_posted_at)}{load.member.memberId ? <> · Member ID: {load.member.memberId}</> : null}</>}
-                      loadId={load.public_reference ?? "XDL-" + load.id.slice(0,8).toUpperCase()}
+                      loadId={"XDL-" + load.id.slice(0,8).toUpperCase()}
                       vehicle={selectedVehicleLabel}
-                      paymentTerms={load.payment_terms ?? 'Not supplied'}
-                      expanded={expanded}
+                                            expanded={expanded}
                       freight={<>
                         <div><span>Job Distance:</span><strong>{jobDistance}</strong></div>
                         <div><span>Weight:</span><strong>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</strong></div>
@@ -502,8 +503,8 @@ export default function AvailableLoadsPage() {
                       notes={<><span>Load Notes:</span><strong>{load.public_quote_notes ?? 'No public quote notes supplied.'}</strong>{load.handling_requirements.length > 0 ? <><span>Requirements:</span><strong>{load.handling_requirements.join(' · ')}</strong></> : null}<span>To Collection:</span><strong>{toCollection}</strong></>}
                       footer={<>
                         <button type="button" className="load-expand xdrive-cx-load-footer__expander" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '▴' : '▾'}</button>
-                        {<button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
-                        <button type="button" className="text-action" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>View Details</button>
+                        {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
+                        <button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button>
                       </>}
                     />
 

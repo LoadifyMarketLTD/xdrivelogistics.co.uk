@@ -10,7 +10,7 @@ import { fetchAllBookingOfferPages } from '../../../lib/bookingOfferPages';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage, isTerminalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import ApprovedDriverQuoteCard from '../_components/ApprovedDriverQuoteCard';
+import CxQuoteCard from '../../components/workspace/OwnerPR807QuoteCard';
 
 type QuoteDirection = 'outgoing' | 'incoming';
 type TabId = 'submitted' | 'awarded';
@@ -33,6 +33,7 @@ type BidRow = {
   poster_archived_at: string | null;
   bidder_archived_at: string | null;
   created_at: string;
+  updated_at: string | null;
   direction: QuoteDirection;
 };
 
@@ -210,15 +211,18 @@ export default function MyQuotesPage() {
   const pendingWithdrawalsRef = useRef<Set<string>>(new Set());
   const [pendingWithdrawals, setPendingWithdrawals] = useState<Set<string>>(new Set());
   const [pendingOfferBidIds,setPendingOfferBidIds] = useState<Set<string>>(new Set());
+  const [offersVerified, setOffersVerified] = useState(false);
 
   const fetchBids = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
     if (refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
     if (!background) setLoading(true);
+    // Fail closed on withdrawing a quote while booking-offer state refreshes.
+    setOffersVerified(false);
     setError('');
 
-    const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at';
+    const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at, updated_at';
     const outgoingRows: Array<Omit<BidRow, 'direction'>> = [];
     let outgoingError = false;
     for (let page = 0; page <= 10000; page++) {
@@ -314,11 +318,15 @@ export default function MyQuotesPage() {
     setOwnJobsById(Object.fromEntries(ownJobs.map((job) => [job.id, job])));
     setCompanyNames(nameMap);
     setBids(allRows);
+    // Render the authenticated quote register without waiting for optional
+    // booking-offer enrichment; sensitive actions remain gated below.
+    setLoading(false);
     const token=readRouteAuthAccessToken();
     if(token){
       try{
         const offers=await fetchAllBookingOfferPages<{bid_id:string;status:string}>('/api/booking-offers',token);
         setPendingOfferBidIds(new Set(offers.filter(offer=>offer.status==='pending').map(offer=>offer.bid_id)));
+        setOffersVerified(true);
       }catch{
         setError(previous=>previous||'Booking offer statuses could not be verified; use Bookings to check current offers.');
       }
@@ -486,17 +494,20 @@ export default function MyQuotesPage() {
           </aside>
 
           <main className="main">
-            <header className="xd-approved-board-header"><div><h1 className="xd-approved-board-title">Quotes</h1><p className="xd-approved-board-subtitle">Submitted &amp; Awarded — real quotation history</p></div></header>
-            <div className="xd-approved-board-kpis xd-quote-kpi-navigation" role="group" aria-label="Quote filters and page size">
-              <button type="button" className="xd-approved-board-kpi" aria-pressed={quoteScope === 'total'} onClick={() => setQuoteScope('total')}><strong>Total Quotes</strong><b>{bids.length}</b><small>All quote records</small></button>
-              <button type="button" className="xd-approved-board-kpi blue" aria-pressed={quoteScope === 'submitted'} onClick={() => { setActiveTab('submitted'); setQuoteScope('submitted'); setSubmittedView('all'); }}><strong>Submitted</strong><b>{bids.filter(bid => quoteBucket(bid) === 'submitted').length}</b><small>Active and historical quotations</small></button>
-              <button type="button" className="xd-approved-board-kpi green" aria-pressed={quoteScope === 'awarded'} onClick={() => { setActiveTab('awarded'); setQuoteScope('awarded'); }}><strong>Awarded</strong><b>{bids.filter(bid => quoteBucket(bid) === 'awarded').length}</b><small>Accepted quotations</small></button>
-              <button type="button" className="xd-approved-board-kpi amber" aria-pressed={quoteScope === 'received'} onClick={() => setQuoteScope('received')}><strong>Received</strong><b>{bids.filter(bid => bid.direction === 'incoming').length}</b><small>Quotes on posted loads</small></button>
-              <label className="xd-approved-board-kpi blue xd-quote-page-size"><strong>Results Per Page</strong><select aria-label="Results Per Page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select><small>Choose 10, 25 or 50</small></label>
-            </div>
+            <header className="workspace-quote-title"><h1>Quotes</h1></header>
+<div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Quotation states">
+  <button type="button" role="tab" aria-selected={quoteScope==='received'} data-active={quoteScope==='received'} onClick={()=>setQuoteScope('received')}>Received ({bids.filter(bid=>bid.direction==='incoming').length})</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='submitted'&&submittedView==='history'} data-active={quoteScope==='submitted'&&submittedView==='history'} onClick={()=>{setActiveTab('submitted');setQuoteScope('submitted');setSubmittedView('history');}}>Archived / Unsuccessful</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='submitted'&&submittedView==='active'} data-active={quoteScope==='submitted'&&submittedView==='active'} onClick={()=>{setActiveTab('submitted');setQuoteScope('submitted');setSubmittedView('active');}}>Submitted ({bids.filter(bid=>quoteBucket(bid)==='submitted').length})</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='awarded'} data-active={quoteScope==='awarded'} onClick={()=>{setActiveTab('awarded');setQuoteScope('awarded');}}>Awarded ({bids.filter(bid=>quoteBucket(bid)==='awarded').length})</button>
+  <button type="button" role="tab" aria-selected={quoteScope==='total'} data-active={quoteScope==='total'} onClick={()=>setQuoteScope('total')}>All Quotes ({bids.length})</button>
+  <span className="cx-quote-state-tabs__action">
+    <label>Per page <select aria-label="Quote results per page" value={pageSize} onChange={event=>setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+  </span>
+</div>
             {error && <div className="vision-note">{error}</div>}
-            <div className="xd-quote-list-tools"><span>{quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
-            {quoteScope === 'submitted' && <div className="xd3150-quote-history-toggle" role="group" aria-label="Submitted quote activity">
+            <div className="cx-quote-result-summary"><span>{quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
+            {quoteScope === 'submitted' && <div className="cx-quote-submitted-view" role="group" aria-label="Submitted quote activity">
               {(['active','history','all'] as const).map(view=><button key={view} type="button" className={submittedView===view?'active':''} aria-pressed={submittedView===view} onClick={()=>setSubmittedView(view)}>{view==='active'?'Active quotes':view==='history'?'Withdrawn / expired / unsuccessful':'All submitted records'}</button>)}
             </div>}
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {quoteScope} quotes found.</span></div> : (
@@ -517,7 +528,7 @@ export default function MyQuotesPage() {
                   const quoteAmount = money(bidPrice, bid.currency || 'GBP');
                   const pendingBookingOffer = bid.direction === 'outgoing' && pendingOfferBidIds.has(bid.id);
                   const fullDetailsRestricted = view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)));
-                  const activeQuote = bid.direction === 'outgoing' && !pendingBookingOffer && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
+                  const activeQuote = offersVerified && bid.direction === 'outgoing' && !pendingBookingOffer && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
                   const footerState = pendingBookingOffer
                     ? `Booking offer pending your acceptance · ${quoteAmount}`
                     : quoteStage === 'unsuccessful'
@@ -531,10 +542,10 @@ export default function MyQuotesPage() {
                           : quoteStage === 'archived'
                             ? `Archived Quote ${quoteAmount}`
                             : bid.direction === 'incoming'
-                              ? `Quote ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`
-                              : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
+                              ? `Quote ${quoteAmount} · last updated ${cxShortWhen(bid.updated_at ?? bid.created_at)}`
+                              : `You Quoted ${quoteAmount} · last updated ${cxShortWhen(bid.updated_at ?? bid.created_at)}`;
 
-                  return <ApprovedDriverQuoteCard
+                  return <CxQuoteCard showXDriveContext
                     key={bid.id}
                     routeFrom={view.pickup}
                     routeTo={view.delivery}
@@ -560,7 +571,7 @@ export default function MyQuotesPage() {
                         <div className="xdrive-cx-quote-table__head"><span>Quote from Member</span><span>Vehicle</span><span>Phone</span><span>Created</span><span>Quote</span><span>ETA</span><span>Distance</span></div>
                         <div className="xdrive-cx-quote-table__row">
                           <strong>{counterpartCompanyId ? <MemberIdentityLink companyId={counterpartCompanyId}>{counterpartName}</MemberIdentityLink> : counterpartName}</strong>
-                          <span>{vehicle}</span><span>{view.postingPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.created_at)}</span><strong>{quoteAmount}</strong>
+                          <span>{vehicle}</span><span>{view.postingPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.updated_at ?? bid.created_at)}</span><strong>{quoteAmount}</strong>
                           <span>{view.pickupEtaMinutes != null ? `${Math.round(view.pickupEtaMinutes)} min` : 'Not Supplied'}</span>
                           <span>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi` : 'Unknown'}</span>
                         </div>
