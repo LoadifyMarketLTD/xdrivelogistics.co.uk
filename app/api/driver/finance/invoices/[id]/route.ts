@@ -80,8 +80,24 @@ export async function GET(
     });
   }
 
+  // Delivery evidence is read-only and scoped to the authorised invoice/company.
+  // Provider acceptance is not proof of recipient receipt.
+  const [deliveryResult, deliveryEventsResult] = await Promise.all([
+    supabaseAdmin.from('invoice_delivery_outbox')
+      .select('provider_message_id, provider_status, provider_event_at, first_provider_attempt_at, completed_at, created_at, last_error')
+      .eq('invoice_id', id).maybeSingle(),
+    supabaseAdmin.from('invoice_delivery_events')
+      .select('event_type, created_at')
+      .eq('invoice_id', id).order('created_at', { ascending: true }),
+  ]);
+  if (deliveryResult.error || deliveryEventsResult.error) {
+    return respond(500, { error: 'Failed to load invoice delivery evidence.' });
+  }
+
   return respond(200, {
     invoice,
+    deliveryEvidence: deliveryResult.data ?? null,
+    deliveryEvents: deliveryEventsResult.data ?? [],
     statusHistory: statusHistoryResult.data ?? [],
     payments: paymentsResult.data ?? [],
     disputes: disputesResult.data ?? [],

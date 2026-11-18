@@ -140,6 +140,8 @@ export async function GET(request: NextRequest) {
 
   return json(200, {
     documents: data ?? [],
+    driverId: driver.driverId,
+    companyId: driver.companyId,
     cleanup: { expiredDeleted: cleanup.deleted },
   });
 }

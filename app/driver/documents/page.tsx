@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
@@ -69,6 +70,7 @@ function canonicalDocumentType(value: string) {
 
 export default function DriverDocumentsPage() {
   const { user } = useAuth();
+  const ownerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const [driverId, setDriverId] = useState<string | null>(null);
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [docs, setDocs] = useState<DriverDoc[]>([]);
@@ -82,6 +84,7 @@ export default function DriverDocumentsPage() {
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [loadError, setLoadError] = useState('');
+  const openingDocument = useRef(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -245,17 +248,35 @@ export default function DriverDocumentsPage() {
   };
 
   const getSignedUrl = async (filePath: string, docId: string) => {
-    if (signedUrls[docId]) {
-      window.open(signedUrls[docId], '_blank', 'noopener,noreferrer');
+    if (!ownerDriver) {
+      if (signedUrls[docId]) {
+        window.open(signedUrls[docId], '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const { data, error } = await supabase.storage.from('driver-docs').createSignedUrl(filePath, 3600);
+      if (error || !data?.signedUrl) { setLoadError('That document could not be opened.'); return; }
+      setSignedUrls(previous => ({ ...previous, [docId]: data.signedUrl }));
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
       return;
     }
-    const { data, error } = await supabase.storage.from('driver-docs').createSignedUrl(filePath, 3600);
-    if (error || !data?.signedUrl) {
-      setLoadError('That document could not be opened.');
-      return;
-    }
-    setSignedUrls((previous) => ({ ...previous, [docId]: data.signedUrl }));
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    if (openingDocument.current) return;
+    const accessToken = readRouteAuthAccessToken();
+    if (!accessToken) { setLoadError('Your session has expired. Please sign in again.'); return; }
+    const tab = window.open('about:blank', '_blank');
+    if (!tab) { setLoadError('Allow pop-ups to view your document.'); return; }
+    tab.opener = null;
+    openingDocument.current = true;
+    setLoadError('');
+    try {
+      const response = await fetch('/api/driver/documents/' + encodeURIComponent(docId) + '/download', { headers: { Authorization: 'Bearer ' + accessToken }, cache: 'no-store' });
+      const result = await response.json().catch(() => null) as {url?: string;error?: string} | null;
+      if (!response.ok || !result?.url) throw Error(result?.error ?? 'That document could not be opened.');
+      const url = new URL(result.url);
+      if (url.protocol !== 'https:' || !url.hostname.endsWith('.supabase.co') || !url.pathname.startsWith('/storage/v1/object/sign/driver-docs/')) throw Error('Unexpected secure document URL.');
+      tab.location.replace(url.toString());
+    } catch (error) {
+      tab.close(); setLoadError(error instanceof Error ? error.message : 'That document could not be opened.');
+    } finally { openingDocument.current = false; }
   };
 
   const openUploadFor = (type: string) => {
