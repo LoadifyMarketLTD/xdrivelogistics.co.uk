@@ -7,6 +7,12 @@ import './canonical3150-quote-tabs.css';
 /** Canonical original 3150 drawer and four-tab navigation: DemoQuotePanel.tsx is the visual source. */
 export type MarketplaceQuoteNowTarget = {
   id: string;
+  companyId?: string | null;
+  reference?: string;
+  stops?: {label:string; area:string; when:string}[];
+  distanceMiles?: number | null;
+  durationMinutes?: number | null;
+
   memberName: string;
   memberCode?: string | null;
   requestedVehicle: string;
@@ -75,7 +81,7 @@ export default function MarketplaceQuoteNowDialog({
   const [validity, setValidity] = useState('24');
   const [draftNotice, setDraftNotice] = useState('');
   const load = {
-    id: target.id, from: target.pickup, to: target.delivery, customer: target.memberName,
+    id: target.id, companyId: target.companyId, reference: target.reference, memberCode: target.memberCode, stops: target.stops, distanceMiles: target.distanceMiles, durationMinutes: target.durationMinutes, from: target.pickup, to: target.delivery, customer: target.memberName,
     vehicle: target.requestedVehicle, pickupDate: target.pickupDate, deliveryDate: target.deliveryDate,
     pickupStart: target.pickupStart, deliveryTime: target.deliveryTime, pallets: target.pallets,
     weight: target.weight, dimensions: target.dimensions, cargo: target.cargo, service: target.service,
@@ -109,7 +115,7 @@ export default function MarketplaceQuoteNowDialog({
   return <div className="xdrive3150-live-quote">
     <div className="xd-quote-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !working) onClose(); }}>
       <section className="xd-quote-panel" role="dialog" aria-modal="true" aria-label="Submit marketplace quote">
-        <header className="xd-quote-top"><h2>Submit Quote - Load {target.id.slice(0,8).toUpperCase()}</h2><button type="button" disabled={working} onClick={onClose} aria-label="Close quote panel">×</button></header>
+        <header className="xd-quote-top"><h2>Submit Quote - Load {target.reference ?? target.id}</h2><button type="button" disabled={working} onClick={onClose} aria-label="Close quote panel">×</button></header>
         <div className="xd-quote-route"><strong>{load.from.toUpperCase()} <span aria-hidden="true">→</span> {load.to.toUpperCase()}</strong><small>{load.pickupDate || 'Date TBC'} | {load.service || 'On Demand'} | Posted by {load.customer}</small></div>
         <nav className="xd-quote-nav" aria-label="Quote details sections">
           {CANONICAL_3150_QUOTE_TABS.map((tab) => <button type="button" key={tab} className={activeTab === tab ? 'active' : ''} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => setActiveTab(tab)}>{tab}</button>)}
@@ -121,10 +127,17 @@ export default function MarketplaceQuoteNowDialog({
             {errorContent}
             <label>Your Price ({currencyValue}) *<div className="xd-quote-price"><span>{currencySymbol}</span><input id="marketplace-quote-amount" type="number" inputMode="decimal" min="0.01" step="0.01" required placeholder="0.00" value={amount} onChange={(event) => onAmountChange(event.target.value)}/></div></label>
             <label>Service Type *<select value={service} onChange={(event) => setService(event.target.value)}><option>Standard</option><option>Same Day</option><option>Next Day</option><option>Express</option></select></label>
-            <label>Vehicle *<select id="marketplace-quote-vehicle" disabled={vehicleLoading} value={vehicleValue} onChange={(event) => onVehicleChange(event.target.value)}>
-              <option value="">{vehicleLoading ? 'Loading active fleet' : vehiclePlaceholder}</option>
-              {vehicleOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
-            </select></label>
+            {vehicleOptions.length > 0 ? (
+              <label>Vehicle *<select id="marketplace-quote-vehicle" disabled={vehicleLoading} value={vehicleValue} onChange={(event) => onVehicleChange(event.target.value)}>
+                <option value="">{vehicleLoading ? 'Loading active fleet' : vehiclePlaceholder}</option>
+                {vehicleOptions.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}
+              </select></label>
+            ) : (
+              <div className="xd-quote-vehicle-autoverify" role="note">
+                <strong>Verified vehicle</strong>
+                <span>Your assigned active vehicle is checked automatically when you submit. An unavailable or incompatible vehicle will prevent the quote.</span>
+              </div>
+            )}
             {selectedVehicleImageSrc ? <img className="xd-quote-selected-vehicle" src={selectedVehicleImageSrc} alt="" aria-hidden="true" /> : null}
             <label>ETA to Collection *<select className="xd-quote-eta" value={eta} required onChange={(event) => setEta(event.target.value)}><option value="">Select ETA</option><option value="ASAP">ASAP</option><option value="ONTIME">On Time</option><option value="15">15 Minutes</option><option value="30">30 Minutes</option><option value="45">45 Minutes</option><option value="60">1 Hour</option><option value="90">1 Hour 30 Minutes</option><option value="120">2 Hours</option></select></label>
             <label>Quote Valid For *<select value={validity} onChange={(event) => setValidity(event.target.value)}><option value="1">1 Hour</option><option value="4">4 Hours</option><option value="12">12 Hours</option><option value="24">24 Hours</option><option value="48">48 Hours</option></select></label>

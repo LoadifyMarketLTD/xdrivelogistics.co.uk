@@ -88,7 +88,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, name, xd_id, phone, contact_name, email, website, address_line1, address_line2, city, postcode, company_type, status, created_at')
+    .select('id, name, xd_id, company_number, vat_number, phone, contact_name, email, website, address_line1, address_line2, city, postcode, company_type, status, created_at')
     .eq('id', companyId)
     .maybeSingle();
 
@@ -200,6 +200,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       companyId: company.id,
       name: company.name,
       memberId: company.xd_id ?? null,
+      companyNumber: company.company_number ?? null,
+      vatNumber: company.vat_number ?? null,
       businessPhone: company.phone ?? null,
       phone2: settings?.secondary_phone ?? null,
       contactName: company.contact_name ?? null,

@@ -6,7 +6,6 @@ import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRest
 import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
@@ -30,6 +29,8 @@ type MarketplaceMember = {
 };
 
 type MarketplaceLoad = {
+  public_reference?: string;
+  route_stops?: {sequence:number;stop_type:string;area:string;window_start:string|null;window_end:string|null}[];
   id: string;
   company_id: string;
   status: string;
@@ -177,7 +178,6 @@ function dimensions(load: MarketplaceLoad) {
 }
 
 export default function AvailableLoadsPage() {
-  const router = useRouter();
   const [loads, setLoads] = useState<MarketplaceLoad[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -455,13 +455,12 @@ export default function AvailableLoadsPage() {
               <MarketplaceLoadMap
                 loads={mapLoads}
                 onQuote={(loadId) => { setViewMode('list'); setExpandedLoadId(loadId); setBidLoadId(loadId); setBidAmount(''); setBidMessage(''); }}
-                onDetails={(loadId) => router.push(`/driver/loads/${loadId}`)}
+                onDetails={(loadId) => { setExpandedLoadId(loadId); setBidLoadId(loadId); setBidAmount(''); setBidMessage(''); }}
               />
             ) : (
               <div className="load-list">
                 {visibleLoads.map((load) => {
                   const expanded = expandAll || expandedLoadId === load.id;
-                  const quoted = Boolean(load.myBid?.status && load.myBid.status !== 'withdrawn');
                   const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g,' ')) : 'Any vehicle');
                   const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g,' ') ?? 'Freight';
                   const dim = dimensions(load);
@@ -469,6 +468,11 @@ export default function AvailableLoadsPage() {
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
+                  const stops = load.route_stops ?? [];
+                  const intermediate = stops.slice(1,-1);
+                  const collections = stops.filter(s => s.stop_type === "collection").length;
+                  const deliveries = stops.filter(s => s.stop_type === "delivery").length;
+                  const routeLabel = stops.length > 2 ? (collections > 1 && deliveries > 1 ? "Multi-stop" : collections > 1 ? "Multi-collection" : deliveries > 1 ? "Multi-drop" : "Multi-stop") : null;
                   return <Fragment key={load.id}>
                     <ApprovedDriverLoadCard
                       className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}
@@ -476,10 +480,11 @@ export default function AvailableLoadsPage() {
                       to={load.delivery_area}
                       pickup={cxTimeParts(load.pickup_datetime)}
                       delivery={cxTimeParts(load.delivery_datetime)}
-                      band={serviceLabel}
+                      band={<>{routeLabel ? routeLabel + " / " : ""}{serviceLabel}</>}
+                      routeMeta={intermediate.length > 0 ? <details style={{marginTop:8}}><summary style={{cursor:"pointer",color:"#0E3FA9",fontWeight:600}}>{intermediate.length} intermediate {intermediate.length === 1 ? "stop" : "stops"} / {stops.length} total stops</summary><ol style={{paddingLeft:20,margin:"6px 0"}}>{stops.map((stop,index)=><li key={stop.sequence} style={{marginBottom:6}}><strong>{stop.stop_type === "collection" ? "Collection" : stop.stop_type === "delivery" ? "Delivery" : stop.stop_type} / {index === 0 ? load.pickup_area : index === stops.length-1 ? load.delivery_area : stop.area}</strong><div>{stop.window_start ? fmtDate(stop.window_start) : "Time not specified"}{stop.window_end ? " - " + fmtDate(stop.window_end) : ""}</div></li>)}</ol></details> : null}
                       posted={load.member.postedBy ?? load.member.name}
                       postedAt={<>{fmtDate(load.exchange_posted_at)}{load.member.memberId ? <> · Member ID: {load.member.memberId}</> : null}</>}
-                      loadId={load.id.slice(0,8).toUpperCase()}
+                      loadId={load.public_reference ?? "XDL-" + load.id.slice(0,8).toUpperCase()}
                       vehicle={selectedVehicleLabel}
                       paymentTerms={load.payment_terms ?? 'Not supplied'}
                       expanded={expanded}
@@ -497,8 +502,8 @@ export default function AvailableLoadsPage() {
                       notes={<><span>Load Notes:</span><strong>{load.public_quote_notes ?? 'No public quote notes supplied.'}</strong>{load.handling_requirements.length > 0 ? <><span>Requirements:</span><strong>{load.handling_requirements.join(' · ')}</strong></> : null}<span>To Collection:</span><strong>{toCollection}</strong></>}
                       footer={<>
                         <button type="button" className="load-expand xdrive-cx-load-footer__expander" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '▴' : '▾'}</button>
-                        {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
-                        <button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button>
+                        {<button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
+                        <button type="button" className="text-action" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>View Details</button>
                       </>}
                     />
 
@@ -516,8 +521,11 @@ export default function AvailableLoadsPage() {
               ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g, ' ')) : 'Any vehicle');
             return {
               id: load.id,
+              reference: "XDL-" + load.id.slice(0,8).toUpperCase(),
+              distanceMiles: load.distance_miles, durationMinutes: load.distance_minutes,
+              stops: (load.route_stops ?? []).map((s,i,all)=>({label: s.stop_type === "collection" ? "Collection" : "Delivery", area: i===0 ? [load.pickup_area,load.pickup_postcode_area].filter(Boolean).join(", ") : i===all.length-1 ? [load.delivery_area,load.delivery_postcode_area].filter(Boolean).join(", ") : s.area, when: s.window_start ? fmtDate(s.window_start)+(s.window_end ? " - "+fmtDate(s.window_end):"") : "Time not specified"})),
               memberName: load.member.postedBy ?? load.member.name,
-              memberCode: load.member.memberId,
+              companyId: load.company_id, memberCode: load.member.memberId,
               pickup: `${load.pickup_area}${load.pickup_postcode_area ? `, ${load.pickup_postcode_area}` : ''}`,
               delivery: `${load.delivery_area}${load.delivery_postcode_area ? `, ${load.delivery_postcode_area}` : ''}`,
               pickupAt: load.pickup_datetime,
@@ -527,7 +535,7 @@ export default function AvailableLoadsPage() {
               weight: load.weight_kg != null ? `${load.weight_kg} kg` : null,
               dimensions: dimensions(load),
               cargo: load.requested_cargo_label ?? load.cargo_type,
-              service: load.service_mode?.replace(/_/g, ' ') ?? 'On Demand',
+              service: ((load.route_stops?.length ?? 0)>2 ? ((load.route_stops ?? []).filter(s=>s.stop_type==='collection').length>1 ? 'Multi-stop / ' : 'Multi-drop / ') : '') + (load.service_mode?.replace(/_/g, ' ') ?? 'On Demand'),
               notes: load.public_quote_notes,
               paymentTerms: load.payment_terms,
               hardPod: load.hard_copy_pod,

@@ -63,3 +63,27 @@
 .xdrive3150-live-quote .xd-quote-panel .xd-quote-grid .xd-quote-form select{min-height:39px!important;height:39px!important;font-size:13px!important;font-weight:800!important;padding:9px!important}
 .xdrive3150-live-quote .xd-quote-panel .xd-quote-grid .xd-quote-form button.xd-quote-submit{min-height:49px!important;height:49px!important;font-size:16px!important;line-height:25px!important;font-weight:850!important;background:#10a529!important;color:#fff!important}
 .xdrive3150-live-quote .xd-quote-panel .xd-quote-grid .xd-quote-form .xd-quote-bottom button{min-height:37px!important;height:37px!important;font-size:11px!important;line-height:18px!important;font-weight:800!important;padding:5px 14px!important}
+
+/* Information tabs only: reuse the approved Quote card system. */
+.xdrive3150-live-quote .xd-unified-tab{padding:13px 17px 24px}
+.xdrive3150-live-quote .xd-unified-tab .xd-quote-info{align-items:start}
+.xdrive3150-live-quote .xd-unified-tab .xd-unified-route{grid-template-columns:minmax(0,1.85fr) minmax(0,1fr)}
+.xdrive3150-live-quote .xd-unified-stack{display:grid;gap:10px;min-width:0}
+.xdrive3150-live-quote .xd-unified-stops{list-style:none;margin:0;padding:0 12px}
+.xdrive3150-live-quote .xd-unified-stops li{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #dce5f0;font-size:13px}
+.xdrive3150-live-quote .xd-unified-stops li:last-child{border:0}
+.xdrive3150-live-quote .xd-unified-stops li p{margin:4px 0}
+.xdrive3150-live-quote .xd-stop-number{display:grid;place-items:center;background:#0e3fa9;color:white;border-radius:50%;width:28px;height:28px;flex:none;font-weight:800}
+.xdrive3150-live-quote .xd-unified-map{padding:0 12px 12px;min-width:0}
+.xdrive3150-live-quote .xd-unified-map .xd-quote-back{margin:0 0 10px}
+@media(max-width:760px){.xdrive3150-live-quote .xd-unified-tab .xd-unified-route{grid-template-columns:1fr}}
+.xdrive3150-live-quote .xd-company-heading{background:white;border:1px solid #d3deed;border-radius:6px;padding:14px 16px;margin-bottom:10px}
+.xdrive3150-live-quote .xd-company-heading h2{margin:0;color:#0b2f6b;font-size:18px}
+.xdrive3150-live-quote .xd-company-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px}
+.xdrive3150-live-quote .xd-company-tabs button{background:white;color:#0b2f6b;border:1px solid #cbd5e1;padding:10px 14px;border-radius:4px;font-weight:700;cursor:pointer}
+.xdrive3150-live-quote .xd-company-tabs button[aria-selected=true]{background:#e5edfc;border-bottom:3px solid #e67e00}
+.xdrive3150-live-quote .xd-company-fields{margin:0;padding:0 12px}
+.xdrive3150-live-quote .xd-company-fields>div{display:grid;grid-template-columns: minmax(120px,40%) 1fr;gap:12px;border-bottom:1px solid #dce5f0;padding:9px 0}
+.xdrive3150-live-quote .xd-company-fields dt{font-weight:600;color:#0b2f6b}
+.xdrive3150-live-quote .xd-company-fields dd{margin:0;overflow-wrap:anywhere}
+.xdrive3150-live-quote .xd-company-item{white-space:pre-wrap;border-top:1px solid #dce5f0}

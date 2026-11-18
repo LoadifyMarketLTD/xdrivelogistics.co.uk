@@ -18,6 +18,12 @@ export type MarketplaceQuoteSubmitPayload = {
 
 type QuoteTarget = {
   id: string;
+  companyId?: string | null;
+  reference?: string;
+  stops?: {label:string; area:string; when:string}[];
+  distanceMiles?: number | null;
+  durationMinutes?: number | null;
+
   memberName: string;
   memberCode?: string | null;
   pickup: string;
@@ -101,9 +107,12 @@ export default function MarketplaceQuoteModal({
   if (!target) return null;
 
   return (
+    <div className="xd-driver-quote-fullscreen">
+      <style>{".xd-driver-quote-fullscreen .xdrive3150-live-quote .xd-quote-panel{width:100vw!important;max-width:none!important;height:100%;border-radius:0;box-shadow:none}"}</style>
     <MarketplaceQuoteNowDialog
       target={{
-        id: target.id,
+        id: target.id, companyId: target.companyId,
+        reference: target.reference, stops: target.stops, distanceMiles: target.distanceMiles, durationMinutes: target.durationMinutes,
         memberName: target.memberName,
         memberCode: target.memberCode,
         requestedVehicle: target.vehicle,
@@ -166,5 +175,6 @@ export default function MarketplaceQuoteModal({
         message: [message.trim(), `Service: ${meta.service}`, `ETA to Collection: ${meta.etaToCollection === 'ONTIME' ? 'On Time' : meta.etaToCollection === 'ASAP' ? 'ASAP' : `${meta.etaToCollection} minutes`}`, `Quote valid for: ${meta.validityHours} hours`].filter(Boolean).join('\n'),
       })}
     />
+    </div>
   );
 }

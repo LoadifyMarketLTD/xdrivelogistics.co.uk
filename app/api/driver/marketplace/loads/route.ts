@@ -1,3 +1,4 @@
+import { townFromPostingAddress } from '../../../../../lib/loadPostingTown';
 import { NextRequest } from 'next/server';
 import { operationalError } from '../../../_lib/operationalError';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
@@ -278,6 +279,15 @@ export async function GET(request: NextRequest) {
   }
 
   const jobIds = jobs.map((job) => String(job.id));
+  const stopsResult = jobIds.length ? await supabaseAdmin.from('job_stops').select('job_id,sequence,stop_type,address,postcode,window_start,window_end').in('job_id', jobIds).order('sequence', { ascending: true }) : { data: [], error: null };
+  if (stopsResult.error) return operationalError({ status: 503, message: 'Marketplace route stops could not be verified. Please retry.', context: 'driver.marketplace.loads.stops', cause: stopsResult.error, retryable: true });
+  const stopsByJob = new Map<string, {sequence:number; stop_type:string; area:string; window_start:string|null; window_end:string|null}[]>();
+  for (const stop of stopsResult.data ?? []) {
+    const key = String(stop.job_id);
+    const rows = stopsByJob.get(key) ?? [];
+    rows.push({sequence:Number(stop.sequence), stop_type:String(stop.stop_type), area:[townFromPostingAddress(String(stop.address ?? ''), String(stop.postcode ?? '')),publicOutcode(stop.postcode)].filter(Boolean).join(', ') || 'Area TBC', window_start:marketplaceText(stop.window_start), window_end:marketplaceText(stop.window_end)});
+    stopsByJob.set(key, rows);
+  }
   const companyIds = [...new Set(
     jobs
       .map((job) => marketplaceText(job.company_id))
@@ -397,6 +407,7 @@ export async function GET(request: NextRequest) {
 
     return {
       ...publicLoad(job, companyById, bidByJobId),
+      route_stops: stopsByJob.get(String(job.id)) ?? [],
       distance_to_pickup_miles: distanceToPickupMiles,
       distance_to_delivery_miles: distanceToDeliveryMiles,
       pickup_eta_minutes: pickupEtaMinutes,
