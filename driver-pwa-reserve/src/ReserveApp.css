@@ -637,3 +637,8 @@
 .rv-operation-screen .rv-delivery-files li{overflow-wrap:anywhere}
 .rv-delivery-page .rv-delivery-upload{border:1px dashed #a9bfd8;background:#f4f6f8;border-radius:12px;padding:14px}
 .rv-booking-timeline .rv-history-check.rv-history-attention{background:#fff4da;color:#854d0e;border:2px solid #f5a300}
+.rv-collection-group{background:#f4f6f8;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin:12px 0}
+.rv-collection-group h4{margin:0 0 12px;color:#0a234f;font-size:15px}
+.rv-collection-group .rv-two{align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.rv-collection-group input{min-width:0;width:100%;box-sizing:border-box}
+.rv-booking-decision{border-top:4px solid #f5a300!important}
