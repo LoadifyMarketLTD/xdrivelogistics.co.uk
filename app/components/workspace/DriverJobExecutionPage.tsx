@@ -10,6 +10,8 @@ import { hasCompletePodEvidence, hasStoredSignature } from '../../../lib/jobs/po
 import { isAreaOnlyStop, navigationDestination, navigationUrl } from '../../../lib/jobs/driverNavigationLinks';
 import { driverBookingScreen } from '../../../lib/jobs/driverBookingScreens';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import OwnerDriverPodFiles from '../../driver/_components/OwnerDriverPodFiles';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import { useDriverLocationPublisher } from '../../hooks/useDriverLocationPublisher';
@@ -207,6 +209,7 @@ const requiresHardCopyPod = (value: string | null | undefined) => {
 export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOnly = false }: { jobId: string; mobilePwa?: boolean; podOnly?: boolean }) {
   const router = useRouter();
   const { user } = useAuth();
+  const ownerWeb = !mobilePwa && resolveWorkspaceRole(user) === 'owner_driver';
   const driverId = user?.driverId?.trim() ?? '';
   const companyId = user?.companyId ?? '';
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
@@ -272,6 +275,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
     setLoading(true);
     setMultiStopsReady(false);
+    if (ownerWeb) { setMultiStops([]); setSheet(null); setShowPodDetails(false); }
     setError('');
     const { data, error: loadError } = await supabase.from('jobs').select('*').eq('id', jobId).eq('assigned_driver_id', driverId).maybeSingle();
     if (loadError || !data) {
@@ -337,7 +341,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       } catch { setMultiStopsReady(false); }
     }
     setLoading(false);
-  }, [authHeader, driverId, jobId]);
+  }, [authHeader, driverId, jobId, ownerWeb]);
 
   useEffect(() => { void loadJob(); }, [loadJob]);
   useEffect(() => {
@@ -1734,7 +1738,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
               </div>
               {sheet?.pod.notes && <div className="driver-order-block"><strong>Delivery notes</strong><span>{sheet.pod.notes}</span></div>}
               {((sheet?.pod.signatureData ?? (typeof job.delivery_signature_data === 'string' ? job.delivery_signature_data : null))?.startsWith('data:image/')) && <div className="driver-order-block"><strong>Recipient signature</strong><img src={sheet?.pod.signatureData ?? String(job.delivery_signature_data)} alt="Recipient signature" style={{ maxWidth: 320, maxHeight: 120, border: '1px solid #cbd5e1', background: '#fff' }} /></div>}
-              <div className="driver-order-block"><strong>POD files</strong>{podPhotoUrls.length ? podPhotoUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noopener noreferrer">Delivery photo {index + 1}</a>) : <span>{sheet?.pod.photoCount ? `${sheet.pod.photoCount} delivery photo(s) recorded` : 'No delivery photo links available'}</span>}</div>
+              {ownerWeb ? <OwnerDriverPodFiles key={job.id} jobId={job.id} photoPaths={deliveryPhotos} authHeader={authHeader}/> : <div className="driver-order-block"><strong>POD files</strong>{podPhotoUrls.length ? podPhotoUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noopener noreferrer">Delivery photo {index + 1}</a>) : <span>{sheet?.pod.photoCount ? `${sheet.pod.photoCount} delivery photo(s) recorded` : 'No delivery photo links available'}</span>}</div>}
               <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setShowPodDetails(false)}>Close POD</ActionButton></div>
             </Panel>
           )}

@@ -10,9 +10,9 @@ const deliveryHelper = read('lib/client/invoiceDelivery.ts');
 const execution = read('app/components/workspace/DriverJobExecutionPage.tsx');
 const diary = read('app/driver/history/page.tsx');
 const finance = read('app/driver/finance/page.tsx');
-const pdfContext = read('lib/server/invoicePdfContext.ts');
+const pdfContext = read('lib/server/ownerInvoicePdfContext.ts');
 
-describe('automatic POD + invoice delivery after invoice creation', () => {
+describe('POD + invoice delivery after confirmed submission', () => {
   it('targets the buyer finance email first and falls back to the company email', () => {
     expect(generate).toContain(".from('company_settings')");
     expect(generate).toContain(".select('finance_email')");
@@ -28,12 +28,13 @@ describe('automatic POD + invoice delivery after invoice creation', () => {
     expect(deliveryHelper).toContain("throw new Error(payload?.error ?? 'Invoice was created but could not be sent.')");
   });
 
-  it('auto-sends after invoice creation from execution, diary and finance surfaces', () => {
+  it('creates drafts without automatic dispatch from execution, diary and finance surfaces', () => {
     for (const source of [execution, diary, finance]) {
-      expect(source).toContain('sendGeneratedInvoice(');
+      expect(source).toContain('/generate-invoice');
+      expect(source).not.toContain('sendGeneratedInvoice(');
     }
-    expect(execution).toContain('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
-    expect(execution).not.toContain('Draft invoice created. Review it before sending.');
+    expect(execution).toContain('Draft invoice created. Review it before sending to the buyer.');
+    expect(execution).not.toContain('Invoice created and sent to the buyer finance contact with POD and signature evidence.');
   });
 
   it('keeps POD and signature evidence inside the generated invoice PDF context', () => {
@@ -44,9 +45,12 @@ describe('automatic POD + invoice delivery after invoice creation', () => {
   });
 
   it('persists a SHA-256 fingerprint for the exact generated PDF attachment', () => {
-    expect(sender).toContain("createHash('sha256').update(pdfBytes).digest('hex')");
+    expect(sender).toContain("createHash('sha256').update(invoiceBytes).digest('hex')");
+    expect(sender).toContain("createHash('sha256').update(podBytes).digest('hex')");
     expect(sender).toContain('content_sha256: pdfSha256');
-    expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }]");
+    expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(invoiceBytes).toString('base64') }");
+    expect(sender).toContain("content: Buffer.from(podBytes).toString('base64')");
+    expect(sender).toContain('validateInvoiceAttachmentSnapshot(emailBody?.attachments');
   });
 
   it('keeps a private issuer copy of the exact delivered invoice', () => {

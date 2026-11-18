@@ -10,7 +10,7 @@ describe('Customer Post Load payment terms contract', () => {
 
   it('shows canonical XDrive payment terms automatically on Post Load', () => {
     expect(form).toContain("const PAYMENT_TERMS = COMPANY_CONFIG.payment.terms");
-    expect(form).toContain("paymentTerms: COMPANY_CONFIG.payment.defaultTerm");
+    expect(form).toContain("paymentTerms: '30 days' as (typeof PAYMENT_TERMS)[number]");
     expect(form).toContain("value={form.paymentTerms}");
     expect(form).toContain("PAYMENT_TERMS.map((term)");
   });
@@ -21,7 +21,7 @@ describe('Customer Post Load payment terms contract', () => {
   });
 
   it('rejects base terms beyond 30 days at the API boundary', () => {
-    const canonical = "z.enum(['Pay now', '14 days', '30 days'])";
+    const canonical = "z.enum(['Pay now', '7 days', '14 days', '30 days'])";
     expect(createRoute).toContain(`paymentTerms: ${canonical}.optional().default('14 days')`);
     expect(createRoute).toContain(`paymentTerms: ${canonical}.optional().nullable()`);
     expect(createRoute).not.toContain("'45 days'");

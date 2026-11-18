@@ -1,8 +1,10 @@
 import { Buffer } from 'node:buffer';
+import { PDFDocument } from 'pdf-lib';
+import { validateInvoiceAttachmentSnapshot } from './invoiceAttachmentSnapshot';
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { buildInvoicePdf } from './invoicePdf';
-import { loadInvoicePdfContext } from './invoicePdfContext';
+import { buildInvoicePdf } from './ownerInvoicePdf';
+import { loadInvoicePdfContext } from './ownerInvoicePdfContext';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../app/api/_lib/supabaseAdmin';
 import { requireDriverFinanceAccess } from '../../app/api/driver/finance/_lib/financeAccess';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../invoiceStatus';
@@ -278,6 +280,8 @@ export async function submitInvoice(
   };
 
   let emailBody = delivery.payload as Record<string, unknown> | null;
+  const previouslyFrozen = Boolean(emailBody);
+  if (!emailBody && delivery.first_provider_attempt_at) return failDelivery(409, 'The frozen delivery snapshot is missing. Finance reconciliation is required before resending.');
   if (!emailBody) {
   const invoiceNumber = cleanHeader(claimedInvoice.invoice_number);
   const jobReference = cleanHeader(claimedInvoice.job_ref);
@@ -408,11 +412,12 @@ export async function submitInvoice(
       customerReference: cleanHeader(claimedInvoice.customer_ref) || null,
       loadId: cleanHeader(claimedInvoice.load_id) || null,
       orderedAt: cleanHeader(claimedInvoice.ordered_at) || null,
-      leftAt: cleanHeader(claimedInvoice.left_at) || null,
-      deliveryNotes: cleanTemplateText(claimedInvoice.delivery_notes, 500) || null,
+      leftAt: pdfContext.leftAt || cleanHeader(claimedInvoice.left_at) || null,
+      deliveryNotes: pdfContext.deliveryNotes || cleanTemplateText(claimedInvoice.delivery_notes, 500) || null,
       pickupLocation: claimedInvoice.pickup_location as string | null,
       pickupDateTime: pdfContext.pickupDateTime ?? claimedInvoice.pickup_datetime as string | null,
       deliveryLocation: claimedInvoice.delivery_location as string | null,
+      deliveredAt: pdfContext.deliveredAt || cleanHeader(claimedInvoice.delivered_at) || null,
       deliveryDateTime: pdfContext.deliveryDateTime || cleanHeader(claimedInvoice.delivered_at) || cleanHeader(claimedInvoice.delivery_datetime) || null,
       recipientName: pdfContext.recipientName || cleanHeader(claimedInvoice.delivery_recipient) || cleanHeader(claimedInvoice.recipient_name) || null,
       cargoDescription: pdfContext.cargoDescription || cleanHeader(claimedInvoice.cargo_summary) || null,
@@ -425,6 +430,11 @@ export async function submitInvoice(
       logoBytes: pdfContext.logoBytes,
       evidenceImages: pdfContext.evidenceImages,
       signatureAttestation: pdfContext.signatureAttestation,
+      podSummary: pdfContext.podSummary,
+      podDetails: pdfContext.podDetails,
+      podHandover: pdfContext.podHandover,
+      podSignatureDataUrl: pdfContext.podSignatureDataUrl,
+      podDeliveryPhotoCount: pdfContext.podDeliveryPhotoCount,
       netAmount,
       vatAmount,
       vatRate,
@@ -440,7 +450,23 @@ export async function submitInvoice(
     );
   }
 
-  if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
+  // Split the generated invoice and its verified POD evidence into independent PDFs.
+  const combined = await PDFDocument.load(pdfBytes).catch(() => null);
+  if (!combined || (claimedInvoice.job_id && (combined.getPageCount() < 3 || !pdfContext.podSummary))) {
+    return failDelivery(409, 'Invoice and signed POD are incomplete; email was not sent.');
+  }
+  const invoiceDocument = await PDFDocument.create();
+  const [invoicePage] = await invoiceDocument.copyPages(combined, [0]);
+  invoiceDocument.addPage(invoicePage);
+  const invoiceBytes = await invoiceDocument.save();
+  let podBytes: Uint8Array | null = null;
+  if (claimedInvoice.job_id) {
+    const podDocument = await PDFDocument.create();
+    const podPages = await podDocument.copyPages(combined, combined.getPageIndices().slice(1));
+    podPages.forEach((page) => podDocument.addPage(page));
+    podBytes = await podDocument.save();
+  }
+  if (!invoiceBytes.byteLength || invoiceBytes.byteLength > 10 * 1024 * 1024 || (podBytes && (!podBytes.byteLength || podBytes.byteLength > 10 * 1024 * 1024))) {
     return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
   }
 
@@ -448,7 +474,7 @@ export async function submitInvoice(
   const storagePath = `${sender.companyId}/${claimedInvoice.id}/${fileName}`;
   const { error: uploadError } = await supabaseAdmin.storage
     .from('invoice-docs')
-    .upload(storagePath, pdfBytes, {
+    .upload(storagePath, invoiceBytes, {
       contentType: 'application/pdf',
       upsert: true,
       cacheControl: '3600',
@@ -465,11 +491,11 @@ export async function submitInvoice(
     .maybeSingle();
   if (existingDocumentError) return failDelivery(500, existingDocumentError.message);
 
-  const pdfSha256 = createHash('sha256').update(pdfBytes).digest('hex');
+  const pdfSha256 = createHash('sha256').update(invoiceBytes).digest('hex');
   const documentValues = {
     file_url: storagePath,
     file_name: fileName,
-    file_size_bytes: pdfBytes.byteLength,
+    file_size_bytes: invoiceBytes.byteLength,
     content_sha256: pdfSha256,
     uploaded_by: sender.userId,
   };
@@ -492,6 +518,26 @@ export async function submitInvoice(
     if (error) return failDelivery(500, error.message);
   }
 
+  if (podBytes) {
+    const podFileName = `${cleanFileName(invoiceNumber)}-POD.pdf`;
+    const podStoragePath = `${sender.companyId}/${claimedInvoice.id}/${podFileName}`;
+    const { error: podUploadError } = await supabaseAdmin.storage.from('invoice-docs').upload(podStoragePath, podBytes, {
+      contentType: 'application/pdf', upsert: true, cacheControl: '3600',
+    });
+    if (podUploadError) return failDelivery(500, `POD PDF storage failed: ${podUploadError.message}`);
+    const { data: existingPod, error: podLookupError } = await supabaseAdmin.from('invoice_documents')
+      .select('id').eq('invoice_id', claimedInvoice.id).eq('doc_type', 'pod_pdf').maybeSingle();
+    if (podLookupError) return failDelivery(503, `POD document schema is not ready: ${podLookupError.message}`);
+    const podDocumentValues = {
+      file_url: podStoragePath, file_name: podFileName, file_size_bytes: podBytes.byteLength,
+      content_sha256: createHash('sha256').update(podBytes).digest('hex'), uploaded_by: sender.userId,
+    };
+    const podWrite = existingPod
+      ? await supabaseAdmin.from('invoice_documents').update(podDocumentValues).eq('id', existingPod.id).eq('company_id', sender.companyId)
+      : await supabaseAdmin.from('invoice_documents').insert({ invoice_id: claimedInvoice.id, company_id: sender.companyId, doc_type: 'pod_pdf', ...podDocumentValues });
+    if (podWrite.error) return failDelivery(503, `POD document registration failed: ${podWrite.error.message}`);
+  }
+
     const senderDisplayName = companyName.replace(/["<>]/g, '').trim() || 'Invoice issuer';
     const issuerCopyEmail = typeof pdfContext.issuerEmail === 'string'
       && validEmail(pdfContext.issuerEmail.trim().toLowerCase())
@@ -507,11 +553,19 @@ export async function submitInvoice(
       subject: resolvedSubject,
       text: resolvedMessage,
       html: messageToHtml(resolvedMessage),
-      attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
+      attachments: [{ filename: fileName, content: Buffer.from(invoiceBytes).toString('base64') }, ...(podBytes ? [{ filename: `${cleanFileName(invoiceNumber)}-POD.pdf`, content: Buffer.from(podBytes).toString('base64') }] : [])],
     };
-    const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
-    if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
+    const generatedAttachments = emailBody.attachments as Array<{ filename: string; content: string }>;
+    if (generatedAttachments.length !== (claimedInvoice.job_id ? 2 : 1)) return failDelivery(409, 'Invoice and POD attachments are incomplete.');
+    const frozenAttachment = generatedAttachments[0];
+    const frozen = await PDFDocument.load(Buffer.from(frozenAttachment.content, 'base64')).catch(() => null);
+    if (!frozen || frozen.getPageCount() !== 1) return failDelivery(409, 'Frozen invoice attachment is incomplete.');
+    const {data: savedSnapshot,error:snapshotError}=await supabaseAdmin.from('invoice_delivery_outbox').update({payload:emailBody}).eq('invoice_id',id).is('payload',null).select('invoice_id').maybeSingle();
+    if (snapshotError || !savedSnapshot) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
   }
+  // Do not rewrite historical frozen combined-PDF deliveries. New job invoices require separate documents.
+  const snapshotError = await validateInvoiceAttachmentSnapshot(emailBody?.attachments, Boolean(claimedInvoice.job_id), previouslyFrozen);
+  if (snapshotError) return failDelivery(409, snapshotError);
   const attemptedAt = new Date().toISOString();
 
   let messageId = delivery.provider_message_id as string | null;

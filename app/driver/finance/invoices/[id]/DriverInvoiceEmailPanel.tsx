@@ -7,6 +7,7 @@ import { DEFAULT_INVOICE_EMAIL_MESSAGE, DEFAULT_INVOICE_EMAIL_SUBJECT, INVOICE_E
 type InvoiceEmailContext = {
   invoiceNumber: string;
   jobReference: string;
+  hasJob: boolean;
   clientName: string;
   clientEmail: string | null;
   invoiceDate: string;
@@ -140,7 +141,7 @@ export default function DriverInvoiceEmailPanel({
     setDraftMessage(companyMessageDefault);
   };
 
-  const previewInvoice = async () => {
+  const previewInvoice = async (document: 'invoice' | 'pod' = 'invoice') => {
     setPreviewing(true);
     setError('');
     setNotice('');
@@ -155,7 +156,7 @@ export default function DriverInvoiceEmailPanel({
     }
 
     try {
-      const response = await fetch(`/api/driver/finance/invoices/${invoiceId}/preview`, {
+      const response = await fetch(`/api/driver/finance/invoices/${invoiceId}/preview?document=${document}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -270,10 +271,11 @@ export default function DriverInvoiceEmailPanel({
                 type="button"
                 style={{ ...secondaryButton, opacity: previewing ? 0.55 : 1 }}
                 disabled={previewing}
-                onClick={() => void previewInvoice()}
+                onClick={() => void previewInvoice('invoice')}
               >
-                {previewing ? 'Opening…' : 'Preview PDF'}
+                {previewing ? 'Opening…' : 'Preview Invoice PDF'}
               </button>
+              {invoice.hasJob && <button type="button" style={{ ...secondaryButton, opacity: previewing ? 0.55 : 1 }} disabled={previewing} onClick={() => void previewInvoice('pod')}>Preview POD PDF</button>}
               {invoice.status === 'Draft' ? (
                 <button
                   type="button"

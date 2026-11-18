@@ -46,8 +46,8 @@ const invoiceEmailTemplate = readFileSync(
 );
 
 describe('XDrive financial payment-term contract', () => {
-  it('exposes only Pay now, 14 days and 30 days as standard payment terms', () => {
-    expect(COMPANY_CONFIG.payment.terms).toEqual(['Pay now', '14 days', '30 days']);
+  it('exposes only the four approved standard payment terms', () => {
+    expect(COMPANY_CONFIG.payment.terms).toEqual(['Pay now', '7 days', '14 days', '30 days']);
     expect(COMPANY_CONFIG.payment.specialExtensionDays).toBe(15);
     expect(XDRIVE_SPECIAL_EXTENSION_DAYS).toBe(15);
   });
@@ -58,6 +58,8 @@ describe('XDrive financial payment-term contract', () => {
     expect(normalizeXDrivePaymentTerm('30 days')).toBe('30 days');
     expect(normalizeXDrivePaymentTerm('45 days')).toBeNull();
     expect(normalizeXDrivePaymentTerm('60 days')).toBeNull();
+    expect(normalizeXDrivePaymentTerm('net 7')).toBe('7 days');
+    expect(paymentTermDays('7 days')).toBe(7);
     expect(paymentTermDays('Pay now')).toBe(0);
     expect(paymentTermDays('14 days')).toBe(14);
     expect(paymentTermDays('30 days')).toBe(30);

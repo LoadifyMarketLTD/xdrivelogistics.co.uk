@@ -360,7 +360,7 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
             {financeOperator && (
               <DriverInvoiceEmailPanel
                 invoiceId={invoiceId}
-                invoice={{ invoiceNumber: invoice.invoice_number, jobReference: invoice.job_ref, clientName: invoice.client_name, clientEmail: invoice.client_email, invoiceDate: invoice.invoice_date, amount: signedInvoiceAmount, currency: invoice.currency, status: invoice.status }}
+                invoice={{ invoiceNumber: invoice.invoice_number, jobReference: invoice.job_ref, hasJob: Boolean(invoice.job_id), clientName: invoice.client_name, clientEmail: invoice.client_email, invoiceDate: invoice.invoice_date, amount: signedInvoiceAmount, currency: invoice.currency, status: invoice.status }}
                 onSent={loadDetail}
               />
             )}
