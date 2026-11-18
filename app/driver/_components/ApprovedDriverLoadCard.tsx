@@ -4,7 +4,7 @@ import type { CxDateParts } from '../../components/workspace/CxLoadCard';
 import CxLoadCard from '../../components/workspace/CxLoadCard';
 
 export default function ApprovedDriverLoadCard({
-  from,to,pickup,delivery,band,posted,postedAt,loadId,vehicle,
+  from,to,routeMeta,pickup,delivery,band,posted,postedAt,loadId,vehicle,
   expanded=false,freight,commercial,notes,footer,className='',dataState,paymentTerms,
 }:{
   from:ReactNode;to:ReactNode;routeMeta?:ReactNode;
@@ -14,7 +14,7 @@ export default function ApprovedDriverLoadCard({
   footer:ReactNode;className?:string;dataState?:string;paymentTerms?:ReactNode;
 }) {
  return <CxLoadCard
-  from={from} to={to} pickup={pickup} delivery={delivery} band={band}
+  from={from} to={to} routeMeta={routeMeta} pickup={pickup} delivery={delivery} band={band}
   posted={posted} postedAt={postedAt} loadId={loadId} vehicle={vehicle}
   paymentTerms={paymentTerms} footer={footer} expanded={expanded}
   dataState={dataState} className={`xd-approved-live-card ${className}`}
