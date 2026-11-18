@@ -68,6 +68,9 @@ await db.query('INSERT INTO storage.objects(bucket_id,name) VALUES ($1,$2),($1,$
 await db.query('DELETE FROM storage.objects WHERE name=$1', [`${validPrefix}/photos/return.png`]);
 await decisionBlocked('MISSING_RETURN_PHOTO_OBJECT');
 await db.query('INSERT INTO storage.objects(bucket_id,name) VALUES ($1,$2)', ['pod-photos', `${validPrefix}/photos/return.png`]);
+await db.query('DELETE FROM storage.objects WHERE name=$1', [`${validPrefix}/signature/signed.png`]);
+await decisionBlocked('MISSING_RETURN_SIGNATURE_OBJECT');
+await db.query('INSERT INTO storage.objects(bucket_id,name) VALUES ($1,$2)', ['pod-photos', `${validPrefix}/signature/signed.png`]);
 const approved=await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'approved','Physical return evidenced') AS result`,[request,ownerActor]);
 if(approved.rows[0].result.status!=='approved')throw Error('approval missing');
 const after=await db.query(`SELECT status FROM jobs WHERE id=$1`,[ids.job]);if(after.rows[0].status!=='cancelled')throw Error('job not cancelled');
