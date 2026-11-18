@@ -97,6 +97,8 @@ const availableQuarterHourSlots = (date: string, now: Date | null) => {
 
 type AdditionalStop = {
   id: string;
+  timeMode?: string;
+  endTime?: string;
   type: 'collection' | 'delivery';
   date: string;
   time: string;
@@ -131,6 +133,7 @@ type LoadClonePrefill = {
 type LoadClonePrefillResponse = { prefill?: LoadClonePrefill; notice?: string; error?: string };
 
 const createAdditionalStop = (): AdditionalStop => ({
+  timeMode: 'ASAP',
   id: crypto.randomUUID(),
   type: 'delivery',
   date: '',
@@ -245,8 +248,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [smartReadFeedback, setSmartReadFeedback] = useState('');
   const [fixedPriceError, setFixedPriceError] = useState(false);
   const [showOptional, setShowOptional] = useState(true);
-  const [pickupMode, setPickupMode] = useState<'Between' | 'At' | 'Before' | 'ASAP'>('Between');
-  const [deliveryMode, setDeliveryMode] = useState<'ASAP' | 'At' | 'By' | 'Between'>('ASAP');
+  const [pickupMode, setPickupMode] = useState<'Between' | 'At' | 'Before' | 'ASAP' | 'On Time'>('Between');
+  const [deliveryMode, setDeliveryMode] = useState<'ASAP' | 'At' | 'By' | 'Between' | 'On Time'>('ASAP');
   const [pickupEnd, setPickupEnd] = useState('');
   const [deliveryEnd, setDeliveryEnd] = useState('');
   const [jobDescription, setJobDescription] = useState('Deliver Direct');
@@ -439,7 +442,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
   const effectivePickupTime = pickupMode === 'ASAP' ? availableQuarterHourSlots(form.pickupDate, clockNow)[0] ?? '' : form.pickupTime;
   const effectiveDeliveryTime = deliveryMode === 'ASAP' ? '' : form.deliveryTime;
-  const scheduleError = pickupMode === 'Between' && !pickupEnd ? 'Choose the end of the collection window.' : deliveryMode === 'Between' && !deliveryEnd ? 'Choose the end of the delivery window.' : '';
+  const invalidExtraWindow = additionalStops.some(stop => stop.timeMode === 'Between' && (!stop.time || !stop.endTime || stop.endTime <= stop.time));
+  const scheduleError = invalidExtraWindow ? 'Choose a valid additional stop time window.' : pickupMode === 'Between' && !pickupEnd ? 'Choose the end of the collection window.' : deliveryMode === 'Between' && !deliveryEnd ? 'Choose the end of the delivery window.' : '';
   const collectionErrors = validateStop({
     date: form.pickupDate,
     time: effectivePickupTime,
@@ -454,6 +458,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     date: form.deliveryDate,
     time: effectiveDeliveryTime,
     allowAsap: deliveryMode === 'ASAP',
+    requireDate: deliveryMode === 'On Time',
+    requireTime: deliveryMode === 'On Time',
     postcode: form.deliveryPostcode,
     address: form.deliveryAddress,
     minimumDate: minimumRouteDate || undefined,
@@ -461,7 +467,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   });
   const additionalStopErrors = additionalStops.map((stop) => validateStop({
     date: stop.date,
-    time: stop.time,
+    time: stop.timeMode === 'ASAP' ? '' : stop.time,
+    allowAsap: stop.timeMode === 'ASAP',
+    requireDate: stop.timeMode === 'On Time',
+    requireTime: stop.timeMode === 'On Time',
     postcode: stop.postcode,
     address: stop.address,
     minimumDate: minimumRouteDate || undefined,
@@ -634,7 +643,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             postcode: normalizePostcode(stop.postcode),
             contact: stop.contact || null,
             phone: stop.phone || null,
-            dateTime: dateTime(stop.date, stop.time),
+            dateTime: dateTime(stop.date, stop.timeMode === 'ASAP' ? '' : stop.time),
+            timeMode: stop.timeMode ?? 'At',
+            endDateTime: stop.timeMode === 'Between' ? dateTime(stop.date, stop.endTime ?? '') : null,
             instructions: stop.instructions || null,
           })),
           vehicleLabel: form.vehicle,
@@ -1214,6 +1225,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                     </label>
                     <StopFields
                       title={stop.type === 'collection' ? 'Collection stop' : 'Delivery stop'}
+                      timeMode={stop.timeMode ?? 'At'}
+                      onTimeMode={(value) => updateAdditionalStop(stop.id, {timeMode:value})}
+                      endTime={stop.endTime}
+                      onEndTime={(value) => updateAdditionalStop(stop.id, {endTime:value})}
                       date={stop.date}
                       time={stop.time}
                       postcode={stop.postcode}
@@ -1484,7 +1499,7 @@ function StopFields({
         </label>
       </div>
       {onTimeMode && <div className="approved-postload-time-modes" role="group" aria-label={`${title} time mode`}>
-        {(pickup ? ['Between', 'At', 'Before', 'ASAP'] : ['ASAP', 'At', 'By', 'Between']).map((value) => <button type="button" key={value} aria-pressed={timeMode === value} onClick={() => onTimeMode(value)}>{value}</button>)}
+        {(pickup ? ['Between', 'At', 'Before', 'ASAP', 'On Time'] : ['ASAP', 'On Time', 'At', 'By', 'Between']).map((value) => <button type="button" key={value} aria-pressed={timeMode === value} onClick={() => onTimeMode(value)}>{value}</button>)}
       </div>}
       <div className="approved-postload-schedule-fields">
         <label style={labelStyle}>{pickup ? 'Collection' : 'Delivery'} date{requiredDate ? ' *' : ''}

@@ -26,6 +26,8 @@ const additionalStopSchema = z.object({
   contact: optionalText,
   phone: optionalText,
   dateTime: z.string().trim().optional().nullable(),
+  timeMode: z.enum(["ASAP","On Time","At","Before","By","Between"]).optional(),
+  endDateTime: z.string().trim().optional().nullable(),
   instructions: optionalText,
 });
 
@@ -881,7 +883,8 @@ export async function POST(request: NextRequest) {
         contact_name: stop.contact || null,
         contact_phone: stop.phone || null,
         window_start: stop.dateTime || null,
-        instructions: stop.instructions || null,
+        window_end: stop.endDateTime || null,
+        instructions: [stop.timeMode ? "Schedule: "+stop.timeMode : null, stop.instructions].filter(Boolean).join("\n") || null,
       })),
       {
         job_id: createdJob.id,
