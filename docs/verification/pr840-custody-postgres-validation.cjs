@@ -60,6 +60,9 @@ await db.query(`UPDATE job_stops SET handover=coalesce(handover,'{}'::jsonb)||$2
 await decisionBlocked('CROSS_JOB_POD');
 const validPrefix=`${ids.company}/${ids.job}/stops/${follow}`;
 await db.query(`UPDATE job_stops SET handover=coalesce(handover,'{}'::jsonb)||$2::jsonb WHERE id=$1`,[follow,JSON.stringify({recipientName:'Warehouse recipient',signaturePath:`${validPrefix}/signature/signed.png`,photoPaths:[`${validPrefix}/photos/return.png`]})]);
+await db.query(`UPDATE job_stops SET handover=coalesce(handover,'{}'::jsonb)||$2::jsonb WHERE id=$1`,[follow,JSON.stringify({photoPaths:[]})]);
+await decisionBlocked('EMPTY_RETURN_PHOTOS');
+await db.query(`UPDATE job_stops SET handover=coalesce(handover,'{}'::jsonb)||$2::jsonb WHERE id=$1`,[follow,JSON.stringify({photoPaths:[`${validPrefix}/photos/return.png`]})]);
 await decisionBlocked('MISSING_STORAGE_OBJECTS');
 await db.query('INSERT INTO storage.objects(bucket_id,name) VALUES ($1,$2),($1,$3)', ['pod-photos', `${validPrefix}/signature/signed.png`, `${validPrefix}/photos/return.png`]);
 await db.query('DELETE FROM storage.objects WHERE name=$1', [`${validPrefix}/photos/return.png`]);
