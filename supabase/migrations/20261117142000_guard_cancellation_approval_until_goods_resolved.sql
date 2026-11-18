@@ -81,6 +81,8 @@ BEGIN
       WHERE d.id = v_job.assigned_driver_id
         AND d.user_id = p_actor_user_id
         AND d.status = 'active'
+        AND d.company_id = v_request.carrier_company_id
+        AND v_job.assigned_company_id = v_request.carrier_company_id
     ) THEN
       v_actor_company_id := v_request.carrier_company_id;
       v_actor_party := 'carrier';

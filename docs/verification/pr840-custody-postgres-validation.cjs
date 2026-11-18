@@ -40,6 +40,13 @@ await db.query(`UPDATE jobs SET status='allocated',current_status='allocated' WH
 await db.query(`INSERT INTO company_memberships(user_id,company_id,status,role_in_company) VALUES($1,$2,'active','owner')`,[ownerActor,owner]);
 await db.query(`INSERT INTO job_cancellation_requests(id,job_id,status,owner_company_id,carrier_company_id,requester_party) VALUES($1,$2,'pending',$3,$4,'carrier')`,[request,ids.job,owner,ids.company]);
 await db.query(`INSERT INTO loads(job_id,status) VALUES($1,'allocated')`,[ids.job]);
+const spoofRequest='00000000-0000-4000-8000-000000000011',foreignCompany='00000000-0000-4000-8000-000000000012';
+await db.query(`INSERT INTO job_cancellation_requests(id,job_id,status,owner_company_id,carrier_company_id,requester_party) VALUES($1,$2,'pending',$3,$4,'load_owner')`,[spoofRequest,ids.job,owner,ids.company]);
+await db.query(`UPDATE drivers SET company_id=$1 WHERE id=$2`,[foreignCompany,ids.driver]);
+try{await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'rejected','Unauthorised carrier')`,[spoofRequest,ids.actor]);throw Error('foreign driver allowed to decide')}catch(e){if(e.message==='foreign driver allowed to decide')throw e;console.log('FOREIGN_CARRIER_DRIVER_DENIED_OK')}
+await db.query(`UPDATE drivers SET company_id=$1 WHERE id=$2`,[ids.company,ids.driver]);
+const validDriver=await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'rejected','Assigned carrier declines') AS result`,[spoofRequest,ids.actor]);
+if(validDriver.rows[0].result.status!=='rejected')throw Error('assigned driver decision failed');console.log('ASSIGNED_CARRIER_DRIVER_ALLOWED_OK');
 async function decisionBlocked(label){try{await db.query(`SELECT public.decide_awarded_job_cancellation_atomic($1,$2,'approved','Confirmed')`,[request,ownerActor]);throw Error(label+' accepted')}catch(e){if(e.message===label+' accepted')throw e;console.log(label+'_REJECTED_OK')}}
 await decisionBlocked('INCOMPLETE_RETURN');
 await db.query(`UPDATE job_stops SET status='completed',completed_at=now() WHERE id=$1`,[follow]);
