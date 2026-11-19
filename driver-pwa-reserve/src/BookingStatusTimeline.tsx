@@ -16,20 +16,21 @@ const str=(value:unknown)=>typeof value==='string'?value:'';
 type AuditEvent={status:string;at:string;notes?:string};
 const needsAttention=(status:string)=>/cancel|exception|refused|incorrect|damaged|skipped|awaiting|no unloading|return required/i.test(status);
 
-function stopLabel(stop:LiveStop,index:number){
+export function stopLabel(stop:LiveStop){
   if(stop.handover?.stopKind==='return')return 'Return Stop';
   if(stop.handover?.stopKind==='redirect')return 'Redirected Stop';
-  return `${stop.type==='collection'?'Collection':'Delivery'} Stop ${index+1}`;
+  return `${stop.type==='collection'?'Collection':'Delivery'} Stop ${stop.sequence}`;
 }
 
-function stopAuditEvents(job:LiveJob):AuditEvent[]{
-  const route=job.routeStops||[];
+export function stopAuditEvents(job:LiveJob):AuditEvent[]{
+  const route=[...(job.routeStops||[])].sort((a,b)=>a.sequence-b.sequence);
   const final=route.at(-1);
   const dynamicEnd=final?.handover?.stopKind==='return'||final?.handover?.stopKind==='redirect';
-  const stops=route.length>2?route.slice(1,dynamicEnd?undefined:-1):dynamicEnd?route.slice(1):[];
+  const modernRoute=route.length>2&&route.some(stop=>stop.handover?.version===3);
+  const stops=modernRoute?route:route.length>2?route.slice(1,dynamicEnd?undefined:-1):dynamicEnd?route.slice(1):[];
   const result:AuditEvent[]=[];
-  stops.forEach((stop,index)=>{
-    const name=stopLabel(stop,index);
+  stops.forEach(stop=>{
+    const name=stopLabel(stop);
     if(stop.enRouteAt)result.push({status:`On My Way to ${name}`,at:stop.enRouteAt});
     if(stop.arrivedAt)result.push({status:`On Site – ${name}`,at:stop.arrivedAt});
     const exception=obj(stop.handover?.exception);
