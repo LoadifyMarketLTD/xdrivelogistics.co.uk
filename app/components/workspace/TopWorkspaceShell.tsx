@@ -3,7 +3,7 @@
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import CompanyAdminSidebar from './CompanyAdminSidebar';
 import companySidebarStyles from './CompanyAdmin5301Sidebar.module.css';
-import {usesMasterAdminSidebar,usesMasterCommercialSidebar} from './companyAdmin5301Navigation';
+import {usesMasterAdminSidebar,usesMasterCommercialSidebar,usesMasterDriverSidebar} from './companyAdmin5301Navigation';
 import { composeCompanyAdminSidebarNav } from './companyAdminSidebarNav';
 import CompanyFleetNavigation from './CompanyFleetNavigation';
 import {fleetHubGroupId} from './companyFleetNavigationModel';
@@ -604,6 +604,7 @@ export default function TopWorkspaceShell({
   const companySidebarScope = companyAdminSidebar && role === 'company_admin' && !fixtureCompanyName;
   const masterAdminSidebarScope=usesMasterAdminSidebar(role,companyAdminSidebar,Boolean(fixtureCompanyName));
   const masterCommercialSidebarScope=usesMasterCommercialSidebar(role,masterCommercialSidebar,Boolean(fixtureCompanyName));
+  const masterDriverSidebarScope=usesMasterDriverSidebar(role,Boolean(fixtureCompanyName))&&Boolean(pathname==='/driver'||pathname?.startsWith('/driver/'));
 
   const nav = useMemo(() => {
     if (!workspaceRoleReady) return [];
@@ -745,7 +746,7 @@ export default function TopWorkspaceShell({
       return composeCompanyAdminSidebarNav(filterWorkspaceNavByAccess(base, role, user));
     }
     const accessibleBase = filterWorkspaceNavByAccess(base, role, user);
-    if(masterAdminSidebarScope)return accessibleBase;
+    if(masterAdminSidebarScope||masterDriverSidebarScope)return accessibleBase;
 
     if (role === 'broker') {
       const preferred = filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user);
@@ -771,7 +772,7 @@ export default function TopWorkspaceShell({
     }
 
     return accessibleBase;
-  }, [role, user, workspaceRoleReady, companySidebarScope, masterAdminSidebarScope]);
+  }, [role, user, workspaceRoleReady, companySidebarScope, masterAdminSidebarScope, masterDriverSidebarScope]);
   const [companyName, setCompanyName] = useState(() => fixtureCompanyName ?? 'XDrive Logistics');
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -1085,8 +1086,8 @@ export default function TopWorkspaceShell({
         </div>
       </header>
 
-      {(masterAdminSidebarScope||masterCommercialSidebarScope) ? <div className={companySidebarStyles.body}>
-        <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} pathname={pathname??'/admin'} onPrefetch={prefetchRoute} homeHref={companySidebarScope?undefined:definition.homeHref} workspaceLabel={companySidebarScope?'Company Admin':definition.label}/>
+      {(masterAdminSidebarScope||masterCommercialSidebarScope||masterDriverSidebarScope) ? <div className={companySidebarStyles.body}>
+        <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} pathname={pathname??'/admin'} onPrefetch={prefetchRoute} homeHref={companySidebarScope?undefined:masterDriverSidebarScope?"/driver":definition.homeHref} workspaceLabel={companySidebarScope?'Company Admin':definition.label}/>
         <div className={companySidebarStyles.content}>
           <WorkspaceRestrictionBanner role={role}/>
           <OperationalPostcodeAreaResolver/>

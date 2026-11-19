@@ -25,6 +25,7 @@ import { readRouteAuthAccessToken } from '../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
 import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
+import master5301 from '../components/workspace/master5301Dashboard.module.css';
 
 type DriverProfile = {
   availability_status: string | null;
@@ -478,10 +479,11 @@ function DriverDashboardContent() {
         {transitionError ? <AlertBanner tone="danger">{transitionError}</AlertBanner> : null}
         {transitionMessage ? <AlertBanner tone="success">{transitionMessage}</AlertBanner> : null}
 
-        {!ownerDriver ? <div className="driver-owner-parity-grid xdrive-owner-dashboard-grid">
+        {!ownerDriver ? <div data-master-dashboard="5301" className={"driver-owner-parity-grid xdrive-owner-dashboard-grid "+master5301.masterGrid}>
+        <div className={master5301.masterColumn}>
         <OperationalCard
           title="Reports & Statistics"
-          subtitle="Execution status and readiness."
+          subtitle="Your current job, next action and next booking."
           className="driver-reports-card"
           actions={(
             <ActionButton
@@ -580,6 +582,8 @@ function DriverDashboardContent() {
           </div>
         </section>
 
+        </div>
+        <div className={master5301.masterColumn}>
         <section className="driver-dashboard-register driver-next-booking-card">
           <div className="driver-dashboard-register__head">
             <div>
@@ -634,6 +638,7 @@ function DriverDashboardContent() {
             </button>
           </div>
         </section>
+        </div>
         </div> : null}
 
         {ownerDriver ? (
@@ -798,6 +803,6 @@ function DriverDashboardContent() {
 export default function DriverDashboard(){
   const { user } = useAuth();
   const workspace = resolveWorkspaceRole(user);
-  if (workspace === 'owner_driver') return <DriverDashboardContent/>;
+  if (workspace === 'owner_driver' || workspace === 'driver') return <DriverDashboardContent/>;
   return <MasterWorkspace role="Company Driver" authenticated dashboard={<DriverDashboardContent/>}/>;
 }

@@ -1,0 +1,9 @@
+import {describe,it,expect} from 'vitest';
+import {getVisibleWorkspaceNav} from '../lib/workspaceRole';
+import {organisationForAdminRole5301,usesMasterDriverSidebar,activeCompany5301Href} from '../app/components/workspace/companyAdmin5301Navigation';
+import {readFileSync} from 'node:fs';
+describe('5301 employed driver presentation',()=>{
+ it('only enables employed driver and not owner driver or platform owner',()=>{expect(usesMasterDriverSidebar('driver',false)).toBe(true);expect(usesMasterDriverSidebar('driver',true)).toBe(false);for(const role of ['owner_driver','platform_owner','customer','company_admin'] as const)expect(usesMasterDriverSidebar(role,false)).toBe(false)});
+ it('retains actual execution destinations without adding commercial or finance authority',()=>{const nav=getVisibleWorkspaceNav('driver');const groups=organisationForAdminRole5301(nav,'/driver');const links=groups.flatMap(g=>g.items);expect(groups[0].items[0].href).toBe('/driver');expect(links.map(i=>i.href).sort()).toEqual([...new Set(nav.flatMap(g=>g.items.map(i=>i.href)))].sort());for(const href of ['/driver/loads','/driver/quotes','/driver/finance','/driver/post-load'])expect(links.some(i=>i.href===href)).toBe(false);expect(activeCompany5301Href(nav,'/driver/jobs/123','','/driver')).toBe('/driver/jobs');expect(activeCompany5301Href(nav,'/driver/unknown','','/driver')).toBeNull()});
+ it('limits master execution render to non-owner branch and preserves assigned job filter',()=>{const page=readFileSync('app/driver/page.tsx','utf8');expect(page).toContain('{!ownerDriver ? <div data-master-dashboard="5301"');expect(page).toContain('filterJobsForDriver(data.jobs, { driverId: user?.driverId, ownerDriver })');expect(page).toContain("if (workspace === 'owner_driver' || workspace === 'driver') return <DriverDashboardContent/>;");expect(page).toContain("if (!ownerDriver || !isSupabaseConfigured) return;");});
+});

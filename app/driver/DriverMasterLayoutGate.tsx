@@ -20,6 +20,7 @@ export default function DriverMasterLayoutGate({children}:{children:ReactNode}){
  const pathname=usePathname();
  const {user}=useAuth();
  const workspace=resolveWorkspaceRole(user);
+ if(workspace==='driver'&&pathname!=='/driver/post-load')return <AuthenticatedMasterShell>{children}</AuthenticatedMasterShell>;
  if(pathname==='/driver' && workspace!=='owner_driver')return <>{children}</>;
  const role=workspace==='owner_driver'?'Owner Driver':'Company Driver';
  const section=pathname.split('/')[2]||'';

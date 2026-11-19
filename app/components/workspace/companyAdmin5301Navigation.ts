@@ -13,6 +13,7 @@ const sections=[
 const ownerRoutes:Record<string,string>={'/admin':'/driver','/admin/action-centre':'/driver/action-centre','/admin/post-load':'/driver/post-load','/admin/posted-loads':'/driver/posted-loads','/admin/marketplace':'/driver/loads','/admin/exchange':'/driver/quotes','/admin/bids':'/driver/quotes','/admin/quotes':'/driver/quotes','/admin/won-work':'/driver/won-work','/admin/jobs':'/driver/jobs','/admin/diary':'/driver/history','/admin/live-availability':'/driver/availability/live','/admin/fleet/returns':'/driver/returns','/admin/freight-vision':'/driver/freight-vision','/admin/pod':'/driver/documents','/admin/fleet/vehicles':'/driver/fleet','/admin/drivers':'/driver/drivers','/admin/vehicles':'/driver/vehicles','/admin/fleet/resources':'/driver/drivers-vehicles','/admin/documents':'/driver/documents','/admin/invoices':'/driver/finance','/admin/finance/carrier-invoices':'/driver/finance','/admin/finance/customer-invoices':'/driver/finance','/admin/finance/statements':'/driver/finance','/admin/network-tools':'/driver/network','/admin/marketplace/directory':'/driver/directory','/admin/finance/reports':'/driver/reports','/admin/messages':'/driver/messages','/admin/notifications':'/driver/notifications','/admin/event-log':'/driver/event-log','/admin/settings':'/driver/settings','/admin/settings/billing':'/driver/settings/billing'};
 const masterAdminRoles:ReadonlySet<WorkspaceRole>=new Set(['company_owner','company_admin','carrier_admin','fleet_manager','dispatcher','finance','compliance','viewer']);
 export function usesMasterAdminSidebar(role:WorkspaceRole,enabled:boolean,fixture:boolean){return enabled&&!fixture&&masterAdminRoles.has(role);}
+export function usesMasterDriverSidebar(role:WorkspaceRole,fixture:boolean){return !fixture&&role==='driver';}
 export function usesMasterCommercialSidebar(role:WorkspaceRole,enabled:boolean,fixture:boolean){return enabled&&!fixture&&(role==='broker'||role==='customer');}
 export function organisationForAdminRole5301(groups:readonly WorkspaceNavGroup[],homeHref:string):WorkspaceNavGroup[]{
  const used=new Set<string>();
@@ -25,17 +26,17 @@ export function organisationForAdminRole5301(groups:readonly WorkspaceNavGroup[]
  for(const item of clean.flatMap(group=>group.items)){
    if(item.href===homeHref)continue;
    const original=item.href.split('?')[0];
-   const p=original.replace(/^\/(broker|customer)(?=\/|$)/,'/admin');
+   const p=original.replace(/^\/(broker|customer|driver)(?=\/|$)/,'/admin');
    let label='More';
    if(p==='/admin/action-centre')label='Overview';
    else if(/^\/admin\/(post-load|posted-loads|loads|enquiries|marketplace|exchange|bids|quotes|won-work|bulk-import)$/.test(p))label='Commercial';
-   else if(/^\/admin\/(jobs|bookings|tracking|diary|collections|deliveries|live-availability|freight-vision|pod|pod-review|incidents|disputes|updates)(\/|$)/.test(p)||/^\/admin\/fleet\/(jobs|assignments|active-jobs|positions|returns|availability|future-availability)(\/|$)/.test(p))label='Operations';
+   else if(/^\/admin\/(jobs|bookings|tracking|diary|history|availability|returns|freight-vision|nearby|load-alerts|collections|deliveries|live-availability|freight-vision|pod|pod-review|incidents|disputes|updates)(\/|$)/.test(p)||/^\/admin\/fleet\/(jobs|assignments|active-jobs|positions|returns|availability|future-availability)(\/|$)/.test(p))label='Operations';
    else if(/^\/admin\/(documents|compliance)(\/|$)/.test(p)||p==='/admin/fleet/compliance')label='Compliance';
    else if(/^\/admin\/(fleet|drivers|vehicles|drivers-vehicles|team|dispatchers)(\/|$)/.test(p))label='My resources';
    else if(/^\/admin\/(finance|invoices)(\/|$)/.test(p))label='Finance';
-   else if(/^\/admin\/(network-tools|marketplace\/directory|network|carrier-network|customers|reports|margins)(\/|$)/.test(p))label='Business';
+   else if(/^\/admin\/(network-tools|marketplace\/directory|network|carrier-network|directory|customers|reports|margins)(\/|$)/.test(p))label='Business';
    else if(/^\/admin\/(messages|notifications|event-log)(\/|$)/.test(p))label='Communication';
-   else if(/^\/admin\/(settings|profile|support|account)(\/|$)/.test(p))label='Account';
+   else if(/^\/admin\/(settings|profile|support|account|change-password)(\/|$)/.test(p))label='Account';
    add(label,item);
  }
  return order.flatMap(label=>{const items=partition.get(label);return items?[{id:'master-role-'+label,label,items}]:[]});
@@ -51,6 +52,6 @@ export function organisationForCompany5301(groups:readonly WorkspaceNavGroup[]):
 export function activeCompany5301Href(groups:readonly WorkspaceNavGroup[],pathname:string,search:string,homeHref?:string):string|null{
  const fleet=groups.find(g=>g.id===fleetHubGroupId);if(fleetHubContains(fleet,pathname))return fleetHubHref;
  const params=new URLSearchParams(search);
- const matches=(homeHref?organisationForAdminRole5301(groups,homeHref):organisationForCompany5301(groups)).flatMap(g=>g.items).filter(item=>{const [path,query]=item.href.split('?');if((path==='/admin'||path==='/broker'||path==='/customer')&&pathname!==path)return false;if(pathname!==path&&!pathname.startsWith(path+'/'))return false;return !query||(pathname===path&&[...new URLSearchParams(query)].every(([k,v])=>params.get(k)===v));});
+ const matches=(homeHref?organisationForAdminRole5301(groups,homeHref):organisationForCompany5301(groups)).flatMap(g=>g.items).filter(item=>{const [path,query]=item.href.split('?');if((path==='/admin'||path==='/broker'||path==='/customer'||path==='/driver')&&pathname!==path)return false;if(pathname!==path&&!pathname.startsWith(path+'/'))return false;return !query||(pathname===path&&[...new URLSearchParams(query)].every(([k,v])=>params.get(k)===v));});
  return matches.sort((a,b)=>b.href.split('?')[0].length-a.href.split('?')[0].length||Number(b.href.includes('?'))-Number(a.href.includes('?')))[0]?.href??null;
 }
