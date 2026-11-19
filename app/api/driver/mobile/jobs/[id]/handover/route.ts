@@ -48,7 +48,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data, error } = await supabaseAdmin.from('jobs').select('collection_handover').eq('id', id).eq('assigned_driver_id', driver.driverId).eq('assigned_company_id', driver.companyId).maybeSingle();
   if (error) return respond(503, { error: 'Collection stage could not be read.' });
   if (!data) return respond(404, { error: 'Job not found.' });
-  return respond(200, { handover: data.collection_handover ?? null });
+  if (!driver.companyId) return respond(403, { error: 'Driver company is required for collection handover.' });
+  const { data: carrier, error: carrierError } = await supabaseAdmin.from('companies')
+    .select('xd_id').eq('id', driver.companyId).maybeSingle();
+  if (carrierError) return respond(503, { error: 'Carrier reference could not be verified.' });
+  const carrierCompanyReference = typeof carrier?.xd_id === 'string' ? carrier.xd_id.trim() : '';
+  if (!carrierCompanyReference) return respond(409, { error: 'The assigned carrier has no verified XDrive ID.' });
+  return respond(200, {
+    handover: data.collection_handover ?? null,
+    references: { jobReference: 'XDL-' + id.slice(0, 8).toUpperCase(), carrierCompanyReference },
+  });
 }
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
