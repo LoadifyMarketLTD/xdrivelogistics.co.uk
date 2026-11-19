@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import {fleetDocumentMatches,fleetDocumentSubjectAllowed} from '../../components/workspace/companyFleetDocumentScope';
+import Link from 'next/link';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -70,10 +72,16 @@ const labelForDocType = (kind: DocumentKind, value: string) => {
 };
 
 export default function DocumentsPage() {
+  const {user}=useAuth();
+  return <DocumentsPageContent key={(user?.id??'unresolved')+':'+(user?.companyId??'unresolved')}/>;
+}
+
+function DocumentsPageContent(){
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const requestedType = searchParams.get('type');
   const pendingOnly = searchParams.get('view') === 'pending';
+  const requestedSubject=searchParams.get('subject');
   const companyId = user?.companyId ?? null;
 
   const [tab, setTab] = useState<DocumentKind>(requestedType === 'vehicle' ? 'vehicle' : 'driver');
@@ -131,7 +139,7 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     setDocsPage(0);
-  }, [tab, docs.length, pendingOnly]);
+  }, [tab, docs.length, pendingOnly,requestedSubject]);
 
   useEffect(() => {
     if (!companyId || !isSupabaseConfigured) return;
@@ -240,7 +248,10 @@ export default function DocumentsPage() {
     link.remove();
   };
 
-  const visibleDocs = pendingOnly ? docs.filter((document) => document.status === 'pending') : docs;
+  const scopedSubject=requestedType===tab?requestedSubject:null;
+  const subjectOptions=tab==='driver'?drivers:vehicles;
+  const subjectAllowed=fleetDocumentSubjectAllowed(scopedSubject,subjectOptions);
+  const visibleDocs=docs.filter(document=>fleetDocumentMatches(document,tab,scopedSubject,pendingOnly));
   const totalDocsPages = Math.max(1, Math.ceil(visibleDocs.length / DOCS_PER_PAGE));
   const safeDocsPage = Math.min(docsPage, totalDocsPages - 1);
   const paginatedDocs = visibleDocs.slice(safeDocsPage * DOCS_PER_PAGE, (safeDocsPage + 1) * DOCS_PER_PAGE);
@@ -260,6 +271,7 @@ export default function DocumentsPage() {
 
           <AlertBanner tone="info"><strong>Activation rule:</strong> creating a Driver is not enough. Required Driver evidence must be verified, exactly one active Vehicle must be assigned, and current MOT + Vehicle Insurance must be approved before the Driver becomes operationally ready.</AlertBanner>
 
+          {scopedSubject&&<AlertBanner tone={subjectAllowed?'info':'warning'}>{subjectAllowed?'Documents for the selected '+tab+' only.':'Selected '+tab+' could not be verified in this company.'} <Link href={'/admin/documents?type='+tab}>Show all {tab} documents</Link></AlertBanner>}
           {!isSupabaseConfigured ? <AlertBanner tone="warning">Supabase is not configured. Database features are disabled.</AlertBanner> : null}
           {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
 
@@ -270,11 +282,11 @@ export default function DocumentsPage() {
             </div>
             <button
               onClick={() => {
-                setForm({ ...DEFAULT_UPLOAD, kind: tab });
+                setForm({ ...DEFAULT_UPLOAD, kind: tab,subjectId:subjectAllowed?scopedSubject!:'' });
                 setUploadError('');
                 setShowUpload(true);
               }}
-              disabled={!companyId}
+              disabled={!companyId||Boolean(scopedSubject&&!subjectAllowed)}
               className="carrier-register-action"
             >
               + Upload Document
@@ -293,6 +305,7 @@ export default function DocumentsPage() {
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Evidence for *</label>
                     <select
                       value={form.kind}
+                      disabled={Boolean(scopedSubject&&subjectAllowed)}
                       onChange={(event) => setForm((current) => ({ ...current, kind: event.target.value as DocumentKind, subjectId: '', docType: '' }))}
                       style={{ width: '100%', padding: '0.65rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
                     >
@@ -305,6 +318,7 @@ export default function DocumentsPage() {
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>{form.kind === 'driver' ? 'Driver' : 'Vehicle'} *</label>
                     <select
                       value={form.subjectId}
+                      disabled={Boolean(scopedSubject&&subjectAllowed&&form.kind===tab)}
                       onChange={(event) => setForm((current) => ({ ...current, subjectId: event.target.value }))}
                       style={{ width: '100%', padding: '0.65rem', border: '1px solid #d1d5db', borderRadius: '6px' }}
                     >

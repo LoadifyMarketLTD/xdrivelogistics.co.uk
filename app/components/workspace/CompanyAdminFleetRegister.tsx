@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
+import {fleetDocumentHref} from './companyFleetDocumentScope';
 import {getAccessToken} from '../../admin/_lib/getAccessToken';
 import './approved3118/demo-fleet-board.css';
 import './approved3118/demo-drivers-board.css';
@@ -45,7 +46,8 @@ export default function CompanyAdminFleetRegister({data,standalone=false,onLive,
   const showDocs=(docs:WorkspaceDocument[],key:WorkspaceDatasetKey,expiryOnly=false)=>{
     if(!truth([key]))return <p role="status">Document records unavailable or incomplete.</p>;
     const rows=expiryOnly?docs.filter(d=>d.expiry_date):docs;
-    return <><DataTable columns={['Document','Status','Expiry']} rows={rows.map(d=>[fmt(d.doc_type),<StatusBadge key={d.id} value={isExpired(d)?'Expired':fmt(d.status)}/>,fmt(d.expiry_date)])} empty={<EmptyState title="No matching document records"/>}/>{link('/admin/documents?type='+ (key==='driverDocuments'?'driver':'vehicle'),'Manage documents')}</>;
+    const subjectId=key==='driverDocuments'?driver?.id:vehicle?.id;
+    return <><DataTable columns={['Document','Status','Expiry']} rows={rows.map(d=>[fmt(d.doc_type),<StatusBadge key={d.id} value={isExpired(d)?'Expired':fmt(d.status)}/>,fmt(d.expiry_date)])} empty={<EmptyState title="No matching document records"/>}/>{subjectId&&link(fleetDocumentHref(key==='driverDocuments'?'driver':'vehicle',subjectId),'Manage documents for this record')}</>;
   };
   const showJobs=(jobs:ReturnType<typeof ownJobs>)=>!truth(['jobs'])?<p role="status">Booking records unavailable or incomplete.</p>:<DataTable columns={['Reference','Route','Status','POD','Actions']} rows={jobs.map(j=>[companyJobReference(j),[j.pickup_location||j.pickup_postcode,j.delivery_location||j.delivery_postcode].filter(Boolean).join(' → ')||dash,<StatusBadge key={'s'+j.id} value={workspaceJobOperationalLabel(j)}/>,canonicalPodEvidence(j).state,link('/admin/diary?job='+encodeURIComponent(j.id),'View booking')])} empty={<EmptyState title="No assigned bookings"/>}/>;
   function profile():ReactNode {
