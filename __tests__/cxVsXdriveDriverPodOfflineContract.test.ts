@@ -30,7 +30,8 @@ describe('CX vs XDrive Driver POD server consolidation contract', () => {
     expect(lifecycle).toContain('p_delivery_signature_data: null');
     expect(lifecycle).toContain('p_client_signature_name: null');
     expect(lifecycle).toContain('requireMultiDropFinalizationReady');
-    expect(lifecycle).toContain('Complete all multi-drop stops before capturing POD or marking the job delivered.');
+    expect(lifecycle).toContain('const blocker = deliveryRouteBlocker(stops, strict)');
+    expect(read('lib/jobs/deliveryRouteGuard.ts')).toContain('Complete all multi-drop stops before capturing POD or marking the job delivered.');
     expect(lifecycle).toContain('const damagePhotos = Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths]))');
     expect(lifecycle).toContain("rpc('record_driver_pod_atomic'");
     expect(lifecycle).toContain('p_damage_photos: damagePhotos');

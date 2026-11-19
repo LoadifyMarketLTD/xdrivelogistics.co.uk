@@ -12,3 +12,4 @@ describe('Consolidated Reserve POD',()=> {
  it('blocks missing or cross-stop evidence',async()=>{const s=stop(2,'delivery');s.handover.photoPaths=['carrier/job/stops/s1/photos/p.png'];await expect(buildReserveStopAppendix('job','carrier',[stop(1,'collection'),s],async()=>img)).rejects.toThrow('scope mismatch');await expect(buildReserveStopAppendix('job','carrier',[{...s,handover:{...s.handover,photoPaths:[]}},stop(1,'collection')],async()=>img)).rejects.toThrow('incomplete');});
  it('does not demand new proof for unchanged historical standard routes',async()=>{expect(await buildReserveStopAppendix('job','carrier',[],async()=>img)).toBeNull();});
 });
+it('never renders a completed return as delivery POD',async()=>{const s=stop(2,'delivery');await expect(buildReserveStopAppendix('job','carrier',[stop(1,'collection'),{...s,handover:{...s.handover,stopKind:'return'}}],async()=>img)).rejects.toThrow('Proof of Return');});

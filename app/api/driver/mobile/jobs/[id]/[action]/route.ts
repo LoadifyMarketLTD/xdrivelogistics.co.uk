@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
+import { deliveryRouteBlocker } from '../../../../../../../lib/jobs/deliveryRouteGuard';
 import {
   insertTrackingEvent,
   isDriverContext,
@@ -23,7 +24,6 @@ const actionToCanonicalStatus: Record<string, string> = {
   delivered: 'delivered',
 };
 
-const terminalStopStatuses = new Set(['completed', 'skipped']);
 type PodEvidenceKind = 'photos' | 'damage' | 'documents';
 type MobileJobWithDamageEvidence = MobileJobRow & { damage_photos?: unknown };
 
@@ -45,28 +45,20 @@ const isMissingJobStopsRelation = (
   return (error.code === '42P01' || error.code === 'PGRST205') && text.includes('job_stops');
 };
 
-async function requireMultiDropFinalizationReady(jobId: string) {
+async function requireMultiDropFinalizationReady(jobId: string, strict=false) {
   const { data, error } = await supabaseAdmin!
     .from('job_stops')
-    .select('id, status')
+    .select('id, sequence, stop_type, status, handover')
     .eq('job_id', jobId);
 
   if (error) {
-    if (isMissingJobStopsRelation(error)) return null;
+    if (!strict && isMissingJobStopsRelation(error)) return null;
     return respond(503, { error: 'Multi-drop completion could not be verified. Please retry.' });
   }
 
-  const stops = (data ?? []) as Array<{ id: string; status: string | null }>;
-  if (stops.length === 0) return null;
-
-  const incompleteStops = stops.filter((stop) => !terminalStopStatuses.has(String(stop.status ?? 'pending').toLowerCase()));
-  if (incompleteStops.length > 0) {
-    return respond(409, {
-      error: 'Complete all multi-drop stops before capturing POD or marking the job delivered.',
-      remainingStops: incompleteStops.length,
-    });
-  }
-
+  const stops = data ?? [];
+  const blocker = deliveryRouteBlocker(stops, strict);
+  if (blocker) return respond(409, { error: blocker, remainingStops: stops.filter(s=>s.status!=='completed').length });
   return null;
 }
 
@@ -82,8 +74,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
-    const stopGate = await requireMultiDropFinalizationReady(id);
-    if (stopGate) return stopGate;
     return savePod(request, id, driver.userId, driver.driverId, driver.companyId);
   }
 
@@ -106,7 +96,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (action === 'delivered') {
-    const stopGate = await requireMultiDropFinalizationReady(id);
+    const stopGate = await requireMultiDropFinalizationReady(id, existingJob.is_test === true);
     if (stopGate) return stopGate;
   }
 
@@ -234,6 +224,9 @@ async function savePod(
   if (!['delivered', 'completed', 'invoiced'].includes(currentStatus)) {
     return respond(409, { error: 'Mark the job Delivered before completing POD.' });
   }
+
+  const stopGate = await requireMultiDropFinalizationReady(jobId, job.is_test === true);
+  if (stopGate) return stopGate;
 
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
