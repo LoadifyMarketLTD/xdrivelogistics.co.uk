@@ -499,6 +499,9 @@ export function resolveWorkspaceDataQueryPlan(input: {
     return { surface: 'driver', datasets: ['jobs', 'bids', 'driverDocuments'], blocker: null };
   }
 
+  if (pathname === '/admin/finance/reports' && role === 'company_admin') {
+    return {surface:'carrier_operations',datasets:['jobs','bids','invoices','drivers','vehicles'],blocker:null};
+  }
   if (matchesPrefixes(pathname, ['/admin/invoices', '/admin/finance'])) {
     return { surface: 'finance', datasets: ['jobs', 'invoices'], blocker: null };
   }
@@ -735,7 +738,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .limit(500);
         };
 
-        const firstJobsRes = await runJobsQuery(pathname === '/customer/loads' ? CUSTOMER_3150_LOADS_JOB_SELECT : getWorkspaceJobSelect(plan.surface));
+        const firstJobsRes = await runJobsQuery(pathname === '/customer/loads' ? CUSTOMER_3150_LOADS_JOB_SELECT : pathname === '/admin/finance/reports' && plan.surface === 'carrier_operations' ? EXECUTION_JOB_SELECT : getWorkspaceJobSelect(plan.surface));
         const usedVehicleIdFallback = plan.surface !== 'carrier_operations'
           && Boolean(firstJobsRes.error)
           && isMissingColumnError(firstJobsRes.error, 'jobs', 'vehicle_id');
