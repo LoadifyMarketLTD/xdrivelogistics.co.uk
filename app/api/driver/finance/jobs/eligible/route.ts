@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { hasCompletePodEvidence } from '../../../../../../lib/jobs/podCompletion';
+import { hasCompletePodEvidence, isPodApprovedForInvoicing } from '../../../../../../lib/jobs/podCompletion';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -67,13 +67,16 @@ export async function GET(request: NextRequest) {
 
   const completedStatuses = ['delivered', 'completed', 'invoiced'];
   const statuses = completedStatuses.join(',');
-  const { data: jobs, error: jobsError } = await supabaseAdmin
+  const requestedJobId = request.nextUrl.searchParams.get('jobId');
+  if (requestedJobId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedJobId)) return respond(400, { error: 'Invalid job ID.' });
+  let jobsQuery = supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, status, current_status, customer_reference, updated_at, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, status, current_status, customer_reference, updated_at, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name, broker_pod_review_status, client_email')
     .or(`company_id.eq.${driver.companyId},assigned_company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
     .or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`)
-    .order('updated_at', { ascending: false })
-    .limit(100);
+    .order('updated_at', { ascending: false });
+  if (requestedJobId) jobsQuery = jobsQuery.eq('id', requestedJobId);
+  const { data: jobs, error: jobsError } = await jobsQuery.limit(requestedJobId ? 1 : 100);
 
   if (jobsError) return respond(500, { error: jobsError.message });
 
@@ -107,7 +110,7 @@ export async function GET(request: NextRequest) {
   );
 
   const rows = (jobs ?? []).flatMap((job) => {
-    if (!hasCompletePodEvidence(job)) return [];
+    if (!hasCompletePodEvidence(job) || !isPodApprovedForInvoicing(job.broker_pod_review_status)) return [];
 
     const exchangeVisibility = String(job.exchange_visibility ?? '').toLowerCase();
     const marketplace = exchangeVisibility === 'exchange' || exchangeVisibility === 'direct';
@@ -149,6 +152,7 @@ export async function GET(request: NextRequest) {
       pickup_datetime: job.pickup_datetime,
       delivery_datetime: job.delivery_datetime,
       client_name: job.client_name,
+      client_email: marketplace ? null : job.client_email,
       customer_reference: job.customer_reference,
       status: job.current_status ?? job.status,
       invoice: invoiceByJob.get(String(job.id)) ?? null,
