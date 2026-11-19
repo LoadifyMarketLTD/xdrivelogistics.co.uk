@@ -14,7 +14,12 @@ describe('driver collection handover contract', () => {
   it('persists structured job and stop handover snapshots', () => {
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS collection_handover jsonb');
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS handover jsonb');
-    expect(handoverRoute).toContain('At least one collection photo is required.');
+    // Approved c928db139: pickup handover permits zero photos, but submitted photos must be verified.
+    expect(handoverRoute).not.toContain('At least one collection photo is required.');
+    expect(handoverRoute).toContain('const photosValid = await verifyStoragePaths(photoPaths');
+    expect(handoverRoute).toContain('Collection photo evidence could not be verified.');
+    expect(handoverRoute).toContain('...(photoPaths.length ? { collection_photo_url: photoPaths[0] } : {})');
+    expect(handoverRoute).toContain(".eq('assigned_driver_id', driver.driverId)");
     expect(handoverRoute).toContain('collection_handover: handover');
     expect(handoverRoute).toContain('pickup_photos: [...new Set');
   });

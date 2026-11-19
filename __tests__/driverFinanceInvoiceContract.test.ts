@@ -1,4 +1,7 @@
 import { readFileSync } from 'fs';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { InvoiceProStatusTabs } from '../app/components/workspace/InvoiceProMasterFrame';
 import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) =>
@@ -19,12 +22,21 @@ describe('driver finance invoice contract', () => {
 
   it('keeps a single full-width invoice lifecycle filter row without duplicate payment tabs', () => {
     const page = readRepoFile('app/driver/finance/page.tsx');
-    const css = readRepoFile('app/driver/driver-prototype-parity.css');
+    const css = readRepoFile('app/components/workspace/InvoiceProFinance.module.css');
 
-    expect(page).toContain('aria-label="Invoice states"');
+    // The approved Invoice Pro uses a shared semantic status strip, not the legacy page-local markup.
+    const markup = renderToStaticMarkup(createElement(InvoiceProStatusTabs, {
+      tabs: [{ id: 'all', label: 'All', active: true, onSelect: () => {} },
+             { id: 'draft', label: 'Draft', active: false, onSelect: () => {} }],
+    }));
+    expect(page.match(/<InvoiceProStatusTabs\b/g)).toHaveLength(1);
+    expect(markup).toContain('role="tablist"');
+    expect(markup).toContain('aria-label="Invoice states"');
+    expect(markup.match(/role="tab"/g)).toHaveLength(2);
+    expect(markup).toContain('aria-selected="true"');
     expect(page).not.toContain('aria-label="Payment states"');
     expect(page).not.toContain('PAYMENT_TABS');
     expect(page).not.toContain('paymentTab');
-    expect(css).toContain('grid-template-columns:repeat(7,minmax(0,1fr))');
+    expect(css).toMatch(/\.tabStrip\{display:flex;overflow:auto;/);
   });
 });
