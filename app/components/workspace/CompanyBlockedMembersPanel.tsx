@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, DataTable, EmptyState, Panel, StatusBadge } from './WorkspaceUI';
 
 type BlockRow = {
@@ -35,14 +35,14 @@ export default function CompanyBlockedMembersPanel({ companyId }: { companyId: s
   const [notice, setNotice] = useState('');
 
   const authHeaders = async () => {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    const token = readRouteAuthAccessToken();
     return token ? { Authorization: 'Bearer ' + token } : null;
   };
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    try {
     const headers = await authHeaders();
     if (!headers) {
       setError('Your session has expired. Sign in again.');
@@ -51,12 +51,12 @@ export default function CompanyBlockedMembersPanel({ companyId }: { companyId: s
     }
     const response = await fetch('/api/settings/company-blocked-members?companyId=' + encodeURIComponent(companyId), {
       headers,
-      cache: 'no-store',
+      cache: 'no-store', signal: AbortSignal.timeout(12000),
     });
     const payload = await response.json().catch(() => ({})) as ResponsePayload;
     if (!response.ok) setError(payload.error || 'Blocked members could not be loaded.');
     else setRows(payload.blocks ?? []);
-    setLoading(false);
+    } catch {setRows([]);setError('Blocked members request did not complete. Retry loading.');} finally {setLoading(false);}
   }, [companyId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -128,7 +128,7 @@ export default function CompanyBlockedMembersPanel({ companyId }: { companyId: s
     </Panel>
 
     <Panel title="Blocked Members" description="Owner/admin-controlled company blocks.">
-      {loading ? <EmptyState compact title="Loading blocked members…" /> : (
+      {loading ? <EmptyState compact title="Loading blocked members…" /> : error ? <ActionButton tone="secondary" onClick={()=>void load()}>Retry loading blocked members</ActionButton> : (
         <DataTable
           columns={['Member', 'XD ID', 'Company number', 'Status', 'Reason', 'Blocked', 'Action']}
           rows={rows.map((row) => {

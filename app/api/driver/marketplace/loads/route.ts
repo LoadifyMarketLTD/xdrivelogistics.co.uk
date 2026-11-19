@@ -1,3 +1,4 @@
+import { townFromPostingAddress } from '../../../../../lib/loadPostingTown';
 import { NextRequest } from 'next/server';
 import { operationalError } from '../../../_lib/operationalError';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
@@ -57,6 +58,10 @@ type ProfileRow = {
 
 type BidRow = {
   id: string;
+  bidder_user_id: string | null;
+  bidder_driver_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
   job_id: string;
   status: string | null;
   bid_price_gbp: number | string | null;
@@ -84,6 +89,7 @@ function publicLoad(
   companyById: Map<string, CompanyRow>,
   profileByUserId: Map<string, ProfileRow>,
   bidByJobId: Map<string, BidRow>,
+  viewer: { userId: string; driverId: string },
 ) {
   const companyId = marketplaceText(job.company_id) ?? '';
   const company = companyById.get(companyId) ?? null;
@@ -162,6 +168,9 @@ function publicLoad(
       status: bid.status,
       amount: marketplaceNumber(bid.bid_price_gbp ?? bid.amount),
       message: bid.message,
+      created_at: bid.created_at,
+      updated_at: bid.updated_at,
+      canWithdraw: bid.status === 'submitted' && bid.bidder_user_id === viewer.userId && (!bid.bidder_driver_id || bid.bidder_driver_id === viewer.driverId),
     } : null,
   };
 }
@@ -263,6 +272,16 @@ export async function GET(request: NextRequest) {
   }
 
   const jobIds = jobs.map((job) => String(job.id));
+  const stopsResult = jobIds.length ? await supabaseAdmin.from('job_stops').select('job_id,sequence,stop_type,address,postcode,window_start,window_end').in('job_id', jobIds).order('sequence', { ascending: true }) : { data: [], error: null };
+  if (stopsResult.error) return operationalError({ status: 503, message: 'Marketplace route stops could not be verified. Please retry.', context: 'driver.marketplace.loads.stops', cause: stopsResult.error, retryable: true });
+  const stopsByJob = new Map<string, {sequence:number; stop_type:string; area:string; window_start:string|null; window_end:string|null}[]>();
+  for (const stop of stopsResult.data ?? []) {
+    const key = String(stop.job_id);
+    const rows = stopsByJob.get(key) ?? [];
+    rows.push({sequence:Number(stop.sequence), stop_type:String(stop.stop_type), area:[townFromPostingAddress(String(stop.address ?? ''), String(stop.postcode ?? '')),publicOutcode(stop.postcode)].filter(Boolean).join(', ') || 'Area TBC', window_start:marketplaceText(stop.window_start), window_end:marketplaceText(stop.window_end)});
+    stopsByJob.set(key, rows);
+  }
+
   const companyIds = [...new Set(
     jobs
       .map((job) => marketplaceText(job.company_id))
@@ -277,7 +296,7 @@ export async function GET(request: NextRequest) {
   const bidQuery = jobIds.length
     ? supabaseAdmin
         .from('job_bids')
-        .select('id, job_id, status, bid_price_gbp, amount, message')
+        .select('id, job_id, status, bid_price_gbp, amount, message, created_at, updated_at, bidder_user_id, bidder_driver_id')
         .in('job_id', jobIds)
         .order('created_at', { ascending: false })
     : null;
@@ -387,7 +406,8 @@ export async function GET(request: NextRequest) {
     }
 
     return {
-      ...publicLoad(job, companyById, profileByUserId, bidByJobId),
+      ...publicLoad(job, companyById, profileByUserId, bidByJobId, driver),
+      route_stops: stopsByJob.get(String(job.id)) ?? [],
       distance_to_pickup_miles: distanceToPickupMiles,
       distance_to_delivery_miles: distanceToDeliveryMiles,
       pickup_eta_minutes: pickupEtaMinutes,

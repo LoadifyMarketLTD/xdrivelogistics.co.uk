@@ -81,11 +81,12 @@ export async function GET(request: NextRequest) {
   const awaitingPaymentScope = searchParams.get('payment_scope') === 'awaiting';
   const view = searchParams.get('view') === 'payables' ? 'payables' : 'receivables';
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 500);
+  const reportMode=searchParams.get('report')==='payments';
 
   let query = supabaseAdmin
     .from('invoices')
     .select(
-      'id, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, amount, net_amount, vat_amount, currency, submitted_at, approved_at, disputed_at, paid_at, created_at, updated_at, supplier_company_id, buyer_company_id'
+      'id, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, amount, net_amount, vat_amount, currency, submitted_at, approved_at, disputed_at, paid_at, created_at, updated_at, supplier_company_id, buyer_company_id', {count:'exact'}
     )
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
     : query.eq('company_id', driver.companyId);
 
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) return respond(500, { error: error.message });
 
   const allRows = ((data ?? []) as Array<{
@@ -136,13 +137,18 @@ export async function GET(request: NextRequest) {
 
   const invoiceIds = allRows.map((row) => String((row as Record<string, unknown>).id)).filter(Boolean);
   const paidByInvoice = new Map<string, number>();
+  let paymentRows:Array<{invoice_id:string;amount:number;currency:string;paid_at?:string|null}>=[];
+  let paymentCount:number|null=0;
   if (invoiceIds.length) {
     const paymentHistory = await supabaseAdmin
       .from('invoice_payment_history')
-      .select('invoice_id, amount')
+      .select('invoice_id, amount, currency, paid_at',{count:'exact'})
       .in('invoice_id', invoiceIds)
+      .order('paid_at',{ascending:false})
       .limit(2000);
     if (paymentHistory.error) return respond(500, { error: paymentHistory.error.message });
+    paymentRows=(paymentHistory.data??[]) as typeof paymentRows;
+    paymentCount=paymentHistory.count;
     for (const payment of paymentHistory.data ?? []) {
       const invoiceId = String(payment.invoice_id ?? '');
       if (!invoiceId) continue;
@@ -184,6 +190,7 @@ export async function GET(request: NextRequest) {
     invoiceSummary,
     paymentSummary: payments,
     valueSummary,
+    ...(reportMode?{report:{invoiceCount:count,loadedInvoices:allRows.length,paymentCount,loadedPayments:paymentRows.length,complete:count!=null&&count===allRows.length&&paymentCount!=null&&paymentCount===paymentRows.length, payments:paymentRows}}:{}),
     // Compatibility alias: callers that still consume `summary` receive invoice
     // lifecycle counts only, never a payment-derived lifecycle projection.
     summary: invoiceSummary,

@@ -12,6 +12,7 @@ import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { isCompanyExecutionJob } from '../../../lib/jobs/workspaceJobStage';
 import { useVisibleRefresh } from './useVisibleRefresh';
+import { runWorkspaceReadBatch } from './workspaceReadBatch';
 
 export type WorkspaceJob = {
   id: string;
@@ -869,100 +870,108 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       }
     }
 
-    if (requested.has('invoices')) {
-      switch (plan.surface) {
-        case 'customer': {
-          const buyerInvoicesRes = await supabase
-            .from('invoices')
-            .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, submitted_at, approved_at, approved_by, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
-            .eq('buyer_company_id', companyId)
-            .order('created_at', { ascending: false })
-            .limit(500);
-          const invoiceError = getFirstError(buyerInvoicesRes as QueryResult<WorkspaceInvoice>);
-          const invoiceRows = ((buyerInvoicesRes.data ?? []) as WorkspaceInvoice[])
-            .filter((invoice) => isCustomerVisibleWorkspaceInvoice(invoice, companyId));
-          setDataset<WorkspaceInvoice>(
-            'invoices',
-            invoiceRows,
-            invoiceError ? [invoiceError] : [],
-            queryReachedLimit(buyerInvoicesRes.data, 500, invoiceError),
-          );
-          break;
-        }
-        case 'driver': {
-          if (!driverId) {
-            dependencyUnavailable<WorkspaceInvoice>('invoices', 'driver context unavailable; driver invoice query was not run.');
-            break;
+    // These datasets have no dependency on one another. Preserve the existing query scopes.
+    await runWorkspaceReadBatch([
+      { run: async () => {
+        if (requested.has('invoices')) {
+          switch (plan.surface) {
+            case 'customer': {
+              const buyerInvoicesRes = await supabase
+                .from('invoices')
+                .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, submitted_at, approved_at, approved_by, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
+                .eq('buyer_company_id', companyId)
+                .order('created_at', { ascending: false })
+                .limit(500);
+              const invoiceError = getFirstError(buyerInvoicesRes as QueryResult<WorkspaceInvoice>);
+              const invoiceRows = ((buyerInvoicesRes.data ?? []) as WorkspaceInvoice[])
+                .filter((invoice) => isCustomerVisibleWorkspaceInvoice(invoice, companyId));
+              setDataset<WorkspaceInvoice>(
+                'invoices',
+                invoiceRows,
+                invoiceError ? [invoiceError] : [],
+                queryReachedLimit(buyerInvoicesRes.data, 500, invoiceError),
+              );
+              break;
+            }
+            case 'driver': {
+              if (!driverId) {
+                dependencyUnavailable<WorkspaceInvoice>('invoices', 'driver context unavailable; driver invoice query was not run.');
+                break;
+              }
+              dependencyUnavailable<WorkspaceInvoice>('invoices', DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER);
+              break;
+            }
+            default: {
+              const invoicesRes = await supabase
+                .from('invoices')
+                .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, submitted_at, approved_at, approved_by, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
+                .or(`company_id.eq.${companyId},buyer_company_id.eq.${companyId},supplier_company_id.eq.${companyId}`)
+                .order('created_at', { ascending: false })
+                .limit(500);
+              const invoiceError = getFirstError(invoicesRes as QueryResult<WorkspaceInvoice>);
+              setDataset<WorkspaceInvoice>(
+                'invoices',
+                (invoicesRes.data ?? []) as WorkspaceInvoice[],
+                invoiceError ? [invoiceError] : [],
+                queryReachedLimit(invoicesRes.data, 500, invoiceError),
+              );
+              break;
+            }
           }
-          dependencyUnavailable<WorkspaceInvoice>('invoices', DRIVER_WORKSPACE_INVOICE_BACKEND_BLOCKER);
-          break;
         }
-        default: {
-          const invoicesRes = await supabase
-            .from('invoices')
-            .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, submitted_at, approved_at, approved_by, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
-            .or(`company_id.eq.${companyId},buyer_company_id.eq.${companyId},supplier_company_id.eq.${companyId}`)
+      }, onError: () => dependencyUnavailable<WorkspaceInvoice>('invoices', 'invoices request failed; records could not be verified.') },
+      { run: async () => {
+        if (requested.has('drivers')) {
+          const driversRes = await supabase
+            .from('drivers')
+            .select('id, display_name, email, phone, status, availability_status, future_position, future_position_date, future_position_until, future_availability_notes, user_id')
+            .eq('company_id', companyId)
+            .order('display_name', { ascending: true })
+            .limit(500);
+          const driversError = getFirstError(driversRes as QueryResult<WorkspaceDriver>);
+          setDataset<WorkspaceDriver>(
+            'drivers',
+            (driversRes.data ?? []) as WorkspaceDriver[],
+            driversError ? [driversError] : [],
+            queryReachedLimit(driversRes.data, 500, driversError),
+          );
+        }
+      }, onError: () => dependencyUnavailable<WorkspaceDriver>('drivers', 'drivers request failed; records could not be verified.') },
+      { run: async () => {
+        if (requested.has('vehicles')) {
+          const vehiclesRes = await supabase
+            .from('vehicles')
+            .select('id, reg_plate, type, make, model, manufacture_year, payload_kg, pallets_capacity, body_type, has_tail_lift, notify_when_tracked, assigned_driver_id')
+            .eq('company_id', companyId)
             .order('created_at', { ascending: false })
             .limit(500);
-          const invoiceError = getFirstError(invoicesRes as QueryResult<WorkspaceInvoice>);
-          setDataset<WorkspaceInvoice>(
-            'invoices',
-            (invoicesRes.data ?? []) as WorkspaceInvoice[],
-            invoiceError ? [invoiceError] : [],
-            queryReachedLimit(invoicesRes.data, 500, invoiceError),
+          const vehiclesError = getFirstError(vehiclesRes as QueryResult<WorkspaceVehicle>);
+          setDataset<WorkspaceVehicle>(
+            'vehicles',
+            (vehiclesRes.data ?? []) as WorkspaceVehicle[],
+            vehiclesError ? [vehiclesError] : [],
+            queryReachedLimit(vehiclesRes.data, 500, vehiclesError),
           );
-          break;
         }
-      }
-    }
-
-    if (requested.has('drivers')) {
-      const driversRes = await supabase
-        .from('drivers')
-        .select('id, display_name, email, phone, status, availability_status, future_position, future_position_date, future_position_until, future_availability_notes, user_id')
-        .eq('company_id', companyId)
-        .order('display_name', { ascending: true })
-        .limit(500);
-      const driversError = getFirstError(driversRes as QueryResult<WorkspaceDriver>);
-      setDataset<WorkspaceDriver>(
-        'drivers',
-        (driversRes.data ?? []) as WorkspaceDriver[],
-        driversError ? [driversError] : [],
-        queryReachedLimit(driversRes.data, 500, driversError),
-      );
-    }
-
-    if (requested.has('vehicles')) {
-      const vehiclesRes = await supabase
-        .from('vehicles')
-        .select('id, reg_plate, type, make, model, manufacture_year, payload_kg, pallets_capacity, body_type, has_tail_lift, notify_when_tracked, assigned_driver_id')
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false })
-        .limit(500);
-      const vehiclesError = getFirstError(vehiclesRes as QueryResult<WorkspaceVehicle>);
-      setDataset<WorkspaceVehicle>(
-        'vehicles',
-        (vehiclesRes.data ?? []) as WorkspaceVehicle[],
-        vehiclesError ? [vehiclesError] : [],
-        queryReachedLimit(vehiclesRes.data, 500, vehiclesError),
-      );
-    }
-
-    if (requested.has('locations')) {
-      const locationsRes = await supabase
-        .from('driver_locations')
-        .select('id, driver_id, lat, lng, recorded_at, updated_at')
-        .eq('company_id', companyId)
-        .order('recorded_at', { ascending: false })
-        .limit(500);
-      const locationsError = getFirstError(locationsRes as QueryResult<WorkspaceLocation>);
-      setDataset<WorkspaceLocation>(
-        'locations',
-        (locationsRes.data ?? []) as WorkspaceLocation[],
-        locationsError ? [locationsError] : [],
-        queryReachedLimit(locationsRes.data, 500, locationsError),
-      );
-    }
+      }, onError: () => dependencyUnavailable<WorkspaceVehicle>('vehicles', 'vehicles request failed; records could not be verified.') },
+      { run: async () => {
+        if (requested.has('locations')) {
+          const locationsRes = await supabase
+            .from('driver_locations')
+            .select('id, driver_id, lat, lng, recorded_at, updated_at')
+            .eq('company_id', companyId)
+            .order('recorded_at', { ascending: false })
+            .limit(500);
+          const locationsError = getFirstError(locationsRes as QueryResult<WorkspaceLocation>);
+          setDataset<WorkspaceLocation>(
+            'locations',
+            (locationsRes.data ?? []) as WorkspaceLocation[],
+            locationsError ? [locationsError] : [],
+            queryReachedLimit(locationsRes.data, 500, locationsError),
+          );
+        }
+      }, onError: () => dependencyUnavailable<WorkspaceLocation>('locations', 'locations request failed; records could not be verified.') }
+    ]);
 
     if (requested.has('driverDocuments')) {
       if (plan.surface === 'driver') {

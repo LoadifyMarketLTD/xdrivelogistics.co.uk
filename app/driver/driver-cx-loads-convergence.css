@@ -468,3 +468,12 @@ body:has(.driver-inline-quote--marketplace)::before {
   transform-origin: center;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
 }
+
+/* Owner Driver: retain approved quote sheet; add server-authoritative footer state. */
+.driver-loads-prototype .xdrive-cx-load-footer .xd-load-cancel-quote{background:#b91c1c!important;color:#fff!important;border:1px solid #991b1b!important;border-radius:4px;font-weight:700;padding:6px 12px;min-height:32px;white-space:nowrap;cursor:pointer;}
+.driver-loads-prototype .xdrive-cx-load-footer .xd-load-cancel-quote:hover:not(:disabled){background:#991b1b!important;}
+.driver-loads-prototype .xdrive-cx-load-footer .xd-load-cancel-quote:disabled{opacity:.65;cursor:wait;}
+.driver-loads-prototype .xdrive-cx-load-footer .xd-load-quote-summary{color:#1f2937!important;font-size:12px;font-weight:650;line-height:1.4;overflow-wrap:anywhere;}
+.driver-loads-prototype .xdrive-cx-load-footer .text-action{margin-left:auto;}
+.driver-loads-prototype .xdrive-cx-load-footer{flex-wrap:wrap;}
+.driver-loads-prototype .xd-load-cancel-quote:focus-visible{outline:2px solid #0e3fa9;outline-offset:2px;}

@@ -1,5 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import OwnerDiaryCard from '../app/components/workspace/OwnerPR807DiaryCard';
+import CxDiaryActions from '../app/components/workspace/CxDiaryActions';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
@@ -10,6 +14,13 @@ describe('CX-close Driver Diary persistent action contract', () => {
 
   it('keeps operational actions visible before the expanded detail panel', () => {
     const railIndex = diary.indexOf('footer={<CxDiaryActions');
+    expect(diary).toContain("import CxDiaryCard from '../../components/workspace/OwnerPR807DiaryCard'");
+    const render=(expanded:boolean)=>renderToStaticMarkup(createElement(OwnerDiaryCard,{from:'A',to:'B',pickup:{primary:'Today'},delivery:{primary:'Tomorrow'},band:'Completed',statusLine:'Member',loadId:'TEST',vehicle:'LWB Van',expanded,footerRole:'toolbar',footerAriaLabel:'Booking actions',footer:createElement(CxDiaryActions,{expanded,onToggle:()=>{},onOpenTab:()=>{},visibleTabs:['pod','order','notes','history','documents','invoice']}),expandedContent:createElement('div',null,'DETAIL_SENTINEL')}));
+    const closed=render(false),open=render(true);
+    for(const label of ['POD','Order','Notes','History','Documents','View invoice'])expect(closed).toContain(label);
+    expect(closed).not.toContain('DETAIL_SENTINEL');
+    expect(open.indexOf('role="toolbar"')).toBeGreaterThan(0);
+    expect(open.indexOf('DETAIL_SENTINEL')).toBeGreaterThan(open.indexOf('role="toolbar"'));
     const companyExpandedIndex = diary.indexOf('{expanded && !isOwnAssignedJob && (', railIndex);
     const ownExpandedIndex = diary.indexOf('{expanded && isOwnAssignedJob && (', railIndex);
     expect(railIndex).toBeGreaterThan(0);

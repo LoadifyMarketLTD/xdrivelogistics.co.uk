@@ -18,6 +18,7 @@ import {usePublicPickupRadius} from '../../try-xdrive-demo/components/usePublicP
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxLoadCard from '../../components/workspace/OwnerPR807LoadCard';
 import { ActionButton, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
+import { offeredQuoteLabel } from '../_components/ownerLoadQuoteState';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -83,6 +84,9 @@ type MarketplaceLoad = {
   member: MarketplaceMember;
   myBid: {
     id: string;
+    created_at: string | null;
+    updated_at: string | null;
+    canWithdraw: boolean;
     status: BidStatus;
     amount: number | null;
     message: string | null;
@@ -219,12 +223,14 @@ export default function AvailableLoadsPage() {
   const [visibleCount, setVisibleCount] = useState(25);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const refreshInFlightRef = useRef(false);
+  const refreshSequence = useRef(0);
 
   const getAuthHeader = useCallback(async () => readRouteAuthHeader(), []);
 
-  const fetchLoads = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
+  const fetchLoads = useCallback(async ({ background = false, force = false }: { background?: boolean; force?: boolean } = {}) => {
     if (!isSupabaseConfigured) { setLoads([]); setLoading(false); setRefreshing(false); return; }
-    if (refreshInFlightRef.current) return;
+    if (refreshInFlightRef.current && !force) return;
+    const sequence=++refreshSequence.current;
     refreshInFlightRef.current = true;
     const versionAtStart = mutationVersion.current;
     if (background) setRefreshing(true); else setLoading(true);
@@ -235,14 +241,17 @@ export default function AvailableLoadsPage() {
       const response = await fetch('/api/driver/marketplace/loads', { headers: { Authorization: auth }, cache: 'no-store' });
       const payload = (await response.json().catch(() => ({}))) as { loads?: MarketplaceLoad[]; error?: string };
       if (!response.ok) throw new Error(payload.error || 'The live load board could not be loaded.');
-      if (versionAtStart === mutationVersion.current) setLoads(payload.loads ?? []);
+      if (sequence === refreshSequence.current && versionAtStart === mutationVersion.current) setLoads(payload.loads ?? []);
     } catch (reason) {
+      if (sequence !== refreshSequence.current) return;
       if (!background) setLoads([]);
       setError(reason instanceof Error ? reason.message : 'The live load board could not be loaded. Please refresh and try again.');
     } finally {
-      refreshInFlightRef.current = false;
-      setLoading(false);
-      setRefreshing(false);
+      if (sequence === refreshSequence.current) {
+        refreshInFlightRef.current = false;
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [getAuthHeader]);
 
@@ -283,7 +292,7 @@ export default function AvailableLoadsPage() {
       if (deliveryNeedle && !deliverySearch.includes(deliveryNeedle)) return false;
       if (cargoNeedle && !cargoSearch.includes(cargoNeedle)) return false;
       if (memberNeedle && !memberSearch.includes(memberNeedle)) return false;
-      if (!Number.isNaN(minWeight) && weightMinFilter.trim() && (load.weight_kg ?? 0) < minWeight) return false;
+      if (weightMinFilter.trim() && (!Number.isFinite(minWeight)||minWeight<0||load.weight_kg==null||!Number.isFinite(Number(load.weight_kg))||Number(load.weight_kg)<minWeight)) return false;
       if (regionFilter === 'uk_roi' && isEuroLoad(load)) return false;
       if (regionFilter === 'euro' && !isEuroLoad(load)) return false;
       if (loadTypeFilter !== 'all' && loadType(load) !== loadTypeFilter) return false;
@@ -291,10 +300,11 @@ export default function AvailableLoadsPage() {
       if (postedWindow != null) {
         if (!load.exchange_posted_at) return false;
         const postedAt = new Date(load.exchange_posted_at).getTime();
-        if (Number.isNaN(postedAt) || postedAt < Date.now() - postedWindow) return false;
+        if (!Number.isFinite(postedAt) || postedAt > Date.now() || postedAt < Date.now() - postedWindow) return false;
       }
       if ((fromDate || toDate) && load.pickup_datetime) {
         const pickupTimestamp = new Date(load.pickup_datetime).getTime();
+          if(!Number.isFinite(pickupTimestamp))return false;
         if (fromDate && pickupTimestamp < fromDate) return false;
         if (toDate && pickupTimestamp > toDate) return false;
       }
@@ -308,7 +318,7 @@ export default function AvailableLoadsPage() {
     });
   }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, pickupRadius, pickupRadiusMiles, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
-  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
+  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, pickupRadiusMiles, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
   const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, pickupRadiusMiles, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
   const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
@@ -381,9 +391,9 @@ export default function AvailableLoadsPage() {
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       if (payload.success !== true || !payload.bidId) throw Error('Quote result could not be verified. Refresh before trying again.');
       mutationVersion.current++;
-      setLoads(current => current.map(load => load.id === loadId ? {...load, myBid: {id: payload.bidId!, status: 'submitted', amount, message: quote.message}} : load));
+      setLoads(current => current.map(load => load.id === loadId ? {...load, myBid: {id: payload.bidId!, status: 'submitted', amount, message: quote.message, created_at:null, updated_at:null, canWithdraw:true}} : load));
       setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
-      await fetchLoads({ background: true });
+      await fetchLoads({ background: true, force: true });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Your quote could not be submitted.');
     } finally {
@@ -402,9 +412,9 @@ export default function AvailableLoadsPage() {
       const payload = await response.json().catch(() => ({})) as { success?: boolean; status?: string; bidId?: string; error?: string };
       if (!response.ok || payload.success !== true || payload.status !== 'withdrawn' || payload.bidId !== target.bidId) throw Error(payload.error || 'Quote withdrawal could not be verified. Refresh and try again.');
       mutationVersion.current++;
-      setLoads(current => current.map(load => load.id === target.loadId && load.myBid?.id === target.bidId ? {...load, myBid: {...load.myBid, status: 'withdrawn'}} : load));
+      setLoads(current => current.map(load => load.id === target.loadId && load.myBid?.id === target.bidId ? {...load, myBid: {...load.myBid, status: 'withdrawn', canWithdraw:false}} : load));
       setCancelTarget(null); setSuccessMsg('Quote cancelled successfully.');
-      await fetchLoads({background: true});
+      await fetchLoads({background: true, force:true});
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'The quote could not be cancelled.'); }
     finally { withdrawInFlight.current = false; setWithdrawing(false); }
   };
@@ -542,8 +552,9 @@ export default function AvailableLoadsPage() {
                       footer={<>
                         <button type="button" className="load-expand xdrive-cx-load-footer__expander" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '▴' : '▾'}</button>
                         {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" disabled={bidLoading || withdrawing} onClick={() => openMarketplaceQuote(load.id)}>Quote Now</button>}
-                        {isOwnerDriver && load.myBid?.status === 'submitted' && load.myBid.id && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote xd-owner-cancel-quote" disabled={bidLoading || withdrawing} onClick={() => {setError('');setCancelTarget({loadId:load.id,bidId:load.myBid!.id});}}>Cancel Quote</button>}
+                        {isOwnerDriver && load.myBid?.status === 'submitted' && load.myBid.canWithdraw && load.myBid.id && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote xd-owner-cancel-quote" disabled={bidLoading || withdrawing} onClick={() => {setError('');setCancelTarget({loadId:load.id,bidId:load.myBid!.id});}}>Cancel Quote</button>}
                         <button type="button" className="text-action" disabled={bidLoading || withdrawing} onClick={() => isOwnerDriver ? openMarketplaceQuote(load.id) : router.push(`/driver/loads/${load.id}`)}>View Details</button>
+                        {quoted && load.myBid && <span className="xd-load-quote-summary" role="status">{offeredQuoteLabel(load.myBid)}{load.myBid.status==='submitted'&&!load.myBid.canWithdraw?' · Company quote':''}</span>}
                       </>}
                     />
 

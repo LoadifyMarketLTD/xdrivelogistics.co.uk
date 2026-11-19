@@ -12,6 +12,8 @@ import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_compo
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import DriverFleetIntegratedNav from '../_components/DriverFleetIntegratedNav';
 import './freight-vision-readability.css';
+import {resolveWorkspaceRole} from '../../../lib/workspaceRole';
+import {verifiedLiveTracking} from '../_components/ownerTrackingEvidence';
 
 type JobRow = {
   id: string;
@@ -55,6 +57,7 @@ const activeJob = (job: JobRow) => {
 export default function DriverFreightVisionPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const ownerWeb=resolveWorkspaceRole(user)==='owner_driver';
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [trackingByJob, setTrackingByJob] = useState<Record<string, TrackingSnapshot>>({});
@@ -103,7 +106,8 @@ export default function DriverFreightVisionPage() {
     const live = nextJobs.filter(activeJob);
     const token = readRouteAuthAccessToken();
     if (!token || live.length === 0) {
-      if (!background || live.length === 0) setTrackingByJob({});
+      if (ownerWeb || !background || live.length === 0) setTrackingByJob({});
+      if(ownerWeb && !token && live.length) setError('Live tracking session could not be verified.');
       refreshInFlightRef.current = false;
       setLoading(false);
       return;
@@ -114,6 +118,7 @@ export default function DriverFreightVisionPage() {
         const response = await fetch(`/api/tracking/jobs/${job.id}`, {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
+          ...(ownerWeb?{signal:AbortSignal.timeout(12000)}:{}),
         });
         if (!response.ok) return null;
         return await response.json() as TrackingSnapshot;
@@ -127,13 +132,14 @@ export default function DriverFreightVisionPage() {
       live.forEach((job, index) => {
         const snapshot = snapshots[index];
         if (snapshot?.job_id) next[job.id] = snapshot;
-        else if (background && current[job.id]) next[job.id] = current[job.id];
+        else if (background && current[job.id]) next[job.id] = ownerWeb ? {...current[job.id], fresh:false} : current[job.id];
       });
       return next;
     });
+    if(ownerWeb && snapshots.some(snapshot=>!snapshot?.job_id))setError('Some tracking snapshots could not be verified. Unverified locations are not shown as live.');
     refreshInFlightRef.current = false;
     setLoading(false);
-  }, [driverId]);
+  }, [driverId,ownerWeb]);
 
   useEffect(() => { void load(); }, [load]);
   useVisibleRefresh(
@@ -147,22 +153,24 @@ export default function DriverFreightVisionPage() {
     const needle = search.trim().toLowerCase();
     return liveJobs.filter((job) => {
       const snapshot = trackingByJob[job.id];
-      if (scope === 'tracked' && !snapshot?.location) return false;
+      if (scope === 'tracked' && (ownerWeb?!verifiedLiveTracking(snapshot):!snapshot?.location)) return false;
       if (!needle) return true;
       return [job.id, job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode, job.current_status, job.status]
         .filter(Boolean).join(' ').toLowerCase().includes(needle);
     });
-  }, [liveJobs, scope, search, trackingByJob]);
+  }, [liveJobs, scope, search, trackingByJob,ownerWeb]);
 
   const visible = useMemo(() => baseVisible.filter((job) => {
     const snapshot = trackingByJob[job.id];
     if (riskFilter === 'all') return true;
-    if (riskFilter === 'untracked') return !snapshot?.location;
+    if (riskFilter === 'untracked') return ownerWeb?!verifiedLiveTracking(snapshot):!snapshot?.location;
+    if(ownerWeb&&!verifiedLiveTracking(snapshot))return false;
     return snapshot?.eta_risk?.level === riskFilter;
-  }), [baseVisible, riskFilter, trackingByJob]);
+  }), [baseVisible, riskFilter, trackingByJob,ownerWeb]);
 
   const mapPoints = useMemo<DriverFreightVisionPoint[]>(() => visible.flatMap((job) => {
     const snapshot = trackingByJob[job.id];
+    if(ownerWeb&&!verifiedLiveTracking(snapshot))return [];
     const lat = Number(snapshot?.location?.lat);
     const lng = Number(snapshot?.location?.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
@@ -174,11 +182,11 @@ export default function DriverFreightVisionPage() {
       recordedAt: snapshot?.location?.recorded_at ?? null,
       fresh: snapshot?.fresh === true,
     }];
-  }), [trackingByJob, visible]);
+  }), [trackingByJob, visible,ownerWeb]);
 
   const countRisk = (level: 'on_time' | 'at_risk' | 'late') =>
-    baseVisible.filter((job) => trackingByJob[job.id]?.eta_risk?.level === level).length;
-  const notTracked = baseVisible.filter((job) => !trackingByJob[job.id]?.location).length;
+    baseVisible.filter((job) => (!ownerWeb||verifiedLiveTracking(trackingByJob[job.id]))&&trackingByJob[job.id]?.eta_risk?.level === level).length;
+  const notTracked = baseVisible.filter((job) => ownerWeb?!verifiedLiveTracking(trackingByJob[job.id]):!trackingByJob[job.id]?.location).length;
 
   const openMap = () => {
     const first = mapPoints[0];
@@ -213,7 +221,7 @@ export default function DriverFreightVisionPage() {
                 <button type="button" className={scope === 'tracked' ? 'active' : ''} onClick={() => { setScope('tracked'); setRiskFilter('all'); }}>Live Tracked</button>
               </div>
               <button type="button" className="text-action spacer" onClick={openMap}>Open Freight Vision in new window</button>
-              <span className="vision-auto-refresh">Auto refresh 60s</span>
+              <span className="vision-auto-refresh">Auto refresh {ownerWeb?'30s':'60s'}</span>
               <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>
             </div>
             <div className="vision-kpis">
@@ -232,7 +240,7 @@ export default function DriverFreightVisionPage() {
                       <b>{job.id.slice(0, 8).toUpperCase()}</b>
                       <span className="meta">{route(job.pickup_location, job.pickup_postcode)} → {route(job.delivery_location, job.delivery_postcode)}</span>
                       <span className="meta">Scheduled delivery: {job.delivery_datetime ? new Date(job.delivery_datetime).toLocaleString('en-GB') : 'Not supplied'}</span>
-                      <span className="meta">{trackingByJob[job.id]?.location?.recorded_at ? `Verified position updated ${new Date(trackingByJob[job.id].location!.recorded_at!).toLocaleString('en-GB')}` : 'Verified live position not available'}</span>
+                      <span className="meta">{(ownerWeb?verifiedLiveTracking(trackingByJob[job.id]):trackingByJob[job.id]?.location?.recorded_at) ? `Verified position updated ${new Date(trackingByJob[job.id].location!.recorded_at!).toLocaleString('en-GB')}` : 'Verified live position not available'}</span>
                     </div>
                     <StatusBadge value={workspaceJobOperationalLabel(job)} />
                   </button>

@@ -8,7 +8,7 @@ import {
   DEFAULT_INVOICE_EMAIL_SUBJECT,
   INVOICE_EMAIL_TOKENS,
 } from '../../../lib/invoiceEmailTemplate';
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, EmptyState, Panel } from './WorkspaceUI';
 
 type FinanceTab = 'bank' | 'invoices' | 'email';
@@ -66,33 +66,34 @@ export default function CompanyFinanceSettingsPanel({ companyId, companyName }: 
   const [tab, setTab] = useState<FinanceTab>('bank');
   const [settings, setSettings] = useState<FinanceSettings>(EMPTY_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [loadedCompanyId,setLoadedCompanyId]=useState<string|null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    setLoading(true); setError('');setLoadedCompanyId(null);
+    try {
+    const token = readRouteAuthAccessToken();
     if (!token) { setError('Your session has expired. Sign in again.'); setLoading(false); return; }
     const response = await fetch(`/api/settings/company-finance?companyId=${encodeURIComponent(companyId)}`, {
-      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store', signal: AbortSignal.timeout(12000),
     });
     const payload = await response.json().catch(() => ({})) as FinanceResponse;
     if (!response.ok || !payload.settings) {
       setError(payload.error || 'Company finance settings could not be loaded.');
     } else {
-      setSettings({ ...EMPTY_SETTINGS, ...payload.settings });
+      setSettings({ ...EMPTY_SETTINGS, ...payload.settings });setLoadedCompanyId(companyId);
     }
-    setLoading(false);
+    } catch {setError('Finance settings request did not complete. Retry loading.');} finally {setLoading(false);}
   }, [companyId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const save = async () => {
+    if(loadedCompanyId!==companyId||saving)return;
     setSaving(true); setError(''); setNotice('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    const token = readRouteAuthAccessToken();
     if (!token) { setError('Your session has expired. Sign in again.'); setSaving(false); return; }
     const response = await fetch('/api/settings/company-finance', {
       method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -108,6 +109,7 @@ export default function CompanyFinanceSettingsPanel({ companyId, companyName }: 
   const previewMessage = useMemo(() => renderTemplate(settings.invoiceEmailMessage).replaceAll('XDrive Logistics Ltd', companyName || 'XDrive Logistics Ltd'), [companyName, settings.invoiceEmailMessage]);
 
   if (loading) return <Panel><EmptyState compact title="Loading finance settings…" /></Panel>;
+  if(loadedCompanyId!==companyId)return <Panel title="Finance settings unavailable"><AlertBanner tone="danger">{error||'Settings were not verified. Saving is disabled.'}</AlertBanner><ActionButton tone="secondary" onClick={()=>void load()}>Retry loading finance settings</ActionButton></Panel>;
 
   return <div style={{ display: 'grid', gap: 10 }}>
     {error && <AlertBanner tone="danger">{error}</AlertBanner>}

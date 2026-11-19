@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ReturnJourneyMap from '../_components/ReturnJourneyMap';
 import { useAuth } from '../../components/AuthContext';
@@ -11,6 +11,7 @@ import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
 import { AlertBanner, PageHeader } from '../../components/workspace/WorkspaceUI';
+import {resolveWorkspaceRole} from '../../../lib/workspaceRole';
 
 type DriverRow = {
   id: string;
@@ -97,6 +98,8 @@ function routeUrl(journey: Journey) {
 
 export default function ReturnJourneysPage() {
   const { user } = useAuth();
+  const ownerWeb=resolveWorkspaceRole(user)==='owner_driver';
+  const requestSequence=useRef(0);
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [driver, setDriver] = useState<DriverRow | null>(null);
   const [tab, setTab] = useState<'search' | 'mine' | 'add'>('search');
@@ -154,8 +157,10 @@ export default function ReturnJourneysPage() {
     setFutureNotes(row?.future_availability_notes ?? '');
   }, [driverId]);
 
-  const loadJourneys = useCallback(async (scope: 'marketplace' | 'mine', requestedPage = 1, recordSearch = false) => {
+  const loadJourneys = useCallback(async (scope: 'marketplace' | 'mine', requestedPage = 1, recordSearch = false, criteria=search) => {
+    const sequence=++requestSequence.current;
     const auth = await getAuthHeader();
+    if(ownerWeb&&sequence!==requestSequence.current)return;
     if (!auth) {
       setError('Your session has expired. Sign in again to use Return Journeys.');
       setLoading(false);
@@ -166,19 +171,20 @@ export default function ReturnJourneysPage() {
     setError('');
     const params = new URLSearchParams({ scope, page: String(requestedPage), page_size: String(pageSize) });
     if (scope === 'marketplace') {
-      params.set('from', search.from);
-      params.set('from_radius', search.fromRadius);
-      params.set('to', search.to);
-      params.set('to_radius', search.toRadius);
-      params.set('vehicle_type', search.vehicleType);
-      params.set('member', search.member);
-      params.set('date', search.date);
-      params.set('kind', search.kind);
+      params.set('from', criteria.from);
+      params.set('from_radius', criteria.fromRadius);
+      params.set('to', criteria.to);
+      params.set('to_radius', criteria.toRadius);
+      params.set('vehicle_type', criteria.vehicleType);
+      params.set('member', criteria.member);
+      params.set('date', criteria.date);
+      params.set('kind', criteria.kind);
     }
 
     try {
-      const response = await fetch(`/api/driver/return-journeys?${params.toString()}`, { headers: { Authorization: auth } });
+      const response = await fetch(`/api/driver/return-journeys?${params.toString()}`, { headers: { Authorization: auth }, ...(ownerWeb?{cache:'no-store',signal:AbortSignal.timeout(15000)}:{}) });
       const payload = await response.json().catch(() => ({})) as JourneyResponse;
+      if(ownerWeb&&sequence!==requestSequence.current)return;
       if (!response.ok) {
         setError(payload.error || 'Return journeys could not be loaded.');
         setJourneys([]);
@@ -190,17 +196,18 @@ export default function ReturnJourneysPage() {
         setGeneratedAt(payload.generatedAt ?? null);
         setExpanded({});
         if (scope === 'marketplace' && recordSearch && typeof window !== 'undefined') {
-          const next = [search, ...recentSearches.filter((entry) => JSON.stringify(entry) !== JSON.stringify(search))].slice(0, 6);
+          const next = [criteria, ...recentSearches.filter((entry) => JSON.stringify(entry) !== JSON.stringify(criteria))].slice(0, 6);
           setRecentSearches(next);
           window.localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
         }
       }
     } catch {
+      if(ownerWeb&&sequence!==requestSequence.current)return;
       setError('Return journeys could not be loaded.');
       setJourneys([]);
     }
     setLoading(false);
-  }, [getAuthHeader, pageSize, recentSearches, search]);
+  }, [getAuthHeader, pageSize, recentSearches, search,ownerWeb]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -232,6 +239,7 @@ export default function ReturnJourneysPage() {
   const clearSearch = () => {
     setSearch(DEFAULT_SEARCH);
     setPage(1);
+    if(ownerWeb&&tab==='search')void loadJourneys('marketplace',1,false,DEFAULT_SEARCH);
   };
 
   const saveSearchDefault = () => {
@@ -442,7 +450,7 @@ export default function ReturnJourneysPage() {
                           ) : null}
                           <div className="return-card-footer">
                             <button type="button" className="return-expand" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))} aria-label={open ? 'Collapse journey' : 'Expand journey'}>{open ? '▴' : '▾'}</button>
-                            <a className="return-action return-action-track" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Track</a>
+                            <a className="return-action return-action-track" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer" title={ownerWeb?"Open the advertised route, not a live GPS position":undefined}>{ownerWeb?"View planned route":"Track"}</a>
                             {tab === 'mine' && journey.status !== 'cancelled' ? <button type="button" className="return-action" onClick={() => void cancelJourney(journey.id)}>Cancel</button> : null}
                             <span className="return-footer-spacer" />
                             <span className="return-member"><MemberIdentityLink companyId={journey.companyId}>{journey.member.code ? `Member ID ${journey.member.code} · ` : ''}{journey.member.name}</MemberIdentityLink>{journey.member.phone ? ` · ${journey.member.phone}` : ''}</span>

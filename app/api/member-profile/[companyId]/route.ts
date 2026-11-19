@@ -262,7 +262,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       },
       bookingFooter: settings?.booking_footer ? {
         state: 'available',
-        message: String(settings.booking_footer),
+        message: 'Published booking conditions. The agreed booking remains authoritative.',
         items: [String(settings.booking_footer)],
       } : {
         state: 'unavailable',

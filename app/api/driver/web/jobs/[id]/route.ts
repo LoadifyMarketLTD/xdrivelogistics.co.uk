@@ -7,6 +7,7 @@ import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, respond, toMoney } from '../../../mobile/_lib';
 import { buildSignedPodPresentations } from '../../../mobile/podPresentation';
 import { isDriverPodComplete } from '../../../../../../lib/jobs/driverPodCompletion';
+import { evaluateWebStopFinalization } from '../../../../../../lib/jobs/webStopFinalization';
 
 type JobStopRow = {
   id: string;
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const { data, error } = await supabaseAdmin
     .from('jobs')
-    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes,${driverJobOperationalSelect}`)
+    .select(`${jobSelect},service_mode,damage_photos,pod_generated_at,driver_notes,${driverJobOperationalSelect}`)
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -195,6 +196,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     },
     commercialRatePartial: commercial.partial,
     multiDropPartial,
+    stopFinalization: stopsResult.error ? {kind:'unverified',ready:false,remainingStops:0} : evaluateWebStopFinalization(row.service_mode,(stopsResult.data??[]) as unknown as JobStopRow[]),
     driverInstructionsPartial,
     podPresentationPartial,
     attachmentPresentationPartial,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
@@ -9,6 +9,7 @@ import DriverFleetIntegratedNav from '../../_components/DriverFleetIntegratedNav
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 import { StatusBadge } from '../../../components/workspace/WorkspaceUI';
 import { useAuth } from '../../../components/AuthContext';
+import {resolveWorkspaceRole} from '../../../../lib/workspaceRole';
 import { usePrivateNetworkGroups } from '../../../components/workspace/usePrivateNetworkGroups';
 import { AVAILABILITY_BODY_TYPE_OPTIONS, matchesAvailabilityFilters } from '../../../../lib/availability/canonicalAvailability';
 import { marketplaceVehicleSizeOptions } from '../../../../lib/vehicleSizeRange';
@@ -60,6 +61,8 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
   const mode: 'availability' | 'fleet' = explicitMode ?? (pathname.startsWith('/driver/fleet') ? 'fleet' : 'availability');
   const router = useRouter();
   const { user } = useAuth();
+  const ownerWeb=resolveWorkspaceRole(user)==='owner_driver';
+  const nearbySequence=useRef(0);
   const privateGroups = usePrivateNetworkGroups(user?.companyId ?? null);
   const [presence, setPresence] = useState<Presence | null>(null);
   const [visibility, setVisibility] = useState<Visibility>('private');
@@ -96,10 +99,13 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
   }, [authHeader]);
 
   const loadNearby = useCallback(async () => {
+    const sequence=++nearbySequence.current;
     setNearbyLoading(true);
     setNearbyError('');
     const auth = await authHeader();
+    if(ownerWeb&&sequence!==nearbySequence.current)return;
     if (!auth) {
+      if(ownerWeb)setPositions([]);
       setNearbyError('Your session has expired.');
       setNearbyLoading(false);
       return;
@@ -119,6 +125,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => ({})) as NearbyResponse;
+      if(ownerWeb&&sequence!==nearbySequence.current)return;
       if (!response.ok) {
         setPositions([]);
         setNearbyError(payload.error ?? 'Live availability could not be loaded.');
@@ -126,12 +133,13 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
         setPositions(payload.positions ?? []);
       }
     } catch {
+      if(ownerWeb&&sequence!==nearbySequence.current)return;
       setPositions([]);
       setNearbyError('Live availability could not be loaded. Check the connection and retry.');
     } finally {
-      setNearbyLoading(false);
+      if(!ownerWeb||sequence===nearbySequence.current)setNearbyLoading(false);
     }
-  }, [authHeader, query.body, query.groupId, query.minPallets, query.minPayload, query.postcode, query.radius, query.tailLiftOnly, query.vehicle]);
+  }, [authHeader, query.body, query.groupId, query.minPallets, query.minPayload, query.postcode, query.radius, query.tailLiftOnly, query.vehicle,ownerWeb]);
 
   useEffect(() => {
     void Promise.all([loadPresence(), loadNearby()]);

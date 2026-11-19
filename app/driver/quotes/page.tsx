@@ -11,6 +11,9 @@ import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage, isTerminalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxQuoteCard from '../../components/workspace/OwnerPR807QuoteCard';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import {ownerJobAddress} from '../_components/OwnerJobOperations';
+import { ownerQuoteMatches, ownerQuoteStage, OWNER_QUOTE_SCOPES, type OwnerQuoteScope } from '../_components/ownerQuoteRegister';
 
 type QuoteDirection = 'outgoing' | 'incoming';
 type TabId = 'submitted' | 'awarded';
@@ -186,6 +189,8 @@ function serviceLabel(service: string | null, direct: boolean | null) {
 export default function MyQuotesPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const ownerWeb=resolveWorkspaceRole(user)==='owner_driver';
+  const [ownerScope,setOwnerScope]=useState<OwnerQuoteScope>('submitted');
   const userId = user?.id ?? null;
   const companyId = user?.companyId ?? null;
   const canViewCompanyReceivedQuotes = Boolean(user && ['owner','admin','dispatcher'].includes(String(user.membershipRole??'').toLowerCase()));
@@ -345,7 +350,7 @@ export default function MyQuotesPage() {
     if (bid.direction === 'incoming') {
       const job = ownJobsById[bid.job_id];
       if (job) return {
-        access: 'own', pickup: job.pickup_location ?? job.pickup_postcode ?? 'Collection', delivery: job.delivery_location ?? job.delivery_postcode ?? 'Delivery',
+        access: 'own', pickup: ownerWeb?ownerJobAddress(job.pickup_location,job.pickup_postcode):job.pickup_location ?? job.pickup_postcode ?? 'Collection', delivery: ownerWeb?ownerJobAddress(job.delivery_location,job.delivery_postcode):job.delivery_location ?? job.delivery_postcode ?? 'Delivery',
         pickupDatetime: job.pickup_datetime, deliveryDatetime: job.delivery_datetime, vehicle: job.vehicle_type, service: serviceLabel(job.service_mode, job.direct_delivery_required), jobStatus: job.current_status || job.status, postedAt: job.exchange_posted_at, budget: job.budget_amount, currency: bid.currency || 'GBP',
         postingCompanyId: job.company_id, postingCompanyName: job.companies?.name ?? 'Your company', postingMemberId: null, postingPhone: null, postedBy: null,
         customerReference: job.customer_reference, bookingReference: job.booking_reference,
@@ -355,7 +360,7 @@ export default function MyQuotesPage() {
 
     const assigned = assignedJobsById[bid.job_id];
     if (assigned) return {
-      access: 'assigned', pickup: assigned.pickup_location ?? assigned.pickup_postcode ?? 'Collection', delivery: assigned.delivery_location ?? assigned.delivery_postcode ?? 'Delivery',
+      access: 'assigned', pickup: ownerWeb?ownerJobAddress(assigned.pickup_location,assigned.pickup_postcode):assigned.pickup_location ?? assigned.pickup_postcode ?? 'Collection', delivery: ownerWeb?ownerJobAddress(assigned.delivery_location,assigned.delivery_postcode):assigned.delivery_location ?? assigned.delivery_postcode ?? 'Delivery',
       pickupDatetime: assigned.pickup_datetime, deliveryDatetime: assigned.delivery_datetime, vehicle: assigned.vehicle_type, service: serviceLabel(assigned.service_mode, assigned.direct_delivery_required), jobStatus: assigned.current_status || assigned.status, postedAt: assigned.exchange_posted_at, budget: assigned.budget_amount, currency: bid.currency || 'GBP',
       postingCompanyId: assigned.company_id, postingCompanyName: assigned.companies?.name ?? 'Posting member', postingMemberId: null, postingPhone: null, postedBy: null,
       customerReference: assigned.customer_reference, bookingReference: assigned.booking_reference,
@@ -382,7 +387,7 @@ export default function MyQuotesPage() {
       postingPhone: null, postedBy: null, customerReference: null, bookingReference: null,
       distanceToPickupMiles: null, pickupEtaMinutes: null, jobDistanceMiles: null, jobDistanceMinutes: null,
     };
-  }, [assignedJobsById, marketplaceByJob, ownJobsById]);
+  }, [assignedJobsById, marketplaceByJob, ownJobsById,ownerWeb]);
 
   const handleWithdrawBid = async (bidId: string) => {
     if (!isSupabaseConfigured || !userId) return;
@@ -397,14 +402,15 @@ export default function MyQuotesPage() {
     setPendingWithdrawals(new Set(pendingWithdrawalsRef.current));
     const previousBid = bids.find((bid) => bid.id === bidId);
     // Confirm the tap immediately; reconcile with the server without blocking the card.
-    setBids((current) => current.map((bid) => bid.id === bidId ? { ...bid, status: 'withdrawn' } : bid));
+    if(!ownerWeb)setBids((current) => current.map((bid) => bid.id === bidId ? { ...bid, status: 'withdrawn' } : bid));
     try {
       const response = await fetch(`/api/driver/bids/${encodeURIComponent(bidId)}/withdraw`, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token },
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
-      if (!response.ok) throw new Error(payload.error ?? 'The quote could not be withdrawn. Please try again.');
+      const payload = (await response.json().catch(() => ({}))) as { error?: string;success?:boolean;status?:string };
+      if (!response.ok || (ownerWeb&&(payload.success!==true||payload.status!=='withdrawn'))) throw new Error(payload.error ?? 'The quote could not be withdrawn. Please try again.');
+      if(ownerWeb)setBids(current=>current.map(bid=>bid.id===bidId?{...bid,status:'withdrawn'}:bid));
       void fetchBids({ background: true });
     } catch (cause) {
       if (previousBid) setBids((current) => current.map((bid) => bid.id === bidId ? previousBid : bid));
@@ -452,6 +458,7 @@ export default function MyQuotesPage() {
   }), [appliedFilters, bids, companyNames, viewForBid]);
 
   const tabBids = useMemo(() => filteredBids.filter((bid) => {
+    if (ownerWeb) return ownerQuoteMatches(bid,ownerScope);
     if (quoteScope === 'total') return true;
     if (quoteScope === 'received') return bid.direction === 'incoming';
     if (quoteBucket(bid) !== activeTab) return false;
@@ -459,7 +466,7 @@ export default function MyQuotesPage() {
     const stage=canonicalQuoteStage(bid,bid.direction==='incoming'?'poster':'bidder');
     const historic=isTerminalQuoteStage(stage);
     return submittedView === 'history' ? historic : !historic;
-  }), [activeTab, filteredBids, submittedView, quoteScope]);
+  }), [activeTab, filteredBids, submittedView, quoteScope,ownerWeb,ownerScope]);
   const visibleBids = useMemo(() => tabBids.slice(0, visibleCount), [tabBids, visibleCount]);
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
   const canLoadMore = visibleCount < tabBids.length;
@@ -467,7 +474,7 @@ export default function MyQuotesPage() {
   useEffect(() => {
     setVisibleCount(pageSize);
     setExpandedIds(new Set());
-  }, [activeTab, appliedFilters, pageSize, submittedView, quoteScope]);
+  }, [activeTab, appliedFilters, pageSize, submittedView, quoteScope,ownerScope]);
   const toggleExpandAll = () => setExpandedIds((previous) => {
     const next = new Set(previous);
     visibleBids.forEach((bid) => { if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id); });
@@ -496,21 +503,23 @@ export default function MyQuotesPage() {
           <main className="main">
             <header className="workspace-quote-title"><h1>Quotes</h1></header>
 <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Quotation states">
+  {ownerWeb ? OWNER_QUOTE_SCOPES.map(({id,label})=><button key={id} type="button" role="tab" aria-selected={ownerScope===id} data-active={ownerScope===id} onClick={()=>setOwnerScope(id)}>{label} ({bids.filter(bid=>ownerQuoteMatches(bid,id)).length})</button>) : <>
   <button type="button" role="tab" aria-selected={quoteScope==='received'} data-active={quoteScope==='received'} onClick={()=>setQuoteScope('received')}>Received ({bids.filter(bid=>bid.direction==='incoming').length})</button>
   <button type="button" role="tab" aria-selected={quoteScope==='submitted'&&submittedView==='history'} data-active={quoteScope==='submitted'&&submittedView==='history'} onClick={()=>{setActiveTab('submitted');setQuoteScope('submitted');setSubmittedView('history');}}>Archived / Unsuccessful</button>
   <button type="button" role="tab" aria-selected={quoteScope==='submitted'&&submittedView==='active'} data-active={quoteScope==='submitted'&&submittedView==='active'} onClick={()=>{setActiveTab('submitted');setQuoteScope('submitted');setSubmittedView('active');}}>Submitted ({bids.filter(bid=>quoteBucket(bid)==='submitted').length})</button>
   <button type="button" role="tab" aria-selected={quoteScope==='awarded'} data-active={quoteScope==='awarded'} onClick={()=>{setActiveTab('awarded');setQuoteScope('awarded');}}>Awarded ({bids.filter(bid=>quoteBucket(bid)==='awarded').length})</button>
   <button type="button" role="tab" aria-selected={quoteScope==='total'} data-active={quoteScope==='total'} onClick={()=>setQuoteScope('total')}>All Quotes ({bids.length})</button>
+  </>}
   <span className="cx-quote-state-tabs__action">
     <label>Per page <select aria-label="Quote results per page" value={pageSize} onChange={event=>setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
   </span>
 </div>
             {error && <div className="vision-note">{error}</div>}
-            <div className="cx-quote-result-summary"><span>{quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
-            {quoteScope === 'submitted' && <div className="cx-quote-submitted-view" role="group" aria-label="Submitted quote activity">
+            <div className="cx-quote-result-summary"><span>{ownerWeb ? OWNER_QUOTE_SCOPES.find(item=>item.id===ownerScope)?.label+' quotes' : quoteScope === 'total' ? 'All quotes' : quoteScope === 'received' ? 'Received quotes' : quoteScope === 'awarded' ? 'Awarded quotes' : 'Submitted quotes'} ({tabBids.length})</span><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></div>
+            {!ownerWeb && quoteScope === 'submitted' && <div className="cx-quote-submitted-view" role="group" aria-label="Submitted quote activity">
               {(['active','history','all'] as const).map(view=><button key={view} type="button" className={submittedView===view?'active':''} aria-pressed={submittedView===view} onClick={()=>setSubmittedView(view)}>{view==='active'?'Active quotes':view==='history'?'Withdrawn / expired / unsuccessful':'All submitted records'}</button>)}
             </div>}
-            {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {quoteScope} quotes found.</span></div> : (
+            {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {ownerWeb?ownerScope:quoteScope} quotes found.</span></div> : (
               <div className="xdrive-cx-quote-list">
                 {visibleBids.map((bid) => {
                   const view = viewForBid(bid);
@@ -519,7 +528,7 @@ export default function MyQuotesPage() {
                   const incomingCompanyName = bid.company_id ? companyNames[bid.company_id] ?? 'Quoting member' : 'Owner driver';
                   const counterpartName = bid.direction === 'incoming' ? incomingCompanyName : view.postingCompanyName;
                   const counterpartCompanyId = bid.direction === 'incoming' ? bid.company_id : view.postingCompanyId;
-                  const quoteStage = canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
+                  const quoteStage = ownerWeb?ownerQuoteStage(bid):canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
                   const pickupLabel = cxSlotParts(view.pickupDatetime);
                   const deliveryLabel = cxSlotParts(view.deliveryDatetime);
                   const vehicle = view.vehicle?.replace(/_/g, ' ') ?? 'Vehicle not supplied';

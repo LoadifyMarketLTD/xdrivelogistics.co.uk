@@ -1,4 +1,5 @@
 'use client';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -100,8 +101,8 @@ export default function WorkspaceNotificationInbox({
     }
     setLoading(true);
     setError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token ?? null;
+    try {
+    const accessToken = readRouteAuthAccessToken();
     if (!accessToken) {
       setError('Notifications are temporarily unavailable.');
       setRows([]);
@@ -110,14 +111,14 @@ export default function WorkspaceNotificationInbox({
     }
     const response = await fetch('/api/workspace/notifications', {
       headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
+      cache: 'no-store', signal: AbortSignal.timeout(12000),
     });
     const payload = (await response.json().catch(() => ({}))) as { notifications?: NotificationRow[]; error?: string };
     if (!response.ok) {
       setError(payload.error ?? 'Notifications are temporarily unavailable.');
       setRows([]);
     } else setRows(payload.notifications ?? []);
-    setLoading(false);
+    } catch {setRows([]);setError('Notifications could not be loaded. Please retry.');} finally {setLoading(false);}
   }, [user?.id]);
 
   useEffect(() => { void load(); }, [load]);

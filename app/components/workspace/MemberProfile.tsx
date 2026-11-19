@@ -1,7 +1,8 @@
 'use client';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { supabase } from '../../../lib/supabaseClient';
+import OwnerMemberProfile from './OwnerMemberProfile';
 import { ActionButton, EmptyState, WorkspaceDialog, workspaceTheme } from './WorkspaceUI';
 
 type SectionState = {
@@ -10,7 +11,9 @@ type SectionState = {
   items?: string[];
 };
 
-type MemberProfileResponse = {
+export type DirectoryEvidence = { delivery:{score:number|null;evidenceCount:number;completedJobs:number}; payment:{score:number|null;evidenceCount:number;onTimePaid:number;latePaid:number;overdueOpen:number} };
+
+export type MemberProfileResponse = {
   member: {
     companyId: string | null;
     driverId?: string | null;
@@ -22,6 +25,17 @@ type MemberProfileResponse = {
     status: string;
     availability?: string | null;
     vehicleType?: string | null;
+    companyNumber?: string|null;
+    vatNumber?: string|null;
+    phone2?: string|null;
+    contactName?: string|null;
+    email?: string|null;
+    email2?: string|null;
+    website?: string|null;
+    fleet?: string|null;
+    operatorLicence?: string|null;
+    paymentTerms?: string|null;
+    billingAddress?: {line1?:string|null;line2?:string|null;town?:string|null;postcode?:string|null};
   };
   sections: {
     feedback: SectionState;
@@ -33,7 +47,7 @@ type MemberProfileResponse = {
   };
 };
 
-type ProfileTab = 'details' | 'feedback' | 'users' | 'services' | 'charges' | 'booking' | 'documents';
+export type ProfileTab = 'details' | 'feedback' | 'users' | 'services' | 'charges' | 'booking' | 'documents' | 'payment' | 'complaints';
 
 const TABS: Array<{ id: ProfileTab; label: string }> = [
   { id: 'details', label: 'Member Details' },
@@ -84,11 +98,13 @@ export function MemberIdentityLink({
   driverId,
   children,
   title,
+  ownerDirectoryEvidence,
 }: {
   companyId?: string | null;
   driverId?: string | null;
   children: ReactNode;
   title?: string;
+  ownerDirectoryEvidence?: DirectoryEvidence;
 }) {
   const [open, setOpen] = useState(false);
   if (!companyId && !driverId) return <>{children}</>;
@@ -115,7 +131,7 @@ export function MemberIdentityLink({
       >
         {children}
       </button>
-      {open && <MemberProfileOverlay companyId={companyId} driverId={driverId} onClose={() => setOpen(false)} />}
+      {open && <MemberProfileOverlay companyId={companyId} driverId={driverId} ownerDirectoryEvidence={ownerDirectoryEvidence} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -123,11 +139,13 @@ export function MemberIdentityLink({
 export function MemberProfileOverlay({
   companyId,
   driverId,
+  ownerDirectoryEvidence,
   onClose,
 }: {
   companyId?: string | null;
   driverId?: string | null;
   onClose: () => void;
+  ownerDirectoryEvidence?: DirectoryEvidence;
 }) {
   const [profile, setProfile] = useState<MemberProfileResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -138,8 +156,7 @@ export function MemberProfileOverlay({
     setLoading(true);
     setError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const endpoint = companyId
         ? `/api/member-profile/${encodeURIComponent(companyId)}`
@@ -149,7 +166,7 @@ export function MemberProfileOverlay({
       if (!endpoint) throw new Error('Member identity is unavailable.');
       const response = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
+        cache: 'no-store', signal: AbortSignal.timeout(12000),
       });
       const payload = (await response.json().catch(() => ({}))) as MemberProfileResponse & { error?: string };
       if (!response.ok || !payload.member) throw new Error(payload.error || 'Member profile could not be loaded.');
@@ -164,16 +181,18 @@ export function MemberProfileOverlay({
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
+    if(ownerDirectoryEvidence)return;
     const keydown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', keydown);
     return () => document.removeEventListener('keydown', keydown);
-  }, [onClose]);
+  }, [onClose,ownerDirectoryEvidence]);
 
   const activeSection = useMemo(() => {
     if (!profile || tab === 'details') return null;
     if (tab === 'feedback') return profile.sections.feedback;
+    if (tab === 'payment' || tab === 'complaints') return null;
     if (tab === 'users') return profile.sections.users;
     if (tab === 'services') return profile.sections.specialistServices;
     if (tab === 'charges') return profile.sections.charges;
@@ -189,10 +208,18 @@ export function MemberProfileOverlay({
     ['Business phone', profile.member.businessPhone ?? 'Not supplied'],
     ['Member since', memberSince(profile.member.memberSince)],
     ['Account status', human(profile.member.status)],
+    ...(ownerDirectoryEvidence && !profile.member.driverId ? [
+      ['Company number',profile.member.companyNumber??'Not supplied'],['VAT number',profile.member.vatNumber??'Not supplied'],
+      ['Business contact',profile.member.contactName??'Not published'],['Secondary phone',profile.member.phone2??'Not supplied'],
+      ['Business email',profile.member.email??'Not published'],['Finance email',profile.member.email2??'Not published'],
+      ['Website',profile.member.website??'Not published'],['Payment terms',profile.member.paymentTerms??'Not supplied'],
+      ['Fleet',profile.member.fleet??'Not supplied'],['Operator licence',profile.member.operatorLicence??'Not supplied'],
+      ['Business billing address',Object.values(profile.member.billingAddress??{}).filter(Boolean).join(', ')||'Not supplied']
+    ] : []),
     ...(profile.member.driverId ? [['Availability', human(profile.member.availability)], ['Vehicle', human(profile.member.vehicleType)]] : []),
   ] : [];
 
-  return (
+  const legacyDialog = (
     <WorkspaceDialog
       ariaLabel="Member profile"
       title={`${profile?.member.name ?? (loading ? 'Loading member…' : 'Member profile')}${profile?.member.memberId && profile.member.companyId ? ` — Member ID ${profile.member.memberId}` : ''}`}
@@ -203,7 +230,7 @@ export function MemberProfileOverlay({
       headerActions={<button type="button" onClick={onClose} aria-label="Close member profile" style={{ width: 28, height: 28, border: 0, borderRadius: 4, background: 'transparent', color: workspaceTheme.muted, cursor: 'pointer', fontSize: 18, lineHeight: '28px' }}>×</button>}
       subheader={
         <div role="tablist" aria-label="Member profile sections" className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', margin: 0 }}>
-          {TABS.map((item) => (
+          {(ownerDirectoryEvidence ? TABS.flatMap(item=>item.id==='feedback'?[{id:'feedback' as ProfileTab,label:'Delivery Feedback'},{id:'payment' as ProfileTab,label:'Payment Evidence'},{id:'complaints' as ProfileTab,label:'Complaints'}]:[item]) : TABS).map((item) => (
             <button
               key={item.id}
               type="button"
@@ -238,9 +265,14 @@ export function MemberProfileOverlay({
                 This profile shows business-facing member information only. Private addresses, personal contact details and internal compliance evidence are not published here.
               </div>
             </div>
+          ) : profile && ownerDirectoryEvidence && tab==='payment' ? (
+            <SectionMessage section={{state:'available',message:'Payment reliability is derived from recorded invoice due dates and settlements. This is not a subjective payment-feedback rating.',items:[ownerDirectoryEvidence.payment.score==null?'Not enough evidence for a reliability score':'Payment reliability: '+ownerDirectoryEvidence.payment.score+'%', 'Evidence records: '+ownerDirectoryEvidence.payment.evidenceCount,'Paid on time: '+ownerDirectoryEvidence.payment.onTimePaid,'Paid late: '+ownerDirectoryEvidence.payment.latePaid,'Overdue open: '+ownerDirectoryEvidence.payment.overdueOpen]}}/>
+          ) : profile && ownerDirectoryEvidence && tab==='complaints' ? (
+            <EmptyState compact title="Complaint records not available" description="No authorised member-facing complaint register is connected. This does not mean that no complaints exist."/>
           ) : profile && activeSection ? (
-            <SectionMessage section={activeSection} />
+            <div style={{display:'grid',gap:10}}>{ownerDirectoryEvidence&&tab==='feedback'&&<SectionMessage section={{state:'available',message:'Delivery reliability is separate from written job feedback.',items:[ownerDirectoryEvidence.delivery.score==null?'Not enough evidence for a reliability score':'Delivery reliability: '+ownerDirectoryEvidence.delivery.score+'%', 'Timed delivery evidence: '+ownerDirectoryEvidence.delivery.evidenceCount,'Completed jobs in evidence: '+ownerDirectoryEvidence.delivery.completedJobs]}}/>}<SectionMessage section={activeSection} /></div>
           ) : null}
     </WorkspaceDialog>
   );
+  return ownerDirectoryEvidence ? <OwnerMemberProfile profile={profile} evidence={ownerDirectoryEvidence} loading={loading} error={error} tab={tab} onTab={setTab} onRetry={()=>void load()} onClose={onClose}/> : legacyDialog;
 }

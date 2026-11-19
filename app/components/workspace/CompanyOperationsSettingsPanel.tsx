@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, EmptyState, Panel, StatusBadge } from './WorkspaceUI';
 
 type SpecialistRow = {
@@ -104,21 +104,23 @@ const EMPTY: OperationsSettings = {
 const labelStyle = { display: 'grid', gap: 4, fontSize: 11, fontWeight: 800, color: '#334155' } as const;
 const checkboxStyle = { display: 'flex', alignItems: 'center', gap: 7, minHeight: 30, fontSize: 12, color: '#334155' } as const;
 
-export default function CompanyOperationsSettingsPanel({ companyId, companyName }: { companyId: string; companyName: string }) {
+export default function CompanyOperationsSettingsPanel({ companyId, companyName, memberProfileOnly=false }: { companyId: string; companyName: string; memberProfileOnly?: boolean }) {
   const [settings, setSettings] = useState<OperationsSettings>(EMPTY);
   const [specialists, setSpecialists] = useState<SpecialistRow[]>([]);
   const [selected, setSelected] = useState<Set<SpecialistCode>>(new Set());
   const [tab, setTab] = useState<'profile' | 'documents' | 'charges' | 'services' | 'preferences'>('profile');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadedCompanyId,setLoadedCompanyId]=useState<string|null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadedCompanyId(null);
     setError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    try {
+    const token = readRouteAuthAccessToken();
     if (!token) {
       setError('Your session has expired. Sign in again.');
       setLoading(false);
@@ -126,7 +128,7 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
     }
     const response = await fetch('/api/settings/company-operations?companyId=' + encodeURIComponent(companyId), {
       headers: { Authorization: 'Bearer ' + token },
-      cache: 'no-store',
+      cache: 'no-store', signal: AbortSignal.timeout(12000),
     });
     const payload = await response.json().catch(() => ({})) as OperationsResponse;
     if (!response.ok || !payload.settings) {
@@ -136,18 +138,21 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
       const rows = payload.specialistCapabilities ?? [];
       setSpecialists(rows);
       setSelected(new Set(rows.map((row) => row.capability_code)));
+      setLoadedCompanyId(companyId);
     }
-    setLoading(false);
+    } catch {setError('Company operations settings could not be loaded. Please retry.');}
+    finally {setLoading(false);}
   }, [companyId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const save = async () => {
+    if(loadedCompanyId!==companyId||saving)return;
     setSaving(true);
     setError('');
     setNotice('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    try {
+    const token = readRouteAuthAccessToken();
     if (!token) {
       setError('Your session has expired. Sign in again.');
       setSaving(false);
@@ -169,7 +174,8 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
       setNotice('Company operations settings saved.');
       await load();
     }
-    setSaving(false);
+    }catch {setError('Save could not be confirmed. Reload settings before making further changes.');setLoadedCompanyId(null);}
+    finally {setSaving(false);}
   };
 
   const specialistByCode = useMemo(
@@ -178,10 +184,12 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
   );
 
   if (loading) return <Panel><EmptyState compact title="Loading company operations settings…" /></Panel>;
+  if(loadedCompanyId!==companyId)return <Panel title="Directory profile settings unavailable"><AlertBanner tone="danger">{error||'Existing company data has not been verified. Saving is disabled to protect your records.'}</AlertBanner><ActionButton tone="secondary" onClick={()=>void load()}>Retry loading settings</ActionButton></Panel>;
 
   return <div style={{ display: 'grid', gap: 10 }}>
     {error && <AlertBanner tone="danger">{error}</AlertBanner>}
     {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
+    <Panel title="Your Member Directory profile" description="Complete your company’s trading information before accepting or posting bookings. Only authorised owners and administrators may save these fields."><p style={{margin:0,lineHeight:1.6}}>Trading contacts, charges, Booking Footer and declared specialist services appear in Directory according to existing visibility and verification rules. Do not include passwords, private contact details or private instructions. Job-specific agreed terms remain authoritative.</p></Panel>
 
     <div className="workspace-tab-strip" role="tablist" aria-label="Company operations settings" style={{ display: 'flex', overflowX: 'auto' }}>
       {([
@@ -190,7 +198,7 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
         ['charges', 'Charges'],
         ['services', 'Specialist Services'],
         ['preferences', 'Exchange Preferences'],
-      ] as const).map(([id, label]) => (
+      ] as const).filter(([id])=>!memberProfileOnly||id!=='preferences').map(([id, label]) => (
         <button key={id} type="button" role="tab" aria-selected={tab === id} data-active={tab === id ? 'true' : 'false'} onClick={() => setTab(id)}>{label}</button>
       ))}
     </div>
@@ -208,8 +216,8 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
     </Panel>}
 
     {tab === 'documents' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 10 }}>
-      <Panel title="Booking Footer" description="Notes shown on booking records where the booking document template supports them.">
-        <label style={labelStyle}>Booking footer<textarea rows={7} value={settings.bookingFooter} onChange={(e) => setSettings((v) => ({ ...v, bookingFooter: e.target.value.slice(0, 2000) }))} placeholder="Booking terms or operational notes" /></label>
+      <Panel title="Booking Footer" description="Write your published booking conditions. These appear under Directory → Booking Footer and on supported booking records. Do not include private instructions or confidential data.">
+        <label style={labelStyle}>Booking footer<textarea rows={7} value={settings.bookingFooter} onChange={(e) => setSettings((v) => ({ ...v, bookingFooter: e.target.value.slice(0, 2000) }))} placeholder="Example: Confirm collection and delivery instructions before dispatch. Notify the booking contact of delays. Any extra charges must be agreed in advance." /></label><small>{settings.bookingFooter.length}/2000 characters · Published to trading members when saved.</small>
       </Panel>
       <Panel title="Delivery Note Details" description="Company contact and footer defaults for delivery-note output.">
         <div style={{ display: 'grid', gap: 8 }}>
@@ -244,7 +252,7 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
       </div>
     </Panel>}
 
-    {tab === 'preferences' && <Panel title="Exchange Preferences" description="Company-level operational defaults inspired by the reference exchange, mapped to XDrive behaviour.">
+    {tab === 'preferences' && !memberProfileOnly && <Panel title="Exchange Preferences" description="Company-level operational defaults inspired by the reference exchange, mapped to XDrive behaviour.">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 6 }}>
         <label style={checkboxStyle}><input type="checkbox" checked={settings.driverMustConfirmAcceptance} onChange={(e) => setSettings((v) => ({ ...v, driverMustConfirmAcceptance: e.target.checked }))} /> Driver / Carrier must confirm acceptance</label>
         <label style={checkboxStyle}><input type="checkbox" checked={settings.allowLoadReminder} onChange={(e) => setSettings((v) => ({ ...v, allowLoadReminder: e.target.checked }))} /> Allow load reminders</label>
@@ -260,7 +268,7 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
     </Panel>}
 
     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-      <ActionButton tone="primary" disabled={saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save Company Operations'}</ActionButton>
+      <ActionButton tone="primary" disabled={saving||loadedCompanyId!==companyId} onClick={() => void save()}>{saving ? 'Saving…' : 'Save Company Operations'}</ActionButton>
     </div>
   </div>;
 }

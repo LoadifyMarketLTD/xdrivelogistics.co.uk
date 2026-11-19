@@ -24,7 +24,7 @@ const actionToCanonicalStatus: Record<string, string> = {
   delivered: 'delivered',
 };
 
-const terminalStopStatuses = new Set(['completed', 'skipped']);
+import { evaluateWebStopFinalization, type WebStopRow } from '../../../../../../../lib/jobs/webStopFinalization';
 type PodEvidenceKind = 'photos' | 'damage' | 'documents';
 type MobileJobWithDamageEvidence = MobileJobRow & { damage_photos?: unknown };
 
@@ -38,37 +38,15 @@ const userScopedSupabase = (token: string) => {
   });
 };
 
-const isMissingJobStopsRelation = (
-  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
-) => {
-  if (!error) return false;
-  const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
-  return (error.code === '42P01' || error.code === 'PGRST205') && text.includes('job_stops');
-};
-
-async function requireMultiDropFinalizationReady(jobId: string) {
-  const { data, error } = await supabaseAdmin!
-    .from('job_stops')
-    .select('id, status')
-    .eq('job_id', jobId);
-
-  if (error) {
-    if (isMissingJobStopsRelation(error)) return null;
-    return respond(503, { error: 'Multi-drop completion could not be verified. Please retry.' });
-  }
-
-  const stops = (data ?? []) as Array<{ id: string; status: string | null }>;
-  if (stops.length === 0) return null;
-
-  const incompleteStops = stops.filter((stop) => !terminalStopStatuses.has(String(stop.status ?? 'pending').toLowerCase()));
-  if (incompleteStops.length > 0) {
-    return respond(409, {
-      error: 'Complete all multi-drop stops before capturing POD or marking the job delivered.',
-      remainingStops: incompleteStops.length,
-    });
-  }
-
-  return null;
+async function requireMultiDropFinalizationReady(jobId: string, driverId: string) {
+  const {data: job,error: jobError} = await supabaseAdmin!.from('jobs').select('id, service_mode').eq('id',jobId).eq('assigned_driver_id',driverId).maybeSingle();
+  if (jobError) return respond(503,{error:'Booking route could not be verified. Please retry.'});
+  if (!job) return respond(404,{error:'Job not found.'});
+  const {data,error} = await supabaseAdmin!.from('job_stops').select('id, sequence, stop_type, status, arrived_at, completed_at, handover').eq('job_id',jobId);
+  if (error) return respond(503,{error:'Booking stop records could not be verified. Please retry.'});
+  const result = evaluateWebStopFinalization(job.service_mode,(data??[]) as WebStopRow[]);
+  if (result.ready) return null;
+  return respond(409,{error:result.kind==='unverified'?'Booking route is incomplete or inconsistent. Verify the assigned route before finalization.':'Complete all multi-drop stops before capturing POD or marking the job delivered.',code:result.kind==='unverified'?'STOP_ROUTE_UNVERIFIED':'STOPS_OUTSTANDING',remainingStops:result.remainingStops});
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; action: string }> }) {
@@ -77,12 +55,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!isWebDriverContext(driver)) return driver;
 
   const { id, action } = await params;
+  if(action==='owner-stop-status'){
+    if(!(await getFeatureFlag(supabaseAdmin,'pod_capture')))return respond(503,{error:'POD capture is currently disabled.'});
+    const {data:owner,error:ownerError}=await supabaseAdmin.from('drivers').select('driver_type,company_id').eq('id',driver.driverId).eq('user_id',driver.userId).maybeSingle();
+    if(ownerError)return respond(503,{error:'Owner Driver access could not be verified.'});
+    if(owner?.driver_type!=='owner_driver'||!driver.companyId||owner.company_id!==driver.companyId)return respond(403,{error:'Owner Driver access required.'});
+    const {data:membership,error:membershipError}=await supabaseAdmin.from('company_memberships').select('role_in_company').eq('company_id',driver.companyId).eq('user_id',driver.userId).eq('status','active').maybeSingle();
+    if(membershipError)return respond(503,{error:'Company authority could not be verified.'});
+    if(membership?.role_in_company!=='owner')return respond(403,{error:'Company owner access required.'});
+    return updateWebDriverStop(request,id,driver,true);
+  }
   if (action === 'stop-status') return updateWebDriverStop(request, id, driver);
   if (action === 'undo-status') return undoWebDriverStatus(request, id, driver);
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });
-    const stopGate = await requireMultiDropFinalizationReady(id);
+    const stopGate = await requireMultiDropFinalizationReady(id, driver.driverId);
     if (stopGate) return stopGate;
     return savePod(request, id, driver.userId, driver.driverId, driver.companyId);
   }
@@ -106,7 +94,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   if (action === 'delivered') {
-    const stopGate = await requireMultiDropFinalizationReady(id);
+    const stopGate = await requireMultiDropFinalizationReady(id, driver.driverId);
     if (stopGate) return stopGate;
   }
 

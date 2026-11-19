@@ -43,6 +43,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .eq('id', id).eq('assigned_driver_id', driver.driverId).maybeSingle();
   if (jobError) return respond(500, { error: 'Assigned job could not be resolved.' });
   if (!job) return respond(404, { error: 'Job not found.' });
+  const stopId=request.nextUrl.searchParams.get('stopId');
+  if(stopId){
+    const {data:stop,error:stopError}=await supabaseAdmin.from('job_stops').select('id,status').eq('id',stopId).eq('job_id',id).maybeSingle();
+    if(stopError)return respond(503,{error:'Stop record could not be verified.'});
+    if(!stop)return respond(404,{error:'Stop not found for this assigned job.'});
+    if(stop.status!=='arrived')return respond(409,{error:'Only an arrived stop can recover staged photographs.'});
+    const folder=`${driver.companyId}/${id}/stops/${stopId}/photos`;
+    const {data:files,error:fileError}=await supabaseAdmin.storage.from('pod-photos').list(folder,{limit:11});
+    if(fileError)return respond(503,{error:'Stop photographs could not be recovered.'});
+    const paths=(files??[]).filter(file=>Boolean(file.id)&&SAFE_NAME.test(file.name)&&/\.(jpg|jpeg|png)$/i.test(file.name)).map(file=>folder+'/'+file.name);
+    if(paths.length>10)return respond(409,{error:'Stop contains more than ten staged photographs. Support review is required.'});
+    return respond(200,{ok:true,paths});
+  }
   const folder = `${driver.companyId}/${id}/collection-documents`;
   const { data, error } = await supabaseAdmin.storage.from('pod-photos').list(folder, { limit: 100 });
   if (error) return respond(500, { error: 'Collection documents could not be recovered.' });

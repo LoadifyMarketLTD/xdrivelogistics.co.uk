@@ -14,7 +14,7 @@ import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, St
 import './role-settings-workspace.css';
 
 type RoleMode = 'customer' | 'broker' | 'driver' | 'owner' | 'carrier' | 'fleet' | 'dispatcher' | 'finance' | 'compliance' | 'viewer';
-type Section = 'overview' | 'profile' | 'company' | 'operations' | 'blocked' | 'finance' | 'security';
+type Section = 'overview' | 'profile' | 'company' | 'operations' | 'blocked' | 'finance' | 'security' | 'departments';
 
 type CompanyRow = {
   id: string;
@@ -184,6 +184,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const canManageBilling = canEditCompany && billingRoles.includes(role);
   const financeSettingsVisible = canManageBilling;
   const companyOperationsVisible = canEditCompany && (role === 'carrier' || role === 'owner');
+  // Trading profile editors are available to active authorised owners/admins of every independent trading company.
+  const memberDirectoryEditorVisible = canEditCompany && billingRoles.includes(role);
 
   useEffect(() => {
     const requested = searchParams.get('section');
@@ -195,7 +197,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
       setSection('company');
       return;
     }
-    if (requested === 'operations' && companyOperationsVisible) {
+    if (requested === 'operations' && memberDirectoryEditorVisible) {
       setSection('operations');
       return;
     }
@@ -204,7 +206,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
       return;
     }
     if (requested === 'finance' && financeSettingsVisible) setSection('finance');
-  }, [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, searchParams]);
+    if (requested === 'departments' && companyOperationsVisible) setSection('departments');
+  }, [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, memberDirectoryEditorVisible, searchParams]);
 
   const load = useCallback(async () => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -213,7 +216,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     }
     setLoading(true);
     setError('');
-    const companyId = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null });
+    // AuthContext already resolved the active company. Every read remains RLS-scoped and membership is rechecked below.
+    const companyId = role==='owner'&&user.companyId ? user.companyId : await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null });
     if (!companyId) {
       setCompany(null);
       setProfile(null);
@@ -262,7 +266,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     }
     if (profileRow) setProfileForm({ fullName: profileRow.full_name ?? '', phone: profileRow.phone ?? '' });
     setLoading(false);
-  }, [user?.companyId, user?.id]);
+  }, [role,user?.companyId, user?.id]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -343,19 +347,30 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const memberCode = profile?.xd_id || 'Not assigned';
   const routes = routeMap[role];
 
-  // Stable Owner Driver categories: membership controls permissions, not item count.
+  // Reuse canonical editors and authorised routes.
   const ownerNav = [
-    { label: 'My Profile', action: () => setSection('overview'), active: section === 'overview' || section === 'profile' },
-    { label: 'Company Settings', action: () => setSection('company'), active: section === 'company' || section === 'finance' },
-    { label: 'Operations', action: () => setSection('operations'), active: section === 'operations' || section === 'blocked' },
-    { label: 'Security', action: () => setSection('security'), active: section === 'security' },
-    { label: 'Billing & Membership', action: () => router.push('/driver/settings/billing'), active: false },
-    { label: 'Legal & Agreements', action: () => router.push('/driver/account/legal-agreements'), active: false },
+    {group:'Account',label:'Account Readiness',action:()=>setSection('overview'),active:section==='overview'},
+    {group:'Account',label:'My Profile',action:()=>setSection('profile'),active:section==='profile'},
+    {group:'Account',label:'Security',action:()=>setSection('security'),active:section==='security'},
+    {group:'Business',label:'Company Profile',action:()=>setSection('company'),active:section==='company'},
+    ...(companyOperationsVisible?[{group:'Business',label:'Commercial & Operations',action:()=>setSection('operations'),active:section==='operations'}]:[]),
+    {group:'Business',label:'Business Documents',action:()=>router.push('/driver/documents'),active:false},
+    {group:'Operations',label:'Users & Drivers',action:()=>router.push('/driver/drivers-vehicles'),active:false},
+    {group:'Operations',label:'Company Vehicles',action:()=>router.push('/driver/vehicles'),active:false},
+    {group:'Operations',label:'Live Tracking',action:()=>router.push('/driver/freight-vision'),active:false},
+    {group:'Operations',label:'Load Alert Preferences',action:()=>router.push('/driver/load-alerts'),active:false},
+    {group:'Operations',label:'Notifications',action:()=>router.push('/driver/notifications'),active:false},
+    ...(companyOperationsVisible?[{group:'Operations',label:'Departments',action:()=>setSection('departments'),active:section==='departments'},{group:'Operations',label:'Blocked Members',action:()=>setSection('blocked'),active:section==='blocked'}]:[]),
+    {group:'Operations',label:'Network & Tools',action:()=>router.push('/driver/network'),active:false},
+    ...(financeSettingsVisible?[{group:'Administration',label:'Finance Settings',action:()=>setSection('finance'),active:section==='finance'}, {group:'Administration',label:'Billing & Membership',action:()=>router.push('/driver/settings/billing'),active:false}]:[]),
+    {group:'Administration',label:'Legal & Agreements',action:()=>router.push('/driver/account/legal-agreements'),active:false},
+    {group:'Administration',label:'Event Log',action:()=>router.push('/driver/event-log'),active:false},
   ];
   const nav = useMemo(() => [
     { label: 'Overview', action: () => setSection('overview'), active: section === 'overview' },
     { label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' },
     ...(companyProfileVisible ? [{ label: 'Company Settings', action: () => setSection('company'), active: section === 'company' }] : []),
+    ...(memberDirectoryEditorVisible && !companyOperationsVisible ? [{label:'Member Directory Profile',action:()=>setSection('operations'),active:section==='operations'}] : []),
     ...(companyOperationsVisible ? [
       { label: 'Company Operations', action: () => setSection('operations'), active: section === 'operations' },
       { label: 'Blocked Members', action: () => setSection('blocked'), active: section === 'blocked' },
@@ -371,9 +386,15 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
     ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
     ...(routes.support ? [{ label: 'Support', action: () => router.push(routes.support!), active: false }] : []),
-  ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.billing, routes.documents, routes.finance, routes.notifications, routes.support, routes.team, routes.vehicles, section]);
+  ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, memberDirectoryEditorVisible, role, router, routes.audit, routes.billing, routes.documents, routes.finance, routes.notifications, routes.support, routes.team, routes.vehicles, section]);
 
-  const displayedNav = role === 'owner' ? ownerNav : nav;
+  const displayedNav: Array<{label:string;action:()=>void;active:boolean;group?:string}> = role === 'owner' ? ownerNav : nav;
+  const readiness = company ? [
+    {label:'Company identity',ready:Boolean(company.legal_name||company.name)&&Boolean(company.xd_id),target:'company' as const},
+    {label:'Business contact',ready:Boolean(company.email&&company.phone&&company.contact_name),target:'company' as const},
+    {label:'Business address',ready:Boolean(company.address_line1&&company.city&&company.postcode&&company.country),target:'company' as const},
+    {label:'Personal contact',ready:Boolean(profile?.full_name&&profile.phone),target:'profile' as const},
+  ] : [];
 
   return (
     <PageFrame>
@@ -399,9 +420,9 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
             <strong>{role === 'owner' ? 'Account settings' : companyDisplay}</strong>
             <span>{identityCode} · {role}</span>
           </div>
-          {displayedNav.map((item) => (
-            <button key={item.label} type="button" data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button>
-          ))}
+          {displayedNav.map((item,index) => role==='owner' ? (
+            <div key={item.label} className="role-settings-nav-item">{item.group&&item.group!==displayedNav[index-1]?.group&&<span className="role-settings-nav-group">{item.group}</span>}<button type="button" aria-current={item.active?'page':undefined} data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button></div>
+          ) : <button key={item.label} type="button" data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button>)}
         </aside>
 
         <main className="role-settings-main">
@@ -409,6 +430,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
             <Panel><EmptyState title="Company account not found" description="The signed-in account is not linked to a readable XDrive company record." /></Panel>
           ) : section === 'overview' ? (
             <div className="role-settings-overview">
+              {role==='owner'&&<Panel title="Account Readiness" description="Profile completeness from recorded data, not compliance approval or permission to trade."><div className="owner-settings-readiness"><strong>{readiness.filter(item=>item.ready).length} of {readiness.length} basic information checks complete</strong><progress aria-label="Basic information completeness" value={readiness.filter(item=>item.ready).length} max={readiness.length}/>{readiness.map(item=><div key={item.label}><span>{item.label}</span><span className="owner-settings-check" data-ready={item.ready}>{item.ready?'Recorded':'Needs information'}</span><ActionButton tone="secondary" onClick={()=>setSection(item.target)}>Review</ActionButton></div>)}</div><div className="role-settings-actions"><ActionButton tone="secondary" onClick={()=>router.push('/driver/documents')}>Check business documents</ActionButton><ActionButton tone="secondary" onClick={()=>router.push('/driver/vehicles')}>Check vehicles</ActionButton><ActionButton tone="secondary" onClick={()=>router.push('/driver/load-alerts')}>Configure load alerts</ActionButton></div></Panel>}
               <Panel title="Member info" description="Live account and company identity.">
                 <div className="role-settings-member">
                   <div className="role-settings-mark">XD</div>
@@ -440,6 +462,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                   <label>Country<input disabled={!canEditCompany} value={companyForm.country} onChange={(e) => setCompanyForm((v) => ({ ...v, country: e.target.value }))} /></label>
                 </div>
                 <div className="role-settings-kv role-settings-kv--identity">
+                  {role==='owner'&&<><div><span>Registered legal name</span><strong>{company.legal_name||'Not recorded'}</strong></div><div><span>Trading name</span><strong>{company.trading_name||'Not recorded'}</strong></div></>}
                   <div><span>Registered company number</span><strong>{company.company_number || 'Not recorded'}</strong></div>
                   <div><span>VAT number</span><strong>{company.vat_number || 'Not recorded'}</strong></div>
                   <div><span>Company type</span><strong>{company.company_type?.replace(/_/g, ' ') || 'Not recorded'}</strong></div>
@@ -447,15 +470,17 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                   <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
                 </div>
               </Panel>
-              {role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" disabled={!canManageBilling} onClick={() => setSection('finance')}>Company finance settings</ActionButton></div>}
-              {canEditCompany && <CompanyDepartmentsPanel companyId={company.id} />}
+              {memberDirectoryEditorVisible && <Panel title="Complete your Member Directory profile" description="Update your own company's business-facing information. Member IDs, verified identity and reputation are not self-editable."><div style={{display:'grid',gap:12}}><div><strong>Trading contact, specialist services, charges and booking footer</strong><p>Saved commercial details are used in your Directory profile. Review the information before saving; do not enter private addresses or sensitive data.</p><ActionButton tone="secondary" onClick={()=>setSection('operations')}>Manage Directory profile</ActionButton></div><div><strong>Payment terms</strong><p>Set canonical payment defaults in Finance &amp; Invoices. Existing awarded bookings retain their agreed terms.</p><ActionButton tone="secondary" onClick={()=>setSection('finance')}>Company finance settings</ActionButton></div><div><strong>Users and business documents</strong><p>Manage authorised users in your team area. Review or replace documents belonging to your own onboarding application; private files are not published to trading members.</p><div style={{display:'flex',gap:8,flexWrap:'wrap'}}>{routes.team&&<ActionButton tone="secondary" onClick={()=>router.push(routes.team!)}>Manage users</ActionButton>}<ActionButton tone="secondary" onClick={()=>router.push("/onboarding/documents")}>My onboarding documents</ActionButton>{(role==='owner'||role==='carrier')&&routes.documents&&<ActionButton tone="secondary" onClick={()=>router.push(role==='carrier'?'/admin/documents/company':routes.documents!)}>Manage compliance documents</ActionButton>}</div></div><div><strong>Reputation and complaints</strong><p>Feedback, payment reliability and complaints must come from verified transactions or authorised processes; they cannot be edited on your own profile.</p></div></div></Panel>}
+              {canEditCompany && role!=='owner' && <CompanyDepartmentsPanel companyId={company.id} />}
             </div>
-          ) : section === 'operations' && (role === 'owner' || companyOperationsVisible) ? (
-            companyOperationsVisible ? <div className="role-settings-subsection"><CompanyOperationsSettingsPanel companyId={company.id} companyName={companyDisplay} />{role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('blocked')}>Blocked members</ActionButton></div>}</div> : <Panel title="Company operations"><EmptyState compact title="Owner or administrator permission required" /></Panel>
+          ) : section === 'operations' && (role === 'owner' || memberDirectoryEditorVisible) ? (
+            memberDirectoryEditorVisible ? <div className="role-settings-subsection"><CompanyOperationsSettingsPanel key={company.id} companyId={company.id} companyName={companyDisplay} memberProfileOnly={!companyOperationsVisible} />{role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('blocked')}>Blocked members</ActionButton></div>}</div> : <Panel title="Company operations"><EmptyState compact title="Owner or administrator permission required" /></Panel>
+          ) : section === 'departments' && companyOperationsVisible ? (
+            <CompanyDepartmentsPanel key={company.id} companyId={company.id} />
           ) : section === 'blocked' && companyOperationsVisible ? (
-            <div className="role-settings-subsection">{role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('operations')}>Back to operations</ActionButton></div>}<CompanyBlockedMembersPanel companyId={company.id} /></div>
+            <div className="role-settings-subsection">{role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('operations')}>Back to operations</ActionButton></div>}<CompanyBlockedMembersPanel key={company.id} companyId={company.id} /></div>
           ) : section === 'finance' && (role === 'owner' || canManageBilling) ? (
-            canManageBilling ? <div className="role-settings-subsection">{role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('company')}>Back to company settings</ActionButton></div>}<CompanyFinanceSettingsPanel companyId={company.id} companyName={companyDisplay} /></div> : <Panel title="Company finance settings"><EmptyState compact title="Owner or administrator permission required" /></Panel>
+            canManageBilling ? <div className="role-settings-subsection">{role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('company')}>Back to company settings</ActionButton></div>}<CompanyFinanceSettingsPanel key={company.id} companyId={company.id} companyName={companyDisplay} /></div> : <Panel title="Company finance settings"><EmptyState compact title="Owner or administrator permission required" /></Panel>
           ) : section === 'profile' ? (
             <Panel title="My Profile" description="Edit the personal profile attached to the signed-in XDrive account.">
               {role === 'owner' && <div className="role-settings-actions"><ActionButton tone="secondary" onClick={() => setSection('overview')}>Back to profile overview</ActionButton></div>}

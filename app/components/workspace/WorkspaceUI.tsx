@@ -165,7 +165,7 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
     danger: { bg: '#fff', color: workspaceTheme.red, border: '#fecaca' },
     secondary: { bg: '#fff', color: workspaceTheme.text, border: workspaceTheme.borderStrong },
   }[tone];
-  return <button className="owner-ref-hook-action-button" title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
+  return <button className="owner-ref-hook-action-button" data-action-tone={tone} title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import {validateOwnerStopSignature} from '../../../../../../lib/jobs/ownerStopSignature';
 
 import { supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { WebDriverContext } from '../../../_lib/webDriverContext';
@@ -73,7 +74,7 @@ function stopSummary(stops: StopRow[], updated: StopRow) {
   };
 }
 
-export async function updateWebDriverStop(request: NextRequest, jobId: string, driver: WebDriverContext) {
+export async function updateWebDriverStop(request: NextRequest, jobId: string, driver: WebDriverContext, ownerSigned=false) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return respond(400, { error: 'Invalid JSON body.' });
   const stopId = typeof body.stop_id === 'string' ? body.stop_id.trim() : '';
@@ -106,7 +107,7 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
   }
   const expected = next === 'arrived' ? 'pending' : 'arrived';
   if (target.status !== expected) return respond(409, { error: 'Stop state changed. Reload this booking.' });
-  if (next === 'arrived' && stops.some((stop) =>
+  if ((next === 'arrived'||ownerSigned) && stops.some((stop) =>
     stop.sequence < target.sequence && !terminalStopStatuses.has(stop.status))) {
     return respond(409, { error: 'Complete earlier stops before arriving at this stop.' });
   }
@@ -136,8 +137,15 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
       const documentsOk = await verifyStopEvidence(documentPaths, prefix + 'documents/');
       if (!photosOk || !documentsOk) return respond(400, { error: 'Stop evidence could not be verified in storage.' });
     }
+    let signature: {recipientName:string;signatureData:string}|null=null;
+    if(ownerSigned){
+      const recipientName=typeof raw.recipientName==='string'?raw.recipientName.trim():'';
+      if(!recipientName||recipientName.length>120||!photoPaths.length||!(await validateOwnerStopSignature(raw.signatureData)))return respond(400,{error:'A recipient name, drawn signature and verified stop photograph are required.'});
+      signature={recipientName,signatureData:raw.signatureData as string};
+    }
     handover = {
-      version: 1,
+      ...(signature?{...signature,signatureKind:'drawn',signedAt:new Date().toISOString()}:{}),
+      version: signature?2:1,
       capturedAt: new Date().toISOString(),
       itemCount: itemCount == null ? null : Math.round(itemCount),
       weightKg,
@@ -149,6 +157,7 @@ export async function updateWebDriverStop(request: NextRequest, jobId: string, d
     };
   }
   // Collection handover is mandatory; do not allow skipping it by omitting the JSON object.
+  if (next==='completed'&&ownerSigned&&!handover)return respond(400,{error:'Signed stop handover is required.'});
   if (next === 'completed' && target.stop_type === 'collection' && !handover) {
     return respond(400, { error: 'Collection stop photo handover is required.' });
   }

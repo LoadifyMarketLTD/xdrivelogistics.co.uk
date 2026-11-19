@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   const { data: reviews, error: reviewsError } = await supabaseAdmin
     .from('reviews')
-    .select('id, job_id, reviewer_company_id, rating, comment, created_at')
+    .select('id, job_id, reviewer_company_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at')
     .eq('reviewer_company_id', driver.companyId)
     .in('job_id', jobIds)
     .order('created_at', { ascending: false });

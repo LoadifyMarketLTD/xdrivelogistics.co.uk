@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useAuth } from '../components/AuthContext';
@@ -147,6 +147,7 @@ function DriverDashboardContent() {
   const [decliningJobId, setDecliningJobId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
   const [transitionMessage, setTransitionMessage] = useState('');
+  const commercialRequestSequence=useRef(0);
   const [commercialSummary, setCommercialSummary] = useState<DriverCommercialSummary | null>(null);
   const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
   const [commercialSummaryError, setCommercialSummaryError] = useState('');
@@ -192,7 +193,9 @@ function DriverDashboardContent() {
 
   const loadCommercialSummary = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
+    const sequence=++commercialRequestSequence.current;
     setCommercialSummaryLoading(true);
+    setCommercialSummary(null);
     setCommercialSummaryError('');
     const token = readRouteAuthAccessToken();
     if (!token) {
@@ -212,12 +215,14 @@ function DriverDashboardContent() {
       });
       const payload = await response.json().catch(() => null) as (DriverCommercialSummary & { error?: string }) | null;
       if (!response.ok || !payload) throw new Error(payload?.error ?? 'Commercial summary could not be loaded.');
+      if(sequence!==commercialRequestSequence.current)return;
       setCommercialSummary(payload);
     } catch (reason) {
+      if(sequence!==commercialRequestSequence.current)return;
       setCommercialSummary(null);
       setCommercialSummaryError(reason instanceof Error ? reason.message : 'Commercial summary could not be loaded.');
     } finally {
-      setCommercialSummaryLoading(false);
+      if(sequence===commercialRequestSequence.current)setCommercialSummaryLoading(false);
     }
   }, [commercialFrom, commercialPeriod, commercialTo, ownerDriver]);
 
@@ -678,12 +683,12 @@ function DriverDashboardContent() {
                   <OperationalCard title="Accounts Payable">
                     <div style={{ display: "grid", gap: 7 }}>
                       {[
-                        ["Latest Invoices Received", commercialSummary?.accountsPayable.received ?? 0],
-                        ["Invoices due for Payment", commercialSummary?.accountsPayable.dueForPayment ?? 0],
-                        ["Invoices Awaiting Payment", commercialSummary?.accountsPayable.awaitingPayment ?? 0],
-                        ["Monthly Totals", commercialSummary ? money(commercialSummary.accountsPayable.totalGross) : "Unavailable"],
+                        ["Latest Invoices Received", commercialSummary?.accountsPayable.received ?? 'Unavailable'],
+                        ["Invoices due for Payment", commercialSummary?.accountsPayable.dueForPayment ?? 'Unavailable'],
+                        ["Invoices Awaiting Payment", commercialSummary?.accountsPayable.awaitingPayment ?? 'Unavailable'],
+                        ["Selected period total", commercialSummary ? money(commercialSummary.accountsPayable.totalGross) : "Unavailable"],
                       ].map(([label, value]) => (
-                        <button key={label} type="button" onClick={() => router.push("/driver/finance")} style={{ minHeight: 42, padding: "8px 10px", border: `1px solid ${workspaceTheme.border}`, borderRadius: 3, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <button key={label} type="button" onClick={() => router.push("/driver/finance?view=payables")} style={{ minHeight: 42, padding: "8px 10px", border: `1px solid ${workspaceTheme.border}`, borderRadius: 3, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}>
                           <span style={{ fontSize: 14 }}>{label}</span>
                           <strong style={{ color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : String(value)}</strong>
                         </button>
@@ -691,13 +696,13 @@ function DriverDashboardContent() {
                     </div>
                   </OperationalCard>
 
-                  <OperationalCard title="Reports">
+                  <OperationalCard title="Reports" actions={<ActionButton tone="secondary" onClick={()=>router.push("/driver/reports")}>View reports</ActionButton>}>
                     <div style={{ display: "grid", gap: 7 }}>
                       {[
-                        ["Bookings Received", myJobs.length, "/driver/history"],
-                        ["Bookings Sub-contracted", commercialSummary?.bookingsSubcontracted ?? 0, "/driver/finance"],
+                        ["Bookings received (assigned)", myJobs.length, "/driver/history"],
+                        ["Bookings Sub-contracted", commercialSummary?.bookingsSubcontracted ?? 'Unavailable', "/driver/finance"],
                         ["Won / Assigned Work", myJobs.length, "/driver/jobs"],
-                        ["Return Journeys", profile?.future_position ? 1 : 0, "/driver/returns"],
+                        ["Return Journeys", 'View register', "/driver/returns"],
                       ].map(([label, value, href]) => (
                         <button key={label} type="button" onClick={() => router.push(String(href))} style={{ minHeight: 42, padding: "8px 10px", border: `1px solid ${workspaceTheme.border}`, borderRadius: 3, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}>
                           <span style={{ fontSize: 14 }}>{label}</span>
@@ -712,11 +717,11 @@ function DriverDashboardContent() {
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <div style={{ minHeight: 92, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface }}>
                       <span style={{ color: workspaceTheme.muted, fontSize: 14 }}>Feedback Received</span>
-                      <strong style={{ display: "block", marginTop: 16, fontSize: 20, color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : commercialSummary ? commercialSummary.feedback90Days.received : 0}</strong>
+                      <strong style={{ display: "block", marginTop: 16, fontSize: 20, color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : commercialSummary ? commercialSummary.feedback90Days.received : 'Unavailable'}</strong>
                     </div>
                     <div style={{ minHeight: 92, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface }}>
                       <span style={{ color: workspaceTheme.muted, fontSize: 14 }}>Average Rating</span>
-                      <strong style={{ display: "block", marginTop: 16, fontSize: 20, color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : commercialSummary?.feedback90Days.receivedRatingAverage == null ? "No rating" : `${commercialSummary.feedback90Days.receivedRatingAverage.toFixed(1)}/5`}</strong>
+                      <strong style={{ display: "block", marginTop: 16, fontSize: 20, color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : !commercialSummary ? 'Unavailable' : commercialSummary.feedback90Days.receivedRatingAverage == null ? "No rating" : `${commercialSummary.feedback90Days.receivedRatingAverage.toFixed(1)}/5`}</strong>
                     </div>
                   </div>
                 </OperationalCard>

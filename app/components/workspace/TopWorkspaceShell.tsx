@@ -744,6 +744,7 @@ export default function TopWorkspaceShell({
   const [companyName, setCompanyName] = useState(() => fixtureCompanyName ?? 'XDrive Logistics');
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationCountUnavailable,setNotificationCountUnavailable]=useState(false);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
   const menuTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
@@ -882,20 +883,30 @@ export default function TopWorkspaceShell({
     }
 
     let cancelled = false;
+    let inFlight=false;
+    let controller:AbortController|null=null;
     const fetchUnread = async () => {
+      if(cancelled||inFlight||document.visibilityState==='hidden')return;
       const token = readRouteAuthAccessToken();
-      if (!token) { if (!cancelled) setUnreadCount(0); return; }
-      const response = await fetch('/api/workspace/notifications?mode=count', {
-        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => ({})) as { unreadCount?: number };
-      if (!cancelled) setUnreadCount(response.ok ? Number(payload.unreadCount ?? 0) : 0);
+      if (!token) { if (!cancelled) {setUnreadCount(0);setNotificationCountUnavailable(true);} return; }
+      inFlight=true;controller=new AbortController();
+      const timeout=window.setTimeout(()=>controller?.abort(),10000);
+      try {
+        const response = await fetch('/api/workspace/notifications?mode=count', {
+          headers: { Authorization: 'Bearer '+token }, cache: 'no-store',signal:controller.signal,
+        });
+        const payload = await response.json().catch(() => ({})) as { unreadCount?: number };
+        if (!cancelled) {const valid=response.ok&&typeof payload.unreadCount==='number'&&Number.isFinite(payload.unreadCount)&&payload.unreadCount>=0;setNotificationCountUnavailable(!valid);setUnreadCount(valid?Number(payload.unreadCount):0);}
+      } catch {if(!cancelled){setNotificationCountUnavailable(true);setUnreadCount(0);}}
+      finally{window.clearTimeout(timeout);inFlight=false;controller=null;}
     };
-
+    const onVisibility=()=>{if(document.visibilityState==='visible')void fetchUnread();};
     void fetchUnread();
+    document.addEventListener('visibilitychange',onVisibility);
     const timer = window.setInterval(() => void fetchUnread(), 60_000);
     return () => {
-      cancelled = true;
+      cancelled = true;controller?.abort();
+      document.removeEventListener('visibilitychange',onVisibility);
       window.clearInterval(timer);
     };
   }, [user?.id]);
@@ -1022,7 +1033,7 @@ export default function TopWorkspaceShell({
             type="button"
             className="top-workspace-notification"
             onClick={() => router.push(notificationsHref)}
-            aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+            aria-label={`Notifications${notificationCountUnavailable?', unread count unavailable':unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
             title="Notifications"
           >
             <BellRing aria-hidden="true" size={18} strokeWidth={1.8} />
@@ -1070,6 +1081,7 @@ export default function TopWorkspaceShell({
                     onClick={(event) => {
                       setOpenGroupId(null);
                       if (role === 'owner_driver' && item.href === '/driver/availability/live') {
+                        // Full navigation avoids a stalled App Router transition on this live data-heavy route.
                         event.preventDefault();
                         window.location.assign(fixtureRouteFor(item.href));
                       }

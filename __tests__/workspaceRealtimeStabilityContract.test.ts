@@ -46,7 +46,8 @@ describe('workspace realtime and polling stability contract', () => {
     expect(intelligence).toContain('refreshInFlightRef.current');
     expect(intelligence).toContain("refresh({ background: true })");
     expect(driverVision).toContain('if (!background)');
-    expect(driverVision).toContain('else if (background && current[job.id]) next[job.id] = current[job.id]');
+    expect(driverVision).toContain('else if (background && current[job.id]) next[job.id] = ownerWeb ? {...current[job.id], fresh:false} : current[job.id]');
+    expect(driverVision).toContain('if(ownerWeb&&!verifiedLiveTracking(snapshot))return []');
     expect(driverVision).toContain("load({ background: true })");
     expect(customerTracking).toContain('trackingRefreshInFlightRef.current');
     expect(customerTracking).toContain('else if (background && current[jobId]) next[jobId] = current[jobId]');

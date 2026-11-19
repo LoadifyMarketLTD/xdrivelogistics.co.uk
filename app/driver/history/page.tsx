@@ -16,11 +16,12 @@ import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
-import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
+import { canLeaveCompanyFeedback, canonicalFeedbackState } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxDiaryCard from '../../components/workspace/OwnerPR807DiaryCard';
 import { operationalLocationLabel } from '../../components/workspace/locationPresentation';
 import CxDiaryActions from '../../components/workspace/CxDiaryActions';
+import OwnerJobDocuments from '../_components/OwnerJobDocuments';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -259,10 +260,11 @@ function hasRecentFeedback(_job: HistoryJob, reviews: ReviewRow[]) {
   return reviews.length > 0;
 }
 function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[], reviewerCompanyId?: string | null) {
-  return jobStage(job) === 'completed' && canLeaveCompanyFeedback(job, reviewerCompanyId) && !hasRecentFeedback(job, reviews);
+  return canonicalFeedbackState(job, reviewerCompanyId, hasRecentFeedback(job, reviews)) === 'awaiting_feedback';
 }
 function isClosedRecord(job: HistoryJob) { const stage = jobStage(job); return stage === 'completed' || stage === 'cancelled' || stage === 'expired'; }
 function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[], reviewerCompanyId?: string | null) {
+  if (filter === 'awaiting_feedback') return isAwaitingFeedback(job, reviews, reviewerCompanyId);
   return matchesCanonicalDiaryBucket(job, filter, {
     hasFeedback: hasRecentFeedback(job, reviews),
     feedbackEligible: canLeaveCompanyFeedback(job, reviewerCompanyId),
@@ -677,7 +679,7 @@ export default function JobHistoryPage() {
                   const cancellationLabel = isOwnAssignedJob && ['allocated', 'accepted'].includes(currentStatus) ? 'Decline' : 'Request cancellation';
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
-                    ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
+                    ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: [event.message, event.notes, event.user_name ? 'Recorded by: '+event.user_name : null].filter(Boolean).join(' · ') || 'Operational event' })),
                   ].sort((a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime());
                   const noteRows = [
                     ['Public quote notes', sheet?.publicQuoteNotes],
@@ -707,7 +709,7 @@ export default function JobHistoryPage() {
                       delivery={deliveryWhen}
                       band={bandLabel}
                       statusLine={<MemberIdentityLink companyId={job.company_id}>{memberLabel}</MemberIdentityLink>}
-                      statusStamp={<>{isOwnAssignedJob ? 'Assigned to you' : 'Company booking'}{hasPod ? ' · POD captured' : ''}{awaitingFeedback ? ' · Awaiting feedback' : ''}{feedbackReceived ? ' · Feedback received' : ''}</>}
+                      statusStamp={<>{isOwnAssignedJob ? 'Assigned to you' : 'Company booking'}{hasPod ? ' · POD captured' : ''}{awaitingFeedback ? ' · Awaiting feedback' : ''}{feedbackReceived ? (feedbackReviewerCompanyId ? ' · Feedback left' : ' · Feedback recorded') : ''}</>}
                       loadId={job.id.slice(0, 8).toUpperCase()}
                       vehicle={requestedVehicle}
                       state={expired ? 'expired' : currentStatus}
@@ -732,6 +734,7 @@ export default function JobHistoryPage() {
                         {isOwnAssignedJob && currentStatus === 'delivered' && !hasPod ? <button type="button" data-operation="primary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Complete POD</button> : null}
                         {canRequestCancellation ? <button type="button" data-operation="cancel" disabled={cancellingJobId === job.id} onClick={() => void requestDiaryCancellation(job)}>{cancellingJobId === job.id ? 'Sending…' : cancellationLabel}</button> : null}
                         {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open booking</button>}
+                        {canViewCompanyDiary && job.company_id===user?.companyId && ['delivered','completed','cancelled','expired'].includes(currentStatus) && <button type="button" onClick={()=>router.push('/driver/post-load?sourceJob='+encodeURIComponent(job.id)+'&sourceAction=rebook')}>Re-book</button>}
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds(current => new Set(current).add(job.id))}>View feedback</button>}
                       </CxDiaryActions>}
                       expandedContent={<>
@@ -778,8 +781,8 @@ export default function JobHistoryPage() {
                             ))}
 
                             {detailTab === 'notes' && (orderLoading ? <EmptyState compact title="Loading notes…" /> : noteRows.length ? <div className="driver-diary-note-list">{noteRows.map(([label, value]) => <div key={label} className="driver-diary-text-block"><strong>{label}</strong><span>{value}</span></div>)}</div> : <EmptyState compact title="No notes recorded" />)}
-                            {detailTab === 'history' && (historyRows.length ? <div className="driver-diary-history-list">{historyRows.slice(0, 50).map((row) => <div key={row.key} className="driver-diary-history-row"><strong>{row.label}</strong><span>{fmtDate(row.at)}</span><span>{row.detail}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
-                            {detailTab === 'documents' && (documents.length ? <div className="driver-diary-document-list">{documents.map((document) => <div key={document.id} className="driver-diary-document-row"><span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} · {fmtDate(document.uploaded_at)}</small></span>{document.file_url && <button type="button" onClick={() => window.open(document.file_url ?? '', '_blank', 'noopener,noreferrer')}>Open</button>}</div>)}</div> : <EmptyState compact title="No documents attached" />)}
+                            {detailTab === 'history' && (historyRows.length ? <div className="driver-diary-history-list">{historyRows.map((row) => <div key={row.key} className="driver-diary-history-row"><strong>{row.label}</strong><span>{fmtDate(row.at)}</span><span>{row.detail}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
+                            {detailTab === 'documents' && <OwnerJobDocuments key={job.id} jobId={job.id}/>}
                             {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>Yes</strong><small>Mandatory for every XDrive job</small></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
                             {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{human(invoice.status)}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{human(invoice.paymentStatus)}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => setInvoicePreview({ id: invoice.id as string, number: invoice.number })}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
                           </div>

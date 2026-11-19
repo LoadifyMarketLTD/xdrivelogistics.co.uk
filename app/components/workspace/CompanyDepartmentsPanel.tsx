@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, EmptyState, Panel } from './WorkspaceUI';
 
 type DepartmentRow = {
@@ -30,17 +30,17 @@ export default function CompanyDepartmentsPanel({ companyId }: { companyId: stri
   const [notice, setNotice] = useState('');
 
   const authHeader = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    const token = readRouteAuthAccessToken();
     return token ? `Bearer ${token}` : null;
   }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
+    try {
     const authorization = await authHeader();
     if (!authorization) { setError('Your session has expired. Sign in again.'); setLoading(false); return; }
     const response = await fetch(`/api/settings/departments?companyId=${encodeURIComponent(companyId)}`, {
-      headers: { Authorization: authorization }, cache: 'no-store',
+      headers: { Authorization: authorization }, cache: 'no-store', signal: AbortSignal.timeout(12000),
     });
     const payload = await response.json().catch(() => ({})) as DepartmentResponse;
     if (!response.ok) {
@@ -51,7 +51,7 @@ export default function CompanyDepartmentsPanel({ companyId }: { companyId: stri
       setDepartments(rows);
       setDrafts(Object.fromEntries(rows.map((row) => [row.id, { name: row.name, description: row.description ?? '' }])));
     }
-    setLoading(false);
+    } catch {setDepartments([]);setError('Departments request did not complete. Retry loading.');} finally {setLoading(false);}
   }, [authHeader, companyId]);
 
   useEffect(() => { void load(); }, [load]);
@@ -107,7 +107,7 @@ export default function CompanyDepartmentsPanel({ companyId }: { companyId: stri
   if (loading) return <Panel><EmptyState compact title="Loading departments…" /></Panel>;
 
   return <Panel title="Departments" description="Organise company members into operational departments without changing their security role.">
-    {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+    {error && <><AlertBanner tone="danger">{error}</AlertBanner><ActionButton tone="secondary" disabled={loading} onClick={()=>void load()}>Retry loading departments</ActionButton></>}
     {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) minmax(220px,2fr) auto', gap: 6, alignItems: 'end', marginBottom: 10 }}>
       <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800 }}>DEPARTMENT NAME<input value={name} onChange={(event) => setName(event.target.value.slice(0,80))} placeholder="Operations" /></label>

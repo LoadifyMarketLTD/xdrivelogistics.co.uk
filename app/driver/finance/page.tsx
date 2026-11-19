@@ -17,6 +17,7 @@ import {
 import { AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { InvoiceProDashboard, InvoiceProHero, InvoiceProMetrics, InvoiceProMasterTabs, InvoiceProRegister, InvoiceProStatusTabs, InvoiceProSurface } from '../../components/workspace/InvoiceProMasterFrame';
 import styles from '../../components/workspace/InvoiceProFinance.module.css';
+import OwnerPaymentReports from '../_components/OwnerPaymentReports';
 
 type InvoiceStatus = CanonicalInvoiceStatus;
 type PaymentStatus = CanonicalPaymentStatus;
@@ -73,7 +74,7 @@ type FinanceSummary = {
 };
 
 type ValueSummary = { net: number; vat: number; gross: number; paid: number; outstanding: number; issuedNet: number; issuedVat: number; issuedGross: number; issuedOutstanding: number };
-type FinanceSection = 'dashboard' | 'register' | 'ready' | 'customers' | 'statements';
+type FinanceSection = 'dashboard' | 'register' | 'ready' | 'customers' | 'statements' | 'payments';
 type FinanceRegisterFilter = InvoiceStatus | 'All' | 'AwaitingPayment';
 
 const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
@@ -286,6 +287,7 @@ export default function DriverFinancePage() {
             { id: 'accounts', label: financeView === 'payables' ? 'Suppliers' : 'Customers', active: section === 'customers', onSelect: () => selectSection('customers', 'All') },
             { id: 'archive', label: 'Archive', active: section === 'register' && activeTab === 'Cancelled', onSelect: () => selectSection('register', 'Cancelled') },
             { id: 'statements', label: 'Statements', active: section === 'statements', onSelect: () => selectSection('statements', 'All') },
+            ...(isOwnerDriver?[{id:'payments',label:'Payment Reports',active:section==='payments',onSelect:()=>selectSection('payments','All')}]:[]),
           ]} />
 
           <InvoiceProHero>
@@ -295,7 +297,7 @@ export default function DriverFinancePage() {
               <p className={styles.subtitle}>{financeView === 'payables' ? 'Supplier invoices, settlement readiness and payment control  without the noise.' : 'Receivables, billing readiness and payment performance  without the noise.'}</p>
             </div>
             <div className={styles.heroActions}>
-              <button className={styles.button} onClick={() => setSection('statements')}>Statements</button>
+              <button className={styles.button} onClick={() => selectSection('statements','All')}>Statements</button>
               <button className={styles.button} onClick={() => router.push(financeView === 'receivables' ? '/driver/finance?view=payables' : '/driver/finance')}>{financeView === 'receivables' ? 'Accounts Payable' : 'Accounts Receivable'}</button>
               {canGenerateInvoices && <button className={[styles.button, styles.buttonPrimary].join(' ')} onClick={() => selectSection('ready')}>+ Create invoice</button>}
             </div>
@@ -351,7 +353,7 @@ export default function DriverFinancePage() {
                 )}
                 {canGenerateInvoices && <button className={styles.actionButton} onClick={() => selectSection('ready')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>Create invoice</span><span className={styles.actionSub}>Start from a completed POD job</span></span><span className={styles.arrow}></span></button>}
                 <button className={styles.actionButton} onClick={() => selectSection('customers', 'All')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>{financeView === 'payables' ? 'Suppliers' : 'Customers'}</span><span className={styles.actionSub}>Review account performance</span></span><span className={styles.arrow}></span></button>
-                <button className={styles.actionButton} onClick={() => setSection('statements')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>Statements</span><span className={styles.actionSub}>Review finance summaries</span></span><span className={styles.arrow}></span></button>
+                <button className={styles.actionButton} onClick={() => selectSection('statements','All')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>Statements</span><span className={styles.actionSub}>Review finance summaries</span></span><span className={styles.arrow}></span></button>
               </aside>
             </InvoiceProDashboard>
           )}
@@ -379,6 +381,7 @@ export default function DriverFinancePage() {
             </InvoiceProRegister>
           )}
 
+          {section==='payments'&&isOwnerDriver&&<OwnerPaymentReports key={financeView} view={financeView}/>}
           {section === 'statements' && (
             <section className={styles.panel}>
               <div className={styles.panelKicker}>Statements</div><h2 className={styles.panelTitle}>Finance statement</h2>
