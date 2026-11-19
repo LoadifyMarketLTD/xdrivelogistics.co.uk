@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import CompanyAdminDiaryCalendar from './CompanyAdminDiaryCalendar';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
@@ -22,7 +24,7 @@ import {
   WorkspaceDialog,
 } from './WorkspaceUI';
 
-type DiaryViewMode = 'list' | 'split';
+type DiaryViewMode = 'list' | 'split' | 'calendar';
 type DiaryTab = CanonicalDiaryBucket;
 type JobRow = {
   id: string;
@@ -209,6 +211,7 @@ function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 
 
 export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { companyId: string; jobs: JobRow[]; drivers?: DriverRow[]; reviewsByJob?: Record<string, ReviewRow[]> } } = {}) {
   const { user } = useAuth();
+  const companyAdmin = (user?.workspaceRole ?? resolveWorkspaceRole(user)) === 'company_admin';
   const searchParams = useSearchParams();
   const router = useRouter();
   const companyId = fixtureData?.companyId ?? resolveActiveCompanyId(user);
@@ -448,6 +451,14 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const openCalendarBooking = (jobId:string) => {
+    const index=filtered.findIndex(job=>job.id===jobId);
+    if(index<0)return;
+    setPage(Math.floor(index/pageSize)+1);
+    setSelectedJobId(jobId);
+    setExpandedIds(current=>new Set([...current,jobId]));
+    setViewMode('split');
+  };
   const allVisibleExpanded = visible.length > 0 && visible.every((job) => expandedIds.has(job.id));
   useEffect(() => { setPage(1); }, [tab, appliedSearch, pageSize, selectedGroupFilter]);
   useEffect(() => {
@@ -769,24 +780,24 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
 
         <main className="workspace-board-main" style={{ minWidth: 0 }}>
           <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
-            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong><span className="cx-diary-view-toggle" role="group" aria-label="Diary view mode"><label><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label><label><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label></span></span>
+            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong><span className="cx-diary-view-toggle" role="group" aria-label="Diary view mode"><label><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label><label><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label>{companyAdmin&&<label><input type="radio" name="diary-view-mode" checked={viewMode==='calendar'} onChange={()=>setViewMode('calendar')}/> Calendar View</label>}</span></span>
             <span className="workspace-list-controls__right">
-              <button type="button" className="cx-expand-entries-control" disabled={!visible.length} onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+              <button type="button" className="cx-expand-entries-control" disabled={!visible.length || viewMode==='calendar'} onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
               <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
             </span>
           </div>
           <div className="workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Diary states">
             {diaryTabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}</button>)}
-            <span className="cx-diary-pagination">
+            {viewMode!=='calendar'&&<span className="cx-diary-pagination">
               <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
               <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
               <span>{filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)} of ${filtered.length}`}</span>
               <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
-            </span>
+            </span>}
           </div>
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
-          ) : visible.length === 0 ? (
+          ) : companyAdmin&&viewMode==='calendar' ? <CompanyAdminDiaryCalendar jobs={filtered.map(job=>({...job,status:workspaceJobOperationalLabel(job)}))} onOpen={openCalendarBooking} initialDay={appliedSearch.dateFrom||undefined}/> : visible.length === 0 ? (
             <div className="workspace-panel"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div>
           ) : viewMode === 'split' ? (
             <div className="xdrive-diary-split-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(360px,0.82fr) minmax(520px,1.18fr)', gap: 8, alignItems: 'start' }}>

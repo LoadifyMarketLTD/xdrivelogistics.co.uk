@@ -6,15 +6,17 @@ import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
 import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../lib/vehicleSizeRange';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
+import { canCompanyAdminQuote, canCompanyAdminCancelQuote, companyAdminQuoteStage, companyAdminBidAmount } from './companyAdminQuotePolicy';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
-import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
+import MarketplaceQuoteNowDialog, { type Canonical3150QuoteMeta } from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
 import { MemberProfileOverlay } from './MemberProfile';
 import {
@@ -44,7 +46,7 @@ type SearchResponse = { rows?: LoadRow[]; total?: number; page?: number; pageSiz
 type ListResponse<T> = { rows?: T[]; total?: number; generatedAt?: string; error?: string; referenceId?: string; };
 type Filters = { from: string; fromRadius: string; to: string; toRadius: string; vehicle: string; minVehicle: string; maxVehicle: string; body: string; freight: string; member: string; description: string; loadType: string; postedWithinHours: string; dateFrom: string; dateTo: string; minBudget: string; maxBudget: string; pageSize: string; };
 type RecentSearch = { id: string; label: string; filters: Filters; createdAt: string; };
-type QuoteStateView = 'received' | 'archived' | 'submitted' | 'unsuccessful';
+type QuoteStateView = 'received' | 'archived' | 'submitted' | 'unsuccessful' | 'all' | 'awarded' | 'expired' | 'lost';
 type QuoteTimeWindow = 'any' | '2' | '4' | '8' | '24';
 type QuoteFilters = { pickupWithin: QuoteTimeWindow; deliveryWithin: QuoteTimeWindow; loadRef: string; bookedBy: string };
 type FleetVehicle = { id: string; reg_plate: string | null; type: string | null; make: string | null; model: string | null };
@@ -74,7 +76,7 @@ const LOAD_TYPES = [['all', 'All Live'], ['on_demand', 'On Demand'], ['regular_l
 const radiusOptions = ['10', '20', '30', '50', '100', '200', '300'];
 const fieldStyle = { height: 28, border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 7px', background: '#fff', color: '#0f172a', fontSize: '11px', minWidth: 0 } as const;
 const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 500, lineHeight: '14px', marginBottom: 3 } as const;
-const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return 'â€”'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `Â£${amount.toFixed(2)}`; } };
+const money = (value: unknown, currency = 'GBP') => { if(value == null || String(value).trim()==='') return 'Not supplied'; const amount = Number(value); if (!Number.isFinite(amount)) return 'â€”'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `Â£${amount.toFixed(2)}`; } };
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not set';
 const cxWhen = (value: string | null | undefined) => {
   if (!value) return 'Not set';
@@ -156,6 +158,7 @@ export default function CompanyMarketplaceExchange({
   fixtureData?: { companyId: string; loads?: LoadRow[]; bids?: BidRow[]; won?: WonRow[]; vehicles?: FleetVehicle[]; autoOpenQuoteId?: string };
 } = {}) {
   const { user, hasSupabaseSession } = useAuth();
+  const companyAdmin = Boolean(fixtureData) || (user?.workspaceRole ?? resolveWorkspaceRole(user)) === 'company_admin';
   const [companyId, setCompanyId] = useState<string | null>(() => fixtureData?.companyId ?? null);
   const [tab] = useState<'loads' | 'bids' | 'won'>(initialTab);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
@@ -313,6 +316,8 @@ export default function CompanyMarketplaceExchange({
     }
   }, [companyId, fixtureData]);
 
+  const canQuoteLoad = (load: LoadRow) => canCompanyAdminQuote(load, companyId);
+  const canCancelLoadQuote = (load: LoadRow) => canCompanyAdminCancelQuote(load,companyId);
   const openQuote = (load: LoadRow) => {
     setBidTarget(load);
     const amount = Number(load.budget_amount);
@@ -322,7 +327,7 @@ export default function CompanyMarketplaceExchange({
     setQuoteExtras([]);
     setQuoteVehicleId('');
     setError('');
-    void loadQuoteVehicles(load);
+    if (!companyAdmin || canQuoteLoad(load)) void loadQuoteVehicles(load);
   };
 
   useEffect(() => {
@@ -343,8 +348,9 @@ export default function CompanyMarketplaceExchange({
     setError('');
   }, [bidTarget?.id, fixtureData]);
 
-  const submitQuote = async () => {
-    if (!companyId || !bidTarget) return;
+  const submitQuote = async (meta?: Canonical3150QuoteMeta) => {
+    if (!companyId || !bidTarget || working || (companyAdmin && !canQuoteLoad(bidTarget))) return;
+    if (fixtureData) { setError('Isolated preview: commercial submissions are disabled.'); return; }
     const baseAmount = Number(quoteAmount);
     const extrasTotal = quoteExtras.reduce((sum, extra) => {
       const value = Number(extra.amount);
@@ -359,6 +365,7 @@ export default function CompanyMarketplaceExchange({
         .map((extra) => ({ extra, amount: Number(extra.amount) }))
         .filter(({ amount: extraAmount }) => Number.isFinite(extraAmount) && extraAmount > 0)
         .map(({ extra, amount: extraAmount }) => `${QUOTE_EXTRA_OPTIONS.find((option) => option.value === extra.kind)?.label ?? extra.kind}: ${quoteCurrencySymbol}${extraAmount.toFixed(2)}`),
+      ...(companyAdmin && meta ? [`Service: ${meta.service}`, `ETA to collection: ${meta.etaToCollection}`, `Requested validity: ${meta.validityHours} hours (not an automatic expiry)`] : []),
       quoteMessage.trim() || null,
     ].filter(Boolean).join('\n');
     setWorking(true); setError(''); const token = await getToken(); if (!token) { setWorking(false); setError('Your session has expired. Sign in again.'); return; }
@@ -367,8 +374,10 @@ export default function CompanyMarketplaceExchange({
   };
 
   const withdrawQuote = async (bidId: string) => {
-    if (!companyId) return; setWorking(true); setError(''); const token = await getToken(); if (!token) { setWorking(false); setError('Your session has expired. Sign in again.'); return; }
-    try { const response = await fetch('/api/marketplace/company', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'withdraw_bid', companyId, bidId }) }); const payload = await response.json().catch(() => ({})) as { error?: string; referenceId?: string }; if (!response.ok) { setError(friendlyError(payload, 'The quote could not be withdrawn.')); return; } setNotice('Quote withdrawn.'); await loadListTab('bids'); }
+    if (!companyId || working) return;
+    if (fixtureData) { setError('Isolated preview: commercial withdrawals are disabled.'); return; }
+    setWorking(true); setError(''); const token = await getToken(); if (!token) { setWorking(false); setError('Your session has expired. Sign in again.'); return; }
+    try { const response = await fetch('/api/marketplace/company', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'withdraw_bid', companyId, bidId }) }); const payload = await response.json().catch(() => ({})) as { error?: string; referenceId?: string }; if (!response.ok) { setError(friendlyError(payload, 'The quote could not be withdrawn.')); return; } if (companyAdmin && tab === 'loads') { setBidTarget(null); await loadLoads(page, false); } else await loadListTab('bids'); setNotice('Quote withdrawn.'); }
     catch { setError('The quote could not be withdrawn. Check your connection and retry.'); } finally { setWorking(false); }
   };
 
@@ -406,8 +415,12 @@ export default function CompanyMarketplaceExchange({
 
   const quoteBookedByOptions = useMemo(() => Array.from(new Set(bids.map((bid) => bid.job?.posterName).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b)), [bids]);
   const visibleBids = useMemo(() => bids.filter((bid) => {
-    const stage = bidStage(bid);
-    const stateMatch = quoteStateView === 'received'
+    const stage = companyAdmin ? companyAdminQuoteStage(bid) : bidStage(bid);
+    const stateMatch = quoteStateView === 'all' ? true
+      : quoteStateView === 'awarded' ? stage === 'accepted'
+      : quoteStateView === 'expired' ? stage === 'expired'
+      : quoteStateView === 'lost' ? stage === 'unsuccessful'
+      : quoteStateView === 'received'
       ? false
       : quoteStateView === 'submitted'
         ? ['submitted', 'viewed', 'shortlisted'].includes(stage)
@@ -422,7 +435,7 @@ export default function CompanyMarketplaceExchange({
     const bookedByNeedle = appliedQuoteFilters.bookedBy.trim().toLowerCase();
     if (bookedByNeedle && ![bid.job?.posterName, bid.job?.posterMemberCode].filter(Boolean).join(' ').toLowerCase().includes(bookedByNeedle)) return false;
     return true;
-  }), [appliedQuoteFilters, bids, quoteStateView]);
+  }), [appliedQuoteFilters, bids, quoteStateView, companyAdmin]);
   const allVisibleQuotesExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedQuotes.has(bid.id));
   const toggleAllVisibleQuotes = () => setExpandedQuotes((current) => {
     const next = new Set(current);
@@ -509,7 +522,7 @@ export default function CompanyMarketplaceExchange({
               </span>
             </div>
 
-            {viewMode !== 'list' ? <MarketplaceLoadMap loads={mapLoads} onQuote={(loadId) => { const target = loads.find((load) => load.id === loadId); if (target) openQuote(target); }} onDetails={(loadId) => { setViewMode('list'); setExpanded((current) => new Set(current).add(loadId)); }} /> : <div className="xdrive-cx-load-list">
+            {viewMode !== 'list' ? <MarketplaceLoadMap loads={mapLoads} onQuote={(loadId) => { const target = loads.find((load) => load.id === loadId); if (target) openQuote(target); }} onDetails={(loadId) => { const target=loads.find(load=>load.id===loadId); if(companyAdmin&&target)openQuote(target); else {setViewMode('list');setExpanded((current)=>new Set(current).add(loadId));} }} /> : <div className="xdrive-cx-load-list">
               {visibleLoads.map((load) => {
                 const isExpanded = expanded.has(load.id);
                 const pickupWhen = cxSlotParts(load.pickup_datetime, load.pickup_time_slot);
@@ -543,9 +556,9 @@ export default function CompanyMarketplaceExchange({
                   notes={notes ? <><span>Load Notes:</span><strong>{notes}</strong></> : null}
                   footer={<>
                     <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'}>{isExpanded ? 'â–´' : 'â–¾'}</button>
-                    {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => openQuote(load)}>Quote Now</button> : null}
+                    {companyAdmin ? canQuoteLoad(load) ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={()=>openQuote(load)}>Quote Now</button> : canCancelLoadQuote(load) ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working} onClick={()=>openQuote(load)}>Cancel Quote</button> : null : !load.myBid || ['withdrawn','rejected','unsuccessful'].includes(load.myBid.status) ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={()=>openQuote(load)}>Quote Now</button> : null}
                     <span className="xdrive-cx-load-footer__member">
-                      <button className="xdrive-inline-link" type="button" onClick={() => setExpanded((current) => new Set(current).add(load.id))}>View Details</button>
+                      <button className="xdrive-inline-link" type="button" onClick={() => companyAdmin ? openQuote(load) : setExpanded((current) => new Set(current).add(load.id))}>View Details</button>
                       {load.posterMemberCode ? <span> ({load.posterMemberCode})</span> : null}
                       <button className="xdrive-inline-link xdrive-cx-load-footer__company" type="button" onClick={() => setMemberTarget(load)}>{load.posterName}</button>
                       {load.posterPhone ? <a href={`tel:${load.posterPhone.replace(/\s+/g, '')}`}>{load.posterPhone}</a> : null}
@@ -574,15 +587,16 @@ export default function CompanyMarketplaceExchange({
         </aside>
         <main style={{ flex: '1 1 760px', minWidth: 0 }}>
           <div className="carrier-exchange-secondary-tabs cx-quote-state-tabs">{([
+            ...(companyAdmin ? [['all', 'All Sent'], ['awarded','Awarded'], ['lost','Lost'], ['expired','Expired']] as const : []),
             ['received', 'Received'],
             ['archived', 'Archived'],
             ['submitted', 'Submitted'],
             ['unsuccessful', 'Unsuccessful'],
-          ] as const).map(([id, label]) => <button key={id} type="button" aria-selected={quoteStateView === id} onClick={() => setQuoteStateView(id)} className={`carrier-exchange-tab${quoteStateView === id ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}<span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleAllVisibleQuotes} disabled={!visibleBids.length}>{allVisibleQuotesExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span></div>
+          ] as const).map(([id, label]) => <button key={id} type="button" aria-selected={quoteStateView === id} onClick={() => { if(companyAdmin && id==='received' && !fixtureData){ window.location.assign('/admin/bids'); return; } setQuoteStateView(id); }} className={`carrier-exchange-tab${quoteStateView === id ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}<span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleAllVisibleQuotes} disabled={!visibleBids.length}>{allVisibleQuotesExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span></div>
           <div className="xdrive-cx-quote-list">
             {visibleBids.map((bid) => {
               const expandedQuote = expandedQuotes.has(bid.id);
-              const stage = bidStage(bid);
+              const stage = companyAdmin ? companyAdminQuoteStage(bid) : bidStage(bid);
               const jobStatus = String(bid.job?.current_status ?? bid.job?.status ?? '').toLowerCase();
               const sold = stage === 'unsuccessful' || stage === 'accepted' || ['awarded', 'allocated', 'booked', 'in_progress', 'completed', 'delivered'].includes(jobStatus);
               const serviceLabel = cxQuoteServiceLabel(bid.job);
@@ -590,8 +604,8 @@ export default function CompanyMarketplaceExchange({
               const pickupLabel = cxSlotParts(bid.job?.pickup_datetime, bid.job?.pickup_time_slot);
               const deliveryLabel = cxSlotParts(bid.job?.delivery_datetime, bid.job?.delivery_time_slot || (!bid.job?.delivery_datetime ? 'ASAP' : null));
               const loadNotes = [bid.job?.load_details, bid.job?.special_requirements].filter(Boolean).join(' Â· ');
-              const quoteAmount = money(bidAmount(bid), bid.currency || 'GBP');
-              const activeQuote = ['submitted', 'viewed', 'shortlisted'].includes(stage);
+              const quoteAmount = money(companyAdmin ? companyAdminBidAmount(bid) : bidAmount(bid), bid.currency || 'GBP');
+              const activeQuote = ['submitted', 'viewed', 'shortlisted'].includes(stage) && (!companyAdmin || (bid.company_id === companyId && bid.status === 'submitted'));
               const footerState = stage === 'unsuccessful'
                 ? `Your Quote was Unsuccessful ${quoteAmount}`
                 : stage === 'accepted'
@@ -674,15 +688,18 @@ export default function CompanyMarketplaceExchange({
       {bidTarget && <MarketplaceQuoteNowDialog
         target={{
           id: bidTarget.id,
+          ...(companyAdmin ? { companyId: bidTarget.company_id, reference: bidTarget.booking_reference || bidTarget.id, pickupDate: bidTarget.pickup_datetime ? new Date(bidTarget.pickup_datetime).toLocaleDateString('en-GB',{timeZone:'Europe/London'}) : null, deliveryDate: bidTarget.delivery_datetime ? new Date(bidTarget.delivery_datetime).toLocaleDateString('en-GB',{timeZone:'Europe/London'}) : null, pickupStart: bidTarget.pickup_time_slot, deliveryTime: bidTarget.delivery_time_slot, pallets: bidTarget.pallets, weight: bidTarget.weight_kg == null ? null : String(bidTarget.weight_kg)+' kg', cargo: bidTarget.requested_cargo_label || bidTarget.cargo_type, service: loadTypeLabel(bidTarget.loadType), notes: [descriptionLabel(bidTarget.jobDescription),bidTarget.special_requirements,bidTarget.access_restrictions].filter(Boolean).join('\n'), paymentTerms: bidTarget.payment_terms, hardPod: bidTarget.hard_copy_pod, distanceMiles: bidTarget.journeyDistanceMiles } : {}),
           memberName: bidTarget.posterName,
           memberCode: bidTarget.posterMemberCode,
           requestedVehicle: vehicleLabel(bidTarget),
-          pickup: `${routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)}, GB`,
-          delivery: `${routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)}, GB`,
+          pickup: companyAdmin ? routeLabel(bidTarget.pickup_location,bidTarget.pickup_postcode) : `${routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)}, GB`,
+          delivery: companyAdmin ? routeLabel(bidTarget.delivery_location,bidTarget.delivery_postcode) : `${routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)}, GB`,
           pickupWhen: cxWhen(bidTarget.pickup_datetime),
           deliveryWhen: bidTarget.delivery_datetime ? cxWhen(bidTarget.delivery_datetime) : 'ASAP',
         }}
         working={working}
+        draftOwnerId={companyAdmin && companyId && user?.id ? companyId+':'+user.id : null}
+        readOnlyContent={companyAdmin && !canQuoteLoad(bidTarget) ? <div><h3>Existing quotation</h3>{error&&<AlertBanner tone="danger">{error}</AlertBanner>}<p>{bidTarget.myBid ? money(companyAdminBidAmount(bidTarget.myBid),bidTarget.myBid.currency||'GBP')+' — '+companyAdminQuoteStage(bidTarget.myBid) : 'This load is not available for quoting.'}</p>{canCancelLoadQuote(bidTarget)&&bidTarget.myBid&&<ActionButton tone="danger" disabled={working} onClick={()=>void withdrawQuote(bidTarget.myBid!.id)}>Confirm Cancel Quote</ActionButton>}<ActionButton tone="secondary" disabled={working} onClick={()=>setBidTarget(null)}>Close</ActionButton></div> : undefined}
         errorContent={error ? <div className="xdrive-quote-modal__error"><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner companyId={companyId} operation="quote" inline /></div> : null}
         vehicleValue={quoteVehicleId}
         vehicleOptions={quoteVehicles.map((vehicle) => ({
@@ -713,7 +730,7 @@ export default function CompanyMarketplaceExchange({
         message={quoteMessage}
         onMessageChange={setQuoteMessage}
         onClose={() => setBidTarget(null)}
-        onSubmit={() => void submitQuote()}
+        onSubmit={(meta) => void submitQuote(meta)}
       />}
     </PageFrame>
   );

@@ -1,0 +1,7 @@
+import {describe,it,expect} from 'vitest';
+import {calendarDays,calendarEvents,londonDay,shiftCalendarMonth} from '../app/components/workspace/companyAdminDiaryCalendarModel';
+describe('Company Admin Diary calendar',()=>{
+ it('maps schedule dates to UK day including summer time and invalid timestamps',()=>{expect(londonDay('2026-07-01T23:30:00Z')).toBe('2026-07-02');expect(londonDay('bad')).toBe('');expect(londonDay(null)).toBe('');expect(londonDay('2026-11-19T23:30:00Z')).toBe('2026-11-19')});
+ it('handles year and month boundaries, Monday-first 42-cell grids',()=>{expect(shiftCalendarMonth('2026-12',1)).toBe('2027-01');expect(shiftCalendarMonth('2026-01',-1)).toBe('2025-12');expect(calendarDays('2026-11')).toHaveLength(42);expect(calendarDays('2026-11')[0]).toBe('2026-10-26');expect(calendarDays('2026-11')[41]).toBe('2026-12-06')});
+ it('groups collection and delivery events independently without fabricating dates',()=>{const a={id:'a',status:'allocated',pickup_datetime:'2026-11-19T09:00:00Z',delivery_datetime:'2026-11-20T11:00:00Z'};const b={id:'b',status:'allocated',pickup_datetime:'2026-11-19T08:00:00Z',delivery_datetime:'2026-11-19T12:00:00Z'};const c={id:'c',status:'awarded',pickup_datetime:null,delivery_datetime:'bad'};const result=calendarEvents([a,b,c]);expect(result.days.get('2026-11-19')?.map(e=>e.job.id+e.kind)).toEqual(['bCollection','aCollection','bDelivery']);expect(result.days.get('2026-11-20')?.[0].kind).toBe('Delivery');expect(result.unscheduled.map(j=>j.id)).toEqual(['c'])});
+});
