@@ -318,6 +318,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/freight-vision', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
   { prefix: '/admin/messages', workspace: 'carrier_fleet' },
   { prefix: '/admin/reports', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
+  { prefix: '/admin/network-tools', workspace: 'carrier_fleet', roles: ['company_admin'], anyOf: ['jobs.view'] },
   { prefix: '/admin/event-log', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
   { prefix: '/admin/post-load', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },
   { prefix: '/admin/bulk-import', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },

@@ -1,0 +1,29 @@
+
+/* 3118 operational capabilities rendered in the current MAIN card language.
+   No global typography, form or table styling changes. */
+.company-admin-ops{display:grid;gap:12px;margin-bottom:12px;min-width:0}
+.company-admin-ops-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.company-admin-ops-kpi{display:grid;gap:6px;text-align:left;min-height:88px;padding:12px;border:1px solid #d8dee8;border-radius:5px;background:#fff;color:#172033;cursor:pointer}
+.company-admin-ops-kpi>span{font-weight:600}
+.company-admin-ops-kpi>strong{font-size:23px;line-height:28px;color:#132f58;font-weight:750}
+.company-admin-ops-kpi>small{font-size:14px;color:#596879}
+.company-admin-ops-kpi[aria-pressed=true],.company-admin-ops-actions button[aria-pressed=true]{border-color:#1d57d8;background:#f1f6ff}
+.company-admin-ops-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:12px;align-items:start}
+.company-admin-ops-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,.6fr) auto;align-items:center;padding:10px 0;border-bottom:1px solid #e2e8f0;gap:12px}
+.company-admin-ops-row>div,.company-admin-ops-activity{min-width:0;display:grid;gap:5px}
+.company-admin-ops-row small,.company-admin-ops-activity small{font-size:14px;line-height:18px;color:#536277;overflow-wrap:anywhere}
+.company-admin-ops-detail{display:inline-flex;justify-content:center;align-items:center;text-align:center;min-height:32px;padding:6px 9px;box-sizing:border-box;border:1px solid #c7d2e2;border-radius:4px;color:#132f58;background:white;font-weight:600;text-decoration:none;cursor:pointer;font-size:14px}
+.company-admin-ops-detail:hover{border-color:#1d57d8}
+.company-admin-ops-actions,.company-admin-ops-facts{display:grid;gap:8px}
+.company-admin-ops-actions button,.company-admin-ops-facts button{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px;border:1px solid #d8dee8;border-radius:4px;background:#fff;color:#172033;cursor:pointer;text-align:left;font-size:14px}
+.company-admin-ops-facts>span,.company-admin-ops-activity{padding:8px 0;border-bottom:1px solid #e2e8f0}
+.company-admin-ops-facts>span{display:flex;justify-content:space-between;gap:8px}
+.company-admin-ops-activity a{color:#0b2f6b;font-weight:600;text-decoration:underline}
+.company-admin-ops-pagination{display:flex;gap:10px;justify-content:space-between;align-items:center;margin-top:12px}
+.company-admin-ops-pagination button{min-height:32px;padding:4px 10px;border:1px solid #c7d2e2;border-radius:4px;background:#fff;color:#132f58;cursor:pointer}
+.company-admin-ops-pagination button:disabled{opacity:.5;cursor:not-allowed}
+.company-admin-ops button:focus-visible,.company-admin-ops a:focus-visible{outline:2px solid #1d57d8;outline-offset:2px}
+@media(max-width:1200px){.company-admin-ops-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.company-admin-ops-row{grid-template-columns:minmax(0,1fr)}.company-admin-ops-kpis{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}}
+
+.company-admin-fleet{margin-bottom:16px;min-width:0}.company-admin-fleet-tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}.company-admin-fleet-search{display:flex;gap:10px;align-items:center;margin:12px 0;flex-wrap:wrap}.company-admin-fleet-search input{max-width:100%;min-width:200px;flex:0 1 360px;padding:8px;border:1px solid #cbd5e1;border-radius:4px}.company-admin-fleet-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:12px;margin:12px 0}.company-admin-fleet-facts>div{border:1px solid #dbe3eb;padding:12px;border-radius:4px}.company-admin-fleet-facts dt{color:#64748b;font-size:14px}.company-admin-fleet-facts dd{font-weight:600;margin:5px 0 0;overflow-wrap:anywhere}.company-admin-fleet .company-admin-ops-detail{display:inline-flex;margin:8px 6px 4px 0}

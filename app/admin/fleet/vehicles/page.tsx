@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../components/AuthContext';
+import { resolveWorkspaceRole } from '../../../../lib/workspaceRole';
+import CompanyAdminFleetRegister from '../../../components/workspace/CompanyAdminFleetRegister';
 import { supabase } from '../../../../lib/supabaseClient';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
@@ -45,6 +48,9 @@ const when = (value: string | null | undefined) => {
 
 export default function FleetVehiclesPage() {
   const router = useRouter();
+  const {user}=useAuth();
+  const companyAdmin=(user?.workspaceRole ?? resolveWorkspaceRole(user))==='company_admin';
+  const [fleetView,setFleetView]=useState<'register'|'live'>('register');
   const data = useCompanyWorkspaceData();
   const presence = useFleetAvailabilityPresence(data.companyId);
   const [audience, setAudience] = useState<Audience>('all');
@@ -145,6 +151,8 @@ export default function FleetVehiclesPage() {
       subtitle="Live and future fleet capacity, vehicle assignment and operational availability."
       actions={<><button type="button" onClick={() => router.push('/admin/vehicles')} className="carrier-register-action">+ Add Vehicle</button><button type="button" onClick={() => void refreshAll()} disabled={data.loading || presence.loading || exchangeLoading}>{data.loading || presence.loading || exchangeLoading ? 'Refreshing...' : 'Refresh'}</button></>}
     >
+      {companyAdmin&&<div className="workspace-tab-strip company-admin-fleet-tabs" role="group" aria-label="Fleet views"><button type="button" aria-pressed={fleetView==='register'} data-active={String(fleetView==='register')} onClick={()=>setFleetView('register')}>Fleet Register</button><button type="button" aria-pressed={fleetView==='live'} data-active={String(fleetView==='live')} onClick={()=>setFleetView('live')}>Live Availability</button></div>}
+      {companyAdmin&&fleetView==='register'?<CompanyAdminFleetRegister data={data}/>:<>
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       {exchangeError && <AlertBanner tone="warning">{exchangeError}</AlertBanner>}
 
@@ -231,6 +239,7 @@ export default function FleetVehiclesPage() {
           )}
         </main>
       </div>
+      </>}
     </VehicleRegisterShell>
   );
 }

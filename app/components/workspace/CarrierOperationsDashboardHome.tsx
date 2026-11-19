@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import CompanyAdminOperationalOverview from './CompanyAdminOperationalOverview';
 
 import {
   useCompanyWorkspaceData,
@@ -123,6 +126,10 @@ function percentage(numerator: number, denominator: number) {
 export default function CarrierOperationsDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const {user} = useAuth();
+  const companyAdminEnhancements = (user?.workspaceRole ?? resolveWorkspaceRole(user)) === 'company_admin';
+  const [companyReportRange,setCompanyReportRange] = useState('month');
+  const payablesHref = companyAdminEnhancements ? '/admin/finance/carrier-invoices' : '/admin/invoices';
 
   const todayKey = new Date().toISOString().slice(0, 10);
   const [reportFrom, setReportFrom] = useState(() => `${todayKey.slice(0, 8)}01`);
@@ -460,6 +467,7 @@ export default function CarrierOperationsDashboardHome() {
   const invoicesPartial = !invoicesUnavailable && (invoicesDataset.partialData || invoicesDataset.limitedData);
 
   const selectReportRange = (value: string) => {
+    setCompanyReportRange(value);
     const end = new Date();
     const start = new Date(end);
 
@@ -495,6 +503,7 @@ export default function CarrierOperationsDashboardHome() {
         </AlertBanner>
       ) : null}
 
+      {companyAdminEnhancements && <CompanyAdminOperationalOverview data={data} />}
       <div className="carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid">
         <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column">
           <OperationalCard
@@ -509,23 +518,26 @@ export default function CarrierOperationsDashboardHome() {
                   type="date"
                   value={reportFrom}
                   max={reportTo}
-                  onChange={(event) => setReportFrom(event.target.value)}
+                  onChange={(event) => { setReportFrom(event.target.value); if(companyAdminEnhancements) setCompanyReportRange('custom'); }}
                 />
                 <button
                   type="button"
                   onClick={() => {
                     setReportFrom(todayKey);
                     setReportTo(todayKey);
+                    if(companyAdminEnhancements) setCompanyReportRange('today');
                   }}
                 >
                   Today
                 </button>
                 <select
                   aria-label="Select report date range"
-                  defaultValue="custom"
+                  value={companyAdminEnhancements?companyReportRange:undefined}
+                  defaultValue={companyAdminEnhancements?undefined:'custom'}
                   onChange={(event) => selectReportRange(event.target.value)}
                 >
                   <option value="custom">Select Dates</option>
+                  {companyAdminEnhancements&&<option value="today" disabled>Today</option>}
                   <option value="month">This month</option>
                   <option value="30">Last 30 days</option>
                   <option value="90">Last 90 days</option>
@@ -549,7 +561,7 @@ export default function CarrierOperationsDashboardHome() {
               <button
                 type="button"
                 className="carrier-cx-stat-card"
-                onClick={() => router.push('/admin/invoices')}
+                onClick={() => router.push(payablesHref)}
               >
                 <span>Sub-contract Spend</span>
                 <strong>
@@ -572,26 +584,26 @@ export default function CarrierOperationsDashboardHome() {
                 label="Latest Invoices Received"
                 detail="Supplier invoices visible to this company"
                 value={metricValue(data, ['invoices'], () => cxDashboard.payables.length)}
-                onClick={() => router.push('/admin/invoices')}
+                onClick={() => router.push(payablesHref)}
               />
               <CommercialRow
                 label="Invoices due for Payment"
                 detail="Recorded supplier invoices currently overdue"
                 value={metricValue(data, ['invoices'], () => cxDashboard.overduePayables)}
-                onClick={() => router.push('/admin/invoices')}
+                onClick={() => router.push(payablesHref)}
               />
               <CommercialRow
                 label="Invoices Awaiting Payment"
                 detail="Open supplier invoices not yet overdue"
                 value={metricValue(data, ['invoices'], () => cxDashboard.awaitingPayables)}
-                onClick={() => router.push('/admin/invoices')}
+                onClick={() => router.push(payablesHref)}
               />
               <CommercialRow
                 label="Monthly Totals"
                 detail="Supplier invoice total for the current month"
                 value={metricValue(data, ['invoices'], () =>
                   money(cxDashboard.monthlyPayableTotal))}
-                onClick={() => router.push('/admin/invoices')}
+                onClick={() => router.push(payablesHref)}
               />
             </OperationalCard>
 

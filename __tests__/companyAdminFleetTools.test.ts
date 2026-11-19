@@ -1,0 +1,17 @@
+import {describe,it,expect} from 'vitest';
+import {companyFleetDrivers,companyFleetVehicles} from '../app/components/workspace/companyFleetRegister';
+import {calculateLoad,directionsHref} from '../app/components/workspace/companyNetworkTools';
+import {getProtectedRouteRequirement} from '../lib/roleCapabilities';
+import {composeCompanyAdminSidebarNav} from '../app/components/workspace/companyAdminSidebarNav';
+import type {WorkspaceJob} from '../app/components/workspace/useCompanyWorkspaceData';
+const j:WorkspaceJob={id:'active',company_id:'customer',awarded_carrier_company_id:'company',assigned_driver_id:'d1',status:'in_transit',pickup_location:null,delivery_location:null,pickup_datetime:null,delivery_datetime:null,vehicle_type:null,created_at:'2026-11-19',updated_at:'2026-11-19'};
+const data={companyId:'company',jobs:[j,{...j,id:'other',awarded_carrier_company_id:'foreign',assigned_driver_id:'d2'}],drivers:[{id:'d1',display_name:'A',status:'active',availability_status:'available'},{id:'d2',display_name:'B',status:'active',availability_status:'available'},{id:'d3',display_name:'C',status:'active',availability_status:'offline'},{id:'d4',display_name:'D',status:'inactive',availability_status:'offline'},{id:'d5',display_name:'E',status:'active',availability_status:null}],vehicles:[{id:'v1',reg_plate:'AB12 DEF',type:'van',assigned_driver_id:'d1'}]};
+describe('Company Admin fleet register',()=>{
+ it('separates live jobs, actual availability and explicit off-duty states without foreign execution records',()=>{expect(companyFleetDrivers(data,'on-job').map(d=>d.id)).toEqual(['d1']);expect(companyFleetDrivers(data,'available').map(d=>d.id)).toEqual(['d2']);expect(companyFleetDrivers(data,'off-duty').map(d=>d.id)).toEqual(['d3']);expect(companyFleetDrivers(data,'all')).toHaveLength(5)});
+ it('searches assigned registration and denies dataset output without active company',()=>{expect(companyFleetDrivers(data,'all','ab12').map(d=>d.id)).toEqual(['d1']);expect(companyFleetVehicles(data,'A')).toHaveLength(1);expect(companyFleetDrivers({...data,companyId:null},'all')).toEqual([]);expect(companyFleetVehicles({...data,companyId:null})).toEqual([])});
+});
+describe('Company Admin tools',()=>{
+ it('calculates weight, cubic metres and unstacked footprint and rejects invalid values',()=>{expect(calculateLoad('4','100','120','80','100')).toEqual({totalKg:400,volumeM3:3.84,floorM2:3.84});expect(calculateLoad('1.5','10','10','10','10')).toBeNull();expect(calculateLoad('2','','10','10','10')).toBeNull();expect(calculateLoad('2','-1','10','10','10')).toBeNull()});
+ it('uses an encoded external directions URL',()=>{expect(directionsHref('','Leeds')).toBeNull();const url=new URL(directionsHref('BB1 1AA','London & Westminster')!);expect(url.hostname).toBe('www.google.com');expect(url.searchParams.get('destination')).toBe('London & Westminster')});
+ it('restricts the new route to Company Admin and retains the existing tools paths',()=>{expect(getProtectedRouteRequirement('/admin/network-tools')?.roles).toEqual(['company_admin']);const items=['/admin/network-tools','/admin/bulk-import','/admin/documents','/admin/event-log'].map((href,i)=>({id:String(i),href,label:href}));const groups=composeCompanyAdminSidebarNav([{id:'x',label:'x',items}]);expect(groups.flatMap(g=>g.items.map(i=>i.href)).sort()).toEqual(items.map(i=>i.href).sort());expect(groups.find(g=>g.label==='Network & Tools')?.items[0].href).toBe('/admin/network-tools')});
+});

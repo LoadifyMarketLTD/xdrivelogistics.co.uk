@@ -1,6 +1,8 @@
 'use client';
 
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
+import CompanyAdminSidebar from './CompanyAdminSidebar';
+import { composeCompanyAdminSidebarNav } from './companyAdminSidebarNav';
 import OperationalPostcodeAreaResolver from './OperationalPostcodeAreaResolver';
 
 import Image from 'next/image';
@@ -577,10 +579,12 @@ export default function TopWorkspaceShell({
   children,
   forcedRole,
   fixtureCompanyName,
+  companyAdminSidebar = false,
 }: {
   children: ReactNode;
   forcedRole?: WorkspaceRole;
   fixtureCompanyName?: string;
+  companyAdminSidebar?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -589,6 +593,9 @@ export default function TopWorkspaceShell({
   const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
+  const companySidebarScope = companyAdminSidebar && role === 'company_admin' && !fixtureCompanyName;
+  const [companySidebarCollapsed, setCompanySidebarCollapsed] = useState(false);
+  useEffect(() => { if (companySidebarScope && window.matchMedia('(max-width: 850px)').matches) setCompanySidebarCollapsed(true); }, [companySidebarScope]);
   const nav = useMemo(() => {
     if (!workspaceRoleReady) return [];
     const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
@@ -714,6 +721,17 @@ export default function TopWorkspaceShell({
       }
     }
 
+    if (companySidebarScope) {
+      base.push({ id:'company-sidebar-supplement', label:'Company', items:[
+        {id:'post-load',label:'Post Load',href:'/admin/post-load',capability:'loads.create'},
+        {id:'network-tools',label:'Network & Tools',href:'/admin/network-tools',capability:'jobs.view'},
+        {id:'notifications',label:'Notifications',href:'/admin/notifications'},
+        {id:'payables',label:'Accounts Payable',href:'/admin/finance/carrier-invoices',capability:'invoices.carrier.manage'},
+        {id:'receivables',label:'Accounts Receivable',href:'/admin/finance/customer-invoices',capability:'invoices.customer.manage'},
+        {id:'action-centre',label:'Action Centre',href:'/admin/action-centre'},
+      ]});
+      return composeCompanyAdminSidebarNav(filterWorkspaceNavByAccess(base, role, user));
+    }
     const accessibleBase = filterWorkspaceNavByAccess(base, role, user);
 
     if (role === 'broker') {
@@ -740,7 +758,7 @@ export default function TopWorkspaceShell({
     }
 
     return accessibleBase;
-  }, [role, user, workspaceRoleReady]);
+  }, [role, user, workspaceRoleReady, companySidebarScope]);
   const [companyName, setCompanyName] = useState(() => fixtureCompanyName ?? 'XDrive Logistics');
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -974,6 +992,8 @@ export default function TopWorkspaceShell({
     <div
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
+      data-company-admin-sidebar={companySidebarScope ? 'true' : undefined}
+      data-company-sidebar-collapsed={companySidebarScope ? String(companySidebarCollapsed) : undefined}
       data-hydrated={hydrated ? 'true' : 'false'}
       data-role-ready={workspaceRoleReady ? 'true' : 'false'}
       data-carrier-nav={CARRIER_NAV_ROLES.has(role) ? 'true' : undefined}
@@ -1053,7 +1073,7 @@ export default function TopWorkspaceShell({
         </div>
       </header>
 
-      <nav
+      {companySidebarScope ? <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} isActive={isActive} hrefFor={fixtureRouteFor} collapsed={companySidebarCollapsed} onToggle={() => setCompanySidebarCollapsed(value => !value)} /> : <nav
         ref={navRef}
         className="top-workspace-nav top-workspace-nav--primary"
         aria-label={`${definition.label} navigation`}
@@ -1171,7 +1191,7 @@ export default function TopWorkspaceShell({
             );
           })}
         </div>
-      </nav>
+      </nav>}
 
       <WorkspaceRestrictionBanner role={role} />
       <OperationalPostcodeAreaResolver />
