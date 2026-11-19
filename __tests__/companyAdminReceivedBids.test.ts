@@ -1,0 +1,8 @@
+import {describe,it,expect} from 'vitest';
+import {receivedBidPrice,pendingBuyerOffers,canAwardReceivedBid} from '../app/components/workspace/companyAdminReceivedBids';
+const bid={currency:'EUR',amount:120,bid_price_gbp:100,bid_status:'submitted',job_status:'posted',exchange_visibility:'exchange',bidder_company_id:'B',owner_company_id:'A',awarded_carrier_company_id:null};
+describe('Company Admin received quote safeguards',()=>{
+ it('preserves recorded currency and refuses unknown amounts',()=>{expect(receivedBidPrice(bid)).toEqual({currency:'EUR',amount:120,label:'EUR 120.00'});expect(receivedBidPrice({...bid,amount:null})).toBeNull();expect(receivedBidPrice({...bid,currency:'GBP'})).toMatchObject({amount:100});expect(receivedBidPrice({...bid,currency:null})).toBeNull();expect(receivedBidPrice({...bid,amount:0})).toBeNull()});
+ it('restricts pending offers to the active buyer',()=>{expect([...pendingBuyerOffers([{id:'a',job_id:'j',bid_id:'x',buyer_company_id:'A',status:'pending'},{id:'b',job_id:'k',bid_id:'y',buyer_company_id:'B',status:'pending'},{id:'c',job_id:'l',bid_id:'z',buyer_company_id:'A',status:'declined'}],'A').keys()]).toEqual(['j'])});
+ it('prevents conflicting awards and invalid commercial scope',()=>{expect(canAwardReceivedBid(bid,'A',false,true)).toBe(false);expect(canAwardReceivedBid({...bid,currency:'GBP'},'A',false,true)).toBe(true);expect(canAwardReceivedBid(bid,'A',true,true)).toBe(false);expect(canAwardReceivedBid(bid,'A',false,false)).toBe(false);expect(canAwardReceivedBid(bid,'B',false,true)).toBe(false);expect(canAwardReceivedBid({...bid,job_status:'cancelled'},'A',false,true)).toBe(false);expect(canAwardReceivedBid({...bid,bidder_company_id:'A'},'A',false,true)).toBe(false)});
+});
