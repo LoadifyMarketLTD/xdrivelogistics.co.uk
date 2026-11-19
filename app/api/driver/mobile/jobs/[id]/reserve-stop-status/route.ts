@@ -108,7 +108,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, assigned_driver_id, assigned_company_id, status, current_status, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
+    .select('id, assigned_driver_id, assigned_company_id, status, current_status, is_test')
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -117,6 +117,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!job.assigned_company_id || job.assigned_company_id !== driver.companyId) {
     return respond(403, { error: 'This job belongs to another carrier company.' });
   }
+  // Only explicitly designated test jobs may exercise this new mutation path until atomic concurrency is verified.
+  if (job.is_test !== true) return respond(409, { error: 'This stop execution path is currently restricted to designated test bookings.' });
   const jobStatus = String(job.current_status || job.status || '').toLowerCase();
   if (!['accepted','on_my_way','on_site_pickup','loaded','in_transit','on_site_delivery'].includes(jobStatus)) {
     return respond(409, { error: 'Stops cannot be changed after the booking has closed.' });

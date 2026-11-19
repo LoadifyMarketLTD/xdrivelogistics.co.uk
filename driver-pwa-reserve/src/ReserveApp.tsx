@@ -421,7 +421,7 @@ export default function ReserveApp() {
       setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:step.status,backendStatus:step.backend,routeStops:row.routeStops?.map((stop,index)=>index===0&&j.status==="ON_SITE_PICKUP"?{...stop,status:"completed" as const,completedAt:new Date().toISOString()}:stop),statusHistory:[...(row.statusHistory||[]),{status:step.backend,at:new Date().toISOString(),notes:pickupNotes}]}:row));setError('');if(j.status==='ON_WAY_TO_DELIVERY')setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));if(j.status==='ON_WAY_TO_PICKUP')setCollectionStage('loaded');setPickupNotes('');setView('statusHistory');return;
     }
     await run(async s=>{
-      const latest=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);const server=mapAssigned(latest.job);if(latest.multiDropPartial===true)throw new Error('Route stops could not be verified. Refresh booking.');const persisted=persistedStops(j.id,server.routeStops);const first=persisted[0];const last=persisted.at(-1);if(server.id!==j.id||!server.backendStatus||!['allocated','assigned','accepted','on_my_way','on_site_pickup','loaded','in_transit','on_site_delivery'].includes(server.backendStatus))throw new Error('Booking is not in an executable server stage. Refresh booking.');if(server.status!==j.status){setJobs(rows=>rows.map(row=>row.id===j.id?{...row,...server}:row));setView('statusHistory');throw new Error('Booking status changed. Review its current stage.');}if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(server.backendStatus))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
+      const latest=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);const server=mapAssigned(latest.job);if(latest.multiDropPartial===true)throw new Error('Route stops could not be verified. Refresh booking.');const persisted=server.isTest===true?persistedStops(j.id,server.routeStops):[];const first=persisted[0];const last=persisted.at(-1);if(server.id!==j.id||!server.backendStatus||!['allocated','assigned','accepted','on_my_way','on_site_pickup','loaded','in_transit','on_site_delivery'].includes(server.backendStatus))throw new Error('Booking is not in an executable server stage. Refresh booking.');if(server.status!==j.status){setJobs(rows=>rows.map(row=>row.id===j.id?{...row,...server}:row));setView('statusHistory');throw new Error('Booking status changed. Review its current stage.');}if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(server.backendStatus))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
       if(j.status==='ON_SITE_PICKUP'){
         // Validate before uploading evidence so invalid inputs cannot leave orphaned files.
         if(collectionStage==='loaded'){
@@ -642,7 +642,7 @@ export default function ReserveApp() {
       }
       await run(async current=>{
         const evidence=await uploadFinalStopExceptionEvidence(j,finalStop,current.token);
-        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/reserve-stop-status',current.token,{
+        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+(j.isTest===true?'/reserve-stop-status':'/stop-status'),current.token,{
           stop_id:finalStop.id,status:'exception',
           exception:{deliveryStatus:draft.condition,notes:draft.notes.trim(),photoPaths:evidence.photoPaths,documentPaths:evidence.documentPaths},
         });
@@ -661,7 +661,7 @@ export default function ReserveApp() {
       if(latest.multiDropPartial===true)throw new Error('Route stops could not be verified.');
       const canonical=mapAssigned(latest.job);
       if(canonical.id!==j.id||canonical.backendStatus!=='on_site_delivery')throw new Error('Final delivery stage was not confirmed.');
-      const route=persistedStops(j.id,canonical.routeStops);
+      const route=canonical.isTest===true?persistedStops(j.id,canonical.routeStops):[];
       if(route.length){
         const final=route.at(-1)!;
         if(final.type!=='delivery'||route.slice(0,-1).some(stop=>stop.status!=='completed'))throw new Error('Resolve every preceding stop before final delivery.');
@@ -753,7 +753,7 @@ export default function ReserveApp() {
     const finalRouteStop=routeStops.at(-1);
     const dynamicRouteEnd=finalRouteStop?.handover?.stopKind==='return'||finalRouteStop?.handover?.stopKind==='redirect';
     const operationalStops=routeStops.length>2
-      ? routeStops.slice(1,dynamicRouteEnd||finalRouteStop?.type==='collection'?undefined:-1)
+      ? routeStops.slice(1,dynamicRouteEnd||(job.isTest===true&&finalRouteStop?.type==='collection')?undefined:-1)
       : dynamicRouteEnd?routeStops.slice(1):[];
     const legacySkipped=operationalStops.find(stop=>stop.status==='skipped');
     const activeStop=operationalStops.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');

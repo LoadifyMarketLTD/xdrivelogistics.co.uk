@@ -69,13 +69,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: job, error: loadError } = await supabaseAdmin
     .from('jobs')
-    .select('id,assigned_driver_id,assigned_company_id,status,current_status,pickup_photos,delivery_photos,damage_photos,pod_photos')
+    .select('id,assigned_driver_id,assigned_company_id,status,current_status,is_test,pickup_photos,delivery_photos,damage_photos,pod_photos')
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
   if (loadError) return respond(500, { error: loadError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
   if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) return respond(403, { error: 'Job belongs to another carrier.' });
+  if (category === 'signature' && job.is_test !== true) return respond(409, { error: 'Per-stop signature upload is restricted to designated test bookings.' });
   if (stopId && ['completed','invoiced','paid','cancelled','disputed'].includes(String(job.current_status || job.status || '').toLowerCase())) return respond(409, { error: 'Booking is closed.' });
 
   const existingCollectionPhotos = Array.isArray(job.pickup_photos)
