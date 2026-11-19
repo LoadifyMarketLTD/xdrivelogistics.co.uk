@@ -1,10 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
 import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence, type OperationsJobDetail } from '../../components/workspace/useOperationsIntelligence';
+import {useAuth} from '../../components/AuthContext';
+import {resolveWorkspaceRole} from '../../../lib/workspaceRole';
+import {hasFreshFreightPosition,freightReferenceMatches,freightDeliveryTargetPassed} from '../../components/workspace/companyAdminFreightVision';
 import { OperationalSignalStrip } from '../../components/workspace/OperationalConvergence';
 import {
   ActionButton,
@@ -120,10 +123,14 @@ function contactLine(detail: OperationsJobDetail | null) {
 
 export default function FreightVisionPage() {
   const data = useCompanyWorkspaceData();
+  const {user}=useAuth();
+  const companyAdmin=(user?.workspaceRole??resolveWorkspaceRole(user))==='company_admin';
   const intelligence = useOperationsIntelligence(data.companyId);
   const router = useRouter();
   const searchParams = useSearchParams();
   const targetJobId = searchParams.get('jobId');
+  const appliedTarget=useRef<string|null>(null);
+  const [referenceFilter,setReferenceFilter]=useState(targetJobId??'');
   const [pickupFilter, setPickupFilter] = useState('');
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [view, setView] = useState<'all_in_progress' | 'live_tracked'>('all_in_progress');
@@ -156,30 +163,33 @@ export default function FreightVisionPage() {
     const vehicle = data.vehicles.find((item) => item.assigned_driver_id === job.assigned_driver_id) ?? null;
     const location = job.assigned_driver_id ? latestLocations.get(job.assigned_driver_id) ?? null : null;
     const locationTimestamp = location?.recorded_at ?? location?.updated_at ?? null;
-    const state = operationalState(job, locationTimestamp);
+    const freshTracking=hasFreshFreightPosition(location);
+    const state = companyAdmin&&freightDeliveryTargetPassed(job)?'late':operationalState(job,companyAdmin&&!freshTracking?null:locationTimestamp);
     const detail = intelligence.jobDetailById.get(job.id) ?? null;
     const events = intelligence.eventsByJob.get(job.id) ?? [];
-    return { job, driver, vehicle, location, locationTimestamp, state, detail, events, reason: exceptionReason(job, state) };
-  }), [activeJobs, data.drivers, data.vehicles, intelligence.eventsByJob, intelligence.jobDetailById, latestLocations]);
+    return { job, driver, vehicle, location, locationTimestamp, freshTracking, state, detail, events, reason: exceptionReason(job, state) };
+  }), [activeJobs, data.drivers, data.vehicles, intelligence.eventsByJob, intelligence.jobDetailById, latestLocations,companyAdmin]);
 
   const filtered = useMemo(() => {
     const pickupNeedle = pickupFilter.trim().toLowerCase();
     const deliveryNeedle = deliveryFilter.trim().toLowerCase();
-    return rows.filter(({ job, state }) => {
+    return rows.filter(({ job, state, freshTracking }) => {
+      if(companyAdmin&&!freightReferenceMatches(job,referenceFilter))return false;
       const pickup = `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''}`.toLowerCase();
       const delivery = `${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase();
       const status = String(job.current_status ?? job.status ?? '').toLowerCase();
       if (pickupNeedle && !pickup.includes(pickupNeedle)) return false;
       if (deliveryNeedle && !delivery.includes(deliveryNeedle)) return false;
-      if (view === 'live_tracked' && state === 'not_tracking') return false;
+      if (view === 'live_tracked' && (companyAdmin?!freshTracking:state === 'not_tracking')) return false;
       if (stateFilter !== 'all' && state !== stateFilter) return false;
       if (statusFilter !== 'all' && status !== statusFilter) return false;
       return true;
     });
-  }, [deliveryFilter, pickupFilter, rows, stateFilter, statusFilter, view]);
+  }, [deliveryFilter, pickupFilter, rows, stateFilter, statusFilter, view,companyAdmin,referenceFilter]);
 
-  const points = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ job, driver, location, state }) => {
+  const points = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ job, driver, location, state, freshTracking }) => {
     if (!driver || !location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return [];
+    if(companyAdmin&&(Math.abs(location.lat)>90||Math.abs(location.lng)>180))return [];
     return [{
       driverId: driver.id,
       driverName: driver.display_name ?? driver.email ?? 'Driver',
@@ -187,21 +197,23 @@ export default function FreightVisionPage() {
       lng: location.lng,
       jobId: job.id,
       timestamp: location.recorded_at ?? location.updated_at,
-      stale: state === 'not_tracking',
+      stale: companyAdmin?!freshTracking:state === 'not_tracking',
     }];
-  }), [filtered]);
+  }), [filtered,companyAdmin]);
 
   useEffect(() => {
-    if (!targetJobId) return;
+    if (!targetJobId){appliedTarget.current=null;return;}
+    if(companyAdmin&&appliedTarget.current===targetJobId)return;
     const target = rows.find((row) => row.job.id === targetJobId);
     if (!target) return;
     setPickupFilter('');
+    if(companyAdmin){appliedTarget.current=targetJobId;setReferenceFilter(targetJobId);}
     setDeliveryFilter('');
     setStateFilter('all');
     setStatusFilter('all');
     setSelectedJobId(targetJobId);
     setSelectedDriverId(target.driver?.id ?? null);
-  }, [rows, targetJobId]);
+  }, [rows, targetJobId,companyAdmin]);
 
   const statuses = useMemo(() => [...new Set(activeJobs.map((job) => String(job.current_status ?? job.status ?? '').toLowerCase()).filter(Boolean))].sort(), [activeJobs]);
   const count = (state: TrackingState) => rows.filter((row) => row.state === state).length;
@@ -232,13 +244,13 @@ export default function FreightVisionPage() {
         <aside className="workspace-filter-rail" aria-label="Freight Vision search panel">
           <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
-            <label>LOAD ID / REF<input value={targetJobId ?? ''} readOnly placeholder="Job reference" /></label>
+            <label>LOAD ID / REF<input value={companyAdmin?referenceFilter:targetJobId ?? ''} readOnly={!companyAdmin} onChange={event=>setReferenceFilter(event.target.value)} placeholder="Job reference" /></label>
             <label>PICKUP<input value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Town / postcode" /></label>
             <label>DELIVERY<input value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Town / postcode" /></label>
             <label>ETA / TRACKING<select value={stateFilter} onChange={(event) => setStateFilter(event.target.value as 'all' | TrackingState)}><option value="all">All states</option><option value="on_time">On time</option><option value="behind_eta">Behind ETA</option><option value="late">Late</option><option value="not_tracking">Not tracking</option><option value="not_started">Not started</option></select></label>
             <label>JOB STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All active statuses</option>{statuses.map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}</select></label>
-            <ActionButton tone="success" onClick={() => { setPickupFilter(''); setDeliveryFilter(''); setStateFilter('all'); setStatusFilter('all'); }}>Search</ActionButton>
-            <ActionButton tone="secondary" onClick={() => { setPickupFilter(''); setDeliveryFilter(''); setStateFilter('all'); setStatusFilter('all'); }}>Clear</ActionButton>
+            {companyAdmin?<p role="status" style={{fontSize:12,color:'#475569'}}>Filters apply to the current authorised job register.</p>:<ActionButton tone="success" onClick={() => { setPickupFilter(''); setDeliveryFilter(''); setStateFilter('all'); setStatusFilter('all'); }}>Search</ActionButton>}
+            <ActionButton tone="secondary" onClick={() => { setReferenceFilter('');setPickupFilter(''); setDeliveryFilter(''); setStateFilter('all'); setStatusFilter('all'); }}>Clear</ActionButton>
             <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
           </div>
         </aside>
@@ -251,8 +263,8 @@ export default function FreightVisionPage() {
 
           <OperationalSignalStrip items={trackingSignals} ariaLabel="Freight Vision operational states" />
 
-          <TwoColumn rightWidth="minmax(460px,1.05fr)">
-        <Panel title="Live freight map" description="Green = fresh tracking. Red = location missing or older than 20 minutes.">
+          <div className={companyAdmin?"company-admin-freight-layout":undefined}><TwoColumn rightWidth="minmax(460px,1.05fr)">
+        <Panel title="Live freight map" description={companyAdmin?'Green = fresh position. Red = stale position. Missing positions are listed in the register, not placed on the map.':'Green = fresh tracking. Red = location missing or older than 20 minutes.'}>
           {points.length > 0 ? (
             <FleetPositionMap points={points} selectedDriverId={selectedDriverId} />
           ) : (
@@ -264,8 +276,8 @@ export default function FreightVisionPage() {
           <DataTable
             columns={['Job / route', 'Driver / vehicle', 'Targets', 'Tracking', 'Latest event', 'Action']}
             rows={filtered.map(({ job, driver, vehicle, location, locationTimestamp, state, events, reason }) => [
-              <div key="job"><strong style={{ display: 'block' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Pickup'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ color: '#64748b' }}>#{job.id.slice(0, 8).toUpperCase()} · {(job.current_status ?? job.status).replaceAll('_', ' ')}</span></div>,
-              <div key="resource"><span style={{ display: 'block' }}>{driver?.display_name ?? driver?.email ?? 'Not assigned'}</span><span style={{ color: '#64748b' }}>{vehicle?.reg_plate ?? vehicle?.type?.replaceAll('_', ' ') ?? 'Vehicle not linked'}</span>{driver ? <div style={{ marginTop: 4 }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'orange' : 'grey'} /></div> : null}</div>,
+              <div key="job"><strong style={{ display: 'block' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Pickup'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ color: '#64748b' }}>{companyAdmin?(job.booking_reference||job.load_reference||job.id):'#'+job.id.slice(0,8).toUpperCase()} · {(job.current_status ?? job.status).replaceAll('_', ' ')}</span></div>,
+              <div key="resource"><span style={{ display: 'block' }}>{driver?.display_name ?? driver?.email ?? 'Not assigned'}</span><span style={{ color: '#64748b' }}>{vehicle?.reg_plate ?? vehicle?.type?.replaceAll('_', ' ') ?? 'Vehicle not linked'}</span>{driver ? <div style={{ marginTop: 4 }}><StatusBadge value={driver.availability_status ?? (companyAdmin?'Not supplied':'offline')} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'orange' : 'grey'} /></div> : null}</div>,
               <div key="targets"><span style={{ display: 'block' }}>PU {when(job.pickup_datetime)}</span><span style={{ color: '#64748b' }}>DEL {when(job.delivery_datetime)}</span></div>,
               <div key="tracking"><StatusBadge value={stateLabel[state]} tone={toneForState(state)} /><span style={{ display: 'block', color: '#64748b', marginTop: 4, maxWidth: 230 }}>{reason}</span>{location ? <button type="button" onClick={() => setSelectedDriverId(driver?.id ?? null)} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer', padding: 0, marginTop: 3 }}>Position {when(locationTimestamp)}</button> : null}</div>,
               events[0] ? <div key="event"><strong style={{ display: 'block' }}>{events[0].eventType.replaceAll('_', ' ')}</strong><span style={{ color: '#64748b' }}>{events[0].message ?? 'Operational status update'} · {when(events[0].createdAt)}</span></div> : <span key="event-none" style={{ color: '#64748b' }}>No timeline event</span>,
@@ -274,7 +286,7 @@ export default function FreightVisionPage() {
             empty={<EmptyState title="No active jobs match the current filters" description="Clear one or more filters or refresh the operational data." />}
           />
         </Panel>
-          </TwoColumn>
+          </TwoColumn></div>
         </main>
       </div>
 

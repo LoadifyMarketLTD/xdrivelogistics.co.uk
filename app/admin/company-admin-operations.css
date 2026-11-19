@@ -35,3 +35,6 @@
 
 /* Return-capacity cards: explicit reading order, scoped to Company Admin. */
 .xdrive-carrier-workspace .company-admin-return-row .workspace-operational-cell{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;overflow-wrap:anywhere;padding:10px}.xdrive-carrier-workspace .company-admin-return-row .workspace-operational-label{font-size:11px;font-weight:600;color:#475569}.xdrive-carrier-workspace .company-admin-return-row .workspace-operational-cell>strong{font-size:14px;color:#0b2f6b}.xdrive-carrier-workspace .company-admin-return-row .workspace-record-meta{flex-wrap:wrap;gap:7px;padding:8px 10px}@media(max-width:700px){.xdrive-carrier-workspace .company-admin-return-row .workspace-operational-row__top{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+
+/* Freight Vision register uses the full workboard width for Company Admin. */
+.company-admin-freight-layout>div{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px;min-width:0}.company-admin-freight-layout .workspace-panel{min-width:0}.company-admin-freight-layout [role=table]{max-width:100%}
