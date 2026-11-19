@@ -4,6 +4,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 import { LayoutDashboard, PackagePlus, Truck, Tags, ClipboardCheck, CalendarDays, Menu, Network, MapPinned, FileText, Users, MessageSquare, Bell, BarChart3, Route, ShieldCheck, ChevronsLeft, ChevronsRight, ChevronDown, Settings } from 'lucide-react';
+import {fleetHubGroupId,fleetHubContains} from './companyFleetNavigationModel';
+import {usePathname} from 'next/navigation';
 import type { WorkspaceNavGroup } from '../../../lib/workspaceRole';
 
 const icons: Record<string, typeof LayoutDashboard> = {
@@ -15,6 +17,7 @@ const icons: Record<string, typeof LayoutDashboard> = {
 
 export default function CompanyAdminSidebar({groups,ready,isActive,hrefFor,collapsed,onToggle}:{groups:WorkspaceNavGroup[];ready:boolean;isActive:(href:string)=>boolean;hrefFor:(href:string)=>string;collapsed:boolean;onToggle:()=>void}) {
   const [open,setOpen]=useState<string|null>(null);
+  const pathname=usePathname();
   return <nav className="company-admin-sidebar" aria-label="Company Admin navigation" aria-busy={!ready}>
     <Link href={hrefFor('/admin')} className="company-admin-sidebar__brand" aria-label="Company dashboard" prefetch={false}>
       <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={196} height={64} priority/>
@@ -22,8 +25,9 @@ export default function CompanyAdminSidebar({groups,ready,isActive,hrefFor,colla
     <div className="company-admin-sidebar__items">
       {ready&&groups.map(group=>{
         const Icon=icons[group.label]??ShieldCheck;
-        const active=group.items.some(item=>isActive(item.href));
-        if(group.items.length===1){
+        const isFleet=group.id===fleetHubGroupId;
+        const active=isFleet?fleetHubContains(group,pathname??''):group.items.some(item=>isActive(item.href));
+        if(group.items.length===1||isFleet){
           const item=group.items[0];
           return <Link key={group.id} href={hrefFor(item.href)} prefetch={false} className="company-admin-sidebar__item" data-active={active?'true':'false'} aria-current={active?'page':undefined} aria-label={group.label} title={group.label} onClick={()=>setOpen(null)}><Icon size={19} strokeWidth={2.3} aria-hidden="true"/><span>{group.label}</span></Link>
         }

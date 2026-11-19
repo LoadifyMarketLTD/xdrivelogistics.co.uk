@@ -3,6 +3,8 @@
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import CompanyAdminSidebar from './CompanyAdminSidebar';
 import { composeCompanyAdminSidebarNav } from './companyAdminSidebarNav';
+import CompanyFleetNavigation from './CompanyFleetNavigation';
+import {fleetHubGroupId} from './companyFleetNavigationModel';
 import OperationalPostcodeAreaResolver from './OperationalPostcodeAreaResolver';
 
 import Image from 'next/image';
@@ -729,6 +731,9 @@ export default function TopWorkspaceShell({
         {id:'payables',label:'Accounts Payable',href:'/admin/finance/carrier-invoices',capability:'invoices.carrier.manage'},
         {id:'receivables',label:'Accounts Receivable',href:'/admin/finance/customer-invoices',capability:'invoices.customer.manage'},
         {id:'action-centre',label:'Action Centre',href:'/admin/action-centre'},
+        {id:'fleet-maintenance',label:'Maintenance',href:'/admin/fleet/maintenance',capability:'fleet.maintenance.manage'},
+        {id:'fleet-future-positions',label:'Future Positions',href:'/admin/fleet/future-availability',capability:'drivers.manage'},
+        {id:'fleet-availability',label:'Availability',href:'/admin/fleet/availability',capability:'drivers.manage'},
       ]});
       return composeCompanyAdminSidebarNav(filterWorkspaceNavByAccess(base, role, user));
     }
@@ -1196,7 +1201,7 @@ export default function TopWorkspaceShell({
       <WorkspaceRestrictionBanner role={role} />
       <OperationalPostcodeAreaResolver />
 
-      <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{children}</main>
+      <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{companySidebarScope&&workspaceRoleReady&&<CompanyFleetNavigation group={nav.find(group=>group.id===fleetHubGroupId)}/>}{children}</main>
     </div>
   );
 }

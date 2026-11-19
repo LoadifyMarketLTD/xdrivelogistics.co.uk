@@ -1,4 +1,5 @@
 import type { WorkspaceNavGroup, WorkspaceNavItem } from '../../../lib/workspaceRole';
+import {groupFleetNavigation} from './companyFleetNavigationModel';
 
 export const companySidebarOrder = [
   ['Dashboard','/admin'], ['Post Load','/admin/post-load'], ['Loads','/admin/marketplace'],
@@ -16,7 +17,11 @@ export function composeCompanyAdminSidebarNav(groups: WorkspaceNavGroup[]): Work
   for (const group of groups) for (const item of group.items) if (!allowed.has(item.href)) allowed.set(item.href,item);
   const direct: WorkspaceNavGroup[] = [];
   const used = new Set<string>();
+  const fleet=groupFleetNavigation(allowed);
+  if(fleet)for(const item of fleet.items)used.add(item.href);
   for (const [label,href] of companySidebarOrder) {
+    if(fleet&&href==='/admin/fleet/vehicles'){direct.push(fleet);continue;}
+    if(used.has(href))continue;
     const item = allowed.get(href);
     if (!item) continue;
     used.add(href);
