@@ -53,6 +53,7 @@ export type LiveJob = {
   bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
   personalBid?: boolean; // true only for records returned by authenticated /mobile/bids personal quote history
   offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; acceptanceBlocked?: boolean; offerQuoteStatus?: string; backendStatus?: string; podRecorded?: boolean;
+  marketSearch?: { pickupAt?:string; vehicleType?:string; vehicleLabel?:string; cargo?:string; cargoLabel?:string; body?:string; loadType?:string };
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; legacyReferences?: string[]; service?: string;
@@ -200,6 +201,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     terms: str(r.payment_terms) || 'Not provided',
     postedAt: str(r.exchange_posted_at) || undefined,
     distanceMiles: num(r.distance_miles), travelMinutes: num(r.distance_minutes),
+    marketSearch: {pickupAt:str(r.pickup_datetime),vehicleType:str(get(r,'requested_vehicle_type','vehicle_type')),vehicleLabel:str(r.requested_vehicle_label),cargo:str(r.cargo_type),cargoLabel:str(r.requested_cargo_label),body:str(r.body_type),loadType:str(r.load_type)},
     service: str(r.service_mode) || 'Not provided',
     ...(bidAmount !== undefined ? { quote: bidAmount, quoteOutcome: status === 'accepted' ? 'AWARDED' as const : status === 'cancelled' || status === 'withdrawn' ? 'CANCELLED' as const : undefined, bidStatus: status, bidId: str(bid.id), quoteEtaMinutes: num(bid.collectWithinMinutes), quoteNotes: str(bid.message) } : {}),
   };
