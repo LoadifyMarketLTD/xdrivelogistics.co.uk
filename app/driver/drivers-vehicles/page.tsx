@@ -91,13 +91,13 @@ export default function DriverDriversVehiclesPage() {
             <div className="carrier-register-toolbar__actions">
               <button type="button" data-active={tab === 'users'} onClick={() => setTab('users')}>Users / Drivers</button>
               <button type="button" data-active={tab === 'vehicles'} onClick={() => setTab('vehicles')}>Company Vehicles</button>
-              <button type="button" data-active={tab === 'tracking'} onClick={() => setTab('tracking')}>Vehicle Tracking</button>{ownerWeb&&<><button type="button" onClick={()=>router.push("/driver/documents")}>Documents</button><button type="button" onClick={()=>router.push("/driver/event-log")}>Event Log</button></>}
+              <button type="button" data-active={tab === 'tracking'} onClick={() => setTab('tracking')}>Vehicle Tracking</button>
             </div>
           </div>
         </section>
 
         {tab === 'users' && <section className="carrier-register-results" aria-label="Users and drivers">
-          <div className="carrier-register-table-wrap"><table className="carrier-register-table"><thead><tr><th>Name</th><th>Role</th><th>Mobile Access</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+          {ownerWeb&&<div className="carrier-register-results__header"><strong>Driver resources</strong><a href="/driver/documents">Open documents register</a><a href="/driver/event-log">Open event log</a></div>}<div className="carrier-register-table-wrap"><table className="carrier-register-table"><thead><tr><th>Name</th><th>Role</th><th>Mobile Access</th><th>Status</th><th>Actions</th></tr></thead><tbody>
             <tr><td><b>{user?.email ?? 'Current driver'}</b></td><td>{user?.ownerDriverWorkspace ? 'Workspace Owner' : 'Driver'}</td><td>{ownerWeb?(user?.appAccess===true?"Enabled":user?.appAccess===false?"Disabled":"Unverified"):"Enabled"}</td><td><StatusBadge value={ownerWeb?(user?.driverStatus??"Unverified"):"Active"} tone={ownerWeb&&user?.driverStatus!=="active"?"grey":"green"} /></td><td><button type="button" onClick={() => router.push('/driver/account')}>Manage</button></td></tr>
           </tbody></table></div>
         </section>}
