@@ -3,7 +3,7 @@
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import CompanyAdminSidebar from './CompanyAdminSidebar';
 import companySidebarStyles from './CompanyAdmin5301Sidebar.module.css';
-import {usesMasterAdminSidebar} from './companyAdmin5301Navigation';
+import {usesMasterAdminSidebar,usesMasterCommercialSidebar} from './companyAdmin5301Navigation';
 import { composeCompanyAdminSidebarNav } from './companyAdminSidebarNav';
 import CompanyFleetNavigation from './CompanyFleetNavigation';
 import {fleetHubGroupId} from './companyFleetNavigationModel';
@@ -586,11 +586,13 @@ export default function TopWorkspaceShell({
   forcedRole,
   fixtureCompanyName,
   companyAdminSidebar = false,
+  masterCommercialSidebar = false,
 }: {
   children: ReactNode;
   forcedRole?: WorkspaceRole;
   fixtureCompanyName?: string;
   companyAdminSidebar?: boolean;
+  masterCommercialSidebar?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -601,6 +603,7 @@ export default function TopWorkspaceShell({
   const definition = getWorkspaceDefinition(role);
   const companySidebarScope = companyAdminSidebar && role === 'company_admin' && !fixtureCompanyName;
   const masterAdminSidebarScope=usesMasterAdminSidebar(role,companyAdminSidebar,Boolean(fixtureCompanyName));
+  const masterCommercialSidebarScope=usesMasterCommercialSidebar(role,masterCommercialSidebar,Boolean(fixtureCompanyName));
 
   const nav = useMemo(() => {
     if (!workspaceRoleReady) return [];
@@ -1082,7 +1085,7 @@ export default function TopWorkspaceShell({
         </div>
       </header>
 
-      {masterAdminSidebarScope ? <div className={companySidebarStyles.body}>
+      {(masterAdminSidebarScope||masterCommercialSidebarScope) ? <div className={companySidebarStyles.body}>
         <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} pathname={pathname??'/admin'} onPrefetch={prefetchRoute} homeHref={companySidebarScope?undefined:definition.homeHref} workspaceLabel={companySidebarScope?'Company Admin':definition.label}/>
         <div className={companySidebarStyles.content}>
           <WorkspaceRestrictionBanner role={role}/>

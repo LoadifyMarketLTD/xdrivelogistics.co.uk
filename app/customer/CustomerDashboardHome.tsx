@@ -1,4 +1,6 @@
 'use client';
+import master5301 from '../components/workspace/master5301Dashboard.module.css';
+import {unsettledDashboardInvoice,paidDashboardInvoice,overdueDashboardInvoice,issuedUnsettledGross} from '../components/workspace/master5301InvoiceMetrics';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -160,9 +162,7 @@ export default function CustomerDashboardHome() {
       (bid) => bid.status === 'submitted' && !pendingOfferByJob.has(bid.job_id),
     );
     const activeDeliveries = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
-    const unpaidInvoices = customerInvoices.filter(
-      (invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status),
-    );
+    const unpaidInvoices = customerInvoices.filter(unsettledDashboardInvoice);
     const delayed = activeDeliveries.filter((job) => {
       if (!job.delivery_datetime) return false;
       return new Date(job.delivery_datetime).getTime() < Date.now();
@@ -174,12 +174,8 @@ export default function CustomerDashboardHome() {
       const stage = classifyWorkspaceJobStage(job);
       return stage === 'completed' && job.pod_generated === true && !invoiceByJob.has(job.id);
     });
-    const paidInvoices = customerInvoices.filter((invoice) =>
-      invoice.payment_status === 'paid' || String(invoice.status).toLowerCase() === 'paid',
-    );
-    const overdueInvoices = unpaidInvoices.filter((invoice) =>
-      Boolean(invoice.due_date) && new Date(String(invoice.due_date)).getTime() < Date.now(),
-    );
+    const paidInvoices = customerInvoices.filter(paidDashboardInvoice);
+    const overdueInvoices = unpaidInvoices.filter(overdueDashboardInvoice);
     const documentAlertJobs = data.jobs.filter((job) => {
       const stage = classifyWorkspaceJobStage(job);
       const podMissing = stage === 'completed' && job.pod_generated !== true;
@@ -208,7 +204,7 @@ export default function CustomerDashboardHome() {
       overdueInvoices,
       documentAlertJobs,
       recentJobs,
-      unpaidValue: unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
+      unpaidValue: issuedUnsettledGross(unpaidInvoices),
     };
   }, [bookingOffers, customerInvoices, data.bids, data.jobs, invoiceByJob, pendingOfferByJob]);
 
@@ -292,12 +288,12 @@ export default function CustomerDashboardHome() {
     },
     {
       label: 'Outstanding Invoices',
-      detail: 'Review invoices that still need payment or reconciliation.',
+      detail: 'Issued gross before credits; open register for balances.',
       count: invoicesDataset.availability !== 'available'
         ? 'Unavailable'
         : invoicesDataset.partialData || invoicesDataset.limitedData
           ? 'Partial'
-          : money(metrics.unpaidValue),
+          : metrics.unpaidValue,
       route: '/customer/invoices',
       tone: 'blue' as const,
       show: metrics.unpaidInvoices.length > 0,
@@ -341,8 +337,8 @@ export default function CustomerDashboardHome() {
           <AlertBanner tone="warning">Financial data is partial. Exact invoice totals are hidden until the complete dataset is available.</AlertBanner>
         ) : null}
 
-        <div className="customer-owner-parity-grid xdrive-owner-dashboard-grid">
-          <div className="customer-owner-parity-column xdrive-owner-dashboard-column">
+        <div data-master-dashboard="5301" className={"customer-owner-parity-grid xdrive-owner-dashboard-grid "+master5301.masterGrid}>
+          <div className={"customer-owner-parity-column xdrive-owner-dashboard-column "+master5301.masterColumn}>
             <OperationalCard title="Reports & Statistics" subtitle="Live customer transport and commercial position.">
               <KpiGrid>
                 <KpiCard
@@ -365,7 +361,7 @@ export default function CustomerDashboardHome() {
               <OperationalCard title="Commercial & Documents" subtitle="Customer-side closeout and finance controls.">
                 {[
                   ['Ready to invoice', `${metrics.readyToInvoice.length} POD-complete booking(s)`, '/customer/invoices'],
-                  ['Awaiting payment', invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : `${metrics.unpaidInvoices.length} - ${money(metrics.unpaidValue)}`, '/customer/invoices'],
+                  ['Awaiting payment', invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : `${metrics.unpaidInvoices.length} - ${metrics.unpaidValue}`, '/customer/invoices'],
                   ['Overdue invoices', invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : `${metrics.overdueInvoices.length} overdue`, '/customer/invoices'],
                   ['Paid invoices', invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : `${metrics.paidInvoices.length} paid`, '/customer/invoices'],
                   ['POD / document alerts', `${metrics.documentAlertJobs.length} requiring review`, '/customer/documents'],
@@ -412,7 +408,7 @@ export default function CustomerDashboardHome() {
             </OperationalCard>
           </div>
 
-          <div className="customer-owner-parity-column xdrive-owner-dashboard-column">
+          <div className={"customer-owner-parity-column xdrive-owner-dashboard-column "+master5301.masterColumn}>
             <OperationalCard
               title="Activity at a glance"
               subtitle="Latest customer transport and the next operational action for each booking."

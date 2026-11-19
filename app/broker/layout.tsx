@@ -23,7 +23,7 @@ export const metadata: Metadata = {
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace xdrive-broker-workspace">
-      <TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell>
+      <TopWorkspaceShell forcedRole="broker" masterCommercialSidebar>{children}</TopWorkspaceShell>
     </div>
   );
 }

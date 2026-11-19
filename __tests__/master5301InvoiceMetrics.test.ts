@@ -1,0 +1,9 @@
+import {describe,it,expect} from 'vitest';
+import {issuedUnsettledGross,issuedNetMargin,unsettledDashboardInvoice,paidDashboardInvoice} from '../app/components/workspace/master5301InvoiceMetrics';
+import type {WorkspaceInvoice} from '../app/components/workspace/useCompanyWorkspaceData';
+const row=(extra:Partial<WorkspaceInvoice>={}):WorkspaceInvoice=>({id:'qa',created_at:'2026-11-19',status:'sent',amount:120,net_amount:100,vat_amount:20,currency:'GBP',...extra});
+describe('Master commercial invoice metrics',()=>{
+ it('does not count draft, void, refunded, paid or credit note as awaiting payment',()=>{const rows=[row(),row({status:'draft'}),row({status:'void',payment_status:'paid'}),row({payment_status:'refunded'}),row({payment_status:'paid'}),row({document_type:'credit_note'})];expect(rows.filter(unsettledDashboardInvoice)).toEqual([rows[0]]);expect(rows.filter(paidDashboardInvoice)).toEqual([rows[4]]);expect(issuedUnsettledGross(rows)).toBe('£120.00')});
+ it('does not invent currency conversion or partial outstanding balances',()=>{expect(issuedUnsettledGross([row({currency:'EUR'})])).toBe('See register');expect(issuedUnsettledGross([row({payment_status:'partially_paid'})])).toBe('See register');expect(issuedUnsettledGross([row({amount:null})])).toBe('See register')});
+ it('uses signed issued net values and excludes voids from margin',()=>{expect(issuedNetMargin([row(),row({document_type:'credit_note',net_amount:20}),row({status:'void'})],[row({net_amount:40})])).toBe('£40.00');expect(issuedNetMargin([row({currency:'EUR'})],[])).toBe('See register');expect(issuedNetMargin([row({net_amount:null,vat_amount:null})],[])).toBe('See register')});
+});

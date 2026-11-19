@@ -20,8 +20,10 @@ describe('Broker dashboard convergence contract', () => {
     expect(source).toContain('<KpiGrid>');
     expect((source.match(/<KpiCard/g) ?? []).length).toBe(2);
     expect(source.indexOf('{data.error ? <AlertBanner')).toBeLessThan(
-      source.indexOf('className="broker-clean-dashboard xdrive-owner-dashboard-grid"'),
+      source.indexOf('data-master-dashboard="5301"'),
     );
+    expect(source).toContain('broker-clean-dashboard xdrive-owner-dashboard-grid');
+    expect(source).toContain('master5301.masterGrid');
     expect(source).not.toContain('broker-clean-kpis');
   });
 

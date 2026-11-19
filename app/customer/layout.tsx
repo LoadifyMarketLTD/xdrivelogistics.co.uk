@@ -25,7 +25,7 @@ export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace xdrive-customer-workspace">
       <ProtectedRoute allowedRoles={['customer']}>
-        <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
+        <TopWorkspaceShell forcedRole="customer" masterCommercialSidebar>{children}</TopWorkspaceShell>
       </ProtectedRoute>
     </div>
   );

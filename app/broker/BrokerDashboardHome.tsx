@@ -1,14 +1,12 @@
 'use client';
+import master5301 from '../components/workspace/master5301Dashboard.module.css';
+import {issuedDashboardInvoice,unsettledDashboardInvoice,overdueDashboardInvoice,issuedUnsettledGross,issuedNetMargin} from '../components/workspace/master5301InvoiceMetrics';
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
-  invoiceNetAmount,
-  invoiceSignedNetAmount,
-  isAwaitingPayment,
   isCarrierPayableInvoice,
-  isOverdue,
   isRevenueInvoice,
 } from '../../lib/brokerFinance';
 import {
@@ -31,9 +29,6 @@ import {
   PageFrame,
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
-
-const money = (value: number) =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
 
 const when = (value: string | null | undefined) =>
   value
@@ -76,22 +71,14 @@ export default function BrokerDashboardHome() {
     });
 
     const revenueInvoices = data.invoices.filter((invoice) =>
-      isRevenueInvoice(invoice, data.companyId),
+      isRevenueInvoice(invoice, data.companyId)&&issuedDashboardInvoice(invoice),
     );
     const carrierPayables = data.invoices.filter((invoice) =>
-      isCarrierPayableInvoice(invoice, data.companyId),
+      isCarrierPayableInvoice(invoice, data.companyId)&&issuedDashboardInvoice(invoice),
     );
-    const revenue = revenueInvoices.reduce(
-      (sum, invoice) => sum + invoiceSignedNetAmount(invoice),
-      0,
-    );
-    const carrierCost = carrierPayables.reduce(
-      (sum, invoice) => sum + invoiceSignedNetAmount(invoice),
-      0,
-    );
-    const grossMargin = revenue - carrierCost;
-    const outstandingRevenue = revenueInvoices.filter((invoice) => isAwaitingPayment(invoice));
-    const overdueRevenue = revenueInvoices.filter((invoice) => isOverdue(invoice));
+    const grossMargin = issuedNetMargin(revenueInvoices,carrierPayables);
+    const outstandingRevenue = revenueInvoices.filter(unsettledDashboardInvoice);
+    const overdueRevenue = outstandingRevenue.filter(overdueDashboardInvoice);
 
     const currentJobs = [...data.jobs]
       .sort((a, b) => {
@@ -112,10 +99,7 @@ export default function BrokerDashboardHome() {
       currentJobs,
       grossMargin,
       outstandingRevenue,
-      outstandingRevenueValue: outstandingRevenue.reduce(
-        (sum, invoice) => sum + invoiceNetAmount(invoice),
-        0,
-      ),
+      outstandingRevenueValue: issuedUnsettledGross(outstandingRevenue),
       overdueRevenue,
     };
   }, [data]);
@@ -176,8 +160,8 @@ export default function BrokerDashboardHome() {
         </AlertBanner>
       ) : null}
 
-      <div className="broker-clean-dashboard xdrive-owner-dashboard-grid">
-        <div className="xdrive-owner-dashboard-column">
+      <div data-master-dashboard="5301" className={"broker-clean-dashboard xdrive-owner-dashboard-grid "+master5301.masterGrid}>
+        <div className={"xdrive-owner-dashboard-column "+master5301.masterColumn}>
           <OperationalCard
             title="Reports & Statistics"
             subtitle="Live broker transport and commercial position."
@@ -185,7 +169,7 @@ export default function BrokerDashboardHome() {
           >
             <KpiGrid>
               <KpiCard label="Open loads" value={metricState(jobsDataset, metrics.openLoads.length)} detail="Customer work in sourcing" tone="blue" onClick={() => router.push('/broker/loads')} />
-              <KpiCard label="Gross margin" value={metricState(invoicesDataset, money(metrics.grossMargin))} detail="Revenue less carrier cost" tone="navy" onClick={() => router.push('/broker/margins')} />
+              <KpiCard label="Gross margin" value={metricState(invoicesDataset, metrics.grossMargin)} detail="Revenue less carrier cost" tone="navy" onClick={() => router.push('/broker/margins')} />
             </KpiGrid>
           </OperationalCard>
           <div className="broker-owner-subgrid xdrive-owner-dashboard-subgrid">
@@ -203,7 +187,7 @@ export default function BrokerDashboardHome() {
                     ? 'Unavailable'
                     : invoicesDataset.partialData || invoicesDataset.limitedData
                       ? 'Partial total'
-                      : money(metrics.outstandingRevenueValue)}</small>
+                      : metrics.outstandingRevenueValue}</small>
                 </button>
                 <button type="button" onClick={() => router.push('/broker/carrier-costs')}>
                   <span>Carrier costs</span>
@@ -212,7 +196,7 @@ export default function BrokerDashboardHome() {
                 </button>
                 <button type="button" onClick={() => router.push('/broker/margins')}>
                   <span>Margin</span>
-                  <strong>{metricState(invoicesDataset, money(metrics.grossMargin))}</strong>
+                  <strong>{metricState(invoicesDataset, metrics.grossMargin)}</strong>
                   <small>Customer revenue minus carrier cost</small>
                 </button>
               </div>
@@ -234,7 +218,7 @@ export default function BrokerDashboardHome() {
             </OperationalCard>
           </div>
         </div>
-        <div className="xdrive-owner-dashboard-column">
+        <div className={"xdrive-owner-dashboard-column "+master5301.masterColumn}>
           <OperationalCard
             title="Activity at a glance"
             subtitle="Same job lifecycle seen by Customer, Driver, Fleet and Broker"
