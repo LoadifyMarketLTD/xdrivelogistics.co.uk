@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../../../_lib/supabaseAdmin';
 import { canonicalPodEvidence } from '../../../../../../../lib/pod/canonicalPodEvidence';
+import { loadReserveStopAppendix } from '../../../../../../../lib/server/reserveMultiStopPod';
 
 const jsonError = (status: number, error: string) => NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
 
@@ -126,6 +127,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         width: dimensions.width, height: dimensions.height,
       });
     }
+    const stopAppendix = await loadReserveStopAppendix(supabaseAdmin, job.id, carrierId);
+    if(stopAppendix){const source=await PDFDocument.load(stopAppendix);for(const p of await pdf.copyPages(source,source.getPageIndices()))pdf.addPage(p);}
     const data = await pdf.save();
     return new NextResponse(Buffer.from(data), { status: 200, headers: {
       'Content-Type': 'application/pdf',

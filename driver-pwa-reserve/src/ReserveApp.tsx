@@ -20,6 +20,7 @@ import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
 import ReserveStopExecution from './ReserveStopExecution';
 import {finishReserveDelivery} from './reserveDeliverySequence';
+import {persistedStops,syncBoundaryStop} from './reserveStopSync';
 import SearchLoads from './SearchLoads';
 import {defaults as defaultSearchFilters,restoredFilters,matchesLoad,type SearchFilters} from './loadSearchFilters';
 import {searchAvailableLoads} from './searchLocation';
@@ -91,6 +92,7 @@ export default function ReserveApp() {
   const [draft,setDraft]=useState<DeliveryDraft>({recipient:'',leftAt:'Goods Inwards',items:'',condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});
   const [signature,setSignature]=useState<string|null>(null);const [verifiedSignature,setVerifiedSignature]=useState<string|null>(null);const [podFiles,setPodFiles]=useState<File[]>([]);const [hardCopyAcknowledged,setHardCopyAcknowledged]=useState(false);
   const uploadedEvidence=useRef(new Map<File,string>());
+  const boundaryEvidence=useRef(new Map<string,Map<File,string>>());
   const [podDone,setPodDone]=useState(false);const [collectionFiles,setCollectionFiles]=useState<File[]>([]);const uploadedCollectionEvidence=useRef(new Map<File,string>());
   const [cancellationStopId,setCancellationStopId]=useState<string|null>(null);
    const [cancellationReturnView,setCancellationReturnView]=useState<View>('flow');
@@ -188,7 +190,7 @@ export default function ReserveApp() {
   useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
   async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
-  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference(LOCAL?'TEST-OPERATOR-001':'');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
+  function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference(LOCAL?'TEST-OPERATOR-001':'');setPackaging('');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();boundaryEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
     let active=true;
@@ -419,7 +421,7 @@ export default function ReserveApp() {
       setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:step.status,backendStatus:step.backend,routeStops:row.routeStops?.map((stop,index)=>index===0&&j.status==="ON_SITE_PICKUP"?{...stop,status:"completed" as const,completedAt:new Date().toISOString()}:stop),statusHistory:[...(row.statusHistory||[]),{status:step.backend,at:new Date().toISOString(),notes:pickupNotes}]}:row));setError('');if(j.status==='ON_WAY_TO_DELIVERY')setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));if(j.status==='ON_WAY_TO_PICKUP')setCollectionStage('loaded');setPickupNotes('');setView('statusHistory');return;
     }
     await run(async s=>{
-      const latest=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);const server=mapAssigned(latest.job);if(server.id!==j.id||!server.backendStatus||!['allocated','assigned','accepted','on_my_way','on_site_pickup','loaded','in_transit','on_site_delivery'].includes(server.backendStatus))throw new Error('Booking is not in an executable server stage. Refresh booking.');if(server.status!==j.status){setJobs(rows=>rows.map(row=>row.id===j.id?{...row,...server}:row));setView('statusHistory');throw new Error('Booking status changed. Review its current stage.');}if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(server.backendStatus))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
+      const latest=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);const server=mapAssigned(latest.job);if(latest.multiDropPartial===true)throw new Error('Route stops could not be verified. Refresh booking.');const persisted=server.isTest===true?persistedStops(j.id,server.routeStops):[];const first=persisted[0];const last=persisted.at(-1);if(server.id!==j.id||!server.backendStatus||!['allocated','assigned','accepted','on_my_way','on_site_pickup','loaded','in_transit','on_site_delivery'].includes(server.backendStatus))throw new Error('Booking is not in an executable server stage. Refresh booking.');if(server.status!==j.status){setJobs(rows=>rows.map(row=>row.id===j.id?{...row,...server}:row));setView('statusHistory');throw new Error('Booking status changed. Review its current stage.');}if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(server.backendStatus))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
       if(j.status==='ON_SITE_PICKUP'){
         // Validate before uploading evidence so invalid inputs cannot leave orphaned files.
         if(collectionStage==='loaded'){
@@ -451,8 +453,20 @@ export default function ReserveApp() {
         if(etaDate&&!Number.isFinite(etaDate.getTime()))throw new Error('Enter a valid ETA date and time, or leave it blank.');if(etaDate&&etaDate.getTime()<=Date.now())throw new Error('Delivery ETA must be in the future.');
         const etaAt=etaDate?etaDate.toISOString():null;
         await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/handover',s.token,{stage:'loaded',itemCount,packaging:packaging.trim(),weightKg,etaAt,notes:pickupNotes,photoPaths:evidence.photos,documentPaths:evidence.documents});
+        if(first&&first.type==='collection'&&first.status!=='completed'){
+          const stopEvidence=await uploadBoundaryEvidence(j,first,s.token,collectionFiles);
+          await syncPersistedBoundary(j,first,'completed',s.token,{itemCount,weightKg,packaging:packaging.trim(),etaAt,notes:pickupNotes,...stopEvidence});
+        }
+      }
+      if((step.backend==='in_transit'||step.backend==='on_site_delivery')&&persisted.length){
+        if(!last||last.type!=='delivery'||persisted.slice(0,-1).some(stop=>stop.status!=='completed'))throw new Error('Complete all earlier route stops before final delivery.');
       }
       await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:step.backend,notes:pickupNotes.trim()});
+      if(first&&step.backend==='on_my_way')await syncPersistedBoundary(j,first,'en_route',s.token);
+      if(first&&step.backend==='on_site_pickup')await syncPersistedBoundary(j,first,'arrived',s.token);
+      if(last&&step.backend==='in_transit')await syncPersistedBoundary(j,last,'en_route',s.token);
+      if(last&&step.backend==='on_site_delivery')await syncPersistedBoundary(j,last,'arrived',s.token);
+      if(persisted.length)await fetchJobs(s.token);
     },()=>{
             if(j.status==='ON_SITE_PICKUP'&&collectionStage==='arrival'){
         setCollectionStage('loaded');setItems(pickupItems);setWeight(pickupWeight);setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();setError('');return;
@@ -487,6 +501,34 @@ export default function ReserveApp() {
       if(!blob||blob.size>2*1024*1024)throw new Error('Photo is too large to upload after optimisation: '+file.name);
       return new File([blob],file.name.replace(/\.[^.]+$/, '')+'-upload.jpg',{type:'image/jpeg',lastModified:file.lastModified});
     } finally { image.close(); }
+  }
+  async function uploadBoundaryEvidence(j:LiveJob,stop:LiveStop,token:string,files:File[],signedData?:string) {
+    const photoPaths:string[]=[];const documentPaths:string[]=[];
+    const stageCache=boundaryEvidence.current.get(stop.id)||new Map<File,string>();
+    boundaryEvidence.current.set(stop.id,stageCache);
+    async function upload(file:File,category:'photos'|'documents'|'signature'){
+      if(!['image/png','image/jpeg','application/pdf'].includes(file.type)||file.size<=0||file.size>10*1024*1024)throw new Error('Invalid stop evidence.');
+      const cached=stageCache.get(file);if(cached)return cached;
+      const prepared=await prepareDeliveryUpload(file);
+      const response=await fetch(driverApi+'/mobile/jobs/'+encodeURIComponent(j.id)+'/evidence',{
+        method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':prepared.type,'x-xdrive-evidence-kind':stop.type,'x-xdrive-evidence-category':category,'x-xdrive-stop-id':stop.id,'x-xdrive-evidence-name':crypto.randomUUID()+'-'+prepared.name.replace(/[^A-Za-z0-9._-]/g,'_').slice(0,130)},body:prepared
+      });
+      const data=await response.json().catch(()=>({}));if(!response.ok||typeof data.storagePath!=='string')throw new Error(data.error||'Stop evidence upload failed.');
+      stageCache.set(file,data.storagePath);return data.storagePath as string;
+    }
+    for(const file of files){const category=file.type==='application/pdf'?'documents':'photos';(category==='photos'?photoPaths:documentPaths).push(await upload(file,category));}
+    if(!photoPaths.length)throw new Error('At least one verified stop photograph is required.');
+    let signaturePath:string|null=null;
+    if(signedData){
+      const match=/^data:(image\/(?:png|jpeg));base64,(.+)$/.exec(signedData);
+      if(!match)throw new Error('Invalid recipient signature format.');
+      const bytes=Uint8Array.from(atob(match[2]),c=>c.charCodeAt(0));
+      signaturePath=await upload(new File([bytes],'recipient-signature.'+(match[1]==='image/png'?'png':'jpg'),{type:match[1]}),'signature');
+    }
+    return {photoPaths,documentPaths,signaturePath};
+  }
+  async function syncPersistedBoundary(j:LiveJob,stop:LiveStop,target:'en_route'|'arrived'|'completed',token:string,proof?:Record<string,unknown>){
+    await syncBoundaryStop(stop,target,(stopId,status,handover)=>driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/reserve-stop-status',token,{stop_id:stopId,status,...(handover?{handover}:{})}),proof);
   }
   async function uploadCollectionEvidence(j:LiveJob, token:string):Promise<{photos:string[];documents:string[]}>{
     const photos:string[]=[];
@@ -600,7 +642,7 @@ export default function ReserveApp() {
       }
       await run(async current=>{
         const evidence=await uploadFinalStopExceptionEvidence(j,finalStop,current.token);
-        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/stop-status',current.token,{
+        await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+(j.isTest===true?'/reserve-stop-status':'/stop-status'),current.token,{
           stop_id:finalStop.id,status:'exception',
           exception:{deliveryStatus:draft.condition,notes:draft.notes.trim(),photoPaths:evidence.photoPaths,documentPaths:evidence.documentPaths},
         });
@@ -615,6 +657,19 @@ export default function ReserveApp() {
     if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return;}
     await run(async current=>{
       const path='/mobile/jobs/'+encodeURIComponent(j.id);
+      const latest=await driverGet(path,current.token);
+      if(latest.multiDropPartial===true)throw new Error('Route stops could not be verified.');
+      const canonical=mapAssigned(latest.job);
+      if(canonical.id!==j.id||canonical.backendStatus!=='on_site_delivery')throw new Error('Final delivery stage was not confirmed.');
+      const route=canonical.isTest===true?persistedStops(j.id,canonical.routeStops):[];
+      if(route.length){
+        const final=route.at(-1)!;
+        if(final.type!=='delivery'||route.slice(0,-1).some(stop=>stop.status!=='completed'))throw new Error('Resolve every preceding stop before final delivery.');
+        if(final.status!=='completed'){
+          const proof=await uploadBoundaryEvidence(j,final,current.token,podFiles,signature!);
+          await syncPersistedBoundary(j,final,'completed',current.token,{...proof,recipientName:draft.recipient.trim(),leftAt:draft.leftAt.trim(),itemCount:Number(draft.items),deliveredOn:new Date(draft.deliveredOn+'T'+draft.deliveredTime+':00').toISOString(),deliveryStatus:'Completed Delivery',notes:draft.notes.trim()});
+        }
+      }
       await finishReserveDelivery(j.id,{
         read:async()=>{const detail=await driverGet(path,current.token);return {job:mapAssigned(detail.job),partial:detail.multiDropPartial===true};},
         upload:()=>uploadDeliveryEvidence(j,current.token),
@@ -698,7 +753,7 @@ export default function ReserveApp() {
     const finalRouteStop=routeStops.at(-1);
     const dynamicRouteEnd=finalRouteStop?.handover?.stopKind==='return'||finalRouteStop?.handover?.stopKind==='redirect';
     const operationalStops=routeStops.length>2
-      ? routeStops.slice(1,dynamicRouteEnd?undefined:-1)
+      ? routeStops.slice(1,dynamicRouteEnd||(job.isTest===true&&finalRouteStop?.type==='collection')?undefined:-1)
       : dynamicRouteEnd?routeStops.slice(1):[];
     const legacySkipped=operationalStops.find(stop=>stop.status==='skipped');
     const activeStop=operationalStops.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');
@@ -727,7 +782,7 @@ export default function ReserveApp() {
       }}/>;
     }
     if(activeStop&&['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)&&session){
-      return <ReserveStopExecution job={job} stop={activeStop} session={session} onSession={setSession}
+      return <ReserveStopExecution key={job.id+':'+activeStop.id} job={job} stop={activeStop} session={session} onSession={setSession}
         onRefresh={async token=>{await fetchJobs(token);}}
         onBack={()=>setView('statusHistory')}
         onCancel={()=>openCancellation(job,activeStop,'flow')}/>;

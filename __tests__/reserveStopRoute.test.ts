@@ -1,0 +1,23 @@
+import {describe,it,beforeEach,expect,vi} from 'vitest';
+import {NextRequest,NextResponse} from 'next/server';
+const m=vi.hoisted(()=>({from:vi.fn(),list:vi.fn(),driver:vi.fn(),flag:vi.fn(),event:vi.fn()}));
+vi.mock('../app/api/_lib/supabaseAdmin',()=>({isSupabaseAdminConfigured:true,supabaseAdmin:{from:m.from,storage:{from:()=>({list:m.list})}}}));
+vi.mock('../app/api/_lib/platformFlags',()=>({getFeatureFlag:m.flag}));
+vi.mock('../app/api/driver/mobile/_lib',()=>({requireDriver:m.driver,isDriverContext:(v:unknown)=>!(v instanceof Response),respond:(status:number,value:unknown)=>NextResponse.json(value,{status}),insertTrackingEvent:m.event}));
+import {POST} from '../app/api/driver/mobile/jobs/[id]/reserve-stop-status/route';
+const id='job',stopId='s2';
+const makeStop=(sequence:number,status:string,type='delivery')=>({id:'s'+sequence,sequence,stop_type:type,address:'QA',status,arrived_at:null,completed_at:null,handover:null});
+let job:Record<string,unknown>,stops:ReturnType<typeof makeStop>[],write:ReturnType<typeof query>;
+function query(data:unknown){const q={select:vi.fn(),eq:vi.fn(),order:vi.fn(async()=>({data,error:null})),update:vi.fn(),maybeSingle:vi.fn(async()=>({data,error:null}))};q.select.mockReturnValue(q);q.eq.mockReturnValue(q);q.update.mockReturnValue(q);return q;}
+const call=(status:string,handover?:unknown,stop=stopId)=>POST(new NextRequest('https://www.xdrivelogistics.co.uk/api/driver/mobile/jobs/job/reserve-stop-status',{method:'POST',body:JSON.stringify({stop_id:stop,status,handover})}),{params:Promise.resolve({id})});
+const valid={itemCount:1,recipientName:'QA ONLY',leftAt:'Goods Inwards',deliveryStatus:'Completed Delivery',deliveredOn:'2026-11-19T10:00:00Z',photoPaths:['carrier/job/stops/s2/photos/p.png'],signaturePath:'carrier/job/stops/s2/signature/s.png'};
+beforeEach(()=>{vi.resetAllMocks();job={id,assigned_driver_id:'driver',assigned_company_id:'carrier',current_status:'loaded',is_test:true};stops=[makeStop(1,'completed','collection'),makeStop(2,'pending'),makeStop(3,'pending')];m.driver.mockResolvedValue({driverId:'driver',companyId:'carrier',userId:'actor'});m.flag.mockResolvedValue(true);m.event.mockResolvedValue(undefined);m.list.mockImplementation(async(_:string,options:{search:string})=>({data:[{name:options.search}],error:null}));write=query({...stops[1],status:'en_route'});m.from.mockImplementation((name:string)=>name==='jobs'?query(job):m.from.mock.calls.filter(x=>x[0]==='job_stops').length===1?query(stops):write);});
+describe('Reserve stop API security and ordered progression',()=>{
+ it('rejects commercial bookings before any stop mutation',async()=>{job.is_test=false;expect((await call('en_route')).status).toBe(409);expect(write.update).not.toHaveBeenCalled();});
+ it('denies a driver from another carrier before writing',async()=>{job.assigned_company_id='other';expect((await call('en_route')).status).toBe(403);expect(write.update).not.toHaveBeenCalled();});
+ it('persists en route only at the first unresolved stop',async()=>{const response=await call('en_route');expect(response.status).toBe(200);expect(write.update).toHaveBeenCalledWith(expect.objectContaining({status:'en_route'}));expect(write.eq).toHaveBeenCalledWith('status','pending');});
+ it('blocks bypass of an earlier stop or the journey sequence',async()=>{expect((await call('en_route',undefined,'s3')).status).toBe(409);expect(write.update).not.toHaveBeenCalled();m.from.mockClear();expect((await call('arrived')).status).toBe(409);});
+ it('requires canonical parent stage for final delivery',async()=>{stops[1].status='completed';stops[2].status='arrived';expect((await call('completed',valid,'s3')).status).toBe(409);expect(write.update).not.toHaveBeenCalled();});
+ it('rejects incomplete or out-of-scope per-stop proof',async()=>{stops[1].status='arrived';expect((await call('completed',{...valid,signaturePath:''})).status).toBe(400);m.from.mockClear();expect((await call('completed',{...valid,photoPaths:['other/job/stops/s2/photos/p.png']})).status).toBe(400);expect(write.update).not.toHaveBeenCalled();});
+ it('persists complete signed stop proof after verifying storage identities',async()=>{stops[1].status='arrived';write.maybeSingle.mockResolvedValue({data:{...stops[1],status:'completed'},error:null});const r=await call('completed',valid);expect(r.status).toBe(200);expect(write.update).toHaveBeenCalledWith(expect.objectContaining({status:'completed',handover:expect.objectContaining({version:3,recipientName:'QA ONLY',signaturePath:valid.signaturePath})}));expect(m.list).toHaveBeenCalledTimes(2);});
+});

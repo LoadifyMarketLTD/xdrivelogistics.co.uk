@@ -62,6 +62,7 @@ export type LiveJob = {
   clientName?: string; contactName?: string; contactPhone?: string;
   collectionPhotos?: string[]; deliveryPhotos?: string[]; podPhotos?: string[];
   routeStops?: LiveStop[];
+  isTest?: boolean;
 };
 const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
 const str = (value: unknown): string => typeof value === 'string' ? value : '';
@@ -281,6 +282,7 @@ export function mapAssigned(raw: unknown): LiveJob {
   const canonicalStatus = str(get(r, 'currentStatus', 'current_status', 'lifecycleStatus', 'lifecycle_status', 'status')).toLowerCase();
   const routeStops=Array.isArray(r.stops)?r.stops.map(mapAssignedStop).filter((stop):stop is LiveStop=>Boolean(stop)).sort((a,b)=>a.sequence-b.sequence):[];
   return {
+    isTest: r.isTest === true,
     id: str(r.id), from: str(get(r, 'pickupLocation', 'pickup_location', 'pickupPostcode', 'pickup_postcode')) || 'Collection',
     to: str(get(r, 'deliveryLocation', 'delivery_location', 'deliveryPostcode', 'delivery_postcode')) || 'Delivery',
     fromOutcode: extractPublicOutcode(get(r,'pickupPostcodeArea','pickup_postcode_area','pickupPostcode','pickup_postcode')),

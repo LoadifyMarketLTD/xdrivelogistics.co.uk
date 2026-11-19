@@ -8,7 +8,7 @@ import { isDriverContext, requireDriver, respond } from '../../../_lib';
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const SAFE_NAME = /^[A-Za-z0-9._-]{1,180}$/;
-type EvidenceCategory = 'photos' | 'damage' | 'documents';
+type EvidenceCategory = 'photos' | 'damage' | 'documents' | 'signature';
 
 function hasExpectedMagicBytes(payload: Buffer, contentType: string) {
   if (contentType === 'application/pdf') return payload.subarray(0, 5).toString('ascii') === '%PDF-';
@@ -27,7 +27,7 @@ function evidenceCategory(request: NextRequest, kind: 'collection' | 'delivery')
     return category === 'documents' ? 'documents' : null;
   }
   if (!category) return 'photos';
-  return category === 'photos' || category === 'damage' || category === 'documents' ? category : null;
+  return category === 'photos' || category === 'damage' || category === 'documents' || (category === 'signature' && Boolean(request.headers.get('x-xdrive-stop-id'))) ? category : null;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!ALLOWED_TYPES.has(contentType)) {
     return respond(415, { error: 'Evidence must be a PDF, JPEG or PNG file.' });
   }
-  if ((category === 'photos' || category === 'damage') && contentType === 'application/pdf') {
+  if ((category === 'photos' || category === 'damage' || category === 'signature') && contentType === 'application/pdf') {
     return respond(415, { error: 'Photo evidence must be a JPEG or PNG image.' });
   }
 
@@ -69,12 +69,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: job, error: loadError } = await supabaseAdmin
     .from('jobs')
-    .select('id,assigned_driver_id,pickup_photos,delivery_photos,damage_photos,pod_photos')
+    .select('id,assigned_driver_id,assigned_company_id,status,current_status,is_test,pickup_photos,delivery_photos,damage_photos,pod_photos')
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
   if (loadError) return respond(500, { error: loadError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
+  if (job.assigned_company_id && job.assigned_company_id !== driver.companyId) return respond(403, { error: 'Job belongs to another carrier.' });
+  if (category === 'signature' && job.is_test !== true) return respond(409, { error: 'Per-stop signature upload is restricted to designated test bookings.' });
+  if (stopId && ['completed','invoiced','paid','cancelled','disputed'].includes(String(job.current_status || job.status || '').toLowerCase())) return respond(409, { error: 'Booking is closed.' });
 
   const existingCollectionPhotos = Array.isArray(job.pickup_photos)
     ? job.pickup_photos.filter((value): value is string => typeof value === 'string' && value.length > 0)
@@ -101,12 +104,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (stopId) {
     const { data: stop, error: stopError } = await supabaseAdmin
       .from('job_stops')
-      .select('id')
+      .select('id,stop_type,status')
       .eq('id', stopId)
       .eq('job_id', id)
       .maybeSingle();
     if (stopError) return respond(500, { error: 'Stop evidence could not be verified.' });
     if (!stop) return respond(404, { error: 'Stop not found for this job.' });
+    if (stop.stop_type !== kind) return respond(400, { error: 'Evidence kind does not match the stop.' });
+    if (['completed','cancelled','skipped'].includes(String(stop.status))) return respond(409, { error: 'Stop is already resolved or requires review.' });
   }
 
   const payload = Buffer.from(await request.arrayBuffer());
