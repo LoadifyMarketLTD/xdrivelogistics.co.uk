@@ -1,5 +1,6 @@
 import type { WorkspaceDataState, WorkspaceJob } from './useCompanyWorkspaceData';
 import { classifyWorkspaceJobStage, isCompanyExecutionJob, normalizedJobStatus } from '../../../lib/jobs/workspaceJobStage';
+import { companyFleetDrivers } from './companyFleetRegister';
 import { canonicalPodEvidence } from '../../../lib/pod/canonicalPodEvidence';
 import { classifyAccountsDirection } from '../../../lib/finance/accounts';
 import { isAwaitingPaymentInvoiceStatus, toCanonicalInvoiceDisplayStatus } from '../../../lib/invoiceStatus';
@@ -23,8 +24,8 @@ export function deriveCompanyOperationalOverview(data: CompanyOpsInput, now = ne
   const executive=companyJobs.filter(j=>isCompanyExecutionJob(j,companyId));
   const openLoads=own.filter(j=>['posted','quoted'].includes(normalizedJobStatus(j))&&classifyWorkspaceJobStage(j)==='open');
   const active=executive.filter(j=>classifyWorkspaceJobStage(j)==='in_progress');
-  const unallocated=executive.filter(j=>classifyWorkspaceJobStage(j)==='awarded');
-  const availableDrivers=companyId?data.drivers.filter(d=>lower(d.status)==='active'&&lower(d.availability_status)==='available'):[];
+  const unallocated=executive.filter(j=>['awarded','allocated'].includes(classifyWorkspaceJobStage(j))&&!j.assigned_driver_id);
+  const availableDrivers=companyFleetDrivers(data,'available');
   const pod=executive.filter(j=>classifyWorkspaceJobStage(j)==='completed'&&['missing','incomplete','rejected','missing_requested'].includes(canonicalPodEvidence(j).state));
   const overdue=active.filter(j=>Number.isFinite(timestamp(j.delivery_datetime))&&timestamp(j.delivery_datetime)<now.getTime());
   const ownOpenIds=new Set(openLoads.map(j=>j.id));

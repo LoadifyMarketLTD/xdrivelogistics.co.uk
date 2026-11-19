@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import CompanyAdminOperationalOverview from './CompanyAdminOperationalOverview';
+import {companyReportDates,companyReportDateMatches,summarizeCompanyPayables} from './companyAdminDashboardReporting';
+import {londonDay} from './companyAdminDiaryCalendarModel';
 
 import {
   useCompanyWorkspaceData,
@@ -131,7 +133,7 @@ export default function CarrierOperationsDashboardHome() {
   const [companyReportRange,setCompanyReportRange] = useState('month');
   const payablesHref = companyAdminEnhancements ? '/admin/finance/carrier-invoices' : '/admin/invoices';
 
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = companyAdminEnhancements?londonDay(new Date()):new Date().toISOString().slice(0, 10);
   const [reportFrom, setReportFrom] = useState(() => `${todayKey.slice(0, 8)}01`);
   const [reportTo, setReportTo] = useState(todayKey);
 
@@ -307,16 +309,18 @@ export default function CarrierOperationsDashboardHome() {
       && Boolean(invoice.supplier_company_id)
       && invoice.supplier_company_id !== data.companyId);
 
+    const companyPayables=companyAdminEnhancements?summarizeCompanyPayables(data.invoices,data.companyId,reportFrom,reportTo):null;
     const fromMs = new Date(`${reportFrom}T00:00:00`).getTime();
     const toMs = new Date(`${reportTo}T23:59:59.999`).getTime();
 
     const inReportRange = (value: string | null | undefined) => {
+      if(companyAdminEnhancements)return companyReportDateMatches(value,reportFrom,reportTo);
       if (!value) return false;
       const timestamp = new Date(value).getTime();
       return Number.isFinite(timestamp) && timestamp >= fromMs && timestamp <= toMs;
     };
 
-    const reportPayables = payables.filter((invoice) =>
+    const reportPayables = companyPayables?.inRange ?? payables.filter((invoice) =>
       inReportRange(invoice.invoice_date ?? invoice.created_at));
 
     const payableTotal = reportPayables.reduce(
@@ -325,8 +329,9 @@ export default function CarrierOperationsDashboardHome() {
     );
 
     const currentMonth = new Date();
-    const monthlyPayables = payables.filter((invoice) => {
+    const monthlyPayables = (companyPayables?.issued??payables).filter((invoice) => {
       const source = invoice.invoice_date ?? invoice.created_at;
+      if(companyAdminEnhancements){const period=companyReportDates('month',currentMonth)!;return companyReportDateMatches(source,period.from,period.to);}
       const date = source ? new Date(source) : null;
       return Boolean(date)
         && date!.getFullYear() === currentMonth.getFullYear()
@@ -374,12 +379,13 @@ export default function CarrierOperationsDashboardHome() {
       .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
 
     return {
-      payables,
+      payables:companyPayables?.issued??payables,
+      reportPayables,
       payableTotal,
       monthlyPayableTotal,
-      paidPayables,
-      overduePayables,
-      awaitingPayables,
+      paidPayables:companyPayables?.paid??paidPayables,
+      overduePayables:companyPayables?.overdue??overduePayables,
+      awaitingPayables:companyPayables?.awaiting??awaitingPayables,
       completedJobs,
       completedWithoutException,
       subcontracted,
@@ -391,6 +397,7 @@ export default function CarrierOperationsDashboardHome() {
     data.companyId,
     data.invoices,
     metrics.companyBids,
+    companyAdminEnhancements,
     reportFrom,
     reportTo,
   ]);
@@ -468,6 +475,7 @@ export default function CarrierOperationsDashboardHome() {
 
   const selectReportRange = (value: string) => {
     setCompanyReportRange(value);
+    if(companyAdminEnhancements){const period=companyReportDates(value);if(period){setReportFrom(period.from);setReportTo(period.to);}return;}
     const end = new Date();
     const start = new Date(end);
 
@@ -508,7 +516,7 @@ export default function CarrierOperationsDashboardHome() {
         <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column">
           <OperationalCard
             title="Reports & Statistics"
-            className="carrier-cx-reporting-card"
+            className={companyAdminEnhancements ? "carrier-cx-reporting-card company-admin-reporting-card" : "carrier-cx-reporting-card"}
             flush
           >
             <div className="carrier-cx-reporting-body">
@@ -520,6 +528,7 @@ export default function CarrierOperationsDashboardHome() {
                   max={reportTo}
                   onChange={(event) => { setReportFrom(event.target.value); if(companyAdminEnhancements) setCompanyReportRange('custom'); }}
                 />
+                {companyAdminEnhancements&&<input aria-label="Report to date" type="date" value={reportTo} min={reportFrom} max={todayKey} onChange={event=>{setReportTo(event.target.value);setCompanyReportRange('custom')}}/>}
                 <button
                   type="button"
                   onClick={() => {
@@ -569,8 +578,8 @@ export default function CarrierOperationsDashboardHome() {
                     money(cxDashboard.payableTotal))}
                 </strong>
                 <small>
-                  {cxDashboard.payables.length} supplier invoice
-                  {cxDashboard.payables.length === 1 ? '' : 's'}
+                  {companyAdminEnhancements?metricValue(data,['invoices'],()=>cxDashboard.reportPayables.length):cxDashboard.payables.length} supplier invoice
+                  {(companyAdminEnhancements?cxDashboard.reportPayables.length:cxDashboard.payables.length) === 1 ? '' : 's'}
                 </small>
                 <em>How is this calculated?</em>
               </button>
@@ -594,7 +603,7 @@ export default function CarrierOperationsDashboardHome() {
               />
               <CommercialRow
                 label="Invoices Awaiting Payment"
-                detail="Open supplier invoices not yet overdue"
+                detail={companyAdminEnhancements?'Issued supplier invoices awaiting settlement, excluding overdue':'Open supplier invoices not yet overdue'}
                 value={metricValue(data, ['invoices'], () => cxDashboard.awaitingPayables)}
                 onClick={() => router.push(payablesHref)}
               />

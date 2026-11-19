@@ -27,13 +27,13 @@ describe('Company Admin real-data operational overview',()=>{
       job('posted','posted'),job('awarded','awarded',{company_id:'customer',awarded_carrier_company_id:'company'}),job('active','in_transit',{company_id:'customer',awarded_carrier_company_id:'company',assigned_driver_id:'d1',vehicle_id:'v1'}),
       job('delivered','delivered',{awarded_carrier_company_id:'company',pod_required:true}),job('not-required','delivered',{awarded_carrier_company_id:'company',pod_required:false}),
       job('foreign','posted',{company_id:'other'}),job('draft','draft'),job('other-carrier','in_transit',{company_id:'customer',awarded_carrier_company_id:'other'}),
-    ],bids:[bid('posted','supplier','submitted'),bid('posted','other','withdrawn'),bid('foreign','supplier','submitted'),bid('posted','company','submitted')],drivers:[driver('d1','active','available'),driver('d2','inactive','available'),driver('d3','active','busy')],vehicles:[],invoices:[invoice('receivable',{supplier_company_id:'company',buyer_company_id:'customer'}),invoice('payable',{supplier_company_id:'other',buyer_company_id:'company'}),invoice('paid',{supplier_company_id:'company',payment_status:'paid'}),invoice('draft',{supplier_company_id:'company',status:'draft'})]};
+    ],bids:[bid('posted','supplier','submitted'),bid('posted','other','withdrawn'),bid('foreign','supplier','submitted'),bid('posted','company','submitted')],drivers:[driver('d1','active','available'),driver('d2','inactive','available'),driver('d3','active','busy'),driver('d4','active','available')],vehicles:[],invoices:[invoice('receivable',{supplier_company_id:'company',buyer_company_id:'customer'}),invoice('payable',{supplier_company_id:'other',buyer_company_id:'company'}),invoice('paid',{supplier_company_id:'company',payment_status:'paid'}),invoice('draft',{supplier_company_id:'company',status:'draft'})]};
     const result=deriveCompanyOperationalOverview(data,now);
     expect(result.openLoads.map(j=>j.id)).toEqual(['posted']);
     expect(result.active.map(j=>j.id)).toEqual(['active']);
     expect(result.unallocated.map(j=>j.id)).toEqual(['awarded']);
     expect(result.pod.map(j=>j.id)).toEqual(['delivered']);
-    expect(result.availableDrivers.map(d=>d.id)).toEqual(['d1']);
+    expect(result.availableDrivers.map(d=>d.id)).toEqual(['d4']);
     expect(result.overdue.map(j=>j.id)).toEqual(['active']);
     expect(result.receivedQuotes).toHaveLength(1);
     expect(result.quotesToReview.map(j=>j.id)).toEqual(['posted']);

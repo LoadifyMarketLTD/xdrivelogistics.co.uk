@@ -19,12 +19,12 @@ export default function CompanyAdminOperationalOverview({data}:{data:WorkspaceDa
   const select=(next:View)=>{setView(next);setPage(0)};
   const number=(keys:WorkspaceDatasetKey[],n:number)=>data.loading?'Loading':!data.companyId?'Unavailable':metricValue(data,keys,()=>n);
   const jobViews:View[]=['todayJobs','openLoads','active','pod','unallocated','overdue','quotesToReview','recent'];
-  const keys:WorkspaceDatasetKey[]=view==='availableDrivers'?['drivers']:view==='receivables'?['invoices']:view==='quotesToReview'?['jobs','bids']:['jobs'];
+  const keys:WorkspaceDatasetKey[]=view==='availableDrivers'?['drivers','jobs']:view==='receivables'?['invoices']:view==='quotesToReview'?['jobs','bids']:['jobs'];
   const available=!data.loading&&!unavailable(data,keys)&&Boolean(data.companyId);
   const rows=jobViews.includes(view)?overview[view as keyof Pick<typeof overview,'todayJobs'|'openLoads'|'active'|'pod'|'unallocated'|'overdue'|'quotesToReview'|'recent'>]:[];
   const driverMap=new Map(data.drivers.map(d=>[d.id,d.display_name||d.email||'Driver']));
   const vehicleMap=new Map(data.vehicles.map(v=>[v.id,v.reg_plate||v.type||'Vehicle']));
-  const kpis:[View,WorkspaceDatasetKey[],number][]=[['openLoads',['jobs'],overview.openLoads.length],['active',['jobs'],overview.active.length],['availableDrivers',['drivers'],overview.availableDrivers.length],['pod',['jobs'],overview.pod.length],['receivables',['invoices'],overview.receivables.length]];
+  const kpis:[View,WorkspaceDatasetKey[],number][]=[['openLoads',['jobs'],overview.openLoads.length],['active',['jobs'],overview.active.length],['availableDrivers',['drivers','jobs'],overview.availableDrivers.length],['pod',['jobs'],overview.pod.length],['receivables',['invoices'],overview.receivables.length]];
   const actionItems:[View,WorkspaceDatasetKey[],number][]=[['quotesToReview',['jobs','bids'],overview.quotesToReview.length],['unallocated',['jobs'],overview.unallocated.length],['pod',['jobs'],overview.pod.length],['overdue',['jobs'],overview.overdue.length]];
   const total=view==='availableDrivers'?overview.availableDrivers.length:view==='receivables'?overview.receivables.length:rows.length;
   const safePage=Math.min(page,Math.max(0,Math.ceil(total/8)-1));
@@ -47,7 +47,7 @@ export default function CompanyAdminOperationalOverview({data}:{data:WorkspaceDa
         <div className="company-admin-ops-actions">{actionItems.map(([key,source,n])=><button key={key} type="button" aria-pressed={view===key} onClick={()=>select(key)}><span>{viewTitles[key]}</span><strong>{number(source,n)}</strong></button>)}</div>
       </OperationalCard>
       <OperationalCard title="Fleet & Drivers" actions={<Link className="company-admin-ops-detail" href="/admin/fleet/vehicles" prefetch={false}>View Fleet</Link>}>
-        <div className="company-admin-ops-facts"><span>Registered vehicles <strong>{number(['vehicles'],overview.vehicles.length)}</strong></span><span>Registered drivers <strong>{number(['drivers'],overview.drivers.length)}</strong></span><button type="button" onClick={()=>select('availableDrivers')}>Available drivers <strong>{number(['drivers'],overview.availableDrivers.length)}</strong></button></div>
+        <div className="company-admin-ops-facts"><span>Registered vehicles <strong>{number(['vehicles'],overview.vehicles.length)}</strong></span><span>Registered drivers <strong>{number(['drivers'],overview.drivers.length)}</strong></span><button type="button" onClick={()=>select('availableDrivers')}>Available drivers <strong>{number(['drivers','jobs'],overview.availableDrivers.length)}</strong></button></div>
       </OperationalCard>
       <OperationalCard title="Recent Activity" subtitle="Latest job updates (not a complete audit log)" actions={<Link className="company-admin-ops-detail" href="/admin/event-log" prefetch={false}>Event Log</Link>}>
         {!data.loading&&!unavailable(data,['jobs'])?overview.recent.slice(0,4).map(job=><div key={job.id} className="company-admin-ops-activity"><Link href={'/admin/jobs/'+encodeURIComponent(job.id)} prefetch={false}>{companyJobReference(job)}</Link><small>{workspaceJobOperationalLabel(job)} · {date(job.updated_at)}</small></div>):<p>Job activity unavailable.</p>}
