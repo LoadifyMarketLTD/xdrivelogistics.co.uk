@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from './ownerInvoicePdf';
 import { loadInvoicePdfContext } from './ownerInvoicePdfContext';
+import { loadReserveApprovedChargeLines } from './reserveInvoiceChargeLines';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../app/api/_lib/supabaseAdmin';
 import { requireDriverFinanceAccess } from '../../app/api/driver/finance/_lib/financeAccess';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../invoiceStatus';
@@ -390,7 +391,9 @@ export async function submitInvoice(
 
   let pdfBytes: Uint8Array;
   try {
+    const approvedChargeBreakdown=await loadReserveApprovedChargeLines(supabaseAdmin, claimedInvoice, sender.companyId);
     pdfBytes = await buildInvoicePdf({
+      approvedChargeBreakdown,
       invoiceNumber,
       jobReference,
       invoiceDate: String(claimedInvoice.invoice_date ?? new Date().toISOString().slice(0, 10)),
