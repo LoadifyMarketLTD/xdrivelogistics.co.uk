@@ -18,6 +18,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parseFirebaseServiceAccount, sendFcmMessage } from './fcm.ts';
+import { suppressTestJobNotification } from './testJobIsolation.ts';
 import { binaryToBase64, buildBookingAttachments, buildPodSummaryAttachment, buildRemittanceAdviceAttachment, type EmailAttachment } from './documentPdf.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
@@ -1506,7 +1507,27 @@ async function processEvent(event: NotificationEvent): Promise<void> {
   let success = false;
   let skipped = false;
   try {
-    switch (event.event_type) {
+    const isolatedTest = await suppressTestJobNotification(event, {
+      job: async (id) => {
+        const { data, error } = await supabase.from('jobs').select('is_test').eq('id', id).maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+      bid: async (id) => {
+        const { data, error } = await supabase.from('job_bids').select('job_id').eq('id', id).maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+      invoice: async (id) => {
+        const { data, error } = await supabase.from('invoices').select('job_id').eq('id', id).maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+    });
+    if (isolatedTest) {
+      console.log('[notify] External delivery suppressed for test job event ' + event.id);
+      skipped = true;
+    } else switch (event.event_type) {
       case 'job_assigned': success = await handleJobAssigned(event); break;
       case 'commercial_amendment_proposed':
       case 'commercial_amendment_accepted':

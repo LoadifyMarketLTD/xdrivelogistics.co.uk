@@ -1,0 +1,10 @@
+import { describe,it,expect,vi } from 'vitest';
+import { suppressTestJobNotification } from '../supabase/functions/notify-operational-event/testJobIsolation';
+const e=(type='job',payload:Record<string,unknown>={})=>({entity_type:type,entity_id:type==='job'?'j':'entity',payload});
+const lookup=(is_test:boolean)=>({job:vi.fn(async()=>({is_test})),bid:vi.fn(async()=>({job_id:'j'})),invoice:vi.fn(async()=>({job_id:'j'}))});
+describe('canonical test notification isolation',()=>{
+ it('suppresses test job, bid and invoice events without trusting payload flags',async()=>{for(const type of ['job','bid','invoice']){const l=lookup(true);expect(await suppressTestJobNotification(e(type,{is_test:false,job_id:'j'}),l)).toBe(true);expect(l.job).toHaveBeenCalledWith('j');}});
+ it('allows real jobs even with spoofed test flag',async()=>{expect(await suppressTestJobNotification(e('job',{is_test:true}),lookup(false))).toBe(false);});
+ it('preserves non-job onboarding and standalone invoices',async()=>{const l=lookup(true);expect(await suppressTestJobNotification(e('user'),l)).toBe(false);const standalone={...l,invoice:vi.fn(async()=>({job_id:null}))};expect(await suppressTestJobNotification(e('invoice'),standalone)).toBe(false);expect(l.job).not.toHaveBeenCalled();});
+ it('fails closed for missing records, identity mismatches and database errors',async()=>{const l=lookup(false);await expect(suppressTestJobNotification(e('job',{job_id:'other'}),l)).rejects.toThrow('mismatch');await expect(suppressTestJobNotification(e(),{...l,job:async()=>null})).rejects.toThrow('test status');await expect(suppressTestJobNotification(e(),{...l,job:async()=>{throw new Error('DB down')}})).rejects.toThrow('DB down');await expect(suppressTestJobNotification(e('bid'),{...l,bid:async()=>null})).rejects.toThrow('bid');});
+});
