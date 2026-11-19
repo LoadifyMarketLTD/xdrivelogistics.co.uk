@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import ApprovedMessagesBoard from '../../components/workspace/ApprovedMessagesBoard';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
@@ -10,7 +11,7 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { useAuth } from '../../components/AuthContext';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import '../xdrive-owner-actions-messages.css';
-import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { AlertBanner } from '../../components/workspace/WorkspaceUI';
 
 type MessageDirection = 'inbound' | 'outbound';
 type MessageRow = {
@@ -30,6 +31,7 @@ type MessageThread = {
   counterpartName: string;
   counterpartCompanyId: string | null;
   counterpartCompanyName: string | null;
+  counterpartCategory?: 'customer' | 'driver' | 'company' | null;
   context: ThreadContext | null;
   canReply: boolean;
   latestAt: string | null;
@@ -43,13 +45,6 @@ type MessagesResponse = {
   contextPartial?: boolean;
   error?: string;
 };
-
-function fmtDateTime(value: string | null) {
-  if (!value) return 'Time unavailable';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Time unavailable';
-  return date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-}
 
 export default function DriverMessagesPage() {
   const router = useRouter();
@@ -87,7 +82,7 @@ export default function DriverMessagesPage() {
 
       const response = await fetch('/api/driver/messages', {
         headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
+        cache: 'no-store', signal: AbortSignal.timeout(15000),
       });
       const payload = (await response.json().catch(() => ({}))) as MessagesResponse;
       if (!response.ok) throw new Error(payload.error || 'Messages could not be loaded.');
@@ -161,125 +156,15 @@ export default function DriverMessagesPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        hideHeader={isOwnerDriver}
-        subtitle={isOwnerDriver ? undefined : "Participant messages are separate from operational notifications. Messages are immutable once sent; the current schema does not store read/unread state."}
-        headerActions={isOwnerDriver ? undefined : <ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
-      >
+      <DriverWorkspaceShell hideHeader>
         {!isOwnerDriver && <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />}
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {sendError && <AlertBanner tone="danger">{sendError}</AlertBanner>}
         {contextPartial && <AlertBanner tone="warning">Some message context could not be enriched. Participant message history remains available without inferred context.</AlertBanner>}
         {contextTargetMissing && <AlertBanner tone="warning">No verified conversation exists for the requested job, quote or member context. XDrive will not create an arbitrary recipient thread.</AlertBanner>}
 
-        <div className={isOwnerDriver ? "driver-board-layout driver-messages-board xd-owner-messages" : "driver-board-layout driver-messages-board"}>
-          <aside className="driver-filter-rail" aria-label="Message conversations">
-            <div className="driver-filter-rail__header">Messages</div>
-            <div className="driver-filter-rail__body">
-              <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '16px' }}>
-                {isOwnerDriver ? 'Conversations connected to your transport jobs and quotes.' : 'Existing participant conversations. New arbitrary recipients are not exposed by the verified messaging contract.'}
-              </div>
-              {threads.map((thread) => (
-                <button
-                  key={thread.key}
-                  type="button"
-                  className="driver-account-link"
-                  data-active={selectedKey === thread.key ? 'true' : 'false'}
-                  onClick={() => { setSelectedKey(thread.key); setReply(''); setSendError(''); }}
-                >
-                  <span>
-                    <strong>{thread.counterpartName}</strong>
-                    <small>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</small>
-                    <small>{thread.latestBody || 'Message'} · {fmtDateTime(thread.latestAt)}</small>
-                  </span>
-                  <span>{thread.messages.length}</span>
-                </button>
-              ))}
-              <ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
-            </div>
-          </aside>
-
-          <main className="driver-board-main">
-            {!isOwnerDriver && <div className="driver-tab-strip" role="tablist" aria-label="Messaging workspace">
-              <button type="button" data-active="true">Conversations <span>{threads.length}</span></button>
-            </div>}
-            <div className="driver-board-summary">
-              <span>{threads.length} conversation{threads.length === 1 ? '' : 's'}{isOwnerDriver ? '' : ' · no fabricated read-state'}</span>
-              <StatusBadge value={isOwnerDriver ? 'Verified participants' : 'Participant scoped'} tone="green" />
-            </div>
-
-            {loading ? (
-              <div className="driver-load-row"><EmptyState compact title="Loading messages…" /></div>
-            ) : threads.length === 0 ? (
-              <div className="driver-load-row">
-                <EmptyState compact title="No messages yet" description="Existing participant conversations will appear here when real message records exist." />
-              </div>
-            ) : !selected ? (
-              <div className="driver-load-row"><EmptyState compact title={contextTargetMissing ? 'No contextual conversation found' : 'Choose a conversation'} description={contextTargetMissing ? 'Continue from a verified quote or existing transport relationship; arbitrary recipient creation stays disabled.' : undefined} /></div>
-            ) : (
-              <section className="driver-row-details" aria-label={`Conversation with ${selected.counterpartName}`}>
-                <div className="driver-detail-tabs">
-                  <strong>{selected.counterpartName}{selected.counterpartCompanyName ? ` · ${selected.counterpartCompanyName}` : ''}</strong>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>
-                    {selected.conversationId ? `Conversation ${selected.conversationId.slice(0, 8).toUpperCase()}` : 'Legacy message record'}
-                  </span>
-                </div>
-                {selected.context && (
-                  <div className="driver-load-row" data-state="context" style={{ marginTop: '8px' }}>
-                    <div className="driver-load-row__meta">
-                      <strong>{selected.context.kind === 'quote' ? 'Quote context' : 'Job context'} · {selected.context.loadRef}</strong>
-                      <StatusBadge value={selected.context.jobStatus ?? selected.context.status ?? 'Context linked'} tone="blue" />
-                      {selectedJobHref ? <ActionButton tone="secondary" onClick={() => router.push(selectedJobHref)}>Open job</ActionButton> : null}
-                    </div>
-                    <div style={{ paddingTop: '6px', fontSize: '12px', color: '#475569' }}>{selected.context.routeLabel}</div>
-                  </div>
-                )}
-
-                <div style={{ display: 'grid', gap: '8px', padding: '10px 0' }}>
-                  {selected.messages.map((message) => (
-                    <article
-                      key={message.id}
-                      className="driver-load-row"
-                      data-state={message.direction === 'outbound' ? 'sent' : 'received'}
-                      style={{ marginLeft: message.direction === 'outbound' ? '8%' : 0, marginRight: message.direction === 'inbound' ? '8%' : 0 }}
-                    >
-                      <div className="driver-load-row__meta">
-                        <strong>{message.direction === 'outbound' ? 'You' : selected.counterpartName}</strong>
-                        <span>{fmtDateTime(message.createdAt)}</span>
-                        <StatusBadge value={message.direction === 'outbound' ? 'Sent' : 'Received'} tone={message.direction === 'outbound' ? 'blue' : 'green'} />
-                      </div>
-                      <div style={{ padding: '8px 10px', fontSize: '13px', lineHeight: '19px', color: '#0f172a', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                        {message.body}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-
-                {selected.canReply ? (
-                  <div className="driver-detail-grid" style={{ marginTop: '6px' }}>
-                    <label className="driver-filter-field" style={{ gridColumn: '1 / -1' }}>
-                      Reply
-                      <textarea
-                        value={reply}
-                        maxLength={4000}
-                        rows={4}
-                        onChange={(event) => setReply(event.target.value)}
-                        placeholder={`Reply to ${selected.counterpartName}`}
-                      />
-                    </label>
-                    <div className="driver-row-actions" style={{ gridColumn: '1 / -1' }}>
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>{reply.length}/4000 · messages cannot be edited after sending</span>
-                      <ActionButton tone="primary" disabled={sending || !reply.trim()} onClick={() => void sendReply()}>{sending ? 'Sending…' : 'Send Reply'}</ActionButton>
-                    </div>
-                  </div>
-                ) : (
-                  <AlertBanner tone="warning">
-                    Reply is unavailable for this historical record because no single verified conversation counterpart is stored. The record remains visible and unchanged.
-                  </AlertBanner>
-                )}
-              </section>
-            )}
-          </main>
+        <div className="driver-messages-board">
+          <ApprovedMessagesBoard threads={threads} selected={selected} loading={loading} error={error} reply={reply} sending={sending} selectedJobHref={selectedJobHref} onSelect={key=>{setSelectedKey(key);setReply('');setSendError('')}} onReply={setReply} onSend={()=>void sendReply()} onRefresh={()=>void loadMessages()} onJob={()=>{if(selectedJobHref)router.push(selectedJobHref)}} legacyLabel="Legacy message record" immutableLabel="messages cannot be edited after sending" scopeLabel="Participant scoped" sendLabel="Send Reply" readStateLabel="no fabricated read-state" missingContext={contextTargetMissing} openJobLabel="Open job" missingContextLabel="arbitrary recipient creation stays disabled"/>
         </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>

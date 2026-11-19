@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
           : 'Participant unavailable',
       counterpartCompanyId: identity?.companyId ?? null,
       counterpartCompanyName: identity?.companyName ?? null,
+        counterpartCategory: identity?.category ?? null,
       context,
       canReply: Boolean(latest?.conversation_id && singleCounterpart),
       latestAt: latest?.created_at ?? null,

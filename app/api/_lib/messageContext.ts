@@ -17,6 +17,7 @@ export type ParticipantIdentity = {
   name: string | null;
   companyId: string | null;
   companyName: string | null;
+  category: 'customer' | 'driver' | 'company' | null;
 };
 
 export type MessageContext = {
@@ -48,17 +49,19 @@ export async function loadParticipantIdentityMap(client: AdminClient, userIds: s
   if (!uniqueUserIds.length) return identities;
 
   const [profilesResult, driversResult, membershipsResult] = await Promise.all([
-    client.from('profiles').select('user_id, full_name').in('user_id', uniqueUserIds),
+    client.from('profiles').select('user_id, full_name, role').in('user_id', uniqueUserIds),
     client.from('drivers').select('user_id, display_name, company_id').in('user_id', uniqueUserIds),
     client.from('company_memberships').select('user_id, company_id, status').in('user_id', uniqueUserIds).eq('status', 'active'),
   ]);
 
   const companyIds = new Set<string>();
   const nameByUser = new Map<string, string>();
+  const roleByUser = new Map<string, string>();
   if (!profilesResult.error) {
     for (const row of profilesResult.data ?? []) {
       const userId = text(row.user_id); const name = text(row.full_name);
       if (userId && name) nameByUser.set(userId, name);
+      if (userId && typeof row.role === 'string') roleByUser.set(userId, row.role.trim().toLowerCase().replace(/[-\s]+/g, '_'));
     }
   }
   if (!driversResult.error) {
@@ -98,7 +101,13 @@ export async function loadParticipantIdentityMap(client: AdminClient, userIds: s
 
   for (const userId of uniqueUserIds) {
     const companyId = companyByUser.get(userId) ?? null;
+    const role = roleByUser.get(userId) ?? '';
+    // This is display evidence only. It never grants authority, and unknown roles stay unclassified.
+    const category = ['customer','shipper','customer_shipper'].includes(role) ? 'customer'
+      : ['driver','owner_driver','owner_operator','self_employed_driver','company_driver','employed_driver'].includes(role) ? 'driver'
+      : companyId ? 'company' : null;
     identities.set(userId, {
+      category,
       userId,
       name: nameByUser.get(userId) ?? null,
       companyId,

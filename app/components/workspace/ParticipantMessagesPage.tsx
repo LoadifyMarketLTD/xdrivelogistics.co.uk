@@ -1,15 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import ApprovedMessagesBoard from './ApprovedMessagesBoard';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import {
-  ActionButton,
   AlertBanner,
-  EmptyState,
   PageFrame,
-  PageHeader,
-  StatusBadge,
 } from './WorkspaceUI';
 
 type MessageDirection = 'inbound' | 'outbound';
@@ -30,6 +28,7 @@ type MessageThread = {
   counterpartName: string;
   counterpartCompanyId: string | null;
   counterpartCompanyName: string | null;
+  counterpartCategory?: 'customer' | 'driver' | 'company' | null;
   context: ThreadContext | null;
   canReply: boolean;
   latestAt: string | null;
@@ -44,13 +43,6 @@ type MessagesResponse = {
   contextPartial?: boolean;
   error?: string;
 };
-
-function fmtDateTime(value: string | null) {
-  if (!value) return 'Time unavailable';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Time unavailable';
-  return date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-}
 
 export default function ParticipantMessagesPage({
   eyebrow,
@@ -90,13 +82,12 @@ export default function ParticipantMessagesPage({
     setLoading(true);
     setError('');
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+      const token = readRouteAuthAccessToken();
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
 
       const response = await fetch('/api/workspace/messages', {
         headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
+        cache: 'no-store', signal: AbortSignal.timeout(15000),
       });
       const payload = (await response.json().catch(() => ({}))) as MessagesResponse;
       if (!response.ok) throw new Error(payload.error || 'Messages could not be loaded.');
@@ -142,9 +133,8 @@ export default function ParticipantMessagesPage({
     setSending(true);
     setSendError('');
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+      const token = readRouteAuthAccessToken();
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
 
       const response = await fetch('/api/workspace/messages', {
         method: 'POST',
@@ -179,129 +169,14 @@ export default function ParticipantMessagesPage({
 
   return (
     <PageFrame>
-      <PageHeader
-        eyebrow={eyebrow}
-        title={title}
-        description={description}
-      />
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {sendError && <AlertBanner tone="danger">{sendError}</AlertBanner>}
       {contextPartial && <AlertBanner tone="warning">Some message context could not be enriched. Participant-scoped message history remains available and no context is inferred.</AlertBanner>}
       {contextTargetMissing && <AlertBanner tone="warning">No verified conversation exists for the requested job, quote or member context. XDrive will not create an arbitrary recipient thread without a proven transport relationship.</AlertBanner>}
 
-      <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Message conversations">
-          <div className="workspace-filter-rail__header">Conversations</div>
-          <div className="workspace-filter-rail__body">
-            <div style={{ fontSize: 11, color: '#64748b', lineHeight: '16px' }}>
-              Existing participant conversations only. XDrive does not expose arbitrary recipient lookup from this surface.
-            </div>
-            <div style={{ display: 'grid', gap: 4 }}>
-              {threads.map((thread) => (
-                <button
-                  key={thread.key}
-                  type="button"
-                  onClick={() => { setSelectedKey(thread.key); setReply(''); setSendError(''); }}
-                  style={{
-                    minHeight: 44,
-                    padding: '6px 8px',
-                    border: selectedKey === thread.key ? '1px solid #1d57d8' : '1px solid #e2e8f0',
-                    borderRadius: 4,
-                    background: selectedKey === thread.key ? '#eff6ff' : '#fff',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <strong style={{ display: 'block', fontSize: 12, lineHeight: '16px', color: '#0f172a' }}>{thread.counterpartName}</strong>
-                  <span style={{ display: 'block', fontSize: 11, lineHeight: '14px', color: '#475569' }}>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</span>
-                  <span style={{ display: 'block', marginTop: 2, fontSize: 11, lineHeight: '14px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {thread.latestBody || 'Message'} · {fmtDateTime(thread.latestAt)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </aside>
-
-        <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" role="tablist" aria-label="Messaging workspace" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            <button type="button" data-active="true">Conversations {threads.length}</button>
-          </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-            <span>{threads.length} conversation{threads.length === 1 ? '' : 's'} · no fabricated read-state</span>
-            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><StatusBadge value="Participant scoped" tone="green" /><ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton></span>
-          </div>
-
-          {loading ? (
-            <div className="workspace-panel"><EmptyState compact title="Loading messages…" /></div>
-          ) : threads.length === 0 ? (
-            <div className="workspace-panel"><EmptyState title="No messages yet" description="Verified participant conversations will appear here when real message records exist." /></div>
-          ) : !selected ? (
-            <div className="workspace-panel"><EmptyState compact title={contextTargetMissing ? 'No contextual conversation found' : 'Choose a conversation'} description={contextTargetMissing ? 'Start or continue messaging from a verified quote or existing transport relationship; arbitrary recipient creation stays disabled.' : undefined} /></div>
-          ) : (
-            <section className="workspace-panel" aria-label={`Conversation with ${selected.counterpartName}`}>
-              <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-                <strong>{selected.counterpartName}{selected.counterpartCompanyName ? ` · ${selected.counterpartCompanyName}` : ''}</strong>
-                <span>{selected.conversationId ? `Conversation ${selected.conversationId.slice(0, 8).toUpperCase()}` : 'Legacy message record'}</span>
-              </div>
-              {selected.context && (
-                <div className="workspace-operational-row" data-state="context" style={{ marginTop: 8 }}>
-                  <div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-                    <span><strong>{selected.context.kind === 'quote' ? 'Quote context' : 'Job context'} · {selected.context.loadRef}</strong></span>
-                    <StatusBadge value={selected.context.jobStatus ?? selected.context.status ?? 'Context linked'} tone="blue" />
-                    {selectedJobHref ? <ActionButton tone="secondary" onClick={() => router.push(selectedJobHref)}>Open job</ActionButton> : null}
-                  </div>
-                  <div style={{ paddingTop: 6, fontSize: 12, color: '#475569' }}>{selected.context.routeLabel}</div>
-                </div>
-              )}
-
-              <div style={{ display: 'grid', gap: 8, paddingTop: 8 }}>
-                {selected.messages.map((message) => (
-                  <article
-                    key={message.id}
-                    className="workspace-operational-row"
-                    data-state={message.direction === 'outbound' ? 'sent' : 'received'}
-                    style={{ marginLeft: message.direction === 'outbound' ? '8%' : 0, marginRight: message.direction === 'inbound' ? '8%' : 0 }}
-                  >
-                    <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-                      <strong>{message.direction === 'outbound' ? 'You' : selected.counterpartName}</strong>
-                      <span>{fmtDateTime(message.createdAt)}</span>
-                      <StatusBadge value={message.direction === 'outbound' ? 'Sent' : 'Received'} tone={message.direction === 'outbound' ? 'blue' : 'green'} />
-                    </div>
-                    <div style={{ padding: '8px 10px', fontSize: 13, lineHeight: '19px', color: '#0f172a', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-                      {message.body}
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-              {selected.canReply ? (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #e2e8f0', display: 'grid', gap: 6 }}>
-                  <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
-                    REPLY
-                    <textarea
-                      value={reply}
-                      maxLength={4000}
-                      rows={4}
-                      onChange={(event) => setReply(event.target.value)}
-                      placeholder={`Reply to ${selected.counterpartName}`}
-                      style={{ width: '100%', padding: 8, border: '1px solid #cbd5e1', borderRadius: 4, font: 'inherit', resize: 'vertical' }}
-                    />
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontSize: 11, lineHeight: '14px', color: '#64748b' }}>{reply.length}/4000 · messages are immutable once sent</span>
-                    <ActionButton tone="primary" disabled={sending || !reply.trim()} onClick={() => void sendReply()}>{sending ? 'Sending…' : 'Send Reply'}</ActionButton>
-                  </div>
-                </div>
-              ) : (
-                <AlertBanner tone="warning">
-                  Reply is unavailable for this historical record because no single verified conversation counterpart is stored. The record remains visible and unchanged.
-                </AlertBanner>
-              )}
-            </section>
-          )}
-        </main>
+      <div>
+          <ApprovedMessagesBoard heading={title} description={description} eyebrow={eyebrow} threads={threads} selected={selected} loading={loading} error={error} reply={reply} sending={sending} selectedJobHref={selectedJobHref} onSelect={key=>{setSelectedKey(key);setReply('');setSendError('')}} onReply={setReply} onSend={()=>void sendReply()} onRefresh={()=>void loadMessages()} onJob={()=>{if(selectedJobHref)router.push(selectedJobHref)}} legacyLabel="Legacy message record" immutableLabel="messages are immutable once sent" scopeLabel="Participant scoped" sendLabel="Send Reply" readStateLabel="no fabricated read-state" missingContext={contextTargetMissing} openJobLabel="Open job" missingContextLabel="arbitrary recipient creation stays disabled"/>
       </div>
     </PageFrame>
   );
