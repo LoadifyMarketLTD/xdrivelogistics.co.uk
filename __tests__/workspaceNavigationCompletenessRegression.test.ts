@@ -198,7 +198,7 @@ describe('operational navigation remains reachable through primary, More, header
       expect(fleet).toContain(`href: '${href}'`);
     }
     const quotes = read('app/driver/quotes/page.tsx');
-    expect(quotes).toContain("stage === 'archived' || stage === 'accepted'");
+    expect(quotes).toContain("if (ownerWeb) return ownerQuoteMatches(bid,ownerScope)");
     expect(shell).toContain('onClick={() => router.push(notificationsHref)}');
   });
 
