@@ -11,7 +11,9 @@ describe('CX-close broker/customer navigation discoverability', () => {
     expect(source).toContain("id: 'broker-directory', label: 'Directory'");
     expect(source).toContain("href: '/broker/carrier-network/directory'");
     expect(source).toContain("id: 'customer-directory', label: 'Directory'");
-    expect(source).toContain("href: '/customer/network'");
+    expect(source).toContain("href: '/customer/network/directory'");
+    expect(customerNetworkLayout).toContain("href: '/customer/network', label: 'Companies'");
+    expect(customerNetworkLayout).toContain("href: '/customer/network/directory', label: 'Directory'");
   });
 
   it('exposes the existing broker dispute register without broadening permissions', () => {

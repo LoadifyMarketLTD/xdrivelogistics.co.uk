@@ -21,7 +21,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
       "['customer-bookings-primary', 'Bookings', '/customer/bookings']",
       "['customer-diary-primary', 'Diary', '/customer/diary']",
       "['customer-tracking-primary', 'Tracking', '/customer/tracking']",
-      "['customer-network-primary', 'Network', '/customer/network']",
+      "['customer-directory-primary', 'Directory', '/customer/network/directory']",
       "['customer-settings-primary', 'Settings', '/customer/settings']",
     ]) expect(customer).toContain(primary);
 
@@ -40,6 +40,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(customerMore).not.toContain("'/customer/settings'");
     expect(customerMore).not.toContain("'/customer/action-centre'");
     expect(customerMore).not.toContain("'/customer/bookings'");
+    expect(shell).toContain("label: 'Companies', href: '/customer/network'");
   });
 
   it('promotes the core Customer lifecycle and keeps secondary functions under More', () => {
@@ -64,8 +65,12 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(settings).toContain("{ label: 'Security'");
   });
 
-  it('gives Customer the frozen PR675 two-column control-desk geometry without requiring Owner Driver to adopt shared classes', () => {
-    expect(ownerDashboard).toContain('gridTemplateColumns: "minmax(360px, .84fr) minmax(0, 1.16fr)"');
+  it('gives Customer the approved 5301 two-column control-desk geometry without changing the Owner Driver source', () => {
+    const masterCss=read('app/components/workspace/master5301Dashboard.module.css');
+    expect(masterCss).toContain('grid-template-columns: minmax(0,.87fr) minmax(0,1.13fr)');
+    expect(customerDashboard).toContain('data-master-dashboard="5301"');
+    expect(customerDashboard).toContain('master5301.masterGrid');
+    expect(customerDashboard).toContain('master5301.masterColumn');
     expect(customerDashboard).toContain('customer-owner-parity-grid xdrive-owner-dashboard-grid');
     expect(customerDashboard).toContain('customer-owner-parity-column xdrive-owner-dashboard-column');
     expect(customerDashboard).toContain('customer-owner-parity-subgrid xdrive-owner-dashboard-subgrid');

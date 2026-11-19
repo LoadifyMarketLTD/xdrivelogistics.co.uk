@@ -568,7 +568,7 @@ export function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
       { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: 'NEW' },
     ] },
     { id: 'customer-collaboration', label: 'Collaboration', items: [
-      { id: 'customer-network', label: 'Directory', href: '/customer/network', icon: 'DIR' },
+      { id: 'customer-network', label: 'Companies', href: '/customer/network', icon: 'DIR' },
       { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: 'MSG' },
       { id: 'customer-disputes', label: 'Disputes', href: '/customer/disputes', icon: '!' },
       { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: 'LOG' },
