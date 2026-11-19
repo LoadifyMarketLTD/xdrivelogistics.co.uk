@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import CompanyAdminOperationalOverview from './CompanyAdminOperationalOverview';
 import {companyReportDates,companyReportDateMatches,summarizeCompanyPayables} from './companyAdminDashboardReporting';
+import master5301 from './master5301Dashboard.module.css';
 import {londonDay} from './companyAdminDiaryCalendarModel';
 
 import {
@@ -130,12 +131,14 @@ export default function CarrierOperationsDashboardHome() {
   const data = useCompanyWorkspaceData();
   const {user} = useAuth();
   const companyAdminEnhancements = (user?.workspaceRole ?? resolveWorkspaceRole(user)) === 'company_admin';
-  const [companyReportRange,setCompanyReportRange] = useState('month');
+  const [companyReportRange,setCompanyReportRange] = useState(companyAdminEnhancements?'today':'month');
   const payablesHref = companyAdminEnhancements ? '/admin/finance/carrier-invoices' : '/admin/invoices';
 
   const todayKey = companyAdminEnhancements?londonDay(new Date()):new Date().toISOString().slice(0, 10);
-  const [reportFrom, setReportFrom] = useState(() => `${todayKey.slice(0, 8)}01`);
+  const [reportFrom, setReportFrom] = useState(() => companyAdminEnhancements?todayKey:`${todayKey.slice(0, 8)}01`);
   const [reportTo, setReportTo] = useState(todayKey);
+  const allCompanyDates=companyAdminEnhancements&&companyReportRange==='all';
+  const companyPeriodValid=!companyAdminEnhancements||allCompanyDates||Boolean(reportFrom&&reportTo&&reportFrom<=reportTo);
 
   const [activityIdentity, setActivityIdentity] = useState('');
   const [activityLocation, setActivityLocation] = useState('');
@@ -309,12 +312,12 @@ export default function CarrierOperationsDashboardHome() {
       && Boolean(invoice.supplier_company_id)
       && invoice.supplier_company_id !== data.companyId);
 
-    const companyPayables=companyAdminEnhancements?summarizeCompanyPayables(data.invoices,data.companyId,reportFrom,reportTo):null;
+    const companyPayables=companyAdminEnhancements?summarizeCompanyPayables(data.invoices,data.companyId,reportFrom,reportTo,allCompanyDates):null;
     const fromMs = new Date(`${reportFrom}T00:00:00`).getTime();
     const toMs = new Date(`${reportTo}T23:59:59.999`).getTime();
 
     const inReportRange = (value: string | null | undefined) => {
-      if(companyAdminEnhancements)return companyReportDateMatches(value,reportFrom,reportTo);
+      if(companyAdminEnhancements)return companyReportDateMatches(value,reportFrom,reportTo,allCompanyDates);
       if (!value) return false;
       const timestamp = new Date(value).getTime();
       return Number.isFinite(timestamp) && timestamp >= fromMs && timestamp <= toMs;
@@ -400,6 +403,7 @@ export default function CarrierOperationsDashboardHome() {
     companyAdminEnhancements,
     reportFrom,
     reportTo,
+    allCompanyDates,
   ]);
 
   const latestBookings = useMemo(() => {
@@ -511,16 +515,18 @@ export default function CarrierOperationsDashboardHome() {
         </AlertBanner>
       ) : null}
 
-      {companyAdminEnhancements && <CompanyAdminOperationalOverview data={data} />}
-      <div className="carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid">
-        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column">
+      <div data-master-dashboard={companyAdminEnhancements?'5301':undefined} className={'carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid'+(companyAdminEnhancements?' '+master5301.masterGrid:'')}>
+        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column'+(companyAdminEnhancements?' '+master5301.masterColumn:'')}>
           <OperationalCard
             title="Reports & Statistics"
             className={companyAdminEnhancements ? "carrier-cx-reporting-card company-admin-reporting-card" : "carrier-cx-reporting-card"}
+            actions={companyAdminEnhancements?<select className={master5301.periodSelect} aria-label="Select report date range" value={companyReportRange} onChange={e=>selectReportRange(e.target.value)}><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="all">All time</option><option value="custom">Select Dates</option><option value="month">This month</option><option value="90">Last 90 days</option></select>:undefined}
             flush
           >
             <div className="carrier-cx-reporting-body">
-              <div className="carrier-cx-report-controls">
+              {companyAdminEnhancements&&companyReportRange==='custom'&&<div className={master5301.customRange}><label>From<input aria-label="Report from date" type="date" value={reportFrom} max={reportTo||todayKey} onChange={e=>setReportFrom(e.target.value)}/></label><label>To<input aria-label="Report to date" type="date" value={reportTo} min={reportFrom} max={todayKey} onChange={e=>setReportTo(e.target.value)}/></label></div>}
+              {companyAdminEnhancements&&!companyPeriodValid&&<AlertBanner tone="warning">Choose a valid reporting period. From must not be after To.</AlertBanner>}
+              {!companyAdminEnhancements&&<div className="carrier-cx-report-controls">
                 <input
                   aria-label="Report from date"
                   type="date"
@@ -551,7 +557,7 @@ export default function CarrierOperationsDashboardHome() {
                   <option value="30">Last 30 days</option>
                   <option value="90">Last 90 days</option>
                 </select>
-              </div>
+              </div>}
               <div className="carrier-cx-stat-grid">
               <button
                 type="button"
@@ -560,7 +566,7 @@ export default function CarrierOperationsDashboardHome() {
               >
                 <span>Gross Margin</span>
                 <strong>
-                  {metricValue(data, ['bids', 'jobs', 'invoices'], () =>
+                  {!companyPeriodValid?'Unavailable':metricValue(data, ['bids', 'jobs', 'invoices'], () =>
                     money(cxDashboard.grossMargin))}
                 </strong>
                 <small>Won work less recorded sub-contract spend</small>
@@ -574,7 +580,7 @@ export default function CarrierOperationsDashboardHome() {
               >
                 <span>Sub-contract Spend</span>
                 <strong>
-                  {metricValue(data, ['invoices'], () =>
+                  {!companyPeriodValid?'Unavailable':metricValue(data, ['invoices'], () =>
                     money(cxDashboard.payableTotal))}
                 </strong>
                 <small>
@@ -706,7 +712,7 @@ export default function CarrierOperationsDashboardHome() {
           </OperationalCard>
         </div>
 
-        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column">
+        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column'+(companyAdminEnhancements?' '+master5301.masterColumn:'')}>
           <OperationalCard
             title="Activity at a glance"
             className="carrier-cx-activity-card"
@@ -893,6 +899,7 @@ export default function CarrierOperationsDashboardHome() {
           </OperationalCard>
         </div>
       </div>
+      {companyAdminEnhancements&&<div className={master5301.complementary}><CompanyAdminOperationalOverview data={data}/></div>}
     </div>
   );
 }
