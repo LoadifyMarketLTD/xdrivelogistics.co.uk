@@ -1,0 +1,17 @@
+import {describe,it,expect,vi,beforeEach} from 'vitest';
+import {NextRequest,NextResponse} from 'next/server';
+const m=vi.hoisted(()=>({from:vi.fn(),driver:vi.fn(),track:vi.fn(),list:vi.fn()}));
+vi.mock('../app/api/_lib/supabaseAdmin',()=>({isSupabaseAdminConfigured:true,supabaseAdmin:{from:m.from,storage:{from:()=>({list:m.list})}}}));
+vi.mock('../app/api/driver/mobile/_lib',()=>({requireDriver:m.driver,isDriverContext:(x:unknown)=>!(x instanceof Response),insertTrackingEvent:m.track,respond:(s:number,b:Record<string,unknown>)=>NextResponse.json(b,{status:s})}));
+import {GET,POST} from '../app/api/driver/mobile/jobs/[id]/handover/route';
+const params={params:Promise.resolve({id:'job'})};
+const data={id:'job',assigned_driver_id:'driver',assigned_company_id:'carrier',status:'on_site_pickup',current_status:'on_site_pickup',pickup_photos:[],collection_handover:{arrival:{itemCount:1,capturedAt:'2026-11-19T15:00:00Z'}}};
+const request=(body?:unknown)=>new NextRequest('https://www.xdrivelogistics.co.uk/api/driver/mobile/jobs/job/handover',body===undefined?{}:{method:'POST',body:JSON.stringify(body),headers:{'content-type':'application/json'}});
+function chain(value:unknown){const q={select:vi.fn(),eq:vi.fn(),update:vi.fn(),maybeSingle:vi.fn(async()=>({data:value,error:null}))};for(const k of ['select','eq','update'] as const)q[k].mockReturnValue(q);return q;}
+beforeEach(()=>{vi.resetAllMocks();m.driver.mockResolvedValue({userId:'actor',driverId:'driver',companyId:'carrier'});m.track.mockResolvedValue(undefined);});
+describe('Reserve collection stages',()=>{
+ it('loads only the assigned company and driver handover',async()=>{const q=chain(data);m.from.mockReturnValue(q);const r=await GET(request(),params);expect(r.status).toBe(200);expect(q.eq).toHaveBeenCalledWith('assigned_driver_id','driver');expect(q.eq).toHaveBeenCalledWith('assigned_company_id','carrier');});
+ it('validates stage and numbers before writing',async()=>{for(const b of [{stage:'unknown'},{stage:'arrival',itemCount:-1},{stage:'loaded',itemCount:1.5},{stage:'loaded',weightKg:0}])expect((await POST(request(b),params)).status).toBe(400);expect(m.from).not.toHaveBeenCalled();});
+ it('preserves arrival when writing loaded and checks assignment and current status',async()=>{const read=chain(data),write=chain({...data,collection_handover:{arrival:data.collection_handover.arrival,loaded:{itemCount:3}}});m.from.mockReturnValueOnce(read).mockReturnValueOnce(write);const r=await POST(request({stage:'loaded',itemCount:3,weightKg:100,etaAt:new Date(Date.now()+3600000).toISOString()}),params);expect(r.status).toBe(200);expect(write.update).toHaveBeenCalledWith(expect.objectContaining({no_of_items:3,weight_kg:100,collection_handover:expect.objectContaining({arrival:data.collection_handover.arrival,loaded:expect.objectContaining({itemCount:3})})}));expect(write.eq).toHaveBeenCalledWith('assigned_company_id','carrier');expect(write.eq).toHaveBeenCalledWith('current_status','on_site_pickup');});
+ it('rejects another company, past ETA and arrival after loaded',async()=>{m.from.mockReturnValueOnce(chain({...data,assigned_company_id:'other'}));expect((await POST(request({stage:'loaded'}),params)).status).toBe(403);m.from.mockReturnValueOnce(chain(data));expect((await POST(request({stage:'loaded',etaAt:'2000-01-01T00:00:00Z'}),params)).status).toBe(400);m.from.mockReturnValueOnce(chain({...data,status:'loaded',current_status:'loaded'}));expect((await POST(request({stage:'arrival'}),params)).status).toBe(409);});
+});

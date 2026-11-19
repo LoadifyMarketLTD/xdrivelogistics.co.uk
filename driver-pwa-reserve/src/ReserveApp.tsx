@@ -19,6 +19,7 @@ import { routeLabel } from './routeLabel';
 import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
 import ReserveStopExecution from './ReserveStopExecution';
+import {finishReserveDelivery} from './reserveDeliverySequence';
 import SearchLoads from './SearchLoads';
 import {defaults as defaultSearchFilters,restoredFilters,matchesLoad,type SearchFilters} from './loadSearchFilters';
 import {searchAvailableLoads} from './searchLocation';
@@ -394,7 +395,7 @@ export default function ReserveApp() {
       setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:step.status,backendStatus:step.backend,routeStops:row.routeStops?.map((stop,index)=>index===0&&j.status==="ON_SITE_PICKUP"?{...stop,status:"completed" as const,completedAt:new Date().toISOString()}:stop),statusHistory:[...(row.statusHistory||[]),{status:step.backend,at:new Date().toISOString(),notes:pickupNotes}]}:row));setError('');if(j.status==='ON_WAY_TO_DELIVERY')setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));if(j.status==='ON_WAY_TO_PICKUP')setCollectionStage('loaded');setPickupNotes('');setView('statusHistory');return;
     }
     await run(async s=>{
-      if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(j.backendStatus||'allocated'))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
+      const latest=await driverGet('/mobile/jobs/'+encodeURIComponent(j.id),s.token);const server=mapAssigned(latest.job);if(server.id!==j.id||!server.backendStatus||!['allocated','assigned','accepted','on_my_way','on_site_pickup','loaded','in_transit','on_site_delivery'].includes(server.backendStatus))throw new Error('Booking is not in an executable server stage. Refresh booking.');if(server.status!==j.status){setJobs(rows=>rows.map(row=>row.id===j.id?{...row,...server}:row));setView('statusHistory');throw new Error('Booking status changed. Review its current stage.');}if(j.status==='ALLOCATED'&&['allocated','assigned'].includes(server.backendStatus))await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',s.token,{nextStatus:'accepted'});
       if(j.status==='ON_SITE_PICKUP'){
         // Validate before uploading evidence so invalid inputs cannot leave orphaned files.
         if(collectionStage==='loaded'){
@@ -560,16 +561,16 @@ export default function ReserveApp() {
     if(j.status!=='ON_SITE_DELIVERY'){setError('Record On Site (Final Delivery) before recording the delivery outcome.');return;}
     if(LOCAL&&draft.condition==="Completed Delivery"){if((j.hardCopyPodRequired&&!hardCopyAcknowledged)||!signature||verifiedSignature!==signature||!draft.recipient.trim()||!draft.leftAt.trim()||!draft.deliveredOn||!draft.deliveredTime||!Number.isInteger(Number(draft.items))||Number(draft.items)<1||!podFiles.some(f=>["image/jpeg","image/png"].includes(f.type))){setError("Complete delivery details, verified signature and delivery photo.");return;}try{await archiveLocalPod(j.id,draft,signature,podFiles);}catch{setError("POD evidence could not be archived. Retry before completing.");return;}const at=new Date().toISOString();setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:"DELIVERED",backendStatus:"delivered",podRecorded:true,statusHistory:[...(row.statusHistory||[]),{status:"delivered",at,notes:["Received By: "+draft.recipient,"Left At: "+draft.leftAt,"Delivery Status: "+draft.condition,"Items: "+draft.items,"Delivered On: "+draft.deliveredOn+" "+draft.deliveredTime,"Local test evidence only"].join(" | ")}]}:row));setPodDone(true);setError("");setView("statusHistory");return;}
     const finalStop=j.routeStops?.at(-1);
-    if(!finalStop||finalStop.type!=='delivery'){setError('Final delivery stop is unavailable. Refresh the booking before continuing.');return;}
-    if(finalStop.handover?.stopKind==='return'||finalStop.handover?.stopKind==='redirect'){
+    if(finalStop&&finalStop.type!=='delivery'){setError('The final operation is a collection. Record collection and resolve any goods custody before delivery POD.');return;}
+    if(finalStop?.handover?.stopKind==='return'||finalStop?.handover?.stopKind==='redirect'){
       setError('This route now ends with a return or redirected stop. Complete that stop instead of final delivery POD.');
       return;
     }
     if(draft.condition==='Job Cancelled'){
-      setCancellationStopId(finalStop.id);setCancellationReturnView('flow');setView('cancel');return;
+      if(!finalStop){setError('Cancellation requires the persisted route stop.');return;}setCancellationStopId(finalStop.id);setCancellationReturnView('flow');setView('cancel');return;
     }
     if(draft.condition!=='Completed Delivery'){
-      if(draft.notes.trim().length<3){setError('Describe the delivery exception in Driver Notes.');return;}
+      if(!finalStop){setError('An exception requires a persisted route stop.');return;}if(draft.notes.trim().length<3){setError('Describe the delivery exception in Driver Notes.');return;}
       if(['Damaged Goods','Incorrect Goods'].includes(draft.condition)&&!podFiles.some(file=>file.type==='image/jpeg'||file.type==='image/png')){
         setError('Photographic evidence is required for damaged or incorrect goods.');return;
       }
@@ -589,19 +590,22 @@ export default function ReserveApp() {
     }
     if(j.hardCopyPodRequired&&!hardCopyAcknowledged){setError('Confirm that the required paper POD will be retained and handed over before submitting.');return;}
     await run(async current=>{
-      const evidence=await uploadDeliveryEvidence(j,current.token);
-      if(!evidence.photos.length)throw new Error('XDrive requires at least one verified delivery photo before Delivered.');
-      const pod=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/pod',current.token,{
-        recipientName:draft.recipient.trim(),leftAt:draft.leftAt.trim(),
-        deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,
-        deliveredAt:new Date(draft.deliveredOn+'T'+draft.deliveredTime+':00').toISOString(),
-        itemCount:Number(draft.items),weightKg:j.weight||null,notes:draft.notes.trim()||null,
-        signatureData:signature,photoUris:evidence.photos,documentUris:evidence.documents,
-        hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,
-        deliveryStatus:'Completed Delivery',
+      const path='/mobile/jobs/'+encodeURIComponent(j.id);
+      await finishReserveDelivery(j.id,{
+        read:async()=>{const detail=await driverGet(path,current.token);return {job:mapAssigned(detail.job),partial:detail.multiDropPartial===true};},
+        upload:()=>uploadDeliveryEvidence(j,current.token),
+        delivered:async()=>{await driverPost(path+'/status',current.token,{nextStatus:'delivered'});},
+        onDelivered:()=>setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',backendStatus:'delivered'}:row)),
+        archive:evidence=>driverPost(path+'/pod',current.token,{
+          recipientName:draft.recipient.trim(),leftAt:draft.leftAt.trim(),
+          deliveredOn:draft.deliveredOn,deliveredTime:draft.deliveredTime,
+          deliveredAt:new Date(draft.deliveredOn+'T'+draft.deliveredTime+':00').toISOString(),
+          itemCount:Number(draft.items),weightKg:j.weight||null,notes:draft.notes.trim()||null,
+          signatureData:signature,photoUris:evidence.photos,documentUris:evidence.documents,
+          hardCopyAcknowledged:j.hardCopyPodRequired?hardCopyAcknowledged:false,deliveryStatus:'Completed Delivery',
+        }),
+        verify:async()=>{const detail=await driverGet('/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft',current.token);return detail.completed===true;},
       });
-      if(pod.ok!==true)throw new Error('XDrive did not confirm the canonical POD.');
-      await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/status',current.token,{nextStatus:'delivered'});
     },()=>{
       setPodDone(true);
       setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',backendStatus:'delivered',podRecorded:true}:row));
