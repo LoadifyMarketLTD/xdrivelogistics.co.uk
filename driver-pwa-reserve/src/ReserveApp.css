@@ -707,3 +707,15 @@
 .rv-booking-audit{margin-top:16px;border-top:1px solid #dce3ec;padding:12px 0;color:#0a234f}.rv-booking-audit summary{font-weight:700;cursor:pointer;padding:8px}.rv-booking-audit li{padding:8px 0;border-bottom:1px solid #e5e7eb}.rv-booking-audit small{display:block;color:#4b5563}.rv-booking-audit p{font-size:13px;overflow-wrap:anywhere}
 .xroute{position:relative;min-height:calc(100dvh - 88px)!important}.xroute-fit{position:absolute;right:12px;top:64px;z-index:500;background:white;color:#0a234f;border:1px solid #cbd5e1;border-radius:8px;padding:10px 14px;font-weight:600;box-shadow:0 2px 8px #0002}.xroute-info{font-size:14px!important;line-height:1.55!important}.xroute-info>div{margin-top:5px}
 .rv-history-facts p{font-size:14px;line-height:1.5;margin:5px 0}.rv-history-facts p strong{display:inline;font-size:inherit}.rv-delivery-page .rv-delivery-field>span{font-size:15px;font-weight:650}.rv-delivery-page input,.rv-delivery-page select,.rv-delivery-page textarea{font-size:16px;min-height:46px}.rv-delivery-page .rv-delivery-split{grid-template-columns:1fr}.rv-signature-modal{position:fixed;inset:0;z-index:2000;background:white;padding:24px;display:flex;flex-direction:column;justify-content:center;gap:14px;overflow:auto}.rv-signature-modal canvas{height:clamp(180px,38vh,350px)!important;width:100%;touch-action:none}
+
+/* Compact production finance and completed booking cards; approved brand retained. */
+.rv-finance.rv-qa-invoice .rv-card{padding:14px!important;margin:0 0 12px!important}
+.rv-finance.rv-qa-invoice .rv-field{margin:0 0 10px!important;gap:5px!important}
+.rv-finance.rv-qa-invoice .rv-field>span{font-size:14px!important;line-height:1.35}
+.rv-finance.rv-qa-invoice .rv-field input,.rv-finance.rv-qa-invoice .rv-field select{font-size:16px!important;min-height:44px!important;padding:8px 10px!important}
+.rv-finance.rv-qa-invoice h3{font-size:18px!important;margin:0 0 10px!important}
+.rv-finance.rv-qa-invoice .rv-fact{padding:9px 0!important;gap:12px!important;font-size:14px!important;line-height:1.45}
+.rv-finance.rv-qa-invoice .rv-field textarea{min-height:66px;font-size:16px;border-radius:8px;padding:10px;border:1px solid #cbd5e1}
+.rv-finance.rv-qa-invoice .rv-wide{min-height:44px!important;font-size:15px!important}
+.rv-main .rv-history-card .rv-route .rv-stop span,.rv-main .rv-history-card .rv-route .rv-stop strong{font-size:16px!important;line-height:1.4!important;overflow-wrap:anywhere}
+.rv-main .rv-history-card .rv-route .rv-stop b{font-size:16px!important;line-height:1.4!important}

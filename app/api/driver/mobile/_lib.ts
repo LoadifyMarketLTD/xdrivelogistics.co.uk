@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 
 export const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -283,6 +284,8 @@ export function mapJob(row: MobileJobRow) {
     hardCopyPod: row.hard_copy_pod || '',
     collectionPassRequired: row.collection_pass_required === true,
     podGenerated: hasPod(row),
+    podArchived: row.pod_generated === true,
+    podEvidenceComplete: hasCompletePodEvidence(row),
     itemCount: row.no_of_items ?? null,
     packaging: row.packaging || '',
     weightKg: Number(row.weight_kg ?? 0) || null,

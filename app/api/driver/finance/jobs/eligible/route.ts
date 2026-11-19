@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { requireDriverFinanceAccess } from '../../_lib/financeAccess';
 import { invoicePodBlocker } from '../../../../../../lib/jobs/podCompletion';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
@@ -68,6 +69,12 @@ export async function GET(request: NextRequest) {
   const completedStatuses = ['delivered', 'completed', 'invoiced'];
   const statuses = completedStatuses.join(',');
   const requestedJobId = request.nextUrl.searchParams.get('jobId');
+  const includeReserveContexts = request.nextUrl.searchParams.get('reserveContexts') === '1';
+  if (requestedJobId || includeReserveContexts) {
+    const access = await requireDriverFinanceAccess(request);
+    if (!access.ok) return access.response;
+    if (access.context.companyId !== driver.companyId) return respond(403, { error: 'Finance company mismatch.' });
+  }
   if (requestedJobId !== null && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestedJobId)) return respond(400, { error: 'Invalid job ID.' });
   let jobsQuery = supabaseAdmin
     .from('jobs')
@@ -102,6 +109,8 @@ export async function GET(request: NextRequest) {
   if (invoiceResult.error) return respond(500, { error: invoiceResult.error.message });
   if (agreementResult.error) return respond(500, { error: agreementResult.error.message });
 
+  const invoiceCounts = new Map<string,number>();
+  for (const invoice of invoiceResult.data ?? []) invoiceCounts.set(String(invoice.job_id),(invoiceCounts.get(String(invoice.job_id))??0)+1);
   const invoiceByJob = new Map(
     (invoiceResult.data ?? []).map((invoice) => [String(invoice.job_id), invoice])
   );
@@ -109,7 +118,7 @@ export async function GET(request: NextRequest) {
     (agreementResult.data ?? []).map((agreement) => [String(agreement.job_id), agreement])
   );
 
-  let blocker: string | null = null;
+  const contexts: Record<string,unknown>[] = [];
   const rows = (jobs ?? []).flatMap((job) => {
 
     const exchangeVisibility = String(job.exchange_visibility ?? '').toLowerCase();
@@ -126,8 +135,7 @@ export async function GET(request: NextRequest) {
     // invoice work merely because jobs.company_id matches its company id.
     if (marketplace && !agreement) return [];
     if (!marketplace && job.company_id !== driver.companyId) return [];
-    const podBlocker = invoicePodBlocker(job);
-    if (podBlocker) { if (requestedJobId) blocker = podBlocker; return []; }
+    let blocker = invoicePodBlocker(job);
 
     // Keep the picker aligned with the generation mutation: marketplace invoices
     // need a complete, internally consistent accepted commercial snapshot. Direct
@@ -142,12 +150,14 @@ export async function GET(request: NextRequest) {
         || Math.abs(agreedGross - (agreedAmount + agreedVat)) > 0.01
         || !agreedCurrency
         || !agreedTerms
-      ) return [];
+      ) blocker = blocker ?? 'COMMERCIAL_TERMS_INCOMPLETE';
     } else if (!directInvoiceAmount) {
-      return [];
+      blocker = blocker ?? 'COMMERCIAL_TERMS_INCOMPLETE';
     }
 
-    return [{
+    const multipleInvoices = (invoiceCounts.get(String(job.id))??0)>1;
+    if (multipleInvoices && (requestedJobId || includeReserveContexts)) blocker = 'MULTIPLE_INVOICES';
+    const context = {
       id: job.id,
       pickup_location: job.pickup_location,
       delivery_location: job.delivery_location,
@@ -157,7 +167,9 @@ export async function GET(request: NextRequest) {
       client_email: marketplace ? null : job.client_email,
       customer_reference: job.customer_reference,
       status: job.current_status ?? job.status,
-      invoice: invoiceByJob.get(String(job.id)) ?? null,
+      invoice: multipleInvoices && (requestedJobId || includeReserveContexts) ? null : invoiceByJob.get(String(job.id)) ?? null,
+      blocker,
+      can_create_invoice: !blocker && !invoiceByJob.has(String(job.id)),
       commercial_mode: marketplace ? 'marketplace' : 'direct',
       agreed_amount: marketplace ? agreedAmount : null,
       agreed_vat_amount: marketplace ? agreedVat : null,
@@ -167,8 +179,11 @@ export async function GET(request: NextRequest) {
       payment_due_days: marketplace ? agreement?.payment_due_days ?? null : null,
       direct_invoice_amount: marketplace ? null : directInvoiceAmount,
       currency: marketplace ? agreedCurrency : (job.currency || 'GBP'),
-    }];
+    };
+    contexts.push(context);
+    return blocker ? [] : [context];
   });
 
-  return respond(200, { rows, ...(requestedJobId ? { blocker: rows.length ? null : blocker ?? 'FINANCE_CONTEXT_NOT_ELIGIBLE', invoice: invoiceByJob.get(requestedJobId) ?? null } : {}) });
+  const context = requestedJobId ? contexts.find(row=>row.id===requestedJobId) ?? null : null;
+  return respond(200, { rows, ...(requestedJobId ? { context, blocker: context ? context.blocker : 'FINANCE_CONTEXT_NOT_ELIGIBLE', invoice: context?.invoice ?? null } : includeReserveContexts ? { contexts } : {}) });
 }

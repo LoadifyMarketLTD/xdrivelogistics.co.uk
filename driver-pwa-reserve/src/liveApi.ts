@@ -52,7 +52,7 @@ export type LiveJob = {
   quote?: number; quoteSubmittedAt?: string; quoteOutcome?: 'UNSUCCESSFUL' | 'CANCELLED' | 'AWARDED';
   bidId?: string; bidStatus?: string; quoteEtaMinutes?: number; quoteNotes?: string;
   personalBid?: boolean; // true only for records returned by authenticated /mobile/bids personal quote history
-  offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; acceptanceBlocked?: boolean; offerQuoteStatus?: string; backendStatus?: string; podRecorded?: boolean;
+  offerId?: string; acceptanceRequired?: boolean; offerExpired?: boolean; acceptanceBlocked?: boolean; offerQuoteStatus?: string; backendStatus?: string; podRecorded?: boolean; podEvidenceComplete?: boolean;
   marketSearch?: { pickupAt?:string; vehicleType?:string; vehicleLabel?:string; cargo?:string; cargoLabel?:string; body?:string; loadType?:string };
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
@@ -294,7 +294,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     items: num(get(r, 'itemCount', 'no_of_items')),
     hardCopyPodRequired: /^(required|yes|true|1)$/i.test(str(get(r, 'hardCopyPod', 'hard_copy_pod'))) || get(r, 'hardCopyPodRequired') === true,
     notes: details.notes || str(get(r, 'collectionNotes', 'driverNotes', 'driver_notes')),
-    status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus, podRecorded: r.podGenerated === true && Boolean(r.deliverySignatureData) && Boolean(str(r.clientSignatureName)),
+    status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus, podRecorded: typeof r.podArchived==='boolean'?r.podArchived:r.podGenerated === true && Boolean(r.deliverySignatureData) && Boolean(str(r.clientSignatureName)), podEvidenceComplete:typeof r.podEvidenceComplete==='boolean'?r.podEvidenceComplete:undefined,
     company: str(get(r, 'companyName', 'clientName', 'client_name')) || 'Customer not provided',
     terms: str(get(r, 'paymentTerms', 'payment_terms')) || 'Not provided',
     postedAt: dateTime(get(r, 'exchangePostedAt', 'exchange_posted_at', 'createdAt', 'created_at', 'updatedAt')),

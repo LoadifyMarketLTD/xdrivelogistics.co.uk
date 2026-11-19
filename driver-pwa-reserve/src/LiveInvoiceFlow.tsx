@@ -7,7 +7,7 @@ const LOCAL = typeof __BOOKING_LOCAL__ !== "undefined" && __BOOKING_LOCAL__;
 const QA_MOCK = LOCAL || import.meta.env.VITE_CX4A_QA_MOCK === '1' || window.location.pathname.includes('/driver/reserve-rebuild-qa/');
 type Json = Record<string, unknown>;
 type Invoice = { id: string; invoice_number?: string; job_id?: string; status?: string; client_name?: string; client_email?: string; net_amount?: number; vat_amount?: number; amount?: number; currency?: string; delivery_state?: string; delivery_message_id?: string; payment_terms?: string; invoice_date?: string; due_date?: string; job_ref?: string; client_address?: string; service_description?: string; invoice_origin?: string; vat_rate?: number; vat_treatment?: string };
-type Eligible = { id: string; commercial_mode: 'marketplace'|'direct'; client_name?: string; client_email?: string; agreed_amount?: number; agreed_vat_amount?: number; agreed_vat_rate?: number; agreed_gross_amount?: number; payment_terms?: string; payment_due_days?: number|null; currency?: string; direct_invoice_amount?: number; direct_vat_rate?: number; invoice?: Invoice | null };
+type Eligible = { id: string; customer_reference?: string; commercial_mode: 'marketplace'|'direct'; client_name?: string; client_email?: string; agreed_amount?: number; agreed_vat_amount?: number; agreed_vat_rate?: number; agreed_gross_amount?: number; payment_terms?: string; payment_due_days?: number|null; currency?: string; direct_invoice_amount?: number; direct_vat_rate?: number; invoice?: Invoice | null };
 const object = (x: unknown): Json => x && typeof x==='object' && !Array.isArray(x) ? x as Json : {};
 const money = (v:number, currency='GBP') => new Intl.NumberFormat('en-GB',{style:'currency',currency}).format(v);
 const row=(key:string,val:string)=> <div className="rv-fact"><span>{key}</span><strong>{val}</strong></div>;
@@ -20,6 +20,8 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
  const [eligible,setEligible]=useState<Eligible|null>(null);
+ const [commercialContext,setCommercialContext]=useState<Eligible|null>(null);
+ const [blocker,setBlocker]=useState('');
  const [invoice,setInvoice]=useState<Invoice|null>(null);
  const [pdfReviewed,setPdfReviewed]=useState(false);
  const [sendApproved,setSendApproved]=useState(false);
@@ -27,12 +29,12 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  const [clientName,setClientName]=useState('');
  const [clientEmail,setClientEmail]=useState('');
  const [netAmount,setNetAmount]=useState('');
- const [vatRate,setVatRate]=useState('0');
+ const [vatRate,setVatRate]=useState('');
  const [generatorRequested,setGeneratorRequested]=useState(false);
  const [emailOpen,setEmailOpen]=useState(false);
  const [officialDate,setOfficialDate]=useState('');
  const [officialNotes,setOfficialNotes]=useState('');
- const [directTerms,setDirectTerms]=useState('14 days');
+ const [directTerms,setDirectTerms]=useState('');
  const ref=job.yourRef||job.customerRef||job.id;
  const [qaNetAmount,setQaNetAmount]=useState(String(job.quote??''));
  const [qaVatRate,setQaVatRate]=useState('20');
@@ -69,25 +71,29 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    return object(data.invoice) as Invoice;
  }
  async function discover() {
-   setLoading(true);setError('');setNotice('');setEligibilityChecked(false);setEligible(null);
+   setLoading(true);setError('');setNotice('');setEligibilityChecked(false);setEligible(null);setCommercialContext(null);setBlocker('');
    try {
      const res=await req('/finance/jobs/'+encodeURIComponent(job.id)+'/invoice-context');
      const data=object(await res.json());
      const rows=Array.isArray(data.rows)?data.rows.map(object) as Eligible[]:[];
      const candidate=rows.find(j=>j.id===job.id)||null;
-     setEligible(candidate);
-     setClientName(candidate?.commercial_mode==='direct' ? candidate.client_name||'' : '');
-     setClientEmail(candidate?.commercial_mode==='direct' ? candidate.client_email||'' : '');
-     setNetAmount(candidate?.commercial_mode==='direct' && candidate.direct_invoice_amount!=null ? String(candidate.direct_invoice_amount) : '');
-     setVatRate(candidate?.commercial_mode==='direct' && candidate.direct_vat_rate!=null ? String(candidate.direct_vat_rate) : '0');
-     let existing=(candidate?.invoice||object(data.invoice)) as Invoice|null;
+     const context=object(data.context);
+     const commercial=context.id===job.id?context as Eligible:candidate;
+     setEligible(candidate);setCommercialContext(commercial);setBlocker(String(data.blocker||''));
+     setDirectTerms(commercial?.payment_terms||'');
+     setClientName(commercial?.commercial_mode==='direct' ? commercial.client_name||'' : '');
+     setClientEmail(commercial?.commercial_mode==='direct' ? commercial.client_email||'' : '');
+     setNetAmount(commercial?.commercial_mode==='direct' && commercial.direct_invoice_amount!=null ? String(commercial.direct_invoice_amount) : '');
+     setVatRate(candidate?.commercial_mode==='direct' && candidate.direct_vat_rate!=null ? String(candidate.direct_vat_rate) : '');
+     let existing=(commercial?.invoice||object(data.invoice)) as Invoice|null;
      if(existing?.id) {
-       const full=await loadDetail(existing.id);setInvoice(full);setOfficialDate(full.invoice_date||'');setOfficialNotes(full.service_description||'');setDirectTerms(full.payment_terms||'14 days');setClientName(full.client_name||'');setClientEmail(full.client_email||'');setNetAmount(full.net_amount==null?'':String(full.net_amount));setVatRate(String(full.vat_amount&&full.net_amount?Math.round(100*full.vat_amount/full.net_amount):0));
+       const full=await loadDetail(existing.id);setInvoice(full);setOfficialDate(full.invoice_date||'');setOfficialNotes(full.service_description||'');setDirectTerms(full.payment_terms||'');setClientName(full.client_name||'');setClientEmail(full.client_email||'');setNetAmount(full.net_amount==null?'':String(full.net_amount));setVatRate(String(full.vat_amount&&full.net_amount?Math.round(100*full.vat_amount/full.net_amount):0));
        setNotice('Official XDrive invoice found. Existing invoice reused; duplicate creation is blocked.');
      } else {
        setInvoice(null);
        if(candidate)setNotice('POD and accepted commercial terms were verified by XDrive. Job is ready to generate an official invoice.');
-       else if(data.blocker==='DRAWN_SIGNATURE_REQUIRED')setNotice('The archived POD contains no verified drawn recipient signature. Finance cannot issue an invoice. Contact the booking administrator to resolve the archived evidence; do not recreate the delivery.');
+       else if(data.blocker==='DRAWN_SIGNATURE_REQUIRED')setNotice('POD requires review: the archived recipient signature is a typed attestation. Invoice creation is blocked.');
+       else if(data.blocker==='MULTIPLE_INVOICES')setNotice('Multiple invoices are linked to this job. Review the invoice register. Duplicate creation is blocked.');
        else if(data.blocker==='DELIVERY_PHOTOS_REQUIRED')setNotice('The POD requires between one and ten delivery photographs. Finance cannot issue an invoice until the required evidence is resolved.');
        else if(data.blocker==='POD_REVIEW_REQUIRED')setNotice('The buyer rejected the POD or requested resubmission. Resolve the POD review before invoicing.');
        else if(data.blocker==='RECIPIENT_NAME_REQUIRED')setNotice('The POD is missing the recipient name. Resolve the evidence before invoicing.');
@@ -104,7 +110,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
      if(generatorRequested)return;
      setGeneratorRequested(true);
      try {
-       const body:Json={idempotency_key:crypto.randomUUID()};
+       const body:Json={idempotency_key:crypto.randomUUID()};if(officialNotes.trim())body.service_description=officialNotes.trim();
        // Direct jobs may require their own billing values. Do not invent them.
        if(eligible.commercial_mode==='direct'){
          if(!clientName.trim()||!clientEmail.includes('@')||!(Number(netAmount)>0))throw new Error('Enter the verified direct-job customer, finance email and charge.');
@@ -179,22 +185,24 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  // always originate from the official agreement/invoice, never local QA state.
  const sent=invoice?.delivery_state==='sent'&&Boolean(invoice.delivery_message_id);
  const draft=Boolean(invoice)&&String(invoice?.status||'').toLowerCase()==='draft';
- const marketplace=invoice?invoice.invoice_origin==='marketplace':eligible?.commercial_mode==='marketplace';
- const currency=invoice?.currency||eligible?.currency||'GBP';
+ const marketplace=invoice?invoice.invoice_origin==='marketplace':commercialContext?.commercial_mode==='marketplace';
+ const currency=invoice?.currency||commercialContext?.currency||'GBP';
  const locked=marketplace||Boolean(invoice&&!editing);
  const canEdit=draft&&invoice?.delivery_state!=='sending'&&!sent;
- const officialNet=Number((invoice?.net_amount??(marketplace?eligible?.agreed_amount:netAmount))||0);
- const officialVat=Number((invoice?.vat_amount??(marketplace?eligible?.agreed_vat_amount:Math.round(Number(netAmount)*Number(vatRate))/100))||0);
- const officialGross=Number((invoice?.amount??(marketplace?eligible?.agreed_gross_amount:officialNet+officialVat))||0);
- const terms=(editing&&!marketplace?directTerms:invoice?.payment_terms||(marketplace?eligible?.payment_terms:directTerms))||'';
+ const officialNet=Number((invoice?.net_amount??(marketplace?commercialContext?.agreed_amount:netAmount))||0);
+ const officialVat=Number((invoice?.vat_amount??(marketplace?commercialContext?.agreed_vat_amount:Math.round(Number(netAmount)*Number(vatRate))/100))||0);
+ const officialGross=Number((invoice?.amount??(marketplace?commercialContext?.agreed_gross_amount:officialNet+officialVat))||0);
+ const terms=(editing&&!marketplace?directTerms:invoice?.payment_terms||(marketplace?commercialContext?.payment_terms:directTerms))||'';
  const today=new Date().toISOString().slice(0,10);
  const shownDate=editing?officialDate:invoice?.invoice_date||today;
- const calculatedDue=(()=>{const m=/^(\d+)\s+days$/i.exec(terms);const days=marketplace&&eligible?.payment_due_days!=null?eligible.payment_due_days:terms.toLowerCase()==='pay now'?0:m?Number(m[1]):null;if(days==null||!shownDate)return '';const d=new Date(shownDate+'T00:00:00Z');if(!Number.isFinite(d.getTime()))return '';d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);})();
- const loaded=Boolean(invoice||eligible)&&!loading&&!error;
- const ready=Boolean(eligible)&&!error&&!loading&&Number.isFinite(officialNet)&&officialNet>0&&(marketplace||Boolean(clientName.trim()&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())&&[0,5,20].includes(Number(vatRate))));
+ const calculatedDue=(()=>{const m=/^(\d+)\s+days$/i.exec(terms);const days=marketplace&&commercialContext?.payment_due_days!=null?commercialContext.payment_due_days:terms.toLowerCase()==='pay now'?0:m?Number(m[1]):null;if(days==null||!shownDate)return '';const d=new Date(shownDate+'T00:00:00Z');if(!Number.isFinite(d.getTime()))return '';d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);})();
+ const loaded=Boolean(invoice||commercialContext)&&!loading&&!error;
+ const verifiedPOD=Boolean(eligible)&&!loading&&!error;
+ const verifiedAmounts=loaded&&(invoice!=null||(marketplace?commercialContext?.agreed_amount!=null&&commercialContext?.agreed_vat_amount!=null&&commercialContext?.agreed_gross_amount!=null:netAmount!==''&&vatRate!==''));
+ const ready=Boolean(eligible)&&!error&&!loading&&Number.isFinite(officialNet)&&officialNet>0&&(marketplace||Boolean(clientName.trim()&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())&&vatRate!==''&&directTerms!==''&&[0,5,20].includes(Number(vatRate))));
  const buyer=invoice?.client_name||job.company||eligible?.client_name||'Customer not supplied';
- const reference=invoice?.job_ref||ref;
- const beginEdit=()=>{if(!canEdit||!invoice)return;setOfficialDate(invoice.invoice_date||today);setOfficialNotes(invoice.service_description||'');setClientName(invoice.client_name||'');setClientEmail(invoice.client_email||'');setNetAmount(String(invoice.net_amount??''));setVatRate(String(invoice.vat_rate??0));setDirectTerms(invoice.payment_terms||'14 days');setEditing(true);setEmailOpen(false);setPdfReviewed(false);setSendApproved(false);setError('');};
+ const reference=invoice?.job_ref||commercialContext?.customer_reference||ref;
+ const beginEdit=()=>{if(!canEdit||!invoice)return;setOfficialDate(invoice.invoice_date||today);setOfficialNotes(invoice.service_description||'');setClientName(invoice.client_name||'');setClientEmail(invoice.client_email||'');setNetAmount(String(invoice.net_amount??''));setVatRate(String(invoice.vat_rate??0));setDirectTerms(invoice.payment_terms||'');setEditing(true);setEmailOpen(false);setPdfReviewed(false);setSendApproved(false);setError('');};
  async function saveOfficialDraft(){
    await action(async()=>{
      if(!invoice||!canEdit)throw new Error('Only an unsent official draft can be edited.');
@@ -220,27 +228,27 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  return <section className="rv-finance rv-qa-invoice">
    <button className="rv-back" onClick={editing?()=>setEditing(false):onBack}>{editing?'Back to Invoice':'Back to POD'}</button>
    <span className="rv-over">XDRIVE FINANCE</span><h1>{editing?'Edit Invoice':'Create Invoice'}</h1>{banners}
-   <section className="rv-card"><h3>Booking and customer</h3>{row('Customer',buyer)}{row('Job reference',ref)}{row('POD',loaded?'Verified by XDrive Finance':'Not yet verified by Finance')}
+   <section className="rv-card"><h3>Booking and customer</h3>{row('Customer',buyer)}{row('Job reference',ref)}{row('POD',verifiedPOD?'Verified by XDrive Finance':loading?'Checking...':blocker==='DRAWN_SIGNATURE_REQUIRED'?'Signature requires review':'Not invoice-ready')}
     <label className="rv-field"><span>Your reference</span><input value={reference} readOnly/></label>
     <label className="rv-field"><span>Invoice date</span><input type="date" value={shownDate} readOnly={!editing} onChange={e=>setOfficialDate(e.target.value)}/></label>
-    <label className="rv-field"><span>Payment terms</span>{marketplace?<input value={terms} readOnly/>:<select value={directTerms} disabled={!loaded||busy} onChange={e=>setDirectTerms(e.target.value)}>{['Pay now','7 days','14 days','30 days'].map(t=><option key={t}>{t}</option>)}</select>}</label>
+    <label className="rv-field"><span>Payment terms</span>{marketplace||!loaded?<input value={terms} placeholder='Not verified' readOnly/>:<select value={directTerms} disabled={!loaded||busy} onChange={e=>setDirectTerms(e.target.value)}><option value=''>Select payment terms</option>{['Pay now','7 days','14 days','30 days'].map(t=><option key={t}>{t}</option>)}</select>}</label>
     <label className="rv-field"><span>Due date</span><input type="date" value={invoice&&!editing?invoice.due_date||'':calculatedDue} readOnly/></label>
    </section>
    {loaded&&!marketplace&&<section className="rv-card"><h3>Customer billing details</h3><label className="rv-field"><span>Customer legal name</span><input value={clientName} onChange={e=>setClientName(e.target.value)}/></label><label className="rv-field"><span>Accounts email</span><input type="email" value={clientEmail} onChange={e=>setClientEmail(e.target.value)}/></label></section>}
    <section className="rv-card"><h3>Items</h3>
     <label className="rv-field"><span>Item type</span><input value="Delivery charge" readOnly/></label>
     <label className="rv-field"><span>Quantity</span><input type="number" value="1" readOnly/></label>
-    <label className="rv-field"><span>Unit price ({currency})</span><input type="number" min="0.01" step="0.01" value={locked?(loaded?String(invoice?.net_amount??eligible?.agreed_amount??''):''):netAmount} readOnly={locked||!loaded} onChange={e=>setNetAmount(e.target.value)}/></label>
-    <label className="rv-field"><span>VAT rate</span><select value={locked?String(invoice?.vat_rate??eligible?.agreed_vat_rate??0):vatRate} disabled={locked||!loaded} onChange={e=>setVatRate(e.target.value)}><option value="0">0%</option><option value="5">5%</option><option value="20">20%</option></select></label>
-    <details><summary>Add comment</summary><textarea aria-label="Item comment" value={officialNotes} readOnly={marketplace&&!editing||!loaded} onChange={e=>setOfficialNotes(e.target.value)}/></details>
+    <label className="rv-field"><span>Unit price ({currency})</span><input type="number" min="0.01" step="0.01" value={locked?(loaded?String(invoice?.net_amount??commercialContext?.agreed_amount??''):''):netAmount} readOnly={locked||!loaded} onChange={e=>setNetAmount(e.target.value)}/></label>
+    <label className="rv-field"><span>VAT rate</span><select value={locked?String(invoice?.vat_rate??commercialContext?.agreed_vat_rate??''):vatRate} disabled={locked||!loaded} onChange={e=>setVatRate(e.target.value)}><option value="">Not verified</option><option value="0">0%</option><option value="5">5%</option><option value="20">20%</option></select></label>
     <button className="rv-outline rv-wide" disabled title="Additional charges require an approved commercial adjustment; the official invoice generator does not support arbitrary line items.">+ Add item</button>
-    <p className="rv-sub">{marketplace?'Accepted rates and VAT are fixed by the commercial agreement. Additional charges require an approved adjustment.':'The official invoice stores one delivery charge. Additional item lines require Finance support.'}</p>
-    {row('Net',loaded?money(editing&&!marketplace?Number(netAmount):officialNet,currency):'Not verified')}
-    {row('VAT',loaded?money(editing&&!marketplace?Math.round(Number(netAmount)*Number(vatRate))/100:officialVat,currency):'Not verified')}
-    {row('Total',loaded?money(editing&&!marketplace?Number(netAmount)+Math.round(Number(netAmount)*Number(vatRate))/100:officialGross,currency):'Not verified')}
+    <p className="rv-sub">{marketplace?'Contract rate and VAT are fixed. Additional charges require approval.':'Additional charges require Finance approval.'}</p>
+    {row('Net',verifiedAmounts?money(editing&&!marketplace?Number(netAmount):officialNet,currency):'Not verified')}
+    {row('VAT',verifiedAmounts?money(editing&&!marketplace?Math.round(Number(netAmount)*Number(vatRate))/100:officialVat,currency):'Not verified')}
+    {row('Total',verifiedAmounts?money(editing&&!marketplace?Number(netAmount)+Math.round(Number(netAmount)*Number(vatRate))/100:officialGross,currency):'Not verified')}
    </section>
-   <label className="rv-field"><span>Notes</span><textarea value={officialNotes} readOnly={marketplace&&!editing||!loaded} onChange={e=>setOfficialNotes(e.target.value)}/></label>
+   <label className="rv-field"><span>Notes</span><textarea value={officialNotes} readOnly={!loaded||(!verifiedPOD&&!editing)} onChange={e=>setOfficialNotes(e.target.value)}/></label>
    {editing?<button className="rv-primary rv-wide" disabled={busy||!canEdit||!officialDate} onClick={()=>void saveOfficialDraft()}>Save changes</button>:<button className="rv-primary rv-wide" disabled={!ready||busy||generatorRequested} onClick={()=>void generate()}>{busy?'Creating…':'Create'}</button>}
+   {!editing&&!ready&&eligibilityChecked&&<p className='rv-sub' role='status'>{blocker?'Invoice creation is blocked until the requirement above is resolved.':'Verify POD and payment details before creating the invoice.'}</p>}
    {!editing&&!ready&&eligibilityChecked&&<button className="rv-outline rv-wide" disabled={busy||loading} onClick={()=>void discover()}>Recheck Invoice Eligibility</button>}
    <button className="rv-outline rv-wide" onClick={onList}>Open XDrive Invoice Register</button>
  </section>;

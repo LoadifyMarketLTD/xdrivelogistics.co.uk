@@ -19,5 +19,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const rows = Array.isArray(data.rows) ? data.rows.filter((row: { id?: string }) => row.id === jobId) : [];
   const blocker = typeof data.blocker === 'string' ? data.blocker : undefined;
   const invoice = data.invoice?.job_id === jobId ? data.invoice : undefined;
-  return NextResponse.json({ rows, blocker, invoice }, { headers: { 'Cache-Control': 'private, no-store' } });
+  const context = data.context?.id === jobId ? data.context : undefined;
+  return NextResponse.json({ rows, blocker, invoice, context }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
