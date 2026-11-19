@@ -1,0 +1,21 @@
+import {describe,it,beforeEach,expect,vi} from 'vitest';
+import {NextRequest,NextResponse} from 'next/server';
+const m=vi.hoisted(()=>({from:vi.fn(),rpc:vi.fn(),driver:vi.fn(),flag:vi.fn()}));
+vi.mock('../app/api/_lib/supabaseAdmin',()=>({isSupabaseAdminConfigured:true,supabaseAdmin:{from:m.from,rpc:m.rpc}}));
+vi.mock('../app/api/_lib/platformFlags',()=>({getFeatureFlag:m.flag}));
+vi.mock('../app/api/driver/mobile/_lib',()=>({requireDriver:m.driver,isDriverContext:(v:unknown)=>!(v instanceof Response),respond:(status:number,value:unknown)=>NextResponse.json(value,{status})}));
+import {GET,POST} from '../app/api/driver/mobile/jobs/[id]/cancellation-request/route';
+let job:Record<string,unknown>,stops:Record<string,unknown>[];
+const rows=[{id:'request',status:'pending',reason:'QA request'}];
+function query(data:unknown){const q={select:vi.fn(),eq:vi.fn(),order:vi.fn(),limit:vi.fn(async()=>({data,error:null})),maybeSingle:vi.fn(async()=>({data,error:null})),then:(ok:(v:unknown)=>unknown)=>Promise.resolve({data,error:null}).then(ok)};q.select.mockReturnValue(q);q.eq.mockReturnValue(q);q.order.mockReturnValue(q);return q;}
+const id='job',valid={scope:'job',cancelledByRole:'customer',reason:'QA cancellation simulation',instructionChannel:'phone',goodsInCustody:false,goodsDisposition:'none'};
+const call=(cancellation:unknown=valid,stop='s1')=>POST(new NextRequest('https://www.xdrivelogistics.co.uk/api/driver/mobile/jobs/job/cancellation-request',{method:'POST',body:JSON.stringify({stop_id:stop,cancellation})}),{params:Promise.resolve({id})});
+beforeEach(()=>{vi.resetAllMocks();job={id,assigned_driver_id:'driver',assigned_company_id:'carrier',current_status:'accepted',is_test:true};stops=[{id:'s1',stop_type:'collection',status:'pending'}];m.driver.mockResolvedValue({userId:'actor',driverId:'driver',companyId:'carrier'});m.flag.mockResolvedValue(true);m.from.mockImplementation(name=>query(name==='jobs'?job:name==='job_stops'?stops:rows));m.rpc.mockResolvedValue({data:{requestId:'request',jobId:id,status:'pending'},error:null});});
+describe('Official Reserve cancellation request',()=>{
+ it('persists a pending request only via the existing atomic authority',async()=>{const r=await call();expect(r.status).toBe(201);expect(await r.json()).toMatchObject({ok:true,status:'pending',requestId:'request',custody:false});expect(m.rpc).toHaveBeenCalledWith('request_awarded_job_cancellation_atomic',expect.objectContaining({p_job_id:id,p_actor_user_id:'actor',p_reason:expect.stringContaining('not approval')}));});
+ it('does not permit another carrier or a commercial pilot mutation',async()=>{job.assigned_company_id='other';expect((await call()).status).toBe(403);job.assigned_company_id='carrier';job.is_test=false;expect((await call()).status).toBe(409);expect(m.rpc).not.toHaveBeenCalled();});
+ it('rejects closed jobs, invalid stop identities and unilateral individual-stop changes',async()=>{job.current_status='delivered';expect((await call()).status).toBe(409);job.current_status='accepted';expect((await call(valid,'other')).status).toBe(400);expect((await call({...valid,scope:'stop'})).status).toBe(409);expect(m.rpc).not.toHaveBeenCalled();});
+ it('does not let driver deny actual recorded custody',async()=>{job.current_status='loaded';stops[0].status='completed';expect((await call()).status).toBe(409);expect(m.rpc).not.toHaveBeenCalled();const r=await call({...valid,goodsInCustody:true,goodsDisposition:'return_to_collection'});expect(r.status).toBe(201);expect(await r.json()).toMatchObject({requiresAuthorisedDisposition:true});});
+ it('rejects duplicate pending requests without changing the booking',async()=>{m.rpc.mockResolvedValue({data:null,error:{code:'23505'}});expect((await call()).status).toBe(409);});
+ it('reads persisted cancellation history',async()=>{const r=await GET(new NextRequest('https://www.xdrivelogistics.co.uk/api/driver/mobile/jobs/job/cancellation-request'),{params:Promise.resolve({id})});expect(r.status).toBe(200);expect(await r.json()).toEqual({ok:true,requests:rows});});
+});
