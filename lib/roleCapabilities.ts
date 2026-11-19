@@ -439,6 +439,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   // owner_operator (/driver): the approved PWA is a protected driver entrypoint.
   // Driver identity, active status and app_access are enforced below before this route is allowed.
   { prefix: '/driver/official-pwa-live', workspace: 'owner_operator', exact: true },
+  { prefix: '/driver/reserve-pwa', workspace: 'owner_operator' },
   { prefix: '/driver/official-pwa', workspace: 'owner_operator' },
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },

@@ -639,6 +639,16 @@ function buildNonceResponse(request: NextRequest, nonce: string) {
   return response;
 }
 
+/** Reserve is a standalone client-authenticated PWA. Only static public shell
+ * files may load before sign-in; driver data/actions still require API auth. */
+export function isReservePublicShell(pathname: string): boolean {
+  const root = '/driver/reserve-pwa/';
+  if (!pathname.startsWith(root)) return false;
+  const file = pathname.slice(root.length);
+  return ['index.html', 'manifest.webmanifest', 'sw.js', 'favicon.svg', 'icons.svg',
+    'xdrive-logo-company-3150.png', 'icons/icon-192x192.png', 'icons/icon-512x512.png'].includes(file)
+    || /^assets\/index-[A-Za-z0-9_-]+\.(?:js|css)$/.test(file);
+}
 export async function middleware(request: NextRequest) {
   const canonicalRedirect = buildCanonicalHostRedirect(request);
   if (canonicalRedirect) {
@@ -646,6 +656,10 @@ export async function middleware(request: NextRequest) {
   }
 
   const nonce = generateNonce();
+
+  if ((request.method === 'GET' || request.method === 'HEAD') && isReservePublicShell(request.nextUrl.pathname)) {
+    return buildNonceResponse(request, nonce);
+  }
 
   if (!isProtectedPath(request.nextUrl.pathname)) {
     return buildNonceResponse(request, nonce);
