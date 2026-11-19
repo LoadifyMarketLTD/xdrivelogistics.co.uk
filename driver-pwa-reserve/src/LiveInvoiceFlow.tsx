@@ -87,6 +87,10 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
      } else {
        setInvoice(null);
        if(candidate)setNotice('POD and accepted commercial terms were verified by XDrive. Job is ready to generate an official invoice.');
+       else if(data.blocker==='DRAWN_SIGNATURE_REQUIRED')setNotice('The archived POD contains no verified drawn recipient signature. Finance cannot issue an invoice. Contact the booking administrator to resolve the archived evidence; do not recreate the delivery.');
+       else if(data.blocker==='DELIVERY_PHOTOS_REQUIRED')setNotice('The POD requires between one and ten delivery photographs. Finance cannot issue an invoice until the required evidence is resolved.');
+       else if(data.blocker==='POD_REVIEW_REQUIRED')setNotice('The buyer rejected the POD or requested resubmission. Resolve the POD review before invoicing.');
+       else if(data.blocker==='RECIPIENT_NAME_REQUIRED')setNotice('The POD is missing the recipient name. Resolve the evidence before invoicing.');
        else setNotice(job.podRecorded?'This job is not Ready To Invoice. Finance must verify the signed POD, accepted commercial terms and owner/admin permissions.':'The delivery is recorded, but the signed POD has not been finalised in XDrive. Return to POD, check the recipient name and signature, then select Save Signed POD. Already stored delivery photos can be reused.');
      }
    }catch(e){setError(e instanceof Error?e.message:'Unable to load XDrive Finance');}

@@ -17,5 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!response.ok) return response;
   const data = await response.json();
   const rows = Array.isArray(data.rows) ? data.rows.filter((row: { id?: string }) => row.id === jobId) : [];
-  return NextResponse.json({ rows }, { headers: { 'Cache-Control': 'private, no-store' } });
+  const blocker = typeof data.blocker === 'string' ? data.blocker : undefined;
+  const invoice = data.invoice?.job_id === jobId ? data.invoice : undefined;
+  return NextResponse.json({ rows, blocker, invoice }, { headers: { 'Cache-Control': 'private, no-store' } });
 }

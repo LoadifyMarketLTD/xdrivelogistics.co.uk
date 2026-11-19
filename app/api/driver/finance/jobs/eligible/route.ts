@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { hasCompletePodEvidence, isPodApprovedForInvoicing } from '../../../../../../lib/jobs/podCompletion';
+import { invoicePodBlocker } from '../../../../../../lib/jobs/podCompletion';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -109,8 +109,8 @@ export async function GET(request: NextRequest) {
     (agreementResult.data ?? []).map((agreement) => [String(agreement.job_id), agreement])
   );
 
+  let blocker: string | null = null;
   const rows = (jobs ?? []).flatMap((job) => {
-    if (!hasCompletePodEvidence(job) || !isPodApprovedForInvoicing(job.broker_pod_review_status)) return [];
 
     const exchangeVisibility = String(job.exchange_visibility ?? '').toLowerCase();
     const marketplace = exchangeVisibility === 'exchange' || exchangeVisibility === 'direct';
@@ -126,6 +126,8 @@ export async function GET(request: NextRequest) {
     // invoice work merely because jobs.company_id matches its company id.
     if (marketplace && !agreement) return [];
     if (!marketplace && job.company_id !== driver.companyId) return [];
+    const podBlocker = invoicePodBlocker(job);
+    if (podBlocker) { if (requestedJobId) blocker = podBlocker; return []; }
 
     // Keep the picker aligned with the generation mutation: marketplace invoices
     // need a complete, internally consistent accepted commercial snapshot. Direct
@@ -168,5 +170,5 @@ export async function GET(request: NextRequest) {
     }];
   });
 
-  return respond(200, { rows });
+  return respond(200, { rows, ...(requestedJobId ? { blocker: rows.length ? null : blocker ?? 'FINANCE_CONTEXT_NOT_ELIGIBLE', invoice: invoiceByJob.get(requestedJobId) ?? null } : {}) });
 }

@@ -56,3 +56,14 @@ export function hasCompletePodEvidence(record: PodCompletionRecord) {
     recipientName.length > 0
   );
 }
+
+/** Explain the same requirements used by hasCompletePodEvidence. Never expose raw evidence. */
+export function invoicePodBlocker(record: PodCompletionRecord & {broker_pod_review_status?:unknown}): string | null {
+  if (!isPodApprovedForInvoicing(record.broker_pod_review_status)) return 'POD_REVIEW_REQUIRED';
+  if (record.pod_generated !== true) return 'POD_NOT_FINALISED';
+  if (!hasStoredSignature(record.delivery_signature_data)) return 'DRAWN_SIGNATURE_REQUIRED';
+  if (typeof record.client_signature_name !== 'string' || !record.client_signature_name.trim()) return 'RECIPIENT_NAME_REQUIRED';
+  const count = new Set(nonEmptyEvidence(record.delivery_photos)).size;
+  if (count < 1 || count > 10) return 'DELIVERY_PHOTOS_REQUIRED';
+  return null;
+}
