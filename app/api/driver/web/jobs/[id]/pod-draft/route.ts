@@ -7,7 +7,7 @@ const respond = (status: number, body: Record<string, unknown>) =>
 const MAX_DRAFT_BYTES = 2_800_000;
 const DRAFT_FIELDS = [
   'recipientName', 'leftAt', 'deliveryStatus', 'itemCount', 'weight',
-  'deliveredOn', 'notes', 'signatureData', 'photoUris', 'documentUris', 'hardCopyAcknowledged',
+  'deliveredOn', 'deliveredTime', 'notes', 'signatureData', 'photoUris', 'documentUris', 'hardCopyAcknowledged',
 ] as const;
 
 async function authorisedDriverJob(request: NextRequest, jobId: string) {

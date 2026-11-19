@@ -228,7 +228,7 @@ const statusMap: Record<string, LiveJob['status']> = {
   on_site_pickup: 'ON_SITE_PICKUP', arrived_pickup: 'ON_SITE_PICKUP',
   loaded: 'LOADED', in_transit: 'ON_WAY_TO_DELIVERY', on_my_way_delivery: 'ON_WAY_TO_DELIVERY', on_way_to_delivery: 'ON_WAY_TO_DELIVERY',
   on_site_delivery: 'ON_SITE_DELIVERY', arrived_delivery: 'ON_SITE_DELIVERY', pod_submitted: 'POD_SUBMITTED',
-  delivered: 'DELIVERED', completed: 'DELIVERED',
+  delivered: 'DELIVERED', completed: 'DELIVERED', invoiced: 'DELIVERED', paid: 'DELIVERED',
 };
 function mapAssignedStop(raw: unknown): LiveStop | null {
   const r=obj(raw);
@@ -381,6 +381,11 @@ export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[]
     const from = str(get(details, 'pickup_location', 'pickup_city', 'pickup_postcode')) || existing?.from || 'Collection';
     const to = str(get(details, 'delivery_location', 'delivery_city', 'delivery_postcode')) || existing?.to || 'Delivery';
     const pending = state === 'pending';
+    // Accepted offers without a verified execution status are commercial history, not executable bookings.
+    if(!pending && ['cancelled','canceled'].includes(executionStatus)){result.delete(id);continue;}
+    if(!pending && !resolvedExecutionStatus){continue;}
+    if(pending && ['delivered','completed','cancelled','canceled','invoiced','paid'].includes(executionStatus)){continue;}
+    const terminalStatus = resolvedExecutionStatus === 'DELIVERED'||resolvedExecutionStatus === 'POD_SUBMITTED';
     const pickupAt = Date.parse(str(get(details, 'pickup_datetime','pickupDatetime')));
     const offerExpired = pending && Number.isFinite(pickupAt) && pickupAt < Date.now();
     result.set(id, {
@@ -393,8 +398,8 @@ export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[]
       vehicle: str(get(details, 'requested_vehicle_label', 'vehicle_type')) || existing?.vehicle || 'Not provided',
       weight: existing?.weight || 0,
       notes: str(offer.public_quote_notes) || existing?.notes || '',
-      status: existing && existing.status !== 'OPEN' ? existing.status : (resolvedExecutionStatus || 'ALLOCATED'),
-      backendStatus: existing?.backendStatus || executionStatus,
+      status: terminalStatus ? resolvedExecutionStatus : existing && existing.status !== 'OPEN' ? existing.status : (resolvedExecutionStatus || 'ALLOCATED'),
+      backendStatus: terminalStatus ? executionStatus : existing?.backendStatus || executionStatus,
       company: str(offer.buyer_name) || existing?.company || 'Transport buyer',
       terms: str(details.payment_terms) || existing?.terms || 'Not provided',
       quote: num(offer.quoted_amount) ?? existing?.quote,
