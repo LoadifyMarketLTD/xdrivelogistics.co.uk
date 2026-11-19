@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont } from 'pdf-lib';
 import type { InvoiceVatTreatment } from '../invoiceVat';
+import type { InvoiceChargeBreakdown } from './reserveInvoiceChargeLines';
 import { drawOfficialXDrivePdfLogo, officialXDriveLogoBytes } from './officialXDrivePdfLogo';
 import { drawOfficialPodCover, type ProfessionalPodDetails, type HandoverDetails } from './professionalPodPdf';
 
@@ -53,6 +54,7 @@ type InvoicePdfInput = {
   podHandover?: HandoverDetails | null;
   podSignatureDataUrl?: string | null;
   podDeliveryPhotoCount?: number;
+  approvedChargeBreakdown?: InvoiceChargeBreakdown | null;
   netAmount: number;
   vatAmount: number;
   vatRate: number;
@@ -289,6 +291,23 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   fit('AMOUNT',464,tableTop-19,75,8.5,true,white);
   page.drawRectangle({x:margin,y:tableTop-155,width:contentWidth,height:126,color:white,borderColor:border,borderWidth:.8});
   page.drawRectangle({x:margin,y:tableTop-155,width:4,height:126,color:orange});
+  if(input.approvedChargeBreakdown){
+    const breakdown=input.approvedChargeBreakdown;
+    const lines=[{description:'Agreed transport charge',amount:breakdown.transportAmount},...breakdown.charges];
+    if(lines.length>9)throw new Error('Too many approved charge lines for the single A4 invoice. Finance review required.');
+    const sum=lines.reduce((total,line)=>total+Math.round(line.amount*100),0);
+    if(lines.some(line=>!Number.isFinite(line.amount)||line.amount<=0)||sum!==Math.round(input.netAmount*100))throw new Error('Invoice item totals do not match the verified subtotal.');
+    const rowH=Math.min(18,116/lines.length);
+    lines.forEach((line,index)=>{
+      const y=tableTop-45-index*rowH;
+      if(index>0)page.drawLine({start:{x:margin+10,y:y+rowH-5},end:{x:555-10,y:y+rowH-5},color:border,thickness:.4});
+      fit('1',margin+16,y,30,8.8,index===0,navy);
+      const desc=wrapTextToWidth(regular,pdfText(line.description),305,8.4,1)[0]||'Approved charge';
+      fit(desc,margin+58,y,305,8.4,index===0,navy);
+      const value=money(line.amount,input.currency);
+      page.drawText(value,{x:555-14-regular.widthOfTextAtSize(value,8.8),y,font:regular,size:8.8,color:navy});
+    });
+  }else{
   fit('1',margin+16,tableTop-54,30,11,true,navy);
   const serviceTitleLines = wrapTextToWidth(bold, pdfText(input.serviceDescription, 'Freight transport service'), 310, 10, 2);
   serviceTitleLines.forEach((line, index) => fit(line, margin + 58, tableTop - 52 - index * 11, 310, 10, true));
@@ -310,6 +329,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const amount=money(finiteMoney(input.netAmount),input.currency);
   const aw=bold.widthOfTextAtSize(amount,11);
   page.drawText(amount,{x:555-14-aw,y:tableTop-54,font:bold,size:11,color:navy});
+  }
   // Bank transfer instruction and commercial totals.
   const boxY=147,boxH=111;
   page.drawRectangle({x:margin,y:boxY,width:248,height:boxH,color:pale,borderColor:border,borderWidth:.7});
@@ -341,7 +361,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const vatDisclosure=vatTreatment==='not_registered'?'Supplier not VAT registered - no VAT charged.':vatTreatment==='zero_rated'?'VAT zero-rated supply.':vatTreatment==='reverse_charge'?'Reverse charge: customer accounts for VAT.':'';
   if(vatDisclosure)fit(vatDisclosure,margin,137,contentWidth,8,false,slate);
   const evidenceCount=(input.evidenceImages?.length??0)+(input.signatureAttestation?1:0);
-  if(evidenceCount)fit('Signed POD and supporting evidence attached: '+evidenceCount+' item(s)',margin,117,contentWidth,8,false,slate);
+  if(evidenceCount)fit('Signed POD and supporting evidence supplied separately: '+evidenceCount+' item(s)',margin,117,contentWidth,8,false,slate);
   // Page footer.
   page.drawLine({start:{x:margin,y:88},end:{x:555,y:88},color:border,thickness:.9});
   fit(issuerName,margin,70,245,9,true,navy);

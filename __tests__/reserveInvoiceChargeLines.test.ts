@@ -1,0 +1,23 @@
+import {describe,it,expect} from 'vitest';
+import {PDFDocument} from 'pdf-lib';
+import {writeFileSync,mkdirSync} from 'node:fs';
+import {reconcileApprovedCharges} from '../lib/server/reserveInvoiceChargeLines';
+import {buildInvoicePdf} from '../lib/server/ownerInvoicePdf';
+const invoice={id:'invoice',invoice_origin:'marketplace',company_id:'carrier',supplier_company_id:'carrier',buyer_company_id:'buyer',job_id:'job',commercial_agreement_id:'agreement',currency:'GBP',net_amount:175};
+const agreement={id:'agreement',job_id:'job',supplier_company_id:'carrier',buyer_company_id:'buyer',currency:'GBP',agreement_status:'accepted',agreed_amount:175,contract_version:3};
+function approved(id:string,version:number,amount:number,type:string,from:number,description:string){
+ const snapshot={extra_id:id,job_id:'job',driver_id:'driver',supplier_company_id:'carrier',extra_type:type,description,amount_gbp:amount,minutes:type==='waiting_time'?30:null};
+ const extra={...snapshot,id,status:'approved',contractual_amendment_id:'amend-'+id,contractual_snapshot:snapshot,contractual_snapshot_hash:'a'.repeat(64),contractual_snapshot_version:version};
+ const amendment={id:'amend-'+id,agreement_id:'agreement',job_id:'job',version_number:version,status:'accepted',currency:'GBP',decided_by_company_id:'buyer',effective_agreed_amount:from+amount,change_summary:{execution_extra:snapshot,amount:{from,to:from+amount}}};
+ return {extra,amendment};
+}
+const a=approved('a',2,15,'waiting_time',150,'QA waiting'),b=approved('b',3,10,'handball',165,'QA handling');
+const input={invoice,companyId:'carrier',agreement,extras:[a.extra,b.extra,{...a.extra,id:'pending',status:'submitted'},{...b.extra,id:'rejected',status:'rejected'}],amendments:[a.amendment,b.amendment]};
+describe('Immutable approved charge invoice breakdown',()=>{
+ it('itemises only buyer-approved amendments without adding charges twice',()=>{expect(reconcileApprovedCharges(input)).toEqual({transportAmount:150,charges:[{id:'a',description:'Waiting time (30 min) - QA waiting',amount:15},{id:'b',description:'Handball - QA handling',amount:10}]});});
+ it('preserves invoices without any approved charges',()=>{expect(reconcileApprovedCharges({...input,extras:input.extras.slice(2)})).toBeNull();});
+ it('rejects mismatch in total, supplier, buyer and agreement version',()=>{for(const changed of [{...invoice,net_amount:174},{...invoice,supplier_company_id:'other'},{...invoice,buyer_company_id:'other'},{...invoice,commercial_agreement_id:'other'}])expect(()=>reconcileApprovedCharges({...input,invoice:changed})).toThrow();expect(()=>reconcileApprovedCharges({...input,agreement:{...agreement,contract_version:2}})).toThrow();});
+ it('rejects missing, altered, rejected or duplicated evidence',()=>{expect(()=>reconcileApprovedCharges({...input,amendments:[a.amendment]})).toThrow();expect(()=>reconcileApprovedCharges({...input,extras:[{...a.extra,amount_gbp:16},b.extra]})).toThrow();expect(()=>reconcileApprovedCharges({...input,amendments:[{...a.amendment,status:'rejected'},b.amendment]})).toThrow();expect(()=>reconcileApprovedCharges({...input,extras:[a.extra,a.extra,b.extra]})).toThrow();});
+ it('generates a real one-page A4 invoice without changing the approved totals',async()=>{const pdf=await buildInvoicePdf({invoiceNumber:'QA-ITEMISATION-ONLY',invoiceDate:'2026-11-19',dueDate:'2026-12-19',issuerName:'QA Carrier - simulation only',clientName:'QA Customer',jobReference:'XDL-QA',pickupLocation:'QA Blackburn',deliveryLocation:'QA Leeds',netAmount:175,vatAmount:0,vatRate:0,vatTreatment:'not_registered',totalAmount:175,currency:'GBP',paymentTerms:'30 days',approvedChargeBreakdown:reconcileApprovedCharges(input)});const doc=await PDFDocument.load(pdf);expect(doc.getPageCount()).toBe(1);expect(doc.getPage(0).getWidth()).toBeCloseTo(595.28,1);expect(doc.getPage(0).getHeight()).toBeCloseTo(841.89,1);mkdirSync('OPPO_QA_EVIDENCE',{recursive:true});writeFileSync('OPPO_QA_EVIDENCE/qa-invoice-approved-charge-lines.pdf',pdf);});
+ it('fails generation rather than hiding any item if a single page cannot fit',async()=>{await expect(buildInvoicePdf({invoiceNumber:'QA-OVERFLOW',invoiceDate:'2026-11-19',dueDate:'2026-12-19',issuerName:'QA Carrier',clientName:'QA Customer',netAmount:175,vatAmount:0,vatRate:0,totalAmount:175,currency:'GBP',approvedChargeBreakdown:{transportAmount:166,charges:Array.from({length:9},(_,i)=>({id:String(i),description:'QA',amount:1}))}})).rejects.toThrow('single A4');});
+});

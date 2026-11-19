@@ -3,6 +3,7 @@ import { PDFDocument } from 'pdf-lib';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/ownerInvoicePdf';
 import { loadInvoicePdfContext } from '../../../../../../../lib/server/ownerInvoicePdfContext';
+import { loadReserveApprovedChargeLines } from '../../../../../../../lib/server/reserveInvoiceChargeLines';
 import {
   normalizeInvoiceVatTreatment,
   validateInvoiceVatTotals,
@@ -130,7 +131,9 @@ export async function GET(
 
   let pdfBytes: Uint8Array;
   try {
+    const approvedChargeBreakdown=await loadReserveApprovedChargeLines(supabaseAdmin, invoice, previewer.companyId);
     pdfBytes = await buildInvoicePdf({
+      approvedChargeBreakdown,
       invoiceNumber,
       jobReference,
       invoiceDate: cleanText(invoice.invoice_date, new Date().toISOString().slice(0, 10)),
