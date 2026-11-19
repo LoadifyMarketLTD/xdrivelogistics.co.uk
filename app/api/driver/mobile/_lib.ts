@@ -311,7 +311,7 @@ export function mapJob(row: MobileJobRow) {
   };
 }
 
-export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, message: string) {
+export async function insertTrackingEvent(jobId: string, userId: string, eventType: string, message: string, metadata: Record<string, unknown> = {}) {
   if (!supabaseAdmin) return;
   await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
@@ -320,6 +320,6 @@ export async function insertTrackingEvent(jobId: string, userId: string, eventTy
     event_type: eventType,
     event_time: new Date().toISOString(),
     message,
-    meta: { source: 'driver_mobile' },
+    meta: { ...metadata, source: 'driver_mobile' },
   });
 }

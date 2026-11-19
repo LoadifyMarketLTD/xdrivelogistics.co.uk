@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 import { hasCompletePodEvidence, isPodApprovedForInvoicing } from '../jobs/podCompletion';
 import { officialXDriveLogoBytes } from './officialXDrivePdfLogo';
 import { isUnrelatedXDriveInvoicePdf } from './podEvidenceClassification';
+import { loadReserveStopAppendix } from './reserveMultiStopPod';
 import type { ProfessionalPodDetails, HandoverDetails } from './professionalPodPdf';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -178,6 +179,8 @@ export async function loadInvoicePdfContext({
       if (signedPodConfirmed) {
         podDetails = { ...job, id: job.id };
         podDeliveryPhotoCount = Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0;
+        const stopAppendix=await loadReserveStopAppendix(supabase,jobId,companyId);
+        if(stopAppendix)evidenceImages.push({bytes:stopAppendix,label:'Consolidated stop evidence'});
       }
       vehicleDescription = labelise(job.vehicle_type);
 

@@ -13,7 +13,7 @@ export async function finishReserveDelivery(id:string,ops:DeliveryOperations){
  const detail=await ops.read();
  if(detail.partial)throw new Error('Route stops could not be verified. Refresh booking.');
  if(detail.job.id!==id||detail.job.backendStatus!=='on_site_delivery')throw new Error('Server must confirm On Site (Final Delivery) before delivery. Refresh booking.');
- const pending=(detail.job.routeStops||[]).some(stop=>stop.id!==id+':'+stop.type&&!['completed','cancelled'].includes(stop.status));
+ const pending=(detail.job.routeStops||[]).some(stop=>stop.id!==id+':'+stop.type&&stop.status!=='completed');
  if(pending)throw new Error('Complete all persisted route stops before finalising POD.');
  const evidence=await ops.upload();
  if(!evidence.photos.length)throw new Error('XDrive requires at least one verified delivery photo before Delivered.');

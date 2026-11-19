@@ -80,7 +80,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
 
   const localRun=async(work:()=>Promise<void>)=>{if(busy)return;setBusy(true);setError('');try{await work();}catch(e){setError(e instanceof Error?e.message:'Stop action failed.');}finally{setBusy(false);}};
   const transition=(status:'en_route'|'arrived')=>localTransition?void localRun(()=>localTransition(status)):void run(async current=>{
-    await driverPost('/mobile/jobs/'+encodeURIComponent(job.id)+'/stop-status',current.token,{stop_id:stop.id,status});
+    await driverPost('/mobile/jobs/'+encodeURIComponent(job.id)+'/reserve-stop-status',current.token,{stop_id:stop.id,status});
   });
 
   const completeWork=async(current:LiveSession|null)=>{
@@ -95,7 +95,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
     const photoPaths:string[]=[];const documentPaths:string[]=[];
     for(const file of files){const category=file.type==='application/pdf'?'documents':'photos';const path=await upload(current,file,category);(category==='documents'?documentPaths:photoPaths).push(path);}
     const signaturePath=stop.type==='delivery'&&signature?await upload(current,signature,'signature'):null;
-    await driverPost('/mobile/jobs/'+encodeURIComponent(job.id)+'/stop-status',current.token,{
+    await driverPost('/mobile/jobs/'+encodeURIComponent(job.id)+'/reserve-stop-status',current.token,{
       stop_id:stop.id,status:'completed',
       handover:{
         customerReference:job.customerRef||null,itemCount,weightKg,packaging:null,notes:notes.trim()||null,
@@ -120,7 +120,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
     if(['Damaged Goods','Incorrect Goods'].includes(outcome)&&imageFiles.length<1)throw new Error('Add photographic evidence for this exception.');
     const photoPaths:string[]=[];const documentPaths:string[]=[];
     for(const file of files){const category=file.type==='application/pdf'?'documents':'damage';const path=await upload(current,file,category);(category==='documents'?documentPaths:photoPaths).push(path);}
-    await driverPost('/mobile/jobs/'+encodeURIComponent(job.id)+'/stop-status',current.token,{
+    await driverPost('/mobile/jobs/'+encodeURIComponent(job.id)+'/reserve-stop-status',current.token,{
       stop_id:stop.id,status:'exception',exception:{deliveryStatus:outcome,notes:notes.trim(),photoPaths,documentPaths},
     });
   });
