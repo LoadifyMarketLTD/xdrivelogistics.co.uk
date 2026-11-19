@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from 'pdf-lib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { scopedStopEvidenceObject, stopEvidencePrefix } from '../jobs/driverStopExecution';
+import { deliveryRouteBlocker } from '../jobs/deliveryRouteGuard';
 
 type Stop = { id:string; sequence:number; stop_type:'collection'|'delivery'; address:string; postcode?:string|null; status:string; en_route_at?:string|null; arrived_at?:string|null; completed_at?:string|null; handover:unknown };
 type ObjectData = Record<string,unknown>;
@@ -24,9 +25,10 @@ function wrap(v:string,font:PDFFont,width:number,size:number){
 export async function buildReserveStopAppendix(jobId:string,companyId:string,stops:Stop[],download:(path:string)=>Promise<Uint8Array>){
  const ordered=[...stops].sort((a,b)=>a.sequence-b.sequence);
  const modern=ordered.some(s=>object(s.handover).version===3);
+ if(ordered.some(s=>{const h=object(s.handover);return h.stopKind==='return'||h.stopKind==='redirect'||object(h.returnInstruction).resolutionRequired===true;}))throw new Error('Return or redirected custody evidence requires a separate Proof of Return or resolution document.');
  if(!modern)return null;
  if(ordered.length>50)throw new Error('Route contains too many stops for this POD document.');
- if(ordered.some(s=>s.status!=='completed'))throw new Error('All route stops require verified completion before a consolidated POD can be issued.');
+ if(deliveryRouteBlocker(ordered,true))throw new Error('All route stops require verified completion before a consolidated POD can be issued.');
  const pdf=await PDFDocument.create(),font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
  const navy=rgb(.04,.15,.33),orange=rgb(.96,.64,.0);
  function header(title:string){
