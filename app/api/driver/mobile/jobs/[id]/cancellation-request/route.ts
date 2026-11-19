@@ -43,6 +43,8 @@ export async function POST(request:NextRequest,{params}:{params:Promise<{id:stri
  if(!stops?.some(s=>s.id===body?.stop_id))return respond(400,{error:'A valid booking stop is required.'});
  const custody=c.goodsInCustody||custodyStates.has(status)||stops.some(s=>s.stop_type==='collection'&&s.status==='completed');
  if(custody&&(!c.goodsInCustody||c.goodsDisposition==='none'))return respond(409,{error:'Goods have been collected. Record their custody and requested disposition.'});
+ // Until the atomic cancellation decision also verifies physical custody, never create an approvable request for collected goods.
+ if(custody)return respond(409,{error:'Goods remain in custody. Contact the posting company for authorised instructions. Online cancellation is blocked until the return or redirection workflow is verified.'});
  const reason=[
  'Cancellation request (not approval).',
  'Instruction source: '+c.cancelledByRole,
