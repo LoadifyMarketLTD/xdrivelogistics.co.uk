@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { useAuth } from '../../../components/AuthContext';
+import {resolveWorkspaceRole} from '../../../../lib/workspaceRole';
+import {returnAvailability,returnDateMatches,sortCompanyReturns,validateReturnEditor,type ReturnDateFilter,type ReturnSort} from '../../../components/workspace/companyAdminReturnJourneys';
 import { selectWithMissingColumnFallback } from '../../../../lib/supabaseSchemaCompat';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import FleetPositionMap, { type FleetMapPoint } from '../FleetPositionMap';
@@ -14,6 +16,7 @@ import {
   PageFrame,
   PageHeader,
   StatusBadge,
+  WorkspaceDialog,
 } from '../../../components/workspace/WorkspaceUI';
 
 type ReturnJourney = {
@@ -113,6 +116,13 @@ export default function CompanyReturnJourneysPage() {
   const router = useRouter();
   const { user } = useAuth();
   const workspace = useCompanyWorkspaceData();
+  const companyAdmin=(user?.workspaceRole??resolveWorkspaceRole(user))==='company_admin';
+  const [dateFilter,setDateFilter]=useState<ReturnDateFilter>('all');
+  const [returnSort,setReturnSort]=useState<ReturnSort>('soonest');
+  const [closeTarget,setCloseTarget]=useState<ReturnJourney|null>(null);
+  const [editingExisting,setEditingExisting]=useState(false);
+  const [editorError,setEditorError]=useState('');
+  const [closeError,setCloseError]=useState('');
   const [journeys, setJourneys] = useState<ReturnJourney[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -206,6 +216,7 @@ export default function CompanyReturnJourneysPage() {
   );
 
   const resetEditor = () => {
+    setEditingExisting(false);setEditorError('');
     setEditDriverId('');
     setEditFrom('');
     setEditTo('');
@@ -229,6 +240,7 @@ export default function CompanyReturnJourneysPage() {
   };
 
   const openJourney = (journey: ReturnJourney) => {
+    setEditingExisting(true);setEditorError('');
     const meta = decodeJourneyMeta(journey.notes);
     setEditDriverId(journey.driver_id ?? '');
     setEditFrom(journey.from_postcode ?? '');
@@ -249,6 +261,12 @@ export default function CompanyReturnJourneysPage() {
   };
 
   const saveJourney = async (clear = false, journey?: ReturnJourney) => {
+    if(saving)return;
+    if(companyAdmin){
+      if(!canManageReturnJourneys)return;
+      setEditorError('');setCloseError('');
+      if(!clear){const validation=validateReturnEditor({driverId:editDriverId,activeDriverIds:activeDrivers.map(d=>d.id),from:editFrom,to:editTo,anywhere:editGoAnywhere,start:editAvailableFrom,end:editAvailableTo,weight:editWeightKg,space:editSpaceUnits,via:editVia,notes:editNotes,vehicle:editVehicleType,body:editBodyType});if(validation){setEditorError(validation);return;}}
+    }
     const driverId = journey?.driver_id ?? editDriverId;
     if (!workspace.companyId || !driverId) {
       setError('Choose an active driver before publishing return capacity.');
@@ -290,12 +308,14 @@ export default function CompanyReturnJourneysPage() {
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Return journey could not be updated.');
 
-      setNotice(clear ? 'Return journey closed.' : 'Return journey published.');
       setEditorOpen(false);
+      setCloseTarget(null);
       resetEditor();
       await loadJourneys();
+      setNotice(clear ? 'Return journey closed.' : 'Return journey published.');
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Return journey could not be updated.');
+      const message=reason instanceof Error ? reason.message : 'Return journey could not be updated.';
+      setError(message);if(companyAdmin){if(clear)setCloseError(message);else setEditorError(message);}
     } finally {
       setSaving(false);
     }
@@ -308,9 +328,9 @@ export default function CompanyReturnJourneysPage() {
     const fromTerm = from.trim().toLowerCase();
     const toTerm = to.trim().toLowerCase();
     const driverTerm = driverSearch.trim().toLowerCase();
-    return journeys
+    const records=journeys
       .filter((journey) => {
-        const status = normalise(journey.status);
+        const status = companyAdmin?returnAvailability(journey):normalise(journey.status);
         if (tab === 'active') return ACTIVE_STATUSES.has(status);
         if (tab === 'closed') return CLOSED_STATUSES.has(status);
         return true;
@@ -325,7 +345,8 @@ export default function CompanyReturnJourneysPage() {
         const driver = journey.driver_id ? driverById.get(journey.driver_id) : undefined;
         return `${driver?.display_name ?? ''} ${driver?.email ?? ''}`.toLowerCase().includes(driverTerm);
       });
-  }, [bodyFilter, driverById, driverSearch, from, journeyKindFilter, journeys, tab, to, vehicleFilter]);
+    return companyAdmin?sortCompanyReturns(records.filter(row=>returnDateMatches(row,dateFilter)),returnSort):records;
+  }, [bodyFilter, driverById, driverSearch, from, journeyKindFilter, journeys, tab, to, vehicleFilter,companyAdmin,dateFilter,returnSort]);
 
   const mapPoints = useMemo<FleetMapPoint[]>(() => {
     const points: FleetMapPoint[] = [];
@@ -365,11 +386,13 @@ export default function CompanyReturnJourneysPage() {
       {editorOpen && canManageReturnJourneys ? (
         <section className="workspace-panel" aria-label="Return journey editor" style={{ marginBottom: 12 }}>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-            <strong>Publish Return Journey</strong>
+            <strong>{companyAdmin&&editingExisting?'Update Return Journey':'Publish Return Journey'}</strong>
             <ActionButton tone="secondary" onClick={() => { setEditorOpen(false); resetEditor(); }}>Close</ActionButton>
           </div>
+          {companyAdmin&&editorError&&<AlertBanner tone="danger">{editorError}</AlertBanner>}
+          {companyAdmin&&<p style={{margin:'8px 0',fontSize:12}}>Publishing replaces the selected driver's current return capacity. Historical records cannot be edited here.</p>}
           <div className="workspace-filter-fields workspace-filter-fields--even" style={{ paddingTop: 8 }}>
-            <label>DRIVER<select value={editDriverId} onChange={(event) => {
+            <label>DRIVER<select disabled={companyAdmin&&editingExisting} value={editDriverId} onChange={(event) => {
               const driverId = event.target.value;
               setEditDriverId(driverId);
               const vehicle = workspace.vehicles.find((item) => item.assigned_driver_id === driverId);
@@ -394,6 +417,7 @@ export default function CompanyReturnJourneysPage() {
         </section>
       ) : null}
 
+      {companyAdmin&&closeTarget&&<WorkspaceDialog ariaLabel="Confirm close return" title="Close return capacity?" description="This removes the current published return capacity for the selected driver. Confirm only if this is the return you intend to close." onDismiss={()=>{if(!saving){setCloseTarget(null);setCloseError('')}}} dismissDisabled={saving} actions={<><ActionButton tone="secondary" disabled={saving} onClick={()=>setCloseTarget(null)}>Cancel</ActionButton><ActionButton tone="danger" disabled={saving} onClick={()=>void saveJourney(true,closeTarget)}>Confirm close return</ActionButton></>}><p><strong>{closeTarget.from_postcode||'Not supplied'} → {closeTarget.to_postcode||'Go Anywhere'}</strong></p>{closeError&&<AlertBanner tone="danger">{closeError}</AlertBanner>}</WorkspaceDialog>}
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Return journey filters">
           <div className="workspace-filter-rail__header">Filter Returns</div>
@@ -404,14 +428,16 @@ export default function CompanyReturnJourneysPage() {
             <label>STATUS<select value={tab} onChange={(event) => setTab(event.target.value as ReturnTab)}><option value="all">All states</option><option value="active">Active</option><option value="closed">Closed</option></select></label>
             <label>VEHICLE<select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="all">All vehicle types</option>{vehicleOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
             <label>BODY TYPE<select value={bodyFilter} onChange={(event) => setBodyFilter(event.target.value)}><option value="all">All body types</option>{bodyOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
+            {companyAdmin&&<><label>AVAILABILITY DATE<select value={dateFilter} onChange={event=>setDateFilter(event.target.value as ReturnDateFilter)}><option value="all">Any date</option><option value="today">Today</option><option value="next7">Next 7 days</option></select></label><label>SORT BY<select value={returnSort} onChange={event=>setReturnSort(event.target.value as ReturnSort)}><option value="soonest">Availability (soonest)</option><option value="latest">Availability (latest)</option><option value="route">Route (A–Z)</option></select></label></>}
             <div style={{ fontSize: 11, color: '#64748b', lineHeight: '15px' }}>Filters apply live to company return records.</div>
             <ActionButton tone="secondary" onClick={() => void loadJourneys()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
-            <ActionButton tone="secondary" onClick={() => { setFrom(''); setTo(''); setDriverSearch(''); setTab('all'); setJourneyKindFilter('all'); setVehicleFilter('all'); setBodyFilter('all'); }}>Clear filters</ActionButton>
+            <ActionButton tone="secondary" onClick={() => { setFrom(''); setTo(''); setDriverSearch(''); setTab('all'); setJourneyKindFilter('all'); setVehicleFilter('all'); setBodyFilter('all');setDateFilter('all');setReturnSort('soonest'); }}>Clear filters</ActionButton>
           </div>
         </aside>
 
         <main style={{ minWidth: 0 }}>
           <div className="workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+            {companyAdmin&&<span role="status">{loading?'Loading return records…':error?'Return results unavailable':visible.length+' return records in this view'}</span>}
             <span className="workspace-list-controls__right">
               {canManageReturnJourneys ? <ActionButton tone="success" onClick={openNewJourney}>Add Journey</ActionButton> : null}
               <ActionButton tone="secondary" onClick={() => { setTab('all'); setJourneyKindFilter('all'); }}>Our Journeys</ActionButton>
@@ -456,11 +482,11 @@ export default function CompanyReturnJourneysPage() {
                 const location = journey.driver_id ? latestLocationByDriver.get(journey.driver_id) : undefined;
                 const locationTimestamp = location?.recorded_at ?? location?.updated_at ?? null;
                 const locationState = positionAge(locationTimestamp);
-                const status = normalise(journey.status);
+                const status = companyAdmin?returnAvailability(journey):normalise(journey.status);
                 const statusTone = ACTIVE_STATUSES.has(status) ? 'green' as const : CLOSED_STATUSES.has(status) ? 'grey' as const : 'blue' as const;
 
                 return (
-                  <article key={journey.id} className="workspace-operational-row" data-state={status}>
+                  <article key={journey.id} className={companyAdmin ? "workspace-operational-row company-admin-return-row" : "workspace-operational-row"} data-state={status}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell">
                         <span className="workspace-operational-label">From</span>
@@ -479,7 +505,7 @@ export default function CompanyReturnJourneysPage() {
                       </div>
                       <div className="workspace-operational-cell">
                         <span className="workspace-operational-label">Status / position</span>
-                        <StatusBadge value={journey.status ?? 'unknown'} tone={statusTone} />
+                        <StatusBadge value={companyAdmin?status:journey.status ?? 'unknown'} tone={statusTone} />
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                           <StatusBadge value={location ? (locationState.stale ? 'Position stale' : 'Position fresh') : 'No position'} tone={location ? (locationState.stale ? 'orange' : 'green') : 'grey'} />
                           <span>{locationState.label}</span>
@@ -502,8 +528,8 @@ export default function CompanyReturnJourneysPage() {
                         {location ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Locate</ActionButton> : null}
                         {returnRouteUrl(journey) ? <a href={returnRouteUrl(journey) ?? undefined} target="_blank" rel="noreferrer" style={compactLinkStyle}>Open Route</a> : null}
                         {driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={compactLinkStyle}>Call driver</a> : null}
-                        {canManageReturnJourneys && journey.driver_id ? <ActionButton tone="secondary" onClick={() => openJourney(journey)}>Edit</ActionButton> : null}
-                        {canManageReturnJourneys && journey.driver_id && ACTIVE_STATUSES.has(status) ? <ActionButton tone="danger" disabled={saving} onClick={() => void saveJourney(true, journey)}>Close Return</ActionButton> : null}
+                        {canManageReturnJourneys && journey.driver_id && (!companyAdmin || ACTIVE_STATUSES.has(status)) ? <ActionButton tone="secondary" onClick={() => openJourney(journey)}>Edit</ActionButton> : null}
+                        {canManageReturnJourneys && journey.driver_id && ACTIVE_STATUSES.has(status) ? <ActionButton tone="danger" disabled={saving} onClick={() => {if(companyAdmin){setCloseError('');setCloseTarget(journey)}else void saveJourney(true,journey)}}>Close Return</ActionButton> : null}
                         {journey.driver_id ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage driver</ActionButton> : <span>Driver action unavailable</span>}
                       </div>
                     </div>
