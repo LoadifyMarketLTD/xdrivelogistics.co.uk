@@ -6,6 +6,8 @@ import { classifyWorkspaceJobStage, isCompanyExecutionJob } from '../../../lib/j
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { classifyAccountsDirection } from '../../../lib/finance/accounts';
 import { invoiceSignedGrossAmount } from '../../../lib/brokerFinance';
+import {toCanonicalInvoiceStatus,toCanonicalPaymentStatus,isAwaitingPaymentInvoiceStatus,toCanonicalInvoiceDisplayStatus} from '../../../lib/invoiceStatus';
+import type {WorkspaceInvoice} from './useCompanyWorkspaceData';
 import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -27,6 +29,16 @@ import {
 
 const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
 
+export function isDashboardInvoiceAwaiting(invoice:WorkspaceInvoice){
+ const status=toCanonicalInvoiceStatus(invoice.status);
+ return invoice.document_type!=='credit_note'&&isAwaitingPaymentInvoiceStatus(status)&&!['paid','refunded'].includes(toCanonicalPaymentStatus(invoice.payment_status));
+}
+export function dashboardInvoiceValue(rows:WorkspaceInvoice[],outstanding:boolean){
+ if(!rows.length)return money(0);
+ if(rows.some(row=>row.currency?.toUpperCase()!=='GBP'||row.amount==null||!Number.isFinite(Number(row.amount))||(outstanding&&toCanonicalPaymentStatus(row.payment_status)==='partially_paid')))return 'See register';
+ return money(rows.reduce((sum,row)=>sum+invoiceSignedGrossAmount(row),0));
+}
+
 export default function FinanceControlDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
@@ -34,12 +46,7 @@ export default function FinanceControlDashboardHome() {
   const totals = useMemo(() => {
     const receivables = data.invoices.filter((invoice) => classifyAccountsDirection(invoice, data.companyId) === 'receivable');
     const payables = data.invoices.filter((invoice) => classifyAccountsDirection(invoice, data.companyId) === 'payable');
-    const unpaid = receivables.filter(
-      (invoice) =>
-        invoice.document_type !== 'credit_note' &&
-        invoice.payment_status !== 'paid' &&
-        !['paid', 'Paid', 'void', 'cancelled'].includes(invoice.status),
-    );
+    const unpaid = receivables.filter(isDashboardInvoiceAwaiting);
     const overdue = unpaid.filter(
       (invoice) =>
         invoice.due_date && new Date(invoice.due_date).getTime() < Date.now(),
@@ -50,12 +57,8 @@ export default function FinanceControlDashboardHome() {
         new Date(invoice.due_date).getTime() >= Date.now() &&
         new Date(invoice.due_date).getTime() <= Date.now() + 7 * 86_400_000,
     );
-    const paid = receivables.filter(
-      (invoice) => invoice.payment_status === 'paid' || ['paid', 'Paid'].includes(invoice.status),
-    );
-    const payableUnpaid = payables.filter(
-      (invoice) => invoice.document_type !== 'credit_note' && invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void', 'cancelled'].includes(invoice.status),
-    );
+    const paid = receivables.filter(invoice=>!['Draft','Cancelled'].includes(toCanonicalInvoiceStatus(invoice.status))&&toCanonicalPaymentStatus(invoice.payment_status)!=='refunded'&&toCanonicalInvoiceDisplayStatus(invoice.status,invoice.due_date,invoice.payment_status)==='Paid');
+    const payableUnpaid = payables.filter(isDashboardInvoiceAwaiting);
 
     return {
       receivables,
@@ -63,10 +66,10 @@ export default function FinanceControlDashboardHome() {
       unpaid,
       overdue,
       dueSoon,
-      outstandingValue: unpaid.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
-      overdueValue: overdue.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
-      paidValue: paid.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
-      payableOutstandingValue: payableUnpaid.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
+      outstandingValue: dashboardInvoiceValue(unpaid,true),
+      overdueValue: dashboardInvoiceValue(overdue,true),
+      paidValue: dashboardInvoiceValue(paid,false),
+      payableOutstandingValue: dashboardInvoiceValue(payableUnpaid,true),
       payableUnpaid,
       paid,
     };
@@ -141,41 +144,41 @@ export default function FinanceControlDashboardHome() {
                   { key: 'draft', label: 'AR Draft', value: metricValue(data, ['invoices'], () => totals.receivables.filter((invoice) => ['draft', 'Draft'].includes(invoice.status)).length), detail: 'Receivables requiring issue', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
                   { key: 'unpaid', label: 'Unpaid', value: metricValue(data, ['invoices'], () => totals.unpaid.length), detail: 'Awaiting payment', tone: invoicesUnavailable ? 'blue' : totals.unpaid.length ? 'orange' : 'green', onClick: () => router.push('/admin/invoices') },
                   { key: 'overdue', label: 'Overdue', value: metricValue(data, ['invoices'], () => totals.overdue.length), detail: 'Past due date', tone: invoicesUnavailable ? 'blue' : totals.overdue.length ? 'red' : 'green', onClick: () => router.push('/admin/invoices') },
-                  { key: 'outstanding-value', label: 'AR Outstanding', value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)), detail: 'Receivables balance', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
-                  { key: 'payable-value', label: 'AP Outstanding', value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)), detail: 'Payables balance', tone: invoicesUnavailable ? 'blue' : 'orange', onClick: () => router.push('/admin/finance/carrier-invoices') },
+                  { key: 'outstanding-value', label: 'AR Awaiting Payment', value: metricValue(data, ['invoices'], () => totals.outstandingValue), detail: 'Issued gross before credits', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
+                  { key: 'payable-value', label: 'AP Awaiting Payment', value: metricValue(data, ['invoices'], () => totals.payableOutstandingValue), detail: 'Issued gross before credits', tone: invoicesUnavailable ? 'blue' : 'orange', onClick: () => router.push('/admin/finance/carrier-invoices') },
                 ]}
               />
             </OperationalCard>
 
             <div className="xdrive-owner-dashboard-subgrid">
-              <OperationalCard title="Financial exposure" subtitle="Amounts that need finance attention.">
+              <OperationalCard title="Financial exposure" subtitle="Issued invoice values. Open the register for net balances, credits and partial payments.">
                 <FinancialSummaryPanel
                   items={[
                     {
-                      label: 'Outstanding',
+                      label: 'Issued AR awaiting payment',
                       detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.unpaid.length} invoice(s)`,
-                      value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)),
+                      value: metricValue(data, ['invoices'], () => totals.outstandingValue),
                       color: workspaceTheme.navy,
                       background: workspaceTheme.surfaceMuted,
                     },
                     {
-                      label: 'Overdue exposure',
+                      label: 'Overdue invoice value',
                       detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.overdue.length} invoice(s)`,
-                      value: metricValue(data, ['invoices'], () => money(totals.overdueValue)),
+                      value: metricValue(data, ['invoices'], () => totals.overdueValue),
                       color: totals.overdue.length ? workspaceTheme.red : workspaceTheme.green,
                       background: totals.overdue.length ? '#FEF2F2' : '#F0FDF4',
                     },
                     {
                       label: 'Accounts Payable',
                       detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.payableUnpaid.length} invoice(s)`,
-                      value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)),
+                      value: metricValue(data, ['invoices'], () => totals.payableOutstandingValue),
                       color: workspaceTheme.orange,
                       background: '#FFF7ED',
                     },
                     {
                       label: 'Settled AR value',
                       detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.paid.length} paid invoice(s)`,
-                      value: metricValue(data, ['invoices'], () => money(totals.paidValue)),
+                      value: metricValue(data, ['invoices'], () => totals.paidValue),
                       color: workspaceTheme.green,
                       background: '#F0FDF4',
                     },
@@ -232,7 +235,7 @@ export default function FinanceControlDashboardHome() {
                 rows={outstandingSorted.slice(0, 12).map((invoice) => [
                   invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase(),
                   invoice.client_name ?? 'Client',
-                  money(invoiceSignedGrossAmount(invoice)),
+                  dashboardInvoiceValue([invoice],false),
                   invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-GB') : 'Not set',
                   <StatusBadge
                     key="status"
@@ -249,7 +252,7 @@ export default function FinanceControlDashboardHome() {
                 columns={['Invoice', 'Amount', 'Status']}
                 rows={totals.paid.slice(0, 5).map((invoice) => [
                   invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase(),
-                  money(invoiceSignedGrossAmount(invoice)),
+                  dashboardInvoiceValue([invoice],false),
                   <StatusBadge key="status" value="paid" tone="green" />,
                 ])}
                 empty={<EmptyState compact title={invoicesUnavailable ? 'Invoice data unavailable' : 'No settled invoices'} />}

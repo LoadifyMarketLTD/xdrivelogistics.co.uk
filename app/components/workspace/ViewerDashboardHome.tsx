@@ -1,5 +1,7 @@
 'use client';
 
+import master5301 from './master5301Dashboard.module.css';
+
 import { useRouter } from 'next/navigation';
 import {
   classifyWorkspaceJobStage,
@@ -40,8 +42,8 @@ export default function ViewerDashboardHome() {
     <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <div className="xdrive-owner-dashboard-grid">
-        <div className="xdrive-owner-dashboard-column">
+      <div data-master-dashboard="5301" className={`xdrive-owner-dashboard-grid ${master5301.masterGrid}`}>
+        <div className={`xdrive-owner-dashboard-column ${master5301.masterColumn}`}>
           <OperationalCard title="Reports & Statistics" subtitle="Read-only operational position.">
             <KpiGrid>
               <KpiCard label="Jobs visible" value={getWorkspaceDatasetMetricValue(data.datasets.jobs, (rows) => rows.length)} detail={metricDetail(data, ['jobs'], 'Read-only record set')} tone="navy" onClick={() => router.push('/admin/jobs')} />
@@ -62,6 +64,7 @@ export default function ViewerDashboardHome() {
           </OperationalCard>
         </div>
 
+        <div className={`xdrive-owner-dashboard-column ${master5301.masterColumn}`}>
         <OperationalCard
           title="Activity at a glance"
           subtitle="Latest jobs available to this read-only workspace."
@@ -80,6 +83,7 @@ export default function ViewerDashboardHome() {
             empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Job data unavailable' : 'No jobs visible'} />}
           />
         </OperationalCard>
+        </div>
       </div>
     </div>
   );

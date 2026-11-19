@@ -1,5 +1,7 @@
 'use client';
 
+import master5301 from './master5301Dashboard.module.css';
+
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -333,8 +335,8 @@ export default function FleetControlDashboardHome() {
     <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
       {intelligence.error ? <AlertBanner>{intelligence.error}</AlertBanner> : null}
-      <div className="xdrive-owner-dashboard-grid">
-        <div className="xdrive-owner-dashboard-column">
+      <div data-master-dashboard="5301" className={`xdrive-owner-dashboard-grid ${master5301.masterGrid}`}>
+        <div className={`xdrive-owner-dashboard-column ${master5301.masterColumn}`}>
           <OperationalCard
             title="Reports & Statistics"
             subtitle="Live fleet operations, allocation and readiness."
@@ -379,7 +381,7 @@ export default function FleetControlDashboardHome() {
           </div>
         </div>
 
-        <div className="xdrive-owner-dashboard-column">
+        <div className={`xdrive-owner-dashboard-column ${master5301.masterColumn}`}>
         <OperationalCard
           title="Activity at a glance"
           subtitle="Carrier-won work requiring allocation or active execution."

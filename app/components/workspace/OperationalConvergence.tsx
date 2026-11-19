@@ -2,6 +2,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import styles from './OperationalConvergence.module.css';
+import master5301 from './master5301Dashboard.module.css';
 import type { WorkspaceCardTone } from './WorkspaceUI';
 
 export type OperationalSignalItem = {
@@ -77,9 +78,9 @@ export function OperationalWorkspaceGrid({
   asideLabel?: string;
 }) {
   return (
-    <div className="xdrive-owner-dashboard-grid">
-      <div className={`xdrive-owner-dashboard-column ${styles.workspaceMain}`}>{main}</div>
-      <aside className={`xdrive-owner-dashboard-column ${styles.workspaceAside}`} aria-label={asideLabel}>{aside}</aside>
+    <div data-master-dashboard="5301" className={`xdrive-owner-dashboard-grid ${master5301.masterGrid}`}>
+      <div className={`xdrive-owner-dashboard-column ${styles.workspaceMain} ${master5301.masterColumn}`}>{main}</div>
+      <aside className={`xdrive-owner-dashboard-column ${styles.workspaceAside} ${master5301.masterColumn}`} aria-label={asideLabel}>{aside}</aside>
     </div>
   );
 }

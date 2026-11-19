@@ -3,6 +3,7 @@
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import CompanyAdminSidebar from './CompanyAdminSidebar';
 import companySidebarStyles from './CompanyAdmin5301Sidebar.module.css';
+import {usesMasterAdminSidebar} from './companyAdmin5301Navigation';
 import { composeCompanyAdminSidebarNav } from './companyAdminSidebarNav';
 import CompanyFleetNavigation from './CompanyFleetNavigation';
 import {fleetHubGroupId} from './companyFleetNavigationModel';
@@ -362,7 +363,8 @@ export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
 
 function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
-    ['finance-dashboard-primary', 'Dashboard', '/admin/invoices'],
+    ['finance-dashboard-primary', 'Dashboard', '/admin/finance/dashboard'],
+    ['finance-invoice-register-primary', 'Invoice Register', '/admin/invoices'],
     ['finance-diary-primary', 'Diary', '/admin/diary'],
     ['finance-customer-primary', 'Customer Invoices', '/admin/finance/customer-invoices'],
     ['finance-carrier-primary', 'Carrier Invoices', '/admin/finance/carrier-invoices'],
@@ -375,7 +377,8 @@ function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
 
 function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
-    ['compliance-dashboard-primary', 'Dashboard', '/admin/documents'],
+    ['compliance-dashboard-primary', 'Dashboard', '/admin/documents/dashboard'],
+    ['compliance-document-register-primary', 'Document Register', '/admin/documents'],
     ['compliance-driver-primary', 'Driver Docs', '/admin/documents?type=driver'],
     ['compliance-vehicle-primary', 'Vehicle Docs', '/admin/documents?type=vehicle'],
     ['compliance-company-primary', 'Company Docs', '/admin/documents/company'],
@@ -597,6 +600,7 @@ export default function TopWorkspaceShell({
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
   const companySidebarScope = companyAdminSidebar && role === 'company_admin' && !fixtureCompanyName;
+  const masterAdminSidebarScope=usesMasterAdminSidebar(role,companyAdminSidebar,Boolean(fixtureCompanyName));
 
   const nav = useMemo(() => {
     if (!workspaceRoleReady) return [];
@@ -738,6 +742,7 @@ export default function TopWorkspaceShell({
       return composeCompanyAdminSidebarNav(filterWorkspaceNavByAccess(base, role, user));
     }
     const accessibleBase = filterWorkspaceNavByAccess(base, role, user);
+    if(masterAdminSidebarScope)return accessibleBase;
 
     if (role === 'broker') {
       const preferred = filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user);
@@ -763,7 +768,7 @@ export default function TopWorkspaceShell({
     }
 
     return accessibleBase;
-  }, [role, user, workspaceRoleReady, companySidebarScope]);
+  }, [role, user, workspaceRoleReady, companySidebarScope, masterAdminSidebarScope]);
   const [companyName, setCompanyName] = useState(() => fixtureCompanyName ?? 'XDrive Logistics');
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -1077,8 +1082,8 @@ export default function TopWorkspaceShell({
         </div>
       </header>
 
-      {companySidebarScope ? <div className={companySidebarStyles.body}>
-        <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} pathname={pathname??'/admin'} onPrefetch={prefetchRoute}/>
+      {masterAdminSidebarScope ? <div className={companySidebarStyles.body}>
+        <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} pathname={pathname??'/admin'} onPrefetch={prefetchRoute} homeHref={companySidebarScope?undefined:definition.homeHref} workspaceLabel={companySidebarScope?'Company Admin':definition.label}/>
         <div className={companySidebarStyles.content}>
           <WorkspaceRestrictionBanner role={role}/>
           <OperationalPostcodeAreaResolver/>

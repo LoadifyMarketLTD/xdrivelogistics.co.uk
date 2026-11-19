@@ -383,10 +383,11 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     role: 'owner_driver', label: 'Owner Driver Workspace', subtitle: 'Transport execution and commercial driver tools', homeHref: '/driver', primaryAction: { label: 'Find Loads', href: '/driver/loads', capability: 'loads.view.marketplace' }, nav: OWNER_DRIVER_NAV,
   },
   finance: {
-    role: 'finance', label: 'Finance Workspace', subtitle: 'Invoices, payments, balances and reporting', homeHref: '/admin/invoices',
+    role: 'finance', label: 'Finance Workspace', subtitle: 'Invoices, payments, balances and reporting', homeHref: '/admin/finance/dashboard',
     nav: [
       { id: 'finance', label: 'Finance', items: [
-        { id: 'dashboard', label: 'Finance Dashboard', href: '/admin/invoices', icon: '⌂' },
+        { id: 'dashboard', label: 'Finance Dashboard', href: '/admin/finance/dashboard', icon: '⌂' },
+        { id: 'invoice-register', label: 'Invoice Register', href: '/admin/invoices', capability: 'invoices.carrier.manage' },
         { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' },
         { id: 'customer-invoices', label: 'Customer Invoices', href: '/admin/finance/customer-invoices', icon: '£' },
         { id: 'carrier-invoices', label: 'Carrier Invoices', href: '/admin/finance/carrier-invoices', icon: '£' },
@@ -399,10 +400,11 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     ],
   },
   compliance: {
-    role: 'compliance', label: 'Compliance Workspace', subtitle: 'Verification, expiry and operational readiness', homeHref: '/admin/documents',
+    role: 'compliance', label: 'Compliance Workspace', subtitle: 'Verification, expiry and operational readiness', homeHref: '/admin/documents/dashboard',
     nav: [
       { id: 'compliance', label: 'Compliance', items: [
-        { id: 'dashboard', label: 'Compliance Dashboard', href: '/admin/documents', icon: '⌂' },
+        { id: 'dashboard', label: 'Compliance Dashboard', href: '/admin/documents/dashboard', icon: '⌂' },
+        { id: 'document-register', label: 'Document Register', href: '/admin/documents' },
         { id: 'driver-docs', label: 'Driver Documents', href: '/admin/documents?type=driver', icon: '▤' },
         { id: 'vehicle-docs', label: 'Vehicle Documents', href: '/admin/documents?type=vehicle', icon: '▤' },
         { id: 'company-docs', label: 'Company Documents', href: '/admin/documents/company', icon: '▤' },

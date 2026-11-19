@@ -1,0 +1,13 @@
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {describe,it,expect} from 'vitest';
+import {getVisibleWorkspaceNav,type WorkspaceRole} from '../lib/workspaceRole';
+import {usesMasterAdminSidebar,organisationForAdminRole5301,activeCompany5301Href} from '../app/components/workspace/companyAdmin5301Navigation';
+import {OperationalWorkspaceGrid} from '../app/components/workspace/OperationalConvergence';
+const roles:WorkspaceRole[]=['company_owner','company_admin','carrier_admin','fleet_manager','dispatcher','finance','compliance','viewer'];
+describe('5301 internal role presentation boundary',()=>{
+ it('selects only explicitly supported internal roles, without changing driver, customer or platform access',()=>{for(const role of roles)expect(usesMasterAdminSidebar(role,true,false)).toBe(true);for(const role of ['platform_owner','driver','owner_driver','customer','broker'] as const)expect(usesMasterAdminSidebar(role,true,false)).toBe(false);expect(usesMasterAdminSidebar('company_admin',false,false)).toBe(false);expect(usesMasterAdminSidebar('company_admin',true,true)).toBe(false)});
+ it.each(['fleet_manager','dispatcher','finance','compliance','viewer'] as const)('preserves every existing authorized %s destination without inventing routes',role=>{const nav=getVisibleWorkspaceNav(role);const home=nav[0].items[0].href;const result=organisationForAdminRole5301(nav,home);expect(result[0].label).toBe('Overview');expect(result[0].items[0].href).toBe(home);expect(result.flatMap(g=>g.items.map(i=>i.href)).sort()).toEqual([...new Set(nav.flatMap(g=>g.items.map(i=>i.href)))].sort());expect(activeCompany5301Href(nav,home,'',home)).toBe(home)});
+ it('selects exact document query views and nested job routes',()=>{const nav=getVisibleWorkspaceNav('compliance');expect(activeCompany5301Href(nav,'/admin/documents','type=vehicle','/admin/documents')).toBe('/admin/documents?type=vehicle');const viewer=getVisibleWorkspaceNav('viewer');expect(activeCompany5301Href(viewer,'/admin/jobs/example','','/admin')).toBe('/admin/jobs')});
+ it('renders source master geometry with each role supplied content, not hardcoded commercial data',()=>{const markup=renderToStaticMarkup(<OperationalWorkspaceGrid main={<div>Role-specific statistics</div>} aside={<div>Role-specific activity</div>} asideLabel="Role activity"/>);expect(markup).toContain('data-master-dashboard="5301"');expect(markup).toContain('Role-specific statistics');expect(markup).toContain('Role-specific activity');expect(markup).not.toContain('Gross Margin');expect(markup).not.toContain('Post Load')});
+});

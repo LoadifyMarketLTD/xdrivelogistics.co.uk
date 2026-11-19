@@ -130,7 +130,9 @@ export default function CarrierOperationsDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
   const {user} = useAuth();
-  const companyAdminEnhancements = (user?.workspaceRole ?? resolveWorkspaceRole(user)) === 'company_admin';
+  const dashboardRole = user?.workspaceRole ?? resolveWorkspaceRole(user);
+  const companyAdminEnhancements = dashboardRole === 'company_admin';
+  const masterPresentation = ['company_admin','company_owner','carrier_admin','fleet_manager'].includes(dashboardRole);
   const [companyReportRange,setCompanyReportRange] = useState(companyAdminEnhancements?'today':'month');
   const payablesHref = companyAdminEnhancements ? '/admin/finance/carrier-invoices' : '/admin/invoices';
 
@@ -515,8 +517,8 @@ export default function CarrierOperationsDashboardHome() {
         </AlertBanner>
       ) : null}
 
-      <div data-master-dashboard={companyAdminEnhancements?'5301':undefined} className={'carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid'+(companyAdminEnhancements?' '+master5301.masterGrid:'')}>
-        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column'+(companyAdminEnhancements?' '+master5301.masterColumn:'')}>
+      <div data-master-dashboard={masterPresentation?'5301':undefined} className={'carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid'+(masterPresentation?' '+master5301.masterGrid:'')}>
+        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column'+(masterPresentation?' '+master5301.masterColumn:'')}>
           <OperationalCard
             title="Reports & Statistics"
             className={companyAdminEnhancements ? "carrier-cx-reporting-card company-admin-reporting-card" : "carrier-cx-reporting-card"}
@@ -712,7 +714,7 @@ export default function CarrierOperationsDashboardHome() {
           </OperationalCard>
         </div>
 
-        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column'+(companyAdminEnhancements?' '+master5301.masterColumn:'')}>
+        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column'+(masterPresentation?' '+master5301.masterColumn:'')}>
           <OperationalCard
             title="Activity at a glance"
             className="carrier-cx-activity-card"
