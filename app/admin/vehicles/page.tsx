@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {resolveWorkspaceRole} from '../../../lib/workspaceRole';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -21,6 +22,7 @@ const isAdvertisingState = (value: unknown): value is AdvertisingState =>
   value === 'none' || value === 'exchange' || value === 'partner';
 
 export default function VehiclesPage() {
+  const handledEdit=useRef('');
   const { user } = useAuth();
   const { companyId, companyResolved, companyError } = useAdminCompanyContext();  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -206,7 +208,7 @@ export default function VehiclesPage() {
     }
   };
 
-  const openEditModal = (vehicle: Vehicle) => {
+  const openEditModal = useCallback((vehicle: Vehicle) => {
     setEditingVehicle(vehicle);
     setEditData({
       type: vehicle.type,
@@ -219,7 +221,8 @@ export default function VehiclesPage() {
       assigned_driver_id: vehicle.assigned_driver_id ?? '',
     });
     setEditError('');
-  };
+  },[]);
+  useEffect(()=>{if((user?.workspaceRole??resolveWorkspaceRole(user))!=='company_admin'||!companyResolved||!companyId||loading)return;const edit=new URLSearchParams(window.location.search).get('edit');if(!edit||handledEdit.current===companyId+':'+edit)return;handledEdit.current=companyId+':'+edit;const vehicle=vehicles.find(v=>v.id===edit&&v.company_id===companyId);if(vehicle)openEditModal(vehicle);},[user,companyResolved,companyId,loading,vehicles,openEditModal]);
 
   const handleUpdate = async () => {
     if (!editingVehicle || !companyId || !isSupabaseConfigured) return;

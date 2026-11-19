@@ -145,6 +145,7 @@ export default function FleetVehiclesPage() {
     await Promise.all([data.refresh(), presence.refresh(), loadExchange()]);
   };
 
+  if(companyAdmin&&fleetView==='register')return <CompanyAdminFleetRegister key={data.companyId??'unresolved'} data={data} onLive={()=>setFleetView('live')}/>;
   return (
     <VehicleRegisterShell
       title="My Fleet"
@@ -152,7 +153,7 @@ export default function FleetVehiclesPage() {
       actions={<><button type="button" onClick={() => router.push('/admin/vehicles')} className="carrier-register-action">+ Add Vehicle</button><button type="button" onClick={() => void refreshAll()} disabled={data.loading || presence.loading || exchangeLoading}>{data.loading || presence.loading || exchangeLoading ? 'Refreshing...' : 'Refresh'}</button></>}
     >
       {companyAdmin&&<div className="workspace-tab-strip company-admin-fleet-tabs" role="group" aria-label="Fleet views"><button type="button" aria-pressed={fleetView==='register'} data-active={String(fleetView==='register')} onClick={()=>setFleetView('register')}>Fleet Register</button><button type="button" aria-pressed={fleetView==='live'} data-active={String(fleetView==='live')} onClick={()=>setFleetView('live')}>Live Availability</button></div>}
-      {companyAdmin&&fleetView==='register'?<CompanyAdminFleetRegister data={data}/>:<>
+      {<>
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       {exchangeError && <AlertBanner tone="warning">{exchangeError}</AlertBanner>}
 

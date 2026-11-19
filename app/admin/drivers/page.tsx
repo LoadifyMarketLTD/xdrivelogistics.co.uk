@@ -1,6 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import {useSearchParams,useRouter} from 'next/navigation';
+import {resolveWorkspaceRole} from '../../../lib/workspaceRole';
+import CompanyAdminFleetRegister from '../../components/workspace/CompanyAdminFleetRegister';
+import {useCompanyWorkspaceData} from '../../components/workspace/useCompanyWorkspaceData';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Driver, Company } from '../../../lib/types/database';
@@ -27,7 +31,11 @@ const DRIVER_SELECT_COLUMNS = [
   'created_at',
 ];
 
-export default function DriversPage() {
+export default function DriversPage(){return <Suspense fallback={<p>Loading drivers…</p>}><DriversRoute/></Suspense>}
+function DriversRoute(){const {user}=useAuth();const params=useSearchParams();const router=useRouter();const companyAdmin=(user?.workspaceRole??resolveWorkspaceRole(user))==='company_admin';return companyAdmin&&params.get('manage')!=='1'?<ProtectedRoute><ApprovedDriversBoard onManage={()=>router.push('/admin/drivers?manage=1')} onAdd={()=>router.push('/admin/drivers?manage=1&action=add')}/></ProtectedRoute>:<DriverManagementPage entryAction={companyAdmin?params.get('action'):null} entryEdit={companyAdmin?params.get('edit'):null}/>;}
+function ApprovedDriversBoard({onManage,onAdd}:{onManage:()=>void;onAdd:()=>void}){const data=useCompanyWorkspaceData();return <CompanyAdminFleetRegister key={data.companyId??'unresolved'} data={data} standalone onManageDrivers={onManage} onAddDriver={onAdd}/>;}
+function DriverManagementPage({entryAction,entryEdit}:{entryAction:string|null;entryEdit:string|null}) {
+  const handledEntry=useRef('');
   const { user } = useAuth();
   const { companyId, companyResolved, companyError } = useAdminCompanyContext();
   const [drivers, setDrivers] = useState<Driver[]>([]);
@@ -224,7 +232,7 @@ export default function DriversPage() {
     }
   };
 
-  const openEditModal = (driver: Driver) => {
+  const openEditModal = useCallback((driver: Driver) => {
     setEditingDriver(driver);
     setEditData({
       display_name: driver.display_name,
@@ -233,7 +241,8 @@ export default function DriversPage() {
       app_access: driver.app_access ?? false,
     });
     setEditError('');
-  };
+  },[]);
+  useEffect(()=>{if(!companyResolved||!companyId||loading)return;const intent=companyId+':'+(entryAction??'')+':'+(entryEdit??'');if(handledEntry.current===intent)return;handledEntry.current=intent;if(entryAction==='add'){setError('');setShowModal(true);}else if(entryEdit){const driver=drivers.find(d=>d.id===entryEdit&&d.company_id===companyId);if(driver)openEditModal(driver);}},[companyResolved,companyId,loading,entryAction,entryEdit,drivers,openEditModal]);
 
   const handleUpdate = async () => {
     if (!editingDriver || !companyId || !isSupabaseConfigured) return;
