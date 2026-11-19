@@ -23,7 +23,7 @@ type Props={
   onSubmit:(value:ReserveCancellationValue)=>void;
 };
 
-export default function ReserveCancellation({title='Cancellation Instruction',address,goodsInCustodyDefault,forceJobScope=false,busy,error,onBack,onSubmit}:Props){
+export default function ReserveCancellation({title='Request Booking Cancellation',address,goodsInCustodyDefault,forceJobScope=false,busy,error,onBack,onSubmit}:Props){
   const [scope,setScope]=useState<'stop'|'job'>(forceJobScope?'job':'stop');
   const [cancelledByRole,setCancelledByRole]=useState('customer');
   const [cancelledByName,setCancelledByName]=useState('');
@@ -36,7 +36,7 @@ export default function ReserveCancellation({title='Cancellation Instruction',ad
   const needsAddress=goodsInCustody&&['return_to_sender_depot','redirect_authorised','replacement_stop'].includes(goodsDisposition);
   const valid=reason.trim().length>=5&&(!goodsInCustody||goodsDisposition!=='none')&&(!needsAddress||resolutionAddress.trim().length>=4);
 
-  return <section className="rv-operation-screen">
+  return <section className="rv-operation-screen rv-request-screen">
     <button className="rv-back" type="button" onClick={onBack}>← Back</button>
     <span className="rv-over">BOOKING OPERATIONS</span>
     <h1>{title}</h1>
@@ -66,13 +66,13 @@ export default function ReserveCancellation({title='Cancellation Instruction',ad
       </select></label>}
       {needsAddress&&<label className="rv-field"><span>Return / replacement address *</span><input value={resolutionAddress} onChange={e=>setResolutionAddress(e.target.value)} maxLength={500}/></label>}
       <label className="rv-field"><span>Driver Notes</span><textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)} maxLength={2000}/></label>
-      <p className="rv-sub">This records the instruction and preserves the audit trail. It does not invent a successful POD or silently change the agreed commercial price.</p>
+      <p className="rv-sub">This submits a cancellation request for review. It does not cancel the booking, authorise a return or redirect, release goods from custody, or change the agreed price.</p>
       {error&&<p className="rv-error" role="alert">{error}</p>}
       <button className="rv-primary rv-wide" type="button" disabled={busy||!valid} onClick={()=>onSubmit({
         scope:forceJobScope?'job':scope,cancelledByRole,cancelledByName:cancelledByName.trim(),
         reason:reason.trim(),instructionChannel,goodsInCustody,
         goodsDisposition:goodsInCustody?goodsDisposition:'none',resolutionAddress:resolutionAddress.trim(),notes:notes.trim(),
-      })}>{busy?'Recording cancellation…':'Record Cancellation Instruction'}</button>
+      })}>{busy?'Recording cancellation…':'Submit Cancellation Request'}</button>
     </section>
   </section>;
 }
