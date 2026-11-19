@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
           .in('job_id', jobIds),
         supabaseAdmin
           .from('job_commercial_agreements_effective')
-          .select('id, job_id, supplier_company_id, agreed_amount, currency, vat_amount, agreed_gross_amount, payment_terms')
+          .select('id, job_id, supplier_company_id, agreed_amount, currency, vat_amount, vat_rate, agreed_gross_amount, payment_terms, payment_due_days')
           .eq('supplier_company_id', driver.companyId)
           .in('job_id', jobIds),
       ])
@@ -158,6 +158,11 @@ export async function GET(request: NextRequest) {
       invoice: invoiceByJob.get(String(job.id)) ?? null,
       commercial_mode: marketplace ? 'marketplace' : 'direct',
       agreed_amount: marketplace ? agreedAmount : null,
+      agreed_vat_amount: marketplace ? agreedVat : null,
+      agreed_vat_rate: marketplace ? Number(agreement?.vat_rate) : null,
+      agreed_gross_amount: marketplace ? agreedGross : null,
+      payment_terms: marketplace ? agreedTerms : null,
+      payment_due_days: marketplace ? agreement?.payment_due_days ?? null : null,
       direct_invoice_amount: marketplace ? null : directInvoiceAmount,
       currency: marketplace ? agreedCurrency : (job.currency || 'GBP'),
     }];

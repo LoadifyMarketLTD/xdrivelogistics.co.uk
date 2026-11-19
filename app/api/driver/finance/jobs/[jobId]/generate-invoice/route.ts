@@ -251,7 +251,7 @@ export async function POST(
 
   const vatRate: 0 | 5 | 20 = marketplace
     ? agreedVatRate
-    : body.vat_rate === 5 || body.vat_rate === 20
+    : body.vat_rate === 0 || body.vat_rate === 5 || body.vat_rate === 20
       ? body.vat_rate
       : platformDefaultVatRate;
   const unresolvedVatAmount = marketplace

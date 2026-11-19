@@ -6,8 +6,8 @@ declare const __BOOKING_LOCAL__: boolean;
 const LOCAL = typeof __BOOKING_LOCAL__ !== "undefined" && __BOOKING_LOCAL__;
 const QA_MOCK = LOCAL || import.meta.env.VITE_CX4A_QA_MOCK === '1' || window.location.pathname.includes('/driver/reserve-rebuild-qa/');
 type Json = Record<string, unknown>;
-type Invoice = { id: string; invoice_number?: string; job_id?: string; status?: string; client_name?: string; client_email?: string; net_amount?: number; vat_amount?: number; amount?: number; currency?: string; delivery_state?: string; delivery_message_id?: string; payment_terms?: string };
-type Eligible = { id: string; commercial_mode: 'marketplace'|'direct'; client_name?: string; client_email?: string; agreed_amount?: number; direct_invoice_amount?: number; direct_vat_rate?: number; invoice?: Invoice | null };
+type Invoice = { id: string; invoice_number?: string; job_id?: string; status?: string; client_name?: string; client_email?: string; net_amount?: number; vat_amount?: number; amount?: number; currency?: string; delivery_state?: string; delivery_message_id?: string; payment_terms?: string; invoice_date?: string; due_date?: string; job_ref?: string; client_address?: string; service_description?: string; invoice_origin?: string; vat_rate?: number; vat_treatment?: string };
+type Eligible = { id: string; commercial_mode: 'marketplace'|'direct'; client_name?: string; client_email?: string; agreed_amount?: number; agreed_vat_amount?: number; agreed_vat_rate?: number; agreed_gross_amount?: number; payment_terms?: string; payment_due_days?: number|null; currency?: string; direct_invoice_amount?: number; direct_vat_rate?: number; invoice?: Invoice | null };
 const object = (x: unknown): Json => x && typeof x==='object' && !Array.isArray(x) ? x as Json : {};
 const money = (v:number, currency='GBP') => new Intl.NumberFormat('en-GB',{style:'currency',currency}).format(v);
 const row=(key:string,val:string)=> <div className="rv-fact"><span>{key}</span><strong>{val}</strong></div>;
@@ -29,6 +29,10 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  const [netAmount,setNetAmount]=useState('');
  const [vatRate,setVatRate]=useState('0');
  const [generatorRequested,setGeneratorRequested]=useState(false);
+ const [emailOpen,setEmailOpen]=useState(false);
+ const [officialDate,setOfficialDate]=useState('');
+ const [officialNotes,setOfficialNotes]=useState('');
+ const [directTerms,setDirectTerms]=useState('14 days');
  const ref=job.yourRef||job.customerRef||job.id;
  const [qaNetAmount,setQaNetAmount]=useState(String(job.quote??''));
  const [qaVatRate,setQaVatRate]=useState('20');
@@ -65,7 +69,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    return object(data.invoice) as Invoice;
  }
  async function discover() {
-   setLoading(true);setError('');setEligibilityChecked(false);
+   setLoading(true);setError('');setNotice('');setEligibilityChecked(false);setEligible(null);
    try {
      const res=await req('/finance/jobs/'+encodeURIComponent(job.id)+'/invoice-context');
      const data=object(await res.json());
@@ -78,7 +82,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
      setVatRate(candidate?.commercial_mode==='direct' && candidate.direct_vat_rate!=null ? String(candidate.direct_vat_rate) : '0');
      let existing=(candidate?.invoice||object(data.invoice)) as Invoice|null;
      if(existing?.id) {
-       const full=await loadDetail(existing.id);setInvoice(full);setClientName(full.client_name||'');setClientEmail(full.client_email||'');setNetAmount(full.net_amount==null?'':String(full.net_amount));setVatRate(String(full.vat_amount&&full.net_amount?Math.round(100*full.vat_amount/full.net_amount):0));
+       const full=await loadDetail(existing.id);setInvoice(full);setOfficialDate(full.invoice_date||'');setOfficialNotes(full.service_description||'');setDirectTerms(full.payment_terms||'14 days');setClientName(full.client_name||'');setClientEmail(full.client_email||'');setNetAmount(full.net_amount==null?'':String(full.net_amount));setVatRate(String(full.vat_amount&&full.net_amount?Math.round(100*full.vat_amount/full.net_amount):0));
        setNotice('Official XDrive invoice found. Existing invoice reused; duplicate creation is blocked.');
      } else {
        setInvoice(null);
@@ -100,12 +104,12 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
        // Direct jobs may require their own billing values. Do not invent them.
        if(eligible.commercial_mode==='direct'){
          if(!clientName.trim()||!clientEmail.includes('@')||!(Number(netAmount)>0))throw new Error('Enter the verified direct-job customer, finance email and charge.');
-         body.client_name=clientName.trim();body.client_email=clientEmail.trim();body.amount=Number(netAmount);body.vat_rate=Number(vatRate);
+         body.client_name=clientName.trim();body.client_email=clientEmail.trim();body.amount=Number(netAmount);body.vat_rate=Number(vatRate);body.payment_terms=directTerms;if(officialNotes.trim())body.service_description=officialNotes.trim();
        }
        const res=await req('/finance/jobs/'+encodeURIComponent(job.id)+'/generate-invoice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
        const created=object(object(await res.json()).invoice) as Invoice;
        if(!created.id)throw new Error('Generator returned no invoice ID. Check the XDrive register before retrying.');
-       const full=await loadDetail(created.id);setInvoice(full);setNotice('Official XDrive draft '+(full.invoice_number||full.id)+' created and linked to this job.');
+       const full=await loadDetail(created.id);setInvoice(full);setOfficialDate(full.invoice_date||'');setOfficialNotes(full.service_description||'');setNotice('Official XDrive draft '+(full.invoice_number||full.id)+' created and linked to this job.');
      } finally {setGeneratorRequested(false)}
    });
  }
@@ -167,61 +171,73 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    </section>;
  }
 
+ // Preserve the approved Booking invoice layout in live mode. Financial values
+ // always originate from the official agreement/invoice, never local QA state.
  const sent=invoice?.delivery_state==='sent'&&Boolean(invoice.delivery_message_id);
  const draft=Boolean(invoice)&&String(invoice?.status||'').toLowerCase()==='draft';
- return <section className="rv-finance">
-  <button className="rv-back" onClick={onBack}>← Back to POD</button>
-  <span className="rv-over">XDRIVE FINANCE · OFFICIAL INVOICE GENERATOR</span>
-  {QA_MOCK&&<div className="rv-warning" role="note">ISOLATED QA ONLY — synthetic booking and billing values. No official invoice will be created or sent.</div>}
-  <div className="rv-row"><h1>Create Invoice</h1><span className="rv-counter">9 / 9</span></div>
-  <div className="rv-progress"><span style={{width:'100%'}}/></div>
-  {error&&<div className="rv-error" role="alert">{error}</div>}
-  {notice&&<div className="rv-warning" role="status">{notice}</div>}
-  {loading?<p role="status">Checking Ready To Invoice and the company invoice register…</p>:<>
-   <div className="rv-card">
-    <h3>Job & billing eligibility</h3>
-    {row('Job reference',ref)}
-    {row('Invoice eligibility',eligible?'Verified Ready To Invoice':invoice?'Invoice already created':error?'Verification unavailable - retry':'Not eligible / pending')}
-    {row('POD',eligible?'Completed and validated by XDrive':invoice?'Recorded for existing invoice':error?'Not rechecked - previous POD unchanged':'Not yet verified by Finance')}
-    {row('Billing type',eligible?.commercial_mode||'Not available')}
-    {eligible?.commercial_mode==='marketplace'&&row('Contractual net rate',money(Number(eligible.agreed_amount||0)))}
-    {invoice&&<>{row('Invoice number',invoice.invoice_number||invoice.id)}{row('Status',invoice.status||'Unknown')}{row('Delivery status',invoice.delivery_state||'Not sent')}{row('Total',money(Number(invoice.amount||0),invoice.currency||'GBP'))}</>}
-   </div>
-   {!invoice&&eligible?.commercial_mode==='direct'&&<section className="rv-card">
-    <h3>Direct-job billing data · pre-filled from booking</h3>
-    <p className="rv-sub">Values are loaded from the saved booking and XDrive VAT setting. Finance must verify the customer’s legal name, accounts email, agreed net charge and VAT treatment before generating the invoice.</p>
-    <label className="rv-field"><span>Customer legal name</span><input value={clientName} onChange={e=>setClientName(e.target.value)}/></label>
-    <label className="rv-field"><span>Accounts email</span><input type="email" value={clientEmail} onChange={e=>setClientEmail(e.target.value)}/></label>
-    <label className="rv-field"><span>Net agreed amount (£)</span><input type="number" min=".01" step=".01" value={netAmount} onChange={e=>setNetAmount(e.target.value)}/></label>
-    <label className="rv-field"><span>VAT %</span><select value={vatRate} onChange={e=>setVatRate(e.target.value)}><option value="0">0%</option><option value="5">5%</option><option value="20">20%</option></select></label>
-   </section>}
-   {!eligible&&!invoice&&eligibilityChecked&&<button className="rv-outline rv-wide" onClick={()=>void discover()} disabled={loading||busy}>Recheck Invoice Eligibility ↻</button>}
-   {eligible&&!invoice&&!QA_MOCK&&<button className="rv-primary rv-wide" disabled={busy||generatorRequested} onClick={()=>void generate()}>{busy?'Generating official draft…':'Generate Invoice in XDrive →'}</button>}
-   {eligible&&!invoice&&QA_MOCK&&<p className="rv-sub">Synthetic eligibility verified. Draft generation, invoice numbering, PDF creation and email delivery are disabled in this QA environment.</p>}
-   {invoice&&<section className="rv-card"><h3>Combined A4 Invoice + Complete POD</h3>
-    {row('Invoice',invoice?.invoice_number||'Not generated')}
-    {row('Customer',invoice?.client_name||'Unknown')}
-    {row('Recipient',invoice?.client_email||'Not provided')}
-    {row('Net',money(Number(invoice?.net_amount||0)))}
-    {row('VAT',money(Number(invoice?.vat_amount||0)))}
-    {row('Total',money(Number(invoice?.amount||0)))}
-    <p className="rv-sub">One PDF in this order: invoice → complete delivery POD → recipient signature → collection and delivery photos → uploaded POD documents. Amounts and VAT come from the official invoice.</p>
-    <button className="rv-primary rv-wide" disabled={busy} onClick={()=>void preview()}>{busy?'Generating official PDF…':'Download Invoice + Complete POD (A4) →'}</button>
-    {pdfReviewed&&<div className="rv-success">✓ PDF returned by XDrive generator. Inspect it before approving delivery below.</div>}
-   </section>}
-   {invoice&&<section className="rv-card"><h3>Invoice delivery</h3>
-    {row('Invoice number',invoice?.invoice_number||'Not generated')}
-    {row('Recipient',invoice?.client_email||'Unknown')}
-    {row('Status',invoice?.status||'Unknown')}
-    {row('Email delivery state',invoice?.delivery_state||'Not sent')}
-    {row('Delivery message ID',invoice?.delivery_message_id||'Not confirmed')}
-    {!sent&&draft&&<><label className="rv-confirm"><input type="checkbox" checked={sendApproved} onChange={e=>setSendApproved(e.target.checked)}/> I reviewed the single A4 PDF containing the invoice, full signed POD and all collection/delivery photos, and approve emailing that combined document to the stated finance recipient.</label><button className="rv-primary rv-wide" disabled={busy||!pdfReviewed||!sendApproved} onClick={()=>void send()}>{busy?'Submitting to XDrive…':'Send Invoice via XDrive →'}</button></>}
-    <button className="rv-outline rv-wide" disabled={busy} onClick={()=>void verify()}>Verify Delivery Status ↻</button>
-    {(sent||confirmed)&&<div className="rv-success">✓ The XDrive platform recorded invoice delivery with a message ID.</div>}
-   </section>}
-   {QA_MOCK?<p className="rv-sub">Invoice Register and the LIVE Finance workspace are intentionally disabled in this isolated QA build.</p>:<><button className="rv-outline rv-wide" onClick={onList}>Open XDrive Invoice Register →</button>
-   <p className="rv-sub"><a href="https://www.xdrivelogistics.co.uk/driver/finance" target="_blank" rel="noreferrer">Open the full official Finance workspace</a> (may require web login).</p></>}
-  </>}
+ const marketplace=invoice?invoice.invoice_origin==='marketplace':eligible?.commercial_mode==='marketplace';
+ const currency=invoice?.currency||eligible?.currency||'GBP';
+ const locked=marketplace||Boolean(invoice&&!editing);
+ const canEdit=draft&&invoice?.delivery_state!=='sending'&&!sent;
+ const officialNet=Number((invoice?.net_amount??(marketplace?eligible?.agreed_amount:netAmount))||0);
+ const officialVat=Number((invoice?.vat_amount??(marketplace?eligible?.agreed_vat_amount:Math.round(Number(netAmount)*Number(vatRate))/100))||0);
+ const officialGross=Number((invoice?.amount??(marketplace?eligible?.agreed_gross_amount:officialNet+officialVat))||0);
+ const terms=(editing&&!marketplace?directTerms:invoice?.payment_terms||(marketplace?eligible?.payment_terms:directTerms))||'';
+ const today=new Date().toISOString().slice(0,10);
+ const shownDate=editing?officialDate:invoice?.invoice_date||today;
+ const calculatedDue=(()=>{const m=/^(\d+)\s+days$/i.exec(terms);const days=marketplace&&eligible?.payment_due_days!=null?eligible.payment_due_days:terms.toLowerCase()==='pay now'?0:m?Number(m[1]):null;if(days==null||!shownDate)return '';const d=new Date(shownDate+'T00:00:00Z');if(!Number.isFinite(d.getTime()))return '';d.setUTCDate(d.getUTCDate()+days);return d.toISOString().slice(0,10);})();
+ const loaded=Boolean(invoice||eligible)&&!loading&&!error;
+ const ready=Boolean(eligible)&&!error&&!loading&&Number.isFinite(officialNet)&&officialNet>0&&(marketplace||Boolean(clientName.trim()&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientEmail.trim())&&[0,5,20].includes(Number(vatRate))));
+ const buyer=invoice?.client_name||job.company||eligible?.client_name||'Customer not supplied';
+ const reference=invoice?.job_ref||ref;
+ const beginEdit=()=>{if(!canEdit||!invoice)return;setOfficialDate(invoice.invoice_date||today);setOfficialNotes(invoice.service_description||'');setClientName(invoice.client_name||'');setClientEmail(invoice.client_email||'');setNetAmount(String(invoice.net_amount??''));setVatRate(String(invoice.vat_rate??0));setDirectTerms(invoice.payment_terms||'14 days');setEditing(true);setEmailOpen(false);setPdfReviewed(false);setSendApproved(false);setError('');};
+ async function saveOfficialDraft(){
+   await action(async()=>{
+     if(!invoice||!canEdit)throw new Error('Only an unsent official draft can be edited.');
+     const body:Json={client_name:marketplace?invoice.client_name:clientName.trim(),client_email:marketplace?invoice.client_email:clientEmail.trim(),client_address:invoice.client_address||'',service_description:officialNotes.trim()||'Transport service',invoice_date:officialDate};
+     if(!marketplace){body.net_amount=Number(netAmount);body.vat_rate=Number(vatRate);body.payment_terms=directTerms;}
+     const res=await req('/finance/invoices/'+encodeURIComponent(invoice.id)+'/draft',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+     const saved=object(object(await res.json()).invoice) as Invoice;
+     if(saved.id!==invoice.id)throw new Error('Draft save was not confirmed.');
+     setInvoice(await loadDetail(saved.id));setPdfReviewed(false);setSendApproved(false);setEditing(false);setNotice('Official invoice draft updated.');
+   });
+ }
+ const banners=<>{error&&<div className="rv-error" role="alert">{error}</div>}{notice&&<div className="rv-warning" role="status">{notice}</div>}{loading&&<p role="status">Checking official Finance records…</p>}</>;
+ if(invoice&&!editing)return <section className="rv-finance rv-qa-invoice">
+   <button className="rv-back" onClick={onBack}>Back to Booking Status</button><h1>View Invoice</h1>{banners}
+   <section className="rv-card"><div className="rv-row"><strong>{buyer}</strong><h3>{money(officialGross,currency)}</h3></div><p>Invoice no: {invoice.invoice_number||'Not available'}</p><small>{invoice.status||'Unknown'} · {sent?'Sent':'Not sent'}</small></section>
+   <details className="rv-card"><summary>Load details</summary>{row('Job reference',ref)}{row('Collection',job.from)}{row('Delivery',job.to)}</details>
+   <section className="rv-card"><h3>Invoice details</h3>{row('Invoice number',invoice.invoice_number||'Not available')}{row('Your ref',reference)}{row('Invoice date',invoice.invoice_date||'Not available')}{row('Due date',invoice.due_date||'Not available')}<h3>Items</h3>{row('Delivery charge',money(officialNet,currency))}{row('Net total',money(officialNet,currency))}{row('VAT',money(officialVat,currency))}{row('Gross total',money(officialGross,currency))}{invoice.service_description&&<p>{invoice.service_description}</p>}</section>
+   <button className="rv-outline rv-wide" disabled={!canEdit||busy} onClick={beginEdit}>Edit invoice</button>
+   <button className="rv-outline rv-wide" disabled={busy} onClick={()=>void preview()}>Download</button>
+   <button className="rv-outline rv-wide" disabled={busy} onClick={()=>setEmailOpen(v=>!v)}>Email</button>
+   {emailOpen&&<section className="rv-card"><h3>Invoice delivery</h3>{row('Recipient',invoice.client_email||'Not provided')}{row('Email delivery state',invoice.delivery_state||'Not sent')}{row('Delivery message ID',invoice.delivery_message_id||'Not confirmed')}{!sent&&draft&&<><label className="rv-confirm"><input type="checkbox" checked={sendApproved} onChange={e=>setSendApproved(e.target.checked)}/> I reviewed the downloaded Invoice + Complete POD PDF and approve sending it to the stated finance recipient.</label><button className="rv-primary rv-wide" disabled={busy||!pdfReviewed||!sendApproved} onClick={()=>void send()}>Send Invoice via XDrive</button></>}<button className="rv-outline rv-wide" disabled={busy} onClick={()=>void verify()}>Verify Delivery Status</button>{(sent||confirmed)&&<p className="rv-success">XDrive recorded invoice delivery with a message ID.</p>}</section>}
+ </section>;
+ return <section className="rv-finance rv-qa-invoice">
+   <button className="rv-back" onClick={editing?()=>setEditing(false):onBack}>{editing?'Back to Invoice':'Back to POD'}</button>
+   <span className="rv-over">XDRIVE FINANCE</span><h1>{editing?'Edit Invoice':'Create Invoice'}</h1>{banners}
+   <section className="rv-card"><h3>Booking and customer</h3>{row('Customer',buyer)}{row('Job reference',ref)}{row('POD',loaded?'Verified by XDrive Finance':'Not yet verified by Finance')}
+    <label className="rv-field"><span>Your reference</span><input value={reference} readOnly/></label>
+    <label className="rv-field"><span>Invoice date</span><input type="date" value={shownDate} readOnly={!editing} onChange={e=>setOfficialDate(e.target.value)}/></label>
+    <label className="rv-field"><span>Payment terms</span>{marketplace?<input value={terms} readOnly/>:<select value={directTerms} disabled={!loaded||busy} onChange={e=>setDirectTerms(e.target.value)}>{['Pay now','7 days','14 days','30 days'].map(t=><option key={t}>{t}</option>)}</select>}</label>
+    <label className="rv-field"><span>Due date</span><input type="date" value={invoice&&!editing?invoice.due_date||'':calculatedDue} readOnly/></label>
+   </section>
+   {loaded&&!marketplace&&<section className="rv-card"><h3>Customer billing details</h3><label className="rv-field"><span>Customer legal name</span><input value={clientName} onChange={e=>setClientName(e.target.value)}/></label><label className="rv-field"><span>Accounts email</span><input type="email" value={clientEmail} onChange={e=>setClientEmail(e.target.value)}/></label></section>}
+   <section className="rv-card"><h3>Items</h3>
+    <label className="rv-field"><span>Item type</span><input value="Delivery charge" readOnly/></label>
+    <label className="rv-field"><span>Quantity</span><input type="number" value="1" readOnly/></label>
+    <label className="rv-field"><span>Unit price ({currency})</span><input type="number" min="0.01" step="0.01" value={locked?(loaded?String(invoice?.net_amount??eligible?.agreed_amount??''):''):netAmount} readOnly={locked||!loaded} onChange={e=>setNetAmount(e.target.value)}/></label>
+    <label className="rv-field"><span>VAT rate</span><select value={locked?String(invoice?.vat_rate??eligible?.agreed_vat_rate??0):vatRate} disabled={locked||!loaded} onChange={e=>setVatRate(e.target.value)}><option value="0">0%</option><option value="5">5%</option><option value="20">20%</option></select></label>
+    <details><summary>Add comment</summary><textarea aria-label="Item comment" value={officialNotes} readOnly={marketplace&&!editing||!loaded} onChange={e=>setOfficialNotes(e.target.value)}/></details>
+    <button className="rv-outline rv-wide" disabled title="Additional charges require an approved commercial adjustment; the official invoice generator does not support arbitrary line items.">+ Add item</button>
+    <p className="rv-sub">{marketplace?'Accepted rates and VAT are fixed by the commercial agreement. Additional charges require an approved adjustment.':'The official invoice stores one delivery charge. Additional item lines require Finance support.'}</p>
+    {row('Net',loaded?money(editing&&!marketplace?Number(netAmount):officialNet,currency):'Not verified')}
+    {row('VAT',loaded?money(editing&&!marketplace?Math.round(Number(netAmount)*Number(vatRate))/100:officialVat,currency):'Not verified')}
+    {row('Total',loaded?money(editing&&!marketplace?Number(netAmount)+Math.round(Number(netAmount)*Number(vatRate))/100:officialGross,currency):'Not verified')}
+   </section>
+   <label className="rv-field"><span>Notes</span><textarea value={officialNotes} readOnly={marketplace&&!editing||!loaded} onChange={e=>setOfficialNotes(e.target.value)}/></label>
+   {editing?<button className="rv-primary rv-wide" disabled={busy||!canEdit||!officialDate} onClick={()=>void saveOfficialDraft()}>Save changes</button>:<button className="rv-primary rv-wide" disabled={!ready||busy||generatorRequested} onClick={()=>void generate()}>{busy?'Creating…':'Create'}</button>}
+   {!editing&&!ready&&eligibilityChecked&&<button className="rv-outline rv-wide" disabled={busy||loading} onClick={()=>void discover()}>Recheck Invoice Eligibility</button>}
+   <button className="rv-outline rv-wide" onClick={onList}>Open XDrive Invoice Register</button>
  </section>;
 }
-
