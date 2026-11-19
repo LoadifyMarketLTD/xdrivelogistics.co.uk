@@ -1,43 +1,31 @@
 'use client';
-
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
-import { LayoutDashboard, PackagePlus, Truck, Tags, ClipboardCheck, CalendarDays, Menu, Network, MapPinned, FileText, Users, MessageSquare, Bell, BarChart3, Route, ShieldCheck, ChevronsLeft, ChevronsRight, ChevronDown, Settings } from 'lucide-react';
-import {fleetHubGroupId,fleetHubContains} from './companyFleetNavigationModel';
-import {usePathname} from 'next/navigation';
-import type { WorkspaceNavGroup } from '../../../lib/workspaceRole';
+import {Suspense,useState} from 'react';
+import {useSearchParams} from 'next/navigation';
+import {LayoutDashboard,PackagePlus,Truck,Tags,ClipboardCheck,CalendarDays,Network,MapPinned,FileText,Users,MessageSquare,Bell,BarChart3,Route,ShieldCheck,ChevronsLeft,ChevronsRight,PackageSearch,Menu,Settings,UserRound,Clock,History,Headphones,Wallet,ClipboardList,MapPin,CircleAlert,FileCheck,LockKeyhole} from 'lucide-react';
+import type {WorkspaceNavGroup} from '../../../lib/workspaceRole';
+import {organisationForCompany5301,activeCompany5301Href,company5301IconRoute} from './companyAdmin5301Navigation';
+import styles from './CompanyAdmin5301Sidebar.module.css';
 
-const icons: Record<string, typeof LayoutDashboard> = {
-  Dashboard:LayoutDashboard,'Post Load':PackagePlus,Loads:Truck,Quotes:Tags,Bookings:ClipboardCheck,
-  'My Fleet':Truck,Drivers:Users,Diary:CalendarDays,Invoices:FileText,'Network & Tools':Network,
-  Directory:Users,'Live Availability':MapPinned,'Return Journeys':Route,'Freight Vision':MapPinned,
-  Messages:MessageSquare,Notifications:Bell,Reports:BarChart3,Settings,More:Menu,
-};
-
-export default function CompanyAdminSidebar({groups,ready,isActive,hrefFor,collapsed,onToggle}:{groups:WorkspaceNavGroup[];ready:boolean;isActive:(href:string)=>boolean;hrefFor:(href:string)=>string;collapsed:boolean;onToggle:()=>void}) {
-  const [open,setOpen]=useState<string|null>(null);
-  const pathname=usePathname();
-  return <nav className="company-admin-sidebar" aria-label="Company Admin navigation" aria-busy={!ready}>
-    <Link href={hrefFor('/admin')} className="company-admin-sidebar__brand" aria-label="Company dashboard" prefetch={false}>
-      <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={196} height={64} priority/>
-    </Link>
-    <div className="company-admin-sidebar__items">
-      {ready&&groups.map(group=>{
-        const Icon=icons[group.label]??ShieldCheck;
-        const isFleet=group.id===fleetHubGroupId;
-        const active=isFleet?fleetHubContains(group,pathname??''):group.items.some(item=>isActive(item.href));
-        if(group.items.length===1||isFleet){
-          const item=group.items[0];
-          return <Link key={group.id} href={hrefFor(item.href)} prefetch={false} className="company-admin-sidebar__item" data-active={active?'true':'false'} aria-current={active?'page':undefined} aria-label={group.label} title={group.label} onClick={()=>setOpen(null)}><Icon size={19} strokeWidth={2.3} aria-hidden="true"/><span>{group.label}</span></Link>
-        }
-        const expanded=open===group.id;
-        return <div key={group.id} className="company-admin-sidebar__group">
-          <button type="button" className="company-admin-sidebar__item" data-active={active?'true':'false'} aria-expanded={expanded} aria-controls={'company-sidebar-'+group.id} aria-label={group.label} title={group.label} onClick={()=>{if(collapsed){onToggle();setOpen(group.id)}else setOpen(expanded?null:group.id)}}><Icon size={19} strokeWidth={2.3} aria-hidden="true"/><span>{group.label}</span><ChevronDown size={15} className="company-admin-sidebar__caret" aria-hidden="true"/></button>
-          {expanded&&!collapsed&&<div id={'company-sidebar-'+group.id} className="company-admin-sidebar__subitems" onKeyDown={event=>{if(event.key==='Escape'){setOpen(null);if(event.currentTarget.previousElementSibling instanceof HTMLElement)event.currentTarget.previousElementSibling.focus()}}}>{group.items.map(item=><Link key={item.href} href={hrefFor(item.href)} prefetch={false} aria-current={isActive(item.href)?'page':undefined} className="company-admin-sidebar__subitem" onClick={()=>setOpen(null)}>{item.label}</Link>)}</div>}
-        </div>
-      })}
-    </div>
-    <footer className="company-admin-sidebar__footer"><button type="button" onClick={()=>{setOpen(null);onToggle()}} aria-label={collapsed?'Expand sidebar':'Collapse sidebar'} title={collapsed?'Expand sidebar':'Collapse sidebar'} aria-expanded={!collapsed}>{collapsed?<ChevronsRight size={21}/>:<ChevronsLeft size={21}/>}</button></footer>
+const icons:Record<string,typeof LayoutDashboard>={'/driver':LayoutDashboard,'/driver/action-centre':CircleAlert,'/driver/post-load':PackagePlus,'/driver/posted-loads':ClipboardList,'/driver/loads':PackageSearch,'/driver/quotes':Tags,'/driver/won-work':ClipboardCheck,'/driver/jobs':ClipboardCheck,'/driver/history':CalendarDays,'/driver/availability/live':MapPinned,'/driver/availability':Clock,'/driver/returns':Route,'/driver/freight-vision':MapPin,'/driver/load-alerts':Bell,'/driver/nearby':MapPinned,'/driver/fleet':Truck,'/driver/vehicles':Truck,'/driver/drivers-vehicles':Users,'/driver/drivers':Users,'/driver/profile':UserRound,'/driver/documents':FileText,'/driver/vehicle-readiness':FileCheck,'/driver/finance':Wallet,'/driver/network':Network,'/driver/directory':Users,'/driver/reports':BarChart3,'/driver/messages':MessageSquare,'/driver/notifications':Bell,'/driver/event-log':History,'/driver/settings':Settings,'/driver/settings/billing':Wallet,'/driver/change-password':LockKeyhole,'/driver/support':Headphones};
+function CompanyAdminSidebarContent({groups,pathname,search,ready,onPrefetch}:{groups:WorkspaceNavGroup[];pathname:string;search:string;ready:boolean;onPrefetch:(href:string)=>void}){
+ const [collapsed,setCollapsed]=useState(false);
+ const [mobileOpen,setMobileOpen]=useState(false);
+ const active=activeCompany5301Href(groups,pathname,search);
+ const sections=organisationForCompany5301(groups);
+ return <aside className={styles.sidebar} data-collapsed={collapsed} data-mobile-open={mobileOpen} aria-label="Company Admin workspace sidebar">
+  <div className={styles.controls}>
+   <span className={styles.brand}><Image src="/xdrive-logo-company-3150.png" alt="XDrive Logistics" width={1440} height={390} unoptimized priority className={styles.brandImage}/></span>
+   <button className={styles.desktopToggle} type="button" aria-label={collapsed?'Expand sidebar':'Collapse sidebar'} aria-expanded={!collapsed} aria-controls="company-admin-sidebar-links" onClick={()=>setCollapsed(v=>!v)}>{collapsed?<ChevronsRight size={20}/>:<ChevronsLeft size={20}/>}</button>
+   <button className={styles.mobileToggle} type="button" aria-label="Toggle workspace navigation" aria-expanded={mobileOpen} aria-controls="company-admin-sidebar-links" onClick={()=>setMobileOpen(v=>!v)}><Menu size={20}/> Menu</button>
+  </div>
+  <nav id="company-admin-sidebar-links" className={styles.links} aria-label="Company Admin navigation" aria-busy={!ready}>
+   {sections.map(group=><section key={group.id} aria-label={group.label}><h2>{group.label}</h2>{group.items.map(item=>{const Icon=icons[company5301IconRoute(item.href)]??ShieldCheck;return <Link key={item.href} href={item.href} prefetch={false} title={item.label} aria-label={item.label} aria-current={active===item.href?'page':undefined} onPointerEnter={()=>onPrefetch(item.href)} onFocus={()=>onPrefetch(item.href)} onClick={()=>setMobileOpen(false)}><Icon size={19} strokeWidth={2} aria-hidden="true"/><span>{item.label}</span></Link>})}</section>)}
   </nav>
+ </aside>
 }
+
+type SidebarProps=Omit<Parameters<typeof CompanyAdminSidebarContent>[0],'search'>;
+function SidebarWithSearch(props:SidebarProps){const params=useSearchParams();return <CompanyAdminSidebarContent {...props} search={params.toString()}/>;}
+export default function CompanyAdminSidebar(props:SidebarProps){return <Suspense fallback={<CompanyAdminSidebarContent {...props} search=""/>}><SidebarWithSearch {...props}/></Suspense>;}

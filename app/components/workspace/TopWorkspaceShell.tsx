@@ -2,6 +2,7 @@
 
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import CompanyAdminSidebar from './CompanyAdminSidebar';
+import companySidebarStyles from './CompanyAdmin5301Sidebar.module.css';
 import { composeCompanyAdminSidebarNav } from './companyAdminSidebarNav';
 import CompanyFleetNavigation from './CompanyFleetNavigation';
 import {fleetHubGroupId} from './companyFleetNavigationModel';
@@ -596,8 +597,7 @@ export default function TopWorkspaceShell({
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
   const companySidebarScope = companyAdminSidebar && role === 'company_admin' && !fixtureCompanyName;
-  const [companySidebarCollapsed, setCompanySidebarCollapsed] = useState(false);
-  useEffect(() => { if (companySidebarScope && window.matchMedia('(max-width: 850px)').matches) setCompanySidebarCollapsed(true); }, [companySidebarScope]);
+
   const nav = useMemo(() => {
     if (!workspaceRoleReady) return [];
     const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
@@ -997,8 +997,7 @@ export default function TopWorkspaceShell({
     <div
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
-      data-company-admin-sidebar={companySidebarScope ? 'true' : undefined}
-      data-company-sidebar-collapsed={companySidebarScope ? String(companySidebarCollapsed) : undefined}
+      data-company-admin-5301={companySidebarScope ? 'true' : undefined}
       data-hydrated={hydrated ? 'true' : 'false'}
       data-role-ready={workspaceRoleReady ? 'true' : 'false'}
       data-carrier-nav={CARRIER_NAV_ROLES.has(role) ? 'true' : undefined}
@@ -1078,7 +1077,14 @@ export default function TopWorkspaceShell({
         </div>
       </header>
 
-      {companySidebarScope ? <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} isActive={isActive} hrefFor={fixtureRouteFor} collapsed={companySidebarCollapsed} onToggle={() => setCompanySidebarCollapsed(value => !value)} /> : <nav
+      {companySidebarScope ? <div className={companySidebarStyles.body}>
+        <CompanyAdminSidebar groups={nav} ready={workspaceRoleReady} pathname={pathname??'/admin'} onPrefetch={prefetchRoute}/>
+        <div className={companySidebarStyles.content}>
+          <WorkspaceRestrictionBanner role={role}/>
+          <OperationalPostcodeAreaResolver/>
+          <main className="top-workspace-shell__content">{workspaceRoleReady&&<CompanyFleetNavigation group={nav.find(group=>group.id===fleetHubGroupId)}/>}{children}</main>
+        </div>
+      </div> : <> <nav
         ref={navRef}
         className="top-workspace-nav top-workspace-nav--primary"
         aria-label={`${definition.label} navigation`}
@@ -1196,12 +1202,12 @@ export default function TopWorkspaceShell({
             );
           })}
         </div>
-      </nav>}
+      </nav>
 
       <WorkspaceRestrictionBanner role={role} />
       <OperationalPostcodeAreaResolver />
 
-      <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{companySidebarScope&&workspaceRoleReady&&<CompanyFleetNavigation group={nav.find(group=>group.id===fleetHubGroupId)}/>}{children}</main>
+      <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{children}</main></>}
     </div>
   );
 }
