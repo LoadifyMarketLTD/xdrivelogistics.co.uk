@@ -1,0 +1,10 @@
+import {describe,expect,it} from 'vitest';
+import {companyAdminRouteScheduleError,type RouteScheduleStop} from '../app/components/workspace/companyAdminPostLoadSchedule';
+const stop=(label:string,time:string,mode='At',end?:string,date='2026-11-21'):RouteScheduleStop=>({label,date,time,mode,end});
+describe('Company Admin Post Load chronology',()=>{
+ it('accepts a valid collection window, deadline and next-day delivery',()=>expect(companyAdminRouteScheduleError([stop('Collection','08:00','Between','10:00'),stop('Stop 2','12:00','By'),stop('Delivery','09:00','At',undefined,'2026-11-22')])).toBe(''));
+ it('rejects reversed and equal collection or delivery windows',()=>{for(const end of ['07:45','08:00','08:17',''])expect(companyAdminRouteScheduleError([stop('Collection','08:00','Between',end)])).toContain('end of the time window')});
+ it('rejects an impossible stop sequence without inventing journey duration',()=>{expect(companyAdminRouteScheduleError([stop('Collection','10:00'),stop('Stop 2','09:00')])).toContain('Stop 2');expect(companyAdminRouteScheduleError([stop('Collection','10:00'),stop('Stop 2','09:00','Between','11:00'),stop('Delivery','11:00')])).toBe('');expect(companyAdminRouteScheduleError([stop('Collection','10:00'),stop('Delivery','09:00','By')])).toContain('conflicts')});
+ it('does not silently discard an ASAP scheduled date',()=>{expect(companyAdminRouteScheduleError([stop('Collection','10:00'),stop('Delivery','','ASAP',undefined,'')])).toBe('');expect(companyAdminRouteScheduleError([stop('Collection','10:00'),stop('Delivery','','ASAP')])).toContain('does not store')});
+ it('rejects invalid recurrence and daily hire boundaries',()=>{expect(companyAdminRouteScheduleError([stop('Collection','10:00')],'2026-11-20')).toContain('Regular Load');expect(companyAdminRouteScheduleError([stop('Collection','10:00')],'','09:00')).toContain('Daily Hire');expect(companyAdminRouteScheduleError([stop('Collection','10:00','At',undefined,'2026-02-30')])).toContain('valid date')});
+});

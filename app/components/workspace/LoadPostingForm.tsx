@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
+import {resolveWorkspaceRole} from '../../../lib/workspaceRole';
+import {companyAdminRouteScheduleError} from './companyAdminPostLoadSchedule';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
@@ -210,6 +212,9 @@ type InternalDirectVehicle = { id: string; registration: string; type: string | 
 
 export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const { user } = useAuth();
+  const companyAdmin=mode==='admin'&&(user?.workspaceRole??resolveWorkspaceRole(user))==='company_admin';
+  const submittingRef=useRef(false);
+  const [submitted,setSubmitted]=useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const directCarrierId = searchParams.get('directCarrier');
@@ -443,7 +448,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const effectivePickupTime = pickupMode === 'ASAP' ? availableQuarterHourSlots(form.pickupDate, clockNow)[0] ?? '' : form.pickupTime;
   const effectiveDeliveryTime = deliveryMode === 'ASAP' ? '' : form.deliveryTime;
   const invalidExtraWindow = additionalStops.some(stop => stop.timeMode === 'Between' && (!stop.time || !stop.endTime || stop.endTime <= stop.time));
-  const scheduleError = invalidExtraWindow ? 'Choose a valid additional stop time window.' : pickupMode === 'Between' && !pickupEnd ? 'Choose the end of the collection window.' : deliveryMode === 'Between' && !deliveryEnd ? 'Choose the end of the delivery window.' : '';
+  const companyScheduleError=companyAdmin?companyAdminRouteScheduleError([{label:'Collection',date:form.pickupDate,time:effectivePickupTime,end:pickupEnd,mode:pickupMode},...additionalStops.map((stop,index)=>({label:'Stop '+(index+2),date:stop.date,time:stop.time,end:stop.endTime,mode:stop.timeMode??'At'})),{label:'Delivery',date:form.deliveryDate,time:effectiveDeliveryTime,end:deliveryEnd,mode:deliveryMode}],form.loadType==='regular_load'?form.regularEndDate:'',form.loadType==='daily_hire'?form.hireEndTime:''):'';
+  const scheduleError = companyScheduleError || (invalidExtraWindow ? 'Choose a valid additional stop time window.' : pickupMode === 'Between' && !pickupEnd ? 'Choose the end of the collection window.' : deliveryMode === 'Between' && !deliveryEnd ? 'Choose the end of the delivery window.' : '');
   const collectionErrors = validateStop({
     date: form.pickupDate,
     time: effectivePickupTime,
@@ -516,6 +522,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   };
 
   const save = async (publish: boolean, saveForRepeat = false) => {
+    if(companyAdmin&&(submittingRef.current||submitted))return;
     setError('');
     setSuccess('');
     setStripeSetupCompanyId(null);
@@ -575,6 +582,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     const pickupPostcode = normalizePostcode(form.pickupPostcode);
     const deliveryPostcode = normalizePostcode(form.deliveryPostcode);
 
+    if(companyAdmin)submittingRef.current=true;
+    let completedSubmission=false;
     setSaving(true);
     try {
       const companyId = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null });
@@ -789,12 +798,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           : mode === 'owner'
             ? `/driver/posted-loads?created=${payload.job.id}`
             : `/admin/jobs?created=${payload.job.id}`;
+      if(companyAdmin){completedSubmission=true;setSubmitted(true);}
       idempotencyKeyRef.current = null;
       setDocumentFiles([]);
       window.setTimeout(() => router.push(destination), 650);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The load could not be saved.');
     } finally {
+      if(companyAdmin&&!completedSubmission)submittingRef.current=false;
       setSaving(false);
     }
   };
@@ -1119,6 +1130,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         </details>
       </Panel>
       <div className="approved-postload-stop-card" style={{ order: 3 }}>
+        {companyAdmin&&showValidation&&companyScheduleError&&<div style={{padding:"8px 12px",borderBottom:"1px solid #fee2e2",background:"#fff7f7",color:"#991b1b",fontWeight:600,fontSize:12}} role="alert">{companyScheduleError}</div>}
         <div className="approved-postload-two-stops">
           <section className="approved-postload-stop-section"><h3>Pickup Details</h3>
           <StopFields
@@ -1419,8 +1431,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         <span className="approved-postload-required-note">* Required Inputs</span>
         <button type="button" className="approved-postload-cancel" disabled={saving} onClick={() => router.back()}>Cancel</button>
         {mode === 'owner' && <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>Save Draft</ActionButton>}
-        <ActionButton tone="secondary" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true, true)}>{saving ? 'Posting…' : 'Post Load & Save for Repeat Use'}</ActionButton>
-        <ActionButton tone="warning" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
+        <ActionButton tone="secondary" disabled={saving || (companyAdmin&&submitted) || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true, true)}>{saving ? 'Posting…' : 'Post Load & Save for Repeat Use'}</ActionButton>
+        <ActionButton tone="warning" disabled={saving || (companyAdmin&&submitted) || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
           {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : directTargetMode === 'external_subcontractor' ? 'Confirm External Booking' : directTargetMode === 'internal_resource' ? 'Create & Allocate Booking' : 'Post Load'}
         </ActionButton>
       </div>
