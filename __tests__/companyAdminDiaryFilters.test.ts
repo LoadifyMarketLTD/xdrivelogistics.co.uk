@@ -1,0 +1,10 @@
+import {describe,it,expect} from 'vitest';
+import {companyDiaryDefaultKey,diaryDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from '../app/components/workspace/companyAdminDiaryFilters';
+describe('Company Admin diary filters',()=>{
+ it('applies inclusive UK dates across DST rather than the local browser clock',()=>{expect(diaryDateMatches('2026-07-01T23:30:00Z','2026-07-02','2026-07-02')).toBe(true);expect(diaryDateMatches('2026-07-01T23:30:00Z','2026-07-01','2026-07-01')).toBe(false);expect(diaryDateMatches(null,'2026-07-02','')).toBe(false);expect(diaryDateMatches(null,'','')).toBe(true)});
+ it('supports either end of an interval',()=>{expect(diaryDateMatches('2026-11-18T12:00:00Z','','2026-11-19')).toBe(true);expect(diaryDateMatches('2026-11-20T12:00:00Z','','2026-11-19')).toBe(false);expect(diaryDateMatches('2026-11-20T12:00:00Z','2026-11-19','')).toBe(true)});
+ it('uses UK time windows and calendar tomorrow',()=>{expect(diaryTimeMatches('2026-07-01T11:30:00Z','afternoon')).toBe(true);expect(diaryTimeMatches('2026-11-19T11:30:00Z','morning')).toBe(true);expect(diaryTimeMatches('bad','morning')).toBe(false);expect(diaryTomorrow(new Date('2026-10-24T23:30:00Z'))).toBe('2026-10-26')});
+ it('never stores one company or user default under another context',()=>{expect(companyDiaryDefaultKey(null,'user')).toBeNull();expect(companyDiaryDefaultKey('company',null)).toBeNull();expect(companyDiaryDefaultKey('A','u')).not.toBe(companyDiaryDefaultKey('B','u'));expect(companyDiaryDefaultKey('A','u')).not.toBe(companyDiaryDefaultKey('A','v'))});
+ it('does not invent a distance, weight or dimensions from absent values',()=>{for(const v of [null,undefined,'',0,-1,'bad'])expect(knownPositiveNumber(v)).toBeNull();expect(knownPositiveNumber('15.5')).toBe(15.5)});
+ it('rejects malformed or impossible dates',()=>{expect(validDiaryDate('2026-02-29')).toBe(false);expect(validDiaryDate('2028-02-29')).toBe(true);expect(validDiaryDate('2026-11-1')).toBe(false);expect(validDiaryDate('2026-11-19')).toBe(true)});
+});

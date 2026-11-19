@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import CompanyAdminDiaryCalendar from './CompanyAdminDiaryCalendar';
+import {londonDay} from './companyAdminDiaryCalendarModel';
+import {companyDiaryDefaultKey,diaryDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from './companyAdminDiaryFilters';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
@@ -217,6 +219,8 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const companyId = fixtureData?.companyId ?? resolveActiveCompanyId(user);
   const intelligence = useOperationsIntelligence(companyId);
   const deepJob = searchParams.get('job');
+  const exactJobId = companyAdmin ? deepJob : null;
+  const defaultSearchKey = companyAdmin ? companyDiaryDefaultKey(companyId,user?.id) : 'xdrive:operations-diary:default-search';
   const [jobs, setJobs] = useState<JobRow[]>(() => fixtureData?.jobs ?? []);
   const [drivers, setDrivers] = useState<DriverRow[]>(() => fixtureData?.drivers ?? []);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>(() => fixtureData?.reviewsByJob ?? {});
@@ -229,6 +233,9 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const [viewMode, setViewMode] = useState<DiaryViewMode>('list');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(deepJob);
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH);
+  const [customDateMode,setCustomDateMode]=useState(false);
+  const [searchError,setSearchError]=useState('');
+  const [exactBooking,setExactBooking]=useState<{id:string;companyId:string;userId:string;status:'found'|'unavailable'}|null>(null);
   const [appliedSearch, setAppliedSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(deepJob ? [deepJob] : []));
   const [assigning, setAssigning] = useState<string | null>(null);
@@ -319,7 +326,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       const scoped = loadedJobs.filter((job) => isOperatingCompanyJob(job, companyId));
       setJobs(scoped);
       if (loadedJobs.length >= 300) {
-        setNotice((current) => current || 'Diary reached the 300-record query limit. Older bookings may not be included in the current results.');
+        setNotice((current) => current || (companyAdmin?'Diary reached the 300-record query limit. Additional bookings may not be included; direct booking links remain available.':'Diary reached the 300-record query limit. Older bookings may not be included in the current results.'));
       }
     }
     if (driversResult.error) {
@@ -355,12 +362,26 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       setGroupNameDrafts(Object.fromEntries(((groupsResult.data ?? []) as DiaryGroupRow[]).map((group) => [group.id, group.name])));
     }
     finishLoad();
-  }, [companyId, fixtureData, user?.id]);
+  }, [companyId, fixtureData, user?.id,companyAdmin]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(()=>{
+    if(!exactJobId||!companyId||!user?.id)return;
+    let cancelled=false;const userId=user.id;
+    const finish=(found:boolean)=>{if(!cancelled)setExactBooking({id:exactJobId,companyId,userId,status:found?'found':'unavailable'})};
+    setExactBooking(null);
+    if(fixtureData){finish(fixtureData.jobs.some(job=>job.id===exactJobId&&isOperatingCompanyJob(job,companyId)));return;}
+    void (async()=>{try {
+      const result=await supabase.from('jobs').select('id,company_id,assigned_company_id,awarded_carrier_company_id,assigned_driver_id,status,current_status').eq('id',exactJobId).or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`).maybeSingle();
+      finish(!result.error&&!!result.data&&isOperatingCompanyJob(result.data as JobRow,companyId));
+    }catch{finish(false)}})();
+    return()=>{cancelled=true};
+  },[exactJobId,companyId,user?.id,fixtureData]);
   useEffect(() => {
     try {
-      const stored = window.localStorage.getItem('xdrive:operations-diary:default-search');
+      if(companyAdmin){setSearch(EMPTY_SEARCH);setAppliedSearch(EMPTY_SEARCH);setSaveAsDefault(false);setCustomDateMode(false);}
+      if(!defaultSearchKey)return;
+      const stored = window.localStorage.getItem(defaultSearchKey);
       if (!stored) return;
       const parsed = JSON.parse(stored) as Partial<SearchState>;
       const restored = { ...EMPTY_SEARCH, ...parsed } as SearchState;
@@ -368,22 +389,22 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       setAppliedSearch(restored);
       setSaveAsDefault(true);
     } catch {
-      window.localStorage.removeItem('xdrive:operations-diary:default-search');
+      if(defaultSearchKey)window.localStorage.removeItem(defaultSearchKey);
     }
-  }, []);
+  }, [defaultSearchKey,companyAdmin]);
   useEffect(() => {
     if (fixtureData && !deepJob) {
       setExpandedIds(new Set());
       return;
     }
-    if (!deepJob) return;
+    if (!deepJob || companyAdmin) return;
     setExpandedIds((current) => {
       const next = new Set(current);
       next.add(deepJob);
       return next;
     });
     setSelectedJobId(deepJob);
-  }, [deepJob, fixtureData]);
+  }, [deepJob, fixtureData,companyAdmin]);
 
   const activeAccountDrivers = useMemo(() => drivers.filter(isActiveDriverAccount), [drivers]);
   const driverById = useMemo(() => new Map(drivers.map((driver) => [driver.id, driver])), [drivers]);
@@ -435,9 +456,10 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
         return [detail?.createdByUserId, detail?.createdByName, detail?.createdByEmail]
           .filter(Boolean).join(' ').toLowerCase().includes(bookedBy);
       })
-      .filter((job) => timeWindowMatches(job.pickup_datetime, appliedSearch.pickupWindow))
-      .filter((job) => timeWindowMatches(job.delivery_datetime, appliedSearch.deliveryWindow))
+      .filter((job) => companyAdmin?diaryTimeMatches(job.pickup_datetime,appliedSearch.pickupWindow):timeWindowMatches(job.pickup_datetime, appliedSearch.pickupWindow))
+      .filter((job) => companyAdmin?diaryTimeMatches(job.delivery_datetime,appliedSearch.deliveryWindow):timeWindowMatches(job.delivery_datetime, appliedSearch.deliveryWindow))
       .filter((job) => {
+        if(companyAdmin)return diaryDateMatches(job.pickup_datetime,appliedSearch.dateFrom,appliedSearch.dateTo);
         if (!fromDate && !toDate) return true;
         if (!job.pickup_datetime) return false;
         const timestamp = new Date(job.pickup_datetime).getTime();
@@ -446,7 +468,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
         if (toDate && timestamp > toDate) return false;
         return true;
       });
-  }, [appliedSearch, companyId, driverById, groupIdsByJob, intelligence.jobDetailById, jobs, reviewsByJob, selectedGroupFilter, tab]);
+  }, [appliedSearch, companyId, driverById, groupIdsByJob, intelligence.jobDetailById, jobs, reviewsByJob, selectedGroupFilter, tab,companyAdmin]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -723,10 +745,13 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   };
 
   const applySearch = () => {
+    if(companyAdmin&&((search.dateFrom&&!validDiaryDate(search.dateFrom))||(search.dateTo&&!validDiaryDate(search.dateTo))||(search.dateFrom&&search.dateTo&&search.dateFrom>search.dateTo))){setSearchError('Enter a valid date range. From must not be after To.');return;}
+    setSearchError('');
     setAppliedSearch(search);
-    if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
+    if (saveAsDefault&&defaultSearchKey) window.localStorage.setItem(defaultSearchKey, JSON.stringify(search));
   };
   const clearSearch = () => {
+    setSearchError('');setCustomDateMode(false);
     setSearch(EMPTY_SEARCH);
     setAppliedSearch(EMPTY_SEARCH);
     setSelectedGroupFilter('');
@@ -736,18 +761,20 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const datePresetToday = new Date();
   const datePresetTomorrow = new Date(datePresetToday.getTime() + 86400000);
   const localDateKey = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  const todayKey = localDateKey(datePresetToday);
-  const tomorrowKey = localDateKey(datePresetTomorrow);
-  const datePreset = !search.dateFrom && !search.dateTo ? 'anytime' : search.dateFrom === todayKey && search.dateTo === todayKey ? 'today' : search.dateFrom === tomorrowKey && search.dateTo === tomorrowKey ? 'tomorrow' : 'custom';
+  const todayKey = companyAdmin?londonDay(datePresetToday):localDateKey(datePresetToday);
+  const tomorrowKey = companyAdmin?diaryTomorrow(datePresetToday):localDateKey(datePresetTomorrow);
+  const datePreset = companyAdmin&&customDateMode?'custom':!search.dateFrom && !search.dateTo ? 'anytime' : search.dateFrom === todayKey && search.dateTo === todayKey ? 'today' : search.dateFrom === tomorrowKey && search.dateTo === tomorrowKey ? 'tomorrow' : 'custom';
   const setDatePreset = (value: string) => {
+    if(companyAdmin)setCustomDateMode(value==='custom');
     if (value === 'anytime') setSearch((current) => ({ ...current, dateFrom: '', dateTo: '' }));
     else if (value === 'today') setSearch((current) => ({ ...current, dateFrom: todayKey, dateTo: todayKey }));
     else if (value === 'tomorrow') setSearch((current) => ({ ...current, dateFrom: tomorrowKey, dateTo: tomorrowKey }));
   };
   const toggleDefaultSearch = (checked: boolean) => {
     setSaveAsDefault(checked);
-    if (checked) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
-    else window.localStorage.removeItem('xdrive:operations-diary:default-search');
+    if(!defaultSearchKey)return;
+    if (checked) window.localStorage.setItem(defaultSearchKey, JSON.stringify(companyAdmin?appliedSearch:search));
+    else window.localStorage.removeItem(defaultSearchKey);
   };
 
   return (
@@ -755,6 +782,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
+      {companyAdmin&&exactJobId&&<section className="workspace-panel company-admin-exact-booking" aria-label="Requested booking"><div className="company-admin-calendar__header"><h2>Requested booking</h2><ActionButton tone="secondary" onClick={()=>router.replace('/admin/diary')}>Close booking</ActionButton></div>{exactBooking?.id===exactJobId&&exactBooking.companyId===companyId&&exactBooking.userId===user?.id?exactBooking.status==='found'?<CompanyJobSheetPanel key={exactJobId} jobId={exactJobId} mode="carrier"/>:<AlertBanner tone="warning">This booking is unavailable in the active company's operational Diary.</AlertBanner>:<p role="status">Checking booking access…</p>}</section>}
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
           <div className="cx-diary-rail-nav">
@@ -764,7 +792,10 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
           <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
             <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontSize: 11, fontWeight: 600, color: '#334155', marginBottom: 4 }}>Booking Scope</legend><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="all" checked={search.scope === 'all'} onChange={() => setSearch((current) => ({ ...current, scope: 'all' }))} /> All</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="subcontracted" checked={search.scope === 'subcontracted'} onChange={() => setSearch((current) => ({ ...current, scope: 'subcontracted' }))} /> Jobs Sub-contracted</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="ours" checked={search.scope === 'ours'} onChange={() => setSearch((current) => ({ ...current, scope: 'ours' }))} /> Our Bookings</label></fieldset>
-            <label>Date:<select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option>{datePreset === 'custom' ? <option value="custom">Custom date</option> : null}</select></label>
+            <label>Date:<select value={datePreset} onChange={(event) => setDatePreset(event.target.value)}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option>{companyAdmin || datePreset === 'custom' ? <option value="custom">Custom date</option> : null}</select></label>
+            {companyAdmin&&datePreset==='custom'&&<><label>Pickup date from:<input type="date" value={search.dateFrom} onChange={event=>setSearch(current=>({...current,dateFrom:event.target.value}))}/></label><label>Pickup date to:<input type="date" value={search.dateTo} onChange={event=>setSearch(current=>({...current,dateTo:event.target.value}))}/></label></>}
+            {companyAdmin&&<><label>Collection location:<input value={search.from} onChange={event=>setSearch(current=>({...current,from:event.target.value}))} placeholder="Town or postcode"/></label><label>Delivery location:<input value={search.to} onChange={event=>setSearch(current=>({...current,to:event.target.value}))} placeholder="Town or postcode"/></label></>}
+            {searchError&&<AlertBanner tone="danger">{searchError}</AlertBanner>}
             <label>Pickup Time Within:<select value={search.pickupWindow} onChange={(event) => setSearch((current) => ({ ...current, pickupWindow: event.target.value as SearchState['pickupWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
             <label>Delivery Time Within:<select value={search.deliveryWindow} onChange={(event) => setSearch((current) => ({ ...current, deliveryWindow: event.target.value as SearchState['deliveryWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
             <label>Load ID / Ref:<input value={search.reference} onChange={(event) => setSearch((current) => ({ ...current, reference: event.target.value }))} placeholder="Job, customer or booking ref" /></label>
@@ -797,7 +828,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
           </div>
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
-          ) : companyAdmin&&viewMode==='calendar' ? <CompanyAdminDiaryCalendar jobs={filtered.map(job=>({...job,status:workspaceJobOperationalLabel(job)}))} onOpen={openCalendarBooking} initialDay={appliedSearch.dateFrom||undefined}/> : visible.length === 0 ? (
+          ) : companyAdmin&&viewMode==='calendar' ? <CompanyAdminDiaryCalendar key={appliedSearch.dateFrom||'all-dates'} jobs={filtered.map(job=>({...job,status:workspaceJobOperationalLabel(job)}))} onOpen={openCalendarBooking} initialDay={appliedSearch.dateFrom||undefined}/> : visible.length === 0 ? (
             <div className="workspace-panel"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div>
           ) : viewMode === 'split' ? (
             <div className="xdrive-diary-split-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(360px,0.82fr) minmax(520px,1.18fr)', gap: 8, alignItems: 'start' }}>
@@ -843,9 +874,10 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                 const stage = classifyWorkspaceJobStage(job);
                 const status = effectiveStatus(job);
                 const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
-                const distance = numberLabel(job.job_distance_miles ?? job.distance_miles, ' mi');
-                const weight = numberLabel(job.weight_kg, ' kg');
-                const dimensions = dimensionsLabel(job);
+                const distanceValue=job.job_distance_miles??job.distance_miles;
+                const distance = companyAdmin&&knownPositiveNumber(distanceValue)===null?null:numberLabel(distanceValue,' mi');
+                const weight = companyAdmin?(knownPositiveNumber(job.weight_kg)===null?null:numberLabel(job.weight_kg,' kg')):numberLabel(job.weight_kg, ' kg');
+                const dimensions = companyAdmin&&[job.length_cm,job.width_cm,job.height_cm].some(v=>knownPositiveNumber(v)===null)?null:dimensionsLabel(job);
                 const cargo = job.requested_cargo_label || job.cargo_type?.replace(/_/g, ' ') || 'Cargo not supplied';
                 const requestedVehicle = job.requested_vehicle_label || job.requested_vehicle_type?.replace(/_/g, ' ') || job.vehicle_type?.replace(/_/g, ' ') || 'Vehicle not supplied';
                 const operationalNotes = [job.special_requirements, job.access_restrictions].filter(Boolean).join(' · ');
