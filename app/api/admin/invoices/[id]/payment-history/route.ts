@@ -38,6 +38,11 @@ export async function POST(
   const validatorClient = supabaseValidator ?? supabaseAdmin;
   const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Unauthorized' });
+  // Service-role reads and writes bypass RLS; require an active actor first.
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles').select('status').eq('user_id', authData.user.id).maybeSingle();
+  if (profileError) return respond(500, { error: 'Finance account authority could not be verified.' });
+  if (profile?.status !== 'active') return respond(403, { error: 'Active account required.' });
 
   const { id } = await params;
 
@@ -62,17 +67,18 @@ export async function POST(
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('role_in_company')
+    .select('role_in_company, companies!inner(status)')
     .eq('user_id', authData.user.id)
     .eq('company_id', payerCompanyId)
     .eq('status', 'active')
+      .eq('companies.status', 'active')
     .maybeSingle();
 
   if (membershipError) return respond(500, { error: membershipError.message });
   const callerRole = (membership?.role_in_company as string | undefined) ?? null;
   if (!canRecordInvoicePayments(callerRole)) {
     return respond(403, {
-      error: 'Forbidden — only owner, admin, dispatcher, or finance may record invoice payments.',
+      error: 'Forbidden — only owner, admin, or finance may record invoice payments.',
     });
   }
 

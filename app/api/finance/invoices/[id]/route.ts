@@ -74,12 +74,18 @@ export async function GET(
   const validator = supabaseValidator ?? supabaseAdmin;
   const { data: authData, error: authError } = await validator.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
+  // Service-role reads and writes bypass RLS; require an active actor first.
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles').select('status').eq('user_id', authData.user.id).maybeSingle();
+  if (profileError) return respond(500, { error: 'Finance account authority could not be verified.' });
+  if (profile?.status !== 'active') return respond(403, { error: 'Active account required.' });
 
   const { data: memberships, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
-    .select('company_id, role_in_company')
+    .select('company_id, role_in_company, companies!inner(status)')
     .eq('user_id', authData.user.id)
-    .eq('status', 'active');
+    .eq('status', 'active')
+      .eq('companies.status', 'active');
   if (membershipError) return respond(500, { error: membershipError.message });
   const companyIds = new Set((memberships ?? []).filter(membership => { const role = resolveMembershipRole(membership.role_in_company); return role && (membershipHasCapability(role, 'invoices.carrier.manage') || membershipHasCapability(role, 'invoices.customer.manage')); }).map(membership => membership.company_id as string));
 

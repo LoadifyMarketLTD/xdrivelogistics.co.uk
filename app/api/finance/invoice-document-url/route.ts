@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
   const validator = supabaseValidator ?? supabaseAdmin;
   const { data: authData, error: authError } = await validator.auth.getUser(token);
   if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
+  // Service-role reads and writes bypass RLS; require an active actor first.
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles').select('status').eq('user_id', authData.user.id).maybeSingle();
+  if (profileError) return respond(500, { error: 'Finance account authority could not be verified.' });
+  if (profile?.status !== 'active') return respond(403, { error: 'Active account required.' });
 
   const invoiceId = request.nextUrl.searchParams.get('invoiceId')?.trim();
   const documentId = request.nextUrl.searchParams.get('documentId')?.trim();
@@ -56,9 +61,10 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     supabaseAdmin
       .from('company_memberships')
-      .select('company_id, role_in_company')
+      .select('company_id, role_in_company, companies!inner(status)')
       .eq('user_id', authData.user.id)
-      .eq('status', 'active'),
+      .eq('status', 'active')
+      .eq('companies.status', 'active'),
   ]);
 
   const loadError = invoiceError ?? documentError ?? membershipError;
