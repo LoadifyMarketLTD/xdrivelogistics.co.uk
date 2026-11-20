@@ -434,6 +434,8 @@ describe('middleware resolveRouteAuth hardening', () => {
 describe('Reserve standalone sign-in public assets', () => {
   it('allows only the static app shell and versioned bundles', async () => {
     const { isReservePublicShell } = await import('../middleware');
+    expect(isReservePublicShell('/driver/reserve-pwa/')).toBe(true);
+    expect(isReservePublicShell('/driver/reserve-pwa')).toBe(true);
     for (const file of ['index.html','manifest.webmanifest','sw.js','icons/icon-192x192.png','icons/icon-512x512.png','assets/index-cJA2ZPS5.js','assets/index-BwaIPupV.css']) {
       expect(isReservePublicShell('/driver/reserve-pwa/' + file)).toBe(true);
     }

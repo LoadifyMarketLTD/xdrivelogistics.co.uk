@@ -643,6 +643,8 @@ function buildNonceResponse(request: NextRequest, nonce: string) {
  * files may load before sign-in; driver data/actions still require API auth. */
 export function isReservePublicShell(pathname: string): boolean {
   const root = '/driver/reserve-pwa/';
+  // The PWA sign-in shell is public; driver API data still requires authentication.
+  if (pathname === root || pathname === root.slice(0, -1)) return true;
   if (!pathname.startsWith(root)) return false;
   const file = pathname.slice(root.length);
   return ['index.html', 'manifest.webmanifest', 'sw.js', 'favicon.svg', 'icons.svg',
@@ -653,6 +655,13 @@ export async function middleware(request: NextRequest) {
   const canonicalRedirect = buildCanonicalHostRedirect(request);
   if (canonicalRedirect) {
     return canonicalRedirect;
+  }
+
+  // Resolve the public standalone PWA entry to its actual static HTML asset.
+  // Do not redirect driver API routes or protected workspace pages.
+  if ((request.method === 'GET' || request.method === 'HEAD') &&
+      (request.nextUrl.pathname === '/driver/reserve-pwa/' || request.nextUrl.pathname === '/driver/reserve-pwa')) {
+    return NextResponse.redirect(new URL('/driver/reserve-pwa/index.html', request.url));
   }
 
   const nonce = generateNonce();
