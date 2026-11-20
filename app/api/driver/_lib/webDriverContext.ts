@@ -12,6 +12,7 @@ export type WebDriverContext = {
   userId: string;
   driverId: string;
   companyId: string | null;
+  profile?: { display_name: string | null; email: string | null; phone: string | null; driver_type: string | null; status: string | null; must_change_password: boolean | null };
 };
 
 const respond = (status: number, error: string) => NextResponse.json({ error }, { status });
@@ -28,6 +29,7 @@ const respond = (status: number, error: string) => NextResponse.json({ error }, 
  */
 export async function requireActiveWebDriver(
   request: NextRequest,
+  options: { includeProfile?: boolean } = {},
 ): Promise<WebDriverContext | NextResponse> {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, 'Driver workspace is temporarily unavailable.');
@@ -44,9 +46,9 @@ export async function requireActiveWebDriver(
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, app_access')
+    .select(options.includeProfile ? 'id, company_id, app_access, display_name, email, phone, driver_type, status, must_change_password' : 'id, company_id, app_access')
     .eq('user_id', authData.user.id)
-    .maybeSingle();
+    .maybeSingle().overrideTypes<{ id: string; company_id: string | null; app_access: boolean; display_name: string | null; email: string | null; phone: string | null; driver_type: string | null; status: string | null; must_change_password: boolean | null }>();
 
   if (driverError) return respond(500, 'We could not load your driver profile.');
   if (!driver) {
@@ -60,6 +62,7 @@ export async function requireActiveWebDriver(
   if (deviceGate) return deviceGate;
 
   return {
+    ...(options.includeProfile ? { profile: { display_name: driver.display_name, email: driver.email, phone: driver.phone, driver_type: driver.driver_type, status: driver.status, must_change_password: driver.must_change_password } } : {}),
     userId: authData.user.id,
     driverId: String(driver.id),
     companyId: typeof driver.company_id === 'string' && driver.company_id.trim() ? driver.company_id.trim() : null,

@@ -51,12 +51,9 @@ export async function PUT(request: NextRequest) {
 /** Restore authenticated self-service profile for the official Reserve app. */
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Driver profile is temporarily unavailable.' });
-  const driver = await requireActiveWebDriver(request);
+  const driver = await requireActiveWebDriver(request, { includeProfile: true });
   if (!isWebDriverContext(driver)) return driver;
-  const { data, error } = await supabaseAdmin.from('drivers')
-    .select('display_name,email,phone,driver_type,status,must_change_password')
-    .eq('id', driver.driverId).eq('user_id', driver.userId).eq('app_access', true).maybeSingle();
-  if (error) return json(500, { error: 'Driver profile could not be loaded.' });
+  const data = driver.profile;
   if (!data) return json(404, { error: 'Driver profile was not found.' });
   if (data.must_change_password === true) return json(403, { error: 'Change your initial password on the XDrive website before using Driver.' });
   return NextResponse.json({ driver: data }, {headers:{'Cache-Control':'private, no-store'}});
