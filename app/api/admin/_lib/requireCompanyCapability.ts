@@ -74,6 +74,20 @@ export async function requireCompanyCapability(
     return NextResponse.json({ error: 'Company id is required.' }, { status: 400 });
   }
 
+  // Service-role queries bypass RLS. Enforce the same active actor condition
+  // as the database capability function before resolving tenant permissions.
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('status')
+    .eq('user_id', authData.user.id)
+    .maybeSingle();
+  if (profileError) {
+    return NextResponse.json({ error: 'Unable to verify account permission.' }, { status: 500 });
+  }
+  if (profile?.status !== 'active') {
+    return NextResponse.json({ error: 'Forbidden: active account required.' }, { status: 403 });
+  }
+
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('id, company_id, role_in_company, companies!inner(status)')
