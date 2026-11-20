@@ -391,7 +391,7 @@ export default function AvailableLoadsPage() {
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       if (payload.success !== true || !payload.bidId) throw Error('Quote result could not be verified. Refresh before trying again.');
       mutationVersion.current++;
-      setLoads(current => current.map(load => load.id === loadId ? {...load, myBid: {id: payload.bidId!, status: 'submitted', amount, message: quote.message, created_at:null, updated_at:null, canWithdraw:true}} : load));
+      setLoads(current => current.map(load => load.id === loadId ? {...load, myBid: {id: payload.bidId!, status: 'submitted', amount, message: quote.message, created_at:null, updated_at:null, canWithdraw:false}} : load));
       setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
       await fetchLoads({ background: true, force: true });
     } catch (reason) {
@@ -554,7 +554,7 @@ export default function AvailableLoadsPage() {
                         {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" disabled={bidLoading || withdrawing} onClick={() => openMarketplaceQuote(load.id)}>Quote Now</button>}
                         {isOwnerDriver && load.myBid?.status === 'submitted' && load.myBid.canWithdraw && load.myBid.id && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote xd-owner-cancel-quote" disabled={bidLoading || withdrawing} onClick={() => {setError('');setCancelTarget({loadId:load.id,bidId:load.myBid!.id});}}>Cancel Quote</button>}
                         <button type="button" className="text-action" disabled={bidLoading || withdrawing} onClick={() => isOwnerDriver ? openMarketplaceQuote(load.id) : router.push(`/driver/loads/${load.id}`)}>View Details</button>
-                        {quoted && load.myBid && <span className="xd-load-quote-summary" role="status">{offeredQuoteLabel(load.myBid)}{load.myBid.status==='submitted'&&!load.myBid.canWithdraw?' · Company quote':''}</span>}
+                        {quoted && load.myBid && <span className="xd-load-quote-summary" role="status">{offeredQuoteLabel(load.myBid)}{load.myBid.status==='submitted'&&!load.myBid.canWithdraw?' · Cancellation unavailable':''}</span>}
                       </>}
                     />
 
