@@ -32,7 +32,7 @@ export default function GpsTracking({token,jobs,onClose,visible}:Props){
   return()=>{document.removeEventListener('visibilitychange',onResume);live=false;if(watch!==undefined)navigator.geolocation.clearWatch(watch);if(timer)clearInterval(timer)};
  },[enabled,token,activeId]);
  const canStart=Boolean(token&&activeId&&navigator.geolocation);
- return <section className="rv-card rv-gps-panel" style={{display:visible?undefined:"none"}}><button className="rv-back" onClick={onClose}>Back to menu</button><h2>GPS &amp; Tracking</h2>
+ return <section className="rv-card rv-gps-panel" style={{display:visible?undefined:"none"}}><button className="rv-back" onClick={onClose}>Back to booking</button><h2>GPS &amp; Tracking</h2>
  <p>Share your location with the authorised customer for your active booking. Updates are attempted every 5 minutes while the app is running.</p>
  <label className="rv-field"><span>Active booking</span><select value={job?.id??''} onChange={e=>{setSelected(e.target.value);setLastSent(null)}}>{jobsActive.length!==1&&<option value="">Select a booking</option>}{jobsActive.map(j=><option key={j.id} value={j.id}>{j.yourRef||j.id} - {j.from} to {j.to}</option>)}</select></label>
  <p><strong>GPS:</strong> {permission}</p><p><strong>Publishing:</strong> {enabled?(sending?'Sending position...':lastSent?'Active':'Waiting for first successful update'):'Off'}</p><p><strong>Last successful update:</strong> {lastSent?new Date(lastSent).toLocaleString('en-GB'):'None'}</p>

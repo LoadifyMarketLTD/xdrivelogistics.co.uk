@@ -507,7 +507,7 @@
 /* Official XDrive Driver PWA navbar parity: logo + Menu header, three-tab bottom bar. */
 .rv-header.rv-official-header{height:62px;min-height:62px;background:#fff;border-bottom:1px solid #dce2e9;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
 .rv-official-brand img{display:block;width:min(170px,calc(100vw - 110px));height:42px;object-fit:contain;object-position:left center}
-.rv-header.rv-official-header .rv-official-menu{min-height:42px;min-width:64px;background:#f3f5f8;border:1px solid #dce2e9;color:#173252;border-radius:9px;font-size:14px;font-weight:750;padding:8px 12px}
+.rv-header.rv-official-header .rv-official-logout{min-height:42px;min-width:64px;background:#f3f5f8;border:1px solid #dce2e9;color:#173252;border-radius:9px;font-size:14px;font-weight:750;padding:8px 12px}
 .rv-nav.rv-official-nav{background:#fff;border-top:1px solid #dce2e9;box-shadow:0 -4px 12px rgba(18,36,60,.10);padding:5px 0 max(5px,env(safe-area-inset-bottom));z-index:100}
 .rv-nav.rv-official-nav button{flex:1;color:#667789;font-size:12px;min-height:54px;gap:3px}
 .rv-nav.rv-official-nav button span{font-size:22px}
@@ -515,9 +515,9 @@
 
 /* Reserve navbar: same navy XDrive identity and logo asset as Driver Menu. */
 .rv-header.rv-official-header{background:#102e53;border-bottom:1px solid #102e53;color:#fff}
-.rv-header.rv-official-header .rv-official-menu{background:#ffffff1c;border:1px solid #ffffff30;color:#fff}
-.rv-header.rv-official-header .rv-official-menu:hover{background:#ffffff2b}
-.rv-header.rv-official-header .rv-official-menu:focus-visible{outline:2px solid #f5b923;outline-offset:2px}
+.rv-header.rv-official-header .rv-official-logout{background:#ffffff1c;border:1px solid #ffffff30;color:#fff}
+.rv-header.rv-official-header .rv-official-logout:hover{background:#ffffff2b}
+.rv-header.rv-official-header .rv-official-logout:focus-visible{outline:2px solid #f5b923;outline-offset:2px}
 
 /* Compact completed-booking workflow; original audit records remain available on demand. */
 .rv-booking-timeline .rv-workflow-details{border-top:1px solid #e0e8ef;padding:12px 0}

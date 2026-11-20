@@ -99,7 +99,7 @@ async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): P
   try {
     const response = await fetch(url, { ...init, signal: abort.signal, headers: { Accept: 'application/json', ...init?.headers }, cache: 'no-store' });
     const body = obj(await response.json().catch(() => ({})));
-    if (!response.ok) throw new Error(str(body.error_description) || str(body.msg) || str(body.error) || 'API request failed (' + response.status + ')');
+    if (!response.ok) throw new Error('HTTP '+response.status+': '+(str(body.error_description) || str(body.msg) || str(body.error) || 'API request failed'));
     return body;
   } catch (error) {
     if (abort.signal.aborted && !init?.signal?.aborted) {
@@ -112,6 +112,7 @@ async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): P
   }
 }
 export async function login(email: string, password: string): Promise<LiveSession> {
+  resetLiveSession();
   if (QA_MOCK) { latestSession = { token: 'cx4a-qa-driver-token', refreshToken: 'cx4a-qa-refresh-token', expiresAt: Date.now() + 86400000 }; return latestSession; }
   const config = await jsonFetch(base + '/mobile/config');
   const url = str(config.supabaseUrl);
@@ -127,14 +128,19 @@ export async function login(email: string, password: string): Promise<LiveSessio
   return latestSession;
 }
 let latestSession: LiveSession | null = null;
-let renewalInFlight: Promise<LiveSession> | null = null;
+const renewals = new Map<string, Promise<LiveSession>>();
+let sessionEpoch = 0;
+let renewedFrom: string | null = null;
+export function resetLiveSession(){sessionEpoch++;latestSession=null;renewedFrom=null;renewals.clear();}
 export async function renewSession(session: LiveSession, forceRefresh = false): Promise<LiveSession> {
   if (QA_MOCK) { latestSession = { ...session, expiresAt: Date.now() + 86400000 }; return latestSession; }
-  const current = latestSession && latestSession.expiresAt > session.expiresAt ? latestSession : session;
+  const current = latestSession && (latestSession.refreshToken === session.refreshToken || renewedFrom === session.refreshToken) && latestSession.expiresAt > session.expiresAt ? latestSession : session;
   if (!forceRefresh && current.expiresAt > Date.now() + 120000) return current;
-  if (renewalInFlight) return renewalInFlight;
-  renewalInFlight = renewSessionOnce(current).then(next => { latestSession = next; return next; }).finally(() => { renewalInFlight = null; });
-  return renewalInFlight;
+  const key=current.refreshToken;
+  const existing=renewals.get(key);if(existing)return existing;
+  const epoch=sessionEpoch;
+  const pending=renewSessionOnce(current).then(next => { if(epoch!==sessionEpoch)throw new Error('Session expired. Please sign in again.');latestSession=next;renewedFrom=key;return next; }).finally(()=>{if(renewals.get(key)===pending)renewals.delete(key);});
+  renewals.set(key,pending);return pending;
 }
 async function renewSessionOnce(session: LiveSession): Promise<LiveSession> {
   if (!session.refreshToken) throw new Error('Session expired. Please sign in again.');
