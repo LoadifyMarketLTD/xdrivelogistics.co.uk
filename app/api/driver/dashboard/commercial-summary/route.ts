@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { operationalError } from '../../../_lib/operationalError';
+import { londonDate, londonMidnight, shiftDate, reportingStart } from './reportingDates';
 
 import {
   getBearerToken,
@@ -7,26 +9,11 @@ import {
 } from '../../../_lib/supabaseAdmin';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
-  NextResponse.json(payload, { status });
+  NextResponse.json(payload, { status, headers: { 'Cache-Control': 'private, no-store' } });
+
+const summaryError = (context: string, cause: unknown) => operationalError({ context: 'driver.dashboard.commercial-summary.' + context, message: 'Commercial summary could not be loaded. Please try again.', cause });
 
 const normalise = (value: unknown) => String(value ?? '').trim().toLowerCase();
-
-const periodStart = (period: string) => {
-  const now = new Date();
-  if (period === 'today') {
-    now.setHours(0, 0, 0, 0);
-    return now.toISOString();
-  }
-  if (period === '7d') {
-    now.setDate(now.getDate() - 7);
-    return now.toISOString();
-  }
-  if (period === '30d') {
-    now.setDate(now.getDate() - 30);
-    return now.toISOString();
-  }
-  return null;
-};
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -44,7 +31,7 @@ export async function GET(request: NextRequest) {
     .select('id, company_id, driver_type, can_commercial_bid')
     .eq('user_id', authData.user.id)
     .maybeSingle();
-  if (driverError) return respond(500, { error: driverError.message });
+  if (driverError) return summaryError('driverError', driverError);
   if (!driver?.company_id) return respond(403, { error: 'Driver company context is unavailable.' });
   if (normalise(driver.driver_type) !== 'owner_driver' || driver.can_commercial_bid !== true) {
     return respond(403, { error: 'Owner Driver commercial access is required.' });
@@ -57,7 +44,7 @@ export async function GET(request: NextRequest) {
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
     .maybeSingle();
-  if (membershipError) return respond(500, { error: membershipError.message });
+  if (membershipError) return summaryError('membershipError', membershipError);
 
   const role = normalise(membership?.role_in_company);
   if (role !== 'owner') {
@@ -70,15 +57,16 @@ export async function GET(request: NextRequest) {
     return respond(400, { error: 'Unsupported period.' });
   }
 
-  let cutoff = periodStart(period);
+  const now = new Date();
+  let cutoff = reportingStart(period, now);
   let periodEnd: string | null = null;
   if (period === 'custom') {
     const from = searchParams.get('from');
     const to = searchParams.get('to');
     if (!from || !to) return respond(400, { error: 'Custom period requires from and to dates.' });
-    const fromDate = new Date(`${from}T00:00:00.000Z`);
-    const toDate = new Date(`${to}T23:59:59.999Z`);
-    if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
+    const fromDate = londonMidnight(from);
+    const toDate = londonMidnight(shiftDate(to, 1));
+    if (!fromDate || !toDate || from >= shiftDate(to, 1)) {
       return respond(400, { error: 'Invalid custom date range.' });
     }
     cutoff = fromDate.toISOString();
@@ -89,17 +77,17 @@ export async function GET(request: NextRequest) {
     .from('invoices')
     .select('id, amount, status, payment_status, due_date, created_at')
     .eq('company_id', driver.company_id)
-    .limit(1000);
+    .order('id').limit(1000);
   let payableQuery = supabaseAdmin
     .from('invoices')
     .select('id, amount, status, payment_status, due_date, created_at, supplier_company_id')
     .eq('buyer_company_id', driver.company_id)
-    .limit(1000);
+    .order('id').limit(1000);
   let jobsQuery = supabaseAdmin
     .from('jobs')
     .select('id, awarded_carrier_company_id, created_at')
     .eq('company_id', driver.company_id)
-    .limit(1000);
+    .order('id').limit(1000);
 
   if (cutoff) {
     revenueQuery = revenueQuery.gte('created_at', cutoff);
@@ -107,12 +95,12 @@ export async function GET(request: NextRequest) {
     jobsQuery = jobsQuery.gte('created_at', cutoff);
   }
   if (periodEnd) {
-    revenueQuery = revenueQuery.lte('created_at', periodEnd);
-    payableQuery = payableQuery.lte('created_at', periodEnd);
-    jobsQuery = jobsQuery.lte('created_at', periodEnd);
+    revenueQuery = revenueQuery.lt('created_at', periodEnd);
+    payableQuery = payableQuery.lt('created_at', periodEnd);
+    jobsQuery = jobsQuery.lt('created_at', periodEnd);
   }
 
-  const feedbackCutoff = new Date();
+  const feedbackCutoff = new Date(now);
   feedbackCutoff.setDate(feedbackCutoff.getDate() - 90);
 
   const [revenueResult, payableResult, jobsResult, receivedFeedbackResult, givenFeedbackResult] = await Promise.all([
@@ -124,20 +112,25 @@ export async function GET(request: NextRequest) {
       .select('id, rating, created_at')
       .eq('company_id', driver.company_id)
       .gte('created_at', feedbackCutoff.toISOString())
-      .limit(1000),
+      .order('id').limit(1000),
     supabaseAdmin
       .from('reviews')
       .select('id, rating, created_at')
       .eq('reviewer_company_id', driver.company_id)
       .gte('created_at', feedbackCutoff.toISOString())
-      .limit(1000),
+      .order('id').limit(1000),
   ]);
 
-  if (revenueResult.error) return respond(500, { error: revenueResult.error.message });
-  if (payableResult.error) return respond(500, { error: payableResult.error.message });
-  if (jobsResult.error) return respond(500, { error: jobsResult.error.message });
-  if (receivedFeedbackResult.error) return respond(500, { error: receivedFeedbackResult.error.message });
-  if (givenFeedbackResult.error) return respond(500, { error: givenFeedbackResult.error.message });
+  if (revenueResult.error) return summaryError('revenueResult.error', revenueResult.error);
+  if (payableResult.error) return summaryError('payableResult.error', payableResult.error);
+  if (jobsResult.error) return summaryError('jobsResult.error', jobsResult.error);
+  if (receivedFeedbackResult.error) return summaryError('receivedFeedbackResult.error', receivedFeedbackResult.error);
+  if (givenFeedbackResult.error) return summaryError('givenFeedbackResult.error', givenFeedbackResult.error);
+
+  // Never present potentially truncated results as authoritative financial totals.
+  if ([revenueResult, payableResult, jobsResult, receivedFeedbackResult, givenFeedbackResult].some(result => (result.data?.length ?? 0) >= 1000)) {
+    return respond(503, { error: 'The selected reporting period exceeds the current summary capacity. Choose a shorter period or contact support.' });
+  }
 
   const cancelled = new Set(['cancelled', 'canceled', 'void']);
   const revenueRows = (revenueResult.data ?? []).filter((row) => !cancelled.has(normalise(row.status)));
@@ -147,16 +140,15 @@ export async function GET(request: NextRequest) {
     && !cancelled.has(normalise(row.status)),
   );
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = londonDate(now);
 
   const isSettled = (row: { status?: unknown; payment_status?: unknown }) =>
     normalise(row.status) === 'paid' || normalise(row.payment_status) === 'paid';
 
   const isOverdue = (row: { due_date?: string | null; status?: unknown; payment_status?: unknown }) => {
     if (isSettled(row) || !row.due_date) return false;
-    const due = new Date(row.due_date);
-    return Number.isFinite(due.getTime()) && due.getTime() < today.getTime();
+    const due = row.due_date.slice(0, 10);
+    return londonMidnight(due) !== null && due < today;
   };
 
   const revenueGross = revenueRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
