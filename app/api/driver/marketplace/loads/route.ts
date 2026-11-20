@@ -187,7 +187,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const startedAt = performance.now();
   const driver = await requireWebDriver(request);
+  const authMs = performance.now() - startedAt;
   if (!isDriverContext(driver)) return driver;
   if (!driver.canCommercialBid) {
     return respond(403, { error: 'Commercial marketplace access is not enabled for this Driver account.' });
@@ -234,10 +236,12 @@ export async function GET(request: NextRequest) {
       : query.in('status', ['posted', 'quoted']).limit(LIST_LIMIT);
   }
 
+  const queryStartedAt = performance.now();
   const [{ data: rawJobs, error: jobsError }, blockedResult] = await Promise.all([
     query,
     getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId),
   ]);
+  const jobsMs = performance.now() - queryStartedAt;
   if (jobsError) {
     return operationalError({
       status: 500,
@@ -295,6 +299,7 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
     : null;
 
+  const detailsStartedAt = performance.now();
   const [companiesResult, profilesResult, bidsResult, stopsResult, { data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
     companyIds.length
       ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
@@ -322,6 +327,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
   ]);
 
+  const detailsMs = performance.now() - detailsStartedAt;
   if (stopsResult.error) return operationalError({ status: 503, message: 'Marketplace route stops could not be verified. Please retry.', context: 'driver.marketplace.loads.stops', cause: stopsResult.error, retryable: true });
   const stopsByJob = new Map<string, {sequence:number; stop_type:string; area:string; window_start:string|null; window_end:string|null}[]>();
   for (const stop of stopsResult.data ?? []) {
@@ -414,5 +420,9 @@ export async function GET(request: NextRequest) {
       pickup_eta_minutes: pickupEtaMinutes,
     };
   }));
-  return respond(200, requestedId ? { load: loads[0] } : { loads });
+  const response = respond(200, requestedId ? { load: loads[0] } : { loads });
+  response.headers.set('Server-Timing', [
+    ['auth', authMs], ['jobs', jobsMs], ['details', detailsMs], ['total', performance.now() - startedAt],
+  ].map(([name, duration]) => `${name};dur=${Number(duration).toFixed(1)}`).join(', '));
+  return response;
 }

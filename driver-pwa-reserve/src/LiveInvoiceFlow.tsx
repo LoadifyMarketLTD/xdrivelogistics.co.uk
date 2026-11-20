@@ -71,7 +71,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    return object(data.invoice) as Invoice;
  }
  async function discover() {
-   setLoading(true);setError('');setNotice('');setEligibilityChecked(false);setEligible(null);setCommercialContext(null);setBlocker('');
+   setPdfReviewed(false);setSendApproved(false);setConfirmed(false);setLoading(true);setError('');setNotice('');setEligibilityChecked(false);setEligible(null);setCommercialContext(null);setBlocker('');
    try {
      const res=await req('/finance/jobs/'+encodeURIComponent(job.id)+'/invoice-context');
      const data=object(await res.json());
@@ -124,6 +124,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    });
  }
  async function preview() {await action(async()=>{
+   setPdfReviewed(false);setSendApproved(false);
    if(!invoice?.id)throw new Error('Generate or select an official invoice first.');
    const res=await req('/finance/invoices/'+encodeURIComponent(invoice.id)+'/preview');
    if(!(res.headers.get('content-type')||'').includes('application/pdf'))throw new Error('XDrive invoice generator did not return a PDF.');
@@ -140,6 +141,7 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    setConfirmed(done);setNotice(done?'XDrive confirmed invoice sending and recorded the delivery message ID.':'Send was submitted but not yet confirmed. Check delivery status; do not resend blindly.');
  }); }
  async function verify(){await action(async()=>{
+   setPdfReviewed(false);setSendApproved(false);
    if(!invoice?.id)throw new Error('No invoice ID to verify.');
    const updated=await loadDetail(invoice.id);setInvoice(updated);
    const done=updated.delivery_state==='sent'&&Boolean(updated.delivery_message_id);
