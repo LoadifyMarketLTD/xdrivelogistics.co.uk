@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { jobEvidenceReferences, isScopedPodObjectPath } from '../../../../lib/pod/jobEvidenceReferences';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -7,18 +8,7 @@ import {
 } from '../../_lib/supabaseAdmin';
 
 const json = (status: number, body: Record<string, unknown>) =>
-  NextResponse.json(body, { status });
-
-const stringArray = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
-    : [];
-
-const signatureEvidencePath = (value: unknown) => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const raw = (value as Record<string, unknown>).evidence_path;
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
-};
+  NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -48,25 +38,13 @@ export async function GET(request: NextRequest) {
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select(
-      'id, company_id, awarded_carrier_company_id, assigned_company_id, created_by, delivery_photos, damage_photos, pod_photos, delivery_signature_data'
+      'id, company_id, awarded_carrier_company_id, assigned_company_id, created_by, pickup_photos, collection_photo_url, delivery_photos, damage_photos, pod_photos, delivery_signature_data'
     )
     .eq('id', jobId)
     .maybeSingle();
 
   if (jobError) return json(500, { error: jobError.message });
   if (!job) return json(404, { error: 'Job not found.' });
-
-  const signaturePath = signatureEvidencePath(job.delivery_signature_data);
-  const permittedPaths = new Set([
-    ...stringArray(job.delivery_photos),
-    ...stringArray(job.damage_photos),
-    ...stringArray(job.pod_photos),
-    ...(signaturePath ? [signaturePath] : []),
-  ]);
-
-  if (!permittedPaths.has(objectPath)) {
-    return json(404, { error: 'POD file is not linked to this job.' });
-  }
 
   const companyIds = [
     job.company_id,
@@ -75,6 +53,14 @@ export async function GET(request: NextRequest) {
   ].filter(
     (value): value is string => typeof value === 'string' && value.length > 0
   );
+
+  const refs = jobEvidenceReferences(job);
+  const signaturePath = job.delivery_signature_data && typeof job.delivery_signature_data === 'object' && !Array.isArray(job.delivery_signature_data)
+    ? job.delivery_signature_data.evidence_path : null;
+  const permittedPaths = new Set([...refs.pickupPhotos, ...refs.deliveryPhotos, ...refs.damagePhotos, ...refs.documents, refs.signature, signaturePath]);
+  if (!permittedPaths.has(objectPath) || !isScopedPodObjectPath(objectPath, job.id, companyIds)) {
+    return json(404, { error: 'POD file is not linked to this job.' });
+  }
 
   let authorised = job.created_by === user.id;
 
@@ -101,9 +87,8 @@ export async function GET(request: NextRequest) {
     .createSignedUrl(objectPath, 120);
 
   if (signedUrlError || !signed?.signedUrl) {
-    return json(500, {
-      error: signedUrlError?.message ?? 'Unable to create a POD download link.',
-    });
+    const missing = signedUrlError && (/not found|does not exist/i.test(signedUrlError.message) || ('statusCode' in signedUrlError && String(signedUrlError.statusCode) === '404'));
+    return json(missing ? 404 : 503, { error: 'POD evidence file is unavailable.' });
   }
 
   return json(200, {

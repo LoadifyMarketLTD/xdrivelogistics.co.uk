@@ -9,6 +9,8 @@ import { getJobClientFields } from '../../../../lib/jobClientFields';
 import { useAuth } from '../../../components/AuthContext';
 import { getAccessToken } from '../../_lib/getAccessToken';
 import { getLoadDetailSections, type LoadDetailSection } from '../../../../lib/loadPostingDetails';
+import { jobEvidenceReferences } from '../../../../lib/pod/jobEvidenceReferences';
+import JobPodEvidenceFile from './JobPodEvidenceFile';
 
 interface Job {
   id: string;
@@ -47,6 +49,8 @@ interface Job {
   pod?: {
     pickupPhotos?: string[];
     deliveryPhotos?: string[];
+    damagePhotos?: string[];
+    documents?: string[];
     signature?: string;
     recipientName?: string;
     timestamp?: string;
@@ -131,7 +135,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, assigned_driver_id, job_distance_miles, collection_photo_url, pickup_photos, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
+          .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, assigned_driver_id, job_distance_miles, collection_photo_url, pickup_photos, delivery_photos, damage_photos, pod_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
           .eq('id', jobId)
           .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
           .single();
@@ -182,17 +186,7 @@ export default function JobDetailPage() {
               ? (row.status_history as Array<{ status: string; timestamp: string }>)
               : undefined,
             pod: (() => {
-              const pickupPhotos = Array.isArray(row.pickup_photos)
-                ? (row.pickup_photos as unknown[]).filter((photo): photo is string => typeof photo === 'string' && photo.length > 0)
-                : typeof row.collection_photo_url === 'string' && row.collection_photo_url.length > 0
-                  ? [row.collection_photo_url]
-                  : [];
-              const deliveryPhotos = Array.isArray(row.delivery_photos)
-                ? (row.delivery_photos as string[]).filter((photo) => typeof photo === 'string' && photo.length > 0)
-                : [];
-              const signature = typeof row.delivery_signature_data === 'string' && row.delivery_signature_data.length > 0
-                ? row.delivery_signature_data
-                : undefined;
+              const { pickupPhotos, deliveryPhotos, damagePhotos, documents, signature } = jobEvidenceReferences(row);
               const recipientName = typeof row.client_signature_name === 'string' && row.client_signature_name.length > 0
                 ? row.client_signature_name
                 : undefined;
@@ -200,13 +194,15 @@ export default function JobDetailPage() {
                 ? (row.status_history[row.status_history.length - 1] as { timestamp?: string }).timestamp
                 : undefined;
 
-              if (!pickupPhotos.length && !deliveryPhotos.length && !signature && !recipientName && !historyTimestamp) {
+              if (!pickupPhotos.length && !deliveryPhotos.length && !damagePhotos.length && !documents.length && !signature && !recipientName && !historyTimestamp) {
                 return undefined;
               }
 
               return {
                 pickupPhotos,
                 deliveryPhotos,
+                damagePhotos,
+                documents,
                 signature,
                 recipientName,
                 timestamp: historyTimestamp ?? (row.updated_at as string | undefined),
@@ -1085,107 +1081,30 @@ export default function JobDetailPage() {
                 ✅ Proof of Delivery
               </h2>
 
-              {/* Pickup Photos */}
-              {formData.pod.pickupPhotos && formData.pod.pickupPhotos.length > 0 && (
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>
-                    Pickup Photos
-                  </h3>
+              {([
+                { title: 'Pickup / Collection Photos', label: 'Collection photo', files: formData.pod.pickupPhotos },
+                { title: 'Delivery Photos', label: 'Delivery photo', files: formData.pod.deliveryPhotos },
+                { title: 'Damage Photos', label: 'Damage photo', files: formData.pod.damagePhotos },
+                { title: 'POD Documents', label: 'POD document', files: formData.pod.documents, document: true },
+              ] as const).map(group => group.files?.length ? (
+                <div key={group.title} style={{ marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>{group.title}</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
-                    {formData.pod.pickupPhotos.map((photo, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          position: 'relative',
-                          paddingBottom: '100%',
-                          backgroundColor: '#f3f4f6',
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                        }}
-                      >
-                        <img
-                          src={photo}
-                          alt={`Pickup photo ${index + 1}`}
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                      </div>
+                    {group.files.map((reference, index) => (
+                      <JobPodEvidenceFile key={jobId + ':' + reference} jobId={jobId} reference={reference}
+                        label={group.label + ' ' + (index + 1)} document={'document' in group && group.document} />
                     ))}
                   </div>
                 </div>
-              )}
-
-              {/* Delivery Photos */}
-              {formData.pod.deliveryPhotos && formData.pod.deliveryPhotos.length > 0 && (
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>
-                    Delivery Photos
-                  </h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '0.75rem' }}>
-                    {formData.pod.deliveryPhotos.map((photo, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          position: 'relative',
-                          paddingBottom: '100%',
-                          backgroundColor: '#f3f4f6',
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                        }}
-                      >
-                        <img
-                          src={photo}
-                          alt={`Delivery photo ${index + 1}`}
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Signature */}
+              ) : null)}
               {formData.pod.signature && (
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>
-                    Signature
-                  </h3>
-                  <div
-                    style={{
-                      backgroundColor: '#f9fafb',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      padding: '1rem',
-                      maxWidth: '400px',
-                    }}
-                  >
-                    <img
-                      src={formData.pod.signature}
-                      alt="Recipient signature"
-                      style={{
-                        width: '100%',
-                        height: 'auto',
-                        display: 'block',
-                      }}
-                    />
-                  </div>
+                <div style={{ marginBottom: '1.5rem', maxWidth: 400 }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>Signature</h3>
+                  <JobPodEvidenceFile key={jobId + ':signature:' + formData.pod.signature} jobId={jobId}
+                    reference={formData.pod.signature} label="Recipient signature" />
                 </div>
               )}
+
 
               {/* Recipient Info */}
               {(formData.pod.recipientName || formData.pod.timestamp) && (
