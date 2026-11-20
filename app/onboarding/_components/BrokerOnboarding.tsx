@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
@@ -347,7 +349,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
       <section style={{ marginTop: '1.5rem' }}>
         <h2>Company Documents</h2>
-        <p><a href="/onboarding/documents">View or replace my documents</a> - including files already submitted for review.</p>
+        <p><Link href="/onboarding/documents">View or replace my documents</Link> - including files already submitted for review.</p>
         {!application.company_id ? (
           <p style={{ color: '#92400E' }}>Verify the company before uploading documents.</p>
         ) : (

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useState } from 'react';
 import Image from 'next/image';
 import { COMPANY_CONFIG } from '../config/company';
@@ -144,7 +146,7 @@ export default function RequestQuotePage() {
             >
               WhatsApp Us
             </a>
-            <a
+            <Link
               href="/"
               style={{
                 padding: '0.75rem 1.25rem',
@@ -158,7 +160,7 @@ export default function RequestQuotePage() {
               }}
             >
               Back to Homepage
-            </a>
+            </Link>
           </div>
         </div>
       </main>
@@ -178,9 +180,9 @@ export default function RequestQuotePage() {
         <div>
           <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={180} height={49} priority style={{ width: 'auto', height: '40px' }} />
         </div>
-        <a href="/" style={{ color: '#D4AF37', textDecoration: 'none', fontWeight: 700 }}>
+        <Link href="/" style={{ color: '#D4AF37', textDecoration: 'none', fontWeight: 700 }}>
           ← Back to homepage
-        </a>
+        </Link>
 
         <section style={{ display: 'grid', gap: '0.8rem' }}>
           <h1 style={{ margin: 0, fontSize: 'clamp(1.8rem,4vw,2.4rem)' }}>Request a Quote</h1>

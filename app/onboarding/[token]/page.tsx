@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import OnboardingLegalStep from '../_components/OnboardingLegalStep';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -541,7 +543,7 @@ export default function OnboardingTokenPage() {
       {visibleDocuments.length > 0 && (
         <section style={{ marginTop: '2rem' }}>
           <h2>Document Upload</h2>
-          <p><a href="/onboarding/documents">View or replace my documents</a> - including files already submitted for review.</p>
+          <p><Link href="/onboarding/documents">View or replace my documents</Link> - including files already submitted for review.</p>
           <p style={{ color: '#4B5563' }}>
             Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
           </p>
