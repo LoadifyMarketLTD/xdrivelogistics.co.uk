@@ -15,9 +15,11 @@ type SendDispatcherPasswordSetupPayload = {
 };
 
 const createDispatcherPayloadSchema = z.object({
+  companyId: z.string().trim().min(1).optional(),
+  membershipId: z.string().trim().min(1).nullable().optional(),
   displayName: z.string().trim().min(1),
   email: z.string().trim().min(1).transform((value) => value.toLowerCase()),
-  phone: z.string().optional(),
+  phone: z.string().nullable().optional(),
 });
 
 const TEMP_PASSWORD_CHARSETS = {
@@ -87,18 +89,26 @@ const findAuthUserIdByEmail = async (email: string) => {
 };
 
 const resolveAdminMembership = async (
-  authUserId: string
+  authUserId: string,
+  companyId?: string | null,
+  membershipId?: string | null,
 ) => {
   if (!supabaseAdmin) return { data: null, error: new Error('Server auth is not configured.') };
 
-  return supabaseAdmin
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles').select('status').eq('user_id', authUserId).maybeSingle();
+  if (profileError) return { data: null, error: profileError };
+  if (profile?.status !== 'active') return { data: null, error: null };
+  let query = supabaseAdmin
     .from('company_memberships')
     .select('id, company_id, role_in_company, companies!inner(status)')
     .eq('user_id', authUserId)
     .eq('status', 'active')
     .eq('companies.status', 'active')
-    .in('role_in_company', Array.from(ADMIN_ROLES))
-    .maybeSingle();
+    .in('role_in_company', Array.from(ADMIN_ROLES));
+  if (companyId) query = query.eq('company_id', companyId);
+  if (membershipId) query = query.eq('id', membershipId);
+  return query.maybeSingle();
 };
 
 export async function POST(request: NextRequest) {
@@ -119,16 +129,6 @@ export async function POST(request: NextRequest) {
       return respond(401, { error: 'Unauthorized: invalid or expired token.' });
     }
 
-    const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id);
-
-    if (membershipError) {
-      return respond(500, { error: membershipError.message });
-    }
-
-    if (!membership?.id || !membership.company_id) {
-      return respond(403, { error: 'Forbidden' });
-    }
-
     let parsedPayload: z.infer<typeof createDispatcherPayloadSchema>;
     try {
       parsedPayload = createDispatcherPayloadSchema.parse(await request.json());
@@ -139,6 +139,16 @@ export async function POST(request: NextRequest) {
         });
       }
       throw error;
+    }
+
+    const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id, parsedPayload.companyId, parsedPayload.membershipId);
+
+    if (membershipError) {
+      return respond(500, { error: membershipError.message });
+    }
+
+    if (!membership?.id || !membership.company_id) {
+      return respond(403, { error: 'Forbidden' });
     }
 
     const displayName = parsedPayload.displayName;
@@ -173,8 +183,21 @@ export async function POST(request: NextRequest) {
 
       if (isAlreadyExists) {
         userId = await findAuthUserIdByEmail(email);
-        invited = false;
-        onboardingOutcome = 'password_setup_required';
+        if (!userId) return respond(409, { error: 'Existing account could not be verified. No role has been changed.' });
+        // Creating a dispatcher is not a role-transfer or account-recovery mechanism.
+        // An existing account may only use the idempotent path for its current active dispatcher membership.
+        const { data: existingMembership, error: existingError } = await supabaseAdmin
+          .from('company_memberships')
+          .select('id, company_id, user_id, invited_email, role_in_company, status, created_at')
+          .eq('company_id', resolvedCompanyId).eq('user_id', userId)
+          .eq('role_in_company', 'dispatcher').eq('status', 'active').maybeSingle();
+        const { data: existingProfile, error: existingProfileError } = await supabaseAdmin
+          .from('profiles').select('role, company_id, status, is_driver').eq('user_id', userId).maybeSingle();
+        if (existingError || existingProfileError) return respond(500, { error: 'Existing account authority could not be verified.' });
+        if (!existingMembership || existingProfile?.company_id !== resolvedCompanyId || existingProfile?.role !== 'company_staff' || existingProfile?.status !== 'active' || existingProfile?.is_driver === true) {
+          return respond(409, { error: 'This account already exists. Use the authorized team role assignment process instead.' });
+        }
+        return respond(200, { dispatcher: existingMembership, invited: false, onboardingOutcome: 'password_setup_required', temporaryPassword: null, inviteFallbackReason: null });
       } else {
         invited = false;
         onboardingOutcome = 'temporary_password_created';
@@ -295,7 +318,7 @@ export async function PATCH(request: NextRequest) {
     const payload = (await request.json()) as SendDispatcherPasswordSetupPayload;
     const email = payload.email?.trim().toLowerCase();
 
-    const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id);
+    const { data: membership, error: membershipError } = await resolveAdminMembership(authData.user.id, payload.companyId?.trim(), payload.membershipId?.trim());
 
     if (membershipError) {
       return respond(500, { error: membershipError.message });
@@ -316,6 +339,7 @@ export async function PATCH(request: NextRequest) {
       .select('id')
       .eq('company_id', resolvedCompanyId)
       .eq('role_in_company', 'dispatcher')
+      .eq('status', 'active')
       .eq('invited_email', email)
       .limit(1)
       .maybeSingle();
