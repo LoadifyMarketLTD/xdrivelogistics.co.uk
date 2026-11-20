@@ -7,11 +7,18 @@ describe('driver booking storyboard navigation chain 0-11',()=>{
   it('links every forward booking step to the next page',()=>{
     const page0=readFileSync(root+'/page-0/page.tsx','utf8');
     expect(page0).toContain("router.push('/driver-pwa-fresh/visual-preview/workflow/page-1')");
-    for(let page=1;page<=10;page++){
+    for(const page of [1,2,3,4,5,6,7,8,10]){
       const source=readFileSync(root+'/page-'+page+'/page.tsx','utf8');
       expect(source, 'page-'+page+' must link to page-'+(page+1))
         .toContain("/driver-pwa-fresh/visual-preview/workflow/page-"+(page+1));
     }
+  });
+
+  it('keeps invoice preview separate from simulated invoice-issued confirmation',()=>{
+    const page9=readFileSync(root+'/page-9/page.tsx','utf8');
+    expect(page9).not.toContain('/driver-pwa-fresh/visual-preview/workflow/page-10');
+    expect(page9).toContain('/driver/finance/invoices/');
+    expect(page9).toContain('Nothing has been emailed.');
   });
 
   it('records acceptance before entering page 1',()=>{
