@@ -35,7 +35,7 @@ const REGULAR_DAYS = [
   ['mon', 'Mon'], ['tue', 'Tue'], ['wed', 'Wed'], ['thu', 'Thu'], ['fri', 'Fri'], ['sat', 'Sat'], ['sun', 'Sun'],
 ] as const;
 const MAX_DOCUMENT_FILES = 12;
-const MAX_DOCUMENT_BYTES = 12 * 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
   'application/pdf',
   'image/jpeg',
@@ -557,7 +557,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       || !ALLOWED_DOCUMENT_MIME_TYPES.has(file.type.trim().toLowerCase()),
     );
     if (invalidDocument) {
-      setError('Document ' + invalidDocument.name + ' is empty, exceeds 12 MB, or uses an unsupported file type.');
+      setError('Document ' + invalidDocument.name + ' is empty, exceeds 20 MiB, or uses an unsupported file type.');
       return;
     }
     if (!user?.id || !isSupabaseConfigured) {
@@ -773,7 +773,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         });
         const documentPayload = (await documentResponse.json().catch(() => null)) as { error?: string } | null;
         if (!documentResponse.ok) {
-          await supabase.storage.from('load-documents').remove(documentRows.map((document) => document.storagePath));
+          // Registration may already have committed; never delete uploaded evidence on an ambiguous response.
           throw new Error(`Load ${xdriveReference(payload.job.id)} was saved, but document records could not be saved: ${documentPayload?.error ?? 'Unknown document service error.'}`);
         }
       }
@@ -1360,21 +1360,33 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <label style={labelStyle}>Document Name
             <input style={fieldStyle} value={documentName} maxLength={160} placeholder="e.g. Collection instruction" onChange={(event) => setDocumentName(event.target.value)} />
           </label>
-          <label style={labelStyle}>Upload Document (maximum 12 MB)
+          <label style={labelStyle}>Upload Document (maximum 20 MiB)
             <input
               ref={documentInputRef}
               style={{ ...fieldStyle, padding: '5px 8px', minHeight: '38px' }}
               type="file"
               multiple
-              accept=".pdf,.jpg,.jpeg,.png,.csv,.doc,.docx,.xls,.xlsx"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.csv,.doc,.docx,.xls,.xlsx"
               onChange={(event) => {
                 const added = Array.from(event.target.files ?? []);
-                setDocumentFiles((current) => [...current, ...added].slice(0, MAX_DOCUMENT_FILES));
+                if (documentFiles.length + added.length > MAX_DOCUMENT_FILES) {
+                  setError("Attach no more than " + MAX_DOCUMENT_FILES + " documents to one load.");
+                  event.target.value = "";
+                  return;
+                }
+                const invalid = added.find(file => file.size <= 0 || file.size > MAX_DOCUMENT_BYTES || !ALLOWED_DOCUMENT_MIME_TYPES.has(file.type.trim().toLowerCase()));
+                if (invalid) {
+                  setError("Document " + invalid.name + " is empty, exceeds 20 MiB, or uses an unsupported file type.");
+                  event.target.value = "";
+                  return;
+                }
+                setError("");
+                setDocumentFiles((current) => [...current, ...added]);
                 if (documentName.trim()) setDocumentNames((current) => Object.fromEntries([...Object.entries(current), ...added.map((file) => [file.name, documentName.trim()])]));
                 event.target.value = '';
               }}
             />
-            <span>Accepted: jpg, jpeg, png, pdf, doc, docx, xls, xlsx, csv. Maximum 12 MB per file.</span>
+            <span>Accepted: jpg, jpeg, png, webp, pdf, doc, docx, xls, xlsx, csv. Up to 12 files, maximum 20 MiB per file.</span>
           </label>
           <div className="approved-postload-document-actions">
             <button type="button" onClick={() => documentInputRef.current?.click()} disabled={saving || documentFiles.length >= MAX_DOCUMENT_FILES}>+ Add Document</button>
