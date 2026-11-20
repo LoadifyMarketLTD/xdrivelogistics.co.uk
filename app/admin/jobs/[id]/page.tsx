@@ -9,7 +9,7 @@ import { getJobClientFields } from '../../../../lib/jobClientFields';
 import { useAuth } from '../../../components/AuthContext';
 import { getAccessToken } from '../../_lib/getAccessToken';
 import { getLoadDetailSections, type LoadDetailSection } from '../../../../lib/loadPostingDetails';
-import { jobEvidenceReferences } from '../../../../lib/pod/jobEvidenceReferences';
+import { jobEvidenceReferences, signatureEvidenceLabel } from '../../../../lib/pod/jobEvidenceReferences';
 import JobPodEvidenceFile from './JobPodEvidenceFile';
 
 interface Job {
@@ -52,6 +52,7 @@ interface Job {
     damagePhotos?: string[];
     documents?: string[];
     signature?: string;
+    signatureLabel?: string;
     recipientName?: string;
     timestamp?: string;
   };
@@ -204,6 +205,7 @@ export default function JobDetailPage() {
                 damagePhotos,
                 documents,
                 signature,
+                signatureLabel: signatureEvidenceLabel(row.delivery_signature_data),
                 recipientName,
                 timestamp: historyTimestamp ?? (row.updated_at as string | undefined),
               };
@@ -1099,9 +1101,9 @@ export default function JobDetailPage() {
               ) : null)}
               {formData.pod.signature && (
                 <div style={{ marginBottom: '1.5rem', maxWidth: 400 }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>Signature</h3>
+                  <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#374151', marginBottom: '0.75rem' }}>{formData.pod.signatureLabel ?? 'Signature evidence'}</h3>
                   <JobPodEvidenceFile key={jobId + ':signature:' + formData.pod.signature} jobId={jobId}
-                    reference={formData.pod.signature} label="Recipient signature" />
+                    reference={formData.pod.signature} label={formData.pod.signatureLabel ?? "Signature evidence"} />
                 </div>
               )}
 
