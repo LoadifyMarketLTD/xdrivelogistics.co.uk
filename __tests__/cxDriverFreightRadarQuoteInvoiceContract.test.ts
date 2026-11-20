@@ -63,10 +63,10 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
     expect(advancedSearch).toContain('message: quote.message');
     expect(advancedSearch).toContain('<MarketplaceQuoteModal');
     expect(quoteModal).toContain('<MarketplaceQuoteNowDialog');
-    expect(sharedQuoteDialog).toContain('className="xdrive-quote-modal__member"');
-    expect(sharedQuoteDialog).toContain('Choose currency:');
-    expect(sharedQuoteDialog).toContain('My Quote:');
-    expect(sharedQuoteDialog).toContain('Extras <b>＋</b>');
+    expect(sharedQuoteDialog).toContain('<Canonical3150QuoteInformation');
+    expect(sharedQuoteDialog).toContain('onCurrencyChange(event.target.value)');
+    expect(sharedQuoteDialog).toContain('Your Quote');
+    expect(sharedQuoteDialog).toContain('onExtraAmountChange');
     expect(sharedQuoteDialog).toContain('Total:');
     expect(sharedQuoteDialog).toContain('Submit Quote');
   });

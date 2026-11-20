@@ -79,15 +79,13 @@ export async function requireWebDriver(
   const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
     ? driverRow.company_id.trim()
     : null;
-  const deviceGate = await rejectRevokedNativeAuthSession(request, authData.user.id, String(driverRow.id));
+  const [deviceGate, { data: companyRow, error: companyError }] = await Promise.all([
+    rejectRevokedNativeAuthSession(request, authData.user.id, String(driverRow.id)),
+    companyId ? supabaseAdmin.from('companies').select('status').eq('id', companyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+  ]);
   if (deviceGate) return deviceGate;
   let companyStatus: string | null = null;
   if (companyId) {
-    const { data: companyRow, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('status')
-      .eq('id', companyId)
-      .maybeSingle();
     if (companyError) return respond(500, { error: companyError.message });
     companyStatus = String(companyRow?.status ?? '').trim().toLowerCase() || null;
   }

@@ -15,6 +15,8 @@ const nativeConfirmUiFiles = [
 ].map((file)=>readFileSync(join(process.cwd(),file),'utf8'));
 const customerQuotesUi = readFileSync(join(process.cwd(),'app/customer/quotes/CustomerQuotesCxPage.tsx'),'utf8');
 
+const confirmationUi = readFileSync(join(process.cwd(),'app/customer/quotes/BookingConfirmationFullPage.tsx'),'utf8');
+
 describe('buyer payment obligation acknowledgement',()=>{
   it('stores timestamp, actor and server-controlled terms version on the booking offer',()=>{
     expect(migration).toContain('payment_obligation_acknowledged_at timestamptz');
@@ -53,8 +55,11 @@ describe('buyer payment obligation acknowledgement',()=>{
       expect(ui).toContain('confirmBookingPaymentObligation');
       expect(ui).toContain('bookingPaymentObligationRequestBody');
     }
-    expect(customerQuotesUi).toContain('BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT');
-    expect(customerQuotesUi).toContain('Payment obligation acknowledgement');
+    expect(customerQuotesUi).toContain('<BookingConfirmationFullPage');
+    expect(confirmationUi).toContain('BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT');
+    expect(confirmationUi).toContain('checked={paymentAccepted}');
+    expect(confirmationUi).toContain('disabled={!ready}');
+    expect(confirmationUi).toMatch(/const ready\s*=.*detailsAccepted.*paymentAccepted/);
     expect(customerQuotesUi).toContain('bookingPaymentObligationRequestBody');
     expect(customerQuotesUi).not.toContain('confirmBookingPaymentObligation');
   });
