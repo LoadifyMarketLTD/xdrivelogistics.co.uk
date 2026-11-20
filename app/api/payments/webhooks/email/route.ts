@@ -35,16 +35,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing email webhook signature headers' }, { status: 400 });
   }
 
-  let event: ResendInvoiceEvent;
+  let raw: string;
   try {
-    const raw = await request.text();
-    event = new Webhook(secret).verify(raw, {
+    raw = await request.text();
+    // Svix 2 verifies the original signed bytes and throws on failure; it returns void.
+    new Webhook(secret).verify(raw, {
       'svix-id': eventId,
       'svix-timestamp': timestamp,
       'svix-signature': signature,
-    }) as unknown as ResendInvoiceEvent;
+    });
   } catch {
     return NextResponse.json({ error: 'Invalid email webhook signature' }, { status: 400 });
+  }
+
+  let event: ResendInvoiceEvent;
+  try {
+    event = JSON.parse(raw) as ResendInvoiceEvent;
+  } catch {
+    return NextResponse.json({ error: 'Invalid email event' }, { status: 400 });
   }
 
   if (!event || typeof event !== 'object' || typeof event.type !== 'string' || !event.data || typeof event.data !== 'object') {

@@ -37,13 +37,6 @@ const json = (status: number, body: Record<string, unknown>) =>
     headers: { 'Cache-Control': 'no-store, max-age=0', Pragma: 'no-cache' },
   });
 
-const removeObjects = async (paths: string[]) => {
-  if (!supabaseAdmin || paths.length === 0) return;
-  const unique = [...new Set(paths)];
-  const { error } = await supabaseAdmin.storage.from('load-documents').remove(unique);
-  if (error) console.error('[admin/jobs/documents] orphan cleanup failed', { paths: unique, code: error.message });
-};
-
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
@@ -79,15 +72,18 @@ export async function POST(
     mimeType: string | null;
   }> = [];
 
+  // Registration must never remove objects: an invalid request can reference
+  // another tenant's file, and a failed acknowledgement may follow a committed insert.
+  const inputPaths = parsed.data.documents.map(document => document.storagePath);
+  if (new Set(inputPaths).size !== inputPaths.length) {
+    return json(400, { error: 'Duplicate document storage paths are not allowed.' });
+  }
+  if (inputPaths.some(path => !path.startsWith(prefix) || path.includes('..') || path.includes('\\') || path.includes('//') || path.includes('%') || path.length <= prefix.length)) {
+    return json(400, { error: 'Document storage path does not belong to this job.' });
+  }
   for (const document of parsed.data.documents) {
     const path = document.storagePath;
-    if (!path.startsWith(prefix) || path.includes('..') || path.includes('\\') || path.includes('//')) {
-      await removeObjects([path]);
-      return json(400, { error: 'Document storage path does not belong to this job.' });
-    }
-
-    const { data: storedFile, error: downloadError } = await supabaseAdmin.storage
-      .from('load-documents')
+    const { data: storedFile, error: downloadError } = await supabaseAdmin.storage.from('load-documents')
       .download(path);
     if (downloadError || !storedFile) {
       return json(409, { error: `Uploaded document ${document.fileName} could not be verified.` });
@@ -99,19 +95,19 @@ export async function POST(
     const resolvedMime = actualMime || requestedMime;
 
     if (actualSize <= 0 || actualSize > MAX_DOCUMENT_BYTES) {
-      await removeObjects([path]);
+
       return json(400, { error: `Document ${document.fileName} exceeds the 20 MB limit or is empty.` });
     }
     if (document.fileSizeBytes !== actualSize) {
-      await removeObjects([path]);
+
       return json(409, { error: `Document ${document.fileName} changed during upload. Upload it again.` });
     }
     if (!resolvedMime || !ALLOWED_MIME_TYPES.has(resolvedMime)) {
-      await removeObjects([path]);
+
       return json(400, { error: `Document ${document.fileName} has an unsupported file type.` });
     }
     if (actualMime && requestedMime && actualMime !== requestedMime) {
-      await removeObjects([path]);
+
       return json(409, { error: `Document ${document.fileName} MIME type does not match the uploaded file.` });
     }
 
@@ -130,7 +126,7 @@ export async function POST(
     .eq('job_id', jobId)
     .in('file_path', paths);
   if (existingError) {
-    await removeObjects(paths);
+
     return json(500, { error: 'Existing document records could not be checked.' });
   }
 
@@ -161,14 +157,14 @@ export async function POST(
     .select('id, job_id, company_id, doc_type, file_path, file_name, file_size_bytes, mime_type, created_at');
 
   if (insertError) {
-    await removeObjects(pending.map((document) => document.storagePath));
+
     console.error('[admin/jobs/documents] metadata insert failed', {
       jobId,
       companyId: admin.companyId,
       code: insertError.code,
       message: insertError.message,
     });
-    return json(500, { error: 'Document metadata could not be saved. Uploaded orphan files were removed.' });
+    return json(500, { error: 'Document metadata could not be confirmed. Uploaded files have been preserved for reconciliation.' });
   }
 
   return json(201, { ok: true, documents: inserted ?? [], idempotent: false });

@@ -6,7 +6,7 @@
   ignore = "node ./scripts/netlify-ignore-foreign-site.mjs"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "22"
   NODE_OPTIONS = "--max-old-space-size=4096"
   NEXT_PUBLIC_SITE_URL = "https://www.xdrivelogistics.co.uk"
   EXPECTED_NEXT_PUBLIC_SUPABASE_URL = "https://jqxlauexhkonixtjvljw.supabase.co"
