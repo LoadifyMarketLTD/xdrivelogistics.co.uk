@@ -720,3 +720,5 @@
 .rv-main .rv-history-card .rv-route .rv-stop span,.rv-main .rv-history-card .rv-route .rv-stop strong{font-size:16px!important;line-height:1.4!important;overflow-wrap:anywhere}
 .rv-main .rv-history-card .rv-route .rv-stop b{font-size:16px!important;line-height:1.4!important}
 .rv-operation-screen.rv-request-screen>h1{display:block;margin:0 0 12px!important;padding:12px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#0a234f!important;font-size:18px!important;line-height:1.35}
+
+.rv-feed-spinner{display:inline-block;width:18px;height:18px;border:2px solid #dce6ef;border-top-color:#0e3fa9;border-radius:50%;vertical-align:middle;animation:rv-feed-spin .8s linear infinite}.rv-feed-loading-label{font-size:13px;color:#58708a;margin-left:9px;vertical-align:middle}@keyframes rv-feed-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.rv-feed-spinner{animation:none}}

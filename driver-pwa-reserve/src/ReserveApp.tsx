@@ -161,9 +161,14 @@ export default function ReserveApp() {
     const generation=++refreshGeneration.current;
     const current=()=>generation===refreshGeneration.current;
     refreshPending.current=true;
-    setPendingFeeds({marketplace:true,bookings:true,completed:true});
-    setFailedFeeds({marketplace:false,bookings:false,completed:false});
-    setOffersLoading(true);setBidsLoading(true);
+    const firstLoad=feedCache.current.size===0;
+    setPendingFeeds({marketplace:!feedCache.current.has('marketplace'),bookings:!feedCache.current.has('bookings'),completed:!feedCache.current.has('completed')});
+    setOffersLoading(!commercialCache.current.offers);setBidsLoading(!commercialCache.current.bids);
+    // Give the initial marketplace request first access to the connection; never
+    // hold other tabs behind a stalled request for more than two seconds.
+    let releaseSecondary=()=>{};
+    let priorityTimer: ReturnType<typeof setTimeout>|undefined;
+    const secondaryReady=firstLoad?new Promise<void>(resolve=>{releaseSecondary=()=>{clearTimeout(priorityTimer);resolve();};priorityTimer=setTimeout(releaseSecondary,2000);}):Promise.resolve();
     const render=()=>{
       if(!current())return;
       const next=new Map<string,LiveJob>();
@@ -191,11 +196,11 @@ export default function ReserveApp() {
         refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);resetLiveSession();localStorage.removeItem(KEY);setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
       }
     };
-    const offersRequest=bookingOffersGet(token).then(data=>{
+    const offersRequest=secondaryReady.then(()=>current()?bookingOffersGet(token):Promise.reject(new Error('Refresh superseded'))).then(data=>{
       if(!current())return;if(!Array.isArray(data.offers))throw Error('Invalid booking offers response');
       commercialCache.current.offers=data;render();notice('Booking offers');
     }).catch(reason=>{if(current()){delete commercialCache.current.offers;failed('Booking offers',reason);render();}}).finally(()=>{if(current())setOffersLoading(false);});
-    const bidsRequest=driverGet('/mobile/bids',token,30000).then(data=>{
+    const bidsRequest=secondaryReady.then(()=>current()?driverGet('/mobile/bids',token,30000):Promise.reject(new Error('Refresh superseded'))).then(data=>{
       if(!current())return;if(!Array.isArray(data.bids))throw Error('Invalid quote history response');
       commercialCache.current.bids=data;render();notice('Quote history');
     }).catch(reason=>{if(current()){delete commercialCache.current.bids;failed('Quote history',reason);render();}}).finally(()=>{if(current())setBidsLoading(false);});
@@ -204,6 +209,7 @@ export default function ReserveApp() {
         if(!current())return;
         feedCache.current.set(feed,freshJobs);render();
       },(feed,reason)=>{
+        if(feed==='marketplace')releaseSecondary();
         if(!current())return;
         if(reason){
           // Marketplace and executable records must not remain actionable after
@@ -212,10 +218,11 @@ export default function ReserveApp() {
         }else notice(feed);
         setFailedFeeds(previous=>({...previous,[feed]:Boolean(reason)}));
         setPendingFeeds(previous=>({...previous,[feed]:false}));
-      });
+      },secondaryReady,current);
       if(!current())return;
       if(result.warnings.filter(message=>/invalid session|unauthorized|jwt expired|401/i.test(message)).length>=2)throw new Error('Invalid session: the driver API rejected the saved token.');
     }finally{
+      releaseSecondary();
       void Promise.allSettled([offersRequest,bidsRequest]).then(()=>{if(current())refreshPending.current=false;});
     }
   },[]);
@@ -387,13 +394,12 @@ export default function ReserveApp() {
       {tab==='Bookings'&&<div className="rv-quote-tabs rv-booking-tabs" role="group" aria-label="Booking categories">{(['Received','Allocated','Delivered'] as BookingSection[]).map(s=><button key={s} className={bookingSection===s?'rv-selected':''} aria-pressed={bookingSection===s} onClick={()=>setBookingSection(s)}>{s==='Received'?'Pending':s==='Allocated'?'Active':'History'}</button>)}</div>}
       {tab==='Bookings'&&bookingSection==='Delivered'&&<div className="rv-booking-history-tools" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'10px 0 14px'}}><input aria-label="Search booking history" placeholder="Search reference, town, postcode, customer" value={bookingSearch} onChange={e=>setBookingSearch(e.target.value)} style={{flex:'1 1 200px',minWidth:0,padding:11,borderRadius:9,border:'1px solid #cbd5e1'}}/><select aria-label="Booking history period" value={bookingPeriod} onChange={e=>setBookingPeriod(e.target.value)} style={{padding:10,borderRadius:9,border:'1px solid #cbd5e1'}}><option value="all">All time</option><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option></select></div>}
       {tab==='Quotes'&&<div className="rv-quote-tabs" role="group" aria-label="Quote sections">{(['Submitted','Awarded','History'] as QuoteSection[]).map(s=><button key={s} className={quoteSection===s?'rv-selected':''} aria-pressed={quoteSection===s} onClick={()=>{setQuoteSection(s);setWithdrawId(null)}}>{s}</button>)}</div>}
-      {waitingFeed&&shown.length===0&&<p className="rv-loading-inline" role="status">Refreshing live jobs…</p>}
       {historicalSearchBusy&&searchingByReference&&<p className="rv-loading-inline" role="status">Searching all historical jobs by reference…</p>}
       {historicalSearchError&&searchingByReference&&<p className="rv-warning" role="alert">Historical reference search unavailable: {historicalSearchError}</p>}
       {searchingByReference&&historicalSearchResults&&historicalSearchResults.length>1&&<p className="rv-warning">Several jobs match this historical reference. Check the route and date; no job has been selected automatically.</p>}
-      {shown.length ? shown.map(j=>card(j)) : <div className="rv-empty">
-        <b>{waitingOffers?'Checking incoming booking offers…':waitingQuotes?'Loading your quote history':waitingFeed?'Loading live data…':(warning||failedFeed)?'Some sources are temporarily unavailable':jobs.length===0?'No jobs returned by the server':tab==='Bookings'&&bookingSection==='Received'?'No current booking offers':tab==='Loads'?'No available marketplace loads':'No matching '+tab.toLowerCase()}</b>
-        <p>{waitingOffers?'Bookings and quotes remain accessible while incoming offers are checked.':waitingQuotes?'Your personal bids are being checked separately so Loads and Bookings stay responsive.':waitingFeed?'Refreshing XDrive…':(warning||failedFeed)?'Some live sources failed. Check the notices below or retry. This does not mean that the marketplace is empty.':tab==='Bookings'&&bookingSection==='Received'?'Pending awarded jobs appear here, including overdue collections. You can review and respond to an offer even after the scheduled collection time.':tab==='Loads'&&jobs.length>0?'No currently OPEN marketplace loads match the selected filters. Your submitted quotes remain under Quotes.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
+      {shown.length ? shown.map(j=>card(j)) : (waitingFeed||waitingOffers||waitingQuotes)&&!error ? <div className="rv-empty" role="status" aria-live="polite"><span className="rv-feed-spinner" aria-hidden="true"/><span className="rv-feed-loading-label">{waitingQuotes?'Loading quotes':tab==='Bookings'?'Loading bookings':'Loading loads'}</span></div> : <div className="rv-empty">
+        <b>{(warning||failedFeed||error)?'Some sources are temporarily unavailable':jobs.length===0?'No jobs returned by the server':tab==='Bookings'&&bookingSection==='Received'?'No current booking offers':tab==='Loads'?'No available marketplace loads':'No matching '+tab.toLowerCase()}</b>
+        <p>{(warning||failedFeed||error)?'Some live sources failed. Check the notices below or retry. This does not mean that the marketplace is empty.':tab==='Bookings'&&bookingSection==='Received'?'Pending awarded jobs appear here, including overdue collections. You can review and respond to an offer even after the scheduled collection time.':tab==='Loads'&&jobs.length>0?'No currently OPEN marketplace loads match the selected filters. Your submitted quotes remain under Quotes.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
         {!loading&&(error||warning||jobs.length===0)&&<button className="rv-outline rv-wide" onClick={()=>void retryLive()}>Retry Live Data →</button>}
         {tab==='Loads'&&jobs.some(j=>j.quote!=null)&&<button className="rv-outline rv-wide" onClick={()=>navigate('Quotes')}>View My Quotes →</button>}
       </div>}
