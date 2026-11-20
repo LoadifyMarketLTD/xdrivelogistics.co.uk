@@ -71,7 +71,11 @@ export default function LoginPage() {
       } else if (result.route) {
         const selfServiceDocuments = safeNextPath === '/onboarding/documents' || safeNextPath?.startsWith('/onboarding/documents?')
           || safeNextPath === '/settings/payments' || safeNextPath?.startsWith('/settings/payments?');
-        router.replace(selfServiceDocuments ? safeNextPath! : result.route);
+        // A requested self-service destination must not supersede mandatory password setup.
+        const destination = result.route === '/driver/change-password'
+          ? result.route
+          : selfServiceDocuments && safeNextPath ? safeNextPath : result.route;
+        router.replace(destination);
       }
     } finally {
       setIsLoading(false);

@@ -12,7 +12,8 @@ describe('operational shell and onboarding recovery contract', () => {
   const login = read('app/login/page.tsx');
 
   it('uses the canonical shell scope for Driver and Owner Driver', () => {
-    expect(driverLayout).toContain('xdrive-operational-top-workspace xdrive-driver-workspace');
+    const scope = driverLayout.match(/className="([^"]*xdrive-driver-workspace[^"]*)"/)?.[1].split(/\s+/) ?? [];
+    expect(scope).toEqual(expect.arrayContaining(['xdrive-operational-top-workspace', 'xdrive-driver-workspace']));
   });
 
   it('exposes Settings only for operational roles with settings authority', () => {
@@ -37,7 +38,9 @@ describe('operational shell and onboarding recovery contract', () => {
   it('routes editable pending onboarding sessions back to recovery', () => {
     expect(auth).toContain("['invited', 'draft', 'in_progress', 'request_changes']");
     expect(auth).toContain("return { success: true, route: '/onboarding/resume' }");
-    expect(login).toContain('router.replace(result.route)');
+    expect(login).toContain("result.route === '/driver/change-password'");
+    expect(login).toContain('selfServiceDocuments && safeNextPath ? safeNextPath : result.route');
+    expect(login).toContain('router.replace(destination)');
   });
 
   it('does not fold Super Admin into the operational shell contract', () => {
