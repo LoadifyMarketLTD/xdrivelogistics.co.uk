@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { LiveJob, LiveSession, LiveStop } from './liveApi';
 import { driverPost, renewSession } from './liveApi';
 import {SignaturePad} from './DeliveryHandover';
@@ -15,32 +15,51 @@ type Props={
   onCancel:()=>void;
 };
 
+type StopDraft = { outcome:string; recipient:string; leftAt:string; items:string; weight:string; packaging:string; deliveredOn:string; notes:string; files:File[]; signature:File|null; signatureImage:string|null };
+// In-memory only: preserve unfinished stop forms across Back navigation.
+// Never persist POD photos, signatures or recipient names in browser storage.
+const stopDrafts = new Map<string,StopDraft>();
+export function clearReserveStopDrafts(){stopDrafts.clear();}
+function stopDraftKey(jobId:string,stopId:string){return jobId+':'+stopId;}
+export function signaturePngFile(image:string):File {
+ const match=/^data:image\/png;base64,([a-z0-9+/]+={0,2})$/i.exec(image);
+ if(!match)throw new Error('Invalid signature image');
+ const decoded=atob(match[1]);
+ const bytes=new Uint8Array(decoded.length);
+ for(let index=0;index<decoded.length;index++)bytes[index]=decoded.charCodeAt(index);
+ if(bytes.length===0||bytes.length>10*1024*1024)throw new Error('Invalid signature size');
+ return new File([bytes],'stop-signature.png',{type:'image/png'});
+}
 const driverApi=import.meta.env.PROD?'/api/driver':'/xdrive-api/driver';
 const outcomes=['Completed Delivery','Incorrect Goods','Incorrect Address','Job Cancelled','Delivery Refused','No Unloading Facilities','Damaged Goods'] as const;
 const pad=(n:number)=>String(n).padStart(2,'0');
 const localNow=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;};
 
-function StopSignature({recipient,onSave}:{recipient:string;onSave:(file:File|null)=>void}){
- const [open,setOpen]=useState(false),[image,setImage]=useState<string|null>(null),[saved,setSaved]=useState(false);
+function StopSignature({recipient,onSave,initialImage,onImageChange,initialSaved}:{recipient:string;onSave:(file:File|null)=>void;initialImage:string|null;onImageChange:(image:string|null)=>void;initialSaved:boolean}){
+ const [open,setOpen]=useState(false),[image,setImage]=useState<string|null>(initialImage),[saved,setSaved]=useState(initialSaved);
  const [error,setError]=useState('');
- const change=(next:string|null)=>{setImage(next);setSaved(false);setError('');onSave(null);};
- const save=async()=>{if(!image)return;try{const response=await fetch(image);const blob=await response.blob();if(blob.type!=='image/png'||!blob.size)throw new Error('Invalid signature image');onSave(new File([blob],'stop-signature.png',{type:'image/png'}));setSaved(true);setError('');}catch{setError('Signature could not be prepared. Try again.');onSave(null);}};
+ const change=(next:string|null)=>{setImage(next);onImageChange(next);setSaved(false);setError('');onSave(null);};
+ const save=async()=>{if(!image)return;try{onSave(signaturePngFile(image));setSaved(true);setError('');}catch{setError('Signature could not be prepared. Try again.');onSave(null);}};
  return <div className="rv-delivery-field"><span>Recipient signature *</span><button type="button" className="rv-primary rv-wide" onClick={()=>setOpen(true)}>{image?'Edit Signature':'Add Signature'}</button>{open&&<div className="rv-signature-modal" role="dialog" aria-modal="true" aria-label="Recipient signature"><h2>Recipient signature</h2><p>{recipient}</p><SignaturePad value={image} onChange={change}/><button type="button" className="rv-primary rv-wide" disabled={!image} onClick={()=>setOpen(false)}>Done</button><button type="button" className="rv-outline rv-wide" onClick={()=>setOpen(false)}>Close</button></div>}<button type="button" className={'rv-signature-save'+(saved?' rv-signature-saved':'')} disabled={!image||saved} onClick={()=>void save()}>{saved?'Signature Saved':'Save Signature'}</button>{saved&&<p role="status" className="rv-signature-confirm">Signature prepared. It will be uploaded with stop evidence when you complete the stop.</p>}{error&&<p role="alert">{error}</p>}</div>;
 }
 export default function ReserveStopExecution({job,stop,session,onSession,onRefresh,onBack,onCancel,localTransition}:Props){
+  const draftKey=stopDraftKey(job.id,stop.id);
+  const restored=stopDrafts.get(draftKey);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  const [outcome,setOutcome]=useState('Completed Delivery');
-  const [recipient,setRecipient]=useState(stop.handover?.recipientName||'');
-  const [leftAt,setLeftAt]=useState(stop.handover?.leftAt||'Goods Inwards');
-  const [items,setItems]=useState(String(stop.handover?.itemCount??(job.routeStops&&job.routeStops.length>2?undefined:job.items)??''));
-  const [weight,setWeight]=useState(String(stop.handover?.weightKg??(job.routeStops&&job.routeStops.length>2?undefined:job.weight)??''));
-  const [packaging,setPackaging]=useState(stop.handover?.packaging||'');
-  const [deliveredOn,setDeliveredOn]=useState(localNow());
+  const [outcome,setOutcome]=useState(restored?.outcome??'Completed Delivery');
+  const [recipient,setRecipient]=useState(restored?.recipient??stop.handover?.recipientName??'');
+  const [leftAt,setLeftAt]=useState(restored?.leftAt??stop.handover?.leftAt??'Goods Inwards');
+  const [items,setItems]=useState(restored?.items??String(stop.handover?.itemCount??(job.routeStops&&job.routeStops.length>2?undefined:job.items)??''));
+  const [weight,setWeight]=useState(restored?.weight??String(stop.handover?.weightKg??(job.routeStops&&job.routeStops.length>2?undefined:job.weight)??''));
+  const [packaging,setPackaging]=useState(restored?.packaging??stop.handover?.packaging??'');
+  const [deliveredOn,setDeliveredOn]=useState(restored?.deliveredOn??localNow());
   const earliestDelivery=latestRecordedMinute([stop.arrivedAt,...(job.routeStops||[]).filter(s=>s.sequence<stop.sequence).map(s=>s.completedAt)]);
-  const [notes,setNotes]=useState(stop.handover?.notes||'');
-  const [files,setFiles]=useState<File[]>([]);
-  const [signature,setSignature]=useState<File|null>(null);
+  const [notes,setNotes]=useState(restored?.notes??stop.handover?.notes??'');
+  const [files,setFiles]=useState<File[]>(restored?.files??[]);
+  const [signature,setSignature]=useState<File|null>(restored?.signature??null);
+  const [signatureImage,setSignatureImage]=useState<string|null>(restored?.signatureImage??null);
+  useEffect(()=>{stopDrafts.set(draftKey,{outcome,recipient,leftAt,items,weight,packaging,deliveredOn,notes,files,signature,signatureImage});},[draftKey,outcome,recipient,leftAt,items,weight,packaging,deliveredOn,notes,files,signature,signatureImage]);
   const returnStop=stop.handover?.stopKind==='return';
   const title=returnStop?'Return Stop':`${stop.type==='collection'?'Collection':'Delivery'} Stop ${stop.sequence}`;
 
@@ -102,6 +121,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
         signaturePath,
       },
     });
+    stopDrafts.delete(draftKey);
     onBack();
   };
   const complete=()=>localTransition?void localRun(()=>completeWork(null)):void run(completeWork);
@@ -135,7 +155,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
       {outcome==='Job Cancelled'?<button className="rv-primary rv-wide" type="button" onClick={onCancel}>Open Cancellation Record</button>:<>
         {stop.type==='delivery'&&outcome==='Completed Delivery'&&<>
           <label className="rv-field"><span>Received By *</span><input value={recipient} onChange={e=>setRecipient(e.target.value)} maxLength={160}/></label>
-          <StopSignature recipient={recipient} onSave={setSignature}/>
+          <StopSignature recipient={recipient} onSave={setSignature} initialImage={signatureImage} onImageChange={setSignatureImage} initialSaved={Boolean(signature)}/>
           <label className="rv-field"><span>Left At *</span><select value={leftAt} onChange={e=>setLeftAt(e.target.value)}>{['Goods Inwards','Reception','Warehouse','Loading Bay','Delivery Office','Handed to recipient','Other'].map(value=><option key={value}>{value}</option>)}</select></label>
           <div className="rv-two"><label className="rv-field"><span>{returnStop?'Returned On':'Delivered On'} *</span><input type="date" min={earliestDelivery.slice(0,10)||undefined} max={localMinute().slice(0,10)} value={deliveredOn.slice(0,10)} onChange={e=>setDeliveredOn(e.target.value+"T")}/></label><label className="rv-field"><span>Delivery Time *</span><select value={deliveredOn.slice(11,16)} onChange={e=>setDeliveredOn(deliveredOn.slice(0,10)+"T"+e.target.value)}><option value="">Select time</option>{availableTimes(deliveredOn.slice(0,10),earliestDelivery,localMinute(),1).map(t=><option key={t}>{t}</option>)}</select></label></div>
         </>}

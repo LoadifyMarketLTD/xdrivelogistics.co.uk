@@ -26,7 +26,7 @@ try{for(const width of [390,420]){
  if(verb!=='GET')throw Error('Unexpected live mutation '+u.pathname);
  return json({});
  }
- if(verb!=='GET'||!u.pathname.startsWith(base))return r.abort();const f=resolve(root,decodeURIComponent(u.pathname.slice(base.length)||'index.html'));if(!f.startsWith(root+sep))return r.abort();try{return r.fulfill({status:200,contentType:mime[extname(f)]||'application/octet-stream',body:await readFile(f)})}catch{return r.fulfill({status:404,body:''})}
+ if(verb!=='GET'||!u.pathname.startsWith(base))return r.abort();const f=resolve(root,decodeURIComponent(u.pathname.slice(base.length)||'index.html'));if(!f.startsWith(root+sep))return r.abort();try{return r.fulfill({status:200,contentType:mime[extname(f)]||'application/octet-stream',headers:extname(f)==='.html'?{'content-security-policy':"default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'"}:undefined,body:await readFile(f)})}catch{return r.fulfill({status:404,body:''})}
  });
  const p=await c.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(origin+base+'index.html?live=1');await p.getByRole('button',{name:'Bookings',exact:true}).click();await p.getByRole('button',{name:'Active',exact:true}).click();const card=p.locator('article').filter({has:p.getByText('Ref: XDL-22222222',{exact:true})});await card.getByRole('button',{name:'Booking Status',exact:true}).click({timeout:20000});
  await p.getByRole('button',{name:'On My Way to Final Delivery',exact:true}).click();
@@ -34,6 +34,11 @@ try{for(const width of [390,420]){
  console.log('SCREEN',(await p.locator('main').innerText()).slice(0,1800)); const packaging=p.locator('label.rv-field').filter({has:p.getByText('Packaging',{exact:true})}).locator('select');await packaging.waitFor({timeout:5000});
  assert.deepEqual(await packaging.locator('option').allTextContents(),['Select packaging','Pallets','Boxes','Crates','Loose items','Roll cages','Other']);
  await packaging.selectOption('Boxes');
+ await p.getByRole('button',{name:/Booking status/i}).first().click();
+ await p.getByRole('button',{name:'On My Way to Final Delivery',exact:true}).click();
+ assert.equal(await p.getByLabel('Received By *',{exact:true}).inputValue(),'QA synthetic recipient');
+ assert.equal(await packaging.inputValue(),'Boxes');
+ console.log('PASS_MEMORY_BACK_DRAFT',width);
  const times=await p.locator('label.rv-field').filter({has:p.getByText('Delivery Time *',{exact:true})}).locator('select option').allTextContents();assert.ok(times.length>=2&&times.length<=8,JSON.stringify(times));
  await p.getByRole('button',{name:'Add Signature',exact:true}).click();
  const modal=p.getByRole('dialog',{name:'Recipient signature',exact:true});await modal.waitFor();assert.equal(await modal.getByRole('button',{name:'Done',exact:true}).isDisabled(),true);
@@ -42,6 +47,11 @@ try{for(const width of [390,420]){
  await p.screenshot({path:resolve(evidence,'qa-restored-signature-'+width+'.png')});
  await modal.getByRole('button',{name:'Done',exact:true}).click();
  await p.getByRole('button',{name:'Save Signature',exact:true}).click();await p.getByRole('button',{name:'Signature Saved',exact:true}).waitFor();
+ await p.getByRole('button',{name:/Booking status/i}).first().click();
+ await p.getByRole('button',{name:'On My Way to Final Delivery',exact:true}).click();
+ assert.equal(await p.getByRole('button',{name:'Signature Saved',exact:true}).count(),1);
+ assert.equal(await p.getByLabel('Received By *',{exact:true}).inputValue(),'QA synthetic recipient');
+ console.log('PASS_MEMORY_BACK_SIGNATURE',width);
  assert.equal(await p.getByRole('button',{name:'Signature Saved',exact:true}).isDisabled(),true);
  await p.getByRole('button',{name:'Edit Signature',exact:true}).click();await modal.getByRole('button',{name:'Clear',exact:true}).click();assert.equal(await modal.getByRole('button',{name:'Done',exact:true}).isDisabled(),true);
  await modal.getByRole('button',{name:'Close',exact:true}).click();assert.equal(await p.getByRole('button',{name:'Save Signature',exact:true}).isDisabled(),true);

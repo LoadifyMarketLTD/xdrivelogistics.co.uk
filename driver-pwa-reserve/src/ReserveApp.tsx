@@ -19,7 +19,7 @@ import DeliveryHandover from './DeliveryHandover';
 import { routeLabel } from './routeLabel';
 import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
-import ReserveStopExecution from './ReserveStopExecution';
+import ReserveStopExecution, {clearReserveStopDrafts} from './ReserveStopExecution';
 import {finishReserveDelivery} from './reserveDeliverySequence';
 import {persistedStops,syncBoundaryStop} from './reserveStopSync';
 import SearchLoads from './SearchLoads';
@@ -139,7 +139,7 @@ export default function ReserveApp() {
   const markOfferSeen=(j:LiveJob)=>{if(!j.offerId||!j.acceptanceRequired)return;setSeenOffers(previous=>{if(previous.includes(j.offerId!))return previous;const next=[...previous,j.offerId!];try{localStorage.setItem(receiptKey,JSON.stringify(next));}catch{}return next;});};
   const unreadBookingOffers=jobs.filter(j=>j.acceptanceRequired&&j.offerId&&!seenOffers.includes(j.offerId)).length;
   const isAuthFailure=(e:unknown)=>/invalid session|unauthorized|session expired|invalid.grant|refresh.token|already.used|jwt expired|401/i.test(e instanceof Error?e.message:String(e));
-  const clearInvalidSession=()=>{refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});resetLiveSession();localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
+  const clearInvalidSession=()=>{refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});resetLiveSession();clearReserveStopDrafts();localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
   useLayoutEffect(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view,tab,id]);
   useEffect(()=>{if('scrollRestoration' in history)history.scrollRestoration='manual';},[]);
   const browserBackRef=useRef(false);
@@ -193,7 +193,7 @@ export default function ReserveApp() {
       notice(source,reason);
       if(/invalid session|unauthorized|jwt expired|401|403/i.test(message)){
         // Do not retain restricted data after an authority failure.
-        refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);resetLiveSession();localStorage.removeItem(KEY);setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
+        refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);resetLiveSession();clearReserveStopDrafts();localStorage.removeItem(KEY);setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
       }
     };
     const offersRequest=secondaryReady.then(()=>current()?bookingOffersGet(token):Promise.reject(new Error('Refresh superseded'))).then(data=>{
