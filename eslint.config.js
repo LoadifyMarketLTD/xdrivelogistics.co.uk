@@ -9,7 +9,7 @@ export default defineConfig([
   // Next.js preview/E2E builds generate typed route artifacts in .next-* directories.
   // They are build output, not application sources, and must not be linted.
   globalIgnores(['.next', '.next-*', 'node_modules', 'dist', '_audit', 'test-results', 'playwright-report']),
-  { plugins: { '@next/next': nextPlugin } },
+  { plugins: { '@next/next': nextPlugin }, rules: { ...nextPlugin.configs.recommended.rules, ...nextPlugin.configs['core-web-vitals'].rules } },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
