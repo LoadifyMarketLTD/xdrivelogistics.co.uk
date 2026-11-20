@@ -1,3 +1,4 @@
+import { canWithdrawMarketplaceBid } from '../../_lib/marketplaceWithdrawal';
 import { townFromPostingAddress } from '../../../../../lib/loadPostingTown';
 import { NextRequest } from 'next/server';
 import { operationalError } from '../../../_lib/operationalError';
@@ -90,6 +91,7 @@ function publicLoad(
   profileByUserId: Map<string, ProfileRow>,
   bidByJobId: Map<string, BidRow>,
   viewer: { userId: string; driverId: string },
+  pendingBidIds: ReadonlySet<string>,
 ) {
   const companyId = marketplaceText(job.company_id) ?? '';
   const company = companyById.get(companyId) ?? null;
@@ -172,7 +174,7 @@ function publicLoad(
       message: bid.message,
       created_at: bid.created_at,
       updated_at: bid.updated_at,
-      canWithdraw: bid.status === 'submitted' && bid.bidder_user_id === viewer.userId && (!bid.bidder_driver_id || bid.bidder_driver_id === viewer.driverId),
+      canWithdraw: canWithdrawMarketplaceBid(bid, job, viewer, pendingBidIds),
     } : null,
   };
 }
@@ -342,6 +344,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const ownBidIds = [...bidByJobId.values()].filter(bid => bid.status === 'submitted' && bid.bidder_user_id === driver.userId).map(bid => bid.id);
+  const pendingBidIds = new Set<string>();
+  if (ownBidIds.length) {
+    const pending = await supabaseAdmin.from('job_booking_offers').select('bid_id').in('bid_id', ownBidIds).eq('status', 'pending');
+    // Fail closed: unavailable offer state must not advertise withdrawal.
+    for (const id of pending.error ? ownBidIds : (pending.data ?? []).map(row => String(row.bid_id))) pendingBidIds.add(id);
+  }
+
   const [{ data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
     supabaseAdmin
       .from('driver_locations')
@@ -408,7 +418,7 @@ export async function GET(request: NextRequest) {
     }
 
     return {
-      ...publicLoad(job, companyById, profileByUserId, bidByJobId, driver),
+      ...publicLoad(job, companyById, profileByUserId, bidByJobId, driver, pendingBidIds),
       route_stops: stopsByJob.get(String(job.id)) ?? [],
       distance_to_pickup_miles: distanceToPickupMiles,
       distance_to_delivery_miles: distanceToDeliveryMiles,
