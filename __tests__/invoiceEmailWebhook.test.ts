@@ -40,7 +40,8 @@ describe('invoice email webhook', () => {
     process.env.RESEND_WEBHOOK_SECRET = 'whsec_test';
     state.verify.mockReset();
     state.rpc.mockReset();
-    state.verify.mockImplementation((payload: string) => JSON.parse(payload));
+    // Match the actual Svix 2 API: verification throws or returns void.
+    state.verify.mockImplementation(() => undefined);
     state.rpc.mockResolvedValue({ data: { received: true }, error: null });
   });
 
