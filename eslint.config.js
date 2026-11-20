@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
+import nextPlugin from '@next/eslint-plugin-next'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
@@ -8,6 +9,7 @@ export default defineConfig([
   // Next.js preview/E2E builds generate typed route artifacts in .next-* directories.
   // They are build output, not application sources, and must not be linted.
   globalIgnores(['.next', '.next-*', 'node_modules', 'dist', '_audit', 'test-results', 'playwright-report']),
+  { plugins: { '@next/next': nextPlugin } },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -22,6 +24,8 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
+      ...nextPlugin.configs.recommended.rules,
+      ...nextPlugin.configs['core-web-vitals'].rules,
       // Traditional React Hooks rules only (not the new v7 strict rules)
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
