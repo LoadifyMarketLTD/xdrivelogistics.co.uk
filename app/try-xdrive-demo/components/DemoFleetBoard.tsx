@@ -45,7 +45,7 @@ export default function DemoFleetBoard({
   const [selected, setSelected] = useState('');
   const [sort, setSort] = useState('Vehicle (A-Z)');
   const isVerified = Boolean(verifiedFleet);
-  const sourceDrivers = verifiedFleet?.drivers ?? real?.data.drivers ?? [];
+  const sourceDrivers = useMemo(() => verifiedFleet?.drivers ?? real?.data.drivers ?? [], [verifiedFleet?.drivers, real?.data.drivers]);
   const sourceDocuments = verifiedFleet?.documents ?? real?.data.vehicleDocuments ?? [];
   const driverNameById = useMemo(
     () => new Map(sourceDrivers.map((driver) => [driver.id, driver.display_name || 'Unnamed driver'])),

@@ -1,3 +1,5 @@
+import { hasStoredSignature } from '../jobs/podCompletion';
+
 /** Stored POD references are evidence, not browser URLs. */
 export const evidenceText = (value: unknown): string =>
   typeof value === 'string' ? value.trim() : '';
@@ -13,7 +15,20 @@ export function signatureReference(value: unknown): string {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
   const row = value as Record<string, unknown>;
   const inline = evidenceText(row.value);
-  return inlineEvidenceImage(inline) ? inline : evidenceText(row.evidence_path) || inline;
+  const historical = evidenceText(row.signature_data);
+  if (inlineEvidenceImage(inline)) return inline;
+  if (inlineEvidenceImage(historical)) return historical;
+  return evidenceText(row.evidence_path) || inline || historical;
+}
+
+export function signatureEvidenceLabel(value: unknown): string {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const row = value as Record<string, unknown>;
+    if (row.type === 'recipient_typed_name_attestation' || row.signature_method === 'typed_name_attestation') {
+      return 'Recipient name attestation';
+    }
+  }
+  return hasStoredSignature(value) ? 'Recipient signature' : 'Signature evidence (unverified)';
 }
 
 export function jobEvidenceReferences(row: Record<string, unknown>) {

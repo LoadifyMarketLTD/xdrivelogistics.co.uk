@@ -1,3 +1,5 @@
+import {readFileSync as readGateFile} from 'node:fs';
+const readGate=()=>readGateFile('app/api/driver/mobile/_deviceSessionGate.ts','utf8');
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -70,8 +72,8 @@ describe('Marketplace consumer boundary', () => {
     }
     expect(nearbyApi).toContain('mapNearbyJob');
     expect(bidsApi).toContain('submitDriverQuote');
-    expect(mobileAuth).toContain('enforceActiveNativeDeviceBinding');
-    expect(mobileAuth).toContain("request.headers.get('x-xdrive-installation-id')");
+    expect(mobileAuth).toContain('rejectRevokedNativeAuthSession');
+    expect(readGate()).toContain("request.headers.get('x-xdrive-installation-id')");
   });
 
   it('keeps full assigned execution jobs assignment-gated on the server for every scope', () => {

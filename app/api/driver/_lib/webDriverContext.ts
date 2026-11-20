@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rejectRevokedNativeAuthSession } from '../mobile/_deviceSessionGate';
 
 import {
   getBearerToken,
@@ -54,6 +55,9 @@ export async function requireActiveWebDriver(
   if (driver.app_access !== true) {
     return respond(403, 'Driver workspace access has not been approved.');
   }
+
+  const deviceGate = await rejectRevokedNativeAuthSession(request, authData.user.id, String(driver.id));
+  if (deviceGate) return deviceGate;
 
   return {
     userId: authData.user.id,

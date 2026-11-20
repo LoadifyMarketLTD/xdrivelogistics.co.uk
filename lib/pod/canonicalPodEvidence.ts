@@ -1,4 +1,4 @@
-import { hasStoredSignature } from '../jobs/podCompletion';
+import { hasCompletePodEvidence, hasStoredSignature } from '../jobs/podCompletion';
 export type CanonicalPodState =
   | 'not_required'
   | 'missing'
@@ -25,12 +25,13 @@ const nonEmptyStrings = (value: unknown) =>
 
 export function canonicalPodEvidence(record: CanonicalPodRecord) {
   const required = record.pod_required !== false;
-  const deliveryPhotos = nonEmptyStrings(record.delivery_photos);
+  const deliveryPhotos = [...new Set(nonEmptyStrings(record.delivery_photos))];
   const documents = nonEmptyStrings(record.pod_photos);
   const signatureRecorded = hasStoredSignature(record.delivery_signature_data);
-  const recipientRecorded = Boolean(record.client_signature_name?.trim());
+  const recipientRecorded = typeof record.client_signature_name === 'string' && Boolean(record.client_signature_name.trim());
   const generated = record.pod_generated === true;
-  const evidenceReady = (deliveryPhotos.length > 0 || documents.length > 0) && signatureRecorded && recipientRecorded;
+  // Use the same evidence requirements as the completion and invoicing gates.
+  const evidenceReady = hasCompletePodEvidence({ ...record, pod_generated: true });
   const complete = generated && evidenceReady;
   const hasAnyEvidence = generated || deliveryPhotos.length > 0 || documents.length > 0 || signatureRecorded || recipientRecorded;
 

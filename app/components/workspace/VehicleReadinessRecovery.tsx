@@ -1,4 +1,6 @@
 'use client';
+
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
@@ -120,6 +122,6 @@ export default function VehicleReadinessRecovery(){
     </div>
    </section>
   </>}
-  <div style={{marginTop:8,fontSize:12}}><a href="/driver/loads">Back to Loads</a></div>
+  <div style={{marginTop:8,fontSize:12}}><Link href="/driver/loads">Back to Loads</Link></div>
  </VehicleRegisterShell>;
 }

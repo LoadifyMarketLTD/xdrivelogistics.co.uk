@@ -236,7 +236,10 @@ export async function GET(request: NextRequest) {
       : query.in('status', ['posted', 'quoted']).limit(LIST_LIMIT);
   }
 
-  const { data: rawJobs, error: jobsError } = await query;
+  const [{ data: rawJobs, error: jobsError }, blockedResult] = await Promise.all([
+    query,
+    getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId),
+  ]);
   if (jobsError) {
     return operationalError({
       status: 500,
@@ -247,7 +250,6 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const blockedResult = await getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId);
   if (blockedResult.error) {
     return operationalError({
       status: 503,
@@ -276,16 +278,6 @@ export async function GET(request: NextRequest) {
   }
 
   const jobIds = jobs.map((job) => String(job.id));
-  const stopsResult = jobIds.length ? await supabaseAdmin.from('job_stops').select('job_id,sequence,stop_type,address,postcode,window_start,window_end').in('job_id', jobIds).order('sequence', { ascending: true }) : { data: [], error: null };
-  if (stopsResult.error) return operationalError({ status: 503, message: 'Marketplace route stops could not be verified. Please retry.', context: 'driver.marketplace.loads.stops', cause: stopsResult.error, retryable: true });
-  const stopsByJob = new Map<string, {sequence:number; stop_type:string; area:string; window_start:string|null; window_end:string|null}[]>();
-  for (const stop of stopsResult.data ?? []) {
-    const key = String(stop.job_id);
-    const rows = stopsByJob.get(key) ?? [];
-    rows.push({sequence:Number(stop.sequence), stop_type:String(stop.stop_type), area:[townFromPostingAddress(String(stop.address ?? ''), String(stop.postcode ?? '')),publicOutcode(stop.postcode)].filter(Boolean).join(', ') || 'Area TBC', window_start:marketplaceText(stop.window_start), window_end:marketplaceText(stop.window_end)});
-    stopsByJob.set(key, rows);
-  }
-
   const companyIds = [...new Set(
     jobs
       .map((job) => marketplaceText(job.company_id))
@@ -305,7 +297,7 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
     : null;
 
-  const [companiesResult, profilesResult, bidsResult] = await Promise.all([
+  const [companiesResult, profilesResult, bidsResult, stopsResult, { data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
     companyIds.length
       ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
       : Promise.resolve({ data: [], error: null }),
@@ -317,7 +309,29 @@ export async function GET(request: NextRequest) {
         ? (quotedHistory ? bidQuery.eq('bidder_user_id', driver.userId) : bidQuery.eq('company_id', driver.companyId))
         : bidQuery.eq('bidder_user_id', driver.userId)
       : Promise.resolve({ data: [], error: null }),
+    jobIds.length ? supabaseAdmin.from('job_stops').select('job_id,sequence,stop_type,address,postcode,window_start,window_end').in('job_id', jobIds).order('sequence', { ascending: true }) : { data: [], error: null },
+    supabaseAdmin
+      .from('driver_locations')
+      .select('lat,lng,recorded_at')
+      .eq('driver_id', driver.driverId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('driver_availability_presence')
+      .select('exact_lat,exact_lng,recorded_at,available_until')
+      .eq('driver_id', driver.driverId)
+      .maybeSingle(),
   ]);
+
+  if (stopsResult.error) return operationalError({ status: 503, message: 'Marketplace route stops could not be verified. Please retry.', context: 'driver.marketplace.loads.stops', cause: stopsResult.error, retryable: true });
+  const stopsByJob = new Map<string, {sequence:number; stop_type:string; area:string; window_start:string|null; window_end:string|null}[]>();
+  for (const stop of stopsResult.data ?? []) {
+    const key = String(stop.job_id);
+    const rows = stopsByJob.get(key) ?? [];
+    rows.push({sequence:Number(stop.sequence), stop_type:String(stop.stop_type), area:[townFromPostingAddress(String(stop.address ?? ''), String(stop.postcode ?? '')),publicOutcode(stop.postcode)].filter(Boolean).join(', ') || 'Area TBC', window_start:marketplaceText(stop.window_start), window_end:marketplaceText(stop.window_end)});
+    stopsByJob.set(key, rows);
+  }
 
   if (companiesResult.error) {
     return operationalError({
@@ -351,22 +365,6 @@ export async function GET(request: NextRequest) {
     // Fail closed: unavailable offer state must not advertise withdrawal.
     for (const id of pending.error ? ownBidIds : (pending.data ?? []).map(row => String(row.bid_id))) pendingBidIds.add(id);
   }
-
-  const [{ data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
-    supabaseAdmin
-      .from('driver_locations')
-      .select('lat,lng,recorded_at')
-      .eq('driver_id', driver.driverId)
-      .order('recorded_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('driver_availability_presence')
-      .select('exact_lat,exact_lng,recorded_at,available_until')
-      .eq('driver_id', driver.driverId)
-      .maybeSingle(),
-  ]);
-
   const validCoordinates = (lat: unknown, lng: unknown) => {
     const parsedLat = Number(lat);
     const parsedLng = Number(lng);

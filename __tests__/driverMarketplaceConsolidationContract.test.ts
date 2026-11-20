@@ -1,3 +1,5 @@
+import {readFileSync as readGateFile} from 'node:fs';
+const readGate=()=>readGateFile('app/api/driver/mobile/_deviceSessionGate.ts','utf8');
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -44,8 +46,8 @@ describe('Driver Marketplace consolidation contract', () => {
     expect(nearby).toContain('const driver = await requireDriver(request)');
     expect(bids).toContain('const driver = await requireDriver(request)');
     expect(bids).toContain('submitDriverQuote');
-    expect(mobileAuth).toContain('enforceActiveNativeDeviceBinding');
-    expect(mobileAuth).toContain("request.headers.get('x-xdrive-installation-id')");
+    expect(mobileAuth).toContain('rejectRevokedNativeAuthSession');
+    expect(readGate()).toContain("request.headers.get('x-xdrive-installation-id')");
   });
 
   it('fails closed on marketplace discovery when commercial bidding is explicitly revoked', () => {

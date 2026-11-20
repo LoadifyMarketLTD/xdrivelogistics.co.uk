@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import type { DriverContext } from '../mobile/_lib';
 import { respond } from '../mobile/_lib';
+import { rejectRevokedNativeAuthSession } from '../mobile/_deviceSessionGate';
 
 const isMissingDriverCommercialColumn = (
   error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null | undefined,
@@ -15,9 +16,8 @@ const isMissingDriverCommercialColumn = (
 /**
  * Browser/workspace driver authentication.
  *
- * This deliberately does not enforce driver_mobile_device_sessions. Native
- * device binding remains owned by requireDriver() in mobile/_lib and therefore
- * continues to protect the Expo/mobile API surface. Desktop CX-style Loads,
+ * Independent browser sessions do not require native registration. Registered
+ * native sessions cannot bypass revocation through the web routes. Desktop CX-style Loads,
  * Advanced Search and quote flows authenticate the same approved driver/user
  * and company state without pretending the browser is a registered phone.
  */
@@ -79,6 +79,8 @@ export async function requireWebDriver(
   const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
     ? driverRow.company_id.trim()
     : null;
+  const deviceGate = await rejectRevokedNativeAuthSession(request, authData.user.id, String(driverRow.id));
+  if (deviceGate) return deviceGate;
   let companyStatus: string | null = null;
   if (companyId) {
     const { data: companyRow, error: companyError } = await supabaseAdmin

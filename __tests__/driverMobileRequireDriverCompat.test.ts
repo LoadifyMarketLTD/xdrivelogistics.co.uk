@@ -8,10 +8,11 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   driverResults: [] as Array<{ data: unknown; error: { code?: string; message: string } | null }>,
   driverSelects: [] as string[],
+  historyResult: {data:null,error:null} as {data:{auth_session_id:string}|null,error:{message:string}|null},
   profileResult: { data: { status: 'active' }, error: null as { message: string } | null },
   companyResult: { data: null, error: null as { message: string } | null },
   deviceBindingResult: { data: null, error: null as { message: string } | null } as {
-    data: { installation_id: string; auth_session_id: string } | null;
+    data: { installation_id: string; auth_session_id: string; enabled: boolean; revoked_at: string | null } | null;
     error: { message: string } | null;
   },
 }));
@@ -68,7 +69,8 @@ beforeEach(() => {
   mocks.companyResult = { data: null, error: null };
   mocks.deviceBindingResult = { data: null, error: null };
 
-  mocks.getBearerToken.mockReturnValue('token');
+  mocks.historyResult={data:null,error:null};
+  mocks.getBearerToken.mockReturnValue(jwtWithSessionId(SESSION_ID));
   mocks.getUser.mockResolvedValue({ data: { user: { id: 'user-1' } }, error: null });
 
   mocks.from.mockImplementation((table: string) => {
@@ -90,6 +92,7 @@ beforeEach(() => {
     if (table === 'companies') {
       return { select: () => ({ eq: () => ({ maybeSingle: async () => mocks.companyResult }) }) };
     }
+    if (table === 'driver_mobile_session_history') return {select:()=>({eq:()=>({maybeSingle:async()=>mocks.historyResult})})};
     if (table === 'driver_mobile_device_sessions') {
       const selectChain = {} as DeviceSelectChain;
       selectChain.eq = () => selectChain;
@@ -116,7 +119,7 @@ describe('driver mobile requireDriver schema compatibility', () => {
       },
     ];
 
-    const result = await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs'));
+    const result = await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs',{headers:{authorization:'Bearer '+jwtWithSessionId(SESSION_ID)}}));
     expect(isDriverContext(result)).toBe(true);
     if (!isDriverContext(result)) return;
     expect(result.driverType).toBeNull();
@@ -131,49 +134,51 @@ describe('driver mobile requireDriver schema compatibility', () => {
     mocks.driverResults = [{ data: activeDriver(), error: null }];
     mocks.deviceBindingResult = { data: null, error: null };
 
-    const result = await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs'));
+    const result = await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs',{headers:{authorization:'Bearer '+jwtWithSessionId(SESSION_ID)}}));
     expect(isDriverContext(result)).toBe(true);
   });
 
-  it('allows valid bearer token with a native device already registered', async () => {
+  it('rejects a registered native session without installation identity', async () => {
     mocks.driverResults = [{ data: activeDriver(), error: null }];
     mocks.getBearerToken.mockReturnValue(jwtWithSessionId(SESSION_ID));
     mocks.deviceBindingResult = {
-      data: { installation_id: INSTALLATION_ID, auth_session_id: SESSION_ID },
+      data: { installation_id: INSTALLATION_ID, auth_session_id: SESSION_ID, enabled:true, revoked_at:null },
       error: null,
     };
 
-    const result = await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs'));
-    expect(isDriverContext(result)).toBe(true);
+    const result = await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs',{headers:{authorization:'Bearer '+jwtWithSessionId(SESSION_ID)}}));
+    expect(isDriverContext(result)).toBe(false); if(!isDriverContext(result)) expect(result.status).toBe(401);
   });
 
   it('accepts only the bound installation and auth session', async () => {
     mocks.driverResults = [{ data: activeDriver(), error: null }];
     mocks.getBearerToken.mockReturnValue(jwtWithSessionId(SESSION_ID));
     mocks.deviceBindingResult = {
-      data: { installation_id: INSTALLATION_ID, auth_session_id: SESSION_ID },
+      data: { installation_id: INSTALLATION_ID, auth_session_id: SESSION_ID, enabled:true, revoked_at:null },
       error: null,
     };
 
     const request = new NextRequest('https://example.test/api/driver/mobile/jobs', {
-      headers: { 'x-xdrive-installation-id': INSTALLATION_ID },
+      headers: { authorization:'Bearer '+jwtWithSessionId(SESSION_ID), 'x-xdrive-installation-id': INSTALLATION_ID },
     });
     const result = await requireDriver(request);
     expect(isDriverContext(result)).toBe(true);
   });
 
-  it('allows valid bearer token on a second device', async () => {
+  it('rejects a mismatched native installation', async () => {
     mocks.driverResults = [{ data: activeDriver(), error: null }];
     mocks.getBearerToken.mockReturnValue(jwtWithSessionId(SESSION_ID));
     mocks.deviceBindingResult = {
-      data: { installation_id: INSTALLATION_ID, auth_session_id: SESSION_ID },
+      data: { installation_id: INSTALLATION_ID, auth_session_id: SESSION_ID, enabled:true, revoked_at:null },
       error: null,
     };
 
     const request = new NextRequest('https://example.test/api/driver/mobile/jobs', {
-      headers: { 'x-xdrive-installation-id': '33333333-3333-4333-8333-333333333333' },
+      headers: { authorization:'Bearer '+jwtWithSessionId(SESSION_ID), 'x-xdrive-installation-id': '33333333-3333-4333-8333-333333333333' },
     });
     const result = await requireDriver(request);
-    expect(isDriverContext(result)).toBe(true);
+    expect(isDriverContext(result)).toBe(false); if(!isDriverContext(result)) expect(result.status).toBe(401);
   });
+  it('rejects an archived session even without a current binding',async()=>{mocks.driverResults=[{data:activeDriver(),error:null}];mocks.historyResult={data:{auth_session_id:SESSION_ID},error:null};const result=await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs',{headers:{authorization:'Bearer '+jwtWithSessionId(SESSION_ID)}}));expect(isDriverContext(result)).toBe(false);if(!isDriverContext(result))expect(result.status).toBe(401);});
+  it('fails closed when history lookup fails',async()=>{mocks.driverResults=[{data:activeDriver(),error:null}];mocks.historyResult={data:null,error:{message:'unavailable'}};const result=await requireDriver(new NextRequest('https://example.test/api/driver/mobile/jobs',{headers:{authorization:'Bearer '+jwtWithSessionId(SESSION_ID)}}));expect(isDriverContext(result)).toBe(false);if(!isDriverContext(result))expect(result.status).toBe(500);});
 });

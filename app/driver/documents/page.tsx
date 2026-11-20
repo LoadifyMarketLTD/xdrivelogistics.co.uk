@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
@@ -293,7 +295,7 @@ export default function DriverDocumentsPage() {
         headerActions={<ActionButton tone="secondary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
       >
         <DriverIntegratedNav label="Fleet resources" items={[{ href: '/driver/drivers-vehicles', label: 'Drivers & Vehicles' }, { href: '/driver/documents', label: 'Documents' }]} />
-        <p><a href="/onboarding/documents" style={{ fontWeight: 700 }}>View or replace my onboarding documents</a> - including Right to work and proof of address.</p>
+        <p><Link href="/onboarding/documents" style={{ fontWeight: 700 }}>View or replace my onboarding documents</Link> - including Right to work and proof of address.</p>
         {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
         {uploadError && <AlertBanner tone="danger">{uploadError}</AlertBanner>}
         {uploadSuccess && <AlertBanner tone="success">{uploadSuccess}</AlertBanner>}
