@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../../../_lib/supabaseAdmin';
 import { canonicalPodEvidence } from '../../../../../../../lib/pod/canonicalPodEvidence';
+import { hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
+import { isScopedPodObjectPath } from '../../../../../../../lib/pod/jobEvidenceReferences';
 import { loadReserveStopAppendix } from '../../../../../../../lib/server/reserveMultiStopPod';
 
 const jsonError = (status: number, error: string) => NextResponse.json({ error }, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -35,12 +37,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const evidence = canonicalPodEvidence(job);
   if (!evidence.complete) return jsonError(409, 'Complete delivery POD with a photo, handwritten signature and recipient name first.');
-  const storedSignature = job.delivery_signature_data;
-  const signature = typeof storedSignature === 'string' ? storedSignature
-    : storedSignature && typeof storedSignature === 'object' && !Array.isArray(storedSignature)
-      ? String((storedSignature as Record<string, unknown>).value ?? '')
-      : '';
-  if (!/^data:image\/(png|jpeg);base64,/i.test(signature)) {
+  const storedSignature: unknown = job.delivery_signature_data;
+  const signatureRecord = storedSignature && typeof storedSignature === 'object' && !Array.isArray(storedSignature)
+    ? storedSignature as Record<string, unknown> : null;
+  // evidence_path alone may identify a typed-name attestation, not a drawn signature.
+  const candidates = signatureRecord ? [signatureRecord.signature_data, signatureRecord.value] : [storedSignature];
+  const signature = candidates.find((value): value is string =>
+    typeof value === 'string' && hasStoredSignature(value))?.trim() ?? '';
+  const inline = /^data:image\/(png|jpe?g);base64,([A-Za-z0-9+/=]+)$/i.exec(signature);
+  const storedImage = /\.(png|jpe?g)$/i.exec(signature);
+  const maxSignatureBytes = 10 * 1024 * 1024;
+  if (!inline && (!storedImage || !isScopedPodObjectPath(signature, job.id, companies))) {
     return jsonError(409, 'A handwritten recipient signature image is required.');
   }
   // Identify the actual executing carrier, not the marketplace or booking customer.
@@ -49,6 +56,33 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { data: carrier, error: carrierError } = await supabaseAdmin.from('companies')
     .select('id, name').eq('id', carrierId).maybeSingle();
   if (carrierError || !carrier?.name) return jsonError(409, 'Executing carrier details are unavailable.');
+
+  let bytes: Uint8Array;
+  const pngSignature = (inline?.[1] ?? storedImage?.[1])?.toLowerCase() === 'png';
+  if (inline) {
+    if (inline[2].length > Math.ceil(maxSignatureBytes / 3) * 4) {
+      return jsonError(409, 'Recipient signature image exceeds the supported size.');
+    }
+    bytes = Buffer.from(inline[2], 'base64');
+  } else {
+    // Only download the stored object after checking membership and its namespace.
+    try {
+      const { data: stored, error: storageError } = await supabaseAdmin.storage
+        .from('pod-photos').download(signature);
+      if (storageError || !stored) return jsonError(409, 'Stored recipient signature is unavailable.');
+      if (stored.size > maxSignatureBytes) return jsonError(409, 'Recipient signature image exceeds the supported size.');
+      bytes = new Uint8Array(await stored.arrayBuffer());
+    } catch {
+      return jsonError(503, 'Stored recipient signature could not be retrieved. Please retry.');
+    }
+  }
+  const pngHeader = [137, 80, 78, 71, 13, 10, 26, 10];
+  const validHeader = pngSignature
+    ? pngHeader.every((value, i) => bytes[i] === value)
+    : bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+  if (!validHeader || bytes.length > maxSignatureBytes) {
+    return jsonError(409, 'Recipient signature image is invalid.');
+  }
 
   try {
     const pdf = await PDFDocument.create();
@@ -90,8 +124,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     field('Received by', job.client_signature_name, 439);
     field('Delivery photos', evidence.deliveryPhotoCount, 410);
     page.drawText('RECIPIENT SIGNATURE', { x: 40, y: 365, size: 11, font: bold, color: blue });
-    const bytes = Buffer.from(signature.split(',')[1], 'base64');
-    const image = /^data:image\/png/i.test(signature) ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+    const image = await (pngSignature ? pdf.embedPng(bytes) : pdf.embedJpg(bytes)).catch(() => null);
+    if (!image) return jsonError(409, 'Recipient signature image cannot be decoded.');
     const size = image.scaleToFit(440, 195);
     page.drawRectangle({ x: 40, y: 136, width: 515, height: 214, color: rgb(0.985, 0.989, 0.995), borderColor: rgb(0.88, 0.9, 0.93), borderWidth: 1 });
     page.drawImage(image, { x: 56, y: 146 + (190 - size.height) / 2, width: size.width, height: size.height });

@@ -122,10 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // login() is already resolving the same SIGNED_IN event, which would cause
   // parallel exclusive LockManager lock acquisitions and a 10-second timeout.
   const loginHydrating = useRef(false);
+  // An explicit login/logout supersedes earlier bootstrap and verification work.
+  const authOperationRef = useRef(0);
   const explicitSignOutRef = useRef(false);
   const userRef = useRef<ResolvedAuthUser | null>(null);
   const hasSupabaseSessionRef = useRef(false);
-  const hydrationRef = useRef<{ userId: string; promise: Promise<AuthResolutionResult> } | null>(null);
+  const hydrationRef = useRef<{ userId: string; operation: number; promise: Promise<AuthResolutionResult> } | null>(null);
 
   useEffect(() => {
     userRef.current = user;
@@ -167,12 +169,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { user: existing, reason: null } as AuthResolutionResult;
     }
 
-    if (hydrationRef.current?.userId === sessionUser.id) {
+    const operation = authOperationRef.current;
+    if (hydrationRef.current?.userId === sessionUser.id && hydrationRef.current.operation === operation) {
       return hydrationRef.current.promise;
     }
 
     const hydrationPromise = (async () => {
       const result = await withTimeout(resolveAuthenticatedUser(sessionUser), LOGIN_TIMEOUT_MS);
+      if (operation !== authOperationRef.current) return result;
       if (!result.user) {
         setUser(null);
         userRef.current = null;
@@ -186,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return result;
     })();
 
-    hydrationRef.current = { userId: sessionUser.id, promise: hydrationPromise };
+    hydrationRef.current = { userId: sessionUser.id, operation, promise: hydrationPromise };
     try {
       return await hydrationPromise;
     } finally {
@@ -202,11 +206,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
     }
 
+    const operation = authOperationRef.current;
+    const isCurrent = () => operation === authOperationRef.current;
     setIsLoading(true);
     hydrationRef.current = null;
 
     try {
       const sessionResult = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+      if (!isCurrent()) return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       if (sessionResult.error) throw sessionResult.error;
 
       const session = sessionResult.data.session;
@@ -225,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resolveAuthenticatedUser(session.user),
         LOGIN_TIMEOUT_MS,
       );
+      if (!isCurrent()) return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
 
       if (!result.user) {
         setHasSupabaseSession(true);
@@ -246,6 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHasSupabaseSession(true);
       return { success: true, user: result.user };
     } catch (error) {
+      if (!isCurrent()) return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       console.error('AuthContext forced refresh failed', error);
       if (isServiceUnavailableError(error)) {
         setHasSupabaseSession(true);
@@ -256,7 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetAuthState();
       return { success: false, error: 'Unable to refresh account access.' };
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   }, [resetAuthState, syncRouteAuthCookie]);
 
@@ -270,6 +279,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const bootstrapAuth = async () => {
+      const operation = authOperationRef.current;
+      const isCurrent = () => isMounted && operation === authOperationRef.current;
       try {
         const getSessionWithRetry = async () => {
           let lastError: unknown = null;
@@ -293,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const {
           data: { session },
         } = await getSessionWithRetry();
+        if (!isCurrent()) return;
 
         if (session?.user) {
           syncRouteAuthCookie(session);
@@ -305,6 +317,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           resetAuthState();
         }
       } catch (error) {
+        if (!isCurrent()) return;
         console.error('AuthContext bootstrap failed', error);
         if (!isPasswordSetupContext()) {
           if (isServiceUnavailableError(error) && (userRef.current || hasSupabaseSessionRef.current)) {
@@ -314,7 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isCurrent()) setIsLoading(false);
       }
     };
 
@@ -323,13 +336,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      syncRouteAuthCookie(session);
+      if (!isMounted) return;
+      // An initial snapshot can arrive after the user has explicitly signed in.
+      if (event === 'INITIAL_SESSION' && authOperationRef.current !== 0) return;
+      // Null snapshots are not proof of revocation; verify first. Genuine sign-out
+      // still clears the route token immediately, including cross-tab sign-out.
+      if (!session?.user && event === 'SIGNED_OUT') ++authOperationRef.current;
+      if (session?.user || event === 'SIGNED_OUT') syncRouteAuthCookie(session);
+      const operation = authOperationRef.current;
+      const isCurrent = () => isMounted && operation === authOperationRef.current;
 
       // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
       // Profile, role, and company context are unchanged - re-running the full
       // database hydration would fire 4+ unnecessary Supabase queries and can
       // cascade into repeated dashboard/driver page reloads.
-      if (event === 'TOKEN_REFRESHED' && userRef.current) {
+      if (event === 'TOKEN_REFRESHED' && session?.user && userRef.current) {
         return;
       }
 
@@ -354,10 +375,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Verify unexpected null-session events before clearing a valid workspace.
         // This prevents transient cross-tab/token reconciliation from becoming a false logout.
         window.setTimeout(() => {
-          if (!isMounted) return;
+          if (!isCurrent()) return;
           void (async () => {
             try {
               const result = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+              if (!isCurrent()) return;
               const verifiedSession = result.data.session;
               if (result.error) throw result.error;
               if (verifiedSession?.user) {
@@ -368,6 +390,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
               resetAuthState();
             } catch (error) {
+              if (!isCurrent()) return;
               console.error('AuthContext null-session verification failed', error);
               if (isServiceUnavailableError(error) && (userRef.current || hasSupabaseSessionRef.current)) {
                 setHasSupabaseSession(true);
@@ -375,7 +398,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }
               resetAuthState();
             } finally {
-              if (isMounted) setIsLoading(false);
+              if (isCurrent()) setIsLoading(false);
             }
           })();
         }, 250);
@@ -394,12 +417,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // the profile/company hydration in the next macrotask so the auth lock is
       // released before resolveAuthenticatedUser() issues database queries.
       window.setTimeout(() => {
-        if (!isMounted) return;
+        if (!isCurrent()) return;
 
         void (async () => {
           try {
             await hydrateUser(session.user);
           } catch (error) {
+            if (!isCurrent()) return;
             console.error('AuthContext auth state handling failed', error);
             if (isServiceUnavailableError(error)) {
               setHasSupabaseSession(true);
@@ -407,7 +431,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               resetAuthState();
             }
           } finally {
-            if (isMounted) setIsLoading(false);
+            if (isCurrent()) setIsLoading(false);
           }
         })();
       }, 0);
@@ -423,6 +447,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string
   ): Promise<{ success: boolean; error?: string; route?: ReturnType<typeof getPostLoginRoute> }> => {
+    if (loginHydrating.current) return { success: false, error: 'Sign-in is already in progress.' };
+    const operation = ++authOperationRef.current;
     loginHydrating.current = true;
     try {
       if (!isSupabaseConfigured) {
@@ -434,11 +460,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         supabase.auth.signInWithPassword({ email: normalizedEmail, password }),
         LOGIN_TIMEOUT_MS
       );
+      if (operation !== authOperationRef.current) return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       if (error) { return { success: false, error: error.message }; }
       if (!data.user) { return { success: false, error: 'Login failed' }; }
       syncRouteAuthCookie(data.session);
 
       const result = await hydrateUser(data.user);
+      if (operation !== authOperationRef.current) return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       if (!result.user) {
         if (result.reason === 'account_pending') {
           const { data: onboardingApplication } = await supabase
@@ -483,6 +511,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: false, error: 'An error occurred during login' };
     } finally {
       loginHydrating.current = false;
+      if (operation === authOperationRef.current) setIsLoading(false);
     }
   };
 
@@ -521,9 +550,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    ++authOperationRef.current;
     explicitSignOutRef.current = true;
     if (isSupabaseConfigured) await supabase.auth.signOut();
     resetAuthState();
+    setIsLoading(false);
     router.push('/login');
   };
 
