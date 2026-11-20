@@ -53,6 +53,12 @@ const resolveCaller = async (request: NextRequest) => {
     return { error: json(401, { error: 'Unauthorized - invalid or expired token.' }) };
   }
 
+  // This service-role endpoint bypasses RLS: enforce the canonical active actor boundary.
+  const { data: actorProfile, error: actorProfileError } = await admin
+    .from('profiles').select('status').eq('user_id', user.id).maybeSingle();
+  if (actorProfileError) return { error: json(500, { error: 'Account authority could not be verified.' }) };
+  if (actorProfile?.status !== 'active') return { error: json(403, { error: 'Forbidden - active account required.' }) };
+
   return { admin, user };
 };
 
@@ -63,9 +69,10 @@ const getCallerMembership = async (
   if (!supabaseAdmin) return null;
   const { data } = await supabaseAdmin
     .from('company_memberships')
-    .select('id, role_in_company, status')
+    .select('id, role_in_company, status, companies!inner(status)')
     .eq('company_id', companyId)
     .eq('user_id', userId)
+    .eq('companies.status', 'active')
     .limit(1)
     .maybeSingle();
   return data;
