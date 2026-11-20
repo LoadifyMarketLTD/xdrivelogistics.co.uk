@@ -34,6 +34,7 @@ type WonJob = {
 type WonWorkResponse = {
   jobs?: WonJob[];
   commercialRatePartial?: boolean;
+  hasMore?: boolean;
   error?: string;
 };
 
@@ -99,6 +100,8 @@ const card: CSSProperties = {
 
 export default function WonWorkPage() {
   const router = useRouter();
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [jobs, setJobs] = useState<WonJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -117,7 +120,7 @@ export default function WonWorkPage() {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Please sign in again.');
 
-      const response = await fetch('/api/driver/jobs?scope=all&limit=100', {
+      const response = await fetch(`/api/driver/jobs?scope=all&limit=100&page=${page}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -128,14 +131,16 @@ export default function WonWorkPage() {
       // Cancelled/unknown rows are not silently relabelled as active or completed.
       setJobs((payload.jobs ?? []).filter((job) => ['upcoming', 'active', 'completed'].includes(job.lifecycleGroup)));
       setCommercialRatePartial(payload.commercialRatePartial === true);
+      setHasMore(payload.hasMore === true);
     } catch (fetchError) {
       setJobs([]);
+      setHasMore(false);
       setCommercialRatePartial(false);
       setError(fetchError instanceof Error ? fetchError.message : 'Failed to load won work.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     void fetchWonWork();
@@ -160,10 +165,10 @@ export default function WonWorkPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginBottom: '0.75rem' }}>
           {[
-            { label: 'Upcoming', value: pipelineCounts.upcoming, color: '#1d4ed8' },
-            { label: 'Active', value: pipelineCounts.active, color: '#b45309' },
-            { label: 'Completed', value: pipelineCounts.completed, color: '#15803d' },
-            { label: 'Total', value: pipelineCounts.total, color: '#374151' },
+            { label: 'Upcoming (page)', value: pipelineCounts.upcoming, color: '#1d4ed8' },
+            { label: 'Active (page)', value: pipelineCounts.active, color: '#b45309' },
+            { label: 'Completed (page)', value: pipelineCounts.completed, color: '#15803d' },
+            { label: 'Page total', value: pipelineCounts.total, color: '#374151' },
           ].map((item) => (
             <div key={item.label} style={{ ...card, borderTop: `3px solid ${item.color}`, textAlign: 'center', padding: '0.6rem' }}>
               <div style={{ fontSize: '18px', lineHeight: '22px', fontWeight: 800, color: item.color }}>{loading ? '...' : item.value}</div>
@@ -188,7 +193,7 @@ export default function WonWorkPage() {
           <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center', fontSize: '13px' }}>Loading won work...</div>
         ) : jobs.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2rem' }}>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '13px' }}>No won work yet</div>
+            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '13px' }}>{page > 1 || hasMore ? 'No won work on this page' : 'No won work yet'}</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>
               Jobs will appear here after your quote is accepted and the work is assigned to you.
             </div>
@@ -284,6 +289,12 @@ export default function WonWorkPage() {
             })}
           </div>
         )}
+        <nav aria-label="Won work pagination" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
+          <button type="button" disabled={loading || page === 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
+          <span>Page {page}</span>
+          <button type="button" disabled={loading || !hasMore || Boolean(error)} onClick={() => setPage((value) => value + 1)}>Next</button>
+          {error && <button type="button" onClick={() => void fetchWonWork()}>Retry</button>}
+        </nav>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

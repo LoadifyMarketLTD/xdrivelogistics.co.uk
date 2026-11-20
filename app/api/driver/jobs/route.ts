@@ -54,6 +54,9 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') || 'all';
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 250);
+  const pageParam = searchParams.get('page');
+  const page = pageParam === null ? null : Number(pageParam);
+  if (page !== null && (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(page * limit))) return json(400, { error: 'Invalid page.' });
   const statusList = driverJobStatusesForScope(scope);
 
   let query = supabaseAdmin
@@ -93,6 +96,11 @@ export async function GET(request: NextRequest) {
     .order(scope === 'completed' ? 'updated_at' : 'pickup_datetime', { ascending: scope !== 'completed' })
     .limit(limit);
 
+  if (page !== null) {
+    const offset = (page - 1) * limit;
+    query = query.order('id', { ascending: true }).range(offset, offset + limit);
+  }
+
   if (statusList) {
     const statuses = statusList.join(',');
     query = query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
@@ -101,7 +109,8 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return json(500, { error: 'We could not load your assigned jobs.' });
 
-  const rows = (data ?? []) as unknown as DriverJobRow[];
+  const rows = ((data ?? []) as unknown as DriverJobRow[]).slice(0, limit);
+  const hasMore = page !== null && (data?.length ?? 0) > limit;
 
   const missingRouteRows = rows.filter((row) =>
     Number(row.job_distance_miles ?? 0) <= 0
@@ -216,5 +225,6 @@ export async function GET(request: NextRequest) {
       };
     }),
     commercialRatePartial: commercial.partial,
+    ...(page !== null ? { page, hasMore } : {}),
   });
 }
