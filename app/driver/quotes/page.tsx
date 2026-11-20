@@ -179,9 +179,9 @@ function serviceLabel(service: string | null, direct: boolean | null) {
   if (direct === true) return 'Deliver Direct';
   const value = String(service ?? '').trim().toLowerCase().replace(/_/g, ' ');
   if (!value) return 'Marketplace Load';
-  if (value.includes('same day') && value.includes('timed')) return 'Same Day - Timed';
+  if (value.includes('same day') && value.includes('timed') && !/non[- ]*timed|untimed/.test(value)) return 'Same Day - Timed';
   if (value.includes('same day')) return 'Same Day - Non Timed';
-  if (value.includes('next day') && value.includes('timed')) return 'Next Day - Timed';
+  if (value.includes('next day') && value.includes('timed') && !/non[- ]*timed|untimed/.test(value)) return 'Next Day - Timed';
   if (value.includes('next day')) return 'Next Day - Non Timed';
   return value.replace(/\b\w/g, (char) => char.toUpperCase());
 }
