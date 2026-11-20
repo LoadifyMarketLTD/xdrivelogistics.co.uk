@@ -320,11 +320,11 @@ export function mapAssigned(raw: unknown): LiveJob {
 export async function loadLive(token: string): Promise<LiveJob[]> {
   return (await loadLiveWithDiagnostics(token)).jobs;
 }
-export async function loadLiveWithDiagnostics(token: string, offerData?: Json, includeBidHistory = true, onFeed?: (feed: "marketplace" | "bookings" | "completed", jobs: LiveJob[]) => void): Promise<{jobs: LiveJob[]; warnings: string[]}> {
+export async function loadLiveWithDiagnostics(token: string, offerData?: Json, includeBidHistory = true, onFeed?: (feed: "marketplace" | "bookings" | "completed", jobs: LiveJob[]) => void, onSettled?: (feed: "marketplace" | "bookings" | "completed", error?: unknown) => void): Promise<{jobs: LiveJob[]; warnings: string[]}> {
   const responses = await Promise.allSettled([
-    driverGet('/marketplace/loads', token, 10000).then(data => { onFeed?.('marketplace', (Array.isArray(data.loads) ? data.loads : []).map(mapMarketplace).filter(job => Boolean(job.id))); return data; }),
-    driverGet('/mobile/jobs?scope=bookings&compact=1', token, 10000).then(data => { onFeed?.('bookings', (Array.isArray(data.jobs) ? data.jobs : []).filter(row => !isSimulatedLiveJob(row)).map(mapAssigned).filter(job => Boolean(job.id))); return data; }),
-    driverGet('/mobile/jobs?scope=completed&compact=1', token, 10000).then(data => { onFeed?.('completed', (Array.isArray(data.jobs) ? data.jobs : []).filter(row => !isSimulatedLiveJob(row)).map(mapAssigned).filter(job => Boolean(job.id))); return data; }),
+    driverGet('/marketplace/loads', token, 10000).then(data => { if(!Array.isArray(data.loads)) throw new Error('Invalid marketplace response'); onFeed?.('marketplace', (Array.isArray(data.loads) ? data.loads : []).map(mapMarketplace).filter(job => Boolean(job.id))); onSettled?.('marketplace'); return data; }).catch(error => { onSettled?.('marketplace', error); throw error; }),
+    driverGet('/mobile/jobs?scope=bookings&compact=1', token, 10000).then(data => { if(!Array.isArray(data.jobs)) throw new Error('Invalid bookings response'); onFeed?.('bookings', (Array.isArray(data.jobs) ? data.jobs : []).filter(row => !isSimulatedLiveJob(row)).map(mapAssigned).filter(job => Boolean(job.id))); onSettled?.('bookings'); return data; }).catch(error => { onSettled?.('bookings', error); throw error; }),
+    driverGet('/mobile/jobs?scope=completed&compact=1', token, 10000).then(data => { if(!Array.isArray(data.jobs)) throw new Error('Invalid completed response'); onFeed?.('completed', (Array.isArray(data.jobs) ? data.jobs : []).filter(row => !isSimulatedLiveJob(row)).map(mapAssigned).filter(job => Boolean(job.id))); onSettled?.('completed'); return data; }).catch(error => { onSettled?.('completed', error); throw error; }),
     includeBidHistory ? driverGet('/mobile/bids', token, 30000) : Promise.resolve({}),
     Promise.resolve(offerData ?? {}),
   ]);

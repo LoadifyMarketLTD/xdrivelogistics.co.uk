@@ -143,32 +143,110 @@ export default function ReserveApp() {
   const markOfferSeen=(j:LiveJob)=>{if(!j.offerId||!j.acceptanceRequired)return;setSeenOffers(previous=>{if(previous.includes(j.offerId!))return previous;const next=[...previous,j.offerId!];try{localStorage.setItem(receiptKey,JSON.stringify(next));}catch{}return next;});};
   const unreadBookingOffers=jobs.filter(j=>j.acceptanceRequired&&j.offerId&&!seenOffers.includes(j.offerId)).length;
   const isAuthFailure=(e:unknown)=>/invalid session|unauthorized|session expired|invalid.grant|refresh.token|already.used|jwt expired|401/i.test(e instanceof Error?e.message:String(e));
-  const clearInvalidSession=()=>{localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
+  const clearInvalidSession=()=>{refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
   useLayoutEffect(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view,tab,id]);
   useEffect(()=>{if('scrollRestoration' in history)history.scrollRestoration='manual';},[]);
   const browserBackRef=useRef(false);
   useEffect(()=>{const pop=(event:PopStateEvent)=>{const st=event.state as {rvView?:View;rvTab?:Tab;rvId?:string|null}|null;browserBackRef.current=true;setView(st?.rvView??'list');setTab(st?.rvTab??'Loads');setId(st?.rvId??null);};window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[]);
   const historyInitialized=useRef(false);
   useEffect(()=>{const st={rvView:view,rvTab:tab,rvId:id};if(!historyInitialized.current){historyInitialized.current=true;window.history.replaceState({...window.history.state,...st,rvDepth:0},'');return;}if(browserBackRef.current){browserBackRef.current=false;return;}window.history.pushState({...st,rvDepth:Number(window.history.state?.rvDepth||0)+1},'');},[view,tab,id]);
-  const offersFetchRef=useRef(0);
-  const offersPendingRef=useRef(false);
+  const [pendingFeeds,setPendingFeeds]=useState({marketplace:true,bookings:true,completed:true});
+  const [failedFeeds,setFailedFeeds]=useState({marketplace:false,bookings:false,completed:false});
+  const refreshGeneration=useRef(0);
   const [offersLoading,setOffersLoading]=useState(false);
-  const bidsFetchRef=useRef(0);
-  const bidsPendingRef=useRef(false);
   const [bidsLoading,setBidsLoading]=useState(false);
-  const fetchJobs=useCallback(async (token:string) => { let result=await loadLiveWithDiagnostics(token, undefined, false, (_feed, freshJobs)=>{setJobs(previous=>{const merged=new Map(previous.map(job=>[job.id,job]));for(const fresh of freshJobs){const prior=merged.get(fresh.id);merged.set(fresh.id,prior&&prior.status!=='OPEN'&&fresh.status==='OPEN'?{...fresh,status:prior.status,backendStatus:prior.backendStatus,podRecorded:prior.podRecorded||fresh.podRecorded}:fresh);}return [...merged.values()];});});if(result.warnings.filter(message=>/invalid session|unauthorized|jwt expired|401/i.test(message)).length>=2)throw new Error('Invalid session: the driver API rejected the saved token.');setJobs(previous=>{const previousById=new Map(previous.map(job=>[job.id,job]));const missingExecutionFeed=result.warnings.some(message=>/Active bookings|Completed bookings/.test(message));const merged=result.jobs.map(fresh=>{const prior=previousById.get(fresh.id);if(!prior||!missingExecutionFeed||prior.status==='OPEN'||fresh.status!=='OPEN')return fresh;return {...prior,...fresh,status:prior.status,backendStatus:prior.backendStatus,podRecorded:prior.podRecorded||fresh.podRecorded,deliveryPhotos:prior.deliveryPhotos?.length?prior.deliveryPhotos:fresh.deliveryPhotos};});if(missingExecutionFeed){const returnedIds=new Set(merged.map(j=>j.id));for(const prior of previous){if(prior.status!=='OPEN'&&!returnedIds.has(prior.id))merged.push(prior);}}return merged;});setWarning(result.warnings.join(' | '));const now=Date.now();if(!offersPendingRef.current&&now-offersFetchRef.current>=15000){offersPendingRef.current=true;offersFetchRef.current=now;setOffersLoading(true);void bookingOffersGet(token).then(offers=>{setJobs(previous=>applyBookingOffers(previous,offers));setOffersLoading(false);setWarning(previous=>previous.split(' | ').filter(message=>message&&!message.startsWith('Booking offers:')).join(' | '));}).catch(reason=>{offersFetchRef.current=0;setOffersLoading(false);setWarning(previous=>[...previous.split(' | ').filter(message=>message&&!message.startsWith('Booking offers:')),'Booking offers: '+(reason instanceof Error?reason.message:'Service unavailable')].filter(Boolean).join(' | '));}).finally(()=>{offersPendingRef.current=false;});}
-    const bidNow=Date.now();
-    if(!bidsPendingRef.current && bidNow-bidsFetchRef.current>=15000){
-      bidsPendingRef.current=true;bidsFetchRef.current=bidNow;setBidsLoading(true);
-      void driverGet('/mobile/bids', token, 30000).then(bidData=>{
-        setJobs(previous=>applyPersonalBids(previous,bidData));
-        setWarning(previous=>previous.split(' | ').filter(message=>message&&!message.startsWith('Quote history:')).join(' | '));
-      }).catch(reason=>{
-        bidsFetchRef.current=0;
-        setWarning(previous=>[...previous.split(' | ').filter(message=>message&&!message.startsWith('Quote history:')),'Quote history: '+(reason instanceof Error?reason.message:'Service unavailable')].filter(Boolean).join(' | '));
-      }).finally(()=>{bidsPendingRef.current=false;setBidsLoading(false);});
+  const refreshPending=useRef(false);
+  // Session-only snapshots. A successful feed replaces its own previous snapshot;
+  // an unavailable feed cannot erase an unrelated feed or expose another account.
+  const feedCache=useRef(new Map<string,LiveJob[]>());
+  const commercialCache=useRef<{offers?:Awaited<ReturnType<typeof bookingOffersGet>>;bids?:Awaited<ReturnType<typeof driverGet>>}>({});
+  const [verifiedSession,setVerifiedSession]=useState(false);
+  const fetchJobs=useCallback(async (token:string) => {
+    const generation=++refreshGeneration.current;
+    const current=()=>generation===refreshGeneration.current;
+    refreshPending.current=true;
+    setPendingFeeds({marketplace:true,bookings:true,completed:true});
+    setFailedFeeds({marketplace:false,bookings:false,completed:false});
+    setOffersLoading(true);setBidsLoading(true);
+    const render=()=>{
+      if(!current())return;
+      const next=new Map<string,LiveJob>();
+      for(const source of ['marketplace','bookings','completed']){
+        for(const row of feedCache.current.get(source)||[])next.set(row.id,row);
+      }
+      const {offers,bids}=commercialCache.current;
+      const withOffers=offers?applyBookingOffers([...next.values()],offers):[...next.values()];
+      const rows=bids?applyPersonalBids(withOffers,bids):withOffers;
+      setJobs(previous=>{
+        const byId=new Map(previous.map(row=>[row.id,row]));
+        // Retain object identity for unchanged cards.
+        return rows.map(row=>{const prior=byId.get(row.id);return prior&&JSON.stringify(prior)===JSON.stringify(row)?prior:row;});
+      });
+    };
+    const notice=(source:string,reason?:unknown)=>{
+      if(!current())return;
+      setWarning(previous=>[...previous.split(' | ').filter(message=>message&&!message.startsWith(source+':')),reason?source+': '+(reason instanceof Error?reason.message:'Service unavailable'):''].filter(Boolean).join(' | '));
+    };
+    const failed=(source:string,reason:unknown)=>{
+      const message=reason instanceof Error?reason.message:String(reason);
+      notice(source,reason);
+      if(/invalid session|unauthorized|jwt expired|401|403/i.test(message)){
+        // Do not retain restricted data after an authority failure.
+        refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);localStorage.removeItem(KEY);setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
+      }
+    };
+    const offersRequest=bookingOffersGet(token).then(data=>{
+      if(!current())return;if(!Array.isArray(data.offers))throw Error('Invalid booking offers response');
+      commercialCache.current.offers=data;render();notice('Booking offers');
+    }).catch(reason=>{if(current()){delete commercialCache.current.offers;failed('Booking offers',reason);render();}}).finally(()=>{if(current())setOffersLoading(false);});
+    const bidsRequest=driverGet('/mobile/bids',token,30000).then(data=>{
+      if(!current())return;if(!Array.isArray(data.bids))throw Error('Invalid quote history response');
+      commercialCache.current.bids=data;render();notice('Quote history');
+    }).catch(reason=>{if(current()){delete commercialCache.current.bids;failed('Quote history',reason);render();}}).finally(()=>{if(current())setBidsLoading(false);});
+    try{
+      const result=await loadLiveWithDiagnostics(token,undefined,false,(feed,freshJobs)=>{
+        if(!current())return;
+        feedCache.current.set(feed,freshJobs);render();
+      },(feed,reason)=>{
+        if(!current())return;
+        if(reason){
+          // Marketplace and executable records must not remain actionable after
+          // their own authority/source fails. Completed history is also cleared.
+          feedCache.current.delete(feed);failed(feed,reason);render();
+        }else notice(feed);
+        setFailedFeeds(previous=>({...previous,[feed]:Boolean(reason)}));
+        setPendingFeeds(previous=>({...previous,[feed]:false}));
+      });
+      if(!current())return;
+      if(result.warnings.filter(message=>/invalid session|unauthorized|jwt expired|401/i.test(message)).length>=2)throw new Error('Invalid session: the driver API rejected the saved token.');
+    }finally{
+      void Promise.allSettled([offersRequest,bidsRequest]).then(()=>{if(current())refreshPending.current=false;});
     }
   },[]);
+  // Refresh only while the list is visible, never interrupt a proof or booking action.
+  useEffect(()=>{
+    if(LOCAL||!session||!verifiedSession||view!=='list'||busy||loading)return;
+    let disposed=false;let running=false;
+    const refresh=async()=>{
+      if(disposed||running||refreshPending.current||document.visibilityState!=='visible'||!navigator.onLine)return;
+      running=true;const epoch=refreshGeneration.current;
+      try{
+        const next=await renewSession(session);
+        if(disposed||epoch!==refreshGeneration.current)return;
+        if(next.token!==session.token){setSession(next);localStorage.setItem(KEY,JSON.stringify(next));}
+        await fetchJobs(next.token);
+      }catch(reason){
+        if(disposed)return;
+        if(isAuthFailure(reason))clearInvalidSession();
+        else setWarning(previous=>[previous,'Live sync: '+(reason instanceof Error?reason.message:'Unavailable')].filter(Boolean).join(' | '));
+      }finally{running=false;}
+    };
+    const timer=window.setInterval(()=>{void refresh();},15000);
+    const resume=()=>{void refresh();};
+    window.addEventListener('online',resume);
+    document.addEventListener('visibilitychange',resume);
+    return()=>{disposed=true;window.clearInterval(timer);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);};
+  },[session?.token,verifiedSession,view,busy,loading,fetchJobs]);
   // Historical reference lookup is authenticated on every request and searches
   // all jobs assigned to this driver, not only the recent History window.
   useEffect(()=>{
@@ -188,11 +266,11 @@ export default function ReserveApp() {
     },350);
     return ()=>{cancelled=true;clearTimeout(timeout);};
   },[session?.token,tab,bookingSection,bookingSearch]);
-  async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
+  async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
 
-  useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
+  useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
-  async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
+  async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);setTab('Loads');setView('list');}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
   function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference(LOCAL?'TEST-OPERATOR-001':'');setPackaging(j.packaging||'');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();boundaryEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
@@ -301,8 +379,10 @@ export default function ReserveApp() {
     return timestamps.length?Math.max(...timestamps):Date.parse(j.deliveryDate||'')||Date.parse(j.postedAt||'')||0;
   }
   function list(){
-    const waitingOffers=tab==='Bookings'&&bookingSection==='Received'&&offersLoading;
-    const waitingQuotes=tab==='Quotes'&&bidsLoading;
+    const waitingOffers=tab==='Bookings'&&bookingSection==='Received'&&(offersLoading||(!LOCAL&&loading&&pendingFeeds.bookings));
+    const waitingQuotes=tab==='Quotes'&&(bidsLoading||(!LOCAL&&loading&&pendingFeeds.marketplace));
+    const waitingFeed=!LOCAL&&(loading||refreshPending.current)&&(tab==='Loads'?pendingFeeds.marketplace:tab==='Bookings'?(bookingSection==='Delivered'?pendingFeeds.completed:bookingSection==='Received'?pendingFeeds.bookings||pendingFeeds.marketplace:pendingFeeds.bookings):false);
+    const failedFeed=!LOCAL&&(tab==='Loads'?failedFeeds.marketplace:tab==='Bookings'?(bookingSection==='Delivered'?failedFeeds.completed:failedFeeds.bookings):false);
     const searchingByReference=tab==='Bookings'&&bookingSection==='Delivered'&&bookingSearch.trim().length>=2;
     const sourceJobs=searchingByReference?(historicalSearchResults||[]):jobs;
     const shown = reserveJobs(sourceJobs, tab, '', 'All', quoteSection).filter(j=>tab!=='Loads'||!searchResult||(searchResult.ids.has(j.id)&&matchesLoad(j,searchResult.filters))).filter(j=>tab!=='Bookings'||(bookingSection==='Received'?Boolean(j.acceptanceRequired):bookingSection==='Delivered'?searchingByReference||['DELIVERED','POD_SUBMITTED'].includes(j.status)||Boolean(j.podRecorded):!j.acceptanceRequired&&!['DELIVERED','POD_SUBMITTED'].includes(j.status)&&!j.podRecorded)).filter(j=>tab!=='Bookings'||bookingSection!=='Delivered'||((searchingByReference||!bookingSearch.trim()||[j.id,j.yourRef,j.customerRef,...(j.legacyReferences||[]),j.from,j.to,j.company,j.pickupAddress,j.deliveryAddress].some(v=>String(v||'').toLowerCase().includes(bookingSearch.trim().toLowerCase())))&&(searchingByReference||bookingPeriod==='all'||(Boolean(j.postedAt)&&completedAt(j)>=Date.now()-Number(bookingPeriod)*86400000)))).sort((a,b)=>tab==='Bookings'&&bookingSection==='Delivered'?completedAt(b)-completedAt(a):0);
@@ -311,13 +391,13 @@ export default function ReserveApp() {
       {tab==='Bookings'&&<div className="rv-quote-tabs rv-booking-tabs" role="group" aria-label="Booking categories">{(['Received','Allocated','Delivered'] as BookingSection[]).map(s=><button key={s} className={bookingSection===s?'rv-selected':''} aria-pressed={bookingSection===s} onClick={()=>setBookingSection(s)}>{s==='Received'?'Pending':s==='Allocated'?'Active':'History'}</button>)}</div>}
       {tab==='Bookings'&&bookingSection==='Delivered'&&<div className="rv-booking-history-tools" style={{display:'flex',gap:8,flexWrap:'wrap',margin:'10px 0 14px'}}><input aria-label="Search booking history" placeholder="Search reference, town, postcode, customer" value={bookingSearch} onChange={e=>setBookingSearch(e.target.value)} style={{flex:'1 1 200px',minWidth:0,padding:11,borderRadius:9,border:'1px solid #cbd5e1'}}/><select aria-label="Booking history period" value={bookingPeriod} onChange={e=>setBookingPeriod(e.target.value)} style={{padding:10,borderRadius:9,border:'1px solid #cbd5e1'}}><option value="all">All time</option><option value="7">7 days</option><option value="30">30 days</option><option value="90">90 days</option></select></div>}
       {tab==='Quotes'&&<div className="rv-quote-tabs" role="group" aria-label="Quote sections">{(['Submitted','Awarded','History'] as QuoteSection[]).map(s=><button key={s} className={quoteSection===s?'rv-selected':''} aria-pressed={quoteSection===s} onClick={()=>{setQuoteSection(s);setWithdrawId(null)}}>{s}</button>)}</div>}
-      {loading&&shown.length===0&&<p className="rv-loading-inline" role="status">Refreshing live jobs…</p>}
+      {waitingFeed&&shown.length===0&&<p className="rv-loading-inline" role="status">Refreshing live jobs…</p>}
       {historicalSearchBusy&&searchingByReference&&<p className="rv-loading-inline" role="status">Searching all historical jobs by reference…</p>}
       {historicalSearchError&&searchingByReference&&<p className="rv-warning" role="alert">Historical reference search unavailable: {historicalSearchError}</p>}
       {searchingByReference&&historicalSearchResults&&historicalSearchResults.length>1&&<p className="rv-warning">Several jobs match this historical reference. Check the route and date; no job has been selected automatically.</p>}
       {shown.length ? shown.map(j=>card(j)) : <div className="rv-empty">
-        <b>{waitingOffers?'Checking incoming booking offers…':waitingQuotes?'Loading your quote history':loading?'Loading live data…':warning?'Some sources are temporarily unavailable':jobs.length===0?'No jobs returned by the server':tab==='Bookings'&&bookingSection==='Received'?'No current booking offers':tab==='Loads'?'No available marketplace loads':'No matching '+tab.toLowerCase()}</b>
-        <p>{waitingOffers?'Bookings and quotes remain accessible while incoming offers are checked.':waitingQuotes?'Your personal bids are being checked separately so Loads and Bookings stay responsive.':loading?'Refreshing XDrive…':warning?'Some live sources failed. Check the notices below or retry. This does not mean that the marketplace is empty.':tab==='Bookings'&&bookingSection==='Received'?'Pending awarded jobs appear here, including overdue collections. You can review and respond to an offer even after the scheduled collection time.':tab==='Loads'&&jobs.length>0?'No currently OPEN marketplace loads match the selected filters. Your submitted quotes remain under Quotes.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
+        <b>{waitingOffers?'Checking incoming booking offers…':waitingQuotes?'Loading your quote history':waitingFeed?'Loading live data…':(warning||failedFeed)?'Some sources are temporarily unavailable':jobs.length===0?'No jobs returned by the server':tab==='Bookings'&&bookingSection==='Received'?'No current booking offers':tab==='Loads'?'No available marketplace loads':'No matching '+tab.toLowerCase()}</b>
+        <p>{waitingOffers?'Bookings and quotes remain accessible while incoming offers are checked.':waitingQuotes?'Your personal bids are being checked separately so Loads and Bookings stay responsive.':waitingFeed?'Refreshing XDrive…':(warning||failedFeed)?'Some live sources failed. Check the notices below or retry. This does not mean that the marketplace is empty.':tab==='Bookings'&&bookingSection==='Received'?'Pending awarded jobs appear here, including overdue collections. You can review and respond to an offer even after the scheduled collection time.':tab==='Loads'&&jobs.length>0?'No currently OPEN marketplace loads match the selected filters. Your submitted quotes remain under Quotes.':'No matching authenticated records. Nothing fictitious is displayed.'}</p>
         {!loading&&(error||warning||jobs.length===0)&&<button className="rv-outline rv-wide" onClick={()=>void retryLive()}>Retry Live Data →</button>}
         {tab==='Loads'&&jobs.some(j=>j.quote!=null)&&<button className="rv-outline rv-wide" onClick={()=>navigate('Quotes')}>View My Quotes →</button>}
       </div>}
@@ -869,7 +949,7 @@ export default function ReserveApp() {
 
   const goodsInCustody=['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY','DELIVERED','POD_SUBMITTED'].includes(job.status)||(job.routeStops?.[0]?.status==='completed');
   return <ReserveCancellation address={target.address} goodsInCustodyDefault={Boolean(goodsInCustody)} forceJobScope={true} busy={busy} error={error} onBack={()=>setView(cancellationReturnView)} onSubmit={value=>void recordCancellation(job,target,value)}/>;
-})()}{view==='bookingExtras'&&session&&job&&<ReserveBookingExtras key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')}/>}{view==='invoiceJob'&&(LOCAL||session)&&job&&<LiveInvoiceFlow key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')} onList={()=>setView('invoices')}/>}{view==='invoices'&&session&&<><button className="rv-back" onClick={()=>setView('more')}>← Menu</button><LiveInvoices session={session} onSession={setSession}/></>}{view==='more'&&<><div className="rv-heading"><div><span className="rv-over">DRIVER WORKSPACE</span><h1>More & Settings</h1><p>Your vehicle, documents, profile and finance.</p></div></div>{['My Profile','My Vehicle','Documents','Load Alerts','Availability','Return Journeys','Notifications','Invoices','GPS & Tracking','Settings'].map(name=><button className="rv-menuitem" key={name} onClick={()=>{if(name==='Invoices'){setView('invoices');return}if(name==='GPS & Tracking'){setView('gps');return}setMenuSection(name);setMenuOpen(true)}}>{name}<span>›</span></button>)}<button className="rv-outline rv-wide" onClick={()=>{if(session)void revokeLiveSession(session).catch(()=>{});localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setView('list');}}>Sign Out</button></>}</>}</main>{session&&<div style={{display:view==='gps'?undefined:'none'}}><GpsTracking token={session.token} jobs={jobs} visible={view==='gps'} onClose={()=>setView('more')}/></div>}<nav className="rv-nav rv-official-nav">{([{key:'Loads',label:'Loads',icon:'📦'},{key:'Quotes',label:'Quotes',icon:'💬'},{key:'Bookings',label:'Bookings',icon:'🚚'}] as const).map(item=><button key={item.key} className={(item.key===tab&&view!=='more'&&view!=='invoices'?'rv-active ':'')+(item.key==='Bookings'&&unreadBookingOffers>0?'rv-booking-unread':'')} aria-label={item.key==='Bookings'&&unreadBookingOffers>0?'Bookings - '+unreadBookingOffers+' new awarded jobs':item.label} onClick={()=>navigate(item.key)}><span>{item.icon}</span>{item.label}</button>)}</nav>{menuOpen&&<DriverMenu section={menuSection} setSection={setMenuSection} onClose={()=>setMenuOpen(false)} onNavigate={destination=>{setMenuOpen(false);if(destination==='Invoices')setView('invoices');else if(['Loads','Quotes','Bookings'].includes(destination))navigate(destination as Tab);else{setMenuSection(destination);setMenuOpen(true)}}} role={role} available={available} setAvailable={setAvailable} savedCount={0} liveConnected={connected} token={session?.token??null} sharedCache={menuCache} onLogout={()=>{if(session)void revokeLiveSession(session).catch(()=>{});localStorage.removeItem(KEY);setSession(null);setJobs([]);setMenuOpen(false);setView('list');}}/>}</div>;
+})()}{view==='bookingExtras'&&session&&job&&<ReserveBookingExtras key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')}/>}{view==='invoiceJob'&&(LOCAL||session)&&job&&<LiveInvoiceFlow key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')} onList={()=>setView('invoices')}/>}{view==='invoices'&&session&&<><button className="rv-back" onClick={()=>setView('more')}>← Menu</button><LiveInvoices session={session} onSession={setSession}/></>}{view==='more'&&<><div className="rv-heading"><div><span className="rv-over">DRIVER WORKSPACE</span><h1>More & Settings</h1><p>Your vehicle, documents, profile and finance.</p></div></div>{['My Profile','My Vehicle','Documents','Load Alerts','Availability','Return Journeys','Notifications','Invoices','GPS & Tracking','Settings'].map(name=><button className="rv-menuitem" key={name} onClick={()=>{if(name==='Invoices'){setView('invoices');return}if(name==='GPS & Tracking'){setView('gps');return}setMenuSection(name);setMenuOpen(true)}}>{name}<span>›</span></button>)}<button className="rv-outline rv-wide" onClick={()=>{if(session)void revokeLiveSession(session).catch(()=>{});refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setView('list');}}>Sign Out</button></>}</>}</main>{session&&<div style={{display:view==='gps'?undefined:'none'}}><GpsTracking token={session.token} jobs={jobs} visible={view==='gps'} onClose={()=>setView('more')}/></div>}<nav className="rv-nav rv-official-nav">{([{key:'Loads',label:'Loads',icon:'📦'},{key:'Quotes',label:'Quotes',icon:'💬'},{key:'Bookings',label:'Bookings',icon:'🚚'}] as const).map(item=><button key={item.key} className={(item.key===tab&&view!=='more'&&view!=='invoices'?'rv-active ':'')+(item.key==='Bookings'&&unreadBookingOffers>0?'rv-booking-unread':'')} aria-label={item.key==='Bookings'&&unreadBookingOffers>0?'Bookings - '+unreadBookingOffers+' new awarded jobs':item.label} onClick={()=>navigate(item.key)}><span>{item.icon}</span>{item.label}</button>)}</nav>{menuOpen&&<DriverMenu section={menuSection} setSection={setMenuSection} onClose={()=>setMenuOpen(false)} onNavigate={destination=>{setMenuOpen(false);if(destination==='Invoices')setView('invoices');else if(['Loads','Quotes','Bookings'].includes(destination))navigate(destination as Tab);else{setMenuSection(destination);setMenuOpen(true)}}} role={role} available={available} setAvailable={setAvailable} savedCount={0} liveConnected={connected} token={session?.token??null} sharedCache={menuCache} onLogout={()=>{if(session)void revokeLiveSession(session).catch(()=>{});refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});localStorage.removeItem(KEY);setSession(null);setJobs([]);setMenuOpen(false);setView('list');}}/>}</div>;
 }
 
 

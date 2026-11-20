@@ -13,6 +13,7 @@ export type MarketplaceQuoteSubmitPayload = {
   totalAmount: number;
   baseAmount: number;
   additionalExtrasGbp: number;
+  collectWithinMinutes: number | null;
   message: string;
 };
 
@@ -165,6 +166,7 @@ export default function MarketplaceQuoteModal({
         item.id === id ? { ...item, amount: extraAmount } : item
       )))}
       onRemoveExtra={(id) => setExtras((current) => current.filter((item) => item.id !== id))}
+      onRestoreExtras={setExtras}
       total={total}
       extrasTotal={extrasTotal}
       message={message}
@@ -175,6 +177,7 @@ export default function MarketplaceQuoteModal({
         totalAmount: total,
         baseAmount: safeBaseAmount,
         additionalExtrasGbp: extrasTotal,
+        collectWithinMinutes: /^\d+$/.test(meta.etaToCollection) ? Number(meta.etaToCollection) : null,
         message: [message.trim(), `Service: ${meta.service}`, `ETA to Collection: ${meta.etaToCollection === 'ONTIME' ? 'On Time' : meta.etaToCollection === 'ASAP' ? 'ASAP' : `${meta.etaToCollection} minutes`}`, `Quote valid for: ${meta.validityHours} hours`].filter(Boolean).join('\n'),
       })}
     />

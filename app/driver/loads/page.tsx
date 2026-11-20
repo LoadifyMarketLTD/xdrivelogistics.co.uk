@@ -384,6 +384,7 @@ export default function AvailableLoadsPage() {
           amount,
           baseAmount: quote.baseAmount,
           additionalExtrasGbp: quote.additionalExtrasGbp,
+          collectWithinMinutes: quote.collectWithinMinutes,
           message: quote.message,
         }),
       });

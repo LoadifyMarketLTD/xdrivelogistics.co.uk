@@ -105,6 +105,14 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
     return 'owner_driver';
   }
 
+  // An explicit restricted membership is authoritative over legacy profile aliases.
+  // Customer and broker retain their surface identity and contextual restrictions above.
+  if (membershipRole === 'viewer' || membershipRole === 'finance' ||
+      membershipRole === 'compliance' || membershipRole === 'dispatcher' ||
+      membershipRole === 'fleet_manager') {
+    return membershipRole;
+  }
+
   // Active company subroles take precedence over the generic company_admin profile.
   // This keeps client workspace resolution aligned with server-side membership authority.
   if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin' || membershipRole === 'fleet_manager') return 'fleet_manager';

@@ -239,9 +239,21 @@ export async function GET(request: NextRequest) {
   }
 
   const queryStartedAt = performance.now();
-  const [{ data: rawJobs, error: jobsError }, blockedResult] = await Promise.all([
+  const [{ data: rawJobs, error: jobsError }, blockedResult, { data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
     query,
     getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId),
+    supabaseAdmin
+      .from('driver_locations')
+      .select('lat,lng,recorded_at')
+      .eq('driver_id', driver.driverId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('driver_availability_presence')
+      .select('exact_lat,exact_lng,recorded_at,available_until')
+      .eq('driver_id', driver.driverId)
+      .maybeSingle(),
   ]);
   const jobsMs = performance.now() - queryStartedAt;
   if (jobsError) {
@@ -302,7 +314,7 @@ export async function GET(request: NextRequest) {
     : null;
 
   const detailsStartedAt = performance.now();
-  const [companiesResult, profilesResult, bidsResult, stopsResult, { data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
+  const [companiesResult, profilesResult, bidsResult, stopsResult] = await Promise.all([
     companyIds.length
       ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
       : Promise.resolve({ data: [], error: null }),
@@ -315,18 +327,7 @@ export async function GET(request: NextRequest) {
         : bidQuery.eq('bidder_user_id', driver.userId)
       : Promise.resolve({ data: [], error: null }),
     jobIds.length ? supabaseAdmin.from('job_stops').select('job_id,sequence,stop_type,address,postcode,window_start,window_end').in('job_id', jobIds).order('sequence', { ascending: true }) : { data: [], error: null },
-    supabaseAdmin
-      .from('driver_locations')
-      .select('lat,lng,recorded_at')
-      .eq('driver_id', driver.driverId)
-      .order('recorded_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabaseAdmin
-      .from('driver_availability_presence')
-      .select('exact_lat,exact_lng,recorded_at,available_until')
-      .eq('driver_id', driver.driverId)
-      .maybeSingle(),
+
   ]);
 
   const detailsMs = performance.now() - detailsStartedAt;

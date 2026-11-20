@@ -16,7 +16,7 @@ describe('Driver booking storyboard page 7', () => {
     const source=fs.readFileSync(path.join(process.cwd(),'app/components/workspace/DriverJobExecutionPage.tsx'),'utf8');
     expect(source).toContain("['on_site_delivery','delivered','completed'].includes(podDraftStatus)");
     expect(source).toContain('if (!podDraftActive || loading || !podJobId || podAlreadyComplete) return;');
-    expect(source).toContain('if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete) return;');
+    expect(source).toContain('if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete || loading) return;');
   });
 
   it('keeps delivery evidence, recipient, left-at, signature and final confirmation in page 7', () => {
@@ -33,7 +33,7 @@ describe('Driver booking storyboard page 7', () => {
     const source=fs.readFileSync(path.join(process.cwd(),'app/components/workspace/DriverJobExecutionPage.tsx'),'utf8');
     expect(source).toContain("if (!deliveryPhotos.length)");
     expect(source).toContain("if (!recipientName.trim())");
-    expect(source).toContain('if (!newSignature && !savedSignatureData && !hasStoredSignature)');
+    expect(source).toContain('if (!newSignature && !savedSignatureData && !existingDrawnSignature)');
     expect(source).toContain("if (mobilePwa && !podLeftAt.trim())");
     expect(source).toContain("podDeliveryStatus !== 'Completed Delivery'");
     expect(source).toContain('hardCopyRequired && !hardCopyAcknowledged');

@@ -725,6 +725,7 @@ export default function CompanyMarketplaceExchange({
         onExtraKindChange={(id, kind) => setQuoteExtras((current) => current.map((item) => item.id === id ? { ...item, kind: kind as QuoteExtraKind } : item))}
         onExtraAmountChange={(id, amount) => setQuoteExtras((current) => current.map((item) => item.id === id ? { ...item, amount } : item))}
         onRemoveExtra={(id) => setQuoteExtras((current) => current.filter((item) => item.id !== id))}
+        onRestoreExtras={(restored) => setQuoteExtras(restored.map(extra => ({ ...extra, kind: extra.kind as QuoteExtraKind })))}
         total={quoteTotal}
         extrasTotal={quoteExtrasTotal}
         message={quoteMessage}
