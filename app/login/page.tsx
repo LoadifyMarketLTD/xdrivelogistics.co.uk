@@ -28,6 +28,7 @@ const LockIcon = () => (
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [clientReady, setClientReady] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -38,6 +39,8 @@ export default function LoginPage() {
   const [resetError, setResetError] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const { login, resetPassword, user, isLoading: authLoading } = useAuth();
+  // Server markup must not accept credentials before React has installed its handlers.
+  useEffect(() => { setClientReady(true); }, []);
   const nextPath = searchParams.get('next');
   const safeNextPath = nextPath && nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : null;
 
@@ -57,6 +60,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!clientReady || isLoading) return;
     setError('');
     setIsLoading(true);
 
@@ -76,6 +80,7 @@ export default function LoginPage() {
 
   const handleResetPassword = async (event: FormEvent) => {
     event.preventDefault();
+    if (!clientReady || resetLoading) return;
     setResetError('');
     setResetMessage('');
     setResetLoading(true);
@@ -153,7 +158,7 @@ export default function LoginPage() {
             ) : null}
 
             {!showReset ? (
-              <form onSubmit={handleSubmit} className={styles.loginForm}>
+              <form method="post" onSubmit={handleSubmit} className={styles.loginForm} aria-busy={!clientReady || isLoading}>
                 <div className={styles.fieldGroup}>
                   <label htmlFor="email">Email</label>
                   <div className={styles.inputWrap}>
@@ -166,7 +171,7 @@ export default function LoginPage() {
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="Enter your email address"
                       required
-                      disabled={isLoading}
+                      disabled={!clientReady || isLoading}
                     />
                   </div>
                 </div>
@@ -183,13 +188,13 @@ export default function LoginPage() {
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder="Enter your password"
                       required
-                      disabled={isLoading}
+                      disabled={!clientReady || isLoading}
                     />
                   </div>
                 </div>
 
                 <div className={styles.forgotRow}>
-                  <button type="button" onClick={handleShowReset} className={styles.linkButton}>
+                  <button type="button" onClick={handleShowReset} disabled={!clientReady || isLoading} className={styles.linkButton}>
                     Forgot password?
                   </button>
                 </div>
@@ -200,8 +205,8 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <button type="submit" disabled={isLoading} className={styles.signinButton}>
-                  {isLoading ? 'Signing in...' : 'Sign In'}
+                <button type="submit" disabled={!clientReady || isLoading} className={styles.signinButton}>
+                  {!clientReady ? 'Preparing sign-in...' : isLoading ? 'Signing in...' : 'Sign In'}
                 </button>
 
                 <p className={styles.registerRow}>
@@ -212,7 +217,7 @@ export default function LoginPage() {
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleResetPassword} className={styles.loginForm}>
+              <form method="post" onSubmit={handleResetPassword} className={styles.loginForm} aria-busy={!clientReady || resetLoading}>
                 <div className={styles.fieldGroup}>
                   <label htmlFor="reset-email">Email Address</label>
                   <div className={styles.inputWrap}>
@@ -225,7 +230,7 @@ export default function LoginPage() {
                       onChange={(event) => setResetEmail(event.target.value)}
                       placeholder="Enter your email address"
                       required
-                      disabled={resetLoading}
+                      disabled={!clientReady || resetLoading}
                     />
                   </div>
                 </div>
@@ -242,12 +247,12 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <button type="submit" disabled={resetLoading} className={styles.signinButton}>
+                <button type="submit" disabled={!clientReady || resetLoading} className={styles.signinButton}>
                   {resetLoading ? 'Sending...' : 'Send Reset Email'}
                 </button>
 
                 <p className={styles.registerRow}>
-                  <button type="button" onClick={handleBackToSignIn} className={styles.linkButton}>
+                  <button type="button" onClick={handleBackToSignIn} disabled={!clientReady || resetLoading} className={styles.linkButton}>
                     Back to sign in
                   </button>
                 </p>
