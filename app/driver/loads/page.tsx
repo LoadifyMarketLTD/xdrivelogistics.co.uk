@@ -18,6 +18,7 @@ import {usePublicPickupRadius} from '../../try-xdrive-demo/components/usePublicP
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxLoadCard from '../../components/workspace/OwnerPR807LoadCard';
 import { ActionButton, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
+import { marketplacePage } from '../_components/marketplacePagination';
 import { offeredQuoteLabel } from '../_components/ownerLoadQuoteState';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
@@ -220,7 +221,7 @@ export default function AvailableLoadsPage() {
   const [sortBy, setSortBy] = useState<SortMode>('date_desc');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
-  const [visibleCount, setVisibleCount] = useState(25);
+  const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const refreshInFlightRef = useRef(false);
   const refreshSequence = useRef(0);
@@ -318,10 +319,11 @@ export default function AvailableLoadsPage() {
     });
   }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, pickupRadius, pickupRadiusMiles, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
-  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, pickupRadiusMiles, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
+  useEffect(() => { setPage(1); setExpandAll(false); }, [vehicleFilter, pickupFilter, pickupRadiusMiles, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
   const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, pickupRadiusMiles, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
-  const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
+  const applySearch = () => { setPage(1); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
+    setPage(1); setExpandedLoadId(null); setExpandAll(false);
     setVehicleFilter('any'); setPickupFilter(''); setPickupRadiusMiles('10'); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
     setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setLoadWindowTab('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
@@ -342,7 +344,7 @@ export default function AvailableLoadsPage() {
       setLoadTypeFilter('all');
       setLoadWindowTab('all');
       setSortBy('date_desc');
-      setVisibleCount(25);
+      setPage(1);
       setPageSize(25);
       setViewMode('list');
       setExpandedLoadId(null);
@@ -420,8 +422,11 @@ export default function AvailableLoadsPage() {
     finally { withdrawInFlight.current = false; setWithdrawing(false); }
   };
 
-  const visibleLoads = filteredLoads.slice(0, visibleCount);
-  const canLoadMore = visibleCount < filteredLoads.length;
+  const pagination = marketplacePage(filteredLoads.length, pageSize, page);
+  const visibleLoads = filteredLoads.slice(pagination.start, pagination.end);
+  useEffect(() => { if (page !== pagination.page) setPage(pagination.page); }, [page, pagination.page]);
+  const navigatePage = (next: number) => { setPage(next); setExpandedLoadId(null); setExpandAll(false); };
+
   const mapLoads = useMemo(() => filteredLoads.map((load) => ({
     id: load.id,
     pickupLabel: load.pickup_area,
@@ -443,7 +448,7 @@ export default function AvailableLoadsPage() {
     setLoadTypeFilter(next === 'on_demand' ? 'on_demand' : 'all');
     setDateFromFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
     setDateToFilter(next === 'same_day' || next === 'next_day' ? localDate : '');
-    setVisibleCount(pageSize);
+    setPage(1);
     setViewMode('list');
   };
 
@@ -495,15 +500,20 @@ export default function AvailableLoadsPage() {
                </div>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                <span>{filteredLoads.length ? `1-${Math.min(visibleCount, filteredLoads.length)} of ${filteredLoads.length}` : '0 results'}</span>
-                {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
+                <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setPage(1); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+                <span role="status" aria-live="polite">{viewMode === 'map' ? `${filteredLoads.length} map results` : filteredLoads.length ? `${pagination.start + 1}-${pagination.end} of ${filteredLoads.length}` : '0 results'}</span>
+                {viewMode === 'list' && <div role="group" aria-label="Load results pagination" style={{display:'inline-flex',gap:4,flexWrap:'wrap'}}>
+                  <button type="button" className="rowbtn blue" aria-label="First page" disabled={!pagination.hasPrevious} onClick={() => navigatePage(1)}>First</button>
+                  <button type="button" className="rowbtn blue" aria-label="Previous page" disabled={!pagination.hasPrevious} onClick={() => navigatePage(pagination.page - 1)}>Previous</button>
+                  <button type="button" className="rowbtn blue" aria-label="Next page" disabled={!pagination.hasNext} onClick={() => navigatePage(pagination.page + 1)}>Next</button>
+                  <button type="button" className="rowbtn blue" aria-label="Last page" disabled={!pagination.hasNext} onClick={() => navigatePage(pagination.pageCount)}>Last</button>
+                </div>}
               </div>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads...</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (
               <MarketplaceLoadMap
                 loads={mapLoads}
-                onQuote={(loadId) => { setViewMode('list'); openMarketplaceQuote(loadId); }}
+                onQuote={(loadId) => { const index = filteredLoads.findIndex(load => load.id === loadId); if (index >= 0) navigatePage(Math.floor(index / pageSize) + 1); setViewMode('list'); openMarketplaceQuote(loadId); }}
                 onDetails={(loadId) => isOwnerDriver ? openMarketplaceQuote(loadId) : router.push(`/driver/loads/${loadId}`)}
               />
             ) : (
