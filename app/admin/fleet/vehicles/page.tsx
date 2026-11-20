@@ -49,7 +49,8 @@ const when = (value: string | null | undefined) => {
 export default function FleetVehiclesPage() {
   const router = useRouter();
   const {user}=useAuth();
-  const companyAdmin=(user?.workspaceRole ?? resolveWorkspaceRole(user))==='company_admin';
+  const workspaceRole = user?.workspaceRole ?? resolveWorkspaceRole(user);
+  const canUseSharedFleetRegister = ['company_admin', 'company_owner', 'carrier_admin', 'fleet_manager', 'dispatcher'].includes(workspaceRole);
   const [fleetView,setFleetView]=useState<'register'|'live'>('register');
   const data = useCompanyWorkspaceData();
   const presence = useFleetAvailabilityPresence(data.companyId);
@@ -145,14 +146,14 @@ export default function FleetVehiclesPage() {
     await Promise.all([data.refresh(), presence.refresh(), loadExchange()]);
   };
 
-  if(companyAdmin&&fleetView==='register')return <CompanyAdminFleetRegister key={data.companyId??'unresolved'} data={data} onLive={()=>setFleetView('live')}/>;
+  if(canUseSharedFleetRegister&&fleetView==='register')return <CompanyAdminFleetRegister key={data.companyId??'unresolved'} data={data} onLive={()=>setFleetView('live')}/>;
   return (
     <VehicleRegisterShell
       title="My Fleet"
       subtitle="Live and future fleet capacity, vehicle assignment and operational availability."
       actions={<><button type="button" onClick={() => router.push('/admin/vehicles')} className="carrier-register-action">+ Add Vehicle</button><button type="button" onClick={() => void refreshAll()} disabled={data.loading || presence.loading || exchangeLoading}>{data.loading || presence.loading || exchangeLoading ? 'Refreshing...' : 'Refresh'}</button></>}
     >
-      {companyAdmin&&<div className="workspace-tab-strip company-admin-fleet-tabs" role="group" aria-label="Fleet views"><button type="button" aria-pressed={fleetView==='register'} data-active={String(fleetView==='register')} onClick={()=>setFleetView('register')}>Fleet Register</button><button type="button" aria-pressed={fleetView==='live'} data-active={String(fleetView==='live')} onClick={()=>setFleetView('live')}>Live Availability</button></div>}
+      {canUseSharedFleetRegister&&<div className="workspace-tab-strip company-admin-fleet-tabs" role="group" aria-label="Fleet views"><button type="button" aria-pressed={fleetView==='register'} data-active={String(fleetView==='register')} onClick={()=>setFleetView('register')}>Fleet Register</button><button type="button" aria-pressed={fleetView==='live'} data-active={String(fleetView==='live')} onClick={()=>setFleetView('live')}>Live Availability</button></div>}
       {<>
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       {exchangeError && <AlertBanner tone="warning">{exchangeError}</AlertBanner>}
