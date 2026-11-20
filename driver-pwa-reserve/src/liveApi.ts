@@ -111,10 +111,21 @@ async function jsonFetch(url: string, init?: RequestInit, timeoutMs?: number): P
     init?.signal?.removeEventListener('abort', relayAbort);
   }
 }
+// Public configuration contains no session credentials. Deduplicate concurrent reads.
+let configRequest: Promise<Json> | null = null;
+function getLiveConfig(): Promise<Json> {
+  if (configRequest) return configRequest;
+  const pending = jsonFetch(base + '/mobile/config').finally(() => {
+    if (configRequest === pending) configRequest = null;
+  });
+  configRequest = pending;
+  return pending;
+}
 export async function login(email: string, password: string): Promise<LiveSession> {
   resetLiveSession();
+  const loginEpoch = sessionEpoch;
   if (QA_MOCK) { latestSession = { token: 'cx4a-qa-driver-token', refreshToken: 'cx4a-qa-refresh-token', expiresAt: Date.now() + 86400000 }; return latestSession; }
-  const config = await jsonFetch(base + '/mobile/config');
+  const config = await getLiveConfig();
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
   if (url !== 'https://jqxlauexhkonixtjvljw.supabase.co' || !key) throw new Error('LIVE authentication configuration mismatch');
@@ -124,6 +135,7 @@ export async function login(email: string, password: string): Promise<LiveSessio
   });
   const token = str(auth.access_token);
   if (!token) throw new Error('No access token returned');
+  if (loginEpoch !== sessionEpoch) throw new Error('Session expired. Please sign in again.');
   latestSession = { token, refreshToken: str(auth.refresh_token), expiresAt: Date.now() + (num(auth.expires_in) || 3600) * 1000 };
   return latestSession;
 }
@@ -144,7 +156,7 @@ export async function renewSession(session: LiveSession, forceRefresh = false): 
 }
 async function renewSessionOnce(session: LiveSession): Promise<LiveSession> {
   if (!session.refreshToken) throw new Error('Session expired. Please sign in again.');
-  const config = await jsonFetch(base + '/mobile/config');
+  const config = await getLiveConfig();
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
   if (url !== 'https://jqxlauexhkonixtjvljw.supabase.co' || !key) throw new Error('LIVE authentication configuration mismatch');
@@ -170,7 +182,7 @@ async function renewSessionOnce(session: LiveSession): Promise<LiveSession> {
 }
 export async function revokeLiveSession(session: LiveSession): Promise<void> {
   if (QA_MOCK) return;
-  const config = await jsonFetch(base + '/mobile/config');
+  const config = await getLiveConfig();
   const url = str(config.supabaseUrl);
   const key = str(config.supabaseAnonKey);
   if (url !== 'https://jqxlauexhkonixtjvljw.supabase.co' || !key) throw new Error('LIVE authentication configuration mismatch');
