@@ -24,14 +24,20 @@ export async function POST(request: NextRequest) {
     amount?: unknown;
     baseAmount?: unknown;
     additionalExtrasGbp?: unknown;
+    collectWithinMinutes?: unknown;
     message?: unknown;
   } | null;
 
+  const eta = body?.collectWithinMinutes;
+  if (eta != null && (typeof eta !== "number" || !Number.isInteger(eta) || eta < 5 || eta > 240)) {
+    return respond(400, { error: "Collection time must be between 5 and 240 minutes." });
+  }
   const result = await submitDriverQuote(supabaseAdmin, driver, {
     jobId: typeof body?.jobId === 'string' ? body.jobId : '',
     amount: Number(body?.amount),
     baseAmount: body?.baseAmount == null ? null : Number(body.baseAmount),
     additionalExtrasGbp: body?.additionalExtrasGbp == null ? null : Number(body.additionalExtrasGbp),
+    collectWithinMinutes: typeof eta === "number" ? eta : null,
     message: typeof body?.message === 'string' ? body.message : '',
   });
 

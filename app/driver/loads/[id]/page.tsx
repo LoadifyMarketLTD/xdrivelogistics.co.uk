@@ -175,6 +175,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
           amount,
           baseAmount: quote.baseAmount,
           additionalExtrasGbp: quote.additionalExtrasGbp,
+          collectWithinMinutes: quote.collectWithinMinutes,
           message: quote.message,
         }),
       });

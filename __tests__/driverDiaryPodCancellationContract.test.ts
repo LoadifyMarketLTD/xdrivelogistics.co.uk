@@ -17,7 +17,8 @@ describe('Driver Diary POD and cancellation contract', () => {
     expect(diary).toContain('must include delivery evidence, recipient name and signature');
     expect(diary).toContain('const hasPod = hasCompletePodEvidence(job)');
     expect(podHelper).toContain('record.pod_generated === true');
-    expect(podHelper).toContain('evidenceCount > 0');
+    expect(podHelper).toContain('deliveryPhotoCount >= 1');
+    expect(podHelper).toContain('deliveryPhotoCount <= 10');
     expect(podHelper).toContain('hasStoredSignature(record.delivery_signature_data)');
     expect(podHelper).toContain('recipientName.length > 0');
   });

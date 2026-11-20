@@ -199,7 +199,7 @@ export async function submitDriverQuote(
   if (baseAmount + additionalExtrasGbp > totalAmount + 0.01) {
     return { ok: false, status: 400, error: 'Quote total cannot be lower than the base amount plus extras.' };
   }
-  if (collectWithinMinutes !== null && (collectWithinMinutes < 5 || collectWithinMinutes > 240)) {
+  if (collectWithinMinutes !== null && (!Number.isFinite(collectWithinMinutes) || collectWithinMinutes < 5 || collectWithinMinutes > 240)) {
     return { ok: false, status: 400, error: 'Collection time must be between 5 and 240 minutes.' };
   }
 

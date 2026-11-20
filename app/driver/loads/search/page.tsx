@@ -303,6 +303,7 @@ export default function SearchLoadsPage() {
           amount,
           baseAmount: quote.baseAmount,
           additionalExtrasGbp: quote.additionalExtrasGbp,
+          collectWithinMinutes: quote.collectWithinMinutes,
           message: quote.message,
         }),
       });

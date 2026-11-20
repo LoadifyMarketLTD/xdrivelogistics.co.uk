@@ -258,6 +258,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
   const [podDraftError, setPodDraftError] = useState('');
   const [savedSignatureData, setSavedSignatureData] = useState('');
   const podDraftSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const podDraftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ownerHydratedSnapshot = useRef<string | null>(null);
   const [showPodDetails, setShowPodDetails] = useState(false);
   const [podPhotoUrls, setPodPhotoUrls] = useState<string[]>([]);
@@ -285,7 +286,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     }
     setLoading(true);
     setMultiStopsReady(false);
-    if (ownerWeb) { setWebStopFinalization(null); setMultiStops([]); setSheet(null); setShowPodDetails(false); setPodDraftLoaded(false); ownerHydratedSnapshot.current=null; }
+    setPodDraftLoaded(false);
+    if (ownerWeb) { setWebStopFinalization(null); setMultiStops([]); setSheet(null); setShowPodDetails(false); ownerHydratedSnapshot.current=null; }
     setError('');
     const jobRequest = supabase.from('jobs').select('*').eq('id', jobId).eq('assigned_driver_id', driverId);
     const { data, error: loadError } = await (ownerWeb ? jobRequest.abortSignal(AbortSignal.timeout(15000)) : jobRequest).maybeSingle();
@@ -447,6 +449,8 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     let cancelled = false;
     void (async () => {
       try {
+        await podDraftSaveQueue.current.catch(() => undefined);
+        if (cancelled) return;
         const auth = await authHeader();
         if (!auth) throw new Error('Your session is not available.');
         const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(podJobId) + '/pod-draft', {
@@ -456,6 +460,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         if (!response.ok) throw new Error(payload.error || 'POD draft could not be loaded.');
         if (cancelled) return;
         const draft = payload.draft;
+        setPodDraftError("");
         if (draft) {
           const field = (key: string) => typeof draft[key] === 'string' ? draft[key] as string : null;
           setRecipientName(field('recipientName') ?? '');
@@ -489,7 +494,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
 
   // Serialize debounced writes: an older draft must never overwrite a newer one.
   useEffect(() => {
-    if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete || (ownerWeb && loading)) return;
+    if (!podDraftActive || !podDraftLoaded || !podJobId || podAlreadyComplete || loading) return;
     const id = podJobId;
     const data = {
       recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
@@ -503,6 +508,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
       if (ownerHydratedSnapshot.current === serialized) return;
     }
     const timer = setTimeout(() => {
+      podDraftSaveTimer.current = null;
       podDraftSaveQueue.current = podDraftSaveQueue.current.catch(() => undefined).then(async () => {
         setPodDraftSaving(true);
         const auth = await authHeader();
@@ -511,39 +517,51 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
           method: 'PUT', headers: { Authorization: auth, 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
-        const body = await response.json().catch(() => ({})) as { error?: string };
-        if (!response.ok) throw new Error(body.error || 'POD draft was not saved.');
+        const body = await response.json().catch(() => ({})) as { error?: string; ok?: boolean };
+        if (!response.ok || body.ok !== true) throw new Error(body.error || 'POD draft was not saved.');
         if (ownerWeb) ownerHydratedSnapshot.current=serialized;
         setPodDraftError('');
       }).catch(reason => {
         setPodDraftError(reason instanceof Error ? reason.message : 'POD draft was not saved.');
       }).finally(() => setPodDraftSaving(false));
     }, 700);
-    return () => clearTimeout(timer);
+    podDraftSaveTimer.current = timer;
+    return () => {
+      clearTimeout(timer);
+      if (podDraftSaveTimer.current === timer) podDraftSaveTimer.current = null;
+    };
   }, [podDraftActive, podDraftLoaded, podJobId, podAlreadyComplete, authHeader, recipientName, podLeftAt,
       podDeliveryStatus, podItemCount, podWeight, podDeliveredOn, notes,
       savedSignatureData, hardCopyAcknowledged, pendingPodPhotos, pendingPodDocuments, ownerWeb, loading]);
 
   const savePodDraftNow = async () => {
     if (!podJobId || !podDraftLoaded || podAlreadyComplete) { setPodDraftError('POD draft is not ready. Retry after it loads.'); return false; }
+    if (podDraftSaveTimer.current !== null) {
+      clearTimeout(podDraftSaveTimer.current);
+      podDraftSaveTimer.current = null;
+    }
     setPodDraftSaving(true);
     setPodDraftError('');
     try {
       const snapshot = {
         recipientName, leftAt: podLeftAt, deliveryStatus: podDeliveryStatus,
         itemCount: podItemCount, weight: podWeight, deliveredOn: podDeliveredOn,
-        notes, signatureData: savedSignatureData || signatureData(),
+        notes, signatureData: signatureData() || savedSignatureData,
         hardCopyAcknowledged, photoUris: pendingPodPhotos, documentUris: pendingPodDocuments,
       };
-      await podDraftSaveQueue.current.catch(() => undefined);
+      const save = podDraftSaveQueue.current.catch(() => undefined).then(async () => {
       const auth = await authHeader();
       if (!auth) throw new Error('Sign in again to save the POD draft.');
       const response = await fetch('/api/driver/web/jobs/' + encodeURIComponent(podJobId) + '/pod-draft', {
         method: 'PUT', headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify(snapshot),
       });
-      const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'POD draft could not be saved.');
+      const payload = await response.json().catch(() => ({})) as { error?: string; ok?: boolean };
+      if (!response.ok || payload.ok !== true) throw new Error(payload.error || 'POD draft could not be saved.');
+      });
+      podDraftSaveQueue.current = save;
+      await save;
+      if (ownerWeb) ownerHydratedSnapshot.current = JSON.stringify(snapshot);
       setMessage('POD draft saved to XDrive.');
       return true;
     } catch (reason) {
@@ -552,6 +570,11 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
     } finally {
       setPodDraftSaving(false);
     }
+  };
+  const returnFromPod = async () => {
+    if (working || podDraftSaving) return;
+    if (!podAlreadyComplete && !(await savePodDraftNow())) return;
+    router.push('/driver/official-pwa-live?booking=' + encodeURIComponent(jobId));
   };
   const uploadCollectionEvidence = async (file: File) => {
     if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
@@ -1355,7 +1378,7 @@ export default function DriverJobExecutionPage({ jobId, mobilePwa = false, podOn
         working={working}
         error={error}
         message={message}
-        onBack={()=>router.push('/driver/official-pwa-live?booking='+encodeURIComponent(job.id))}
+        onBack={()=>void returnFromPod()}
         onDeliveryStatus={setPodDeliveryStatus}
         onItemCount={setPodItemCount}
         onWeight={setPodWeight}

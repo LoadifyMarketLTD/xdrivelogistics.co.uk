@@ -25,6 +25,8 @@ const actionToCanonicalStatus: Record<string, string> = {
 };
 
 import { evaluateWebStopFinalization, type WebStopRow } from '../../../../../../../lib/jobs/webStopFinalization';
+import { hasStoredSignature } from '../../../../../../../lib/jobs/podCompletion';
+import { inlineEvidenceImage, isScopedPodObjectPath, signatureReference } from '../../../../../../../lib/pod/jobEvidenceReferences';
 type PodEvidenceKind = 'photos' | 'damage' | 'documents';
 type MobileJobWithDamageEvidence = MobileJobRow & { damage_photos?: unknown };
 
@@ -162,6 +164,7 @@ const persistentPodPath = (
   return (
     path.length > 0 &&
     path.length <= 1024 &&
+    isScopedPodObjectPath(path, jobId, [companyId]) &&
     path.startsWith(`${companyId}/${jobId}/${kind}/`) &&
     !path.includes('://') &&
     !path.includes('..') &&
@@ -257,7 +260,7 @@ async function savePod(
   if (rawPhotoUris.length + rawDamagePhotoUris.length > 10 || rawDocumentUris.length > 10) {
     return respond(400, { error: 'A maximum of 10 delivery/damage photos and 10 documents is allowed.' });
   }
-  if (rawSignature && !/^data:image\/(png|jpeg);base64,/i.test(rawSignature)) {
+  if (rawSignature && (!/^data:image\/(png|jpeg);base64,/i.test(rawSignature) || !hasStoredSignature(rawSignature))) {
     return respond(400, { error: 'Recipient signature format is invalid.' });
   }
   if (rawSignature.length > 2_500_000) {
@@ -284,13 +287,20 @@ async function savePod(
   if (effectivePhotoCount === 0) {
     return respond(400, { error: 'At least one delivery photo is required for POD.' });
   }
-  if (!signatureData) {
-    return respond(400, { error: 'Recipient signature is required for POD.' });
+  if (new Set([...existingPhotos, ...photoPaths, ...existingDamagePhotos, ...damagePhotoPaths]).size > 10 || new Set([...existingDocuments, ...documentPaths]).size > 10) return respond(400, { error: 'A maximum of 10 verified delivery/damage photographs and 10 documents is allowed.' });
+  if (!hasStoredSignature(signatureData)) {
+    return respond(400, { error: 'Recipient signature is required for POD. Capture a drawn signature.' });
+  }
+  const reference = signatureReference(signatureData);
+  const files = [...new Set([...existingPhotos, ...existingDamagePhotos, ...existingDocuments, ...photoPaths, ...damagePhotoPaths, ...documentPaths])];
+  if (!inlineEvidenceImage(reference)) files.push(reference);
+  if (!companyId || files.some(path => !isScopedPodObjectPath(path, jobId, [companyId]))) {
+    return respond(400, { error: 'POD evidence does not belong to this assigned booking.' });
   }
 
   try {
     const existenceChecks = await Promise.all(
-      [...photoPaths, ...damagePhotoPaths, ...documentPaths].map((path) => storageObjectExists(path))
+      [...new Set(files)].map((path) => storageObjectExists(path))
     );
     if (existenceChecks.some((exists) => !exists)) {
       return respond(400, { error: 'One or more POD files could not be found in XDrive storage.' });

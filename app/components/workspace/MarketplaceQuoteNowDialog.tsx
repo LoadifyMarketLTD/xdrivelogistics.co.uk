@@ -60,6 +60,7 @@ type QuoteProps = {
   onExtraKindChange: (id: string, kind: string) => void;
   onExtraAmountChange: (id: string, amount: string) => void;
   onRemoveExtra: (id: string) => void;
+  onRestoreExtras: (extras: MarketplaceQuoteNowExtra[]) => void;
   total: number;
   extrasTotal: number;
   message: string;
@@ -73,7 +74,7 @@ export default function MarketplaceQuoteNowDialog({
   target, working, errorContent, readOnlyContent, vehicleValue, vehiclePlaceholder = 'Choose vehicle later',
   vehicleOptions = [], vehicleLoading = false, onVehicleChange, selectedVehicleImageSrc,
   currencyValue, currencyOptions, onCurrencyChange, currencySymbol, amount, onAmountChange,
-  extras, extraOptions, onAddExtra, onExtraKindChange, onExtraAmountChange, onRemoveExtra,
+  extras, extraOptions, onAddExtra, onExtraKindChange, onExtraAmountChange, onRemoveExtra, onRestoreExtras,
   total, extrasTotal, message, onMessageChange, onClose, onSubmit, draftOwnerId,
 }: QuoteProps) {
   const [activeTab, setActiveTab] = useState<Canonical3150QuoteTab>('Quote');
@@ -92,19 +93,22 @@ export default function MarketplaceQuoteNowDialog({
   const saveDraft = () => {
     if (!draftKey) return;
     try {
-      localStorage.setItem(draftKey, JSON.stringify({ amount, vehicleValue, currencyValue, message, service, eta, validity }));
+      localStorage.setItem(draftKey, JSON.stringify({ amount, vehicleValue, currencyValue, message, service, eta, validity, extras }));
       setDraftNotice('Draft saved on this device. Not submitted.');
     } catch { setDraftNotice('Unable to save draft on this device.'); }
   };
   const restoreDraft = () => {
     if (!draftKey) return;
     try {
-      const draft = JSON.parse(localStorage.getItem(draftKey) || 'null') as Record<string,string> | null;
+      const draft = JSON.parse(localStorage.getItem(draftKey) || 'null') as (Record<string,string> & { extras?: unknown }) | null;
       if (!draft) { setDraftNotice('No draft saved for this load.'); return; }
       onAmountChange(draft.amount || '');
       onVehicleChange(draft.vehicleValue || '');
       if (currencyOptions.some((item) => item.value === draft.currencyValue)) onCurrencyChange(draft.currencyValue);
       onMessageChange(draft.message || '');
+      // Restore the commercial snapshot, never retain unrelated extra charges.
+      const restoredExtras = Array.isArray(draft.extras) ? draft.extras.filter((item): item is MarketplaceQuoteNowExtra => Boolean(item && typeof item.id === 'string' && typeof item.kind === 'string' && typeof item.amount === 'string' && extraOptions.some(option => option.value === item.kind) && Number.isFinite(Number(item.amount)) && Number(item.amount) >= 0)) : [];
+      onRestoreExtras(restoredExtras);
       setService(draft.service || 'Standard'); setEta(draft.eta || ''); setValidity(draft.validity || '24');
       setDraftNotice('Draft restored.');
     } catch { setDraftNotice('Saved draft is unavailable.'); }
@@ -117,7 +121,7 @@ export default function MarketplaceQuoteNowDialog({
     <div className="xd-quote-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !working) onClose(); }}>
       <section className="xd-quote-panel" role="dialog" aria-modal="true" aria-label={readOnlyContent ? "View marketplace load details" : "Submit marketplace quote"}>
         <header className="xd-quote-top"><h2>{readOnlyContent ? "Load Details" : "Submit Quote"} - Load {target.reference ?? target.id}</h2><button type="button" disabled={working} onClick={onClose} aria-label="Close quote panel">×</button></header>
-        <div className="xd-quote-route"><strong>{load.from.toUpperCase()} <span aria-hidden="true">→</span> {load.to.toUpperCase()}</strong><small>{load.pickupDate || 'Date TBC'} | {load.service || 'On Demand'} | Posted by {load.customer}</small></div>
+        <div className="xd-quote-route"><strong>{load.from.toUpperCase()} <span aria-hidden="true">→</span> {load.to.toUpperCase()}</strong><small>{load.pickupDate || 'Date TBC'} | {load.service || 'On Demand'} | Posted by {load.customer}{load.memberCode ? " (" + load.memberCode + ")" : ""}</small></div>
         <nav className="xd-quote-nav" aria-label="Quote details sections">
           {CANONICAL_3150_QUOTE_TABS.map((tab) => <button type="button" key={tab} className={activeTab === tab ? 'active' : ''} aria-current={activeTab === tab ? 'page' : undefined} onClick={() => setActiveTab(tab)}>{tab}</button>)}
         </nav>
@@ -148,8 +152,9 @@ export default function MarketplaceQuoteNowDialog({
               <label>Currency<select value={currencyValue} onChange={(event) => onCurrencyChange(event.target.value)}>{currencyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
               <button type="button" onClick={onAddExtra}>Add Extra</button>
               {extras.map((extra) => <div key={extra.id} className="xd-quote-extra-row"><select aria-label="Additional charge type" value={extra.kind} onChange={(event) => onExtraKindChange(extra.id,event.target.value)}>{extraOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><input aria-label="Additional charge amount" type="number" min="0" step="0.01" value={extra.amount} onChange={(event) => onExtraAmountChange(extra.id,event.target.value)}/><button type="button" aria-label="Remove extra" onClick={() => onRemoveExtra(extra.id)}>Remove</button></div>)}
-              {extrasTotal > 0 && <p>Additional charges: {currencySymbol}{extrasTotal.toFixed(2)}. Total: {currencySymbol}{total.toFixed(2)}</p>}
+              <p>Additional charges: {currencySymbol}{extrasTotal.toFixed(2)}</p>
             </details>
+            <p className="xd-quote-counter" role="status">Total: {currencySymbol}{total.toFixed(2)}</p>
             {draftNotice && <p role="status" className="xd-quote-message">{draftNotice}</p>}
             <button className="xd-quote-submit" disabled={working || !(total > 0) || !eta} type="submit">{working ? 'Submitting...' : 'Submit Quote'}</button>
             <div className="xd-quote-bottom"><button type="button" disabled={!draftKey || working} onClick={saveDraft}>Save Draft</button><button type="button" disabled={!draftKey || working} onClick={restoreDraft}>Restore Draft</button><button type="button" disabled={working} onClick={onClose}>Cancel</button></div>
