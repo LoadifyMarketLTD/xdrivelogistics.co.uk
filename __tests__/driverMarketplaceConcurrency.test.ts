@@ -1,0 +1,20 @@
+﻿import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { NextRequest, NextResponse } from 'next/server';
+const m=vi.hoisted(()=>({from:vi.fn(),driver:vi.fn(),blocks:vi.fn(),route:vi.fn()}));
+vi.mock('../app/api/_lib/supabaseAdmin',()=>({isSupabaseAdminConfigured:true,supabaseAdmin:{from:m.from}}));
+vi.mock('../app/api/driver/_lib/webDriver',()=>({requireWebDriver:m.driver}));
+vi.mock('../app/api/_lib/companyBlocks',()=>({getBlockedCounterpartyCompanyIds:m.blocks}));
+vi.mock('../app/api/_lib/jobRouteMetrics',()=>({calculateDrivingRoute:m.route}));
+vi.mock('../app/api/driver/mobile/_lib',()=>({isDriverContext:(v:unknown)=>!(v instanceof Response),respond:(status:number,value:unknown)=>NextResponse.json(value,{status})}));
+import {GET} from '../app/api/driver/marketplace/loads/route';
+const call=(suffix='')=>GET(new NextRequest('https://www.xdrivelogistics.co.uk/api/driver/marketplace/loads'+suffix));
+const job={id:'visible',company_id:'poster',created_by:'author',exchange_visibility:'exchange',status:'posted',pickup_postcode:'BB1 9QL',delivery_postcode:'LS1 4AB',pickup_lat:53.7,pickup_lng:-2.4};
+let rows:Record<string,unknown>,started:string[],pending:Record<string,()=>void>,errors:Record<string,object>,auto:boolean;
+function result(name:string){started.push(name);const data={data:rows[name]??[],error:errors[name]??null};return auto?Promise.resolve(data):new Promise(resolve=>{pending[name]=()=>resolve(data)});}
+beforeEach(()=>{vi.resetAllMocks();auto=true;started=[];pending={};errors={};rows={jobs:[job,{...job,id:'blocked',company_id:'blocked'},{...job,id:'own',company_id:'carrier'},{...job,id:'direct',exchange_visibility:'direct',direct_invite_company_id:'other'},{...job,id:'expired',exchange_expires_at:'2000-01-01'}],companies:[{id:'poster',name:'Poster'}],profiles:[],job_bids:[],job_stops:[],driver_locations:null,driver_availability_presence:null};m.driver.mockResolvedValue({userId:'user',driverId:'driver',companyId:'carrier',canCommercialBid:true});m.blocks.mockImplementation(()=>{started.push('blocks');return auto?Promise.resolve({ids:new Set(['blocked']),error:null}):new Promise(resolve=>{pending.blocks=()=>resolve({ids:new Set(['blocked']),error:null})})});m.from.mockImplementation((name:string)=>{const q:any={then:(ok:Function,bad:Function)=>result(name).then(ok as any,bad as any)};for(const method of ['select','order','eq','in','not','is','limit','maybeSingle'])q[method]=vi.fn(()=>q);return q;});});
+describe('Marketplace GET concurrency and privacy',()=>{
+it('starts independent query groups concurrently without weakening visibility',async()=>{auto=false;const request=call();await vi.waitFor(()=>expect(started).toEqual(expect.arrayContaining(['jobs','blocks'])));pending.jobs();pending.blocks();await vi.waitFor(()=>expect(started).toEqual(expect.arrayContaining(['companies','profiles','job_bids','job_stops','driver_locations','driver_availability_presence'])));for(const name of ['companies','profiles','job_bids','job_stops','driver_locations','driver_availability_presence'])pending[name]();const response=await request;expect(response.status).toBe(200);const body=await response.json();expect(body.loads.map((j:any)=>j.id)).toEqual(['visible']);expect(body.loads[0].pickup_postcode_full).toBeNull();expect(body.loads[0].delivery_postcode_full).toBeNull();expect(m.route).not.toHaveBeenCalled();});
+it('fails closed when member block lookup fails',async()=>{m.blocks.mockResolvedValue({ids:new Set(),error:'fixture failure'});expect((await call()).status).toBe(503);expect(m.from).toHaveBeenCalledTimes(1);});
+it('fails closed when stop lookup fails',async()=>{errors.job_stops={message:'fixture failure'};expect((await call()).status).toBe(503);});
+it('does not query marketplace for revoked commercial permissions',async()=>{m.driver.mockResolvedValue({canCommercialBid:false});expect((await call()).status).toBe(403);expect(m.from).not.toHaveBeenCalled();});
+});

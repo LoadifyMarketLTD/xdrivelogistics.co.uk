@@ -75,22 +75,25 @@ export async function rejectRevokedNativeAuthSession(
   const sessionId = sessionIdFromBearer(request);
   if (!sessionId) return NextResponse.json({ error: 'Authenticated session identity is required.' }, { status: 401 });
 
-  const { data: binding, error } = await supabaseAdmin
-    .from('driver_mobile_device_sessions')
-    .select('installation_id, enabled, revoked_at')
-    .eq('user_id', userId)
-    .eq('driver_id', driverId)
-    .eq('auth_session_id', sessionId)
-    .maybeSingle();
-  if (error) return NextResponse.json({ error: 'Mobile device session validation failed.' }, { status: 500 });
-  if (!binding) return null;
-  if (binding.enabled !== true || binding.revoked_at) {
-    return NextResponse.json({ error: 'This mobile session has been revoked or replaced by another device.' }, { status: 401 });
+  const [bindingResult, historyResult] = await Promise.all([
+    supabaseAdmin.from('driver_mobile_device_sessions')
+      .select('installation_id, enabled, revoked_at')
+      .eq('user_id', userId).eq('driver_id', driverId)
+      .eq('auth_session_id', sessionId).maybeSingle(),
+    supabaseAdmin.from('driver_mobile_session_history')
+      .select('auth_session_id')
+      .eq('auth_session_id', sessionId).maybeSingle(),
+  ]);
+  if (bindingResult.error || historyResult.error) return NextResponse.json({ error: 'Mobile device session validation failed.' }, { status: 500 });
+  if (historyResult.data) return NextResponse.json({ error: 'This mobile session has been revoked or replaced by another device.' }, { status: 401 });
+  const binding = bindingResult.data;
+  const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
+  if (!binding) {
+    if (installationId) return NextResponse.json({ error: 'Native device registration is required.' }, { status: 401 });
+    return null;
   }
-
-  void supabaseAdmin
-    .from('driver_mobile_device_sessions')
-    .update({ last_seen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq('auth_session_id', sessionId);
+  if (binding.enabled !== true || binding.revoked_at || !UUID_RE.test(installationId) || binding.installation_id !== installationId) {
+    return NextResponse.json({ error: 'This mobile session has been revoked, replaced or has an invalid installation identity.' }, { status: 401 });
+  }
   return null;
 }

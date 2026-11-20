@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { rejectRevokedNativeAuthSession } from './_deviceSessionGate';
 import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 
@@ -139,8 +140,9 @@ export async function requireDriver(
   }
 
   const driverId = String(driverRow.id);
-  // Authenticated Supabase sessions are allowed on all devices.
-  // Device registration is optional and never gates job access.
+  // Independent browser sessions remain valid; registered native sessions must match their active installation.
+  const deviceGate = await rejectRevokedNativeAuthSession(request, authData.user.id, driverId);
+  if (deviceGate) return deviceGate;
 
   const companyId = typeof driverRow.company_id === 'string' && driverRow.company_id.trim().length > 0
     ? driverRow.company_id.trim()
