@@ -41,7 +41,9 @@ describe('load posting operational contract', () => {
     expect(form).toContain('Posting identity & XDrive references');
     expect(form).toContain('Member ID');
     expect(form).toContain('Generated automatically after save / publish');
-    expect(form).toContain('Customer booking reference (optional)');
+    expect(form).toContain('Your reference');
+    expect(form).toContain('Customer reference');
+    expect(form).toContain('bookingReference: form.bookingReference || null');
     expect(form).toContain('XDL-');
   });
 
@@ -55,7 +57,8 @@ describe('load posting operational contract', () => {
     expect(form).toContain('Length (cm)');
     expect(form).toContain('Width (cm)');
     expect(form).toContain('Height (cm)');
-    expect(form).toContain('Dimensions are entered and stored in centimetres (cm).');
+    expect(form).toContain('Enter dimensions in centimetres (cm)');
+    expect(form).toContain("convertPostLoadMeasurement(event.target.value, dimensionUnit, 'cm')");
     expect(form).toContain('lengthCm: numberOrNull(form.length)');
     expect(form).toContain('widthCm: numberOrNull(form.width)');
     expect(form).toContain('heightCm: numberOrNull(form.height)');
@@ -66,7 +69,7 @@ describe('load posting operational contract', () => {
   it('highlights invalid required fields and focuses the first invalid field after submit', () => {
     expect(form).toContain('setShowValidation(true)');
     expect(form).toContain('Complete the fields highlighted in red.');
-    expect(form).toContain("aria-invalid={errors?.postcode ? 'true' : undefined}");
+    expect(form).toContain('aria-invalid={Boolean(errors?.postcode)}');
     expect(addressField).toContain("aria-invalid={error ? 'true' : undefined}");
     expect(form).toContain("document.querySelector<HTMLElement>('.xdrive-post-load-form [aria-invalid=\"true\"]:not(:disabled)')");
     expect(form).toContain("'#dc2626'");
@@ -77,7 +80,7 @@ describe('load posting operational contract', () => {
     expect(form).toContain("/^(\\d{2}):(00|15|30|45)$/");
     expect(form).toContain('minutes * 60 > currentSeconds');
     expect(form).toContain('Choose a future 15-minute slot');
-    expect(form).toContain('No future times remain today — choose tomorrow.');
+    expect(form).toContain('No future slots today — choose tomorrow.');
     expect(form).toContain('min={minDate}');
     expect(form).not.toContain('type="time"');
   });
@@ -94,9 +97,9 @@ describe('load posting operational contract', () => {
     expect(form).toContain("value === 'Luton Tail Lift' ? true");
     expect(form).toContain("value === 'ADR Vehicle' ? true");
     expect(form).toContain("value === 'Refrigerated Vehicle' || value === 'Artic 44T Refrigerated'");
-    expect(form).toContain('Tail lift required');
-    expect(form).toContain('Forklift available at collection');
-    expect(form).toContain('Handball required');
+    expect(form).toContain("['tailLift', 'Tail Lift']");
+    expect(form).toContain("['forklift', 'Forklift at collection']");
+    expect(form).toContain("['handball', 'Handball']");
     expect(createApi).toContain("input.forklift && 'Forklift available at collection'");
     expect(createApi).not.toContain("input.forklift && 'Forklift required'");
   });
@@ -121,7 +124,8 @@ describe('load posting operational contract', () => {
   });
 
   it('persists real customer job attachments through private storage and server-authorised metadata', () => {
-    expect(form).toContain('Attach job documents');
+    expect(form).toContain('Upload Document (maximum 20 MiB)');
+    expect(form).toContain('Only authorised parties to the job may access these private documents.');
     expect(form).toContain('type="file"');
     expect(form).toContain('multiple');
     expect(form).toContain("storage.from('load-documents').upload");
