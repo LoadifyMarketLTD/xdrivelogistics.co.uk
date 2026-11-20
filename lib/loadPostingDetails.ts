@@ -1,5 +1,6 @@
 export type LoadDetailSource = {
-  load_details?: string | null;
+  // Hosted and legacy rows may contain serialized JSON or decoded JSON.
+  load_details?: unknown;
   pickup_time_slot?: string | null;
   delivery_time_slot?: string | null;
   collection_contact_name?: string | null;
@@ -20,7 +21,7 @@ export type LoadDetailSource = {
   delivery_forklift_available?: boolean | null;
   delivery_tail_lift_required?: boolean | null;
   delivery_handball_required?: boolean | null;
-  document_checklist?: string[] | null;
+  document_checklist?: unknown;
   pickup_postcode?: string | null;
   delivery_postcode?: string | null;
   weight_kg?: number | string | null;
@@ -87,8 +88,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null && !Array.isArray(value)
 );
 
-const parseDetails = (raw: string | null | undefined): ParsedLoadDetails | null => {
-  if (!raw?.trim()) return null;
+const parseDetails = (raw: unknown): ParsedLoadDetails | null => {
+  if (isRecord(raw)) return raw as ParsedLoadDetails;
+  if (typeof raw !== 'string' || !raw.trim()) return null;
   try {
     const parsed = JSON.parse(raw) as unknown;
     return isRecord(parsed) ? (parsed as ParsedLoadDetails) : null;
@@ -99,7 +101,7 @@ const parseDetails = (raw: string | null | undefined): ParsedLoadDetails | null 
 
 const text = (...values: Array<string | number | boolean | null | undefined>) => {
   for (const value of values) {
-    if (value === null || value === undefined) continue;
+    if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') continue;
     const rendered = String(value).trim();
     if (rendered) return rendered;
   }
@@ -124,6 +126,13 @@ const joinDimensions = (source: LoadDetailSource, parsed: ParsedLoadDetails | nu
   const width = text(source.width_cm, parsed?.dimensionsCm?.width);
   const height = text(source.height_cm, parsed?.dimensionsCm?.height);
   return [length, width, height].every(Boolean) ? `${length} x ${width} x ${height} cm` : '';
+};
+
+const checklistText = (value: unknown): string => {
+  if (typeof value === 'string') return value.trim();
+  if (!Array.isArray(value)) return '';
+  return value.filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim()).filter(Boolean).join(', ');
 };
 
 const add = (items: LoadDetailItem[], label: string, value: string) => {
@@ -152,8 +161,8 @@ export const getLoadDetailSections = (source: LoadDetailSource): LoadDetailSecti
   add(contacts, 'Collection contact', [text(source.collection_contact_name, parsed?.collection?.contactName), text(source.collection_contact_phone, parsed?.collection?.contactPhone)].filter(Boolean).join(' / '));
   add(contacts, 'Delivery contact', [text(source.delivery_contact_name, parsed?.delivery?.contactName), text(source.delivery_contact_phone, parsed?.delivery?.contactPhone)].filter(Boolean).join(' / '));
 
-  add(cargo, 'Vehicle', text(source.requested_vehicle_label, parsed?.requestedVehicle, source.vehicle_type?.replace(/_/g, ' ')));
-  add(cargo, 'Cargo', text(source.requested_cargo_label, parsed?.requestedCargo, source.cargo_type?.replace(/_/g, ' ')));
+  add(cargo, 'Vehicle', text(source.requested_vehicle_label, parsed?.requestedVehicle, typeof source.vehicle_type === 'string' ? source.vehicle_type.replace(/_/g, ' ') : ''));
+  add(cargo, 'Cargo', text(source.requested_cargo_label, parsed?.requestedCargo, typeof source.cargo_type === 'string' ? source.cargo_type.replace(/_/g, ' ') : ''));
   add(cargo, 'Weight', text(source.weight_kg) ? `${text(source.weight_kg)} kg` : '');
   add(cargo, 'Dimensions', joinDimensions(source, parsed));
   add(cargo, 'Cargo value', money(source.cargo_value_gbp ?? parsed?.cargoValueGbp));
@@ -172,8 +181,8 @@ export const getLoadDetailSections = (source: LoadDetailSource): LoadDetailSecti
   add(requirements, 'Special', text(source.special_requirements));
   add(requirements, 'Notes', text(parsed?.notes));
 
-  const checklist = source.document_checklist?.length ? source.document_checklist : parsed?.documentChecklist;
-  add(documents, 'Requested docs', checklist?.join(', ') ?? '');
+  const checklist = checklistText(source.document_checklist) || checklistText(parsed?.documentChecklist);
+  add(documents, 'Requested docs', checklist);
 
   return [
     { title: 'References', items: references },
