@@ -57,7 +57,7 @@ export type LiveJob = {
   marketplaceListed?: boolean; // True only for a job returned by the live marketplace feed.
   pickupDate?: string; deliveryDate?: string; pickupAddress?: string; deliveryAddress?: string;
   customerRef?: string; yourRef?: string; legacyReferences?: string[]; service?: string;
-  items?: number; hardCopyPodRequired?: boolean;
+  items?: number; packaging?: string; hardCopyPodRequired?: boolean;
   statusHistory?: Array<{ status: string; at: string; notes?: string }>;
   clientName?: string; contactName?: string; contactPhone?: string;
   collectionPhotos?: string[]; deliveryPhotos?: string[]; podPhotos?: string[];
@@ -196,7 +196,7 @@ export function mapMarketplace(raw: unknown): LiveJob {
     pickup: dateTime(r.pickup_datetime), delivery: dateTime(r.delivery_datetime),
     pickupDate: date(r.pickup_datetime), deliveryDate: date(r.delivery_datetime),
     vehicle: str(get(r, 'requested_vehicle_label', 'requested_vehicle_type', 'vehicle_type')) || 'Not provided',
-    weight: num(r.weight_kg) || 0, notes: str(r.public_quote_notes),
+    weight: num(r.weight_kg) || 0, items: num(r.no_of_items), packaging: str(r.packaging) || undefined, notes: str(r.public_quote_notes),
     status: 'OPEN', marketplaceListed: true, yourRef: platformJobReference(str(r.id), get(r, 'public_reference', 'publicReference')), company: str(member.name) || 'Marketplace member',
     companyPublicId: str(member.memberId) || undefined,
     terms: str(r.payment_terms) || 'Not provided',
@@ -293,7 +293,7 @@ export function mapAssigned(raw: unknown): LiveJob {
     deliveryDate: date(get(r, 'deliveryTime', 'deliveryDatetime', 'delivery_datetime')),
     vehicle: str(get(r, 'vehicleRequirement', 'vehicleType', 'vehicle_type')) || 'Not provided',
     weight: num(get(r, 'weightKg', 'weight_kg')) || 0,
-    items: num(get(r, 'itemCount', 'no_of_items')),
+    items: num(get(r, 'itemCount', 'no_of_items')), packaging: str(r.packaging) || undefined,
     hardCopyPodRequired: /^(required|yes|true|1)$/i.test(str(get(r, 'hardCopyPod', 'hard_copy_pod'))) || get(r, 'hardCopyPodRequired') === true,
     notes: details.notes || str(get(r, 'collectionNotes', 'driverNotes', 'driver_notes')),
     status: statusMap[canonicalStatus] || 'ALLOCATED', backendStatus: canonicalStatus, podRecorded: typeof r.podArchived==='boolean'?r.podArchived:r.podGenerated === true && Boolean(r.deliverySignatureData) && Boolean(str(r.clientSignatureName)), podEvidenceComplete:typeof r.podEvidenceComplete==='boolean'?r.podEvidenceComplete:undefined,
@@ -398,7 +398,7 @@ export function applyBookingOffers(jobs:LiveJob[], bookingOffers:Json):LiveJob[]
       pickup: dateTime(details.pickup_datetime) !== 'Not provided' ? dateTime(details.pickup_datetime) : existing?.pickup || 'Not provided',
       delivery: dateTime(details.delivery_datetime) !== 'Not provided' ? dateTime(details.delivery_datetime) : existing?.delivery || 'Not provided',
       vehicle: str(get(details, 'requested_vehicle_label', 'vehicle_type')) || existing?.vehicle || 'Not provided',
-      weight: existing?.weight || 0,
+      weight: existing?.weight || num(details.weight_kg) || 0, items: existing?.items ?? num(details.no_of_items), packaging: existing?.packaging || str(details.packaging) || undefined,
       notes: str(offer.public_quote_notes) || existing?.notes || '',
       status: terminalStatus ? resolvedExecutionStatus : existing && existing.status !== 'OPEN' ? existing.status : (resolvedExecutionStatus || 'ALLOCATED'),
       backendStatus: terminalStatus ? executionStatus : existing?.backendStatus || executionStatus,

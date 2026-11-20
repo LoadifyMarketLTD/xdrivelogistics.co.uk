@@ -125,6 +125,8 @@ function publicLoad(
     requested_cargo_label: marketplaceText(job.requested_cargo_label),
     weight_kg: marketplaceNumber(job.weight_kg),
     pallets: marketplaceNumber(job.pallets),
+    no_of_items: marketplaceNumber(job.no_of_items),
+    packaging: ['pallet','pallets','box','boxes','crate','crates','loose items','roll cages','other','mixed','mixed freight','bags','parcels','cartons','drums','stillages'].includes(String(job.packaging??'').trim().toLowerCase()) ? marketplaceText(job.packaging) : null,
     length_cm: marketplaceNumber(job.length_cm),
     width_cm: marketplaceNumber(job.width_cm),
     height_cm: marketplaceNumber(job.height_cm),

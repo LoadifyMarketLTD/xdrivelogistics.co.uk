@@ -1,0 +1,9 @@
+import {describe,it,expect} from 'vitest';
+import {availableTimes,validActualTime,packagingOptions} from '../driver-pwa-reserve/src/bookingFieldOptions';
+import {mapAssigned,mapMarketplace,applyBookingOffers} from '../driver-pwa-reserve/src/liveApi';
+describe('Reserve packaging and chronological times',()=>{
+ it('keeps choices and historic packaging',()=>{expect(packagingOptions('')).toEqual(['Pallets','Boxes','Crates','Loose items','Roll cages','Other']);expect(packagingOptions('Custom historic packaging')).toContain('Custom historic packaging');});
+ it('maps packaging across feeds without invented values',()=>{expect(mapMarketplace({id:'job',packaging:'Boxes',no_of_items:3})).toMatchObject({packaging:'Boxes',items:3});expect(mapAssigned({id:'job',packaging:'Pallets',itemCount:2})).toMatchObject({packaging:'Pallets',items:2});expect(applyBookingOffers([],{offers:[{job_id:'job',status:'pending',job:{packaging:'Crates',no_of_items:4}}]})[0]).toMatchObject({packaging:'Crates',items:4});expect(mapAssigned({id:'job'}).packaging).toBeUndefined();});
+ it('filters past ETA slots and permits next day',()=>{expect(availableTimes('2026-11-20','2026-11-20T09:15','',15,true)[0]).toBe('09:30');expect(availableTimes('2026-11-21','2026-11-20T23:59','',15,true)[0]).toBe('00:00');expect(availableTimes('2026-11-20','2026-11-20T23:59','',15,true)).toEqual([]);});
+ it('actual times cannot predate recorded arrival or be in future',()=>{const lo='2026-11-20T09:07',hi='2026-11-20T09:11';expect(availableTimes('2026-11-20',lo,hi,1)).toEqual(['09:07','09:08','09:09','09:10','09:11']);expect(validActualTime('2026-11-20','09:06',lo,hi)).toBe(false);expect(validActualTime('2026-11-20','09:12',lo,hi)).toBe(false);expect(validActualTime('2026-11-20','09:09',lo,hi)).toBe(true);});
+});

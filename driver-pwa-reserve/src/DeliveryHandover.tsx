@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { LiveJob } from './liveApi';
+import {availableTimes,localMinute,latestRecordedMinute,validActualTime} from './bookingFieldOptions';
 
 export type DeliveryHandoverDraft = {
   recipient:string;
@@ -50,7 +51,7 @@ type Props = {
  onHardCopyAcknowledged?:(value:boolean)=>void;
 };
 
-function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string|null)=>void}){
+export function SignaturePad({value,onChange}:{value:string|null;onChange:(image:string|null)=>void}){
  const canvas=useRef<HTMLCanvasElement>(null);
  const active=useRef<number|null>(null);
  const painted=useRef(false);
@@ -72,6 +73,9 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
  const [savingSignature,setSavingSignature]=useState(false);
  const [signatureError,setSignatureError]=useState('');
  const set=(key:keyof DeliveryHandoverDraft,text:string)=>onChange({...value,[key]:text});
+ const earliest=latestRecordedMinute([...(job.routeStops||[]).flatMap(s=>s.type==='collection'?[s.completedAt]:s.status==='arrived'?[s.arrivedAt]:[]),...(job.statusHistory||[]).filter(s=>['loaded','on_site_delivery'].includes(s.status.toLowerCase())).map(s=>s.at)]);
+ const now=localMinute();
+ const validTime=validActualTime(value.deliveredOn,value.deliveredTime,earliest,now);
  const requiredItems=Number.isInteger(Number(value.items))&&value.items!==''&&Number(value.items)>0;
  const hasDeliveryPhoto=photos.some(file=>file.type==='image/jpeg'||file.type==='image/png')||Boolean(job.deliveryPhotos?.length);
  const docsCount=photos.filter(f=>f.type==='application/pdf').length;
@@ -80,7 +84,7 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
  const cancelled=value.condition==='Job Cancelled';
  const photoRequiredForException=['Damaged Goods','Incorrect Goods'].includes(value.condition);
  const exceptionReady=!successful&&!cancelled&&value.notes.trim().length>=3&&(!photoRequiredForException||hasDeliveryPhoto);
- const successfulReady=value.recipient.trim().length>=2&&Boolean(signature)&&signatureVerified&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&hasDeliveryPhoto&&photosCount<=10&&(!hardCopyRequired||hardCopyAcknowledged);
+ const successfulReady=value.recipient.trim().length>=2&&Boolean(signature)&&signatureVerified&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&validTime&&hasDeliveryPhoto&&photosCount<=10&&(!hardCopyRequired||hardCopyAcknowledged);
  const ready=cancelled||exceptionReady||successfulReady;
  const [fileError,setFileError]=useState('');
  const [cameraOpen,setCameraOpen]=useState(false);
@@ -131,7 +135,7 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
     {successful&&<>
       <label className="rv-delivery-field rv-delivery-name"><span>Received By (Full Name) <em>*</em></span><input autoComplete="name" placeholder="Full name of recipient" value={value.recipient} onChange={e=>set('recipient',e.target.value)}/></label>
       <div className="rv-delivery-field"><span>Recipient signature <em>*</em></span><button type="button" className="rv-primary rv-wide" onClick={()=>setSignatureOpen(true)}>{signature?"Edit Signature":"Add Signature"}</button>{signatureOpen&&<div className="rv-signature-modal" role="dialog" aria-modal="true" aria-label="Recipient signature"><h2>Recipient signature</h2><p>{value.recipient}</p><SignaturePad value={signature} onChange={changeSignature}/><button type="button" className="rv-primary rv-wide" disabled={!signature} onClick={()=>setSignatureOpen(false)}>Done</button><button type="button" className="rv-outline rv-wide" onClick={()=>setSignatureOpen(false)}>Close</button></div>}<button type="button" className={'rv-signature-save'+(signatureVerified?' rv-signature-saved':'')} disabled={!signature||savingSignature||busy||signatureVerified} onClick={()=>void saveSignature()}>{savingSignature?'Saving signature...':signatureVerified?'Signature Saved':'Save Signature'}</button>{signatureVerified&&<p role="status" className="rv-signature-confirm">Signature saved securely in the XDrive POD draft.</p>}{signatureError&&<p role="alert" className="rv-delivery-file-error">{signatureError}</p>}</div>
-      <div className="rv-delivery-split"><label className="rv-delivery-field"><span>Delivered On <em>*</em></span><input required type="date" value={value.deliveredOn} max={new Date().toISOString().slice(0,10)} onChange={e=>set('deliveredOn',e.target.value)}/></label><label className="rv-delivery-field"><span>Delivery Time <em>*</em></span><input required type="time" value={value.deliveredTime} onChange={e=>set('deliveredTime',e.target.value)}/></label></div>
+      <div className="rv-delivery-split"><label className="rv-delivery-field"><span>Delivered On <em>*</em></span><input required type="date" value={value.deliveredOn} min={earliest.slice(0,10)||undefined} max={now.slice(0,10)} onChange={e=>onChange({...value,deliveredOn:e.target.value,deliveredTime:""})}/></label><label className="rv-delivery-field"><span>Delivery Time <em>*</em></span><select required value={validTime?value.deliveredTime:""} onChange={e=>set("deliveredTime",e.target.value)}><option value="">Select time</option>{availableTimes(value.deliveredOn,earliest,now,1).map(t=><option key={t}>{t}</option>)}</select></label></div>
       <div className="rv-delivery-split">
         <label className="rv-delivery-field"><span>Left At <em>*</em></span><select required value={value.leftAt} onChange={e=>set('leftAt',e.target.value)}>{['Receiving Department','Goods Inwards','Reception','Warehouse','Loading Bay','Delivery Office','Handed to recipient','Other'].map(v=><option key={v}>{v}</option>)}</select></label>
         <label className="rv-delivery-field"><span>Number of Items <em>*</em></span><input inputMode="numeric" type="number" min="1" step="1" placeholder="Qty" value={value.items} onChange={e=>set('items',e.target.value)}/></label>

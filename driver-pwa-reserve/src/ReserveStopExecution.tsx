@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { LiveJob, LiveSession, LiveStop } from './liveApi';
 import { driverPost, renewSession } from './liveApi';
+import {SignaturePad} from './DeliveryHandover';
+import {packagingOptions,localMinute,latestRecordedMinute,availableTimes,validActualTime} from './bookingFieldOptions';
 
 type Props={
   job:LiveJob;
@@ -18,23 +20,13 @@ const outcomes=['Completed Delivery','Incorrect Goods','Incorrect Address','Job 
 const pad=(n:number)=>String(n).padStart(2,'0');
 const localNow=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;};
 
-function StopSignature({onSave}:{onSave:(file:File|null)=>void}){
-  const canvas=useRef<HTMLCanvasElement>(null);
-  const active=useRef<number|null>(null);
-  const drawn=useRef(false);
-  const [saved,setSaved]=useState(false);
-  const point=(e:React.PointerEvent<HTMLCanvasElement>)=>{const r=e.currentTarget.getBoundingClientRect();return{x:(e.clientX-r.left)*e.currentTarget.width/r.width,y:(e.clientY-r.top)*e.currentTarget.height/r.height};};
-  const end=(e:React.PointerEvent<HTMLCanvasElement>)=>{if(active.current!==e.pointerId)return;active.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);};
-  const save=()=>{if(!drawn.current||!canvas.current)return;canvas.current.toBlob(blob=>{if(!blob)return;onSave(new File([blob],'stop-signature.png',{type:'image/png'}));setSaved(true);},'image/png');};
-  return <div className="rv-delivery-signature">
-    <canvas ref={canvas} width={900} height={240} aria-label="Stop recipient signature"
-      onPointerDown={e=>{active.current=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);const c=e.currentTarget.getContext('2d');if(!c)return;const p=point(e);c.strokeStyle='#1c3952';c.lineWidth=3;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(p.x,p.y);}}
-      onPointerMove={e=>{if(active.current!==e.pointerId)return;const c=e.currentTarget.getContext('2d');if(!c)return;const p=point(e);c.lineTo(p.x,p.y);c.stroke();drawn.current=true;setSaved(false);onSave(null);}}
-      onPointerUp={end} onPointerCancel={end}/>
-    <div className="rv-delivery-signature-foot"><span>{saved?'Signature saved':'Draw recipient signature'}</span><button type="button" onClick={save}>Save Signature</button><button type="button" onClick={()=>{canvas.current?.getContext('2d')?.clearRect(0,0,900,240);drawn.current=false;setSaved(false);onSave(null);}}>Clear</button></div>
-  </div>;
+function StopSignature({recipient,onSave}:{recipient:string;onSave:(file:File|null)=>void}){
+ const [open,setOpen]=useState(false),[image,setImage]=useState<string|null>(null),[saved,setSaved]=useState(false);
+ const [error,setError]=useState('');
+ const change=(next:string|null)=>{setImage(next);setSaved(false);setError('');onSave(null);};
+ const save=async()=>{if(!image)return;try{const response=await fetch(image);const blob=await response.blob();if(blob.type!=='image/png'||!blob.size)throw new Error('Invalid signature image');onSave(new File([blob],'stop-signature.png',{type:'image/png'}));setSaved(true);setError('');}catch{setError('Signature could not be prepared. Try again.');onSave(null);}};
+ return <div className="rv-delivery-field"><span>Recipient signature *</span><button type="button" className="rv-primary rv-wide" onClick={()=>setOpen(true)}>{image?'Edit Signature':'Add Signature'}</button>{open&&<div className="rv-signature-modal" role="dialog" aria-modal="true" aria-label="Recipient signature"><h2>Recipient signature</h2><p>{recipient}</p><SignaturePad value={image} onChange={change}/><button type="button" className="rv-primary rv-wide" disabled={!image} onClick={()=>setOpen(false)}>Done</button><button type="button" className="rv-outline rv-wide" onClick={()=>setOpen(false)}>Close</button></div>}<button type="button" className={'rv-signature-save'+(saved?' rv-signature-saved':'')} disabled={!image||saved} onClick={()=>void save()}>{saved?'Signature Saved':'Save Signature'}</button>{saved&&<p role="status" className="rv-signature-confirm">Signature prepared. It will be uploaded with stop evidence when you complete the stop.</p>}{error&&<p role="alert">{error}</p>}</div>;
 }
-
 export default function ReserveStopExecution({job,stop,session,onSession,onRefresh,onBack,onCancel,localTransition}:Props){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -43,7 +35,9 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
   const [leftAt,setLeftAt]=useState(stop.handover?.leftAt||'Goods Inwards');
   const [items,setItems]=useState(String(stop.handover?.itemCount??(job.routeStops&&job.routeStops.length>2?undefined:job.items)??''));
   const [weight,setWeight]=useState(String(stop.handover?.weightKg??(job.routeStops&&job.routeStops.length>2?undefined:job.weight)??''));
+  const [packaging,setPackaging]=useState(stop.handover?.packaging||'');
   const [deliveredOn,setDeliveredOn]=useState(localNow());
+  const earliestDelivery=latestRecordedMinute([stop.arrivedAt,...(job.routeStops||[]).filter(s=>s.sequence<stop.sequence).map(s=>s.completedAt)]);
   const [notes,setNotes]=useState(stop.handover?.notes||'');
   const [files,setFiles]=useState<File[]>([]);
   const [signature,setSignature]=useState<File|null>(null);
@@ -89,8 +83,9 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
     if(weightKg!==null&&(!Number.isFinite(weightKg)||weightKg<0))throw new Error('Enter a valid weight.');
     const imageFiles=files.filter(file=>file.type==='image/jpeg'||file.type==='image/png');
     if(imageFiles.length<1)throw new Error(returnStop?'Add at least one return evidence photo.':'Add at least one stop photo.');
+    if(stop.type==='delivery'&&!validActualTime(deliveredOn.slice(0,10),deliveredOn.slice(11,16),earliestDelivery))throw new Error('Delivery time must be at or after recorded arrival and not in the future.');
     if(stop.type==='delivery'&&(!recipient.trim()||!leftAt.trim()||!signature))throw new Error('Received By, Left At and recipient signature are required.');
-    if(localTransition){if(files.some(f=>!['image/jpeg','image/png','application/pdf'].includes(f.type)||f.size<=0||f.size>10*1024*1024))throw new Error('Invalid evidence file.');await localTransition('completed',{itemCount,weightKg,notes,recipientName:recipient,leftAt,deliveredOn:new Date(deliveredOn).toISOString(),deliveryStatus:stop.type==='delivery'?'Completed Delivery':null},files,signature);return;}
+    if(localTransition){if(files.some(f=>!['image/jpeg','image/png','application/pdf'].includes(f.type)||f.size<=0||f.size>10*1024*1024))throw new Error('Invalid evidence file.');await localTransition('completed',{itemCount,weightKg,packaging:packaging||null,notes,recipientName:recipient,leftAt,deliveredOn:new Date(deliveredOn).toISOString(),deliveryStatus:stop.type==='delivery'?'Completed Delivery':null},files,signature);return;}
     if(!current)throw new Error('Live session required.');
     const photoPaths:string[]=[];const documentPaths:string[]=[];
     for(const file of files){const category=file.type==='application/pdf'?'documents':'photos';const path=await upload(current,file,category);(category==='documents'?documentPaths:photoPaths).push(path);}
@@ -98,7 +93,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
     await driverPost('/mobile/jobs/'+encodeURIComponent(job.id)+(job.isTest===true?'/reserve-stop-status':'/stop-status'),current.token,{
       stop_id:stop.id,status:'completed',
       handover:{
-        customerReference:job.customerRef||null,itemCount,weightKg,packaging:null,notes:notes.trim()||null,
+        customerReference:job.customerRef||null,itemCount,weightKg,packaging:packaging||null,notes:notes.trim()||null,
         photoPaths,documentPaths,
         recipientName:stop.type==='delivery'?recipient.trim():null,
         leftAt:stop.type==='delivery'?leftAt.trim():null,
@@ -140,11 +135,12 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
       {outcome==='Job Cancelled'?<button className="rv-primary rv-wide" type="button" onClick={onCancel}>Open Cancellation Record</button>:<>
         {stop.type==='delivery'&&outcome==='Completed Delivery'&&<>
           <label className="rv-field"><span>Received By *</span><input value={recipient} onChange={e=>setRecipient(e.target.value)} maxLength={160}/></label>
-          <StopSignature onSave={setSignature}/>
+          <StopSignature recipient={recipient} onSave={setSignature}/>
           <label className="rv-field"><span>Left At *</span><select value={leftAt} onChange={e=>setLeftAt(e.target.value)}>{['Goods Inwards','Reception','Warehouse','Loading Bay','Delivery Office','Handed to recipient','Other'].map(value=><option key={value}>{value}</option>)}</select></label>
-          <label className="rv-field"><span>{returnStop?'Returned On':'Delivered On'} *</span><input type="datetime-local" value={deliveredOn} onChange={e=>setDeliveredOn(e.target.value)}/></label>
+          <div className="rv-two"><label className="rv-field"><span>{returnStop?'Returned On':'Delivered On'} *</span><input type="date" min={earliestDelivery.slice(0,10)||undefined} max={localMinute().slice(0,10)} value={deliveredOn.slice(0,10)} onChange={e=>setDeliveredOn(e.target.value+"T")}/></label><label className="rv-field"><span>Delivery Time *</span><select value={deliveredOn.slice(11,16)} onChange={e=>setDeliveredOn(deliveredOn.slice(0,10)+"T"+e.target.value)}><option value="">Select time</option>{availableTimes(deliveredOn.slice(0,10),earliestDelivery,localMinute(),1).map(t=><option key={t}>{t}</option>)}</select></label></div>
         </>}
         {(stop.type==='collection'||outcome==='Completed Delivery')&&<div className="rv-two"><label className="rv-field"><span>Items *</span><input type="number" min={stop.type==='delivery'?1:0} value={items} onChange={e=>setItems(e.target.value)}/></label><label className="rv-field"><span>Weight (kg)</span><input type="number" min="0" step="0.01" value={weight} onChange={e=>setWeight(e.target.value)}/></label></div>}
+        {(stop.type==="collection"||outcome==="Completed Delivery")&&<><label className="rv-field"><span>Packaging</span><select value={packaging} onChange={e=>setPackaging(e.target.value)}><option value="">Select packaging</option>{packagingOptions(packaging).map(v=><option key={v} value={v}>{v}</option>)}</select></label><p className="rv-sub">Booked packaging: {job.packaging||"Not specified"}</p></>}
         <label className="rv-field"><span>Evidence</span><input type="file" accept="image/jpeg,image/png,application/pdf" multiple onChange={e=>{setFiles(Array.from(e.currentTarget.files||[]).slice(0,20));e.currentTarget.value='';}}/></label>
         {files.length>0&&<ul className="rv-delivery-files">{files.map((file,index)=><li key={file.name+'-'+index}><span>{file.name}</span><button type="button" disabled={busy} onClick={()=>setFiles(previous=>previous.filter((_,i)=>i!==index))}>Remove</button></li>)}</ul>}
         <label className="rv-field"><span>Driver Notes {stop.type==='delivery'&&outcome!=='Completed Delivery'?'*':''}</span><textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)} maxLength={2000}/></label>
