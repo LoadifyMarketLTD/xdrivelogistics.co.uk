@@ -253,6 +253,7 @@ export default function InvoiceDetailPage({
     }
   };
 
+  const officialInvoicePdf = documents.find((document) => document.doc_type === 'invoice_pdf' || document.doc_type === 'invoice');
   const paid = useMemo(() => payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [payments]);
   const code = invoice?.currency ?? 'GBP';
   const signedAmount = invoice ? invoiceSignedGrossAmount(invoice) : 0;
@@ -332,7 +333,7 @@ export default function InvoiceDetailPage({
 
           <TwoColumn>
             <div style={{ display: 'grid', gap: '0.9rem' }}>
-              <Panel title="Invoice summary" actions={<><ActionButton tone="secondary" onClick={() => window.print()}>Print</ActionButton><ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton></>}>
+              <Panel title="Invoice summary" actions={<><ActionButton tone="secondary" disabled={!officialInvoicePdf || openingDocumentId !== null} onClick={() => { if (officialInvoicePdf) void openDocument(officialInvoicePdf); }}>{openingDocumentId === officialInvoicePdf?.id ? 'Opening PDF…' : 'Open Invoice PDF'}</ActionButton><ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton></>}>
                 <DataTable
                   columns={['Field', 'Value']}
                   rows={[
