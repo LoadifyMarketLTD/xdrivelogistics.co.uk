@@ -21,7 +21,7 @@ import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
 import ReserveStopExecution, {clearReserveStopDrafts} from './ReserveStopExecution';
 import {finishReserveDelivery} from './reserveDeliverySequence';
-import {persistedStops,syncBoundaryStop} from './reserveStopSync';
+import {operationalExecutionStops,persistedStops,syncBoundaryStop} from './reserveStopSync';
 import SearchLoads from './SearchLoads';
 import {defaults as defaultSearchFilters,restoredFilters,matchesLoad,type SearchFilters} from './loadSearchFilters';
 import {searchAvailableLoads} from './searchLocation';
@@ -838,11 +838,7 @@ export default function ReserveApp() {
   function flow(){
     if(!job)return null;
     const routeStops=job.routeStops||[];
-    const finalRouteStop=routeStops.at(-1);
-    const dynamicRouteEnd=finalRouteStop?.handover?.stopKind==='return'||finalRouteStop?.handover?.stopKind==='redirect';
-    const operationalStops=routeStops.length>2
-      ? routeStops.slice(1,dynamicRouteEnd||(job.isTest===true&&finalRouteStop?.type==='collection')?undefined:-1)
-      : dynamicRouteEnd?routeStops.slice(1):[];
+    const operationalStops=operationalExecutionStops(job.id,routeStops,job.isTest===true);
     const legacySkipped=operationalStops.find(stop=>stop.status==='skipped');
     const activeStop=operationalStops.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');
     const collectionCancelled=routeStops[0]?.status==='cancelled'&&['ALLOCATED','ON_WAY_TO_PICKUP','ON_SITE_PICKUP'].includes(job.status);

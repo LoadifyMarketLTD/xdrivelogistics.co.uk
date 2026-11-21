@@ -5,6 +5,17 @@ type StopOperation = (id:string,action:StopAction,proof?:StopProof)=>Promise<unk
 export function persistedStops(jobId:string,stops:LiveStop[]=[]){
  return stops.filter(s=>s.id!==jobId+':'+s.type).sort((a,b)=>a.sequence-b.sequence);
 }
+
+/** Include the final persisted delivery of a modern multistop route.
+ * Legacy synthetic boundary stops retain their existing handling. */
+export function operationalExecutionStops(jobId:string,stops:LiveStop[]=[],isTest=false):LiveStop[]{
+ const final=stops.at(-1);
+ const dynamic=final?.handover?.stopKind==='return'||final?.handover?.stopKind==='redirect';
+ if(stops.length<=2)return dynamic?stops.slice(1):[];
+ const modern=stops.some(stop=>stop.handover?.version===3);
+ const realFinal=Boolean(final&&persistedStops(jobId,[final]).length===1);
+ return stops.slice(1,dynamic||(realFinal&&(isTest||modern))?undefined:-1);
+}
 export async function syncBoundaryStop(stop:LiveStop,target:StopAction,post:StopOperation,proof?:StopProof){
  const stages=['pending','en_route','arrived','completed'] as const;
  let at=stages.findIndex(x=>x===stop.status);
