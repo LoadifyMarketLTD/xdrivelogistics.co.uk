@@ -14,6 +14,10 @@ export async function geocode(address: string): Promise<Point | null> {
   const demo:Record<string,Point>={Blackburn:{lat:53.748,lon:-2.482},Birmingham:{lat:52.48,lon:-1.89},Manchester:{lat:53.48,lon:-2.24},Leeds:{lat:53.80,lon:-1.55},Preston:{lat:53.76,lon:-2.70},Liverpool:{lat:53.41,lon:-2.98},Bolton:{lat:53.58,lon:-2.43},Nottingham:{lat:52.95,lon:-1.15},Wigan:{lat:53.55,lon:-2.63},Sheffield:{lat:53.38,lon:-1.47},Burnley:{lat:53.79,lon:-2.24},Derby:{lat:52.92,lon:-1.48},Bradford:{lat:53.79,lon:-1.75},York:{lat:53.96,lon:-1.08},Chorley:{lat:53.65,lon:-2.63},Bristol:{lat:51.45,lon:-2.59},Lancaster:{lat:54.05,lon:-2.80},Coventry:{lat:52.41,lon:-1.51},Oldham:{lat:53.54,lon:-2.12},London:{lat:51.51,lon:-0.13}};
   if (LOCAL && /Fictional (Collection|Delivery) Estate/.test(address)) return Object.entries(demo).find(([town])=>address.includes(', '+town+' '))?.[1]??null;
   if (LOCAL) return null;
+  // Exact public town names are already present as city centroids in this map.
+  // Use them for area-only Marketplace loads; never use them for full street addresses.
+  const city = Object.entries(demo).find(([name])=>name.toLowerCase()===address.trim().toLowerCase())?.[1];
+  if (city) { cache.set(address,city); return city; }
   // Marketplace routes use only published postcode districts (never an exact private stop).
   const outcodeMatch = address.trim().toUpperCase().match(/(?:^|[,\s])([A-Z]{1,2}\d[A-Z\d]?)(?=\s*(?:,|$))/);
   if (outcodeMatch) {

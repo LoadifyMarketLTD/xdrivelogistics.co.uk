@@ -11,6 +11,12 @@ describe('Reserve Driver PWA road route preservation',()=>{
     expect(text).toContain('Fit entire route');
     expect(text).toContain('s.kind==="PICKUP"?"C":"D"');
   });
+  it('resolves exact public city names already known to the existing map without changing private address handling',()=>{
+    expect(text).toContain('name.toLowerCase()===address.trim().toLowerCase()');
+    expect(text).toContain('if (city) { cache.set(address,city); return city; }');
+    expect(text).toContain('Blackburn:{lat:53.748,lon:-2.482}');
+    expect(text).toContain('Manchester:{lat:53.48,lon:-2.24}');
+  });
   it('resolves only published public postcode districts by centroid before Nominatim fallback',()=>{
     expect(text).toContain('https://api.postcodes.io/outcodes/');
     expect(text).toContain('address.trim().toUpperCase().match(');
