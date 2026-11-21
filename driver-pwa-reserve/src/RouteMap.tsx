@@ -112,8 +112,10 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
           L.polyline(route.geometry.coordinates.map(c=>[c[1],c[0]] as L.LatLngTuple),{color:i===0&&position?"#2687ee":"#ef625b",weight:5,opacity:.9}).addTo(layer);
         }catch{
           if(!lifecycle.active)return;
-          setRouteError("Road routing unavailable. Route distance unavailable.");
-
+          // Restore the pre-18:27 November 18 fallback: make both known stops visible
+          // without presenting a straight line as a verified road journey.
+          setRouteError("Road routing unavailable. Showing straight-line stop connections (not a road route).");
+          L.polyline(pair.map(p=>[p.lat,p.lon] as L.LatLngTuple),{color:"#ef625b",weight:3,dashArray:"8 8",opacity:.85}).addTo(layer);
         }
       }
     }
