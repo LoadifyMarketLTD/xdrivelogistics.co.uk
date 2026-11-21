@@ -19,7 +19,7 @@ const authHeaders = (token:string) => ({ Authorization: "Bearer "+token });
 
 /** Geocode published postcode districts, not guessed street addresses or a random Nominatim POI. */
 export async function geocode(address:string, token?:string, signal?:AbortSignal, precise=false):Promise<Point|null> {
-  const normalized=address.trim();
+  const normalized=address.trim().replace(/\s*\(TEST ADDRESS\)/gi, "").replace(/,\s*(?:GB|United Kingdom)\s*$/i, "").trim();
   if(!normalized)return null;
   const key=(precise?'postcode:':'public:')+normalized;
   if(geocache.has(key))return geocache.get(key)!;
@@ -67,22 +67,42 @@ export async function geocode(address:string, token?:string, signal?:AbortSignal
   }
   // For non-postcode stops, retain the existing geocoder used by the approved map.
   // Never geocode a complete private street address on an unawarded public load.
-  try {
-    const response=await fetch("https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&limit=1&q="+encodeURIComponent(normalized+", United Kingdom"),{signal});
-    if(!response.ok)return null;
-    const matches=await response.json() as Array<{lat:string;lon:string}>;
-    const point={lat:Number(matches[0]?.lat),lon:Number(matches[0]?.lon)};
-    if(matches.length&&goodPoint(point)){geocache.set(key,point);return point;}
-  } catch {/* An unavailable location is not a valid route. */}
+  // Restore the pre-18-November retry strategy: a failed complete address
+  // must not hide an otherwise resolvable postcode or town. A fallback is
+  // approximate and is never represented as an exact collection address.
+  const townQuery=normalized.replace(/,?\s*[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\s*$/i, "").trim();
+  const queries=[...new Set([normalized,fullPostcode,townQuery].filter((v):v is string=>Boolean(v)))];
+  for(const query of queries){
+    try {
+      const response=await fetch("https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&limit=1&q="+encodeURIComponent(query+", United Kingdom"),{signal});
+      if(!response.ok)continue;
+      const matches=await response.json() as Array<{lat:string;lon:string}>;
+      const point={lat:Number(matches[0]?.lat),lon:Number(matches[0]?.lon)};
+      if(matches.length&&goodPoint(point)){geocache.set(key,point);return point;}
+    } catch {if(signal?.aborted)return null;}
+  }
   return null;
 }
 
 /** Use the existing XDrive MAIN authenticated road engine: Mapbox, then OSRM fallback. */
 async function roadRoute(start:Point,end:Point,token:string,signal:AbortSignal):Promise<RoadRoute> {
   const params=new URLSearchParams({aLat:String(start.lat),aLng:String(start.lon),bLat:String(end.lat),bLng:String(end.lon)});
-  const response=await fetch(requestPath("/driver/web/public-route")+"?"+params,{headers:authHeaders(token),signal,cache:"no-store"});
-  if(!response.ok)throw new Error("Road routing service unavailable ("+response.status+")");
-  const result=await response.json() as Partial<RoadRoute>;
+  let result:Partial<RoadRoute>|null=null;
+  try {
+    const response=await fetch(requestPath("/driver/web/public-route")+"?"+params,{headers:authHeaders(token),signal,cache:"no-store"});
+    if(response.ok)result=await response.json() as Partial<RoadRoute>;
+  }catch {if(signal.aborted)throw new Error("Routing cancelled");}
+  // Restore the verified pre-18-November OSRM fallback when the XDrive
+  // routing proxy is unavailable. Never substitute straight-line mileage.
+  if(!result){
+    const coordinates=[start,end].map(p=>p.lon+","+p.lat).join(";");
+    const fallback=await fetch("https://router.project-osrm.org/route/v1/driving/"+coordinates+"?overview=full&geometries=geojson",{signal});
+    if(!fallback.ok)throw new Error("Road routing services unavailable");
+    const payload=await fallback.json() as {routes?:Array<{distance:number;duration:number;geometry:{type:string;coordinates:number[][]}}>};
+    const road=payload.routes?.[0];
+    if(!road)throw new Error("No verified road route");
+    result={geometry:road.geometry as RoadRoute["geometry"],distanceMiles:road.distance/1609.344,durationMinutes:road.duration/60};
+  }
   if(result.geometry?.type!=="LineString"||!Array.isArray(result.geometry.coordinates)||result.geometry.coordinates.length<2
      ||!result.geometry.coordinates.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))
      ||!Number.isFinite(result.distanceMiles)||!Number.isFinite(result.durationMinutes)
