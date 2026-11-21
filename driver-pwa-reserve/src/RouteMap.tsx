@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 type Stop = { id: string; kind: "PICKUP" | "DELIVERY"; address: string; completedAt?: string };
-type Props = { from: string; to: string; status?: string; stops?: Stop[]; distanceMiles?: number; travelMinutes?: number; onBack: () => void };
+type Props = { from: string; to: string; status?: string; stops?: Stop[]; distanceMiles?: number; travelMinutes?: number; token?: string; onBack: () => void };
 type Point = { lat: number; lon: number };
 declare const __BOOKING_LOCAL__: boolean;
 const LOCAL = typeof __BOOKING_LOCAL__ !== "undefined" && __BOOKING_LOCAL__;
@@ -52,7 +52,7 @@ export async function geocode(address: string): Promise<Point | null> {
   return null;
 }
 const marker = (label: string, color: string) => L.divIcon({className:"route-marker",html:`<span style="background:${color}">${label}</span>`,iconSize:[34,34],iconAnchor:[17,17]});
-export default function RouteMap({from,to,status,stops,distanceMiles,travelMinutes,onBack}:Props) {
+export default function RouteMap({from,to,status,stops,distanceMiles,travelMinutes,token,onBack}:Props) {
   const element = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const routeBounds=useRef<L.LatLngBounds|null>(null);
@@ -108,15 +108,19 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
       for(let i=0;i<legs.length;i++){
         const pair=legs[i];
         try{
-          const coords=pair.map(p=>p.lon+","+p.lat).join(";");
-          const response=await fetch("https://router.project-osrm.org/route/v1/driving/"+coords+"?overview=full&geometries=geojson");
-          if(!response.ok)throw Error("routing");
-          const data:{routes?:{distance:number;duration:number;geometry:{coordinates:number[][]}}[]} = await response.json();
+          if(!token)throw Error("Driver authentication required for route calculation");
+          const qs=new URLSearchParams({aLat:String(pair[0].lat),aLng:String(pair[0].lon),bLat:String(pair[1].lat),bLng:String(pair[1].lon)});
+          const api=import.meta.env.PROD?'/api/driver/web/public-route':'/xdrive-api/driver/web/public-route';
+          const response=await fetch(api+'?'+qs.toString(),{headers:{Authorization:'Bearer '+token},cache:'no-store'});
+          if(!response.ok)throw Error('Road route request unsuccessful ('+response.status+')');
+          const route:{distanceMiles?:number;durationMinutes?:number;geometry?:{type?:string;coordinates?:number[][]}}=await response.json();
           if(!lifecycle.active)return;
-          const route=data.routes?.[0];
-          if(!route)throw Error("routing");
-          if(i===0&&position){setDistanceToTarget(route.distance/1609.344);setTargetMinutes(Math.round(route.duration/60));}else{jobMiles+=route.distance/1609.344;jobMinutes+=route.duration/60;jobLegs++;if(jobLegs===legs.length-(position?1:0))setJobMetrics({miles:jobMiles,minutes:Math.round(jobMinutes)});}
-          L.polyline(route.geometry.coordinates.map(c=>[c[1],c[0]] as L.LatLngTuple),{color:i===0&&position?"#2687ee":"#ef625b",weight:5,opacity:.9}).addTo(layer);
+          if(!Number.isFinite(route.distanceMiles)||!Number.isFinite(route.durationMinutes)||route.geometry?.type!=='LineString'||!Array.isArray(route.geometry.coordinates)||route.geometry.coordinates.length<2)throw Error('Invalid route response');
+          const geometry=route.geometry.coordinates;
+          if(!geometry.every(c=>Array.isArray(c)&&c.length===2&&c.every(Number.isFinite)))throw Error('Invalid road geometry');
+          const miles=route.distanceMiles!,minutes=route.durationMinutes!;
+          if(i===0&&position){setDistanceToTarget(miles);setTargetMinutes(minutes);}else{jobMiles+=miles;jobMinutes+=minutes;jobLegs++;if(jobLegs===legs.length-(position?1:0))setJobMetrics({miles:jobMiles,minutes:Math.round(jobMinutes)});}
+          L.polyline(geometry.map(c=>[c[1],c[0]] as L.LatLngTuple),{color:i===0&&position?"#2687ee":"#ef625b",weight:5,opacity:.9}).addTo(layer);
           setRouteReady(true);
         }catch{
           if(!lifecycle.active)return;
@@ -127,7 +131,7 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
       if(lifecycle.active)setRouteLoading(false);
     }
     void draw();return()=>{lifecycle.active=false};
-  },[position,ordered]);
+  },[position,ordered,token]);
   return <section className="xroute">
     <div className="xroute-head"><button onClick={onBack} aria-label="Back">←</button><strong>Route</strong><span>⌖</span></div>
     <div className="xroute-map" ref={element} aria-label="Live driver, collection and delivery map" /><button className="xroute-fit" aria-label="Fit entire route" onClick={()=>{if(routeBounds.current)map.current?.fitBounds(routeBounds.current,{padding:[38,38],maxZoom:12});}}>Fit route</button>
