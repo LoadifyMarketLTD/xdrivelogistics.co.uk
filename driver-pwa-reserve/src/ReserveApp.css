@@ -724,3 +724,53 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-operation-screen.rv-request-screen>h1{display:block;margin:0 0 12px!important;padding:12px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;color:#0a234f!important;font-size:18px!important;line-height:1.35}
 
 .rv-feed-spinner{display:inline-block;width:18px;height:18px;border:2px solid #dce6ef;border-top-color:#0e3fa9;border-radius:50%;vertical-align:middle;animation:rv-feed-spin .8s linear infinite}.rv-feed-loading-label{font-size:13px;color:#58708a;margin-left:9px;vertical-align:middle}@keyframes rv-feed-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.rv-feed-spinner{animation:none}}
+/* Premium load details & quotation. Scoped: leave the Loads list and site header untouched. */
+.rv-load-detail,.rv-load-quote{padding:0 0 96px;color:#18324b}
+.rv-load-view-toolbar{display:flex;justify-content:space-between;align-items:center;margin:0 0 9px;gap:10px;color:#75889a;font-size:12px;font-weight:750}
+.rv-load-view-toolbar button{border:0;background:transparent;color:#0e3fa9;font-size:14px;font-weight:800;padding:10px 0}
+.rv-load-overview,.rv-load-quote-context,.rv-load-detail-panel,.rv-load-quote-form{background:#fff;border:1px solid #dce5ed;border-radius:12px;margin:0 0 11px;padding:15px;box-shadow:0 2px 10px #0a234f09}
+.rv-load-overview,.rv-load-quote-context{border-left:4px solid #f5a300}
+.rv-load-overview-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.rv-load-overview-top>div{min-width:0}
+.rv-load-eyebrow{font-size:10px;font-weight:850;letter-spacing:1px;color:#79899a}
+.rv-load-overview h1,.rv-load-quote-context h1{font-size:18px!important;line-height:1.3!important;color:#102f4c!important;margin:5px 0!important;overflow-wrap:anywhere}
+.rv-load-overview-top p{font-size:13px!important;line-height:1.4!important;color:#54687a;margin:2px 0}
+.rv-load-status{background:#fff2d3;color:#845a07;border-radius:6px;padding:7px;font-size:10px;font-weight:850;white-space:nowrap}
+.rv-load-ref,.rv-load-quote-context>p{font-size:12px;color:#718397;font-weight:650;margin:7px 0}
+.rv-load-overview .rv-route,.rv-load-quote-context .rv-route{margin:13px 0 9px;padding:11px 12px;gap:9px;border-radius:9px;background:#f5f8fa}
+.rv-main .rv-load-detail .rv-route .rv-stop b,.rv-main .rv-load-quote .rv-route .rv-stop b{font-size:16px!important;line-height:1.3!important;overflow-wrap:anywhere}
+.rv-main .rv-load-detail .rv-route .rv-stop span,.rv-main .rv-load-quote .rv-route .rv-stop span{font-size:13px!important;line-height:1.4!important;font-weight:600!important;color:#52697e!important}
+.rv-load-metrics{display:flex;gap:0;border-top:1px solid #e8edf1;margin-top:12px;padding-top:12px}
+.rv-load-metrics>span{flex:1;min-width:0;display:grid;gap:3px;padding:0 10px;border-right:1px solid #e6edf2}
+.rv-load-metrics>span:first-child{padding-left:0}
+.rv-load-metrics>span:last-child{border:0}
+.rv-load-metrics strong{font-size:14px;color:#183a54;overflow-wrap:anywhere}
+.rv-load-metrics small{font-size:11px;color:#8493a3}
+.rv-load-map-link{width:100%;background:#ecf5f8;color:#165d75;font-weight:750;font-size:13px;padding:11px;border:1px solid #d6e7eb;border-radius:8px;margin-top:14px}
+.rv-load-detail-panel h2{color:#0a234f;font-size:15px!important;line-height:1.3!important;margin:0 0 9px!important}
+.rv-main .rv-load-detail .rv-fact{font-size:13px!important;line-height:1.4!important;padding:8px 0!important;gap:10px!important}
+.rv-main .rv-load-detail .rv-fact span{color:#5a7085!important}
+.rv-main .rv-load-detail .rv-fact strong{font-size:13px;color:#173854!important;text-align:right;max-width:60%;overflow-wrap:anywhere}
+.rv-load-instructions{font-size:13px!important;line-height:1.5!important;color:#51677a;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 8px}
+.rv-load-detail-cta{margin:15px 0 10px}
+.rv-load-detail-cta>.rv-primary,.rv-load-quote-form>.rv-primary{min-height:52px;font-size:16px;border-radius:9px}
+.rv-load-quote-confirm{font-size:13px;color:#276b52}
+.rv-load-quote-context{padding-bottom:7px}
+.rv-load-quote-intro{display:flex;align-items:start;justify-content:space-between;gap:8px;margin-bottom:18px}
+.rv-load-quote-intro h2{font-size:18px!important;color:#0a234f;margin:5px 0 0!important}
+.rv-load-rate-tag{border-radius:6px;background:#e9f1f7;color:#315b78;font-size:11px;font-weight:750;padding:7px;white-space:nowrap}
+.rv-load-form-field{display:grid;gap:7px;margin:0 0 16px}
+.rv-load-form-field>span{font-size:14px;font-weight:800;color:#1c415f}
+.rv-load-form-field small{font-size:11px;color:#718497;font-weight:550}
+.rv-load-form-field select,.rv-load-form-field textarea,.rv-load-money-input input{box-sizing:border-box;width:100%;min-height:49px;padding:11px 12px;border:1px solid #cbd8e3;border-radius:9px;background:white;color:#173a54;font-size:16px}
+.rv-load-form-field textarea{min-height:72px;line-height:1.5}
+.rv-load-money-input{display:flex;align-items:center;border:2px solid #f5a300;border-radius:9px;background:#fffcf5;overflow:hidden}
+.rv-load-money-input b{padding:0 12px;font-size:21px;color:#0a234f}
+.rv-load-money-input input{background:transparent;border:0;font-size:22px;font-weight:850;outline-offset:-3px}
+.rv-load-quote-total{display:flex;align-items:center;justify-content:space-between;padding:15px 0;border-top:1px solid #e5e9ef;font-size:13px;font-weight:750;color:#65798c}
+.rv-load-quote-total strong{font-size:22px;color:#0a234f}
+.rv-load-quote-policy{font-size:12px;color:#5c7286;margin:2px 0 15px}
+.rv-load-quote-policy summary{padding:6px 0;cursor:pointer;font-weight:750}
+.rv-load-quote-policy p{font-size:12px!important;line-height:1.5!important}
+@media(max-width:390px){.rv-load-overview,.rv-load-quote-context,.rv-load-detail-panel,.rv-load-quote-form{padding:12px}.rv-load-overview h1,.rv-load-quote-context h1{font-size:17px!important}}
+.rv-load-posted{font-size:11px!important;color:#8795a4;margin:1px 0 6px!important}
