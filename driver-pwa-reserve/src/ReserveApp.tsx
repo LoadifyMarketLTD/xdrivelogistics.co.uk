@@ -422,7 +422,7 @@ export default function ReserveApp() {
           <div className="rv-load-overview-top"><div><span className="rv-load-eyebrow">TRANSPORT OPPORTUNITY</span><h1>{job.company||'Transport buyer'}</h1><p>{friendlyService(job.service)} · {vehicleName}</p></div><span className="rv-load-status">{quoted?'QUOTED':'AVAILABLE'}</span></div>
           <p className="rv-load-ref">Ref: {platformJobReference(job.id,job.yourRef)||job.id}</p>
           {job.postedAt&&!Number.isNaN(Date.parse(job.postedAt))&&<p className="rv-load-posted">Posted: {new Date(job.postedAt).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</p>}
-          <Route job={job} full/>
+          <Route job={job}/>
           <div className="rv-load-metrics"><span><strong>{job.weight} kg</strong><small>Weight</small></span><span><strong>{job.terms||'Not stated'}</strong><small>Payment</small></span>{job.distanceMiles!=null&&<span><strong>{job.distanceMiles} mi</strong><small>Journey</small></span>}{searchResult?.pickupRoadMiles[job.id]!=null&&<span><strong>{searchResult.pickupRoadMiles[job.id]} mi</strong><small>To collection</small></span>}</div>
           <button type="button" className="rv-load-map-link" onClick={()=>openMap(job,'details')}>View route on map →</button>
         </section>
