@@ -9,7 +9,7 @@ describe('Live road route operational recovery',()=>{
  it('calculates before quote independent job and driver-to-collection legs',()=>{
   expect(route).toContain('Driver → {nextLabel}:');
   expect(route).toContain('Collection → delivery:');
-  expect(route).toContain('if(points.length>=2)');
+  expect(route).toContain('if(missingStops===0&&points.length>=2)');
   expect(route).toContain('if(position)');
   expect(route).toContain('setJobMetrics({miles:totalMiles,minutes:totalMinutes})');
   expect(route).toContain('setPickupMetrics({miles:road.distanceMiles,minutes:road.durationMinutes})');

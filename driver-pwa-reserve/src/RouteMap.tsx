@@ -52,6 +52,19 @@ export async function geocode(address:string, token?:string, signal?:AbortSignal
       }
     }catch {/* Prefer lower-resolution public routing over inventing a private location. */}
   }
+  // The authenticated outcode endpoint can be temporarily unavailable for a
+  // valid public area (e.g. BB1, M1, BL1). Resolve that public area directly
+  // from postcodes.io rather than losing every marker in Quotes/Bookings.
+  if(code){
+    try {
+      const response=await fetch("https://api.postcodes.io/outcodes/"+encodeURIComponent(code),{signal});
+      if(response.ok){
+        const data=await response.json() as {result?:{latitude?:number;longitude?:number}};
+        const p={lat:data.result?.latitude??NaN,lon:data.result?.longitude??NaN};
+        if(goodPoint(p)){geocache.set(key,p);return p;}
+      }
+    }catch{/* No invented location when both providers fail. */}
+  }
   // For non-postcode stops, retain the existing geocoder used by the approved map.
   // Never geocode a complete private street address on an unawarded public load.
   try {
@@ -132,18 +145,21 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
     const draw=async()=>{
       current.clearLayers();bounds.current=null;setPickupMetrics(null);setJobMetrics(null);setRouteError("");setRouteLoading(true);
       const points:Array<{stop:Stop;point:Point}>=[];
-      for(const stop of ordered){
+      let missingStops=0;
+      // One failed geocode must not suppress all valid stops or leave only a
+      // driver truck in Quotes/Bookings. Keep original stop indices.
+      for(let index=0;index<ordered.length;index++){
+        const stop=ordered[index];
         const point=await geocode(stop.address,token,controller.signal,status!=='OPEN');
         if(!active)return;
-        if(!point){setRouteError("Some stop addresses could not be located. A verified road route cannot be shown.");setRouteLoading(false);return;}
+        if(!point){missingStops++;continue;}
         points.push({stop,point});
+        const popup=document.createElement("div");popup.textContent=stop.kind+" — "+stop.address;
+        L.marker([point.lat,point.lon],{icon:marker((stop.kind==="PICKUP"?"C":"D")+String(index+1),stop.kind==="PICKUP"?"#f5a400":"#202020")}).bindPopup(popup).addTo(current);
       }
       if(!active)return;
-      for(let i=0;i<points.length;i++){
-        const s=points[i];
-        const popup=document.createElement("div");popup.textContent=s.stop.kind+" — "+s.stop.address;
-        L.marker([s.point.lat,s.point.lon],{icon:marker((s.stop.kind==="PICKUP"?"C":"D")+String(i+1),s.stop.kind==="PICKUP"?"#f5a400":"#202020")}).bindPopup(popup).addTo(current);
-      }
+      if(missingStops)setRouteError(missingStops+" stop location(s) could not be verified. Complete road distance unavailable.");
+
       if(position)L.marker([position.lat,position.lon],{icon:truckIcon()}).bindTooltip(LOCAL?"Simulated driver":"Driver GPS").addTo(current);
       const coords=[...(position?[position]:[]),...points.map(p=>p.point)];
       if(coords.length){bounds.current=L.latLngBounds(coords.map(p=>[p.lat,p.lon] as L.LatLngTuple));instance.fitBounds(bounds.current,{padding:[38,38],maxZoom:12});}
@@ -153,7 +169,7 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
       const addRoad=(route:RoadRoute,color:string)=>L.polyline(route.geometry.coordinates.map(c=>[c[1],c[0]] as L.LatLngTuple),{color,weight:5,opacity:.95}).addTo(current);
       // The complete job route is independent of GPS and should remain visible
       // before quotation even if location permission is denied.
-      if(points.length>=2){
+      if(missingStops===0&&points.length>=2){
         let totalMiles=0,totalMinutes=0;
         let complete=true;
         for(let i=0;i<points.length-1;i++){
@@ -178,7 +194,7 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
       }
       // Driver -> next stop is the live route: collection before loading,
       // delivery after collection. Never silently replace it with job mileage.
-      if(position){
+      if(position&&points.length>0&&points[0].stop.id===ordered[0]?.id){
         const next=points[0].point;
         if(next.lat===position.lat&&next.lon===position.lon)setPickupMetrics({miles:0,minutes:0});
         else try{
