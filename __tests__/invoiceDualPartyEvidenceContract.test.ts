@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const delivery = readFileSync(new URL('../lib/server/invoiceDelivery.ts', import.meta.url), 'utf8');
-const context = readFileSync(new URL('../lib/server/invoicePdfContext.ts', import.meta.url), 'utf8');
+const context = readFileSync(new URL('../lib/server/ownerInvoicePdfContext.ts', import.meta.url), 'utf8');
+
 
 describe('Dual-party invoice + POD email evidence', () => {
   it('targets the buyer/customer and verifies their email', () => {
