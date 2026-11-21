@@ -183,6 +183,21 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
    </section>;
  }
 
+ // Never advertise invoice creation while the authoritative Finance lookup is pending.
+ // A job may already have a submitted invoice even when this component first mounts.
+ if (loading || !eligibilityChecked) return <section className="rv-finance rv-qa-invoice">
+   <button className="rv-back" onClick={onBack}>Back to Booking Status</button>
+   <span className="rv-over">XDRIVE FINANCE</span>
+   <h1>Checking Invoice…</h1>
+   <p role="status">Checking the official invoice register. Creation is unavailable until this check completes.</p>
+ </section>;
+ if (error && !invoice) return <section className="rv-finance rv-qa-invoice">
+   <button className="rv-back" onClick={onBack}>Back to Booking Status</button>
+   <h1>Invoice status unavailable</h1>
+   <div role="alert" className="rv-error">{error}</div>
+   <button className="rv-outline rv-wide" onClick={()=>void discover()}>Retry Finance Check</button>
+   <button className="rv-outline rv-wide" onClick={onList}>Open XDrive Invoice Register</button>
+ </section>;
  // Preserve the approved Booking invoice layout in live mode. Financial values
  // always originate from the official agreement/invoice, never local QA state.
  const sent=invoice?.delivery_state==='sent'&&Boolean(invoice.delivery_message_id);

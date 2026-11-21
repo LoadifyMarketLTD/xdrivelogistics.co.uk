@@ -106,10 +106,13 @@ export default function ReserveApp() {
   const [role,setRole]=useState<'Owner Driver'|'Company Driver'>(LOCAL?'Owner Driver':'Company Driver');
   const job=jobs.find(j=>j.id===id);
   const [financeHistory,setFinanceHistory]=useState<Record<string,{invoiceExists:boolean;canCreate:boolean;blocker:string}>>({});
-  useEffect(()=>setFinanceHistory({}),[session?.token]);
+  const [financeHistoryLoaded,setFinanceHistoryLoaded]=useState(false);
+  useEffect(()=>{setFinanceHistory({});setFinanceHistoryLoaded(false);},[session?.token]);
+  useEffect(()=>{if(view==='invoiceJob'){setFinanceHistory({});setFinanceHistoryLoaded(false);}},[view]);
   useEffect(()=>{
     if(LOCAL||!session?.token||role!=='Owner Driver'||tab!=='Bookings'||view!=='list'||bookingSection!=='Delivered')return;
     let cancelled=false;
+    setFinanceHistoryLoaded(false);
     void driverGet('/finance/jobs/eligible?reserveContexts=1',session.token,15000).then(data=>{
       if(cancelled)return;
       const next:Record<string,{invoiceExists:boolean;canCreate:boolean;blocker:string}>={};
@@ -117,14 +120,15 @@ export default function ReserveApp() {
         if(!raw||typeof raw!=='object'||typeof raw.id!=='string')continue;
         next[raw.id]={invoiceExists:Boolean(raw.invoice?.id),canCreate:raw.can_create_invoice===true,blocker:typeof raw.blocker==='string'?raw.blocker:''};
       }
-      setFinanceHistory(next);
-    }).catch(()=>{if(!cancelled)setFinanceHistory({});});
+      setFinanceHistory(next);setFinanceHistoryLoaded(true);
+    }).catch(()=>{if(!cancelled){setFinanceHistory({});setFinanceHistoryLoaded(true);}});
     return()=>{cancelled=true;};
   },[session?.token,role,tab,view,bookingSection]);
   function invoiceAction(j:LiveJob):{label:string;target:View}{
     if(LOCAL)return {label:localStorage.getItem("xdrive-booking-invoice-v4-"+j.id)?'View Invoice':'Create Invoice',target:'invoiceJob'};
     const state=financeHistory[j.id];
     if(state?.invoiceExists)return {label:'View Invoice',target:'invoiceJob'};
+    if(role==='Owner Driver'&&!financeHistoryLoaded)return {label:'Checking Invoice…',target:'invoiceJob'};
     if(state?.canCreate)return {label:'Create Invoice',target:'invoiceJob'};
     if(!j.podRecorded&&j.podEvidenceComplete===false)return {label:'Complete POD',target:'flow'};
     if(state?.blocker||j.podEvidenceComplete===false)return {label:'Review Invoice Eligibility',target:'invoiceJob'};
