@@ -52,6 +52,11 @@ BEGIN
     RAISE EXCEPTION 'Job not found.' USING ERRCODE = 'P0002';
   END IF;
 
+  -- Reject stale or mismatched carrier identities before either decision.
+  IF v_job.assigned_company_id IS DISTINCT FROM v_request.carrier_company_id THEN
+    RAISE EXCEPTION 'Cancellation request carrier does not match assigned job carrier.' USING ERRCODE = '42501';
+  END IF;
+
   SELECT cm.company_id
   INTO v_actor_company_id
   FROM public.company_memberships cm
@@ -81,6 +86,8 @@ BEGIN
       WHERE d.id = v_job.assigned_driver_id
         AND d.user_id = p_actor_user_id
         AND d.status = 'active'
+        AND d.company_id = v_request.carrier_company_id
+        AND v_job.assigned_company_id = v_request.carrier_company_id
     ) THEN
       v_actor_company_id := v_request.carrier_company_id;
       v_actor_party := 'carrier';
@@ -115,7 +122,39 @@ BEGIN
         AND (
           (
             COALESCE(js.handover->>'stopKind', '') IN ('return', 'redirect')
-            AND js.status <> 'completed'
+            AND (
+              js.status <> 'completed'
+              OR js.completed_at IS NULL
+              OR NULLIF(trim(COALESCE(js.handover->>'recipientName','')),'') IS NULL
+              OR NULLIF(trim(COALESCE(js.handover->>'signaturePath','')),'') IS NULL
+              OR NOT COALESCE(js.handover->>'signaturePath' LIKE
+                v_job.assigned_company_id::text || '/' || v_job.id::text || '/stops/' || js.id::text || '/signature/%', false)
+              -- Database-side existence check closes the race between API-side
+              -- storage verification and commercial cancellation approval.
+              OR NOT EXISTS (
+                SELECT 1 FROM storage.objects so
+                WHERE so.bucket_id = 'pod-photos'
+                  AND so.name = js.handover->>'signaturePath'
+              )
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(CASE
+                  WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
+                    THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) AS evidence(path)
+                WHERE NOT EXISTS (
+                  SELECT 1 FROM storage.objects so
+                  WHERE so.bucket_id = 'pod-photos' AND so.name = evidence.path
+                )
+              )
+              OR EXISTS (
+                SELECT 1 FROM jsonb_array_elements_text(CASE WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
+                  THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) AS photo(path)
+                WHERE photo.path NOT LIKE
+                  v_job.assigned_company_id::text || '/' || v_job.id::text || '/stops/' || js.id::text || '/photos/%'
+              )
+              OR jsonb_typeof(js.handover->'photoPaths') IS DISTINCT FROM 'array'
+              OR jsonb_array_length(CASE WHEN jsonb_typeof(js.handover->'photoPaths') = 'array'
+                THEN js.handover->'photoPaths' ELSE '[]'::jsonb END) = 0
+            )
           )
           OR (
             COALESCE((js.handover->'returnInstruction'->>'resolutionRequired')::boolean, false) = true
