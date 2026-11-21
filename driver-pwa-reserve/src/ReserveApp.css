@@ -774,3 +774,11 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-load-quote-policy p{font-size:12px!important;line-height:1.5!important}
 @media(max-width:390px){.rv-load-overview,.rv-load-quote-context,.rv-load-detail-panel,.rv-load-quote-form{padding:12px}.rv-load-overview h1,.rv-load-quote-context h1{font-size:17px!important}}
 .rv-load-posted{font-size:11px!important;color:#8795a4;margin:1px 0 6px!important}
+
+/* Readable route information without altering the established map layout. */
+.rv-shell .xroute-info{font-size:17px!important;line-height:1.45!important;max-height:225px;overflow-y:auto;color:#17344d}
+.rv-shell .xroute-info strong{font-size:18px!important}
+.rv-shell .xroute-info>div{font-size:17px;line-height:1.45}
+.rv-shell .xroute-info .xroute-success{color:#176748;font-weight:750}
+.rv-shell .xroute-info .xroute-error{color:#9c302b;font-weight:750}
+.rv-shell .xroute-fit{font-size:16px;min-height:50px;font-weight:800}
