@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { submitDriverQuote } from '../../../driver/_lib/submitQuote';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
-import { publicAreaLabel } from '../../_lib/marketplacePublic';
+import { publicAreaLabel, publicOutcode } from '../../_lib/marketplacePublic';
 import { isDriverContext, requireDriver, respond } from '../_lib';
 
 export async function GET(request: NextRequest) {
@@ -94,6 +94,11 @@ export async function GET(request: NextRequest) {
             ? (job.delivery_location || job.delivery_postcode || 'Delivery')
             : publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area')
           : 'Delivery area',
+        // Explicit public routing areas are needed when quote history is
+        // reconstructed independently of the current marketplace feed.
+        // Never expose the full private postcode before execution authority.
+        pickupPostcodeArea: job ? (publicOutcode(job.pickup_postcode) || '') : '',
+        deliveryPostcodeArea: job ? (publicOutcode(job.delivery_postcode) || '') : '',
         pickupDatetime: job?.pickup_datetime ?? null,
         clientName: executionUnlocked ? (job?.client_name || '') : '',
         executionUnlocked,
