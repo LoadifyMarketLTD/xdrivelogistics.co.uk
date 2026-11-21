@@ -542,11 +542,15 @@ export async function submitInvoice(
   }
 
     const senderDisplayName = companyName.replace(/["<>]/g, '').trim() || 'Invoice issuer';
-    const issuerCopyEmail = typeof pdfContext.issuerEmail === 'string'
-      && validEmail(pdfContext.issuerEmail.trim().toLowerCase())
-      && pdfContext.issuerEmail.trim().toLowerCase() !== recipientEmail
-        ? pdfContext.issuerEmail.trim().toLowerCase()
-        : null;
+    // Both commercial parties must receive the same invoice + verified POD.
+    // Never silently omit the executing carrier's evidence copy.
+    const carrierEmail = typeof pdfContext.issuerEmail === 'string'
+      ? pdfContext.issuerEmail.trim().toLowerCase()
+      : '';
+    if (!validEmail(carrierEmail)) {
+      return failDelivery(422, 'A valid executing carrier company email is required before sending invoice and POD to both parties.');
+    }
+    const issuerCopyEmail = carrierEmail !== recipientEmail ? carrierEmail : null;
     emailBody = {
       tags: [{ name: 'xdrive_invoice', value: id }],
       from: `${senderDisplayName} <${fromAddress}>`,
