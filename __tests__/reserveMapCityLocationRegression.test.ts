@@ -1,33 +1,32 @@
 import {readFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {describe,it,expect} from 'vitest';
-const code=readFileSync(join(process.cwd(),'driver-pwa-reserve/src/RouteMap.tsx'),'utf8');
-const mainCities=readFileSync(join(process.cwd(),'app/try-xdrive-demo/components/DemoFreightMap.tsx'),'utf8');
-describe('XDrive Driver PWA approved map regression',()=>{
- it('preserves Leaflet, OSRM road geometry, GPS and map fit behavior',()=>{
-  expect(code).toContain('L.map(element.current');
-  expect(code).toContain('L.polyline(route.geometry.coordinates.map');
-  expect(code).toContain('router.project-osrm.org/route/v1/driving/');
-  expect(code).toContain('watchPosition');
-  expect(code).toContain('Fit entire route');
+import {describe,expect,it} from 'vitest';
+const source=readFileSync(join(process.cwd(),'driver-pwa-reserve/src/RouteMap.tsx'),'utf8');
+const app=readFileSync(join(process.cwd(),'driver-pwa-reserve/src/ReserveApp.tsx'),'utf8');
+describe('Reserve PWA public place / postcode area routing',()=>{
+ it('preserves map, GPS truck and fit route controls',()=>{
+  expect(source).toContain('L.map(host.current');
+  expect(source).toContain('L.marker([position.lat,position.lon]');
+  expect(source).toContain('Fit entire route');
  });
- it('resolves Burnley and St Helens from approved public town centroid data in MAIN',()=>{
-  expect(mainCities).toContain('"ST HELENS":[53.453,-2.737]');
-  expect(code).toContain('Burnley:{lat:53.79,lon:-2.24}');
-  expect(code).toContain('"St Helens":{lat:53.453,lon:-2.737}');
-  expect(code).toContain('name.toLowerCase()===normalizedCity');
-  expect(code).toContain('cache.set(address,knownCity); return knownCity');
+ it('recognizes Blackburn, Burnley, Manchester and St Helens',()=>{
+  for(const place of ['blackburn:{lat:53.748','burnley:{lat:53.79','manchester:{lat:53.48','"st helens":{lat:53.453']) expect(source).toContain(place);
+  expect(source).toContain('CITY[normalized.toLowerCase()]');
  });
- it('does not mistake a published unverified job distance for a successfully routed mileage',()=>{
-  expect(code).toContain('Posted job distance (not verified by map):');
-  expect(code).toContain('Number.isFinite(distanceMiles)&&distanceMiles>0');
-  expect(code).toContain('jobMetrics&&<div>Job distance:');
-  expect(code).toContain('Exact stop addresses are required to calculate the job route.');
-  expect(code).toContain('if(start.lat===end.lat&&start.lon===end.lon)');
-  expect(code).toContain('jobMiles>0');
+ it('uses authenticated postcode-outcode API for public loads',()=>{
+  expect(source).toContain('"/driver/web/public-outcode"');
+  expect(source).toContain('const key=(precise?');
+  expect(source).toContain('Authorization: "Bearer "+token');
+  expect(app).toContain('token={session?.token}');
  });
- it('does not expose an exact private street address by matching city names within it',()=>{
-  expect(code).toContain('name.toLowerCase()===normalizedCity');
-  expect(code).not.toContain('address.includes(name)');
+ it('resolves full postcode only after award, not for an open public load',()=>{
+  expect(source).toContain('if(precise&&fullPostcode&&token)');
+  expect(source).toContain('api.postcodes.io/postcodes/');
+  expect(source).toContain("status!=='OPEN'");
+ });
+ it('does not present unverified road mileage or fake straight-line road routes',()=>{
+  expect(source).toContain('Posted job distance (not verified by map)');
+  expect(source).toContain('Verified road distance unavailable');
+  expect(source).not.toContain('dashArray:');
  });
 });

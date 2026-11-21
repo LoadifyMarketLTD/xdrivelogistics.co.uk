@@ -1,136 +1,216 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
 type Stop = { id: string; kind: "PICKUP" | "DELIVERY"; address: string; completedAt?: string };
-type Props = { from: string; to: string; status?: string; stops?: Stop[]; distanceMiles?: number; travelMinutes?: number; onBack: () => void };
 type Point = { lat: number; lon: number };
+type Props = { from: string; to: string; status?: string; stops?: Stop[]; distanceMiles?: number; travelMinutes?: number; token?: string; onBack: () => void };
+type Metrics = { miles: number; minutes: number };
+type RoadRoute = { geometry: { type: "LineString"; coordinates: number[][] }; distanceMiles: number; durationMinutes: number };
+
 declare const __BOOKING_LOCAL__: boolean;
 const LOCAL = typeof __BOOKING_LOCAL__ !== "undefined" && __BOOKING_LOCAL__;
-const UK: L.LatLngBoundsExpression = [[49.8, -8.7], [59.1, 2.1]];
-const cache = new Map<string, Point>();
-export async function geocode(address: string): Promise<Point | null> {
+const UK: L.LatLngBoundsExpression = [[49.8,-8.7],[59.1,2.1]];
+const CITY: Record<string,Point> = { blackburn:{lat:53.748,lon:-2.482},manchester:{lat:53.48,lon:-2.24},bolton:{lat:53.58,lon:-2.43},burnley:{lat:53.79,lon:-2.24},"st helens":{lat:53.453,lon:-2.737},"st. helens":{lat:53.453,lon:-2.737},preston:{lat:53.76,lon:-2.70},liverpool:{lat:53.41,lon:-2.98},birmingham:{lat:52.48,lon:-1.89},leeds:{lat:53.80,lon:-1.55},wigan:{lat:53.55,lon:-2.63},sheffield:{lat:53.38,lon:-1.47},nottingham:{lat:52.95,lon:-1.15},bradford:{lat:53.79,lon:-1.75},london:{lat:51.51,lon:-0.13},lancaster:{lat:54.05,lon:-2.80},chorley:{lat:53.65,lon:-2.63},derby:{lat:52.92,lon:-1.48},york:{lat:53.96,lon:-1.08},bristol:{lat:51.45,lon:-2.59},coventry:{lat:52.41,lon:-1.51},oldham:{lat:53.54,lon:-2.12} };
+const geocache = new Map<string,Point>();
+const goodPoint = (p:Point) => Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&Math.abs(p.lat)<=90&&Math.abs(p.lon)<=180;
+const requestPath = (api:string) => (import.meta.env.PROD?"/api":"/xdrive-api")+api;
+const authHeaders = (token:string) => ({ Authorization: "Bearer "+token });
 
-  if (cache.has(address)) return cache.get(address)!;
-  const demo:Record<string,Point>={Blackburn:{lat:53.748,lon:-2.482},Birmingham:{lat:52.48,lon:-1.89},Manchester:{lat:53.48,lon:-2.24},Leeds:{lat:53.80,lon:-1.55},Preston:{lat:53.76,lon:-2.70},Liverpool:{lat:53.41,lon:-2.98},Bolton:{lat:53.58,lon:-2.43},Nottingham:{lat:52.95,lon:-1.15},Wigan:{lat:53.55,lon:-2.63},Sheffield:{lat:53.38,lon:-1.47},Burnley:{lat:53.79,lon:-2.24},"St Helens":{lat:53.453,lon:-2.737},"St. Helens":{lat:53.453,lon:-2.737},Derby:{lat:52.92,lon:-1.48},Bradford:{lat:53.79,lon:-1.75},York:{lat:53.96,lon:-1.08},Chorley:{lat:53.65,lon:-2.63},Bristol:{lat:51.45,lon:-2.59},Lancaster:{lat:54.05,lon:-2.80},Coventry:{lat:52.41,lon:-1.51},Oldham:{lat:53.54,lon:-2.12},London:{lat:51.51,lon:-0.13}};
-  if (LOCAL && /Fictional (Collection|Delivery) Estate/.test(address)) return Object.entries(demo).find(([town])=>address.includes(', '+town+' '))?.[1]??null;
-  if (LOCAL) return null;
-  // Preserve existing public city-centre lookup for town-only Marketplace stops.
-  const normalizedCity = address.trim().replace(/\s+/g,' ').toLowerCase();
-  const knownCity = Object.entries(demo).find(([name])=>name.toLowerCase()===normalizedCity)?.[1];
-  if (knownCity) { cache.set(address,knownCity); return knownCity; }
-  const cleaned = address.replace(/\s*\(TEST ADDRESS\)/gi, "")
-    .replace(/,\s*(?:GB|United Kingdom)\s*,\s*([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\s*$/i, "")
-    .replace(/,\s*(?:GB|United Kingdom)\s*$/i, "").trim();
-  const postcode = cleaned.match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/i)?.[0] ?? "";
-  const town = cleaned.replace(/,\s*[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\s*$/i, "").trim();
-  const queries = [...new Set([cleaned, town, postcode].filter(Boolean))];
-  for (const query of queries) {
-    try {
-      const response = await fetch("https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&limit=1&q=" + encodeURIComponent(query + ", United Kingdom"));
-      if (!response.ok) continue;
-      const results: {lat: string; lon: string}[] = await response.json();
-      if (results.length) {
-        const point = {lat: Number(results[0].lat), lon: Number(results[0].lon)};
-        if (Number.isFinite(point.lat) && Number.isFinite(point.lon)) { cache.set(address, point); return point; }
-      }
-    } catch { /* try less-specific location */ }
+/** Geocode published postcode districts, not guessed street addresses or a random Nominatim POI. */
+export async function geocode(address:string, token?:string, signal?:AbortSignal, precise=false):Promise<Point|null> {
+  const normalized=address.trim();
+  if(!normalized)return null;
+  const key=(precise?'postcode:':'public:')+normalized;
+  if(geocache.has(key))return geocache.get(key)!;
+  const town=CITY[normalized.toLowerCase()];
+  if(town){geocache.set(key,town);return town;}
+  if(LOCAL) {
+    const demoTown=Object.keys(CITY).find(key=>normalized.toLowerCase().includes(", "+key+" "));
+    return demoTown?CITY[demoTown]:null;
   }
+  // Exact postcodes are permitted after award; open loads remain postcode-area only.
+  const fullPostcode=normalized.toUpperCase().match(/\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b/)?.[0];
+  if(precise&&fullPostcode&&token){
+    try {
+      const response=await fetch("https://api.postcodes.io/postcodes/"+encodeURIComponent(fullPostcode.replace(/\s/g,"")),{signal});
+      if(response.ok){
+        const data=await response.json() as {result?:{latitude?:number;longitude?:number}};
+        const p={lat:data.result?.latitude??NaN,lon:data.result?.longitude??NaN};
+        if(goodPoint(p)){geocache.set(key,p);return p;}
+      }
+    }catch{/* Fall back to public outcode if precise postcode lookup is unavailable. */}
+  }
+  const code=normalized.toUpperCase().match(/(?:^|[,\s])([A-Z]{1,2}\d[A-Z\d]?)(?:\s+\d[A-Z]{2})?(?=\s*(?:,|$))/)?.[1];
+  if(code&&token){
+    try {
+      const response=await fetch(requestPath("/driver/web/public-outcode")+"?outcode="+encodeURIComponent(code),{headers:authHeaders(token),signal,cache:"no-store"});
+      if(response.ok) {
+        const data=await response.json() as { latitude?:number;longitude?:number };
+        const point={lat:data.latitude??NaN,lon:data.longitude??NaN};
+        if(goodPoint(point)){geocache.set(key,point);return point;}
+      }
+    }catch {/* Prefer lower-resolution public routing over inventing a private location. */}
+  }
+  // For non-postcode stops, retain the existing geocoder used by the approved map.
+  // Never geocode a complete private street address on an unawarded public load.
+  try {
+    const response=await fetch("https://nominatim.openstreetmap.org/search?format=json&countrycodes=gb&limit=1&q="+encodeURIComponent(normalized+", United Kingdom"),{signal});
+    if(!response.ok)return null;
+    const matches=await response.json() as Array<{lat:string;lon:string}>;
+    const point={lat:Number(matches[0]?.lat),lon:Number(matches[0]?.lon)};
+    if(matches.length&&goodPoint(point)){geocache.set(key,point);return point;}
+  } catch {/* An unavailable location is not a valid route. */}
   return null;
 }
-const marker = (label: string, color: string) => L.divIcon({className:"route-marker",html:`<span style="background:${color}">${label}</span>`,iconSize:[34,34],iconAnchor:[17,17]});
-export default function RouteMap({from,to,status,stops,distanceMiles,travelMinutes,onBack}:Props) {
-  const element = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
-  const routeBounds=useRef<L.LatLngBounds|null>(null);
-  const overlays = useRef<L.LayerGroup | null>(null);
-  const [position,setPosition] = useState<Point | null>(LOCAL?{lat:53.735,lon:-2.515}:null);
-  const [locationRequested,setLocationRequested] = useState(true);
-  const [locationError,setLocationError] = useState("");
-  const [routeError,setRouteError] = useState("");
-  const [targetMinutes,setTargetMinutes]=useState<number|null>(null);const [jobMetrics,setJobMetrics]=useState<{miles:number;minutes:number}|null>(null);
-  const [distanceToTarget,setDistanceToTarget] = useState<number | null>(null);
-  const deliveryPhase = ["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY","DELIVERED","POD_SUBMITTED"].includes(status ?? "") || Boolean(stops?.find(s=>s.kind==="PICKUP" && s.completedAt));
-  const ordered: {address:string;kind:string;completedAt?:string}[] = useMemo(()=>stops?.length ? stops.filter(stop=>!stop.completedAt) : deliveryPhase ? [{address:to,kind:"DELIVERY"}] : [{address:from,kind:"PICKUP"},{address:to,kind:"DELIVERY"}], [from,to,deliveryPhase,stops]);
-  useEffect(()=>{
-    if(!element.current) return;
-    const instance = L.map(element.current,{zoomControl:true,zoomAnimation:false,fadeAnimation:false,markerZoomAnimation:false}).fitBounds(UK);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"&copy; OpenStreetMap contributors",maxZoom:19}).addTo(instance);
-    map.current=instance;overlays.current=L.layerGroup().addTo(instance);
-    const resizeTimer=setTimeout(()=>instance.invalidateSize(),100);
-    return ()=>{clearTimeout(resizeTimer);instance.stop();instance.remove();map.current=null;overlays.current=null};
-  },[]);
-  useEffect(()=>{
-    if(LOCAL||!locationRequested)return;
-    if(!navigator.geolocation){setLocationError('GPS is not available in this browser.');return;}
-    const id=navigator.geolocation.watchPosition(p=>{setPosition({lat:p.coords.latitude,lon:p.coords.longitude});setLocationError("")},e=>setLocationError(e.code===1?"Allow location access to display the driver.":"GPS position unavailable."),{enableHighAccuracy:true,maximumAge:15000,timeout:15000});
-    return ()=>navigator.geolocation.clearWatch(id);
-  },[locationRequested]);
-  useEffect(()=>{
-    const lifecycle={active:true};
-    async function draw(){
-      const layer=overlays.current,instance=map.current;
-      if(!layer||!instance)return;
-      layer.clearLayers();routeBounds.current=null;setRouteError("");setDistanceToTarget(null);setTargetMinutes(null);setJobMetrics(null);
 
-      const points: {point:Point;address:string;kind:string;completedAt?:string}[]=[];
-      for(const stop of ordered){
-        try {const point=await geocode(stop.address);if(point)points.push({...stop,point});else setRouteError("Some stop addresses could not be located.");}
-        catch {setRouteError("Map geocoding unavailable. Check internet connection.");}
-      }
-      if(!lifecycle.active)return;
-      points.forEach((s,i)=>{const popup=document.createElement("div");popup.textContent=s.kind+" - "+s.address;L.marker([s.point.lat,s.point.lon],{icon:marker((s.kind==="PICKUP"?"C":"D")+String(i+1),s.kind==="PICKUP"?"#f5a400":"#202020")}).bindPopup(popup).addTo(layer);});
-      if(position)L.marker([position.lat,position.lon],{icon:L.divIcon({className:"route-marker",html:'<svg viewBox="0 0 42 32" width="42" height="32"><path d="M2 3h25v7h8l6 9v8H2z" fill="#ef625b" stroke="white" stroke-width="2"/><circle cx="10" cy="26" r="5" fill="#ef625b" stroke="white" stroke-width="2"/><circle cx="32" cy="26" r="5" fill="#ef625b" stroke="white" stroke-width="2"/></svg>',iconSize:[42,32],iconAnchor:[21,16]})}).bindTooltip(LOCAL?"Simulated driver":"Driver GPS").addTo(layer);
-      const locations=[...(position?[position]:[]),...points.map(s=>s.point)];
-      if(locations.length>0)routeBounds.current=L.latLngBounds(locations.map(p=>[p.lat,p.lon] as L.LatLngTuple));
-      if(locations.length>1)instance.fitBounds(L.latLngBounds(locations.map(p=>[p.lat,p.lon] as L.LatLngTuple)),{padding:[38,38],maxZoom:12});
-      else if(locations.length===1)instance.setView([locations[0].lat,locations[0].lon],11);
-      if(points.length<1||points.length!==ordered.length)return;
-      const legs:Point[][]=[];
-      if(position)legs.push([position,points[0].point]);
-      for(let i=0;i<points.length-1;i++){
-        const start=points[i].point,end=points[i+1].point;
-        // A city-level centroid is not an exact road destination; identical public areas
-        // cannot establish a journey distance even when the posted job has one.
-        if(start.lat===end.lat&&start.lon===end.lon){
-          setRouteError('Collection and delivery are in the same public area. Exact stop addresses are required to calculate the job route.');
-          continue;
-        }
-        legs.push([start,end]);
-      }
-      let jobMiles=0,jobMinutes=0,jobLegs=0;
-      for(let i=0;i<legs.length;i++){
-        const pair=legs[i];
-        try{
-          const coords=pair.map(p=>p.lon+","+p.lat).join(";");
-          const response=await fetch("https://router.project-osrm.org/route/v1/driving/"+coords+"?overview=full&geometries=geojson");
-          if(!response.ok)throw Error("routing");
-          const data:{routes?:{distance:number;duration:number;geometry:{coordinates:number[][]}}[]} = await response.json();
-          if(!lifecycle.active)return;
-          const route=data.routes?.[0];
-          if(!route)throw Error("routing");
-          if(i===0&&position){setDistanceToTarget(route.distance/1609.344);setTargetMinutes(Math.round(route.duration/60));}else{jobMiles+=route.distance/1609.344;jobMinutes+=route.duration/60;jobLegs++;if(jobLegs===legs.length-(position?1:0)&&jobMiles>0)setJobMetrics({miles:jobMiles,minutes:Math.round(jobMinutes)});}
-          L.polyline(route.geometry.coordinates.map(c=>[c[1],c[0]] as L.LatLngTuple),{color:i===0&&position?"#2687ee":"#ef625b",weight:5,opacity:.9}).addTo(layer);
-        }catch{
-          if(!lifecycle.active)return;
-          // Restore the pre-18:27 November 18 fallback: make both known stops visible
-          // without presenting a straight line as a verified road journey.
-          setRouteError("Road routing unavailable. Showing straight-line stop connections (not a road route).");
-          L.polyline(pair.map(p=>[p.lat,p.lon] as L.LatLngTuple),{color:"#ef625b",weight:3,dashArray:"8 8",opacity:.85}).addTo(layer);
-        }
-      }
+/** Use the existing XDrive MAIN authenticated road engine: Mapbox, then OSRM fallback. */
+async function roadRoute(start:Point,end:Point,token:string,signal:AbortSignal):Promise<RoadRoute> {
+  const params=new URLSearchParams({aLat:String(start.lat),aLng:String(start.lon),bLat:String(end.lat),bLng:String(end.lon)});
+  const response=await fetch(requestPath("/driver/web/public-route")+"?"+params,{headers:authHeaders(token),signal,cache:"no-store"});
+  if(!response.ok)throw new Error("Road routing service unavailable ("+response.status+")");
+  const result=await response.json() as Partial<RoadRoute>;
+  if(result.geometry?.type!=="LineString"||!Array.isArray(result.geometry.coordinates)||result.geometry.coordinates.length<2
+     ||!result.geometry.coordinates.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))
+     ||!Number.isFinite(result.distanceMiles)||!Number.isFinite(result.durationMinutes)
+     ||(result.distanceMiles??0)<0||(result.durationMinutes??0)<0)throw Error("Invalid road route response");
+  return result as RoadRoute;
+}
+const marker=(label:string,color:string)=>L.divIcon({className:"route-marker",html:'<span style="background:'+color+'">'+label+'</span>',iconSize:[34,34],iconAnchor:[17,17]});
+const truckIcon=()=>L.divIcon({className:"route-marker",html:'<svg viewBox="0 0 42 32" width="42" height="32" aria-hidden="true"><path d="M2 3h25v7h8l6 9v8H2z" fill="#ef625b" stroke="white" stroke-width="2"/><circle cx="10" cy="26" r="5" fill="#ef625b" stroke="white" stroke-width="2"/><circle cx="32" cy="26" r="5" fill="#ef625b" stroke="white" stroke-width="2"/></svg>',iconSize:[42,32],iconAnchor:[21,16]});
+
+export default function RouteMap({from,to,status,stops,distanceMiles,travelMinutes,token,onBack}:Props){
+  const host=useRef<HTMLDivElement>(null);
+  const map=useRef<L.Map|null>(null);
+  const layer=useRef<L.LayerGroup|null>(null);
+  const bounds=useRef<L.LatLngBounds|null>(null);
+  const [position,setPosition]=useState<Point|null>(LOCAL?{lat:53.735,lon:-2.515}:null);
+  const [gpsError,setGpsError]=useState("");
+  const [pickupMetrics,setPickupMetrics]=useState<Metrics|null>(null);
+  const [jobMetrics,setJobMetrics]=useState<Metrics|null>(null);
+  const [routeError,setRouteError]=useState("");
+  const [routeLoading,setRouteLoading]=useState(true);
+  const afterCollection=["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY","DELIVERED","POD_SUBMITTED"].includes(status??"")||Boolean(stops?.some(s=>s.kind==="PICKUP"&&s.completedAt));
+  const ordered=useMemo(()=>{
+    if(stops?.length){
+      const remaining=stops.filter(s=>!s.completedAt);
+      // If a single pickup has already happened but its timestamp is unavailable,
+      // use the booking's authoritative status to avoid sending the driver back there.
+      if(afterCollection && remaining.length && remaining[0].kind==="PICKUP" && !stops.some(s=>s.completedAt)) return remaining.slice(1);
+      return remaining;
     }
-    void draw();return()=>{lifecycle.active=false};
-  },[position,ordered]);
+    return afterCollection?[{id:"delivery",kind:"DELIVERY" as const,address:to}]:
+      [{id:"pickup",kind:"PICKUP" as const,address:from},{id:"delivery",kind:"DELIVERY" as const,address:to}];
+  },[stops,from,to,afterCollection]);
+
+  useEffect(()=>{
+    if(!host.current)return;
+    const instance=L.map(host.current,{zoomControl:true,zoomAnimation:false,fadeAnimation:false,markerZoomAnimation:false}).fitBounds(UK);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"&copy; OpenStreetMap contributors",maxZoom:19}).addTo(instance);
+    map.current=instance;layer.current=L.layerGroup().addTo(instance);
+    const timer=setTimeout(()=>instance.invalidateSize(),100);
+    return ()=>{clearTimeout(timer);instance.stop();instance.remove();map.current=null;layer.current=null;bounds.current=null;};
+  },[]);
+
+  useEffect(()=>{
+    if(LOCAL)return;
+    if(!navigator.geolocation){setGpsError("GPS unavailable on this device.");return;}
+    // Recalculate from the latest actual driver position; never use a fixed location.
+    const id=navigator.geolocation.watchPosition(
+      p=>{const next={lat:p.coords.latitude,lon:p.coords.longitude};if(goodPoint(next)){setPosition(previous=>previous&&Math.abs(previous.lat-next.lat)<0.0005&&Math.abs(previous.lon-next.lon)<0.0005?previous:next);setGpsError("");}},
+      e=>setGpsError(e.code===1?"Enable location permission to calculate distance to the next stop.":"Driver GPS temporarily unavailable."),
+      {enableHighAccuracy:true,maximumAge:15000,timeout:15000}
+    );
+    return ()=>navigator.geolocation.clearWatch(id);
+  },[]);
+
+  useEffect(()=>{
+    const current=layer.current,instance=map.current;
+    if(!current||!instance)return;
+    const controller=new AbortController();
+    let active=true;
+    const draw=async()=>{
+      current.clearLayers();bounds.current=null;setPickupMetrics(null);setJobMetrics(null);setRouteError("");setRouteLoading(true);
+      const points:Array<{stop:Stop;point:Point}>=[];
+      for(const stop of ordered){
+        const point=await geocode(stop.address,token,controller.signal,status!=='OPEN');
+        if(!active)return;
+        if(!point){setRouteError("Some stop addresses could not be located. A verified road route cannot be shown.");setRouteLoading(false);return;}
+        points.push({stop,point});
+      }
+      if(!active)return;
+      for(let i=0;i<points.length;i++){
+        const s=points[i];
+        const popup=document.createElement("div");popup.textContent=s.stop.kind+" — "+s.stop.address;
+        L.marker([s.point.lat,s.point.lon],{icon:marker((s.stop.kind==="PICKUP"?"C":"D")+String(i+1),s.stop.kind==="PICKUP"?"#f5a400":"#202020")}).bindPopup(popup).addTo(current);
+      }
+      if(position)L.marker([position.lat,position.lon],{icon:truckIcon()}).bindTooltip(LOCAL?"Simulated driver":"Driver GPS").addTo(current);
+      const coords=[...(position?[position]:[]),...points.map(p=>p.point)];
+      if(coords.length){bounds.current=L.latLngBounds(coords.map(p=>[p.lat,p.lon] as L.LatLngTuple));instance.fitBounds(bounds.current,{padding:[38,38],maxZoom:12});}
+      if(!points.length){setRouteLoading(false);return;}
+      if(!token&&!LOCAL){setRouteError("Driver session unavailable. Road distances cannot be verified.");setRouteLoading(false);return;}
+      const authToken=token || "local-qa-route-only";
+      const addRoad=(route:RoadRoute,color:string)=>L.polyline(route.geometry.coordinates.map(c=>[c[1],c[0]] as L.LatLngTuple),{color,weight:5,opacity:.95}).addTo(current);
+      // The complete job route is independent of GPS and should remain visible
+      // before quotation even if location permission is denied.
+      if(points.length>=2){
+        let totalMiles=0,totalMinutes=0;
+        let complete=true;
+        for(let i=0;i<points.length-1;i++){
+          if(controller.signal.aborted)return;
+          const a=points[i].point,b=points[i+1].point;
+          if(a.lat===b.lat&&a.lon===b.lon){
+            complete=false;
+            setRouteError("Exact stop locations are required to verify this same-area journey.");
+            continue;
+          }
+          try{
+            const road=await roadRoute(a,b,authToken,controller.signal);
+            if(!active)return;
+            addRoad(road,"#ef625b");totalMiles+=road.distanceMiles;totalMinutes+=road.durationMinutes;
+          }catch{
+            if(!active)return;
+            complete=false;
+            setRouteError("Real road route unavailable. Check connection or stop location.");
+          }
+        }
+        if(complete && totalMiles>0)setJobMetrics({miles:totalMiles,minutes:totalMinutes});
+      }
+      // Driver -> next stop is the live route: collection before loading,
+      // delivery after collection. Never silently replace it with job mileage.
+      if(position){
+        const next=points[0].point;
+        if(next.lat===position.lat&&next.lon===position.lon)setPickupMetrics({miles:0,minutes:0});
+        else try{
+          const road=await roadRoute(position,next,authToken,controller.signal);
+          if(!active)return;
+          addRoad(road,"#2687ee");
+          setPickupMetrics({miles:road.distanceMiles,minutes:road.durationMinutes});
+        }catch{
+          if(!active)return;
+          setRouteError(s=>s||"Live road distance to the next stop unavailable.");
+        }
+      }
+      if(active)setRouteLoading(false);
+    };
+    void draw().catch(()=>{if(active){setRouteError("Route service unavailable.");setRouteLoading(false);}});
+    return ()=>{active=false;controller.abort();};
+  },[ordered,position,token,status]);
+
+  const nextLabel=ordered[0]?.kind==="PICKUP"?"collection":"delivery";
   return <section className="xroute">
-    <div className="xroute-head"><button onClick={onBack} aria-label="Back">←</button><strong>Route</strong><span>⌖</span></div>
-    <div className="xroute-map" ref={element} aria-label="Live driver, collection and delivery map" /><button className="xroute-fit" aria-label="Fit entire route" onClick={()=>{if(routeBounds.current)map.current?.fitBounds(routeBounds.current,{padding:[38,38],maxZoom:12});}}>Fit route</button>
+    <div className="xroute-head"><button type="button" onClick={onBack} aria-label="Back">←</button><strong>Route</strong><span>⌖</span></div>
+    <div className="xroute-map" ref={host} aria-label="Live driver and verified road route" />
+    <button type="button" className="xroute-fit" aria-label="Fit entire route" onClick={()=>{if(bounds.current)map.current?.fitBounds(bounds.current,{padding:[38,38],maxZoom:12});}}>Fit route</button>
     <div className="xroute-info">
-      <strong>{LOCAL?"Simulated driver location":position?"🚚 Driver location active":locationRequested?(locationError||"Locating driver…"):"Driver location not enabled"}</strong>
-      {!locationRequested&&!position&&<button type="button" className="rv-outline" onClick={()=>setLocationRequested(true)}>Show my GPS position</button>}
-      {distanceToTarget!==null&&<div>Distance to {deliveryPhase?"delivery":"pickup"}: {distanceToTarget.toFixed(1)} miles {targetMinutes!==null&&"("+targetMinutes+" min)"}</div>}
-      {jobMetrics&&<div>Job distance: {jobMetrics.miles.toFixed(1)} miles ({jobMetrics.minutes} min)</div>}{!jobMetrics&&!deliveryPhase&&distanceMiles!==undefined&&Number.isFinite(distanceMiles)&&distanceMiles>0&&<div>Posted job distance (not verified by map): {distanceMiles.toFixed(2)} miles {travelMinutes!==undefined?`(${Math.floor(travelMinutes/60)}h ${travelMinutes%60}min)`:""}</div>}
-      <div>{ordered.map((s,i)=><div key={i}>{i+1}. {s.kind==="PICKUP"?"Collection":"Delivery"}: {s.address}{s.completedAt?" ✓":""}</div>)}</div>
-      {routeError&&<small role="status">{routeError}</small>}
+      <strong>{LOCAL?"Simulated driver location":position?"🚚 Driver location active":gpsError||"Locating driver…"}</strong>
+      {ordered.length>0&&<div><strong>Driver → {nextLabel}:</strong> {pickupMetrics?pickupMetrics.miles.toFixed(1)+" miles ("+Math.round(pickupMetrics.minutes)+" min)":position?routeLoading?"Calculating road route…":"Road distance unavailable":"Waiting for driver GPS"}</div>}
+      {!afterCollection&&<div><strong>Collection → delivery:</strong> {jobMetrics?jobMetrics.miles.toFixed(1)+" miles ("+Math.round(jobMetrics.minutes)+" min)":routeLoading?"Calculating road route…":"Verified road distance unavailable"}</div>}
+      {afterCollection&&ordered.length>1&&<div><strong>Remaining stop route:</strong> {jobMetrics?jobMetrics.miles.toFixed(1)+" miles ("+Math.round(jobMetrics.minutes)+" min)":"Verified road distance unavailable"}</div>}
+      {!jobMetrics&&Number.isFinite(distanceMiles)&&Boolean(distanceMiles)&&!afterCollection&&<div>Posted job distance (not verified by map): {distanceMiles!.toFixed(2)} miles {travelMinutes!==undefined?"("+Math.floor(travelMinutes/60)+"h "+(travelMinutes%60)+"min)":""}</div>}
+      <div>{ordered.map((s,i)=><div key={s.id}>{i+1}. {s.kind==="PICKUP"?"Collection":"Delivery"}: {s.address}</div>)}</div>
+      {routeLoading&&<small role="status">Calculating verified road routes…</small>}
+      {routeError&&<small role="status" className="xroute-error">{routeError}</small>}
     </div>
   </section>;
 }

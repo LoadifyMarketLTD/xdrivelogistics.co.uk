@@ -8,7 +8,7 @@ export default function BookingDistance({job}:{job:LiveJob}){
  const [failed,setFailed]=useState(false);const [retry,setRetry]=useState(0);
  useEffect(()=>{let active=true;const c=new AbortController();setFailed(false);setResult(null);const cached=cache.get(key);if(cached){setResult(cached);return;}
  const timer=setTimeout(()=>c.abort(),20000);
- void (async()=>{try{const points=await Promise.all((JSON.parse(key) as string[]).map(geocode));if(points.length<2||points.some(p=>!p))throw Error('Addresses unavailable');if(!active)return;
+ void (async()=>{try{const points=await Promise.all((JSON.parse(key) as string[]).map(address=>geocode(address)));if(points.length<2||points.some(p=>!p))throw Error('Addresses unavailable');if(!active)return;
  const res=await fetch('https://router.project-osrm.org/route/v1/driving/'+points.map(p=>p!.lon+','+p!.lat).join(';')+'?overview=false',{signal:c.signal});if(!res.ok)throw Error('Routing unavailable');
  const r=(await res.json()).routes?.[0];if(!r||!Number.isFinite(r.distance)||!Number.isFinite(r.duration))throw Error('Invalid route');const value={miles:r.distance/1609.344,minutes:Math.round(r.duration/60)};cache.set(key,value);if(active)setResult(value);
  }catch{if(active)setFailed(true);}finally{clearTimeout(timer);}})();return()=>{active=false;clearTimeout(timer);c.abort();};},[key,retry]);
