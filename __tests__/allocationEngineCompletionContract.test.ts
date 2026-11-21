@@ -12,7 +12,7 @@ describe('canonical Allocation engine completion',()=>{
   const directResources=read('app/api/jobs/direct-booking-resources/route.ts');
   const create=read('app/api/jobs/create/route.ts');
   const allocationRpc=read('supabase/migrations/20260927110000_fleet_manager_persisted_role_foundation.sql');
-  const idempotentAllocationRpc=read('supabase/migrations/20261018134000_idempotent_driver_assignment_retries.sql');
+  const idempotentAllocationRpc=read('supabase/migrations/20261018123940_idempotent_driver_assignment_retries.sql');
   const doubleBooking=read('supabase/migrations/20260820104000_fleet_resource_double_booking_guard.sql');
   const acceptance=read('supabase/migrations/20260917214605_driver_explicit_acceptance.sql');
 
