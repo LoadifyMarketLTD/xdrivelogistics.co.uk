@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './ReserveApp.tsx'
+// Universal driver readability is intentionally loaded after the feature styles.
+import './DriverReadability.css'
 import { installQaNetworkGuard } from './qaNetworkGuard.ts'
 
 // The official production PWA supports authorised operations by default.

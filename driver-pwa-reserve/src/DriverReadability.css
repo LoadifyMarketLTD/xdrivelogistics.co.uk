@@ -1,0 +1,141 @@
+/*
+ * XDrive Driver PWA — universal field readability standard.
+ * Applied after component styles, limited to .rv-shell / its screens.
+ * Larger type and contrast for bright daylight, night and stopped-vehicle use.
+ * Never modify logical status colors, original brand header, data or actions.
+ */
+
+/* Universal body and document copy across Loads, Quotes, Bookings, Operations,
+   POD, Finance, search, map and modals. */
+.rv-shell{color:#18324b;font-size:17px;line-height:1.5}
+.rv-shell .rv-main{color:#18324b;font-size:17px;line-height:1.5}
+.rv-shell .rv-main :is(p,li,dt,dd,summary,blockquote){line-height:1.5;overflow-wrap:anywhere}
+.rv-shell .rv-main h1{font-size:clamp(23px,6vw,28px)!important;line-height:1.25}
+.rv-shell .rv-main h2{font-size:clamp(21px,5.2vw,25px)!important;line-height:1.3}
+.rv-shell .rv-main h3{font-size:19px!important;line-height:1.35}
+.rv-shell .rv-main :is(.rv-over,.rv-load-eyebrow,.xdi-eyebrow,.xdi-card-caption){font-size:14px!important;line-height:1.4;letter-spacing:.5px;color:#506579}
+.rv-shell .rv-main :is(.rv-sub,.rv-heading p,.rv-loading-inline,.rv-api-notes,.rv-count,.rv-counter,.rv-label,.rv-warning,.rv-success,.rv-error,.rv-attention){font-size:16px!important;line-height:1.5;color:#3b526b}
+.rv-shell .rv-main :is(.rv-empty,.rv-empty p,.rv-api-notes p){font-size:16px!important;line-height:1.5;color:#455e75}
+.rv-shell .rv-main :is(.rv-booking-instructions,.rv-load-instructions,.rv-job-notes,.rv-load-quote-policy p){font-size:16px!important;line-height:1.55;color:#344e65}
+
+/* Critical collection / delivery route and time information. */
+.rv-shell .rv-main .rv-route .rv-stop b,
+.rv-shell .rv-main .rv-route .rv-stop strong,
+.rv-shell .rv-main .rv-job .rv-route .rv-stop b,
+.rv-shell .rv-main .rv-job .rv-route .rv-stop strong,
+.rv-shell .rv-main .rv-load-detail .rv-route .rv-stop b,
+.rv-shell .rv-main .rv-load-quote .rv-route .rv-stop b,
+.rv-shell .rv-main .rv-history-card .rv-route .rv-stop b{
+  font-size:clamp(20px,5.2vw,24px)!important;
+  line-height:1.3!important;
+  font-weight:850!important;
+  color:#132e47!important;
+  overflow-wrap:anywhere;
+}
+.rv-shell .rv-main .rv-route .rv-stop span,
+.rv-shell .rv-main .rv-job .rv-route .rv-stop span,
+.rv-shell .rv-main .rv-load-detail .rv-route .rv-stop span,
+.rv-shell .rv-main .rv-load-quote .rv-route .rv-stop span,
+.rv-shell .rv-main .rv-history-card .rv-route .rv-stop span{
+  font-size:17px!important;line-height:1.45!important;
+  font-weight:650!important;color:#344e65!important;white-space:normal!important;
+}
+/* Preserve original route-marker geometry, but improve contrast. */
+.rv-shell .rv-main .rv-route .rv-stop{min-width:0}
+.rv-shell .rv-main .rv-stop .rv-stop-time{font-size:19px!important;font-weight:800!important;color:#123550!important}
+.rv-shell .rv-main .rv-stop .rv-stop-date{font-size:16px!important;color:#43596f!important}
+
+/* Load / booking / history list: retain established card identity and actions. */
+.rv-shell .rv-main .rv-jobhead .rv-job-identity>strong{font-size:20px!important;line-height:1.3!important;overflow-wrap:anywhere}
+.rv-shell .rv-main .rv-job-service,
+.rv-shell .rv-main .rv-job-service span,
+.rv-shell .rv-main .rv-job-service b{font-size:17px!important;line-height:1.4!important}
+.rv-shell .rv-main .rv-jobhead .rv-job-identity small,
+.rv-shell .rv-main .rv-job .rv-posted-at,
+.rv-shell .rv-main .rv-load-ref,
+.rv-shell .rv-main .rv-load-posted,
+.rv-shell .rv-main .rv-quote-inline,
+.rv-shell .rv-main .rv-quote-inline strong{font-size:15px!important;line-height:1.45!important;color:#405971!important}
+.rv-shell .rv-main .rv-chip,
+.rv-shell .rv-main .rv-load-status,
+.rv-shell .rv-main .rv-booking-status-pill{font-size:14px!important;font-weight:850!important;line-height:1.3!important}
+.rv-shell .rv-main .rv-chips span,
+.rv-shell .rv-main .rv-job .rv-chips span{font-size:16px!important;line-height:1.4!important;color:#26445d}
+.rv-shell .rv-main .rv-fact,
+.rv-shell .rv-main .rv-job .rv-fact,
+.rv-shell .rv-main .rv-load-detail .rv-fact,
+.rv-shell .rv-main .rv-booking-decision .rv-fact,
+.rv-shell .rv-main .rv-finance .rv-fact{font-size:17px!important;line-height:1.5!important}
+.rv-shell .rv-main .rv-fact span{color:#3a5269!important;min-width:0}
+.rv-shell .rv-main .rv-fact strong{font-size:17px!important;color:#132f48!important;max-width:62%;overflow-wrap:anywhere}
+.rv-shell .rv-main .rv-load-metrics strong{font-size:18px!important}
+.rv-shell .rv-main .rv-load-metrics small{font-size:14px!important;color:#496078}
+.rv-shell .rv-main .rv-load-overview-top p{font-size:17px!important}
+.rv-shell .rv-main .rv-load-detail-panel h2{font-size:20px!important}
+.rv-shell .rv-main .rv-load-detail .rv-load-map-link{font-size:17px!important;min-height:50px}
+.rv-shell .rv-main .rv-load-view-toolbar,
+.rv-shell .rv-main .rv-load-view-toolbar button{font-size:16px!important;line-height:1.4}
+.rv-shell .rv-main .rv-load-rate-tag{font-size:14px!important;white-space:normal}
+.rv-shell .rv-main .rv-load-quote-total{font-size:17px!important}
+.rv-shell .rv-main .rv-load-quote-total strong{font-size:26px!important}
+
+/* Full-width operational buttons and accessible hit areas, including invoice. */
+.rv-shell .rv-main :is(.rv-primary,.rv-outline,.rv-danger,.rv-wide,.rv-map-action,.rv-menuitem,.rv-booking-actions button,.rv-operation-screen button,.rv-finance button,.rv-load-quote-form button,.rv-booking-decision-actions button,.rv-quote-tabs button,.rv-search button){
+  font-size:17px!important;line-height:1.35!important;font-weight:800;
+  min-height:50px;white-space:normal;overflow-wrap:anywhere;
+}
+.rv-shell .rv-main :is(.rv-primary.rv-wide,.rv-booking-decision-actions button,.rv-load-detail-cta button,.rv-load-quote-form>.rv-primary){min-height:56px!important;font-size:18px!important}
+.rv-shell .rv-main .rv-quote-tabs button{min-height:52px!important}
+.rv-shell .rv-main :is(.rv-refresh,.rv-details-back-icon,.rv-small){min-width:44px;min-height:44px}
+.rv-shell .rv-main button:focus-visible,
+.rv-shell .rv-nav button:focus-visible,
+.rv-shell .rv-main :is(input,select,textarea):focus-visible{outline:3px solid #0e3fa9!important;outline-offset:2px}
+.rv-shell .rv-nav button{font-size:16px!important;line-height:1.3!important;min-height:60px;min-width:0;font-weight:850}
+.rv-shell .rv-nav button span{font-size:24px!important}
+
+/* Readable form labels and input values in quote, ETA, POD, signature, history,
+   search and finance. Prevent iOS viewport zoom for inputs. */
+.rv-shell .rv-main :is(.rv-field,.rv-load-form-field,.rv-delivery-field,.rv-collection-group,.rv-booking-history-tools,.rv-finance,.rv-search,.rv-invoice-paper) label,
+.rv-shell .rv-main :is(.rv-field,.rv-load-form-field,.rv-delivery-field) > span{font-size:17px!important;line-height:1.45!important;color:#243f59!important;font-weight:750}
+.rv-shell .rv-main :is(input:not([type=checkbox]):not([type=radio]),select,textarea),
+.rv-shell .rv-main .rv-load-form-field :is(input,select,textarea),
+.rv-shell .rv-main .rv-finance :is(input,select,textarea){
+  font-size:17px!important;line-height:1.4!important;min-height:50px;
+  color:#162f46;max-width:100%;min-width:0;
+}
+.rv-shell .rv-main textarea{min-height:88px}
+.rv-shell .rv-main .rv-load-form-field small{font-size:14px!important;line-height:1.45;color:#4e6377}
+.rv-shell .rv-main .rv-load-money-input input{font-size:24px!important;min-height:54px}
+.rv-shell .rv-main :is(.rv-form-helper,.rv-field small,.rv-help,.rv-hint){font-size:15px!important;line-height:1.5;color:#4a6075}
+
+/* Completion timeline / multistop / POD, with driver-readable statuses. */
+.rv-shell .rv-main .rv-booking-timeline .rv-timeline-step strong,
+.rv-shell .rv-main .rv-booking-timeline .rv-history-step strong,
+.rv-shell .rv-main .rv-operation-screen h3,
+.rv-shell .rv-main .rv-history-card h3{font-size:21px!important;line-height:1.35!important}
+.rv-shell .rv-main :is(.rv-booking-timeline,.rv-booking-audit,.rv-history-facts,.rv-operation-screen,.rv-delivery-page,.rv-collection-group,.rv-booking-full-stops){font-size:17px;line-height:1.5}
+.rv-shell .rv-main :is(.rv-history-facts p,.rv-booking-audit p,.rv-booking-audit li,.rv-delivery-files li){font-size:16px!important;line-height:1.5!important}
+.rv-shell .rv-main .rv-booking-audit small{font-size:15px!important;color:#476078}
+.rv-shell .rv-main :is(.rv-operation-screen,.rv-delivery-page) :is(.rv-field,.rv-delivery-field)>span{font-size:17px!important}
+
+/* Finance, invoice register, POD documents and validation messages. */
+.rv-shell .rv-main .xdi-finance{font-size:17px;line-height:1.5}
+.rv-shell .rv-main .xdi-finance :is(.xdi-eyebrow,.xdi-card-caption,.xdi-count,.xdi-status,.xdi-invoice-meta span){font-size:14px!important;line-height:1.4}
+.rv-shell .rv-main .xdi-finance :is(.xdi-invoice-meta strong,.xdi-finance-header p,.xdi-finance-notice){font-size:17px!important;line-height:1.5}
+.rv-shell .rv-main .xdi-invoice-top h3{font-size:20px!important}
+.rv-shell .rv-main .xdi-amount{font-size:26px!important}
+.rv-shell .rv-main .xdi-download{font-size:17px!important;min-height:54px}
+.rv-shell .rv-main .rv-finance :is(h3,.rv-card h3){font-size:20px!important}
+.rv-shell .rv-main .rv-finance :is(.rv-field>span,.rv-sub){font-size:17px!important}
+
+/* Do not shrink text to fit; on small devices prefer wrapping and scrolling. */
+.rv-shell .rv-main :is(.rv-job,.rv-card,.rv-load-overview,.rv-load-quote-context,.rv-load-detail-panel,.rv-finance,.rv-operation-screen){min-width:0;overflow-wrap:anywhere}
+.rv-shell .rv-main :is(.rv-actions,.rv-two,.rv-booking-decision-actions){min-width:0}
+@media(max-width:359px){
+  .rv-shell .rv-main{padding-left:10px;padding-right:10px}
+  .rv-shell .rv-main .rv-actions button{min-width:0;padding-inline:8px}
+  .rv-shell .rv-main .rv-jobhead{flex-wrap:wrap}
+  .rv-shell .rv-main .rv-jobhead .rv-card-head-actions{margin-left:auto}
+  .rv-shell .rv-main .rv-fact strong{max-width:60%}
+}
+@media(prefers-reduced-motion:reduce){.rv-shell *, .rv-shell *::before,.rv-shell *::after{scroll-behavior:auto!important}}
