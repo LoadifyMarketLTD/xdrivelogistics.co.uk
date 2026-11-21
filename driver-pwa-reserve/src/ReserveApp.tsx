@@ -559,7 +559,7 @@ export default function ReserveApp() {
       if(j.status==='ON_WAY_TO_DELIVERY'){
         setDraft(previous=>({...previous,...detectedDeliveryDateTime()}));
       }
-      setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:step.status}:x));
+      setJobs(rows=>rows.map(x=>x.id===j.id?{...x,status:step.status,backendStatus:step.backend}:x));
     });
   }
   async function prepareDeliveryUpload(file:File):Promise<File> {
@@ -868,6 +868,7 @@ export default function ReserveApp() {
     if(activeStop&&['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)&&session){
       return <ReserveStopExecution key={job.id+':'+activeStop.id} job={job} stop={activeStop} session={session} onSession={setSession}
         onRefresh={async token=>{await fetchJobs(token);}}
+        onParentTransition={()=>void transition(job)} parentBusy={busy}
         onBack={()=>setView('statusHistory')}
         onCancel={()=>openCancellation(job,activeStop,'flow')}/>;
     }

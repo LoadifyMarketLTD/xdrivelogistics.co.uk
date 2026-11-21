@@ -13,6 +13,8 @@ type Props={
   onRefresh:(token:string)=>Promise<void>;
   onBack:()=>void;
   onCancel:()=>void;
+  onParentTransition?:()=>void;
+  parentBusy?:boolean;
 };
 
 type StopDraft = { outcome:string; recipient:string; leftAt:string; items:string; weight:string; packaging:string; deliveredOn:string; notes:string; files:File[]; signature:File|null; signatureImage:string|null };
@@ -42,7 +44,7 @@ function StopSignature({recipient,onSave,initialImage,onImageChange,initialSaved
  const save=async()=>{if(!image)return;try{onSave(signaturePngFile(image));setSaved(true);setError('');}catch{setError('Signature could not be prepared. Try again.');onSave(null);}};
  return <div className="rv-delivery-field"><span>Recipient signature *</span><button type="button" className="rv-primary rv-wide" onClick={()=>setOpen(true)}>{image?'Edit Signature':'Add Signature'}</button>{open&&<div className="rv-signature-modal" role="dialog" aria-modal="true" aria-label="Recipient signature"><h2>Recipient signature</h2><p>{recipient}</p><SignaturePad value={image} onChange={change}/><button type="button" className="rv-primary rv-wide" disabled={!image} onClick={()=>setOpen(false)}>Done</button><button type="button" className="rv-outline rv-wide" onClick={()=>setOpen(false)}>Close</button></div>}<button type="button" className={'rv-signature-save'+(saved?' rv-signature-saved':'')} disabled={!image||saved} onClick={()=>void save()}>{saved?'Signature Saved':'Save Signature'}</button>{saved&&<p role="status" className="rv-signature-confirm">Signature prepared. It will be uploaded with stop evidence when you complete the stop.</p>}{error&&<p role="alert">{error}</p>}</div>;
 }
-export default function ReserveStopExecution({job,stop,session,onSession,onRefresh,onBack,onCancel,localTransition}:Props){
+export default function ReserveStopExecution({job,stop,session,onSession,onRefresh,onBack,onCancel,localTransition,onParentTransition,parentBusy=false}:Props){
   const draftKey=stopDraftKey(job.id,stop.id);
   const restored=stopDrafts.get(draftKey);
   const [busy,setBusy]=useState(false);
@@ -61,6 +63,10 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
   const [signatureImage,setSignatureImage]=useState<string|null>(restored?.signatureImage??null);
   useEffect(()=>{stopDrafts.set(draftKey,{outcome,recipient,leftAt,items,weight,packaging,deliveredOn,notes,files,signature,signatureImage});},[draftKey,outcome,recipient,leftAt,items,weight,packaging,deliveredOn,notes,files,signature,signatureImage]);
   const returnStop=stop.handover?.stopKind==='return';
+  const isFinalTestDelivery=job.isTest===true&&stop.type==='delivery'&&job.routeStops?.at(-1)?.id===stop.id;
+  const parentStatus=String(job.backendStatus||'').toLowerCase();
+  const parentRequired=isFinalTestDelivery&&parentStatus!=='on_site_delivery';
+  const parentLabel=parentStatus==='loaded'?'On My Way to Final Delivery':parentStatus==='in_transit'?'On Site (Final Delivery)':null;
   const title=returnStop?'Return Stop':`${stop.type==='collection'?'Collection':'Delivery'} Stop ${stop.sequence}`;
 
   const upload=async(current:LiveSession,file:File,category:'photos'|'damage'|'documents'|'signature')=>{
@@ -97,6 +103,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
   });
 
   const completeWork=async(current:LiveSession|null)=>{
+    if(parentRequired)throw new Error('Confirm the parent booking journey stage before final POD.');
     const itemCount=Number(items);const weightKg=weight.trim()===''?null:Number(weight);
     if(!Number.isInteger(itemCount)||itemCount<(stop.type==='delivery'?1:0))throw new Error('Enter a valid item count.');
     if(weightKg!==null&&(!Number.isFinite(weightKg)||weightKg<0))throw new Error('Enter a valid weight.');
@@ -164,9 +171,10 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
         <label className="rv-field"><span>Evidence</span><input type="file" accept="image/jpeg,image/png,application/pdf" multiple onChange={e=>{setFiles(Array.from(e.currentTarget.files||[]).slice(0,20));e.currentTarget.value='';}}/></label>
         {files.length>0&&<ul className="rv-delivery-files">{files.map((file,index)=><li key={file.name+'-'+index}><span>{file.name}</span><button type="button" disabled={busy} onClick={()=>setFiles(previous=>previous.filter((_,i)=>i!==index))}>Remove</button></li>)}</ul>}
         <label className="rv-field"><span>Driver Notes {stop.type==='delivery'&&outcome!=='Completed Delivery'?'*':''}</span><textarea rows={3} value={notes} onChange={e=>setNotes(e.target.value)} maxLength={2000}/></label>
+        {parentRequired&&<section className="rv-card" role="status"><p>Confirm the final booking journey stage before completing this stop.</p>{parentLabel&&onParentTransition?<button type="button" className="rv-primary rv-wide" disabled={busy||parentBusy} onClick={onParentTransition}>{parentBusy?'Saving status...':parentLabel}</button>:<p className="rv-warning">Refresh booking status before final delivery.</p>}</section>}
         {stop.type==='delivery'&&outcome!=='Completed Delivery'
           ?<button className="rv-primary rv-wide" disabled={busy} onClick={()=>reportException()}>{busy?'Saving…':'Report Delivery Exception'}</button>
-          :<button className="rv-primary rv-wide" disabled={busy} onClick={()=>complete()}>{busy?'Saving…':returnStop?'Complete Return / Proof of Return':'Complete Stop'}</button>}
+          :<button className="rv-primary rv-wide" disabled={busy||parentBusy||parentRequired} onClick={()=>complete()}>{busy?'Saving…':returnStop?'Complete Return / Proof of Return':'Complete Stop'}</button>}
       </>}
       <button className="rv-outline rv-wide" disabled={busy} onClick={onCancel}>Record Stop / Job Cancellation</button>
     </section>}
