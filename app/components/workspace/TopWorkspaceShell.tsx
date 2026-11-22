@@ -248,6 +248,7 @@ export function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
   ], 'customer-more', 'More', [
     '/customer/network',
     '/customer/bulk-import',
+    '/customer/post-load',
     '/customer/deliveries',
     '/customer/documents',
     '/customer/updates',
@@ -256,6 +257,8 @@ export function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/customer/event-log',
     '/customer/invoices',
     '/customer/team',
+    '/customer/notifications',
+    '/customer/support',
   ]);
 }
 
@@ -428,6 +431,7 @@ const CUSTOMER_MORE_ICONS = {
 
 const CUSTOMER_MORE_SECTIONS: Record<string, string> = {
   '/customer/bulk-import': 'Loads',
+  '/customer/post-load': 'Loads',
   '/customer/deliveries': 'Operations',
   '/customer/documents': 'Operations',
   '/customer/updates': 'Operations',
@@ -436,6 +440,8 @@ const CUSTOMER_MORE_SECTIONS: Record<string, string> = {
   '/customer/event-log': 'Collaboration',
   '/customer/invoices': 'Finance',
   '/customer/team': 'Administration',
+  '/customer/notifications': 'Account & Support',
+  '/customer/support': 'Account & Support',
 };
 function CustomerMoreIcon({ item }: { item: WorkspaceNavItem }) {
   const Icon = CUSTOMER_MORE_ICONS[item.href as keyof typeof CUSTOMER_MORE_ICONS];
@@ -552,6 +558,7 @@ export function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
     ] },
     { id: 'customer-loads', label: 'My Loads', items: [
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: 'LOAD' },
+      { id: 'customer-post-load', label: 'Post Load', href: '/customer/post-load', icon: 'LOAD' },
       { id: 'customer-bulk-import', label: 'Bulk Import', href: '/customer/bulk-import', icon: 'IMPORT' },
     ] },
     { id: 'customer-quotes', label: 'Quotes', items: [
@@ -577,6 +584,8 @@ export function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
     { id: 'customer-administration', label: 'Administration', items: [
       { id: 'customer-team', label: 'Team', href: '/customer/team', icon: 'TEAM' },
       { id: 'customer-settings', label: 'Settings', href: '/customer/settings', icon: 'SET' },
+      { id: 'customer-notifications', label: 'Notifications', href: '/customer/notifications', icon: 'NEW' },
+      { id: 'customer-support', label: 'Support', href: '/customer/support', icon: '!' },
     ] },
   ];
 }
