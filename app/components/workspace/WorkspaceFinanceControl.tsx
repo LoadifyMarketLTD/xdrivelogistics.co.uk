@@ -259,7 +259,20 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
         <section className={styles.panel}>
           <div className={styles.panelHeader}><div><div className={styles.panelKicker}>{view === 'statements' ? 'Statements' : 'Aging'}</div><h2 className={styles.panelTitle}>{view === 'statements' ? 'Finance statement' : 'Aging analysis'}</h2></div></div>
           <div className={styles.flow}>
-            {(Object.keys(AGING_BUCKET_LABELS) as AgingBucket[]).map((bucket) => <div className={styles.flowRow} key={bucket}><span className={styles.dot} /><div><div className={styles.flowLabel}>{AGING_BUCKET_LABELS[bucket]}</div><div className={styles.flowSub}>{showReceivables ? 'Receivable / payable exposure' : 'Payable exposure'}</div></div><strong className={styles.flowValue}>{showReceivables ? money(summary?.receivableAging?.[bucket] ?? 0) : money(summary?.payableAging?.[bucket] ?? 0)}</strong></div>)}
+            {(Object.keys(AGING_BUCKET_LABELS) as AgingBucket[]).map((bucket) => (
+              <div className={styles.flowRow} key={bucket}>
+                <span className={styles.dot} />
+                <div>
+                  <div className={styles.flowLabel}>{AGING_BUCKET_LABELS[bucket]}</div>
+                  {showReceivables && (
+                    <div className={styles.flowSub}>Receivable: {money(summary?.receivableAging?.[bucket] ?? 0)}</div>
+                  )}
+                  {role !== 'carrier' && (
+                    <div className={styles.flowSub}>Payable: {money(summary?.payableAging?.[bucket] ?? 0)}</div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}
