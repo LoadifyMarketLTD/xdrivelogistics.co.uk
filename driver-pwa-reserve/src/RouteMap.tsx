@@ -5,7 +5,9 @@ import "./NativeRoutePwa.css";
 
 type Stop = { id: string; kind: "PICKUP" | "DELIVERY"; address: string; completedAt?: string };
 type Point = { lat: number; lon: number };
-type Props = { from: string; to: string; status?: string; stops?: Stop[]; distanceMiles?: number; travelMinutes?: number; token?: string; onBack: () => void };
+type Props = { from: string; to: string; status?: string; stops?: Stop[]; distanceMiles?: number; travelMinutes?: number; token?: string; bookingJobId?: string; onBack: () => void };
+type RecordedPosition = { lat: number; lng: number; recorded_at: string };
+type BookingRouteData = { pickup: Point|null; delivery: Point|null; gps_trail: RecordedPosition[]; truncated: boolean };
 type Metrics = { miles: number; minutes: number };
 type RoadRoute = { geometry: { type: "LineString"; coordinates: number[][] }; distanceMiles: number; durationMinutes: number };
 
@@ -119,7 +121,7 @@ const marker=(label:string,color:string)=>L.divIcon({
 // Keep the marker labels and colors consistent with the recovered APK.
 const truckIcon=()=>marker("V","#ef5350");
 
-export default function RouteMap({from,to,status,stops,distanceMiles,travelMinutes,token,onBack}:Props){
+export default function RouteMap({from,to,status,stops,distanceMiles,travelMinutes,token,bookingJobId,onBack}:Props){
   const host=useRef<HTMLDivElement>(null);
   const map=useRef<L.Map|null>(null);
   const layer=useRef<L.LayerGroup|null>(null);
@@ -130,6 +132,8 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
   const [jobMetrics,setJobMetrics]=useState<Metrics|null>(null);
   const [routeError,setRouteError]=useState("");
   const [routeLoading,setRouteLoading]=useState(true);
+  const [bookingData,setBookingData]=useState<BookingRouteData|null>(null);
+  const [bookingError,setBookingError]=useState('');
   const afterCollection=["LOADED","ON_WAY_TO_DELIVERY","ON_SITE_DELIVERY","DELIVERED","POD_SUBMITTED"].includes(status??"")||Boolean(stops?.some(s=>s.kind==="PICKUP"&&s.completedAt));
   const ordered=useMemo(()=>{
     if(stops?.length){
@@ -151,6 +155,30 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
     const timer=setTimeout(()=>instance.invalidateSize(),100);
     return ()=>{clearTimeout(timer);instance.stop();instance.remove();map.current=null;layer.current=null;bounds.current=null;};
   },[]);
+
+  useEffect(()=>{
+    if(!bookingJobId||!token){setBookingData(null);setBookingError('');return;}
+    let active=true;
+    let pending:AbortController|null=null;
+    const url=requestPath('/driver/web/booking-route')+'?jobId='+encodeURIComponent(bookingJobId);
+    const load=()=>{
+      if(!active)return;
+      pending?.abort();
+      const controller=new AbortController();
+      pending=controller;
+      void fetch(url,{headers:authHeaders(token),signal:controller.signal,cache:'no-store'})
+        .then(async response=>{
+          if(!response.ok)throw Error('Recorded booking route unavailable (HTTP '+response.status+').');
+          return await response.json() as BookingRouteData;
+        }).then(data=>{if(active&&!controller.signal.aborted){setBookingData(data);setBookingError('');}})
+        .catch(()=>{if(active&&!controller.signal.aborted)setBookingError('Booking coordinates or recorded GPS history could not be retrieved.');});
+    };
+    setBookingData(null);setBookingError('');load();
+    const interval=window.setInterval(load,60_000);
+    const onVisible=()=>{if(document.visibilityState==='visible')load();};
+    document.addEventListener('visibilitychange',onVisible);
+    return ()=>{active=false;pending?.abort();window.clearInterval(interval);document.removeEventListener('visibilitychange',onVisible);};
+  },[bookingJobId,token]);
 
   useEffect(()=>{
     if(LOCAL)return;
@@ -177,23 +205,62 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
       // driver truck in Quotes/Bookings. Keep original stop indices.
       for(let index=0;index<ordered.length;index++){
         const stop=ordered[index];
-        const point=await geocode(stop.address,token,controller.signal,status!=='OPEN');
+        const primary=bookingData?.pickup;
+        const finalStop=bookingData?.delivery;
+        const knownPoint=stop.kind==='PICKUP' && primary ? primary
+          : stop.kind==='DELIVERY' && finalStop && stop.id===ordered.at(-1)?.id ? finalStop : null;
+        const point=knownPoint ?? await geocode(stop.address,token,controller.signal,status!=='OPEN');
         if(!active)return;
         if(!point){missingStops++;continue;}
         points.push({stop,point});
         const popup=document.createElement("div");popup.textContent=stop.kind+" — "+stop.address;
-        L.marker([point.lat,point.lon],{icon:marker(("")+String(index+1),"#111827")}).bindPopup(popup).addTo(current);
+        const originalIndex=stops?.findIndex(s=>s.id===stop.id) ?? -1;
+        L.marker([point.lat,point.lon],{icon:marker(String(originalIndex>=0?originalIndex+1:index+1),"#111827")}).bindPopup(popup).addTo(current);
       }
       if(!active)return;
+      // Completed stops remain visible as historical waypoints, but are not
+      // incorrectly treated as the next destination for live navigation.
+      if(bookingData && stops?.length){
+        for(let index=0;index<stops.length;index++){
+          const stop=stops[index];
+          if(!stop.completedAt || points.some(item=>item.stop.id===stop.id))continue;
+          const point=stop.kind==='PICKUP'?bookingData.pickup:
+            index===stops.length-1?bookingData.delivery:null;
+          if(!point)continue;
+          L.marker([point.lat,point.lon],{icon:marker(String(index+1),'#64748b')})
+            .bindTooltip('Completed '+stop.kind.toLowerCase()+': '+stop.address).addTo(current);
+        }
+      }
       if(missingStops)setRouteError(missingStops+" stop location(s) could not be verified. Complete road distance unavailable.");
 
       if(position)L.marker([position.lat,position.lon],{icon:truckIcon()}).bindTooltip(LOCAL?"Simulated driver":"Driver GPS").addTo(current);
-      const coords=[...(position?[position]:[]),...points.map(p=>p.point)];
+      const trail=bookingData?.gps_trail ?? [];
+      const gpsPoints=trail.filter(p=>goodPoint({lat:p.lat,lon:p.lng}));
+      // Historical positions are sampled GPS observations. Avoid drawing
+      // misleading straight connectors across long recording gaps.
+      let segment: L.LatLngTuple[]=[];
+      const recordedLines:L.Polyline[]=[];
+      const flush=()=>{
+        if(segment.length>=2)recordedLines.push(L.polyline(segment,{color:'#7c3aed',weight:5,opacity:1,dashArray:'9 5'}).addTo(current));
+        segment=[];
+      };
+      let previousTime=0;
+      for(const point of gpsPoints){
+        const stamp=Date.parse(point.recorded_at);
+        if(!Number.isFinite(stamp))continue;
+        if(previousTime && (stamp-previousTime)>20*60_000)flush();
+        segment.push([point.lat,point.lng]);previousTime=stamp;
+      }
+      flush();
+      const coords=[...(position?[position]:[]),...points.map(p=>p.point),...gpsPoints.map(p=>({lat:p.lat,lon:p.lng})),
+        ...(bookingData?.pickup?[bookingData.pickup]:[]),...(bookingData?.delivery?[bookingData.delivery]:[])];
       if(coords.length){bounds.current=L.latLngBounds(coords.map(p=>[p.lat,p.lon] as L.LatLngTuple));instance.fitBounds(bounds.current,{padding:[38,38],maxZoom:12});}
-      if(!points.length){setRouteLoading(false);return;}
+      if(!points.length && !(afterCollection && bookingData?.pickup && bookingData?.delivery)){
+        setRouteLoading(false);return;
+      }
       if(!token&&!LOCAL){setRouteError("Driver session unavailable. Road distances cannot be verified.");setRouteLoading(false);return;}
       const authToken=token || "local-qa-route-only";
-      const addRoad=(route:RoadRoute,color:string)=>L.polyline(route.geometry.coordinates.map(c=>[c[1],c[0]] as L.LatLngTuple),{color,weight:5,opacity:.95}).addTo(current);
+      const addRoad=(route:RoadRoute,color:string)=>L.polyline(route.geometry.coordinates.map(c=>[c[1],c[0]] as L.LatLngTuple),{color,weight:color==='#ef5350'?8:4,opacity:.95}).addTo(current);
       // The complete job route is independent of GPS and should remain visible
       // before quotation even if location permission is denied.
       if(missingStops===0&&points.length>=2){
@@ -219,6 +286,16 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
         }
         if(complete && totalMiles>0)setJobMetrics({miles:totalMiles,minutes:totalMinutes});
       }
+      // After collection the remaining-stop list omits pickup. Keep the
+      // original booked collection -> delivery road leg visible separately.
+      if(afterCollection && bookingData?.pickup && bookingData?.delivery && token && (!stops || stops.length===2)){
+        try{
+          const road=await roadRoute(bookingData.pickup,bookingData.delivery,authToken,controller.signal);
+          if(!active)return;
+          addRoad(road,'#ef5350');
+          setJobMetrics({miles:road.distanceMiles,minutes:road.durationMinutes});
+        }catch{if(active)setRouteError(s=>s||'Booked collection-to-delivery road route unavailable.');}
+      }
       // Driver -> next stop is the live route: collection before loading,
       // delivery after collection. Never silently replace it with job mileage.
       if(position&&points.length>0&&points[0].stop.id===ordered[0]?.id){
@@ -234,13 +311,17 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
           setRouteError(s=>s||"Live road distance to the next stop unavailable.");
         }
       }
+      // Real recorded GPS samples must remain visible above overlapping
+      // calculated blue/red road routes, never hidden underneath them.
+      for(const line of recordedLines)line.bringToFront();
       if(active)setRouteLoading(false);
     };
     void draw().catch(()=>{if(active){setRouteError("Route service unavailable.");setRouteLoading(false);}});
     return ()=>{active=false;controller.abort();};
-  },[ordered,position,token,status]);
+  },[ordered,position,token,status,bookingData,afterCollection]);
 
   const nextLabel=ordered[0]?.kind==="PICKUP"?"collection":"delivery";
+  const recordedCount=bookingData?.gps_trail?.length ?? 0;
   const liveDistance=pickupMetrics
     ?pickupMetrics.miles.toFixed(1)+" mi | "+Math.round(pickupMetrics.minutes)+" min"
     :position&&routeLoading?"Calculatingâ€¦":position?"Not available":"Waiting for GPS";
@@ -275,16 +356,21 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
           <strong>{liveDistance}</strong>
         </div>
         <div className="xd-native-route__metric">
-          <span><i aria-hidden="true"/> {afterCollection?"Remaining route":"Collection to delivery"}</span>
+          <span><i aria-hidden="true"/> {afterCollection && stops && stops.length>2?'Remaining deliveries':'Collection to delivery'}</span>
           <strong>{jobDistance}</strong>
         </div>
       </div>
       <ol className="xd-native-route__stops">
-        {ordered.map((stop,index)=><li key={stop.id}>
+        {(stops?.length?stops:ordered).map((stop,index)=><li key={stop.id}>
           <span className="xd-native-route__step">{index+1}</span>
-          <span><strong>{stop.kind==="PICKUP"?"Collection":"Delivery"}:</strong> {stop.address}</span>
+          <span><strong>{stop.kind==="PICKUP"?"Collection":"Delivery"}:</strong> {stop.address}{stop.completedAt?' (completed)':''}</span>
         </li>)}
       </ol>
+      {bookingJobId&&<p className="xd-native-route__loading" role="status">
+        <span style={{color:'#7c3aed',fontWeight:800}}>━━</span> Recorded GPS trail: {recordedCount>=2?recordedCount+' sampled positions':'Not enough recorded GPS points'}
+        {bookingData?.truncated?' (most recent 750 samples)':''}. Historical lines show recorded points, not a verified turn-by-turn journey.
+      </p>}
+      {bookingError&&<p role="status" className="xd-native-route__warning">{bookingError}</p>}
       {routeLoading&&<p role="status" className="xd-native-route__loading">Calculating verified road routes...</p>}
       {routeError&&<p role="status" className="xd-native-route__warning">{routeError}</p>}
       {!routeError&&!routeLoading&&!jobMetrics&&!afterCollection&&Number.isFinite(distanceMiles)&&Boolean(distanceMiles)&&
