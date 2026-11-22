@@ -85,12 +85,12 @@ try{
     await page.getByText('Route',{exact:true}).first().waitFor();
     const toolbar=page.locator('.xroute-head');
     assert.equal(await toolbar.count(),1,'Original Route toolbar is present');
-    assert.equal(await toolbar.evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(245, 163, 0)','Native Route header orange');
-    await page.getByRole('button',{name:'Back to job'}).click();
+    assert.equal(await toolbar.evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(23, 43, 69)','Original PWA Route toolbar restored without Pixel overlay');
+    await page.getByRole('button',{name:'Back',exact:true}).click();
     await page.getByText('Collection & delivery').waitFor();
     assert.deepEqual(writes,[],'No writes or commercial actions are allowed in UI smoke test');
     assert.deepEqual(errors,[]);
-    console.log('ORIGINAL_ROUTE_MORE_PWA_PASS width='+width+' 9 More cards, 5 data views, amber Route, map/back, no writes or overflow');
+    console.log('ORIGINAL_ROUTE_MORE_PWA_PASS width='+width+' 9 More cards, 5 data views, PWA Route restored, map/back, no writes or overflow');
     await ctx.close();
   }
 }finally{await browser?.close();await new Promise(done=>server.close(done));}
