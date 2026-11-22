@@ -84,6 +84,14 @@ type MarketplaceQuoteLoad = {
   distance_minutes: number | null;
   distance_to_pickup_miles: number | null;
   pickup_eta_minutes: number | null;
+  weight_kg?: number | null;
+  pallets?: number | null;
+  packaging?: string | null;
+  length_cm?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  payment_terms?: string | null;
+  public_quote_notes?: string | null;
   member: {
     companyId: string;
     name: string;
@@ -116,6 +124,7 @@ type QuoteView = {
   pickupEtaMinutes: number | null;
   jobDistanceMiles: number | null;
   jobDistanceMinutes: number | null;
+  freightDetails?: { weightKg: number | null; pallets: number | null; packaging: string | null; lengthCm: number | null; widthCm: number | null; heightCm: number | null; paymentTerms: string | null; publicNotes: string | null };
 };
 
 type FilterState = { pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; bookedBy: string };
@@ -379,6 +388,7 @@ export default function MyQuotesPage() {
       postingCompanyId: market.member.companyId || market.company_id, postingCompanyName: market.member.name, postingMemberId: market.member.memberId,
       postingPhone: market.member.phone, postedBy: market.member.postedBy, customerReference: null, bookingReference: null,
       distanceToPickupMiles: market.distance_to_pickup_miles, pickupEtaMinutes: market.pickup_eta_minutes, jobDistanceMiles: market.distance_miles, jobDistanceMinutes: market.distance_minutes,
+      freightDetails: { weightKg: market.weight_kg ?? null, pallets: market.pallets ?? null, packaging: market.packaging ?? null, lengthCm: market.length_cm ?? null, widthCm: market.width_cm ?? null, heightCm: market.height_cm ?? null, paymentTerms: market.payment_terms ?? null, publicNotes: market.public_quote_notes ?? null },
     };
 
     return {
@@ -575,7 +585,9 @@ export default function MyQuotesPage() {
                         <div><span>Job Distance:</span><strong>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
                         <div><span>Requested:</span><strong>{vehicle}</strong></div>
                         <div><span>Proposed price:</span><strong>{money(view.budget, view.currency)}</strong></div>
+                        {view.freightDetails && <><div><span>Weight:</span><strong>{view.freightDetails.weightKg != null ? `${view.freightDetails.weightKg} kg` : 'Not Supplied'}</strong></div><div><span>Packaging:</span><strong>{[view.freightDetails.pallets != null ? `${view.freightDetails.pallets} pallets` : null, view.freightDetails.packaging].filter(Boolean).join(' · ') || 'Not Supplied'}</strong></div><div><span>Dimensions:</span><strong>{[view.freightDetails.lengthCm, view.freightDetails.widthCm, view.freightDetails.heightCm].every(v => v != null) ? `${view.freightDetails.lengthCm} × ${view.freightDetails.widthCm} × ${view.freightDetails.heightCm} cm` : 'Not Supplied'}</strong></div><div><span>Payment terms:</span><strong>{view.freightDetails.paymentTerms || 'Not Supplied'}</strong></div></>}
                       </div>
+                      {view.freightDetails?.publicNotes ? <div className="xdrive-cx-quote-card__notes"><span>Load Notes:</span><strong>{view.freightDetails.publicNotes}</strong></div> : null}
                       {bid.message ? <div className="xdrive-cx-quote-card__notes"><span>Quote Notes:</span><strong>{bid.message}</strong></div> : null}
                       <div className="xdrive-cx-quote-table">
                         <div className="xdrive-cx-quote-table__head"><span>Quote from Member</span><span>Vehicle</span><span>Phone</span><span>Created</span><span>Quote</span><span>ETA</span><span>Distance</span></div>
