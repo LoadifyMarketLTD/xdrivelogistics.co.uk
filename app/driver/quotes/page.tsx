@@ -537,7 +537,7 @@ export default function MyQuotesPage() {
                   const quoteAmount = money(bidPrice, bid.currency || 'GBP');
                   const pendingBookingOffer = bid.direction === 'outgoing' && pendingOfferBidIds.has(bid.id);
                   const fullDetailsRestricted = view.access === 'protected' || (view.access !== 'assigned' && view.access !== 'own' && (sold || ['withdrawn', 'expired', 'archived'].includes(quoteStage)));
-                  const activeQuote = offersVerified && bid.direction === 'outgoing' && !pendingBookingOffer && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
+                  const activeQuote = offersVerified && bid.direction === 'outgoing' && !pendingBookingOffer && !sold && ['submitted', 'viewed', 'shortlisted'].includes(quoteStage);
                   const footerState = pendingBookingOffer
                     ? `Booking offer pending your acceptance · ${quoteAmount}`
                     : quoteStage === 'unsuccessful'
@@ -570,6 +570,7 @@ export default function MyQuotesPage() {
                     expanded={expanded}
                     expandedContent={<>
                       <div className="xdrive-cx-quote-card__freight">
+                        <div><span>Quote status:</span><strong>{quoteStage === 'accepted' ? 'Accepted' : quoteStage === 'unsuccessful' ? 'Unsuccessful' : quoteStage === 'withdrawn' ? 'Withdrawn' : quoteStage === 'expired' ? 'Expired' : quoteStage === 'archived' ? 'Archived' : quoteStage === 'submitted' ? 'Submitted' : quoteStage === 'shortlisted' ? 'Shortlisted' : quoteStage === 'viewed' ? 'Viewed' : 'Status unavailable'}</strong></div>
                         <div><span>To Collection:</span><strong>{view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
                         <div><span>Job Distance:</span><strong>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
                         <div><span>Requested:</span><strong>{vehicle}</strong></div>

@@ -394,7 +394,7 @@ export default function AvailableLoadsPage() {
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       if (payload.success !== true || !payload.bidId) throw Error('Quote result could not be verified. Refresh before trying again.');
       mutationVersion.current++;
-      setLoads(current => current.map(load => load.id === loadId ? {...load, myBid: {id: payload.bidId!, status: 'submitted', amount, message: quote.message, created_at:null, updated_at:null, canWithdraw:true}} : load));
+      setLoads(current => current.map(load => load.id === loadId ? {...load, myBid: {id: payload.bidId!, status: 'submitted', amount, message: quote.message, created_at:null, updated_at:null, canWithdraw:false}} : load));
       setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
       await fetchLoads({ background: true, force: true });
     } catch (reason) {
