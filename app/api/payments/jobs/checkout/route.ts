@@ -16,7 +16,7 @@ const json = (status: number, body: Record<string, unknown>) => NextResponse.jso
 const safePaymentReturnPath = (value: string | undefined, invoiceId: string) => {
   const fallback = `/admin/finance/carrier-invoices/${invoiceId}`;
   if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
-  const allowedPrefixes = ['/admin/finance/carrier-invoices/', '/broker/carrier-costs/', '/customer/invoices/'];
+  const allowedPrefixes = ['/admin/finance/carrier-invoices/', '/broker/carrier-costs/', '/customer/invoices/', '/driver/finance/payables/'];
   return allowedPrefixes.some((prefix) => value.startsWith(prefix)) ? value : fallback;
 };
 

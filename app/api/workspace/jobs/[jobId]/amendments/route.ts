@@ -25,7 +25,7 @@ const proposalSchema = z.object({
   actingCompanyId: z.string().uuid().optional(),
   reason: z.string().trim().min(3).max(2000),
   agreedAmount: z.number().finite().positive().max(10_000_000).optional(),
-  paymentTerms: z.enum(['Pay now', '14 days', '30 days']).optional(),
+  paymentTerms: z.enum(['Pay now', '7 days', '14 days', '30 days']).optional(),
   jobPatch: jobPatchSchema,
   verbalAgreementConfirmed: z.boolean().optional().default(false),
   verbalAgreementNote: z.string().trim().max(1000).optional(),
