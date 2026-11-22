@@ -87,7 +87,14 @@ export async function rejectRevokedNativeAuthSession(
   if (bindingResult.error || historyResult.error) return NextResponse.json({ error: 'Mobile device session validation failed.' }, { status: 500 });
   if (historyResult.data) return NextResponse.json({ error: 'This mobile session has been revoked or replaced by another device.' }, { status: 401 });
   const binding = bindingResult.data;
-  const installationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
+  // Native-only requests continue using the explicit installation header.
+  // The SAME verified Supabase session embedded in Android WebView cannot
+  // add headers to React fetches. Android binds its device installation via
+  // an HttpOnly, Secure, SameSite=Strict, host-only first-party cookie.
+  // Never accept either proof without the active session_id binding above.
+  const headerInstallationId = request.headers.get('x-xdrive-installation-id')?.trim() ?? '';
+  const webviewInstallationId = request.cookies.get('__Host-xdrive-driver-install')?.value?.trim() ?? '';
+  const installationId = headerInstallationId || webviewInstallationId;
   if (!binding) {
     if (installationId) return NextResponse.json({ error: 'Native device registration is required.' }, { status: 401 });
     return null;
