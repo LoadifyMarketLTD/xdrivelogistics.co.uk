@@ -1,0 +1,33 @@
+/* Complete Route screen replacement: native XDrive Pixel visual language.
+ * Reuses the real PWA GPS and road-routing engine, not Android bytecode. */
+.rv-main:has(> .xd-native-route){padding:0!important;margin:0!important;max-width:none!important;overflow:hidden}
+.rv-main .xd-native-route{position:relative;display:flex;flex-direction:column;width:100%;height:calc(100dvh - 149px);min-height:440px;background:#e6edf2;color:#111827;overflow:hidden;margin:0!important;border:0;border-radius:0;box-shadow:none}
+.xd-native-route *{box-sizing:border-box}
+.xd-native-route__header{height:65px;min-height:65px;display:flex;align-items:center;gap:19px;padding:0 18px;background:#f5a300;color:#111827;flex-shrink:0}
+.xd-native-route__header h1{font-weight:900;font-size:25px;line-height:1;letter-spacing:-.025em;color:#172233;margin:0}
+.xd-native-route__back{border:0;background:transparent;display:grid;place-items:center;width:35px;height:42px;flex-shrink:0;cursor:pointer;padding:0;color:#152338}
+.xd-native-route__back svg{width:28px;height:28px;stroke:currentColor}
+.xd-native-route__map-wrap{position:relative;flex:1;min-height:190px;background:#e6edf2}
+.xd-native-route__map{height:100%;width:100%;z-index:0}
+.xd-native-route__map .leaflet-container{font:inherit}
+.xd-native-route__map .route-marker{background:transparent;border:0}
+.xd-native-route__map .route-marker span{display:grid;place-items:center;border:2px solid #fff;box-shadow:0 2px 8px #0004;border-radius:50%;width:34px;height:34px;font-weight:900;font-size:16px;color:white}
+.xd-native-route__fit{position:absolute;right:14px;top:13px;z-index:500;display:flex;justify-content:center;align-items:center;min-height:43px;border-radius:10px;background:#fff;color:#142235;border:1px solid #d0d7e1;padding:8px 13px;box-shadow:0 2px 9px #10172730;font-size:12px;font-weight:800;cursor:pointer}
+.xd-native-route__sheet{flex-shrink:0;max-height:min(35dvh,240px);overflow:auto;overscroll-behavior:contain;background:white;border-radius:19px 19px 0 0;box-shadow:0 -3px 16px #23354922;padding:15px 17px 16px;color:#111827;z-index:1}
+.xd-native-route__status{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:#475569;margin-bottom:11px}
+.xd-native-route__dot{height:8px;width:8px;border-radius:50%;background:#adb5c0;flex-shrink:0}
+.xd-native-route__dot[data-active="true"]{background:#219653}
+.xd-native-route__metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:11px}
+.xd-native-route__metric{min-height:66px;padding:10px 11px;border-radius:10px;background:#f4f6f8;display:flex;flex-direction:column;gap:6px}
+.xd-native-route__metric span{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:800;color:#566275;line-height:1.1}
+.xd-native-route__metric i{height:7px;width:7px;display:inline-block;flex-shrink:0;border-radius:50%;background:#2196f3}
+.xd-native-route__metric:nth-child(2) i{background:#ef5350}
+.xd-native-route__metric strong{font-size:15px;color:#172233;font-weight:850;line-height:1.2}
+.xd-native-route__stops{display:flex;flex-direction:column;gap:6px;padding:0;margin:0;list-style:none}
+.xd-native-route__stops li{display:flex;align-items:baseline;gap:9px;font-size:11px;color:#566275;min-width:0}
+.xd-native-route__step{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:#111827;color:white;flex-shrink:0;font-size:10px;font-weight:900}
+.xd-native-route__stops strong{color:#172233;font-weight:750}
+.xd-native-route__stops span:last-child{min-width:0;overflow-wrap:anywhere}
+.xd-native-route__warning{font-size:11px;margin:7px 0 0;color:#a32e2e;line-height:1.4}
+.xd-native-route__loading{font-size:11px;margin:7px 0 0;color:#5e7087}
+@media(max-width:390px){.xd-native-route__header{height:61px;min-height:61px}.xd-native-route__sheet{padding:12px 13px}.xd-native-route__metric strong{font-size:13px}.xd-native-route__metrics{gap:7px}}

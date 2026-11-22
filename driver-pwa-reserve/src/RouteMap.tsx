@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "./NativeRoutePwa.css";
 
 type Stop = { id: string; kind: "PICKUP" | "DELIVERY"; address: string; completedAt?: string };
 type Point = { lat: number; lon: number };
@@ -109,8 +110,14 @@ async function roadRoute(start:Point,end:Point,token:string,signal:AbortSignal):
      ||(result.distanceMiles??0)<0||(result.durationMinutes??0)<0)throw Error("Invalid road route response");
   return result as RoadRoute;
 }
-const marker=(label:string,color:string)=>L.divIcon({className:"route-marker",html:'<span style="background:'+color+'">'+label+'</span>',iconSize:[34,34],iconAnchor:[17,17]});
-const truckIcon=()=>L.divIcon({className:"route-marker",html:'<svg viewBox="0 0 42 32" width="42" height="32" aria-hidden="true"><path d="M2 3h25v7h8l6 9v8H2z" fill="#ef625b" stroke="white" stroke-width="2"/><circle cx="10" cy="26" r="5" fill="#ef625b" stroke="white" stroke-width="2"/><circle cx="32" cy="26" r="5" fill="#ef625b" stroke="white" stroke-width="2"/></svg>',iconSize:[42,32],iconAnchor:[21,16]});
+const marker=(label:string,color:string)=>L.divIcon({
+  className:"route-marker",
+  html:'<span style="background:'+color+'">'+label+'</span>',
+  iconSize:[34,34],iconAnchor:[17,17],
+});
+// Original XDrive native Route uses V for current driver and 1 / 2 for stops.
+// Keep the marker labels and colors consistent with the recovered APK.
+const truckIcon=()=>marker("V","#ef5350");
 
 export default function RouteMap({from,to,status,stops,distanceMiles,travelMinutes,token,onBack}:Props){
   const host=useRef<HTMLDivElement>(null);
@@ -175,7 +182,7 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
         if(!point){missingStops++;continue;}
         points.push({stop,point});
         const popup=document.createElement("div");popup.textContent=stop.kind+" — "+stop.address;
-        L.marker([point.lat,point.lon],{icon:marker((stop.kind==="PICKUP"?"C":"D")+String(index+1),stop.kind==="PICKUP"?"#f5a400":"#202020")}).bindPopup(popup).addTo(current);
+        L.marker([point.lat,point.lon],{icon:marker(("")+String(index+1),"#111827")}).bindPopup(popup).addTo(current);
       }
       if(!active)return;
       if(missingStops)setRouteError(missingStops+" stop location(s) could not be verified. Complete road distance unavailable.");
@@ -203,7 +210,7 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
           try{
             const road=await roadRoute(a,b,authToken,controller.signal);
             if(!active)return;
-            addRoad(road,"#ef625b");totalMiles+=road.distanceMiles;totalMinutes+=road.durationMinutes;
+            addRoad(road,"#ef5350");totalMiles+=road.distanceMiles;totalMinutes+=road.durationMinutes;
           }catch{
             if(!active)return;
             complete=false;
@@ -220,7 +227,7 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
         else try{
           const road=await roadRoute(position,next,authToken,controller.signal);
           if(!active)return;
-          addRoad(road,"#2687ee");
+          addRoad(road,"#2196f3");
           setPickupMetrics({miles:road.distanceMiles,minutes:road.durationMinutes});
         }catch{
           if(!active)return;
@@ -234,19 +241,55 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
   },[ordered,position,token,status]);
 
   const nextLabel=ordered[0]?.kind==="PICKUP"?"collection":"delivery";
-  return <section className="xroute">
-    <div className="xroute-head"><button type="button" onClick={onBack} aria-label="Back">←</button><strong>Route</strong><span>⌖</span></div>
-    <div className="xroute-map" ref={host} aria-label="Live driver and verified road route" />
-    <button type="button" className="xroute-fit" aria-label="Fit entire route" onClick={()=>{if(bounds.current)map.current?.fitBounds(bounds.current,{padding:[38,38],maxZoom:12});}}>Fit route</button>
-    <div className="xroute-info">
-      <strong>{LOCAL?"Simulated driver location":position?"🚚 Driver location active":gpsError||"Locating driver…"}</strong>
-      {ordered.length>0&&<div><strong>Driver → {nextLabel}:</strong> {pickupMetrics?pickupMetrics.miles.toFixed(1)+" miles ("+Math.round(pickupMetrics.minutes)+" min)":position?routeLoading?"Calculating road route…":"Road distance unavailable":"Waiting for driver GPS"}</div>}
-      {!afterCollection&&<div><strong>Collection → delivery:</strong> {jobMetrics?jobMetrics.miles.toFixed(1)+" miles ("+Math.round(jobMetrics.minutes)+" min)":routeLoading?"Calculating road route…":"Verified road distance unavailable"}</div>}
-      {afterCollection&&ordered.length>1&&<div><strong>Remaining stop route:</strong> {jobMetrics?jobMetrics.miles.toFixed(1)+" miles ("+Math.round(jobMetrics.minutes)+" min)":"Verified road distance unavailable"}</div>}
-      {!jobMetrics&&Number.isFinite(distanceMiles)&&Boolean(distanceMiles)&&!afterCollection&&<div>Posted job distance (not verified by map): {distanceMiles!.toFixed(2)} miles {travelMinutes!==undefined?"("+Math.floor(travelMinutes/60)+"h "+(travelMinutes%60)+"min)":""}</div>}
-      <div>{ordered.map((s,i)=><div key={s.id}>{i+1}. {s.kind==="PICKUP"?"Collection":"Delivery"}: {s.address}</div>)}</div>
-      {routeLoading&&<small role="status">Calculating verified road routes…</small>}
-      {routeError&&<small role="status" className="xroute-error">{routeError}</small>}
+  const liveDistance=pickupMetrics
+    ?pickupMetrics.miles.toFixed(1)+" mi | "+Math.round(pickupMetrics.minutes)+" min"
+    :position&&routeLoading?"Calculatingâ€¦":position?"Not available":"Waiting for GPS";
+  const jobDistance=jobMetrics
+    ?jobMetrics.miles.toFixed(1)+" mi | "+Math.round(jobMetrics.minutes)+" min"
+    :routeLoading?"Calculatingâ€¦":"Not available";
+  // A posted distance is never used as a verified road-route result.
+  return <section className="xd-native-route" aria-label="Route">
+    <header className="xd-native-route__header">
+      <button className="xd-native-route__back" type="button" aria-label="Back" onClick={onBack}>
+        <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m12 19-7-7 7-7M5 12h15" />
+        </svg>
+      </button>
+      <h1>Route</h1>
+    </header>
+    <div className="xd-native-route__map-wrap">
+      <div className="xd-native-route__map" ref={host} aria-label="Live driver and verified road route"/>
+      <button type="button" className="xd-native-route__fit" aria-label="Fit entire route"
+        onClick={()=>{if(bounds.current)map.current?.fitBounds(bounds.current,{padding:[38,38],maxZoom:12});}}>
+        Fit route
+      </button>
     </div>
+    <section className="xd-native-route__sheet" aria-label="Route details">
+      <div className="xd-native-route__status">
+        <i className="xd-native-route__dot" data-active={Boolean(position)} aria-hidden="true"/>
+        {LOCAL?"Simulated driver location":position?"Driver location active":gpsError||"Locating driver..."}
+      </div>
+      <div className="xd-native-route__metrics">
+        <div className="xd-native-route__metric">
+          <span><i aria-hidden="true"/> Driver to {nextLabel}</span>
+          <strong>{liveDistance}</strong>
+        </div>
+        <div className="xd-native-route__metric">
+          <span><i aria-hidden="true"/> {afterCollection?"Remaining route":"Collection to delivery"}</span>
+          <strong>{jobDistance}</strong>
+        </div>
+      </div>
+      <ol className="xd-native-route__stops">
+        {ordered.map((stop,index)=><li key={stop.id}>
+          <span className="xd-native-route__step">{index+1}</span>
+          <span><strong>{stop.kind==="PICKUP"?"Collection":"Delivery"}:</strong> {stop.address}</span>
+        </li>)}
+      </ol>
+      {routeLoading&&<p role="status" className="xd-native-route__loading">Calculating verified road routes...</p>}
+      {routeError&&<p role="status" className="xd-native-route__warning">{routeError}</p>}
+      {!routeError&&!routeLoading&&!jobMetrics&&!afterCollection&&Number.isFinite(distanceMiles)&&Boolean(distanceMiles)&&
+        <p className="xd-native-route__loading">Posted distance (unverified): {distanceMiles!.toFixed(1)} mi
+          {travelMinutes!==undefined?" / "+Math.round(travelMinutes)+" min":""}</p>}
+    </section>
   </section>;
 }

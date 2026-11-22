@@ -83,14 +83,19 @@ try{
     await page.getByRole('button',{name:'Load Details',exact:true}).first().click();
     await page.getByRole('button',{name:'View on Map'}).click();
     await page.getByText('Route',{exact:true}).first().waitFor();
-    const toolbar=page.locator('.xroute-head');
+    const toolbar=page.locator('.xd-native-route__header');
     assert.equal(await toolbar.count(),1,'Original Route toolbar is present');
-    assert.equal(await toolbar.evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(23, 43, 69)','Original PWA Route toolbar restored without Pixel overlay');
+    assert.equal(await toolbar.evaluate(element=>getComputedStyle(element).backgroundColor),'rgb(245, 163, 0)','Native original Route header orange');
+    assert.equal(await page.locator('.xroute').count(),0,'Old Route interface must be fully removed');
+    assert.equal(await page.locator('.xd-native-route__map').count(),1,'One map on replacement screen');
+    assert.equal(await page.getByRole('button',{name:'Fit entire route'}).count(),1);
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No horizontal scrolling in Route');
+    await page.screenshot({path:'D:/XDrive-Guardian-Visual-QA/route-pwa-native-replacement-'+width+'.png'});
     await page.getByRole('button',{name:'Back',exact:true}).click();
     await page.getByText('Collection & delivery').waitFor();
     assert.deepEqual(writes,[],'No writes or commercial actions are allowed in UI smoke test');
     assert.deepEqual(errors,[]);
-    console.log('ORIGINAL_ROUTE_MORE_PWA_PASS width='+width+' 9 More cards, 5 data views, PWA Route restored, map/back, no writes or overflow');
+    console.log('ORIGINAL_ROUTE_MORE_PWA_PASS width='+width+' 9 More cards, 5 data views, native Route replacement, map/back, no writes or overflow');
     await ctx.close();
   }
 }finally{await browser?.close();await new Promise(done=>server.close(done));}

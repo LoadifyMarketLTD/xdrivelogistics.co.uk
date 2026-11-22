@@ -48,19 +48,8 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-label{font-size:12px;color:#5e758a;font-weight:800;margin:14px 0 7px}
 .rv-invoice-paper{border:1px solid #cddce8;background:#fff;padding:17px 12px;border-radius:4px}.rv-paper-head{display:flex;justify-content:space-between;align-items:start;gap:10px;padding-bottom:13px;border-bottom:2px solid #193852}.rv-paper-head strong{color:#172b45}.rv-paper-head span{font-size:10px;color:#8a5c2b;font-weight:800}.rv-total{display:flex;justify-content:space-between;align-items:center;padding-top:12px;margin-top:9px;border-top:2px solid #193852;font-size:17px}.rv-history{margin:15px 0;background:white;border-radius:11px;padding:12px;border:1px solid #dce5ef}.rv-history summary{cursor:pointer;font-size:13px;font-weight:800;color:#345670}.rv-history div{font-size:12px;padding:9px 7px;border-left:3px solid #dce6ef;color:#92a1b1;margin-left:5px}.rv-history div.rv-historydone{color:#315b7c;border-left-color:#f47721}
 
-/* Reused production RouteMap, styled for the independently approved Reserve interface. */
 .rv-map-action{width:100%;display:block;border:1px solid #d4e3ef;border-radius:9px;background:#edf4fa;color:#244d6d;padding:12px;font-weight:850;font-size:13px;margin:9px 0 11px}
 .rv-map-action:focus-visible{outline:3px solid #f4772180}
-.rv-shell .xroute{position:relative;display:flex;flex-direction:column;height:calc(100dvh - 208px);min-height:480px;background:#fff;border:1px solid #d7e4ee;border-radius:12px;overflow:hidden;margin:5px 0}
-.rv-shell .xroute-head{display:flex;align-items:center;gap:18px;background:#172b45;color:#fff;padding:12px 15px;flex-shrink:0;font-size:18px}
-.rv-shell .xroute-head button{border:0;background:transparent;color:#fff;font-size:25px}
-.rv-shell .xroute-head span{margin-left:auto}
-.rv-shell .xroute-map{flex:1;min-height:260px;width:100%;z-index:0}
-.rv-shell .xroute-info{background:white;padding:13px 15px;max-height:190px;overflow-y:auto;font-size:12px;line-height:1.55;flex-shrink:0;color:#2f4b68}
-.rv-shell .xroute-info strong{display:block;font-size:13px}
-.rv-shell .route-marker{background:transparent;border:none}
-.rv-shell .route-marker span{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;border:2px solid white;box-shadow:0 2px 7px #0005;color:white;font-size:16px;font-weight:800}
-.rv-shell .leaflet-container{font:inherit}
 
 .rv-quote-tabs{display:flex;gap:9px;margin:13px 0 10px}
 .rv-quote-tabs button{flex:1;border:1px solid #d5e2ee;background:#fff;color:#36546d;font-weight:800;font-size:13px;border-radius:10px;padding:13px 10px}
@@ -707,7 +696,6 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-main .rv-booking-decision .rv-route .rv-stop span{font-size:15px;line-height:1.55}
 .rv-main .rv-booking-decision .rv-route .rv-stop + .rv-stop{border-top:1px solid #cbd5e1;padding-top:14px;margin-top:4px}
 .rv-booking-audit{margin-top:16px;border-top:1px solid #dce3ec;padding:12px 0;color:#0a234f}.rv-booking-audit summary{font-weight:700;cursor:pointer;padding:8px}.rv-booking-audit li{padding:8px 0;border-bottom:1px solid #e5e7eb}.rv-booking-audit small{display:block;color:#4b5563}.rv-booking-audit p{font-size:13px;overflow-wrap:anywhere}
-.xroute{position:relative;min-height:calc(100dvh - 88px)!important}.xroute-fit{position:absolute;right:12px;top:64px;z-index:500;background:white;color:#0a234f;border:1px solid #cbd5e1;border-radius:8px;padding:10px 14px;font-weight:600;box-shadow:0 2px 8px #0002}.xroute-info{font-size:14px!important;line-height:1.55!important}.xroute-info>div{margin-top:5px}
 .rv-history-facts p{font-size:14px;line-height:1.5;margin:5px 0}.rv-history-facts p strong{display:inline;font-size:inherit}.rv-delivery-page .rv-delivery-field>span{font-size:15px;font-weight:650}.rv-delivery-page input,.rv-delivery-page select,.rv-delivery-page textarea{font-size:16px;min-height:46px}.rv-delivery-page .rv-delivery-split{grid-template-columns:1fr}.rv-signature-modal{position:fixed;inset:0;z-index:2000;background:white;padding:24px;display:flex;flex-direction:column;justify-content:center;gap:14px;overflow:auto}.rv-signature-modal canvas{height:clamp(180px,38vh,350px)!important;width:100%;touch-action:none}
 
 /* Compact production finance and completed booking cards; approved brand retained. */
@@ -774,11 +762,3 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-load-quote-policy p{font-size:12px!important;line-height:1.5!important}
 @media(max-width:390px){.rv-load-overview,.rv-load-quote-context,.rv-load-detail-panel,.rv-load-quote-form{padding:12px}.rv-load-overview h1,.rv-load-quote-context h1{font-size:17px!important}}
 .rv-load-posted{font-size:11px!important;color:#8795a4;margin:1px 0 6px!important}
-
-/* Readable route information without altering the established map layout. */
-.rv-shell .xroute-info{font-size:17px!important;line-height:1.45!important;max-height:225px;overflow-y:auto;color:#17344d}
-.rv-shell .xroute-info strong{font-size:18px!important}
-.rv-shell .xroute-info>div{font-size:17px;line-height:1.45}
-.rv-shell .xroute-info .xroute-success{color:#176748;font-weight:750}
-.rv-shell .xroute-info .xroute-error{color:#9c302b;font-weight:750}
-.rv-shell .xroute-fit{font-size:16px;min-height:50px;font-weight:800}
