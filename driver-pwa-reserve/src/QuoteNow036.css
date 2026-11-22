@@ -1,0 +1,47 @@
+/* XDrive Driver PWA Android 036 quotation layout, isolated to quote component. */
+.xd036-quote{--qnavy:#0a234f;--qblue:#0e3fa9;--qgray:#f4f6f8;--qborder:#dce6f1;--qmuted:#71839a;background:#f4f6f8;color:#1f2937;padding:15px 13px 110px;display:flex;flex-direction:column;gap:12px}
+.xd036-quote *{box-sizing:border-box}
+.xd036-top{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:36px}
+.xd036-top span{font-size:10px;letter-spacing:.1em;font-weight:900;color:#72849a}
+.xd036-back{background:transparent;border:0;cursor:pointer;color:var(--qblue);font-size:13px;font-weight:850;padding:9px 0}
+.xd036-page-title h1{margin:0;color:var(--qnavy);font-size:23px;line-height:1.12;letter-spacing:-.04em;font-weight:900}
+.xd036-page-title p{margin:7px 0 0;color:#6e8097;font-size:11px}
+.xd036-card{background:#fff;border:1px solid var(--qborder);border-radius:15px;padding:17px 15px;box-shadow:none;margin:0}
+.xd036-eyebrow{display:block;text-transform:uppercase;letter-spacing:.1em;color:#78899e;font-size:10px;font-weight:850}
+.xd036-summary h2{font-size:17px;line-height:1.3;letter-spacing:-.02em;color:var(--qnavy);margin:12px 0 9px;font-weight:900}
+.xd036-tags{display:flex;flex-wrap:wrap;gap:7px}
+.xd036-tags span{padding:6px 9px;border-radius:8px;font-size:10px;font-weight:850}
+.xd036-hot{background:#fff0eb;color:#b63831}
+.xd036-required{background:#eaf2ff;color:#0e3fa9}
+.xd036-route{margin:16px 0 5px}
+.xd036-route .rv-route{margin:0!important;padding:3px 0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.xd036-route .rv-stop{background:transparent!important}
+.xd036-route .rv-stop b{color:var(--qnavy)!important}
+.xd036-distance{border-top:1px solid #e9eef5;padding-top:11px;margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;color:#51647d;font-size:11px}
+.xd036-distance strong{font-size:11px;color:#52657e}
+.xd036-field{display:flex;flex-direction:column;gap:8px;margin-bottom:17px}
+.xd036-field:last-child{margin-bottom:0}
+.xd036-field>span{font-size:12px;font-weight:850;color:#485c73}
+.xd036-field small{font-size:10px;font-weight:500;color:#73839a;line-height:1.5}
+.xd036-field select,.xd036-field input,.xd036-field textarea,.xd036-readonly{border:1px solid #cbd9eb;border-radius:10px;background:#fff;color:var(--qnavy);font-family:inherit;font-size:15px;line-height:1.4;min-height:45px;width:100%;padding:10px 13px}
+.xd036-field select:focus,.xd036-field input:focus,.xd036-field textarea:focus{outline:2px solid #9dbcf0;outline-offset:1px}
+.xd036-field textarea{min-height:99px;resize:vertical}
+.xd036-readonly{background:#f8fafc;color:#455e78;display:flex;align-items:center}
+.xd036-money-row{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:9px}
+.xd036-money-row .xd036-field{min-width:0}
+.xd036-money-row .xd036-field>span{min-height:30px;display:flex;align-items:end;line-height:1.25}
+.xd036-money-row input{min-width:0}
+.xd036-extras-field>span small{font-weight:500}
+.xd036-extra-list{display:flex;flex-direction:column;gap:8px}
+.xd036-extra{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.8fr) 30px;gap:6px;align-items:center}
+.xd036-extra input{font-size:12px;min-width:0;padding:9px 8px}
+.xd036-extra button{border:0;background:#fff0ef;color:#ae3032;border-radius:8px;font-size:19px;min-height:38px;cursor:pointer}
+.xd036-add-extra{border:1px dashed #bfd0e7;background:#f5f8fe;color:#0e3fa9;border-radius:10px;font-size:12px;font-weight:900;min-height:42px;width:100%;cursor:pointer}
+.xd036-add-extra:disabled{opacity:.5;cursor:not-allowed}
+.xd036-error{background:#fff0ef;color:#9e2424;padding:10px;border-radius:8px;font-size:11px}
+.xd036-total{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#eff4fa;border:1px solid #dce6f1;padding:14px;border-radius:11px;color:#50657e;font-size:12px;font-weight:850}
+.xd036-total strong{color:#0a234f;font-size:20px}
+.xd036-terms{font-size:10px;color:#6f8095;line-height:1.55;margin:0}
+.xd036-submit{background:#0e3fa9;color:#fff;border:0;border-radius:11px;min-height:48px;font-size:14px;font-weight:900;cursor:pointer;padding:11px 14px;width:100%}
+.xd036-submit:disabled{background:#b8c6df;cursor:not-allowed}
+@media(max-width:390px){.xd036-quote{padding:12px 10px 110px}.xd036-card{padding:14px 12px}.xd036-money-row .xd036-field>span{font-size:11px}.xd036-page-title h1{font-size:22px}}

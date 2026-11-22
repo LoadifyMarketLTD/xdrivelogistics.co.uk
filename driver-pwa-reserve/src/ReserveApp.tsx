@@ -23,6 +23,8 @@ import ReserveStopExecution, {clearReserveStopDrafts} from './ReserveStopExecuti
 import {finishReserveDelivery} from './reserveDeliverySequence';
 import {operationalExecutionStops,persistedStops,syncBoundaryStop} from './reserveStopSync';
 import SearchLoads from './SearchLoads';
+import QuoteNow036 from './QuoteNow036';
+import LoadDetails036 from './LoadDetails036';
 import {defaults as defaultSearchFilters,restoredFilters,matchesLoad,type SearchFilters} from './loadSearchFilters';
 import {searchAvailableLoads} from './searchLocation';
 import ReserveCancellation, { type ReserveCancellationValue } from './ReserveCancellation';
@@ -415,22 +417,28 @@ export default function ReserveApp() {
   function details(){if(!job)return null;
     if(tab==='Loads'){
       const quoted=job.quote!=null&&job.quoteOutcome!=='CANCELLED'&&job.bidStatus!=='withdrawn';
-      const vehicleName=job.vehicle.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()).replace(/\bLwb\b/g,'LWB');
-      return <div className="rv-load-detail">
-        <div className="rv-load-view-toolbar"><button type="button" onClick={()=>setView('list')}>← Back to loads</button><span>Load details</span></div>
-        <section className="rv-load-overview">
-          <div className="rv-load-overview-top"><div><span className="rv-load-eyebrow">TRANSPORT OPPORTUNITY</span><h1>{job.company||'Transport buyer'}</h1><p>{friendlyService(job.service)} · {vehicleName}</p></div><span className="rv-load-status">{quoted?'QUOTED':'AVAILABLE'}</span></div>
-          <p className="rv-load-ref">Ref: {platformJobReference(job.id,job.yourRef)||job.id}</p>
-          {job.postedAt&&!Number.isNaN(Date.parse(job.postedAt))&&<p className="rv-load-posted">Posted: {new Date(job.postedAt).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}</p>}
-          <Route job={job}/>
-          <div className="rv-load-metrics"><span><strong>{job.weight} kg</strong><small>Weight</small></span><span><strong>{job.terms||'Not stated'}</strong><small>Payment</small></span>{job.distanceMiles!=null&&<span><strong>{job.distanceMiles} mi</strong><small>Journey</small></span>}{searchResult?.pickupRoadMiles[job.id]!=null&&<span><strong>{searchResult.pickupRoadMiles[job.id]} mi</strong><small>To collection</small></span>}</div>
-          <button type="button" className="rv-load-map-link" onClick={()=>openMap(job,'details')}>View route on map →</button>
-        </section>
-        <section className="rv-load-detail-panel"><h2>Load requirements</h2><div className="rv-load-detail-facts"><Fact name="Vehicle" value={vehicleName}/><Fact name="Weight" value={job.weight+' kg'}/><Fact name="Items" value={String(job.items??'Not stated')}/><Fact name="Packaging" value={job.packaging||'Not specified'}/></div></section>
-        <section className="rv-load-detail-panel"><h2>Payment & terms</h2><div className="rv-load-detail-facts"><Fact name="Payment terms" value={job.terms||'Not provided'}/><Fact name="Quote" value={quoted?gbp(job.quote!):'Submit your rate'}/></div></section>
-        <section className="rv-load-detail-panel"><h2>Instructions & references</h2><p className="rv-load-instructions">{job.notes?.trim()||'No additional handling instructions supplied.'}</p>{job.customerRef&&<Fact name="Customer reference" value={job.customerRef}/>}</section>
-        <div className="rv-load-detail-cta">{quoted?<><p className="rv-load-quote-confirm">Your quotation is recorded for this load.</p><button className="rv-primary rv-wide" onClick={()=>setView('quoteDetails')}>View Submitted Quote</button></>:<button className="rv-primary rv-wide" onClick={()=>setView('quote')}>Quote Now →</button>}</div>
-      </div>;
+      return <LoadDetails036
+        reference={platformJobReference(job.id,job.yourRef)||job.id}
+        company={job.company||'Transport buyer'}
+        service={friendlyService(job.service)}
+        vehicle={job.vehicle}
+        postedAt={job.postedAt}
+        route={<Route job={job} full/>}
+        weightKg={job.weight}
+        items={job.items}
+        packaging={job.packaging}
+        terms={job.terms}
+        distanceMiles={job.distanceMiles}
+        pickupRoadMiles={searchResult?.pickupRoadMiles[job.id]}
+        notes={job.notes}
+        customerReference={job.customerRef}
+        quoted={quoted}
+        existingQuote={job.quote}
+        onBack={()=>setView('list')}
+        onMap={()=>openMap(job,'details')}
+        onQuote={()=>setView('quote')}
+        onSubmittedQuote={()=>setView('quoteDetails')}
+      />;
     }
     if(tab==='Bookings'&&job.acceptanceRequired)return incoming();return <>{tab==='Bookings'&&job.status!=='OPEN'?<section className="rv-card rv-booking-detail-header"><div className="rv-jobhead"><div><strong>{job.company}</strong><small>{platformJobReference(job.id,job.yourRef)||'Reference unavailable'}</small></div><div><button className="rv-outline" onClick={()=>setView(job.acceptanceRequired?'incoming':'flow')}>Back</button></div></div></section>:detailHeader(job)}{tab==='Bookings'&&job.status!=='OPEN'&&<section className="rv-card rv-booking-full-stops"><h3>Collection & Delivery Details</h3><Route job={job} full/></section>}<button className="rv-map-action rv-wide" onClick={()=>openMap(job,'details')}>View on Map</button><section className="rv-card">{tab!=='Bookings'&&<span className="rv-over">LOAD REQUIREMENTS</span>}<h3>Transport details</h3><Fact name="Vehicle" value={job.vehicle}/><Fact name="Weight" value={job.weight+' kg'}/><Fact name="Items" value={job.items??'Not stated'}/><Fact name="Packaging" value={job.packaging||'Not specified'}/></section><section className="rv-card rv-commercial-panel">{tab!=='Bookings'&&<span className="rv-over">COMMERCIAL AGREEMENT</span>}<h3>Rate and payment</h3><Fact name="Payment Terms" value={job.terms||'Not provided'}/><Fact name="Agreed rate / quote" value={job.quote!=null?gbp(job.quote):'Quote required'}/></section><section className="rv-card">{tab!=='Bookings'&&<span className="rv-over">OPERATIONAL INSTRUCTIONS</span>}<h3>Instructions & References</h3><p className="rv-booking-instructions">{job.notes||'No additional handling instructions.'}</p>{job.status!=='OPEN'&&<><Fact name="Customer reference" value={job.customerRef||'Not provided'}/><Fact name="Your reference" value={platformJobReference(job.id,job.yourRef)||'Not provided'}/></>}</section>{job.status === 'OPEN'
   ? job.quote == null || job.quoteOutcome==='CANCELLED'||job.bidStatus==='withdrawn'
@@ -448,7 +456,34 @@ export default function ReserveApp() {
     if(!job)return null;
     const editing = tab==='Quotes' && job.personalBid===true && job.quote != null && job.bidStatus==='submitted' && Boolean(job.bidId);
     const minutes = quoteEta===''?null:Number(quoteEta);
-    if(tab==='Loads'||editing)return <div className="rv-load-quote">
+    // Android visual iteration 036, implemented as the real React quote form.
+    // Keep all role authorization and server submission checks unchanged.
+    if(tab==='Loads'&&!editing)return <QuoteNow036
+      key={job.id}
+      company={job.company||'Transport buyer'}
+      reference={platformJobReference(job.id,job.yourRef)||job.id}
+      service={friendlyService(job.service)}
+      vehicle={job.vehicle.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}
+      distanceMiles={job.distanceMiles}
+      travelMinutes={job.travelMinutes}
+      terms={job.terms||'Terms not stated'}
+      route={<Route job={job}/>}
+      quoteAmount={quoteAmount} setQuoteAmount={setQuoteAmount}
+      quoteEta={quoteEta} setQuoteEta={setQuoteEta}
+      quoteNotes={quoteNotes} setQuoteNotes={setQuoteNotes}
+      busy={busy}
+      onBack={()=>setView('details')}
+      onSubmit={(extrasTotal,extraDetails)=>{
+        const base=Number(quoteAmount);
+        const total=Number((base+extrasTotal).toFixed(2));
+        const message=[quoteNotes.trim(),extraDetails].filter(Boolean).join('\n');
+        void run(s=>driverPost('/mobile/bids',s.token,{
+          jobId:job.id,amount:total,baseAmount:base,additionalExtrasGbp:extrasTotal,
+          collectWithinMinutes:minutes,message
+        }),()=>navigate('Quotes'));
+      }}
+    />;
+    if(editing)return <div className="rv-load-quote">
       <div className="rv-load-view-toolbar"><button type="button" onClick={()=>setView(editing?'quoteDetails':'details')}>← Back to details</button><span>{editing?'Edit quote':'New quotation'}</span></div>
       <section className="rv-load-quote-context"><span className="rv-load-eyebrow">QUOTE FOR LOAD</span><h1>{job.company||'Transport buyer'}</h1><p>{platformJobReference(job.id,job.yourRef)||job.id}</p><Route job={job}/></section>
       <section className="rv-load-quote-form">
