@@ -782,3 +782,13 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-shell .xroute-info .xroute-success{color:#176748;font-weight:750}
 .rv-shell .xroute-info .xroute-error{color:#9c302b;font-weight:750}
 .rv-shell .xroute-fit{font-size:16px;min-height:50px;font-weight:800}
+
+
+/* Pixel 7 Pro XDrive Native Route visual reference: original orange toolbar.
+   Retain the existing verified live driver GPS, road metrics and stop routing. */
+.rv-shell .xroute-head{background:#f5a300;color:#172233;min-height:72px;padding:15px 20px;gap:18px;font-size:23px;font-weight:850;letter-spacing:-.03em;box-shadow:0 2px 4px #00000012}
+.rv-shell .xroute-head strong{font-weight:850}
+.rv-shell .xroute-head button{color:#172233;font-size:33px;font-weight:500;min-width:38px;min-height:40px;display:flex;align-items:center;justify-content:flex-start;cursor:pointer}
+.rv-shell .xroute{background:#e6edf3;border:0;border-radius:0}
+.rv-shell .xroute-info{background:#fff}
+.rv-nav.rv-official-nav button[aria-current="page"]{color:#0e3fa9}

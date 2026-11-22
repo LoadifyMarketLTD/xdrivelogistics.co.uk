@@ -235,7 +235,7 @@ export default function RouteMap({from,to,status,stops,distanceMiles,travelMinut
 
   const nextLabel=ordered[0]?.kind==="PICKUP"?"collection":"delivery";
   return <section className="xroute">
-    <div className="xroute-head"><button type="button" onClick={onBack} aria-label="Back">←</button><strong>Route</strong><span>⌖</span></div>
+    <div className="xroute-head"><button type="button" onClick={onBack} aria-label="Back to job" title="Back to job">â†</button><strong>Route</strong></div>
     <div className="xroute-map" ref={host} aria-label="Live driver and verified road route" />
     <button type="button" className="xroute-fit" aria-label="Fit entire route" onClick={()=>{if(bounds.current)map.current?.fitBounds(bounds.current,{padding:[38,38],maxZoom:12});}}>Fit route</button>
     <div className="xroute-info">
