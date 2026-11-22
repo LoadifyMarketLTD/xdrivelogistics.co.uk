@@ -50,7 +50,7 @@ describe('workspace More audit contract', () => {
     expect(broker).not.toContain('/broker/awards');
     expect(customer).not.toContain('/customer/awards');
     expect(broker).toContain("label: 'Directory', href: '/broker/carrier-network/directory'");
-    expect(customer).toContain("label: 'Directory', href: '/customer/network'");
+    expect(customer).toContain("label: 'Companies', href: '/customer/network'");
   });
 
   it('moves frequent operational destinations out of More and into primary navigation', () => {
