@@ -13,6 +13,15 @@ export type FleetMapPoint = {
   jobId?: string | null;
   timestamp?: string | null;
   stale: boolean;
+  memberCode?: string | null;
+  vehicleType?: string | null;
+  bodyType?: string | null;
+  payloadKg?: number | null;
+  palletsCapacity?: number | null;
+  hasTailLift?: boolean | null;
+  availabilityUntil?: string | null;
+  locationScope?: 'fleet' | 'exchange';
+  bookingHref?: string | null;
 };
 
 export type FleetMapMode = 'live' | 'future';
@@ -182,7 +191,16 @@ export default function FleetPositionMapClient({
               <br />
               {mode === 'future' ? 'Available from' : 'Updated'}: {formatTimestamp(point.timestamp)}
               <br />
-              {mode === 'future' ? 'Next job' : 'Job'}: {point.jobId ? point.jobId.slice(0, 8).toUpperCase() : 'Not linked'}
+              {point.memberCode && <>Member: {point.memberCode}<br /></>}
+              {point.vehicleType && <>Vehicle: {point.vehicleType.replaceAll('_', ' ')}<br /></>}
+              {point.bodyType && <>Body: {point.bodyType.replaceAll('_', ' ')}<br /></>}
+              {point.payloadKg != null && <>Payload: {point.payloadKg.toLocaleString('en-GB')} kg<br /></>}
+              {point.palletsCapacity != null && <>Capacity: {point.palletsCapacity} pallets<br /></>}
+              {point.hasTailLift != null && <>Tail lift: {point.hasTailLift ? 'Yes' : 'No'}<br /></>}
+              {point.availabilityUntil && <>Availability expires: {formatTimestamp(point.availabilityUntil)}<br /></>}
+              {point.locationScope === 'exchange' && <>Approximate Exchange area (not exact GPS)<br /></>}
+              {point.locationScope !== 'exchange' && <>{mode === 'future' ? 'Next job' : 'Job'}: {point.jobId ? 'Linked to booking' : 'Not linked'}<br /></>}
+              {point.bookingHref?.startsWith('/') && <a href={point.bookingHref} style={{ display: 'inline-block', marginTop: 6, fontWeight: 700 }}>Book Direct</a>}
             </Popup>
           </CircleMarker>
         ))}

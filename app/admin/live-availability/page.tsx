@@ -339,7 +339,7 @@ export default function LiveAvailabilityPage() {
     return vehicleDropdownMode || vehicleMatchesMarketplaceSizeRange(position.vehicle_type, minVehicleValue, maxVehicleValue);
   }), [maxVehicleValue, minVehicleValue, nearbyBody, nearbyPositions, nearbyVehicle, region, search, vehicleDropdownMode]);
 
-  const livePoints = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ driver, location, stale }) => {
+  const livePoints = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ driver, location, stale, vehicle }) => {
     if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return [];
     return [{
       driverId: driver.id,
@@ -349,6 +349,12 @@ export default function LiveAvailabilityPage() {
       jobId: location.job_id,
       timestamp: location.recorded_at ?? location.updated_at,
       stale,
+      vehicleType: vehicle?.type ?? null,
+      bodyType: vehicle?.body_type ?? null,
+      payloadKg: vehicle?.payload_kg ?? null,
+      palletsCapacity: vehicle?.pallets_capacity ?? null,
+      hasTailLift: vehicle?.has_tail_lift ?? null,
+      locationScope: 'fleet',
     }];
   }), [filtered]);
 
@@ -361,6 +367,17 @@ export default function LiveAvailabilityPage() {
       lng: position.lng,
       timestamp: position.recorded_at,
       stale: isStale(position.recorded_at),
+      memberCode: position.member_code,
+      vehicleType: position.vehicle_type,
+      bodyType: position.body_type,
+      payloadKg: position.payload_kg,
+      palletsCapacity: position.pallets_capacity,
+      hasTailLift: position.has_tail_lift,
+      availabilityUntil: position.available_until,
+      locationScope: position.scope,
+      bookingHref: position.scope === 'exchange' && position.company_id
+        ? `/admin/post-load?directCarrier=${encodeURIComponent(position.company_id)}`
+        : null,
     }];
   }), [filteredNearby]);
 
