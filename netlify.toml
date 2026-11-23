@@ -17,3 +17,7 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Diagnostic-only preview: never merges to MAIN.
+[context.deploy-preview]
+  command = "node ./scripts/netlify-typecheck-probe-20261123.mjs"
