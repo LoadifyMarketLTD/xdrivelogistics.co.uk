@@ -12,6 +12,7 @@ const shared = read('app/customer/quotes/BookingConfirmationFullPage.tsx');
 const reviewDetails = read('app/customer/quotes/bookingOfferReviewDetails.ts');
 const serverCustomer = read('app/api/customer/bids/[id]/award/route.ts');
 const serverAdmin = read('app/api/admin/bids/[id]/accept/route.ts');
+const requestBody = read('lib/legal/paymentObligationClient.ts');
 
 describe('Executive Booking Confirmation remains canonical across buyer workspaces', () => {
   it('uses one real award form in every customer, broker, and company-admin entry', () => {
@@ -24,12 +25,23 @@ describe('Executive Booking Confirmation remains canonical across buyer workspac
     }
   });
 
-  it('requires the two existing acknowledgements before any offer is sent', () => {
-    expect(shared).toContain('detailsAccepted && paymentAccepted && !working');
+  it('requires all three explicit acknowledgements before any offer is sent', () => {
+    expect(shared).toContain('detailsAccepted && paymentAccepted && availabilityAcknowledged && !working');
+    expect(shared).toContain('Carrier Availability &amp; Booking Acceptance');
+    expect(shared).toContain('The selected carrier may have submitted quotations for other transport jobs');
+    expect(shared).toContain('All three acknowledgements required before sending');
     expect(shared).toContain('disabled={!ready}');
     expect(shared).toContain('Carrier acceptance required');
     for (const source of [broker, customerJob, customerWorkspace, companyAdmin]) {
       expect(source).not.toContain('confirmBookingPaymentObligation()');
+    }
+  });
+
+  it('rejects the missing carrier-availability acknowledgement at both award endpoints', () => {
+    expect(requestBody).toContain('carrierAvailabilityAcknowledged: true');
+    for (const source of [serverCustomer, serverAdmin]) {
+      expect(source).toContain('body.carrierAvailabilityAcknowledged !== true');
+      expect(source).toContain('CARRIER_AVAILABILITY_ACK_REQUIRED');
     }
   });
 
