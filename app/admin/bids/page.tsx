@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import {resolveWorkspaceRole} from '../../../lib/workspaceRole';
-import {BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT} from '../../../lib/legal/paymentObligation';
+import BookingConfirmationFullPage from '../../customer/quotes/BookingConfirmationFullPage';
+import { bookingOfferReviewDetails } from '../../customer/quotes/bookingOfferReviewDetails';
 import {receivedBidPrice,awardCurrencyVerified,pendingBuyerOffers,canAwardReceivedBid,type BuyerOffer} from '../../components/workspace/companyAdminReceivedBids';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
 import { ActionButton, AlertBanner, EmptyState, OperationalTable, SemanticStatusBadge, StatusBadge, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 
 //  Types
@@ -44,6 +45,12 @@ type BidWithJob = {
     companyName: string | null;
     companyType: string | null;
     personName: string | null;
+    memberId: string | null;
+    businessPhone: string | null;
+    driverAvailability: string | null;
+    driverVehicleType: string | null;
+    driverVehicleTailLift: boolean;
+    driverVehiclePallets: number | null;
   } | null;
 };
 
@@ -53,6 +60,12 @@ type CarrierIdentity = {
   companyType: string | null;
   personName: string | null;
   displayName: string;
+  memberId: string | null;
+  businessPhone: string | null;
+  driverAvailability: string | null;
+  driverVehicleType: string | null;
+  driverVehicleTailLift: boolean;
+  driverVehiclePallets: number | null;
 };
 
 type JobGroup = {
@@ -105,7 +118,6 @@ function BidsPageContent() {
   const [offersKnown,setOffersKnown]=useState(false);
   const [offersWarning,setOffersWarning]=useState('');
   const [review,setReview]=useState<BidWithJob|null>(null);
-  const [ack,setAck]=useState(false);
   const [notice,setNotice]=useState('');
   const companyId = user?.companyId ?? null;
 
@@ -209,7 +221,8 @@ function BidsPageContent() {
   //  Accept bid
 
   const acceptBid = async (bidId: string) => {
-    if(companyAdmin){if(!review||review.id!==bidId||!ack||!canAwardReceivedBid(review,companyId,pendingOffers.has(review.job_id),offersKnown))return;}else if (!confirmBookingPaymentObligation()) return;
+    if(!review||review.id!==bidId)return;
+    if(companyAdmin&&!canAwardReceivedBid(review,companyId,pendingOffers.has(review.job_id),offersKnown))return;
     if(mutationLock.current)return;mutationLock.current=true;
     setNotice('');
     try {
@@ -232,7 +245,7 @@ function BidsPageContent() {
     } else if(companyAdmin){
       if(json.success!==true||json.status!=='pending_carrier_acceptance'||!json.bookingOfferId||!json.jobId||json.jobId!==review?.job_id){setActionError('Award response could not be verified. Refresh before retrying.');setOffersKnown(false);return;}
       const offer:BuyerOffer={id:json.bookingOfferId,job_id:json.jobId,bid_id:bidId,buyer_company_id:companyId!,status:'pending'};
-      setPendingOffers(current=>new Map(current).set(offer.job_id,offer));setReview(null);setAck(false);setNotice('Booking offer sent. Awaiting carrier acceptance; this is not yet a confirmed booking.');await loadBids();
+      setPendingOffers(current=>new Map(current).set(offer.job_id,offer));setReview(null);setNotice('Booking offer sent. Awaiting carrier acceptance; this is not yet a confirmed booking.');await loadBids();
     } else {void loadBids();}
     }catch{setActionError('Award result could not be verified. Refresh before retrying.');if(companyAdmin)setOffersKnown(false);}finally{mutationLock.current=false;setActionLoading(null);}
   };
@@ -285,7 +298,32 @@ function BidsPageContent() {
           {actionError ? <AlertBanner tone="danger">{actionError}</AlertBanner> : null}
           {companyAdmin&&offersWarning&&<AlertBanner tone="warning">{offersWarning}</AlertBanner>}
           {companyAdmin&&notice&&<AlertBanner tone="success">{notice}</AlertBanner>}
-          {companyAdmin&&review&&<WorkspaceDialog ariaLabel="Review booking offer" title="Review and send booking offer" description="The selected carrier must accept before a confirmed booking is formed." dismissDisabled={Boolean(actionLoading)} onDismiss={()=>{setReview(null);setAck(false);setActionError('')}} actions={<><ActionButton tone="secondary" disabled={Boolean(actionLoading)} onClick={()=>{setReview(null);setAck(false)}}>Cancel</ActionButton><ActionButton tone="success" disabled={!ack||Boolean(actionLoading)||!canAwardReceivedBid(review,companyId,pendingOffers.has(review.job_id),offersKnown)} onClick={()=>void acceptBid(review.id)}>Send booking offer</ActionButton></>}><p><strong>{review.carrierIdentity?.displayName||'Carrier identity not supplied'}</strong></p><p>{review.pickup_location||'Not supplied'} → {review.delivery_location||'Not supplied'}</p><p><strong>{receivedBidPrice(review)?.label||'Price unavailable'}</strong></p><p>{review.message}</p><label style={{display:'flex',alignItems:'flex-start',gap:8,marginTop:16}}><input type="checkbox" checked={ack} onChange={e=>setAck(e.target.checked)} disabled={Boolean(actionLoading)}/><span>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</span></label>{actionError&&<AlertBanner tone="danger">{actionError}</AlertBanner>}</WorkspaceDialog>}
+          {review && <BookingConfirmationFullPage
+            key={review.id}
+            details={bookingOfferReviewDetails({
+              id:review.job_id,pickup_location:review.pickup_location,delivery_location:review.delivery_location,
+              pickup_datetime:review.pickup_datetime,vehicle_type:review.vehicle_type,
+            },{
+              company_id:review.bidder_company_id,bidder_driver_id:review.bidder_driver_id,
+              bid_price_gbp:review.bid_price_gbp,amount:review.amount,currency:review.currency,
+              message:review.message,companies:review.companies,
+            },review.carrierIdentity?{
+              displayName:review.carrierIdentity.displayName,
+              companyName:review.carrierIdentity.companyName,
+              personName:review.carrierIdentity.personName,
+              memberId:review.carrierIdentity.memberId,
+              businessPhone:review.carrierIdentity.businessPhone,
+              driverAvailability:review.carrierIdentity.driverAvailability,
+              driverVehicleType:review.carrierIdentity.driverVehicleType,
+              driverVehicleTailLift:review.carrierIdentity.driverVehicleTailLift,
+              driverVehiclePallets:review.carrierIdentity.driverVehiclePallets,
+            }:null)}
+            working={Boolean(actionLoading)}
+            error={actionError}
+            onCancel={()=>{setReview(null);setActionError('')}}
+            onConfirm={()=>void acceptBid(review.id)}
+          />}
+
 
           {/* Content */}
           {loading ? (
@@ -300,7 +338,7 @@ function BidsPageContent() {
                   group={group}
                   actionLoading={actionLoading}
                   companyAdmin={companyAdmin} companyId={companyId} offersKnown={offersKnown} pendingOffer={pendingOffers.get(group.jobId)}
-                  onAccept={(bidId)=>{if(companyAdmin){const bid=group.bids.find(b=>b.id===bidId);if(bid&&canAwardReceivedBid(bid,companyId,pendingOffers.has(group.jobId),offersKnown)){setActionError('');setAck(false);setReview(bid)}}else void acceptBid(bidId)}}
+                  onAccept={(bidId)=>{const bid=group.bids.find(b=>b.id===bidId);if(!bid)return;if(companyAdmin&&!canAwardReceivedBid(bid,companyId,pendingOffers.has(group.jobId),offersKnown))return;setActionError('');setReview(bid)}}
                   onReject={rejectBid}
                 />
               ))}
@@ -406,7 +444,7 @@ function JobBidGroup({
                 const canAccept = companyAdmin?canAwardReceivedBid(bid,companyId,Boolean(pendingOffer),offersKnown):!isAwarded && bid.bid_status === 'submitted';
                 const canReject = bid.bid_status === 'submitted'&&(!companyAdmin||(!pendingOffer&&offersKnown&&!isAwarded));
                 return <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
-                  {canAccept ? <ActionButton tone="success" disabled={companyAdmin?Boolean(actionLoading):isActioning} title="Accept this bid and award the job to this carrier" onClick={() => void onAccept(bid.id)}>{isActioning ? '...' : companyAdmin?'Review offer':'Accept'}</ActionButton> : null}
+                  {canAccept ? <ActionButton tone="success" disabled={companyAdmin?Boolean(actionLoading):isActioning} title="Accept this bid and award the job to this carrier" onClick={() => void onAccept(bid.id)}>{isActioning ? '...' : 'Review offer'}</ActionButton> : null}
                   {canReject ? <ActionButton tone="danger" disabled={companyAdmin?Boolean(actionLoading):isActioning} title="Reject this bid" onClick={() => void onReject(bid.id)}>{isActioning ? '...' : 'Reject'}</ActionButton> : null}
                   {companyAdmin&&bid.bid_status==='submitted'&&!isAwarded&&!pendingOffer&&offersKnown&&!awardCurrencyVerified(bid)?<span className="workspace-record-meta">Award unavailable: currency verification required.</span>:null}
                   {!canAccept && !canReject ? <span className="workspace-record-meta">—</span> : null}

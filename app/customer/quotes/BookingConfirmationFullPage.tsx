@@ -32,9 +32,10 @@ function displayDate(value: string | null) {
   return Number.isNaN(d.valueOf()) ? 'Not specified' : d.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export default function BookingConfirmationFullPage({ details, working, onCancel, onConfirm }: {
+export default function BookingConfirmationFullPage({ details, working, error, onCancel, onConfirm }: {
   details: BookingConfirmationDetails;
   working: boolean;
+  error?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -127,7 +128,10 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
           </div>
         </main>
         <footer className={styles.footer}>
-          <span className={ready ? styles.ready : styles.notReady}>{ready ? '✓ Both acknowledgements completed' : 'Both acknowledgements required before sending'}</span>
+          <div>
+            <span className={ready ? styles.ready : styles.notReady}>{ready ? '✓ Both acknowledgements completed' : 'Both acknowledgements required before sending'}</span>
+            {error && <p role="alert" style={{ color: '#b91c1c', margin: '4px 0 0', fontSize: 11 }}>{error}</p>}
+          </div>
           <div className={styles.actions}>
             <button type="button" onClick={onCancel} disabled={working} className={styles.cancel}>Cancel</button>
             <button type="button" onClick={onConfirm} disabled={!ready} className={styles.send}>{working ? 'Sending…' : 'Send Booking Offer →'}</button>

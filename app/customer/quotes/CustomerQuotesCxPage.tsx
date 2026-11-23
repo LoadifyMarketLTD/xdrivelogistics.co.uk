@@ -75,11 +75,13 @@ const routeLabel = (job: WorkspaceJob) =>
 function AwardConfirmation({
   candidate,
   working,
+  error,
   onCancel,
   onConfirm,
 }: {
   candidate: QuoteParticipant;
   working: boolean;
+  error?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -87,6 +89,7 @@ function AwardConfirmation({
     <BookingConfirmationFullPage
       key={candidate.bid.id}
       working={working}
+      error={error}
       onCancel={onCancel}
       onConfirm={onConfirm}
       details={{
@@ -100,7 +103,7 @@ function AwardConfirmation({
         vehicle: (candidate.identity?.driverVehicleType ?? candidate.job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' '),
         pallets: candidate.identity?.driverVehiclePallets ?? null,
         tailLift: candidate.identity?.driverVehicleTailLift ?? false,
-        paymentTerms: null,
+        paymentTerms: candidate.job.payment_terms ?? null,
         carrierName: candidate.identity?.personName || candidate.displayName,
         companyName: candidate.identity?.companyName ?? null,
         memberId: candidate.identity?.memberId ?? null,
@@ -427,7 +430,7 @@ export default function CustomerQuotesCxPage() {
       )}
         </main>
       </div>
-      {candidate ? <AwardConfirmation candidate={candidate} working={working === candidate.bid.id} onCancel={() => setCandidate(null)} onConfirm={() => void award(candidate.bid.id)} /> : null}
+      {candidate ? <AwardConfirmation candidate={candidate} working={working === candidate.bid.id} error={message} onCancel={() => setCandidate(null)} onConfirm={() => void award(candidate.bid.id)} /> : null}
       {messageCandidate ? <MessageParticipantDialog candidate={messageCandidate} body={messageBody} working={messageWorking} error={messageError} onBodyChange={setMessageBody} onCancel={() => { setMessageCandidate(null); setMessageBody(''); setMessageError(''); }} onSend={() => void sendBidMessage()} /> : null}
     </PageFrame>
   );

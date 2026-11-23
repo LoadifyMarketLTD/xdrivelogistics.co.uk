@@ -4,7 +4,9 @@ import { use, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../../../lib/legal/paymentObligationClient';
+import BookingConfirmationFullPage from '../../quotes/BookingConfirmationFullPage';
+import { bookingOfferReviewDetails } from '../../quotes/bookingOfferReviewDetails';
 import JobLiveTrackingPanel from '../../../components/tracking/JobLiveTrackingPanel';
 import { CompanyJobSheetPanel } from '../../../components/workspace/CompanyJobSheetPanel';
 import DriverInstructionPanel from '../../../components/workspace/DriverInstructionPanel';
@@ -42,6 +44,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
   const [working, setWorking] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [ownerCapabilities, setOwnerCapabilities] = useState<OwnerEditCapabilities | null>(null);
+  const [awardReview, setAwardReview] = useState<{bidId:string;details:import('../../quotes/BookingConfirmationFullPage').BookingConfirmationDetails}|null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
 
   const job = data.jobs.find((row) => row.id === id) ?? null;
@@ -77,7 +80,6 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
   }, [id]);
 
   const award = async (bidId: string) => {
-    if (!confirmBookingPaymentObligation()) return;
     setWorking(bidId);
     setMessage('');
     try {
@@ -91,6 +93,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'The quote could not be awarded.');
+      setAwardReview(null);
       setMessage('Booking offer sent - awaiting carrier acceptance.');
       setDeleteArmed(false);
       await data.refresh();
@@ -128,7 +131,8 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
 
   return (
     <PageFrame>
-      <PageHeader
+      {awardReview && <BookingConfirmationFullPage key={awardReview.bidId} details={awardReview.details} error={message} working={working===awardReview.bidId} onCancel={()=>setAwardReview(null)} onConfirm={()=>void award(awardReview.bidId)} />}
+    <PageHeader
         eyebrow="Customer booking"
         title={job ? `XDrive XDL-${job.id.slice(0, 8).toUpperCase()}` : 'Booking detail'}
         description="The authoritative customer-side transport record: compare carrier quotes, award work, then follow Order, exact route, carrier, contacts, POD, history, documents, live tracking and authorised invoice information."
@@ -187,7 +191,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
                         : <span key="delta-none" style={{ color: '#64748b' }}>Comparison unavailable</span>,
                     bid.message ?? 'No message supplied',
                     when(bid.created_at),
-                    <ActionButton key="award" tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award / Book'}</ActionButton>,
+                    <ActionButton key="award" tone="success" disabled={working === bid.id} onClick={() => job && setAwardReview({bidId:bid.id,details:bookingOfferReviewDetails(job,bid)})}>{working === bid.id ? 'Awarding…' : 'Award / Book'}</ActionButton>,
                   ];
                 })}
               />
