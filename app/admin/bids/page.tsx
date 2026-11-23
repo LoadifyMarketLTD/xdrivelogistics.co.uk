@@ -9,7 +9,7 @@ import { bookingOfferReviewDetails } from '../../customer/quotes/bookingOfferRev
 import {receivedBidPrice,awardCurrencyVerified,pendingBuyerOffers,canAwardReceivedBid,type BuyerOffer} from '../../components/workspace/companyAdminReceivedBids';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
-import { ActionButton, AlertBanner, EmptyState, OperationalTable, SemanticStatusBadge, StatusBadge, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, OperationalTable, SemanticStatusBadge, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 //  Types
 
