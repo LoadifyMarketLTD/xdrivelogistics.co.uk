@@ -51,3 +51,5 @@ apk_output.txt
 .local-tools/
 .sast/
 .xdrive-safety/
+
+/driver-pwa-reserve/dist/

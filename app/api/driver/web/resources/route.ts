@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: driverResult.error?.message ?? 'Driver profile was not found.' }, { status: 500 });
   }
 
-  const [vehicleResult, companyResult] = await Promise.all([
+  const [vehicleResult, companyResult, memberIdentityResult] = await Promise.all([
     supabaseAdmin!
       .from('vehicles')
       .select('id,type,make,model,reg_plate,status,company_id,assigned_driver_id')
@@ -93,6 +93,11 @@ export async function GET(request: NextRequest) {
         .eq('id', context.companyId)
         .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
+    supabaseAdmin!
+      .from('profiles')
+      .select('xd_id')
+      .eq('user_id', context.userId)
+      .maybeSingle(),
   ]);
 
   const vehicle = vehicleResult.error ? null : (vehicleResult.data ?? null) as AnyRow | null;
@@ -129,6 +134,7 @@ export async function GET(request: NextRequest) {
   const partialResources = [
     vehicleResult.error ? 'vehicle' : null,
     companyResult.error ? 'company' : null,
+    memberIdentityResult.error ? 'member_identity' : null,
     driverDocsResult.error ? 'driver_documents' : null,
     vehicleDocsResult.error ? 'vehicle_documents' : null,
     notificationsResult.error ? 'notifications' : null,
@@ -217,6 +223,7 @@ export async function GET(request: NextRequest) {
       // Compatibility shape retained for older consumers.
       profile: {
         driver_id: context.driverId,
+        member_id: memberIdentityResult.error ? null : memberIdentityResult.data?.xd_id ?? null,
         company_id: context.companyId,
         vehicle_id: vehicleId || null,
         display_name: displayName,
