@@ -209,9 +209,9 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
           <div className={styles.metricSub}>Recorded settlements</div>
         </article>
         <article className={[styles.metric, styles.metricNavy].join(' ')}>
-          <div className={styles.metricLabel}>Currency</div>
-          <div className={styles.metricValue}>GBP</div>
-          <div className={styles.metricSub}>Primary finance ledger</div>
+          <div className={styles.metricLabel}>{role === 'carrier' ? 'Accounts payable' : 'Currency'}</div>
+          <div className={styles.metricValue}>{role === 'carrier' ? money(summary?.payableOutstanding ?? 0) : 'GBP'}</div>
+          <div className={styles.metricSub}>{role === 'carrier' ? 'Open carrier invoices' : 'Primary finance ledger'}</div>
         </article>
       </section>
 
@@ -219,12 +219,13 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
         <section className={styles.dashboard}>
           <article className={styles.panel}>
             <div className={styles.panelHeader}>
-              <div><div className={styles.panelKicker}>Cashflow workspace</div><h2 className={styles.panelTitle}>{role === 'customer' ? 'Payables flow' : 'Receivables flow'}</h2></div>
+              <div><div className={styles.panelKicker}>Cashflow workspace</div><h2 className={styles.panelTitle}>{role === 'customer' ? 'Payables flow' : role === 'carrier' ? 'Receivables and payables' : 'Receivables flow'}</h2></div>
               <button className={styles.button} onClick={() => setView('all')}>Open register </button>
             </div>
             <div className={styles.flow}>
               <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>{role === 'customer' ? 'Accounts payable' : 'Ready to invoice'}</div><div className={styles.flowSub}>{role === 'customer' ? 'Supplier invoices waiting for settlement' : 'Approved work waiting to be billed'}</div></div><strong className={styles.flowValue}>{role === 'customer' ? money(summary?.payableOutstanding ?? 0) : String(summary?.readyToInvoiceCount ?? 0)}</strong></div>
               <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Awaiting payment</div><div className={styles.flowSub}>Issued invoices still open</div></div><strong className={styles.flowValue}>{money(role === 'customer' ? summary?.payableOutstanding ?? 0 : summary?.receivableOutstanding ?? 0)}</strong></div>
+              {role === 'carrier' && <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>Accounts payable</div><div className={styles.flowSub}>Outstanding carrier invoices</div></div><strong className={styles.flowValue}>{money(summary?.payableOutstanding ?? 0)}</strong></div>}
               <div className={styles.flowRow}><span className={[styles.dot, styles.dotGreen].join(' ')} /><div><div className={styles.flowLabel}>Paid</div><div className={styles.flowSub}>Completed settlements</div></div><strong className={styles.flowValue}>{money(summary?.paidValue ?? 0)}</strong></div>
             </div>
           </article>
