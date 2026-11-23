@@ -31,6 +31,7 @@ export type MobileJobRow = {
   status: string | null;
   current_status: string | null;
   assigned_driver_id: string | null;
+  your_ref?: string | null;
   company_id: string | null;
   awarded_carrier_company_id: string | null;
   pickup_location: string | null;
@@ -181,6 +182,7 @@ export const jobSelect = [
   'status',
   'current_status',
   'assigned_driver_id',
+  'your_ref',
   'company_id',
   'awarded_carrier_company_id',
   'pickup_location',
