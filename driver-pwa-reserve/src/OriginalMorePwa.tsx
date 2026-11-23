@@ -98,7 +98,7 @@ function Subsection({section,resources}:{section:string;resources:Resources}) {
     default:return null;
   }
 }
-export default function OriginalMorePwa({token}:{token:string}) {
+export default function OriginalMorePwa({token,ownerDriver=false,onOpenInvoices}:{token:string;ownerDriver?:boolean;onOpenInvoices?:()=>void}) {
   const [selected,setSelected]=useState<string|null>(null);
   const [resources,setResources]=useState<Resources|null>(null);
   const [loading,setLoading]=useState(true);
@@ -125,7 +125,7 @@ export default function OriginalMorePwa({token}:{token:string}) {
         <span className="xd-native-more-icon"><Icon glyph={item.glyph}/></span>
         <span className="xd-native-more-copy"><strong>{item.title}</strong><small>{item.description}</small></span>
         <span className="xd-native-more-arrow" aria-hidden="true">›</span>
-      </button>)}</div></>}
+      </button>)}{ownerDriver&&onOpenInvoices&&<button type="button" className="xd-native-more-item" onClick={onOpenInvoices} aria-label="My Invoices — view issued invoices and PDFs"><span className="xd-native-more-icon"><Icon glyph="document"/></span><span className="xd-native-more-copy"><strong>My Invoices</strong><small>Issued invoices and secure PDFs</small></span><span className="xd-native-more-arrow" aria-hidden="true">›</span></button>}</div></>}
     {loading&&<p role="status" className="xd-native-more-status">Loading authorised driver resources…</p>}
     {error&&<div role="alert" className="xd-native-more-error">Driver resources unavailable: {error} <button type="button" onClick={()=>setAttempt(a=>a+1)}>Retry</button></div>}
     {!!resources?.partial?.length&&<p role="status" className="xd-native-more-muted">Some resources are temporarily unavailable: {resources.partial.join(', ')}.</p>}
