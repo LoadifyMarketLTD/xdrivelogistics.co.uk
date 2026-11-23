@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { classifyAccountsDirection } from '../lib/finance/accounts';
 
 const read=(relative:string)=>fs.readFileSync(path.join(process.cwd(),relative),'utf8');
 
@@ -51,7 +52,24 @@ describe('Accounts Receivable / Accounts Payable completion',()=>{
   it('stops the finance dashboard from mixing AP into receivable KPIs',()=>{
     expect(dashboard).toContain("classifyAccountsDirection(invoice, data.companyId) === 'receivable'");
     expect(dashboard).toContain("classifyAccountsDirection(invoice, data.companyId) === 'payable'");
-    expect(dashboard).toContain("label: 'AR Outstanding'");
-    expect(dashboard).toContain("label: 'AP Outstanding'");
+    expect(dashboard).toContain("label: 'AR Awaiting Payment'");
+    expect(dashboard).toContain("label: 'AP Awaiting Payment'");
+    expect(dashboard).toContain('outstandingValue: dashboardInvoiceValue(unpaid,true)');
+    expect(dashboard).toContain('payableOutstandingValue: dashboardInvoiceValue(payableUnpaid,true)');
+  });
+
+  it('classifies buyer, supplier, unrelated and legacy invoices without cross-counting',()=>{
+    const companyId='company-a';
+    const supplierInvoice={company_id:'company-a',supplier_company_id:'company-a',buyer_company_id:'company-b'};
+    const buyerInvoice={company_id:'company-b',supplier_company_id:'company-b',buyer_company_id:'company-a'};
+    const unrelatedInvoice={company_id:'company-b',supplier_company_id:'company-b',buyer_company_id:'company-c'};
+    const legacyReceivable={company_id:'company-a',supplier_company_id:null,buyer_company_id:'company-b'};
+    const legacyOwnPurchase={company_id:'company-a',supplier_company_id:null,buyer_company_id:'company-a'};
+    expect(classifyAccountsDirection(supplierInvoice,companyId)).toBe('receivable');
+    expect(classifyAccountsDirection(buyerInvoice,companyId)).toBe('payable');
+    expect(classifyAccountsDirection(unrelatedInvoice,companyId)).toBeNull();
+    expect(classifyAccountsDirection(legacyReceivable,companyId)).toBe('receivable');
+    expect(classifyAccountsDirection(legacyOwnPurchase,companyId)).toBe('payable');
+    expect(classifyAccountsDirection(buyerInvoice,'company-b')).toBe('receivable');
   });
 });

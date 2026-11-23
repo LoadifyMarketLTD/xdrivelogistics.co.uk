@@ -103,11 +103,12 @@ test.describe('admin finance pages — authenticated', () => {
   });
 
   test('finance reports page exposes export buttons', async ({ page }) => {
-    await page.goto('/admin/finance/reports');
-    await page.waitForLoadState('networkidle');
+    test.setTimeout(60_000);
+    await page.goto('/admin/finance/reports', { waitUntil: 'domcontentloaded' });
+    // Finance pages have realtime polling; networkidle does not prove hydration.
+    await expect(page.getByRole('heading', { name: /reports|finance/i }).first()).toBeVisible({ timeout: 25_000 });
     const exportBtns = page.getByRole('button', { name: /export|download|csv/i });
-    // At least one export button should be present
-    await expect(exportBtns.first()).toBeVisible({ timeout: 8_000 });
+    await expect(exportBtns.first()).toBeVisible({ timeout: 25_000 });
   });
 
   test('finance balances page shows KPI cards', async ({ page }) => {

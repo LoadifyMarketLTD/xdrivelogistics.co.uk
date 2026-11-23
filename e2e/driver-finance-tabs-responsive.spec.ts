@@ -14,7 +14,7 @@ test('Driver Finance invoice state tabs stay compact at desktop and mobile width
     `<button type="button" data-active="${index === 2}">State ${index}<span>2</span></button>`,
   ).join('');
   await page.setContent(
-    '<!doctype html><html><head></head><body>' +
+    '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>' +
       '<div class="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-driver-workspace xdrive-canonical-workspace">' +
         '<div class="driver-prototype-port"><div class="driver-finance-register">' +
           '<div class="finance-tabs" role="tablist" aria-label="Invoice state tabs">' +
@@ -52,7 +52,7 @@ test('Driver Finance invoice state tabs stay compact at desktop and mobile width
     });
 
     expect(measurements.buttonHeight, `width=${width}: tab height`).toBe(28);
-    expect(measurements.fontSize, `width=${width}: text scale`).toBe('11px');
+    expect(Number.parseFloat(measurements.fontSize), `width=${width}: readable tab text`).toBeGreaterThanOrEqual(14);
     expect(measurements.fontWeight, `width=${width}: text weight`).toBe('600');
     expect(measurements.underlineWidth, `width=${width}: active underline`).toBe('2px');
     expect(measurements.underlineColor, `width=${width}: active underline colour`).toBe('rgb(29, 87, 216)');
