@@ -14,6 +14,8 @@ import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
+import { useVisibleRefresh } from './useVisibleRefresh';
+import { isCompanyDiaryJobChangeRelevant } from '../../../lib/diary/companyDiaryRealtime';
 import CxDiaryCard from './CxDiaryCard';
 import { operationalLocationLabel } from './locationPresentation';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
@@ -222,6 +224,8 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const exactJobId = companyAdmin ? deepJob : null;
   const defaultSearchKey = companyAdmin ? companyDiaryDefaultKey(companyId,user?.id) : 'xdrive:operations-diary:default-search';
   const [jobs, setJobs] = useState<JobRow[]>(() => fixtureData?.jobs ?? []);
+  const jobsRef = useRef<JobRow[]>(fixtureData?.jobs ?? []);
+  useEffect(() => { jobsRef.current = jobs; }, [jobs]);
   const [drivers, setDrivers] = useState<DriverRow[]>(() => fixtureData?.drivers ?? []);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>(() => fixtureData?.reviewsByJob ?? {});
   const [loading, setLoading] = useState(() => !fixtureData);
@@ -365,6 +369,39 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   }, [companyId, fixtureData, user?.id,companyAdmin]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Driver PWA and native Android persist the same canonical jobs statuses.
+  // Realtime gives quick updates; visible polling also covers disconnected clients
+  // and deployments where the jobs table is not in the Realtime publication.
+  useVisibleRefresh(load, {
+    enabled: companyAdmin && !fixtureData && Boolean(companyId && user?.id),
+    intervalMs: 30_000,
+    minGapMs: 5_000,
+  });
+  useEffect(() => {
+    if (!companyAdmin || fixtureData || !companyId || !user?.id) return;
+    let scheduled: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`company-admin-diary-jobs-${companyId}-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, (payload) => {
+        const current = payload.new as Partial<JobRow> | undefined;
+        const previous = payload.old as Partial<JobRow> | undefined;
+        const relevant = isCompanyDiaryJobChangeRelevant(
+          companyId,
+          new Set(jobsRef.current.map((job) => job.id)),
+          current,
+          previous,
+        );
+        if (!relevant || document.visibilityState !== 'visible') return;
+        if (scheduled) clearTimeout(scheduled);
+        scheduled = setTimeout(() => { scheduled = null; void load(); }, 750);
+      })
+      .subscribe();
+    return () => {
+      if (scheduled) clearTimeout(scheduled);
+      void supabase.removeChannel(channel);
+    };
+  }, [companyAdmin, companyId, fixtureData, load, user?.id]);
   useEffect(()=>{
     if(!exactJobId||!companyId||!user?.id)return;
     let cancelled=false;const userId=user.id;
