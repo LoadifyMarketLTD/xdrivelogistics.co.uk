@@ -102,7 +102,9 @@ const detailHref = (role: Role, invoice: Invoice) => {
   if (role === 'broker') return invoice.direction === 'receivable'
     ? `/broker/customer-invoices/${invoice.id}`
     : `/broker/carrier-costs/${invoice.id}`;
-  return `/admin/invoices/${invoice.id}`;
+  return invoice.direction === 'payable'
+    ? `/admin/finance/carrier-invoices/${invoice.id}`
+    : `/admin/invoices/${invoice.id}`;
 };
 
 export function WorkspaceFinanceControl({ role }: { role: Role }) {
@@ -133,15 +135,13 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
 
   const invoices = useMemo(() => payload?.invoices ?? [], [payload?.invoices]);
   const visibleInvoices = useMemo(() => {
-    const scoped = role === 'carrier'
-      ? invoices.filter((invoice) => invoice.direction === 'receivable')
-      : invoices;
+    const scoped = invoices;
     if (view === 'dashboard' || view === 'all' || view === 'customers' || view === 'counterparties' || view === 'ready' || view === 'aging' || view === 'statements') return scoped;
     if (view === 'receivable') return invoices.filter((invoice) => invoice.direction === 'receivable');
     if (view === 'payable') return invoices.filter((invoice) => invoice.direction === 'payable');
     if (view === 'awaiting') return scoped.filter((invoice) => invoice.lifecycle === 'awaiting_payment' || invoice.lifecycle === 'overdue');
     return scoped.filter((invoice) => invoice.lifecycle === view);
-  }, [invoices, role, view]);
+  }, [invoices, view]);
   const summary = payload?.summary;
   const customers = useMemo(() => {
     const query = customerQuery.trim().toLowerCase();
@@ -154,8 +154,10 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
   const showReceivables = role !== 'customer';
   const tabs: Array<[View, string]> = role === 'carrier'
     ? [
-      ['dashboard', 'Dashboard'], ['all', 'All'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
-      ['paid', 'Paid'], ['customers', 'Customers'], ['archive', 'Archive'], ['statements', 'Statements'],
+      ['dashboard', 'Dashboard'], ['all', 'All'], ['receivable', 'Accounts Receivable'],
+      ['payable', 'Accounts Payable'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
+      ['overdue', 'Overdue'], ['paid', 'Paid'], ['customers', 'Customers'], ['aging', 'Aging'],
+      ['archive', 'Archive'], ['statements', 'Statements'],
     ]
     : [
       ['dashboard', 'Dashboard'], ['all', 'All'],
@@ -267,9 +269,7 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
                   {showReceivables && (
                     <div className={styles.flowSub}>Receivable: {money(summary?.receivableAging?.[bucket] ?? 0)}</div>
                   )}
-                  {role !== 'carrier' && (
-                    <div className={styles.flowSub}>Payable: {money(summary?.payableAging?.[bucket] ?? 0)}</div>
-                  )}
+                  <div className={styles.flowSub}>Payable: {money(summary?.payableAging?.[bucket] ?? 0)}</div>
                 </div>
               </div>
             ))}
