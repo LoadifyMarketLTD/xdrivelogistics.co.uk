@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { invoiceAgingBucket, type AgingBucket } from '../../../../../lib/finance/accounts';
 import { resolveWorkspaceRole } from '../../../../../lib/workspaceRole';
+import { membershipHasCapability, resolveMembershipRole } from '../../../../../lib/membershipRole';
 import { hasWorkspaceCapabilityForContext } from '../../../../../lib/roleCapabilities';
 import {
   getBearerToken,
@@ -100,7 +101,12 @@ export async function GET(request: NextRequest) {
 
   const profileRole = text(profile?.role);
   const financeMemberships = (membershipResult.data ?? []).filter((row) => {
-    const membershipRole = text(row.role_in_company);
+    const membershipRole = resolveMembershipRole(row.role_in_company);
+    if (!membershipRole) return false;
+    // Require both a company-issued financial grant and the workspace capability.
+    // A legacy profile alias must never promote a dispatcher/driver membership into Finance.
+    if (!membershipHasCapability(membershipRole, 'invoices.customer.manage')
+      && !membershipHasCapability(membershipRole, 'invoices.carrier.manage')) return false;
     const workspaceRole = resolveWorkspaceRole({
       role: profileRole,
       rawRole: profileRole,

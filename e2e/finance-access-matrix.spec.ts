@@ -11,16 +11,17 @@ type Case = {
   apiPath?: string;
   expectedStatus?: number;
   blockedPath?: string;
+  deniedApiPath?: string;
 };
 
 const cases: Case[] = [
   { name: 'carrier-admin', emailKey: 'E2E_CARRIER_ADMIN_EMAIL', passwordKey: 'E2E_CARRIER_ADMIN_PASSWORD', fallbackEmailKey: 'E2E_ADMIN_EMAIL', fallbackPasswordKey: 'E2E_ADMIN_PASSWORD', route: '/admin/finance', apiPath: '/api/workspace/finance/control', expectedStatus: 200 },
   { name: 'fleet-manager', emailKey: 'E2E_FLEET_MANAGER_EMAIL', passwordKey: 'E2E_FLEET_MANAGER_PASSWORD', route: '/admin/finance', apiPath: '/api/workspace/finance/control', expectedStatus: 200 },
-  { name: 'dispatcher', emailKey: 'E2E_DISPATCHER_EMAIL', passwordKey: 'E2E_DISPATCHER_PASSWORD', route: '/admin/finance', blockedPath: '/admin' },
+  { name: 'dispatcher', emailKey: 'E2E_DISPATCHER_EMAIL', passwordKey: 'E2E_DISPATCHER_PASSWORD', route: '/admin/finance', deniedApiPath: '/api/workspace/finance/control' },
   { name: 'broker', emailKey: 'E2E_BROKER_EMAIL', passwordKey: 'E2E_BROKER_PASSWORD', route: '/broker/finance', apiPath: '/api/workspace/finance/control', expectedStatus: 200 },
   { name: 'customer', emailKey: 'E2E_CUSTOMER_EMAIL', passwordKey: 'E2E_CUSTOMER_PASSWORD', route: '/customer/invoices', apiPath: '/api/workspace/finance/control', expectedStatus: 200 },
   { name: 'owner-driver', emailKey: 'E2E_OWNER_DRIVER_EMAIL', passwordKey: 'E2E_OWNER_DRIVER_PASSWORD', fallbackEmailKey: 'E2E_LIFECYCLE_OWNER_DRIVER_EMAIL', fallbackPasswordKey: 'E2E_LIFECYCLE_OWNER_DRIVER_PASSWORD', route: '/driver/finance', apiPath: '/api/driver/finance/invoices', expectedStatus: 200 },
-  { name: 'company-driver', emailKey: 'E2E_COMPANY_DRIVER_EMAIL', passwordKey: 'E2E_COMPANY_DRIVER_PASSWORD', fallbackEmailKey: 'E2E_LIFECYCLE_DRIVER_EMAIL', fallbackPasswordKey: 'E2E_LIFECYCLE_DRIVER_PASSWORD', route: '/driver/finance', blockedPath: '/driver' },
+  { name: 'company-driver', emailKey: 'E2E_COMPANY_DRIVER_EMAIL', passwordKey: 'E2E_COMPANY_DRIVER_PASSWORD', fallbackEmailKey: 'E2E_LIFECYCLE_DRIVER_EMAIL', fallbackPasswordKey: 'E2E_LIFECYCLE_DRIVER_PASSWORD', route: '/driver/finance', blockedPath: '/driver/jobs' },
 ];
 
 for (const item of cases) {
@@ -31,6 +32,22 @@ for (const item of cases) {
     test.skip(!email || !password, 'Missing E2E credentials for ' + item.name);
 
     await loginWithCredentials(page, email.trim(), password.trim());
+
+    if (item.deniedApiPath) {
+      // Client-side routing must never be the only protection for finance data.
+      await page.goto(item.route, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      const token = await page.evaluate(async () => {
+        const keys = Object.keys(localStorage);
+        const supaKey = keys.find(key => key.startsWith('sb-') && key.endsWith('-auth-token'));
+        if (!supaKey) return null;
+        const stored = JSON.parse(localStorage.getItem(supaKey) ?? 'null');
+        return stored?.access_token ?? null;
+      });
+      expect(token, item.name + ' authenticated token').toBeTruthy();
+      const response = await page.request.get(item.deniedApiPath, { headers: { Authorization: 'Bearer ' + token } });
+      expect(response.status(), item.name + ' finance API must deny access').toBe(403);
+      return;
+    }
 
     if (item.blockedPath) {
       await page.goto(item.route, { waitUntil: 'domcontentloaded', timeout: 60_000 });
