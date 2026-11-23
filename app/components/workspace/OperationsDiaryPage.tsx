@@ -242,7 +242,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const [managingJobId, setManagingJobId] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(() => companyAdmin ? 25 : 10);
   const [detailTabByJob, setDetailTabByJob] = useState<Record<string, JobSheetTab>>({});
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
