@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { downloadXlsx, spreadsheetDate } from '../../../../lib/spreadsheetExport';
+import { financeCsvCell } from '../../../../lib/finance/safeFinanceCsv';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -67,7 +68,7 @@ export default function FinanceStatementsPage() {
 
   const exportCsv = () => {
     const headers = ['Invoice', 'Job', 'Counterparty', 'Invoice date', 'Due date', 'Net', 'VAT', 'Gross', 'Currency', 'Invoice status', 'Payment status'];
-    const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+    const quote = financeCsvCell;
     const records = rows.map((invoice) => [
       invoice.invoice_number ?? invoice.id,
       invoice.job_id ?? '',
