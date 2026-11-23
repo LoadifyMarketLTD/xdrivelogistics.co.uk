@@ -48,9 +48,9 @@ const priceOf = (bid: WorkspaceBid) => Number(bid.bid_price_gbp ?? bid.amount ??
 function matchesTab(bid: WorkspaceBid, tab: QuoteTab) {
   const stage = canonicalQuoteStage(bid, 'poster');
   if (tab === 'received') return ['submitted', 'viewed', 'shortlisted'].includes(stage);
-  if (tab === 'archived') return ['accepted', 'archived'].includes(stage);
+  if (tab === 'archived') return ['accepted', 'archived', 'withdrawn'].includes(stage);
   if (tab === 'submitted') return false;
-  return ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
+  return ['unsuccessful', 'expired'].includes(stage);
 }
 
 export default function BrokerQuotesPage() {

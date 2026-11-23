@@ -241,9 +241,9 @@ export default function CustomerQuotesCxPage() {
           const pendingOffer = pendingOfferByJob.get(job.id);
           const stage = canonicalQuoteStage(bid, 'poster');
           if (statusFilter === 'received') return ['submitted', 'viewed', 'shortlisted'].includes(stage) || pendingOffer?.bid_id === bid.id;
-          if (statusFilter === 'archived') return ['accepted', 'archived'].includes(stage);
+          if (statusFilter === 'archived') return ['accepted', 'archived', 'withdrawn'].includes(stage);
           if (statusFilter === 'submitted') return false;
-          return ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
+          return ['unsuccessful', 'expired'].includes(stage);
         })
         .filter((bid) => {
           if (!carrierNeedle) return true;

@@ -425,8 +425,8 @@ export default function CompanyMarketplaceExchange({
       : quoteStateView === 'submitted'
         ? ['submitted', 'viewed', 'shortlisted'].includes(stage)
         : quoteStateView === 'archived'
-          ? ['archived', 'accepted'].includes(stage)
-          : ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
+          ? ['archived', 'accepted', 'withdrawn'].includes(stage)
+          : ['unsuccessful', 'expired'].includes(stage);
     if (!stateMatch) return false;
     if (!withinQuoteWindow(bid.job?.pickup_datetime, appliedQuoteFilters.pickupWithin)) return false;
     if (!withinQuoteWindow(bid.job?.delivery_datetime, appliedQuoteFilters.deliveryWithin)) return false;

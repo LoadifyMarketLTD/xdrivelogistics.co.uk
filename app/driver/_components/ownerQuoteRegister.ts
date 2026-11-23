@@ -10,9 +10,9 @@ export function ownerQuoteStage(bid:Quote){
 export function ownerQuoteMatches(bid:Quote,scope:OwnerQuoteScope):boolean{
  const stage=ownerQuoteStage(bid);
  if(scope==='total')return true;
- if(scope==='archived')return stage==='archived';
+ if(scope==='archived')return ['archived','withdrawn'].includes(stage);
  if(scope==='awarded')return stage==='accepted';
- if(scope==='unsuccessful')return ['unsuccessful','withdrawn','expired'].includes(stage);
+ if(scope==='unsuccessful')return ['unsuccessful','expired'].includes(stage);
  if(scope==='received')return bid.direction==='incoming'&&['submitted','viewed','shortlisted'].includes(stage);
  return bid.direction==='outgoing'&&['submitted','viewed','shortlisted'].includes(stage);
 }
