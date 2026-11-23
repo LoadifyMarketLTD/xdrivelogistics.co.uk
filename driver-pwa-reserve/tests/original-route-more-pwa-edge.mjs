@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 
 const {chromium}=createRequire('C:/Users/xdriv/.agents/dev-toolkit/package.json')('playwright');
-const root=resolve(dirname(fileURLToPath(import.meta.url)),'../dist');
+const root=resolve(dirname(fileURLToPath(import.meta.url)),process.env.PWA_SERVE_PUBLIC==='1'?'../../public/driver/reserve-pwa':'../dist');
 const base='/driver/reserve-pwa/';
 const mime={'.html':'text/html','.js':'application/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 const server=createServer(async(req,res)=>{
@@ -37,7 +37,7 @@ try{
       if(url.pathname.startsWith('/api/')){
         let body={};
         if(url.pathname.endsWith('/marketplace/loads'))body={loads};
-        else if(url.pathname.endsWith('/profile'))body={driver:{driver_type:'owner_driver'}};
+        else if(url.pathname.endsWith('/profile'))body={driver:{driver_type:resources.resources.driver.driver_type}};
         else if(url.pathname.endsWith('/web/resources')){
           assert.equal(request.headers().authorization,'Bearer '+sensitiveToken,'Requires real token on More resources endpoint');
           body=resources;
@@ -55,6 +55,7 @@ try{
     await page.getByRole('button',{name:'More',exact:true}).waitFor({timeout:20000});
     await page.getByRole('button',{name:'More',exact:true}).click();
     await page.getByRole('button',{name:/My Profile Personal details/}).waitFor();
+    assert.equal(await page.locator('.xd-native-more-item').count(),10,'Owner Driver gets 9 operational cards plus My Invoices');
     assert.equal(await page.getByRole('button',{name:/My Vehicle Assigned vehicle/}).count(),1);
     assert.equal(await page.getByRole('button',{name:/My Documents Driver and vehicle/}).count(),1);
     assert.equal(await page.getByRole('button',{name:/Event Log Operational/}).count(),1);
@@ -64,6 +65,11 @@ try{
     assert.equal(await page.getByRole('button',{name:/Directory Find/}).count(),1);
     assert.equal(await page.getByRole('button',{name:/Future Position Set/}).count(),1);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'No horizontal overflow in More');
+    await page.getByRole('button',{name:/My Invoices/}).click();
+    await page.getByRole('heading',{name:'Invoices',exact:true}).waitFor();
+    await page.getByText('No invoices found for this account.').waitFor();
+    await page.getByRole('button',{name:'← Bookings'}).click();
+    await page.getByRole('button',{name:'More',exact:true}).click();
     await page.getByRole('button',{name:/My Profile Personal details/}).click();
     await page.getByText('qa@example.test').waitFor();
     await page.getByRole('button',{name:'← More'}).click();
@@ -95,7 +101,15 @@ try{
     await page.getByText('Collection & delivery').waitFor();
     assert.deepEqual(writes,[],'No writes or commercial actions are allowed in UI smoke test');
     assert.deepEqual(errors,[]);
-    console.log('ORIGINAL_ROUTE_MORE_PWA_PASS width='+width+' 9 More cards, 5 data views, native Route replacement, map/back, no writes or overflow');
+    resources.resources.driver.driver_type='company_driver';
+    await page.reload();
+    await page.getByRole('button',{name:'More',exact:true}).waitFor();
+    await page.getByRole('button',{name:'More',exact:true}).click();
+    await page.getByRole('button',{name:/My Profile Personal details/}).waitFor();
+    assert.equal(await page.getByRole('button',{name:/My Invoices/}).count(),0,'Company Driver must not see Owner Driver invoices');
+    assert.equal(await page.locator('.xd-native-more-item').count(),9,'Company Driver retains the original 9 operational cards');
+    resources.resources.driver.driver_type='owner_driver';
+    console.log('ORIGINAL_ROUTE_MORE_PWA_PASS width='+width+' Owner 10 cards, Company Driver 9 cards, invoice navigation, 5 data views, Route/map/back, no writes or overflow');
     await ctx.close();
   }
 }finally{await browser?.close();await new Promise(done=>server.close(done));}
