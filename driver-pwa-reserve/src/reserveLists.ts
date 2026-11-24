@@ -22,9 +22,10 @@ export function reserveCounts(jobs: LiveJob[]): ReserveCounts {
 export function reserveJobs(jobs:LiveJob[], tab:ReserveTab, search='', vehicle='All', quoteSection:QuoteSection='Submitted'):LiveJob[] {
   const needle=search.trim().toLocaleLowerCase();
   return jobs.filter(j=>tab==='Loads'
-    // Loads shows ALL currently posted marketplace jobs, including previously quoted jobs.
-    // Quote management actions live exclusively in Quotes.
-    ? j.status==='OPEN' && j.marketplaceListed===true
+    // Loads is the authenticated driver's unquoted opportunity list.
+    // A submitted own quote belongs in Quotes, while other drivers still see the load.
+    // Withdrawn quotes re-enter Loads only when the marketplace job remains open.
+    ? j.status==='OPEN' && j.marketplaceListed===true && !hasActiveQuote(j)
     : tab==='Quotes'
       ? j.personalBid===true && j.quote!=null && (quoteSection==='History'
           ? withdrawn(j)||j.quoteOutcome==='UNSUCCESSFUL'
