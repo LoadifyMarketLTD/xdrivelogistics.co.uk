@@ -32,6 +32,7 @@ type DetailTab = 'pod' | 'order' | 'notes' | 'history' | 'documents' | 'invoice'
 type StatusHistoryEntry = { status?: string | null; timestamp?: string | null; at?: string | null };
 
 type HistoryJob = {
+  your_ref?: string | null;
   id: string;
   company_id: string;
   assigned_company_id?: string | null;
@@ -409,7 +410,7 @@ export default function JobHistoryPage() {
     } else {
       const { data, error: fetchError } = await supabase
         .from('jobs')
-        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
+        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, your_ref, companies:companies!jobs_company_id_fkey(name)')
         .eq('assigned_driver_id', driverId)
         .order('updated_at', { ascending: false })
         .limit(250);
@@ -422,6 +423,26 @@ export default function JobHistoryPage() {
       }
 
       const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
+      // Search the authenticated driver's full history, not only the newest 250 records.
+      const reference = appliedSearch.loadRef.trim();
+      if (reference.length >= 2) {
+        const escapedReference = reference.replace(/[\\%_]/g, '\\$&');
+        const { data: matchingRows, error: referenceError } = await supabase
+          .from('jobs')
+          .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, your_ref, companies:companies!jobs_company_id_fkey(name)')
+          .eq('assigned_driver_id', driverId)
+          .ilike('your_ref', `%${escapedReference}%`)
+          .order('updated_at', { ascending: false })
+          .limit(250);
+        if (referenceError) {
+          setDetailWarning('Historical reference lookup is temporarily unavailable.');
+        } else {
+          const known = new Set(normalized.map(job => job.id));
+          for (const row of (matchingRows ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>) {
+            if (!known.has(row.id)) { normalized.push({ ...row, companies: normalizeCompany(row.companies) }); known.add(row.id); }
+          }
+        }
+      }
       resolvedJobs = normalized;
       if (token) {
         try {
@@ -463,7 +484,7 @@ export default function JobHistoryPage() {
     if (eventsRes.error) warnings.push('history'); else setEventsByJob(groupByJobId((eventsRes.data ?? []) as TrackingEventRow[]));
     if (warnings.length) setDetailWarning((current) => current || `Some Diary detail data is temporarily unavailable: ${warnings.join(', ')}.`);
     finishLoad();
-  }, [authLoading, canViewCompanyDiary, diaryScope, driverId]);
+  }, [authLoading, canViewCompanyDiary, diaryScope, driverId, appliedSearch.loadRef]);
 
   const createInvoiceForJob = async (job: HistoryJob) => {
     if (!canGenerateInvoices) {
@@ -556,7 +577,7 @@ export default function JobHistoryPage() {
     if (appliedSearch.archive === 'active' && isClosedRecord(job)) return false;
     if (appliedSearch.archive === 'closed' && !isClosedRecord(job)) return false;
     const refNeedle = appliedSearch.loadRef.trim().toLowerCase(); const memberNeedle = appliedSearch.memberName.trim().toLowerCase();
-    if (refNeedle && ![job.id, job.customer_reference, job.booking_reference].filter(Boolean).join(' ').toLowerCase().includes(refNeedle)) return false;
+    if (refNeedle && ![job.id, job.customer_reference, job.booking_reference, job.your_ref].filter(Boolean).join(' ').toLowerCase().includes(refNeedle)) return false;
     if (memberNeedle && !(job.companies?.name ?? '').toLowerCase().includes(memberNeedle)) return false;
     return true;
   }), [appliedSearch, jobs, pickupAreaFilter, deliveryAreaFilter, vehicleTypeFilter]);
