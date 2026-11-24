@@ -2,6 +2,22 @@ import {useState} from 'react';
 
 type Journey={from_postcode?:unknown;to_postcode?:unknown;available_from?:unknown;available_to?:unknown;vehicle_type?:unknown;notes?:unknown;status?:unknown};
 const text=(value:unknown)=>typeof value==='string'?value.trim():'';
+// The canonical return-journey API stores user notes inside metadata JSON.
+// Keep the metadata intact when saving; never display its internal structure as notes.
+const readJourneyNotes=(value:unknown)=>{
+  const raw=text(value);
+  try{const parsed=JSON.parse(raw) as Record<string,unknown>;
+    if(parsed&&typeof parsed==='object'&&parsed.source==='xdrive_return_exchange_v2')return text(parsed.notes);
+  }catch{/* Legacy plain-text notes. */}
+  return raw;
+};
+const writeJourneyNotes=(original:unknown,note:string)=>{
+  const raw=text(original);
+  try{const parsed=JSON.parse(raw) as Record<string,unknown>;
+    if(parsed&&typeof parsed==='object'&&parsed.source==='xdrive_return_exchange_v2')return JSON.stringify({...parsed,notes:note});
+  }catch{/* Legacy plain-text notes. */}
+  return note;
+};
 const localDate=(value:unknown)=>{
   const raw=text(value);if(!raw)return '';
   const date=new Date(raw);if(!Number.isFinite(date.getTime()))return '';
@@ -15,7 +31,7 @@ export default function ReturnJourneyPwa({token,journey,onSaved}:{token:string;j
   const [start,setStart]=useState(()=>localDate(journey?.available_from));
   const [end,setEnd]=useState(()=>localDate(journey?.available_to));
   const [vehicle,setVehicle]=useState(()=>text(journey?.vehicle_type));
-  const [notes,setNotes]=useState(()=>text(journey?.notes));
+  const [notes,setNotes]=useState(()=>readJourneyNotes(journey?.notes));
   const [published,setPublished]=useState(Boolean(text(journey?.from_postcode)));
   const [review,setReview]=useState<Mode|null>(null);
   const [saving,setSaving]=useState(false);
@@ -28,7 +44,7 @@ export default function ReturnJourneyPwa({token,journey,onSaved}:{token:string;j
     try{
       const payload=mode==='clear'
         ?{action:'save_return_journey',fromLocation:'',toLocation:'',availableDate:'',availableTo:'',vehicleType:'',notes:''}
-        :{action:'save_return_journey',fromLocation:from.trim().toUpperCase(),toLocation:to.trim().toUpperCase(),availableDate:new Date(start).toISOString(),availableTo:end?new Date(end).toISOString():'',vehicleType:vehicle.trim(),notes:notes.trim()};
+        :{action:'save_return_journey',fromLocation:from.trim().toUpperCase(),toLocation:to.trim().toUpperCase(),availableDate:new Date(start).toISOString(),availableTo:end?new Date(end).toISOString():'',vehicleType:vehicle.trim(),notes:writeJourneyNotes(journey?.notes,notes.trim())};
       const response=await fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const saved=await response.json().catch(()=>({})) as {ok?:boolean;error?:string};
       if(!response.ok||saved.ok!==true)throw Error(saved.error||'XDrive did not confirm the return journey change.');
@@ -45,9 +61,10 @@ export default function ReturnJourneyPwa({token,journey,onSaved}:{token:string;j
     }catch(reason){setError(reason instanceof Error?reason.message:'Return journey could not be updated.');}
     finally{setSaving(false);}
   };
-  return <div className="xd-native-more-panel" aria-label="Return journey management">
+  return <div className="xd-native-more-panel xd-return-journey" aria-label="Return journey management">
     <p className="xd-native-more-muted">Publish your genuine return availability to the XDrive network. This is not a booking or an accepted transport.</p>
-    <form onSubmit={event=>{
+    {published&&start&&new Date(start).getTime()<Date.now()&&<p className="xd-return-journey-warning" role="status">This return availability has expired. Update the dates before publishing again.</p>}
+    <form className="xd-return-journey-form" onSubmit={event=>{
       event.preventDefault();setError('');setSuccess('');
       const validArea=/^[A-Za-z0-9 ]{2,12}$/;
       if(!validArea.test(from.trim())||!validArea.test(to.trim())){setError('Enter valid UK postcode areas for collection and destination.');return;}
@@ -61,9 +78,9 @@ export default function ReturnJourneyPwa({token,journey,onSaved}:{token:string;j
       <label className="xd-native-more-field">Available until (optional)<input type="datetime-local" value={end} onChange={e=>{setEnd(e.target.value);change();}}/></label>
       <label className="xd-native-more-field">Vehicle type (optional)<input value={vehicle} maxLength={100} onChange={e=>{setVehicle(e.target.value);change();}}/></label>
       <label className="xd-native-more-field">Notes (optional)<textarea rows={3} maxLength={1000} value={notes} onChange={e=>{setNotes(e.target.value);change();}}/></label>
-      <button type="submit" disabled={saving}>Review return journey</button>
+      <button type="submit" className="xd-return-action xd-return-action-primary" disabled={saving}>Review return journey</button>
     </form>
-    {published&&!review&&<button type="button" disabled={saving} onClick={()=>{setError('');setSuccess('');setReview('clear');}}>Withdraw return journey</button>}
+    {published&&!review&&<button type="button" className="xd-return-action xd-return-action-secondary" disabled={saving} onClick={()=>{setError('');setSuccess('');setReview('clear');}}>Withdraw return journey</button>}
     {review&&<section className="xd-native-more-record xd-native-more-confirmation" aria-label="Confirm return journey change">
       <strong>{review==='clear'?'Withdraw return journey?':'Confirm return journey publication'}</strong>
       <span>{review==='clear'?'Your published return availability will be withdrawn.':from.trim()+' → '+to.trim()+' · '+start.replace('T',' ')}</span>

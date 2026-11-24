@@ -32,3 +32,25 @@
 .xd-native-more-error{border:1px solid #e2b2b2;border-radius:12px;background:#fff4f4;color:#872c2c;padding:12px;line-height:1.6;font-size:12px;margin-top:16px}
 .xd-native-more-error button{border:1px solid #872c2c;border-radius:7px;color:#872c2c;background:#fff;font-weight:800;padding:6px 12px;margin-left:8px;cursor:pointer}
 @media(max-width:360px){.xd-native-more{padding:20px 9px 28px}.xd-native-more-item{gap:10px;padding:10px}.xd-native-more-icon{width:49px;height:49px}.xd-native-more-copy strong{font-size:15px}.xd-native-more-copy small{font-size:11px}.xd-native-more-arrow{width:29px;height:29px}}
+
+/* Guardian 034: isolated return-journey form, matching XDrive mobile controls. */
+.xd-native-more .xd-return-journey{padding:18px;gap:14px;border-radius:16px}
+.xd-native-more .xd-return-journey>p{margin:0;font-size:14px;line-height:1.55}
+.xd-native-more .xd-return-journey-form{display:grid;grid-template-columns:minmax(0,1fr);gap:15px;width:100%;margin:0}
+.xd-native-more .xd-return-journey-form .xd-native-more-field{display:grid;grid-template-columns:minmax(0,1fr);align-items:stretch;gap:7px;border:0;padding:0;margin:0;color:#173653;font-size:14px;font-weight:750;line-height:1.4}
+.xd-native-more .xd-return-journey-form .xd-native-more-field input,
+.xd-native-more .xd-return-journey-form .xd-native-more-field textarea{box-sizing:border-box;display:block;min-width:0;width:100%;min-height:48px;border:1px solid #c8d5e2;border-radius:9px;padding:11px 12px;background:#fff;color:#142b42;font-family:inherit;font-size:16px;font-weight:500;line-height:1.4;box-shadow:none;outline-offset:2px}
+.xd-native-more .xd-return-journey-form .xd-native-more-field input{font-family:inherit;font-size:16px}
+.xd-native-more .xd-return-journey-form .xd-native-more-field textarea{min-height:94px;resize:vertical;font-family:inherit;font-size:15px;line-height:1.5}
+.xd-native-more .xd-return-journey-form .xd-native-more-field input:focus-visible,
+.xd-native-more .xd-return-journey-form .xd-native-more-field textarea:focus-visible{outline:2px solid #0e3fa9;border-color:#0e3fa9}
+.xd-native-more .xd-return-journey .xd-return-action{appearance:none;display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin:0;padding:13px 16px;border-radius:9px;font-family:inherit;font-size:15px;font-weight:800;line-height:1.3;cursor:pointer}
+.xd-native-more .xd-return-journey .xd-return-action-primary{background:#0e3fa9;border:1px solid #0e3fa9;color:#fff}
+.xd-native-more .xd-return-journey .xd-return-action-secondary{background:#fff;border:1px solid #b9cadb;color:#0a234f}
+.xd-native-more .xd-return-journey .xd-return-action:disabled{opacity:.55;cursor:not-allowed}
+.xd-native-more .xd-return-journey .xd-return-journey-warning{padding:12px;border:1px solid #f1d28a;border-radius:9px;background:#fff8e8;color:#684b1b;font-size:13px}
+.xd-native-more .xd-return-journey .xd-native-more-confirmation{border:1px solid #d9e3ed;border-radius:12px;padding:15px;background:#f8fbff;gap:9px}
+.xd-native-more .xd-return-journey .xd-native-more-confirmation>div{display:flex;gap:9px;flex-wrap:wrap}
+.xd-native-more .xd-return-journey .xd-native-more-confirmation button{flex:1 1 120px;min-height:48px;padding:10px;border:1px solid #c8d5e2;border-radius:8px;background:#fff;color:#0a234f;font-family:inherit;font-weight:750;cursor:pointer}
+.xd-native-more .xd-return-journey .xd-native-more-confirmation button:first-child{background:#0e3fa9;border-color:#0e3fa9;color:#fff}
+@media(min-width:700px){.xd-native-more .xd-return-journey-form{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:18px}.xd-native-more .xd-return-journey-form .xd-native-more-field:has(textarea),.xd-native-more .xd-return-journey-form>.xd-return-action{grid-column:1/-1}}

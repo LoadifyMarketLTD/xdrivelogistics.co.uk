@@ -762,3 +762,24 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-load-quote-policy p{font-size:12px!important;line-height:1.5!important}
 @media(max-width:390px){.rv-load-overview,.rv-load-quote-context,.rv-load-detail-panel,.rv-load-quote-form{padding:12px}.rv-load-overview h1,.rv-load-quote-context h1{font-size:17px!important}}
 .rv-load-posted{font-size:11px!important;color:#8795a4;margin:1px 0 6px!important}
+/* Guardian 034: operational card actions use the proven 50px Loads reference.
+   Typography and existing meaning-specific colors remain unchanged. */
+.rv-job .rv-actions button,
+.rv-job .rv-booking-actions > button.rv-wide{
+  box-sizing:border-box;
+  min-height:50px;
+  height:50px;
+  max-height:50px;
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:7px 10px;
+  line-height:1.25;
+  white-space:normal;
+}
+.rv-job .rv-actions{align-items:stretch}
+@media(max-width:400px){
+  .rv-job .rv-actions button,
+  .rv-job .rv-booking-actions > button.rv-wide{font-size:clamp(13px,3.65vw,16px)}
+}
