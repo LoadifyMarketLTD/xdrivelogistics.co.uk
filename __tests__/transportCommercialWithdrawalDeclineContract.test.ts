@@ -61,6 +61,11 @@ describe('Commercial withdrawal and carrier booking refusal', () => {
       expect(source).toContain(".eq('status', 'submitted')");
     }
   });
+  it('refuses Company Driver commercial booking responses even with a legacy bidding flag', () => {
+    expect(respond).toContain(".select('driver_type')");
+    expect(respond).toContain("actorDriver?.driver_type === 'company_driver'");
+    expect(respond).toContain('Company Drivers cannot accept or decline commercial booking offers.');
+  });
   it('keeps Withdrawn in quote history and not in the Unsuccessful tab', () => {
     for (const source of [buyer, broker, exchange]) {
       expect(source).toContain("'withdrawn'].includes(stage)");

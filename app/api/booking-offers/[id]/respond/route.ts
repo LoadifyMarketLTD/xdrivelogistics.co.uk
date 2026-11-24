@@ -20,6 +20,18 @@ export async function POST(request: NextRequest, { params }: Params) {
   const validator = supabaseValidator ?? supabaseAdmin;
   const { data: { user }, error } = await validator.auth.getUser(token);
   if (error || !user) return json(401, { error: 'Unauthorized.' });
+
+  // A Company Driver acts operationally on assigned transport, not as the commercial carrier.
+  const { data: actorDriver, error: actorDriverError } = await supabaseAdmin
+    .from('drivers')
+    .select('driver_type')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (actorDriverError) return json(503, { error: 'Commercial booking authority could not be verified.' });
+  if (actorDriver?.driver_type === 'company_driver') {
+    return json(403, { error: 'Company Drivers cannot accept or decline commercial booking offers.' });
+  }
+
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return json(400, { error: 'Invalid booking-offer response.' });
   if(parsed.data.action==='decline'&&parsed.data.reasonCode==='other'&&!parsed.data.reasonDetails?.trim())return json(400,{error:'Please add an explanation when selecting Other operational reason.'});
