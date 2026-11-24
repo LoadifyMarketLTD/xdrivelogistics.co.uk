@@ -65,6 +65,7 @@ export type MobileJobRow = {
   hard_copy_pod: string | null;
   collection_pass_required: boolean | null;
   pod_generated: boolean | null;
+  pod_generated_at: string | null;
   no_of_items: number | null;
   packaging: string | null;
   weight_kg: number | string | null;
@@ -216,6 +217,7 @@ export const jobSelect = [
   'hard_copy_pod',
   'collection_pass_required',
   'pod_generated',
+  'pod_generated_at',
   'no_of_items',
   'packaging',
   'weight_kg',

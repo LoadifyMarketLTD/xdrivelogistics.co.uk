@@ -33,7 +33,8 @@ describe('CX vs XDrive Driver POD server consolidation contract', () => {
     expect(lifecycle).toContain('const blocker = deliveryRouteBlocker(stops, strict)');
     expect(read('lib/jobs/deliveryRouteGuard.ts')).toContain('Complete all multi-drop stops before capturing POD or marking the job delivered.');
     expect(lifecycle).toContain('const damagePhotos = Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths]))');
-    expect(lifecycle).toContain("rpc('record_driver_pod_atomic'");
+    expect(lifecycle).toContain("'record_driver_pod_atomic'");
+    expect(lifecycle).toContain("'repair_incomplete_driver_pod_atomic'");
     expect(lifecycle).toContain('p_damage_photos: damagePhotos');
   });
 
@@ -41,7 +42,9 @@ describe('CX vs XDrive Driver POD server consolidation contract', () => {
     expect(damageMigration).toContain('ADD COLUMN IF NOT EXISTS damage_photos jsonb');
     expect(detail).toContain('buildSignedPodPresentations');
     expect(detail).toContain('damage_photos,pod_generated_at,driver_notes');
-    expect(detail).toContain('podCompleted: Boolean(pod)');
+    expect(detail).toContain('podCompleted = await isVerifiedOfficialPodComplete(supabaseAdmin!, row.id, row)');
+    expect(detail).toContain('podCompleted,');
+    expect(detail).not.toContain('podCompleted: Boolean(pod)');
   });
 
   it('keeps evidence mutations behind the authenticated assigned-driver server route', () => {

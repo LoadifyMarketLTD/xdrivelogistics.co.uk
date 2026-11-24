@@ -5,6 +5,7 @@ import { buildSignedJobAttachments } from '../../jobAttachmentPresentation';
 import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../../jobOperationalPresentation';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../../_lib';
 import { buildSignedPodPresentations } from '../../podPresentation';
+import { isVerifiedOfficialPodComplete } from '../../../../../../lib/server/verifiedPodCompletion';
 
 type JobStopRow = {
   id: string;
@@ -149,6 +150,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     podPresentationPartial = true;
   }
 
+  // A visible POD preview can contain incomplete historical evidence.
+  // Completion requires persisted signed evidence and the official receipt.
+  let podCompleted = false;
+  try {
+    podCompleted = await isVerifiedOfficialPodComplete(supabaseAdmin!, row.id, row);
+  } catch {
+    podPresentationPartial = true;
+  }
+
   let attachmentPresentationPartial = false;
   let attachments: Array<Record<string, unknown>> = [];
   try {
@@ -189,7 +199,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       specialInstructions,
       attachments,
       pod,
-      podCompleted: Boolean(pod),
+      podCompleted,
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       budgetAmount: agreedRate,
