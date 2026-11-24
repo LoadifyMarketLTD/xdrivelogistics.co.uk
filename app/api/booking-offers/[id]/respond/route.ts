@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { BOOKING_DECLINE_REASONS, bookingDeclineReasonText } from '../../../../../lib/bookingOfferDeclineReasons';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../_lib/commercialLegalReadiness';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
 
 type Params = { params: Promise<{ id: string }> };
-const bodySchema = z.object({ action: z.enum(['accept', 'decline']), reason: z.string().trim().max(1000).optional() });
+const reasonCodeSchema = z.enum(Object.keys(BOOKING_DECLINE_REASONS) as [keyof typeof BOOKING_DECLINE_REASONS, ...(keyof typeof BOOKING_DECLINE_REASONS)[]]);
+const bodySchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('accept') }),
+  z.object({ action: z.literal('decline'), reasonCode: reasonCodeSchema.optional(), reasonDetails: z.string().trim().max(700).optional(), reason: z.string().trim().max(1000).optional() })
+]);
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
 export async function POST(request: NextRequest, { params }: Params) {
@@ -15,8 +20,21 @@ export async function POST(request: NextRequest, { params }: Params) {
   const validator = supabaseValidator ?? supabaseAdmin;
   const { data: { user }, error } = await validator.auth.getUser(token);
   if (error || !user) return json(401, { error: 'Unauthorized.' });
+
+  // A Company Driver acts operationally on assigned transport, not as the commercial carrier.
+  const { data: actorDriver, error: actorDriverError } = await supabaseAdmin
+    .from('drivers')
+    .select('driver_type')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (actorDriverError) return json(503, { error: 'Commercial booking authority could not be verified.' });
+  if (actorDriver?.driver_type === 'company_driver') {
+    return json(403, { error: 'Company Drivers cannot accept or decline commercial booking offers.' });
+  }
+
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return json(400, { error: 'Invalid booking-offer response.' });
+  if(parsed.data.action==='decline'&&parsed.data.reasonCode==='other'&&!parsed.data.reasonDetails?.trim())return json(400,{error:'Please add an explanation when selecting Other operational reason.'});
   const { id } = await params;
 
   if (parsed.data.action === 'accept') {
@@ -85,7 +103,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const rpc = parsed.data.action === 'accept' ? 'accept_job_booking_offer_atomic' : 'decline_job_booking_offer_atomic';
   const args = parsed.data.action === 'accept'
     ? { p_offer_id: id, p_actor_user_id: user.id }
-    : { p_offer_id: id, p_actor_user_id: user.id, p_reason: parsed.data.reason ?? null };
+    : { p_offer_id: id, p_actor_user_id: user.id, p_reason: parsed.data.reasonCode ? bookingDeclineReasonText(parsed.data.reasonCode,parsed.data.reasonDetails) : (parsed.data.reason || 'Carrier declined via a legacy client; reason not supplied.') };
   const { data, error: rpcError } = await supabaseAdmin.rpc(rpc, args);
   if (rpcError) return json(rpcError.code === '42501' ? 403 : rpcError.code === '23514' ? 409 : 500, { error: rpcError.message });
   const result = Array.isArray(data) ? data[0] : data;

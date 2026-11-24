@@ -36,6 +36,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (driver.driverType !== 'owner_driver' || !driver.canCommercialBid) {
+    return respond(403, { error: 'Only an authorised Owner Driver may manage a personal commercial quotation.' });
+  }
 
   const { id } = await params;
   const body = await request.json().catch(() => ({} as Record<string, unknown>)) as Record<string, unknown>;
@@ -64,6 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('id', id)
       .eq('status', 'submitted')
       .select('id');
+    if (withdrawError?.code === '23514') return respond(409, { code: 'BOOKING_OFFER_OR_AGREEMENT_EXISTS', error: 'This quote has already entered the booking process. Review the booking before making changes.' });
     if (withdrawError) return respond(500, { error: withdrawError.message });
     if (!withdrawnRows?.length) return respond(409, { error: 'Quote changed before withdrawal. Reload your quotes.' });
     return respond(200, { ok: true, status: 'withdrawn', idempotent: false });
