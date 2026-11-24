@@ -315,6 +315,8 @@ export default function JobHistoryPage() {
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshInFlightRef = useRef(false);
+  const searchVersionRef = useRef(0);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [error, setError] = useState('');
   const [detailWarning, setDetailWarning] = useState('');
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>('all');
@@ -363,8 +365,10 @@ export default function JobHistoryPage() {
   const fetchHistory = useCallback(async () => {
     if (!isSupabaseConfigured || authLoading || refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
+    const currentSearchVersion = searchVersionRef.current;
     const finishLoad = () => {
       refreshInFlightRef.current = false;
+      if (currentSearchVersion !== searchVersionRef.current) { setRefreshVersion(v => v + 1); return; }
       hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
@@ -466,6 +470,7 @@ export default function JobHistoryPage() {
       }
     }
 
+    if (currentSearchVersion !== searchVersionRef.current) { finishLoad(); return; }
     setJobs(resolvedJobs);
     const jobIds = resolvedJobs.map((job) => job.id);
     if (!jobIds.length) {
@@ -479,6 +484,7 @@ export default function JobHistoryPage() {
       supabase.from('job_documents').select('id, job_id, file_name, file_type, file_url, uploaded_at').in('job_id', jobIds).order('uploaded_at', { ascending: false }),
       supabase.from('job_tracking_events').select('id, job_id, event_type, event_time, user_name, notes, message').in('job_id', jobIds).order('event_time', { ascending: false }),
     ]);
+    if (currentSearchVersion !== searchVersionRef.current) { finishLoad(); return; }
     const warnings: string[] = [];
     if (reviewsRes.error) warnings.push('feedback'); else setReviewsByJob(groupByJobId((reviewsRes.data ?? []) as ReviewRow[]));
     if (documentsRes.error) warnings.push('documents'); else setDocumentsByJob(groupByJobId((documentsRes.data ?? []) as DocumentRow[]));
@@ -562,7 +568,7 @@ export default function JobHistoryPage() {
     }
   }, [fetchHistory]);
 
-  useEffect(() => { void fetchHistory(); }, [fetchHistory]);
+  useEffect(() => { searchVersionRef.current += 1; void fetchHistory(); }, [fetchHistory, refreshVersion]);
   useVisibleRefresh(fetchHistory, { intervalMs: 30_000, minGapMs: 2_500 });
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
