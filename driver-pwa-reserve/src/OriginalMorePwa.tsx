@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
 import {driverGet} from './liveApi';
+import MemberDiscoveryPwa from './MemberDiscoveryPwa';
 import './OriginalMorePwa.css';
 
 type Data = Record<string, unknown>;
@@ -44,6 +45,10 @@ function display(value:unknown):string {
   if(typeof value==='string')return value.slice(0,400);
   return 'Not provided';
 }
+function friendlyEnum(value:unknown):string {
+  if(typeof value!=='string')return display(value);
+  return value.replaceAll('_',' ').replace(/\b\w/g,letter=>letter.toUpperCase());
+}
 function Row({label,value}:{label:string;value:unknown}) {
   return <div className="xd-native-more-field"><span>{label}</span><strong>{display(value)}</strong></div>;
 }
@@ -55,18 +60,18 @@ function formatEvent(row:Data) {
   }
   return display(row.event_type);
 }
-function Subsection({section,resources}:{section:string;resources:Resources}) {
+function Subsection({section,resources,token}:{section:string;resources:Resources;token:string}) {
   const driver=resources.driver||{},vehicle=resources.vehicle||{},profile=resources.profile||{};
   switch(section) {
     case 'profile':return <div className="xd-native-more-panel">
       <Row label="Name" value={resources.name||profile.display_name}/><Row label="Email" value={resources.email}/>
-      <Row label="Phone" value={resources.phone}/><Row label="Driver ID" value={profile.driver_id}/>
-      <Row label="Driver type" value={driver.driver_type}/><Row label="Account status" value={driver.status}/>
+      <Row label="Phone" value={resources.phone}/><Row label="XDrive Member ID" value={profile.member_id}/>
+      <Row label="Driver type" value={friendlyEnum(driver.driver_type)}/><Row label="Account status" value={friendlyEnum(driver.status)}/>
     </div>;
     case 'vehicle':return <div className="xd-native-more-panel">
       {resources.vehicle? <><Row label="Vehicle" value={[vehicle.make,vehicle.model].filter(Boolean).join(' ')||vehicle.type}/><Row label="Registration" value={vehicle.reg_plate}/><Row label="Type" value={vehicle.type}/><Row label="Status" value={vehicle.status}/></>
         : <p>No assigned vehicle was returned for this driver.</p>}
-      <Row label="Driver availability" value={driver.availability_status}/>
+      <Row label="Driver availability" value={friendlyEnum(driver.availability_status)}/>
     </div>;
     case 'documents':return <div className="xd-native-more-panel">
       {resources.documents?.length?resources.documents.map((doc,index)=><div className="xd-native-more-record" key={String(doc.id||index)}>
@@ -89,8 +94,8 @@ function Subsection({section,resources}:{section:string;resources:Resources}) {
       <Row label="Current availability" value={driver.availability_status}/>
       <p className="xd-native-more-muted">Changes to availability must use the authorised server workflow. No local-only change is submitted here.</p>
     </div>;
-    case 'nearby':return <div className="xd-native-more-panel"><p>Nearby member discovery is not connected to this PWA workspace. No locations or members have been invented.</p></div>;
-    case 'directory':return <div className="xd-native-more-panel"><p>Member directory data is not available through the authenticated PWA resources endpoint yet.</p></div>;
+    case 'nearby':return <MemberDiscoveryPwa token={token} mode="nearby"/>;
+    case 'directory':return <MemberDiscoveryPwa token={token} mode="directory"/>;
     case 'future':return <div className="xd-native-more-panel">
       <Row label="Future position" value={driver.future_position}/><Row label="Available date" value={driver.future_position_date}/>
       <p className="xd-native-more-muted">Editing the future position requires its authorised server form, not an unverified local update.</p>
@@ -119,7 +124,7 @@ export default function OriginalMorePwa({token,ownerDriver=false,onOpenInvoices}
   return <section className="xd-native-more" aria-label="Driver More">
     {item?<><button type="button" className="xd-native-more-back" onClick={()=>setSelected(null)}>← More</button>
       <h1>{item.title}</h1><p className="xd-native-more-kicker">{item.description}</p>
-      {resources&&<Subsection section={item.key} resources={resources}/>}</>:
+      {resources&&<Subsection section={item.key} resources={resources} token={token}/>}</>:
       <><p className="xd-native-more-kicker">Driver account, tools and records</p>
       <div className="xd-native-more-list">{originalMoreItems.map(item=><button type="button" className="xd-native-more-item" key={item.key} disabled={!resources} onClick={()=>setSelected(item.key)}>
         <span className="xd-native-more-icon"><Icon glyph={item.glyph}/></span>

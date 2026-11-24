@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../lib/legal/paymentObligationClient';
+import BookingConfirmationFullPage from './quotes/BookingConfirmationFullPage';
+import { bookingOfferReviewDetails } from './quotes/bookingOfferReviewDetails';
 import LoadPostingForm from '../components/workspace/LoadPostingForm';
 import {
   isCustomerVisibleWorkspaceInvoice,
@@ -37,6 +39,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
   const [events,setEvents]=useState<Array<{id:string;event_type:string;message?:string|null;created_at:string}>>([]);
   const [openingPod,setOpeningPod]=useState<string|null>(null);
   const [podError,setPodError]=useState('');
+  const [awardReview,setAwardReview]=useState<{bidId:string;details:import('./quotes/BookingConfirmationFullPage').BookingConfirmationDetails}|null>(null);
   const [awarding,setAwarding]=useState<string|null>(null);
   const [actionMsg,setActionMsg]=useState('');
   const job=data.jobs.find(j=>j.id===jobId);
@@ -64,7 +67,6 @@ export function CustomerJobPage({jobId}:{jobId:string}){
   };
 
   const awardQuote=async(bidId:string)=>{
-    if(!confirmBookingPaymentObligation())return;
     setAwarding(bidId);
     setActionMsg('');
     const {data:session}=await supabase.auth.getSession();
@@ -72,6 +74,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
     const payload=await response.json().catch(()=>({})) as {error?:string};
     setAwarding(null);
     if(!response.ok){setActionMsg(payload.error??'Unable to award quote.');return;}
+    setAwardReview(null);
     setActionMsg('Booking offer sent - awaiting carrier acceptance.');
     await data.refresh();
   };
@@ -82,6 +85,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
   const podPaths=Array.isArray(job.delivery_photos)?job.delivery_photos.filter((p):p is string=>typeof p==='string'&&p.length>0):[];
 
   return <PageFrame>
+    {awardReview && <BookingConfirmationFullPage key={awardReview.bidId} details={awardReview.details} error={actionMsg} working={awarding===awardReview.bidId} onCancel={()=>setAwardReview(null)} onConfirm={()=>void awardQuote(awardReview.bidId)} />}
     <PageHeader
       eyebrow={`Job ${job.id.slice(0,8).toUpperCase()}`}
       title={`${job.pickup_postcode??'Collection'} → ${job.delivery_postcode??'Delivery'}`}
@@ -146,7 +150,7 @@ export function CustomerJobPage({jobId}:{jobId:string}){
                   <strong>{bid.companies?.name??'Carrier'}</strong>
                   <div style={{color:'#64748b'}}>{money(Number(bid.bid_price_gbp??bid.amount??0))}{bid.message?` · ${bid.message}`:''}</div>
                 </div>
-                <ActionButton tone="success" disabled={awarding===bid.id} onClick={()=>void awardQuote(bid.id)}>
+                <ActionButton tone="success" disabled={awarding===bid.id} onClick={()=>setAwardReview({bidId:bid.id,details:bookingOfferReviewDetails(job,bid)})}>
                   {awarding===bid.id?'Awarding…':'Accept'}
                 </ActionButton>
               </div>

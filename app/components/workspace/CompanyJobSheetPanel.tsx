@@ -370,7 +370,10 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
       {sheet.partial && <AlertBanner tone="warning">Some booking details are unavailable. Verified values are shown and missing values are left unfilled.</AlertBanner>}
       <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
         <span><strong>Booking Detail</strong> · {sheet.references.xdrive}</span>
-        <ActionButton tone="secondary" onClick={() => { window.location.href = messagesHref; }}>Messages for this job</ActionButton>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <ActionButton tone="secondary" onClick={() => setTab('event-log')}>Vehicle Location / Journey</ActionButton>
+          <ActionButton tone="secondary" onClick={() => { window.location.href = messagesHref; }}>Messages for this job</ActionButton>
+        </div>
       </div>
       {tab === 'agreement' && <Canonical3150TransportSummary
         reference={sheet.references.xdrive}

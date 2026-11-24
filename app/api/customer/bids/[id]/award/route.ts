@@ -37,9 +37,13 @@ export async function POST(request: NextRequest, { params }: Params) {
     return json(503, { error: 'Bid acceptance workflow is currently disabled.' });
   }
 
-  const body = await request.json().catch(() => ({})) as { paymentObligationAcknowledged?: boolean };
+  const body = await request.json().catch(() => ({})) as { paymentObligationAcknowledged?: boolean; carrierAvailabilityAcknowledged?: boolean };
   if (body.paymentObligationAcknowledged !== true) {
     return json(409, { error: 'You must explicitly acknowledge the transport buyer payment obligation before awarding this quote.', code: 'PAYMENT_OBLIGATION_ACK_REQUIRED' });
+  }
+
+  if (body.carrierAvailabilityAcknowledged !== true) {
+    return NextResponse.json({ error: 'Confirm that the selected carrier may no longer be available and must accept the booking offer.', code: 'CARRIER_AVAILABILITY_ACK_REQUIRED' }, { status: 409 });
   }
 
   const { id: bidId } = await params;

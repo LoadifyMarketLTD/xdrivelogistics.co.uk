@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import BookingConfirmationFullPage from '../../customer/quotes/BookingConfirmationFullPage';
+import { bookingOfferReviewDetails } from '../../customer/quotes/bookingOfferReviewDetails';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
 import CxQuoteCard from '../../components/workspace/CxQuoteCard';
 import { cxDateParts } from '../../components/workspace/CxLoadCard';
@@ -66,6 +68,7 @@ export default function BrokerQuotesPage() {
   const [working, setWorking] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [identities, setIdentities] = useState<Record<string, BidderIdentity>>({});
+  const [awardReview, setAwardReview] = useState<{bidId:string;details:import('../../customer/quotes/BookingConfirmationFullPage').BookingConfirmationDetails}|null>(null);
   const [identityWarning, setIdentityWarning] = useState('');
 
   useEffect(() => {
@@ -121,7 +124,7 @@ export default function BrokerQuotesPage() {
 
 
   const award = async (bidId: string) => {
-    if (!confirmBookingPaymentObligation()) return;
+    // The shared booking review has already collected the acknowledgements.
     setWorking(bidId); setMessage('');
     const { data: session } = await supabase.auth.getSession();
     const response = await fetch(`/api/customer/bids/${bidId}/award`, {
@@ -132,6 +135,7 @@ export default function BrokerQuotesPage() {
     const payload = await response.json().catch(() => ({})) as { error?: string };
     setWorking(null);
     if (!response.ok) { setMessage(payload.error || 'Unable to award this carrier quote.'); return; }
+    setAwardReview(null);
     setMessage('Booking offer sent - awaiting carrier acceptance.');
     await data.refresh();
   };
@@ -278,7 +282,7 @@ export default function BrokerQuotesPage() {
                     </>}
                     footer={<>
                       <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !open; setExpanded((current) => { const next = new Set(current); if (open) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={open ? 'Collapse quote' : 'Expand quote'}>{open ? '▴' : '▾'}</button>
-                      {bid.status === 'submitted' && <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</button>}
+                      {bid.status === 'submitted' && <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id} onClick={() => setAwardReview({bidId:bid.id,details:bookingOfferReviewDetails(job,bid,{...identity,displayName:carrierName,companyName:identity?.companyName||bid.companies?.name||null})})}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</button>}
                       <span className="xdrive-cx-quote-card__quote-state">{quote > 0 ? money(quote) : 'Quote not priced'}</span>
                       <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>{carrierName}</span>
                     </>}
@@ -289,6 +293,7 @@ export default function BrokerQuotesPage() {
           )}
         </main>
       </div>
+      {awardReview && <BookingConfirmationFullPage key={awardReview.bidId} details={awardReview.details} error={message} working={working===awardReview.bidId} onCancel={()=>setAwardReview(null)} onConfirm={()=>void award(awardReview.bidId)} />}
     </PageFrame>
   );
 }

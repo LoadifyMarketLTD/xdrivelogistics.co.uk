@@ -32,15 +32,17 @@ function displayDate(value: string | null) {
   return Number.isNaN(d.valueOf()) ? 'Not specified' : d.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
-export default function BookingConfirmationFullPage({ details, working, onCancel, onConfirm }: {
+export default function BookingConfirmationFullPage({ details, working, error, onCancel, onConfirm }: {
   details: BookingConfirmationDetails;
   working: boolean;
+  error?: string;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
   const [detailsAccepted, setDetailsAccepted] = useState(false);
   const [paymentAccepted, setPaymentAccepted] = useState(false);
-  const ready = detailsAccepted && paymentAccepted && !working;
+  const [availabilityAcknowledged, setAvailabilityAcknowledged] = useState(false);
+  const ready = detailsAccepted && paymentAccepted && availabilityAcknowledged && !working;
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -125,9 +127,25 @@ export default function BookingConfirmationFullPage({ details, working, onCancel
               <p className={styles.help}>Sending the offer creates a pending carrier acceptance request, not an accepted booking.</p>
             </section>
           </div>
+          <section className={styles.panel} style={{ marginTop: 14 }}>
+            <div className={styles.panelTitle}><strong>Carrier Availability &amp; Booking Acceptance</strong><small>REQUIRED ACKNOWLEDGEMENT</small></div>
+            <p className={styles.explain}>
+              The selected carrier may have submitted quotations for other transport jobs and may have accepted another booking since submitting this quotation.
+              If availability has not been confirmed directly with the carrier, including by telephone where appropriate, I understand that the carrier may already be committed to other work.
+              Sending this booking offer does not guarantee the carrier&apos;s current availability or constitute acceptance by the carrier.
+              The transport remains subject to confirmation by an authorised representative of the carrier.
+            </p>
+            <label className={styles.confirm}>
+              <input type="checkbox" checked={availabilityAcknowledged} onChange={event => setAvailabilityAcknowledged(event.target.checked)} />
+              <span>I understand that this offer requires carrier acceptance and that the carrier may no longer be available.</span>
+            </label>
+          </section>
         </main>
         <footer className={styles.footer}>
-          <span className={ready ? styles.ready : styles.notReady}>{ready ? '✓ Both acknowledgements completed' : 'Both acknowledgements required before sending'}</span>
+          <div>
+            <span className={ready ? styles.ready : styles.notReady}>{ready ? '✓ All three acknowledgements completed' : 'All three acknowledgements required before sending'}</span>
+            {error && <p role="alert" style={{ color: '#b91c1c', margin: '4px 0 0', fontSize: 11 }}>{error}</p>}
+          </div>
           <div className={styles.actions}>
             <button type="button" onClick={onCancel} disabled={working} className={styles.cancel}>Cancel</button>
             <button type="button" onClick={onConfirm} disabled={!ready} className={styles.send}>{working ? 'Sending…' : 'Send Booking Offer →'}</button>

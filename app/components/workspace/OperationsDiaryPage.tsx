@@ -14,6 +14,8 @@ import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
+import { useVisibleRefresh } from './useVisibleRefresh';
+import { isCompanyDiaryJobChangeRelevant } from '../../../lib/diary/companyDiaryRealtime';
 import CxDiaryCard from './CxDiaryCard';
 import { operationalLocationLabel } from './locationPresentation';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
@@ -222,6 +224,8 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const exactJobId = companyAdmin ? deepJob : null;
   const defaultSearchKey = companyAdmin ? companyDiaryDefaultKey(companyId,user?.id) : 'xdrive:operations-diary:default-search';
   const [jobs, setJobs] = useState<JobRow[]>(() => fixtureData?.jobs ?? []);
+  const jobsRef = useRef<JobRow[]>(fixtureData?.jobs ?? []);
+  useEffect(() => { jobsRef.current = jobs; }, [jobs]);
   const [drivers, setDrivers] = useState<DriverRow[]>(() => fixtureData?.drivers ?? []);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>(() => fixtureData?.reviewsByJob ?? {});
   const [loading, setLoading] = useState(() => !fixtureData);
@@ -242,7 +246,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   const [managingJobId, setManagingJobId] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(() => companyAdmin ? 25 : 10);
   const [detailTabByJob, setDetailTabByJob] = useState<Record<string, JobSheetTab>>({});
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
@@ -365,6 +369,39 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   }, [companyId, fixtureData, user?.id,companyAdmin]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Driver PWA and native Android persist the same canonical jobs statuses.
+  // Realtime gives quick updates; visible polling also covers disconnected clients
+  // and deployments where the jobs table is not in the Realtime publication.
+  useVisibleRefresh(load, {
+    enabled: companyAdmin && !fixtureData && Boolean(companyId && user?.id),
+    intervalMs: 30_000,
+    minGapMs: 5_000,
+  });
+  useEffect(() => {
+    if (!companyAdmin || fixtureData || !companyId || !user?.id) return;
+    let scheduled: ReturnType<typeof setTimeout> | null = null;
+    const channel = supabase
+      .channel(`company-admin-diary-jobs-${companyId}-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, (payload) => {
+        const current = payload.new as Partial<JobRow> | undefined;
+        const previous = payload.old as Partial<JobRow> | undefined;
+        const relevant = isCompanyDiaryJobChangeRelevant(
+          companyId,
+          new Set(jobsRef.current.map((job) => job.id)),
+          current,
+          previous,
+        );
+        if (!relevant || document.visibilityState !== 'visible') return;
+        if (scheduled) clearTimeout(scheduled);
+        scheduled = setTimeout(() => { scheduled = null; void load(); }, 750);
+      })
+      .subscribe();
+    return () => {
+      if (scheduled) clearTimeout(scheduled);
+      void supabase.removeChannel(channel);
+    };
+  }, [companyAdmin, companyId, fixtureData, load, user?.id]);
   useEffect(()=>{
     if(!exactJobId||!companyId||!user?.id)return;
     let cancelled=false;const userId=user.id;
@@ -944,6 +981,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                     {open && <div className="xdrive-cx-diary-card__secondary-actions">
                       {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span className="xdrive-cx-diary-card__allocate"><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
                       {canManageDiaryGroups && availableGroups.length > 0 && <select value="" aria-label="Add booking to Diary group" onChange={(event) => { const groupId = event.target.value; if (groupId) void addJobToGroup(job.id, groupId); }}><option value="">Add to group…</option>{availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
+                      {companyAdmin && canManageCompanyBookings && job.assigned_driver_id && stage === 'in_progress' && <ActionButton tone="secondary" onClick={() => openJobTab(job.id, 'progress')}>Update Status</ActionButton>}
                       {!['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/freight-vision?jobId=${encodeURIComponent(job.id)}`)}>Track</ActionButton>}
                       <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton>
                       {canManageCompanyBookings && job.company_id === companyId && <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${encodeURIComponent(job.id)}`)}>Edit</ActionButton>}

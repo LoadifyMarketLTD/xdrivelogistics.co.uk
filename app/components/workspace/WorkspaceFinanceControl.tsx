@@ -102,7 +102,9 @@ const detailHref = (role: Role, invoice: Invoice) => {
   if (role === 'broker') return invoice.direction === 'receivable'
     ? `/broker/customer-invoices/${invoice.id}`
     : `/broker/carrier-costs/${invoice.id}`;
-  return `/admin/invoices/${invoice.id}`;
+  return invoice.direction === 'payable'
+    ? `/admin/finance/carrier-invoices/${invoice.id}`
+    : `/admin/invoices/${invoice.id}`;
 };
 
 export function WorkspaceFinanceControl({ role }: { role: Role }) {
@@ -133,15 +135,13 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
 
   const invoices = useMemo(() => payload?.invoices ?? [], [payload?.invoices]);
   const visibleInvoices = useMemo(() => {
-    const scoped = role === 'carrier'
-      ? invoices.filter((invoice) => invoice.direction === 'receivable')
-      : invoices;
+    const scoped = invoices;
     if (view === 'dashboard' || view === 'all' || view === 'customers' || view === 'counterparties' || view === 'ready' || view === 'aging' || view === 'statements') return scoped;
     if (view === 'receivable') return invoices.filter((invoice) => invoice.direction === 'receivable');
     if (view === 'payable') return invoices.filter((invoice) => invoice.direction === 'payable');
     if (view === 'awaiting') return scoped.filter((invoice) => invoice.lifecycle === 'awaiting_payment' || invoice.lifecycle === 'overdue');
     return scoped.filter((invoice) => invoice.lifecycle === view);
-  }, [invoices, role, view]);
+  }, [invoices, view]);
   const summary = payload?.summary;
   const customers = useMemo(() => {
     const query = customerQuery.trim().toLowerCase();
@@ -154,8 +154,10 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
   const showReceivables = role !== 'customer';
   const tabs: Array<[View, string]> = role === 'carrier'
     ? [
-      ['dashboard', 'Dashboard'], ['all', 'All'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
-      ['paid', 'Paid'], ['customers', 'Customers'], ['archive', 'Archive'], ['statements', 'Statements'],
+      ['dashboard', 'Dashboard'], ['all', 'All'], ['receivable', 'Accounts Receivable'],
+      ['payable', 'Accounts Payable'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
+      ['overdue', 'Overdue'], ['paid', 'Paid'], ['customers', 'Customers'], ['aging', 'Aging'],
+      ['archive', 'Archive'], ['statements', 'Statements'],
     ]
     : [
       ['dashboard', 'Dashboard'], ['all', 'All'],
@@ -207,9 +209,9 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
           <div className={styles.metricSub}>Recorded settlements</div>
         </article>
         <article className={[styles.metric, styles.metricNavy].join(' ')}>
-          <div className={styles.metricLabel}>Currency</div>
-          <div className={styles.metricValue}>GBP</div>
-          <div className={styles.metricSub}>Primary finance ledger</div>
+          <div className={styles.metricLabel}>{role === 'carrier' ? 'Accounts payable' : 'Currency'}</div>
+          <div className={styles.metricValue}>{role === 'carrier' ? money(summary?.payableOutstanding ?? 0) : 'GBP'}</div>
+          <div className={styles.metricSub}>{role === 'carrier' ? 'Open carrier invoices' : 'Primary finance ledger'}</div>
         </article>
       </section>
 
@@ -217,12 +219,13 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
         <section className={styles.dashboard}>
           <article className={styles.panel}>
             <div className={styles.panelHeader}>
-              <div><div className={styles.panelKicker}>Cashflow workspace</div><h2 className={styles.panelTitle}>{role === 'customer' ? 'Payables flow' : 'Receivables flow'}</h2></div>
+              <div><div className={styles.panelKicker}>Cashflow workspace</div><h2 className={styles.panelTitle}>{role === 'customer' ? 'Payables flow' : role === 'carrier' ? 'Receivables and payables' : 'Receivables flow'}</h2></div>
               <button className={styles.button} onClick={() => setView('all')}>Open register </button>
             </div>
             <div className={styles.flow}>
               <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>{role === 'customer' ? 'Accounts payable' : 'Ready to invoice'}</div><div className={styles.flowSub}>{role === 'customer' ? 'Supplier invoices waiting for settlement' : 'Approved work waiting to be billed'}</div></div><strong className={styles.flowValue}>{role === 'customer' ? money(summary?.payableOutstanding ?? 0) : String(summary?.readyToInvoiceCount ?? 0)}</strong></div>
               <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Awaiting payment</div><div className={styles.flowSub}>Issued invoices still open</div></div><strong className={styles.flowValue}>{money(role === 'customer' ? summary?.payableOutstanding ?? 0 : summary?.receivableOutstanding ?? 0)}</strong></div>
+              {role === 'carrier' && <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>Accounts payable</div><div className={styles.flowSub}>Outstanding carrier invoices</div></div><strong className={styles.flowValue}>{money(summary?.payableOutstanding ?? 0)}</strong></div>}
               <div className={styles.flowRow}><span className={[styles.dot, styles.dotGreen].join(' ')} /><div><div className={styles.flowLabel}>Paid</div><div className={styles.flowSub}>Completed settlements</div></div><strong className={styles.flowValue}>{money(summary?.paidValue ?? 0)}</strong></div>
             </div>
           </article>
@@ -259,7 +262,18 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
         <section className={styles.panel}>
           <div className={styles.panelHeader}><div><div className={styles.panelKicker}>{view === 'statements' ? 'Statements' : 'Aging'}</div><h2 className={styles.panelTitle}>{view === 'statements' ? 'Finance statement' : 'Aging analysis'}</h2></div></div>
           <div className={styles.flow}>
-            {(Object.keys(AGING_BUCKET_LABELS) as AgingBucket[]).map((bucket) => <div className={styles.flowRow} key={bucket}><span className={styles.dot} /><div><div className={styles.flowLabel}>{AGING_BUCKET_LABELS[bucket]}</div><div className={styles.flowSub}>{showReceivables ? 'Receivable / payable exposure' : 'Payable exposure'}</div></div><strong className={styles.flowValue}>{showReceivables ? money(summary?.receivableAging?.[bucket] ?? 0) : money(summary?.payableAging?.[bucket] ?? 0)}</strong></div>)}
+            {(Object.keys(AGING_BUCKET_LABELS) as AgingBucket[]).map((bucket) => (
+              <div className={styles.flowRow} key={bucket}>
+                <span className={styles.dot} />
+                <div>
+                  <div className={styles.flowLabel}>{AGING_BUCKET_LABELS[bucket]}</div>
+                  {showReceivables && (
+                    <div className={styles.flowSub}>Receivable: {money(summary?.receivableAging?.[bucket] ?? 0)}</div>
+                  )}
+                  <div className={styles.flowSub}>Payable: {money(summary?.payableAging?.[bucket] ?? 0)}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}

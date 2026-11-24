@@ -7,7 +7,7 @@ const customerApi = readFileSync(join(process.cwd(),'app/api/customer/bids/[id]/
 const adminApi = readFileSync(join(process.cwd(),'app/api/admin/bids/[id]/accept/route.ts'),'utf8');
 const obligation = readFileSync(join(process.cwd(),'lib/legal/paymentObligation.ts'),'utf8');
 const clientHelper = readFileSync(join(process.cwd(),'lib/legal/paymentObligationClient.ts'),'utf8');
-const nativeConfirmUiFiles = [
+const unifiedAwardUiFiles = [
   'app/admin/bids/page.tsx',
   'app/broker/bids/page.tsx',
   'app/customer/jobs/[id]/page.tsx',
@@ -51,15 +51,21 @@ describe('buyer payment obligation acknowledgement',()=>{
     expect(obligation).toContain("BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION = 'xdrive-booking-payment-obligation-v1-2026-09-26'");
     expect(obligation).toContain('responsible for paying the awarded carrier');
     expect(clientHelper).toContain('window.confirm');
-    for (const ui of nativeConfirmUiFiles) {
-      expect(ui).toContain('confirmBookingPaymentObligation');
+    for (const ui of unifiedAwardUiFiles) {
+      expect(ui).toContain('BookingConfirmationFullPage');
       expect(ui).toContain('bookingPaymentObligationRequestBody');
+      expect(ui).not.toContain('confirmBookingPaymentObligation()');
     }
     expect(customerQuotesUi).toContain('<BookingConfirmationFullPage');
     expect(confirmationUi).toContain('BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT');
     expect(confirmationUi).toContain('checked={paymentAccepted}');
     expect(confirmationUi).toContain('disabled={!ready}');
-    expect(confirmationUi).toMatch(/const ready\s*=.*detailsAccepted.*paymentAccepted/);
+    expect(confirmationUi).toMatch(/const ready\s*=.*detailsAccepted.*paymentAccepted.*availabilityAcknowledged/);
+    expect(clientHelper).toContain('carrierAvailabilityAcknowledged: true');
+    for (const api of [customerApi, adminApi]) {
+      expect(api).toContain('body.carrierAvailabilityAcknowledged !== true');
+      expect(api).toContain('CARRIER_AVAILABILITY_ACK_REQUIRED');
+    }
     expect(customerQuotesUi).toContain('bookingPaymentObligationRequestBody');
     expect(customerQuotesUi).not.toContain('confirmBookingPaymentObligation');
   });

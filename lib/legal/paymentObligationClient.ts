@@ -7,4 +7,5 @@ export function confirmBookingPaymentObligation(): boolean {
 
 export const bookingPaymentObligationRequestBody = JSON.stringify({
   paymentObligationAcknowledged: true,
+  carrierAvailabilityAcknowledged: true,
 });

@@ -61,7 +61,7 @@ export default function WorkspaceJobReplay({ jobId }: { jobId: string }) {
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
       L.polyline(points, { weight: 4, opacity: 0.8 }).addTo(map);
       L.circleMarker(points[0], { radius: 7, weight: 2, fillOpacity: 0.9 }).bindTooltip('Journey start').addTo(map);
-      if (points.length > 1) L.circleMarker(points.at(-1)!, { radius: 7, weight: 2, fillOpacity: 0.9 }).bindTooltip('Journey end').addTo(map);
+      if (points.length > 1) L.circleMarker(points.at(-1)!, { radius: 8, weight: 3, fillOpacity: 1 }).bindTooltip('Latest recorded vehicle position').addTo(map);
       map.fitBounds(L.latLngBounds(points), { padding: [24, 24], maxZoom: 14 });
     };
     void initialise();
@@ -89,7 +89,7 @@ export default function WorkspaceJobReplay({ jobId }: { jobId: string }) {
         <div className="workspace-detail-item"><strong>Tracking window</strong><div>{when(replay.summary.startedAt)}</div><small>Ended {when(replay.summary.endedAt)}</small></div>
       </div>
 
-      {replay.points.length ? <><div ref={mapNode} aria-label="Journey Replay map" style={{ width: '100%', minHeight: 360, border: '1px solid var(--ws-border, #cfd7e3)', borderRadius: 4, overflow: 'hidden' }} /><div className="workspace-record-meta"><span>Source{sources.length === 1 ? '' : 's'}: {sources.join(', ') || 'driver tracking'}</span><ActionButton tone="secondary" onClick={downloadCsv}>Download Replay CSV</ActionButton></div></> : <EmptyState compact title="No GPS journey samples recorded" description="The operational timeline remains available below; XDrive does not invent a route when no tracked points exist." />}
+      {replay.points.length ? <><div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><span><strong>Last recorded vehicle position:</strong> {when(replay.points.at(-1)?.recordedAt ?? null)} · {replay.points.at(-1)?.lat.toFixed(5)}, {replay.points.at(-1)?.lng.toFixed(5)}</span><ActionButton tone="secondary" onClick={() => { const last = replay.points.at(-1); if (last) mapRef.current?.setView([last.lat, last.lng], 15); }}>Zoom to Vehicle</ActionButton></div><div ref={mapNode} aria-label="Journey Replay map" style={{ width: '100%', minHeight: 360, border: '1px solid var(--ws-border, #cfd7e3)', borderRadius: 4, overflow: 'hidden' }} /><div className="workspace-record-meta"><span>Source{sources.length === 1 ? '' : 's'}: {sources.join(', ') || 'driver tracking'}</span><ActionButton tone="secondary" onClick={downloadCsv}>Download Replay CSV</ActionButton></div></> : <EmptyState compact title="No GPS journey samples recorded" description="The operational timeline remains available below; XDrive does not invent a route when no tracked points exist." />}
 
       <div style={{ display: 'grid', gap: 4 }}>
         <strong>Operational timeline</strong>
