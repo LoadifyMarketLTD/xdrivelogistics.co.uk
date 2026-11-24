@@ -794,7 +794,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (jobError) return respond(503, { error: 'The related job could not be verified.' });
     if (!job) return respond(409, { error: 'The related job is no longer available.' });
-    if (job.awarded_carrier_company_id || job.assigned_company_id || job.assigned_driver_id) {
+    if (job.awarded_carrier_company_id === input.companyId || job.assigned_company_id === input.companyId) {
       return respond(409, { error: 'The job is already awarded or allocated. A confirmed booking requires the appropriate cancellation process.' });
     }
 
@@ -806,6 +806,7 @@ export async function POST(request: NextRequest) {
       .eq('status', 'submitted')
       .select('id, status')
       .maybeSingle();
+    if (updateError?.code === '23514') return respond(409, { code: 'BOOKING_OFFER_OR_AGREEMENT_EXISTS', error: 'This quote has already entered the booking process. Review the booking before making changes.' });
     if (updateError) {
       return operationalError({
         message: 'We could not withdraw this quote. Please retry.',

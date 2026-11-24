@@ -7,6 +7,7 @@ const carrier = read('app/components/workspace/PendingBookingOffers.tsx');
 const respond = read('app/api/booking-offers/[id]/respond/route.ts');
 const company = read('app/api/marketplace/company/route.ts');
 const owner = read('app/api/driver/bids/[id]/withdraw/route.ts');
+const atomicGuard = read('supabase/migrations/20261124033132_guard_quote_withdrawal_after_booking_offer.sql');
 const buyer = read('app/customer/quotes/CustomerQuotesCxPage.tsx');
 const broker = read('app/broker/bids/page.tsx');
 const exchange = read('app/components/workspace/CompanyMarketplaceExchange.tsx');
@@ -33,9 +34,23 @@ describe('Commercial withdrawal and carrier booking refusal', () => {
   it('prevents company quote withdrawal when a booking offer is pending or a job is allocated', () => {
     expect(company).toContain(".eq('bid_id', input.bidId)");
     expect(company).toContain(".eq('status', 'pending')");
-    expect(company).toContain('job.awarded_carrier_company_id || job.assigned_company_id || job.assigned_driver_id');
+    expect(company).toContain('job.awarded_carrier_company_id === input.companyId || job.assigned_company_id === input.companyId');
+    expect(owner).toContain('job.assigned_driver_id === driver.driverId');
     expect(company).toContain('if (!updated) return respond(409');
     expect(owner).toContain('PENDING_BOOKING_OFFER');
+  });
+  it('blocks award-vs-withdraw race at the database row update boundary', () => {
+    expect(atomicGuard).toContain('BEFORE UPDATE OF status ON public.job_bids');
+    expect(atomicGuard).toContain("NEW.status = 'withdrawn'");
+    expect(atomicGuard).toContain("o.bid_id = OLD.id AND o.status = 'pending'");
+    expect(atomicGuard).toContain('a.bid_id = OLD.id');
+    expect(atomicGuard).toContain("ERRCODE = '23514'");
+    expect(company).toContain("updateError?.code === '23514'");
+    expect(owner).toContain("updateError?.code === '23514'");
+  });
+  it('keeps Company Driver excluded from personal quote withdrawal despite any legacy bid flag', () => {
+    expect(owner).toContain("driver.driverType !== 'owner_driver' || !driver.canCommercialBid");
+    expect(owner).toContain('Only an authorised Owner Driver');
   });
   it('keeps Withdrawn in quote history and not in the Unsuccessful tab', () => {
     for (const source of [buyer, broker, exchange]) {
