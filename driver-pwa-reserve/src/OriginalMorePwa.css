@@ -25,6 +25,9 @@
 .xd-native-more-record:last-child{border:0}
 .xd-native-more-record strong{font-size:13px;color:#172233}
 .xd-native-more-record span,.xd-native-more-muted{font-size:11px;color:#728094;line-height:1.6}
+.xd-native-more .xd-native-more-confirmation strong{font-size:16px;line-height:20px}
+.xd-native-more .xd-native-more-confirmation span{font-size:14px;line-height:18px}
+.xd-native-more .xd-native-more-confirmation button{font-size:14px;line-height:18px;min-height:44px}
 .xd-native-more-status{font-size:13px;color:#56677d;margin:12px 0}
 .xd-native-more-error{border:1px solid #e2b2b2;border-radius:12px;background:#fff4f4;color:#872c2c;padding:12px;line-height:1.6;font-size:12px;margin-top:16px}
 .xd-native-more-error button{border:1px solid #872c2c;border-radius:7px;color:#872c2c;background:#fff;font-weight:800;padding:6px 12px;margin-left:8px;cursor:pointer}

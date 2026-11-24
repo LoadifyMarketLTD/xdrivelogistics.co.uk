@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
   const driverResult = await supabaseAdmin!
     .from('drivers')
-    .select('id,company_id,display_name,email,phone,status,app_access,driver_type,can_commercial_bid,availability_status,future_position,future_position_date,destination_priority_enabled,destination_radius_miles,international_work_approved')
+    .select('id,company_id,display_name,email,phone,status,app_access,driver_type,can_commercial_bid,availability_status,future_position,future_position_date,future_position_until,future_availability_notes,destination_priority_enabled,destination_radius_miles,international_work_approved')
     .eq('id', context.driverId)
     .maybeSingle();
   if (driverResult.error || !driverResult.data) {

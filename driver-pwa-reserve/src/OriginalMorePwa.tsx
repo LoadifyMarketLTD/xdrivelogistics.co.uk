@@ -1,6 +1,9 @@
 import {useEffect, useState} from 'react';
 import {driverGet} from './liveApi';
 import MemberDiscoveryPwa from './MemberDiscoveryPwa';
+import AvailabilityStatusPwa from './AvailabilityStatusPwa';
+import FuturePositionPwa from './FuturePositionPwa';
+import ReturnJourneyPwa from './ReturnJourneyPwa';
 import './OriginalMorePwa.css';
 
 type Data = Record<string, unknown>;
@@ -60,7 +63,7 @@ function formatEvent(row:Data) {
   }
   return display(row.event_type);
 }
-function Subsection({section,resources,token}:{section:string;resources:Resources;token:string}) {
+function Subsection({section,resources,token,onJourneyChanged}:{section:string;resources:Resources;token:string;onJourneyChanged:(journey:Data|null)=>void}) {
   const driver=resources.driver||{},vehicle=resources.vehicle||{},profile=resources.profile||{};
   switch(section) {
     case 'profile':return <div className="xd-native-more-panel">
@@ -86,20 +89,11 @@ function Subsection({section,resources,token}:{section:string;resources:Resource
         {alert.created_at!=null&&alert.created_at!==''&&<span>{new Date(String(alert.created_at)).toLocaleString('en-GB')}</span>}
       </div>):<p>No operational events were returned.</p>}
     </div>;
-    case 'journeys':return <div className="xd-native-more-panel">
-      {resources.return_journey?Object.entries(resources.return_journey).filter(([k,v])=>['from_location','to_location','available_date','from_postcode','to_postcode','available_from','status'].includes(k)&&v!=null).map(([key,value])=><Row key={key} label={key.replaceAll('_',' ')} value={value}/>):<p>No return journey is currently available.</p>}
-      <p className="xd-native-more-muted">Publishing and editing journeys are not yet connected in this PWA screen.</p>
-    </div>;
-    case 'availability':return <div className="xd-native-more-panel">
-      <Row label="Current availability" value={driver.availability_status}/>
-      <p className="xd-native-more-muted">Changes to availability must use the authorised server workflow. No local-only change is submitted here.</p>
-    </div>;
+    case 'journeys':return <ReturnJourneyPwa token={token} journey={resources.return_journey||null} onSaved={onJourneyChanged}/>;
+    case 'availability':return <AvailabilityStatusPwa token={token}/>;
     case 'nearby':return <MemberDiscoveryPwa token={token} mode="nearby"/>;
     case 'directory':return <MemberDiscoveryPwa token={token} mode="directory"/>;
-    case 'future':return <div className="xd-native-more-panel">
-      <Row label="Future position" value={driver.future_position}/><Row label="Available date" value={driver.future_position_date}/>
-      <p className="xd-native-more-muted">Editing the future position requires its authorised server form, not an unverified local update.</p>
-    </div>;
+    case 'future':return <FuturePositionPwa token={token} driver={driver}/>;
     default:return null;
   }
 }
@@ -124,7 +118,7 @@ export default function OriginalMorePwa({token,ownerDriver=false,onOpenInvoices}
   return <section className="xd-native-more" aria-label="Driver More">
     {item?<><button type="button" className="xd-native-more-back" onClick={()=>setSelected(null)}>← More</button>
       <h1>{item.title}</h1><p className="xd-native-more-kicker">{item.description}</p>
-      {resources&&<Subsection section={item.key} resources={resources} token={token}/>}</>:
+      {resources&&<Subsection section={item.key} resources={resources} token={token} onJourneyChanged={journey=>setResources(current=>current?{...current,return_journey:journey}:current)}/>}</>:
       <><p className="xd-native-more-kicker">Driver account, tools and records</p>
       <div className="xd-native-more-list">{originalMoreItems.map(item=><button type="button" className="xd-native-more-item" key={item.key} disabled={!resources} onClick={()=>setSelected(item.key)}>
         <span className="xd-native-more-icon"><Icon glyph={item.glyph}/></span>
