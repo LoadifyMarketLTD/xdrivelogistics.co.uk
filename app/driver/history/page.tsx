@@ -1,3 +1,4 @@
+import { findDriverHistoryReferences } from '../../../lib/jobs/driverHistoryReferencePages';
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -423,27 +424,26 @@ export default function JobHistoryPage() {
       }
 
       const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
-      // Search the authenticated driver's full history, not only the newest 250 records.
       const reference = appliedSearch.loadRef.trim();
       if (reference.length >= 2) {
-        const escapedReference = reference.replace(/[\\%_]/g, '\\$&');
-        const { data: matchingRows, error: referenceError } = await supabase
-          .from('jobs')
-          .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, your_ref, companies:companies!jobs_company_id_fkey(name)')
-          .eq('assigned_driver_id', driverId)
-          .ilike('your_ref', `%${escapedReference}%`)
-          .order('updated_at', { ascending: false })
-          .limit(250);
-        if (referenceError) {
-          setDetailWarning('Historical reference lookup is temporarily unavailable.');
-        } else {
+        try {
+          const matchingRows = await findDriverHistoryReferences(driverId, reference, async (authorizedDriverId, offset, count) => {
+            const result = await supabase.from('jobs')
+              .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, your_ref, companies:companies!jobs_company_id_fkey(name)')
+              .eq('assigned_driver_id', authorizedDriverId)
+              .order('updated_at', { ascending: false })
+              .order('id', { ascending: false })
+              .range(offset, offset + count - 1);
+            return {data: result.data as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }> | null, error: result.error};
+          });
           const known = new Set(normalized.map(job => job.id));
-          for (const row of (matchingRows ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>) {
+          for (const row of matchingRows) {
             if (!known.has(row.id)) { normalized.push({ ...row, companies: normalizeCompany(row.companies) }); known.add(row.id); }
           }
+        } catch {
+          setDetailWarning('Historical reference lookup is temporarily unavailable.');
         }
-      }
-      resolvedJobs = normalized;
+      }      resolvedJobs = normalized;
       if (token) {
         try {
           const memberResponse = await fetch('/api/driver/diary/company-names', {
