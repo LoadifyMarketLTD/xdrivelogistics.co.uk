@@ -10,6 +10,7 @@ const owner = read('app/api/driver/bids/[id]/withdraw/route.ts');
 const webBid = read('app/api/driver/web/bids/[id]/route.ts');
 const mobileBid = read('app/api/driver/mobile/bids/[id]/route.ts');
 const atomicGuard = read('supabase/migrations/20261124033132_guard_quote_withdrawal_after_booking_offer.sql');
+const bookingInsertGuard = read('supabase/migrations/20261124040846_guard_pending_booking_offer_quote_state.sql');
 const buyer = read('app/customer/quotes/CustomerQuotesCxPage.tsx');
 const broker = read('app/broker/bids/page.tsx');
 const exchange = read('app/components/workspace/CompanyMarketplaceExchange.tsx');
@@ -53,6 +54,12 @@ describe('Commercial withdrawal and carrier booking refusal', () => {
   it('keeps Company Driver excluded from personal quote withdrawal despite any legacy bid flag', () => {
     expect(owner).toContain("driver.driverType !== 'owner_driver' || !driver.canCommercialBid");
     expect(owner).toContain('Only an authorised Owner Driver');
+  });
+  it('also locks the bid on direct privileged pending booking-offer insert', () => {
+    expect(bookingInsertGuard).toContain('BEFORE INSERT ON public.job_booking_offers');
+    expect(bookingInsertGuard).toContain('FOR UPDATE');
+    expect(bookingInsertGuard).toContain("v_quote_status IS DISTINCT FROM 'submitted'");
+    expect(bookingInsertGuard).toContain("ERRCODE = '23514'");
   });
   it('secures both legacy web and mobile withdrawal endpoints against Company Driver and award races', () => {
     for (const source of [webBid, mobileBid]) {
