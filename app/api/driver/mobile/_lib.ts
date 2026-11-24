@@ -26,6 +26,7 @@ export type DriverContext = {
 
 export type MobileJobRow = {
   id: string;
+  your_ref?: string | null;
   is_test?: boolean | null;
   created_by: string | null;
   status: string | null;
@@ -176,6 +177,7 @@ export function isDriverContext(value: DriverContext | NextResponse): value is D
 
 export const jobSelect = [
   'id',
+  'your_ref',
   'is_test',
   'created_by',
   'status',
@@ -267,6 +269,7 @@ export function mapJob(row: MobileJobRow) {
     id: row.id,
     isTest: row.is_test === true,
     reference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
+    yourRef: row.your_ref || null,
     status: mobileStatus(row),
     lifecycleStatus: row.status,
     currentStatus: row.current_status,
