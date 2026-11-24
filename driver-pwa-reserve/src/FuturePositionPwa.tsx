@@ -1,6 +1,6 @@
 import {useState} from 'react';
 
-type DriverFields = {future_position?:unknown;future_position_date?:unknown};
+type DriverFields = {future_position?:unknown;future_position_date?:unknown;future_position_until?:unknown;future_availability_notes?:unknown};
 const clean=(value:unknown)=>typeof value==='string'?value.trim():'';
 const initialDate=(value:unknown)=>{
   const date=clean(value);
@@ -14,6 +14,8 @@ const apiPath=(import.meta.env.PROD?'/api':'/xdrive-api')+'/driver/future-positi
 export default function FuturePositionPwa({token,driver}:{token:string;driver:DriverFields}){
   const [position,setPosition]=useState(()=>clean(driver.future_position));
   const [date,setDate]=useState(()=>initialDate(driver.future_position_date));
+  const [until,setUntil]=useState(()=>initialDate(driver.future_position_until));
+  const [notes,setNotes]=useState(()=>clean(driver.future_availability_notes));
   const [review,setReview]=useState(false);
   const [saving,setSaving]=useState(false);
   const [error,setError]=useState('');
@@ -22,12 +24,14 @@ export default function FuturePositionPwa({token,driver}:{token:string;driver:Dr
     if(saving)return;
     setSaving(true);setError('');setSuccess('');
     try{
-      const payload={futurePosition:position.trim(),futureDate:new Date(date).toISOString()};
+      const payload={futurePosition:position.trim(),futureDate:new Date(date).toISOString(),futureUntil:until?new Date(until).toISOString():'',notes:notes.trim()};
       const response=await fetch(apiPath,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(payload)});
       const result=await response.json().catch(()=>({})) as {error?:string;driver?:DriverFields};
       if(!response.ok||!result.driver)throw Error(result.error||'The update could not be confirmed by XDrive.');
       setPosition(clean(result.driver.future_position));
       setDate(initialDate(result.driver.future_position_date));
+      setUntil(initialDate(result.driver.future_position_until));
+      setNotes(clean(result.driver.future_availability_notes));
       setReview(false);
       setSuccess('Future position saved and confirmed by XDrive.');
     }catch(reason){setError(reason instanceof Error?reason.message:'Future position could not be saved.');}
@@ -37,7 +41,7 @@ export default function FuturePositionPwa({token,driver}:{token:string;driver:Dr
     <p className="xd-native-more-muted">Declare your next available area. This updates only your authorised driver record, not your GPS location or an active booking.</p>
     <form onSubmit={event=>{
       event.preventDefault();setError('');setSuccess('');
-      if(!position.trim()||!date||new Date(date).getTime()<=Date.now()){setError('Enter an area and a future date/time.');return;}
+      if(!position.trim()||!date||new Date(date).getTime()<=Date.now()||(until&&new Date(until).getTime()<=new Date(date).getTime())){setError('Enter an area and valid future start/end date/time.');return;}
       setReview(true);
     }}>
       <label className="xd-native-more-field">Future available area
@@ -46,9 +50,15 @@ export default function FuturePositionPwa({token,driver}:{token:string;driver:Dr
       <label className="xd-native-more-field">Available from
         <input type="datetime-local" value={date} onChange={e=>{setDate(e.target.value);setReview(false);}} required/>
       </label>
+      <label className="xd-native-more-field">Available until (optional)
+        <input type="datetime-local" value={until} onChange={e=>{setUntil(e.target.value);setReview(false);}}/>
+      </label>
+      <label className="xd-native-more-field">Availability notes (optional)
+        <textarea rows={3} maxLength={1000} value={notes} onChange={e=>{setNotes(e.target.value);setReview(false);}}/>
+      </label>
       <button type="submit" disabled={saving}>Review future position</button>
     </form>
-    {review&&<section aria-label="Confirm future position" className="xd-native-more-record">
+    {review&&<section aria-label="Confirm future position" className="xd-native-more-record xd-native-more-confirmation">
       <strong>Confirm publication to XDrive</strong>
       <span>{position.trim()} · {date.replace('T',' ')}</span>
       <div><button type="button" disabled={saving} onClick={()=>void submit()}>{saving?'Saving…':'Confirm and save'}</button>

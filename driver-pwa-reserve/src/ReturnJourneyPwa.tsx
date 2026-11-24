@@ -9,7 +9,7 @@ const localDate=(value:unknown)=>{
 };
 const endpoint=(import.meta.env.PROD?'/api':'/xdrive-api')+'/driver/web/resources';
 type Mode='publish'|'clear';
-export default function ReturnJourneyPwa({token,journey}:{token:string;journey:Journey|null}){
+export default function ReturnJourneyPwa({token,journey,onSaved}:{token:string;journey:Journey|null;onSaved?:(journey:Journey|null)=>void}){
   const [from,setFrom]=useState(()=>text(journey?.from_postcode));
   const [to,setTo]=useState(()=>text(journey?.to_postcode));
   const [start,setStart]=useState(()=>localDate(journey?.available_from));
@@ -38,7 +38,8 @@ export default function ReturnJourneyPwa({token,journey}:{token:string;journey:J
       const current=verified.resources.return_journey||null;
       if(mode==='clear'&&current?.from_postcode)throw Error('Return journey cancellation was not confirmed. Refresh before retrying.');
       if(mode==='publish'&&text(current?.from_postcode).toUpperCase()!==from.trim().toUpperCase())throw Error('Return journey record differs from your declaration. Refresh before retrying.');
-      setPublished(mode==='publish');
+      setPublished(Boolean(text(current?.from_postcode)));
+      onSaved?.(current);
       setReview(null);
       setSuccess(mode==='clear'?'Return journey withdrawn and verified.':'Return journey published and verified by XDrive.');
     }catch(reason){setError(reason instanceof Error?reason.message:'Return journey could not be updated.');}
@@ -63,7 +64,7 @@ export default function ReturnJourneyPwa({token,journey}:{token:string;journey:J
       <button type="submit" disabled={saving}>Review return journey</button>
     </form>
     {published&&!review&&<button type="button" disabled={saving} onClick={()=>{setError('');setSuccess('');setReview('clear');}}>Withdraw return journey</button>}
-    {review&&<section className="xd-native-more-record" aria-label="Confirm return journey change">
+    {review&&<section className="xd-native-more-record xd-native-more-confirmation" aria-label="Confirm return journey change">
       <strong>{review==='clear'?'Withdraw return journey?':'Confirm return journey publication'}</strong>
       <span>{review==='clear'?'Your published return availability will be withdrawn.':from.trim()+' → '+to.trim()+' · '+start.replace('T',' ')}</span>
       <div><button type="button" disabled={saving} onClick={()=>void publish(review)}>{saving?'Saving…':review==='clear'?'Confirm withdrawal':'Confirm publication'}</button>

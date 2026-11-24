@@ -63,7 +63,7 @@ function formatEvent(row:Data) {
   }
   return display(row.event_type);
 }
-function Subsection({section,resources,token}:{section:string;resources:Resources;token:string}) {
+function Subsection({section,resources,token,onJourneyChanged}:{section:string;resources:Resources;token:string;onJourneyChanged:(journey:Data|null)=>void}) {
   const driver=resources.driver||{},vehicle=resources.vehicle||{},profile=resources.profile||{};
   switch(section) {
     case 'profile':return <div className="xd-native-more-panel">
@@ -89,7 +89,7 @@ function Subsection({section,resources,token}:{section:string;resources:Resource
         {alert.created_at!=null&&alert.created_at!==''&&<span>{new Date(String(alert.created_at)).toLocaleString('en-GB')}</span>}
       </div>):<p>No operational events were returned.</p>}
     </div>;
-    case 'journeys':return <ReturnJourneyPwa token={token} journey={resources.return_journey||null}/>;
+    case 'journeys':return <ReturnJourneyPwa token={token} journey={resources.return_journey||null} onSaved={onJourneyChanged}/>;
     case 'availability':return <AvailabilityStatusPwa token={token}/>;
     case 'nearby':return <MemberDiscoveryPwa token={token} mode="nearby"/>;
     case 'directory':return <MemberDiscoveryPwa token={token} mode="directory"/>;
@@ -118,7 +118,7 @@ export default function OriginalMorePwa({token,ownerDriver=false,onOpenInvoices}
   return <section className="xd-native-more" aria-label="Driver More">
     {item?<><button type="button" className="xd-native-more-back" onClick={()=>setSelected(null)}>← More</button>
       <h1>{item.title}</h1><p className="xd-native-more-kicker">{item.description}</p>
-      {resources&&<Subsection section={item.key} resources={resources} token={token}/>}</>:
+      {resources&&<Subsection section={item.key} resources={resources} token={token} onJourneyChanged={journey=>setResources(current=>current?{...current,return_journey:journey}:current)}/>}</>:
       <><p className="xd-native-more-kicker">Driver account, tools and records</p>
       <div className="xd-native-more-list">{originalMoreItems.map(item=><button type="button" className="xd-native-more-item" key={item.key} disabled={!resources} onClick={()=>setSelected(item.key)}>
         <span className="xd-native-more-icon"><Icon glyph={item.glyph}/></span>

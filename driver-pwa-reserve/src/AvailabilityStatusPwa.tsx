@@ -57,7 +57,7 @@ export default function AvailabilityStatusPwa({token}:{token:string}){
         </select>
       </label>
       {selected!==current&&!review&&<button type="button" disabled={saving} onClick={()=>setReview(true)}>Review status change</button>}
-      {review&&<section className="xd-native-more-record" aria-label="Confirm availability change">
+      {review&&<section className="xd-native-more-record xd-native-more-confirmation" aria-label="Confirm availability change">
         <strong>Change status to {name(selected)}?</strong>
         {selected!=='available'&&<span>Any active published vehicle availability will be withdrawn by XDrive.</span>}
         {selected==='available'&&<span>This does not automatically publish your precise location to other members.</span>}
