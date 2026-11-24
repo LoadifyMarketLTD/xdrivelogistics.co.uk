@@ -1,0 +1,45 @@
+
+/* Return Journeys: dedicated, mobile-first XDrive commercial UI. */
+.xd-native-more .xd-rj{display:flex;flex-direction:column;gap:17px;min-width:0;background:transparent;color:#142c4e}
+.xd-native-more .xd-rj-intro{padding:18px 18px 16px;border-radius:16px;background:linear-gradient(145deg,#0a234f,#16448c);color:#fff}
+.xd-native-more .xd-rj-eyebrow{display:inline-block;font-size:11px;font-weight:850;letter-spacing:.12em;color:#f5b33c;margin-bottom:8px}
+.xd-native-more .xd-rj-intro h2{font-size:22px;line-height:1.2;letter-spacing:-.025em;font-weight:850;color:#fff;margin:0 0 8px}
+.xd-native-more .xd-rj-intro p{font-size:14px;line-height:1.55;color:#e1ebff;margin:0}
+.xd-native-more .xd-rj-status{display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:12px;border:1px solid #c8dce8;background:#eff7fb}
+.xd-native-more .xd-rj-status-indicator{height:10px;width:10px;flex:none;margin-top:5px;border-radius:100%;background:#21816a;box-shadow:0 0 0 3px #cfeae0}
+.xd-native-more .xd-rj-status>div{display:flex;flex-direction:column;gap:4px}
+.xd-native-more .xd-rj-status strong{font-size:14px;font-weight:800;color:#17466a}
+.xd-native-more .xd-rj-status span{font-size:13px;line-height:1.4;color:#39566f}
+.xd-native-more .xd-rj-form{display:flex;flex-direction:column;gap:13px;margin:0}
+.xd-native-more .xd-rj-section-heading{display:flex;align-items:center;gap:9px;margin-top:8px;padding-bottom:6px}
+.xd-native-more .xd-rj-section-heading strong{font-size:15px;font-weight:850;color:#142c4e}
+.xd-native-more .xd-rj-step{font-size:11px;font-weight:900;display:grid;place-items:center;width:28px;height:28px;border-radius:9px;background:#e9f1fc;color:#1454b0}
+.xd-native-more .xd-rj-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.xd-native-more .xd-rj-field{display:flex;flex-direction:column;gap:7px;min-width:0;padding:0;border:0;color:#223650}
+.xd-native-more .xd-rj-field>span{font-size:13px;line-height:1.35;font-weight:750;color:#33445c;max-width:none;text-transform:none}
+.xd-native-more .xd-rj-field em{font-style:normal;color:#de7b00}
+.xd-native-more .xd-rj-field small{color:#7a8799;font-weight:500;font-size:12px;margin-left:3px}
+.xd-native-more .xd-rj-field input,.xd-native-more .xd-rj-field textarea{display:block;width:100%;min-width:0;min-height:49px;background:#fff;border:1px solid #cad4e2;border-radius:11px;color:#142c4e;padding:11px 12px;font:500 14px/1.45 inherit;font-size:14px;outline:none;box-shadow:none;appearance:auto}
+.xd-native-more .xd-rj-field input:focus,.xd-native-more .xd-rj-field textarea:focus{border-color:#0e3fa9;box-shadow:0 0 0 3px rgba(14,63,169,.14)}
+.xd-native-more .xd-rj-field input:disabled{background:#f1f4f8;color:#76849a;opacity:1}
+.xd-native-more .xd-rj-field input::placeholder,.xd-native-more .xd-rj-field textarea::placeholder{color:#8593a6}
+.xd-native-more .xd-rj-field textarea{min-height:95px;resize:vertical;line-height:1.5}
+.xd-native-more .xd-rj-toggle{display:flex;align-items:center;gap:11px;background:#f3f7fc;border:1px solid #e1eaf4;border-radius:12px;padding:11px 13px;color:#33445c;font-size:13px;line-height:1.45;cursor:pointer}
+.xd-native-more .xd-rj-toggle input{width:19px;height:19px;min-width:19px;accent-color:#0e3fa9;margin:0}
+.xd-native-more .xd-rj-toggle strong{color:#0e3fa9;font-weight:750}
+.xd-native-more .xd-rj-privacy{font-size:12px;line-height:1.5;color:#687b91;margin:0}
+.xd-native-more .xd-rj-primary,.xd-native-more .xd-rj-secondary,.xd-native-more .xd-rj-danger,.xd-native-more .xd-rj-withdraw{display:flex;align-items:center;justify-content:center;min-height:48px;width:100%;border-radius:11px;padding:12px 14px;font-size:14px;font-weight:800;line-height:1.3;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+.xd-native-more .xd-rj-primary{color:#0a234f;background:#f5a300;border:1px solid #f5a300;box-shadow:0 3px 8px rgba(177,107,0,.16)}
+.xd-native-more .xd-rj-primary:hover{background:#ffc044}
+.xd-native-more .xd-rj-secondary{color:#123d7b;background:#fff;border:1px solid #cbd7e8}
+.xd-native-more .xd-rj-danger{background:#a43d36;border:1px solid #a43d36;color:white}
+.xd-native-more .xd-rj-withdraw{background:#fff;border:1px solid #e0bbbb;color:#9d302d}
+.xd-native-more .xd-rj-withdraw:hover{background:#fff4f2}
+.xd-native-more .xd-rj button:disabled{opacity:.6;cursor:not-allowed}
+.xd-native-more .xd-rj-review{display:flex;flex-direction:column;gap:10px;padding:16px;border:1px solid #bfd2ef;border-radius:14px;background:#f0f6ff}
+.xd-native-more .xd-rj-review>strong{font-size:16px;line-height:1.35;color:#102d57}
+.xd-native-more .xd-rj-review p{font-size:14px;color:#425b75;margin:0}
+.xd-native-more .xd-rj-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.xd-native-more .xd-rj-error,.xd-native-more .xd-rj-notice{background:#fff5e8;border:1px solid #f0cb91;color:#815015;border-radius:11px;padding:11px 13px;font-size:13px;line-height:1.5;margin:0}
+.xd-native-more .xd-rj-success{background:#e9f6ef;border:1px solid #b4dfc4;color:#256348;border-radius:11px;padding:11px 13px;font-size:13px;line-height:1.5;margin:0}
+@media(max-width:620px){.xd-native-more .xd-rj-grid{grid-template-columns:minmax(0,1fr)}.xd-native-more .xd-rj-intro{padding:17px 15px}.xd-native-more .xd-rj-intro h2{font-size:20px}.xd-native-more .xd-rj-actions{grid-template-columns:minmax(0,1fr)}}
