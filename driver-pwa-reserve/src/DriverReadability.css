@@ -138,4 +138,18 @@
   .rv-shell .rv-main .rv-jobhead .rv-card-head-actions{margin-left:auto}
   .rv-shell .rv-main .rv-fact strong{max-width:60%}
 }
+/* One consistent action height on Driver job cards: Loads, Quotes and Bookings. */
+.rv-shell .rv-main .rv-job .rv-actions > button,
+.rv-shell .rv-main .rv-job .rv-booking-actions > button.rv-wide{
+  box-sizing:border-box;
+  height:50px!important;
+  min-height:50px!important;
+  max-height:50px!important;
+  padding-block:0!important;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  line-height:1.2!important;
+}
 @media(prefers-reduced-motion:reduce){.rv-shell *, .rv-shell *::before,.rv-shell *::after{scroll-behavior:auto!important}}
