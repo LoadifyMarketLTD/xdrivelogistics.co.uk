@@ -670,7 +670,7 @@ export default function JobHistoryPage() {
                 <span className="cx-diary-inline-stats" aria-label="Current booking statistics">Today {totalToday} · Completed {completedToday} · Awaiting POD {awaitingPod} · Next 7 days {upcomingJobs}</span>
                 <span className="driver-diary-summary-actions workspace-list-controls__right">
                   <button type="button" className="cx-expand-entries-control" disabled={!visibleJobs.length} onClick={toggleExpandAll}>{allExpanded?'Collapse All Entries':'Expand All Entries'}</button>
-                  <ActionButton tone="secondary" onClick={()=>void fetchHistory()} disabled={loading||refreshing}>{refreshing?'Refreshing...':'Refresh'}</ActionButton>
+                  <ActionButton tone="secondary" onClick={()=>void fetchHistory()} disabled={loading||refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>
                 </span>
               </div>
               <div className="diary-tabs workspace-tab-strip cx-diary-state-tabs" role="tablist" aria-label="Diary booking states">
