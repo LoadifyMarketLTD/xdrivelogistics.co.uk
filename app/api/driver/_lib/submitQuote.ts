@@ -346,10 +346,7 @@ export async function submitDriverQuote(
   }
   const vehicle = vehicleResult.snapshot;
 
-  const [minBidIntervalMinutes, maxBidsPerJob] = await Promise.all([
-    getGlobalSettingNumber(supabaseAdmin, 'min_bid_interval_minutes'),
-    getGlobalSettingNumber(supabaseAdmin, 'max_bids_per_job'),
-  ]);
+  const maxBidsPerJob = await getGlobalSettingNumber(supabaseAdmin, 'max_bids_per_job');
 
   if (maxBidsPerJob > 0) {
     const { count: existingBidCount, error: countError } = await supabaseAdmin
@@ -360,19 +357,6 @@ export async function submitDriverQuote(
     if (countError) return { ok: false, status: 500, error: countError.message };
     if ((existingBidCount ?? 0) >= maxBidsPerJob) {
       return { ok: false, status: 429, error: `This job has reached the maximum number of bids (${maxBidsPerJob}).` };
-    }
-  }
-
-  if (minBidIntervalMinutes > 0) {
-    const since = new Date(Date.now() - minBidIntervalMinutes * 60 * 1000).toISOString();
-    const { count: recentBidCount, error: recentError } = await supabaseAdmin
-      .from('job_bids')
-      .select('id', { count: 'exact', head: true })
-      .eq('bidder_driver_id', driver.driverId)
-      .gte('created_at', since);
-    if (recentError) return { ok: false, status: 500, error: recentError.message };
-    if ((recentBidCount ?? 0) > 0) {
-      return { ok: false, status: 429, error: `Please wait ${minBidIntervalMinutes} minute(s) before submitting another quote.` };
     }
   }
 

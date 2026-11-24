@@ -178,7 +178,7 @@ const SETTING_DEFAULTS: Record<GlobalSettingKey, { value: string; type: SettingT
   support_email:               { value: 'contact@xdrivelogistics.co.uk',  type: 'text' },
   default_currency:            { value: 'GBP',                            type: 'text' },
   default_timezone:            { value: 'Europe/London',                  type: 'text' },
-  min_bid_interval_minutes:    { value: '5',                              type: 'number' },
+  min_bid_interval_minutes:    { value: '0',                              type: 'number' },
   max_bids_per_job:            { value: '25',                             type: 'number' },
   exchange_auto_expire_hours:  { value: '72',                             type: 'number' },
   vat_rate_default_pct:        { value: '20',                             type: 'number' },
