@@ -9,7 +9,7 @@ type Params = { params: Promise<{ id: string }> };
 const reasonCodeSchema = z.enum(Object.keys(BOOKING_DECLINE_REASONS) as [keyof typeof BOOKING_DECLINE_REASONS, ...(keyof typeof BOOKING_DECLINE_REASONS)[]]);
 const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('accept') }),
-  z.object({ action: z.literal('decline'), reasonCode: reasonCodeSchema, reasonDetails: z.string().trim().max(700).optional() })
+  z.object({ action: z.literal('decline'), reasonCode: reasonCodeSchema.optional(), reasonDetails: z.string().trim().max(700).optional(), reason: z.string().trim().max(1000).optional() })
 ]);
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const rpc = parsed.data.action === 'accept' ? 'accept_job_booking_offer_atomic' : 'decline_job_booking_offer_atomic';
   const args = parsed.data.action === 'accept'
     ? { p_offer_id: id, p_actor_user_id: user.id }
-    : { p_offer_id: id, p_actor_user_id: user.id, p_reason: bookingDeclineReasonText(parsed.data.reasonCode,parsed.data.reasonDetails) };
+    : { p_offer_id: id, p_actor_user_id: user.id, p_reason: parsed.data.reasonCode ? bookingDeclineReasonText(parsed.data.reasonCode,parsed.data.reasonDetails) : (parsed.data.reason || 'Carrier declined via a legacy client; reason not supplied.') };
   const { data, error: rpcError } = await supabaseAdmin.rpc(rpc, args);
   if (rpcError) return json(rpcError.code === '42501' ? 403 : rpcError.code === '23514' ? 409 : 500, { error: rpcError.message });
   const result = Array.isArray(data) ? data[0] : data;

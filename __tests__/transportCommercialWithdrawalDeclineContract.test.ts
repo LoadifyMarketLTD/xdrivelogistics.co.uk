@@ -25,7 +25,10 @@ describe('Commercial withdrawal and carrier booking refusal', () => {
     expect(respond).toContain('reasonCode: reasonCodeSchema');
     expect(respond).toContain("reasonCode==='other'");
     expect(respond).toContain("'decline_job_booking_offer_atomic'");
-    expect(respond).toContain('p_reason: bookingDeclineReasonText');
+    expect(respond).toContain('reasonCode: reasonCodeSchema.optional()');
+    expect(respond).toContain('legacy client; reason not supplied');
+    expect(carrier).toContain("useState<BookingDeclineReasonCode | ''>('')");
+    expect(respond).toContain('p_reason: parsed.data.reasonCode ? bookingDeclineReasonText');
   });
   it('prevents company quote withdrawal when a booking offer is pending or a job is allocated', () => {
     expect(company).toContain(".eq('bid_id', input.bidId)");
