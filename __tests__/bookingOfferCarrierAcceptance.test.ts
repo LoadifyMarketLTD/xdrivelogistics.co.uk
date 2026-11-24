@@ -58,6 +58,9 @@ describe('buyer award and carrier commercial acceptance',()=>{
     expect(inbox).toContain('BOOKING_DECLINE_REASONS');
     expect(carrierRespond).toContain("'accept_job_booking_offer_atomic'");
     expect(carrierRespond).toContain("'decline_job_booking_offer_atomic'");
+    expect(inbox).toContain('commercial_agreement_id');
+    expect(inbox).toContain("body.status==='declined'");
+    expect(inbox).toContain('Boolean(body.commercial_agreement_id)');
     expect(inbox).toContain('Accept Booking');
     expect(inbox).toContain('A buyer award is not a confirmed transport booking until you accept');
   });

@@ -34,8 +34,9 @@ export default function PendingBookingOffers({ onChanged }: { onChanged?: () => 
         method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
         body:JSON.stringify(payload),
       });
-      const body=await response.json().catch(()=>({})) as {error?:string;success?:boolean;status?:string};
-      if(!response.ok||body.success!==true||body.status!==(action==='decline'?'declined':'accepted')) {
+      const body=await response.json().catch(()=>({})) as {error?:string;success?:boolean;status?:string;commercial_agreement_id?:string};
+      const outcomeVerified=action==='decline' ? body.status==='declined' : Boolean(body.commercial_agreement_id);
+      if(!response.ok||body.success!==true||!outcomeVerified) {
         setError(body.error??'Booking response could not be verified. Please refresh and retry.');
         return;
       }
