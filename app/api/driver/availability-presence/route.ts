@@ -4,11 +4,6 @@ import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverCon
 
 const VISIBILITIES = new Set(['private', 'fleet', 'exchange']);
 const MAX_HOURS = 8;
-const ACTIVE_JOB_STATUSES = new Set([
-  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup',
-  'arrived_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery',
-  'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
-]);
 // Public Exchange coordinates are approximate (about 1 km), never exact GPS.
 function roundedForExchange(value: number): number {
   return Math.round(value * 100) / 100;
@@ -43,18 +38,6 @@ async function ensureAvailabilityEligible(
   if (String(driver.availability_status ?? '').toLowerCase() !== 'available') {
     if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
     return NextResponse.json({ error: 'Set your driver status to Available before sharing availability location.' }, { status: 409 });
-  }
-  const driverId = driver.id;
-  const { data: assignedJobs, error: jobError } = await supabaseAdmin!
-    .from('jobs')
-    .select('id')
-    .eq('assigned_driver_id', driverId)
-    .or(`current_status.in.(${Array.from(ACTIVE_JOB_STATUSES).join(',')}),and(current_status.is.null,status.in.(${Array.from(ACTIVE_JOB_STATUSES).join(',')}))`)
-    .limit(1);
-  if (jobError || !assignedJobs) return NextResponse.json({ error: 'Assigned job availability could not be verified.' }, { status: 503 });
-  if (assignedJobs.length > 0) {
-    if (!(await clearPresence())) return NextResponse.json({ error: 'Availability state could not be cleared safely.' }, { status: 500 });
-    return NextResponse.json({ error: 'Availability sharing is disabled while you have an active assigned job.' }, { status: 409 });
   }
   return null;
 }

@@ -7,13 +7,6 @@ export const revalidate = 0;
 
 const AVAILABILITY_LOCATION_MAX_AGE_MS = 5 * 60_000;
 
-const ACTIVE_JOB_STATUSES = new Set([
-  'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
-  'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
-]);
-const statusOf = (job: { current_status?: string | null; status?: string | null }) =>
-  String(job.current_status ?? job.status ?? '').trim().toLowerCase();
-
 type Coordinates = { lat: number; lng: number };
 
 function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
@@ -163,12 +156,7 @@ export async function GET(request: NextRequest) {
     .map((row) => String(row.company_id ?? ''))
     .filter(Boolean))];
 
-  const [jobsResult, vehiclesResult, companiesResult] = await Promise.all([
-    supabaseAdmin
-      .from('jobs')
-      .select('assigned_driver_id, current_status, status')
-      .in('assigned_driver_id', eligibleIds)
-      .limit(2000),
+  const [vehiclesResult, companiesResult] = await Promise.all([
     supabaseAdmin
       .from('vehicles')
       .select('assigned_driver_id, type, body_type, payload_kg, pallets_capacity, has_tail_lift')
@@ -183,13 +171,8 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (jobsResult.error) return NextResponse.json({ error: 'Active job eligibility could not be verified.' }, { status: 500 });
   if (vehiclesResult.error) return NextResponse.json({ error: 'Available vehicle details could not be loaded.' }, { status: 500 });
   if (companiesResult.error) return NextResponse.json({ error: 'Available member details could not be loaded.' }, { status: 500 });
-
-  const driversWithActiveJobs = new Set((jobsResult.data ?? [])
-    .filter((job) => job.assigned_driver_id && ACTIVE_JOB_STATUSES.has(statusOf(job)))
-    .map((job) => String(job.assigned_driver_id)));
 
   const vehicleByDriver = new Map((vehiclesResult.data ?? []).map((vehicle) => [String(vehicle.assigned_driver_id), vehicle]));
   const companyById = new Map((companiesResult.data ?? [])
@@ -198,7 +181,7 @@ export async function GET(request: NextRequest) {
 
   const positions = presenceRows.flatMap<NearbyPosition>((row) => {
     const driverId = String(row.driver_id ?? '');
-    if (!eligibleDriverIds.has(driverId) || driversWithActiveJobs.has(driverId)) return [];
+    if (!eligibleDriverIds.has(driverId)) return [];
 
     const companyId = row.company_id ? String(row.company_id) : null;
     const sameCompany = Boolean(companyId && ownCompanies.has(companyId));
