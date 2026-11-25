@@ -14,6 +14,11 @@ export type BidderDecisionIdentity = {
   companyName: string | null;
   personName: string | null;
   companyType: string | null;
+  driverType: string | null;
+  memberSince: string | null;
+  completedJobs: number | null;
+  customerRating: number | null;
+  documentStatuses: Array<{ name: string; status: string; expiryDate: string | null }>;
   displayName: string;
   memberId: string | null;
   businessPhone: string | null;
@@ -55,7 +60,7 @@ export async function enrichBidderDecisionIdentities(
   const userIds = [...new Set(seeds.map((seed) => seed.userId).filter((id): id is string => Boolean(id)))];
   const [driversResult, profilesResult] = await Promise.all([
     driverIds.length
-      ? admin.from('drivers').select('id, display_name, company_id, availability_status').in('id', driverIds)
+      ? admin.from('drivers').select('id, display_name, company_id, availability_status, driver_type, created_at, user_id').in('id', driverIds)
       : Promise.resolve({ data: [], error: null }),
     userIds.length
       ? admin.from('profiles').select('user_id, full_name, company_id').in('user_id', userIds)
@@ -75,7 +80,7 @@ export async function enrichBidderDecisionIdentities(
   };
   const companyIds = [...new Set(seeds.map(resolvedCompanyId).filter((id): id is string => Boolean(id)))];
   const companiesResult = companyIds.length
-    ? await admin.from('companies').select('id, name, xd_id, phone, company_type').in('id', companyIds)
+    ? await admin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
     : { data: [], error: null };
   if (companiesResult.error) throw companiesResult.error;
 
@@ -99,6 +104,31 @@ export async function enrichBidderDecisionIdentities(
   for (const vehicle of vehicles) {
     if (vehicle.assigned_driver_id && !vehicleByDriver.has(vehicle.assigned_driver_id)) vehicleByDriver.set(vehicle.assigned_driver_id, vehicle);
   }
+  // Commercial award reviews show only verification metadata; never expose document files or identity numbers.
+  const vehicleIds = vehicles.map((vehicle) => vehicle.id);
+  const reviewedUserIds = [...new Set((driversResult.data ?? []).map((driver) => driver.user_id).filter((id): id is string => Boolean(id)))];
+  const empty = { data: [], error: null };
+  const [driverDocs, vehicleDocs, companyDocs, completed, reviews] = await Promise.all([
+    driverIds.length ? admin.from('driver_documents').select('driver_id, doc_type, status, expiry_date').in('driver_id', driverIds) : Promise.resolve(empty),
+    vehicleIds.length ? admin.from('vehicle_documents').select('vehicle_id, doc_type, status, expiry_date').in('vehicle_id', vehicleIds) : Promise.resolve(empty),
+    companyIds.length ? admin.from('company_documents').select('company_id, doc_type, status, expiry_date').in('company_id', companyIds) : Promise.resolve(empty),
+    driverIds.length ? admin.from('jobs').select('assigned_driver_id, current_status').in('assigned_driver_id', driverIds).in('current_status', ['delivered', 'completed']).limit(5000) : Promise.resolve(empty),
+    reviewedUserIds.length ? admin.from('reviews').select('reviewed_user_id, rating').in('reviewed_user_id', reviewedUserIds) : Promise.resolve(empty),
+  ]);
+  if (driverDocs.error || vehicleDocs.error || companyDocs.error || completed.error || reviews.error) {
+    throw new Error('Carrier verification evidence is unavailable.');
+  }
+  const statusOf = (value: unknown, expiry: unknown) => {
+    const raw = String(value ?? 'unknown').trim().toLowerCase();
+    if (expiry && !Number.isNaN(Date.parse(String(expiry))) && Date.parse(String(expiry)) < Date.now()) return "Expired";
+    return raw === 'approved' || raw === 'verified' ? 'Approved' : raw === 'rejected' ? 'Rejected' : raw === 'pending' ? 'Pending' : raw === 'expired' ? 'Expired' : 'Not verified';
+  };
+  const makeRecord = (scope: string, doc: { doc_type?: unknown; status?: unknown; expiry_date?: unknown }) => ({
+    name: scope + ' · ' + String(doc.doc_type ?? 'Document'),
+    status: statusOf(doc.status, doc.expiry_date),
+    expiryDate: doc.expiry_date ? String(doc.expiry_date) : null,
+  });
+
   return seeds.map((seed) => {
     const driver = seed.driverId ? drivers.get(seed.driverId) ?? null : null;
     const profile = seed.userId ? profiles.get(seed.userId) ?? null : null;
@@ -110,6 +140,17 @@ export async function enrichBidderDecisionIdentities(
     const specialistServices = [...new Set(companyFleet.flatMap((vehicle) => vehicleServices(vehicle.type, vehicle.has_tail_lift)))].sort();
     const companyName = text(company?.name);
     const personName = text(driver?.display_name) ?? text(profile?.full_name);
+    const associatedVehicleIds = new Set(vehicles.filter((vehicle) => vehicle.assigned_driver_id === seed.driverId || (!seed.driverId && vehicle.company_id === companyId)).map((vehicle) => vehicle.id));
+    const documentStatuses = [
+      ...(driverDocs.data ?? []).filter((doc) => doc.driver_id === seed.driverId).map((doc) => makeRecord('Driver', doc)),
+      ...(vehicleDocs.data ?? []).filter((doc) => associatedVehicleIds.has(doc.vehicle_id)).map((doc) => makeRecord('Vehicle', doc)),
+      ...(companyDocs.data ?? []).filter((doc) => doc.company_id === companyId).map((doc) => makeRecord('Company', doc)),
+    ];
+    const completedJobs = seed.driverId ? (completed.data ?? []).filter((job) => job.assigned_driver_id === seed.driverId).length : null;
+    const subjectUserId = driver?.user_id ?? seed.userId;
+    const ratings = (reviews.data ?? []).filter((review) => review.reviewed_user_id === subjectUserId && typeof review.rating === "number").map((review) => review.rating as number);
+    const customerRating = ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null;
+
 
     return {
       bidId: seed.bidId,
@@ -118,6 +159,11 @@ export async function enrichBidderDecisionIdentities(
       companyName,
       personName,
       companyType: text(company?.company_type) ?? (companyId ? null : 'owner_driver'),
+      driverType: text(driver?.driver_type),
+      memberSince: text(driver?.created_at) ?? text(company?.created_at),
+      completedJobs,
+      customerRating,
+      documentStatuses,
       displayName: companyName ?? personName ?? 'Carrier profile incomplete',
       memberId: text(company?.xd_id),
       businessPhone: text(company?.phone),
