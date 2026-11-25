@@ -45,6 +45,13 @@ type BidderIdentity = {
   specialistServices: string[];
 };
 
+const isOwnerDriverIdentity = (identity: BidderIdentity | undefined, companyId: string | null) => {
+  const normalize = (value: string | null | undefined) => (value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return normalize(identity?.driverType) === 'owner_driver'
+    || normalize(identity?.companyType) === 'owner_driver'
+    || (!companyId && Boolean(identity?.driverId));
+};
+
 type QuoteParticipant = {
   bid: WorkspaceBid;
   job: WorkspaceJob;
@@ -123,7 +130,7 @@ function AwardConfirmation({
         customerRating: candidate.identity?.customerRating ?? null,
         documentStatuses: candidate.identity?.documentStatuses ?? [],
         verificationUnavailable: candidate.identity?.verificationUnavailable ?? false,
-        ownerDriver: candidate.identity?.driverType === 'owner_driver' || candidate.identity?.companyType === 'owner_driver' || candidate.isOwnerDriverBid,
+        ownerDriver: isOwnerDriverIdentity(candidate.identity, candidate.bid.company_id ?? null) || candidate.isOwnerDriverBid,
         message: candidate.bid.message ?? null,
       }}
     />
@@ -390,7 +397,7 @@ export default function CustomerQuotesCxPage() {
         <div className="xdrive-cx-quote-list">
           {grouped.flatMap(({ job, quotes }) => quotes.map((bid, index) => {
             const identity = identities.get(bid.id);
-            const isOwnerDriverBid = identity?.driverType === 'owner_driver' || identity?.companyType === 'owner_driver' || (!bid.company_id && Boolean(identity?.driverId));
+            const isOwnerDriverBid = isOwnerDriverIdentity(identity, bid.company_id ?? null);
             const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
             const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
             const quoteStage = canonicalQuoteStage(bid, 'poster');
