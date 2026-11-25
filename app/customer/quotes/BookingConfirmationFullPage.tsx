@@ -130,7 +130,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
               <div className={styles.panelTitle}><span className={styles.icon}>♙</span><strong>Selected Transport Partner</strong><small>{details.ownerDriver ? 'OWNER DRIVER' : 'CARRIER PROFILE'}</small></div>
               <div className={styles.person}>
                 <div className={styles.avatar} aria-hidden="true">{(details.carrierName || '?').trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')}</div>
-                <div className={styles.personDetails}><strong>{details.carrierName}</strong><span>{details.companyName || 'Company details unavailable'}</span><span>{details.memberId || 'Member ID unavailable'} · {details.phone || 'Phone unavailable'}</span></div>
+                <div className={styles.personDetails}><strong>{details.carrierName}</strong>{details.companyName && details.companyName.trim().toLocaleLowerCase() !== details.carrierName.trim().toLocaleLowerCase() ? <span>{details.companyName}</span> : null}<span>{[details.memberId, details.phone].filter(Boolean).join(' · ') || 'Contact details unavailable'}</span></div>
                 {details.availability && <span className={styles.availability}>{details.availability.replaceAll('_', ' ')}</span>}
               </div>
               <div className={styles.metrics}>
