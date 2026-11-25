@@ -50,7 +50,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
   const [paymentAccepted, setPaymentAccepted] = useState(false);
   const [availabilityAcknowledged, setAvailabilityAcknowledged] = useState(false);
   const acknowledgementsComplete = detailsAccepted && paymentAccepted && availabilityAcknowledged;
-  const ready = acknowledgementsComplete && !working;
+  const ready = detailsAccepted && paymentAccepted && availabilityAcknowledged && !working;
   const sendOrShowRequirements = () => {
     if (working) return;
     if (acknowledgementsComplete) { onConfirm(); return; }
@@ -183,7 +183,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
           </div>
           <div className={styles.actions}>
             <button type="button" onClick={onCancel} disabled={working} className={styles.cancel}>Cancel</button>
-            <button type="button" onClick={sendOrShowRequirements} disabled={working} className={styles.send}>{working ? 'Sending…' : ready ? 'Award Job · Send Offer →' : 'Review confirmations · Award Job →'}</button>
+            <button type="button" onClick={onConfirm} disabled={!ready} className={styles.send}>{working ? 'Sending…' : 'Award Job · Send Offer →'}</button>
           </div>
         </footer>
       </div>
