@@ -71,10 +71,13 @@ export default function BookingConfirmationFullPage({ details, working, error, o
 
   const documents = details.documentStatuses ?? [];
   const documentFor = (label: string) => {
-    const match = (scope: string, term: RegExp) => documents.find((doc) => doc.name.toLowerCase().startsWith(scope.toLowerCase() + ' · ') && term.test(doc.name.toLowerCase()));
+    const match = (scope: string, term: RegExp) => documents.find((doc) => {
+      const name = doc.name.toLowerCase().replace(/[_-]+/g, ' ');
+      return name.startsWith(scope.toLowerCase() + ' · ') && term.test(name);
+    });
     if (label === 'Driving licence') return match('Driver', /driving licence|driving license/);
     if (label === 'Driver insurance') return match('Driver', /insurance|hire.*reward/);
-    if (label === 'Goods in Transit') return documents.find((doc) => /goods.in.transit|\bgit\b/i.test(doc.name));
+    if (label === 'Goods in Transit') return documents.find((doc) => /goods[\s._-]*in[\s._-]*transit|\bgit\b/i.test(doc.name));
     if (label === 'Vehicle insurance') return match('Vehicle', /insurance/);
     if (label === 'MOT') return match('Vehicle', /\bmot\b/);
     if (label === 'Identity verification') return match('Driver', /identity|right.to.work|passport/);
