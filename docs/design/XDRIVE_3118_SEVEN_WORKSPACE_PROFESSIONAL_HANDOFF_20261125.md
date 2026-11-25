@@ -159,6 +159,14 @@ Preserve precisely: 3118 navy sidebar and selected orange accent, logo placement
 
 Current XDrive brand remains XDrive Logistics; avoid bright/dark/cinematic aesthetic drift. No reinterpretation based on Courier Exchange, arbitrary 3150 tokens or other dashboards. If old generic stylesheet conflicts, isolate/remove the old style *for this affected visual target*, not edit the 3118 design to resemble it.
 
+### 2.4 Measure the original in the browser
+
+For each role, record the original route and source commit before taking measurements. Use the local 3118 server for routes available there. For the remaining roles, recover the role-specific original from PR #735 or #757 and run it locally from its recorded source revision. Use the corresponding authenticated MAIN route and API contracts to verify production behavior.
+
+Compare original and integrated screens at desktop, tablet and mobile sizes, with the same viewport, zoom, loaded fonts and equivalent interface state. Capture the collapsed and expanded sidebar, status tabs, filters, cards, tables, forms and open dialogs wherever applicable. Use Playwright with `getBoundingClientRect()` for element position and geometry and `getComputedStyle()` for effective typography, color, background, spacing, borders, radius and layout. Record the computed result where original stylesheets overlap. Capture matching screenshots and link both measurements and screenshots to the route, role and tested commit.
+
+Compare presentation and commercial behavior separately. A demo data source, a radius filter that does not apply, or an export that ignores its reporting period is a functional gap. Where the original presentation is suitable, mount the original component and CSS and wire the current MAIN operations into it. Where a 3118 surface is demonstrably outdated, retain the stronger MAIN surface and record the visual and functional reasons in the existing acceptance matrix. Prove authenticated behavior separately with authorized QA data. A local visual fixture or successful build provides evidence only for the checks it exercises.
+
 ---
 
 ## 3. APPROVED ROLE-BY-ROLE TARGET / ACCEPTANCE MATRIX
