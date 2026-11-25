@@ -23,6 +23,7 @@ type Identity = {
   completedJobs?: number | null;
   customerRating?: number | null;
   documentStatuses?: Array<{ name: string; status: string; expiryDate: string | null }>;
+  verificationUnavailable?: boolean;
 
 };
 export function bookingOfferReviewDetails(job: Job, bid: Bid, identity?: Identity | null): BookingConfirmationDetails {
@@ -50,6 +51,7 @@ export function bookingOfferReviewDetails(job: Job, bid: Bid, identity?: Identit
     completedJobs: identity?.completedJobs ?? null,
     customerRating: identity?.customerRating ?? null,
     documentStatuses: identity?.documentStatuses ?? [],
+    verificationUnavailable: identity?.verificationUnavailable ?? false,
     ownerDriver: identity?.driverType === 'owner_driver' || identity?.companyType === 'owner_driver' || (!bid.company_id && Boolean(bid.bidder_driver_id)),
     message: bid.message || null,
   };

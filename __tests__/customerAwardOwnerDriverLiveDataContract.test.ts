@@ -48,4 +48,9 @@ describe('Customer Award authentic Owner Driver information and persistent actio
    expect(stylesheet).toContain('.footer{position:fixed;left:0;right:0;bottom:0;');
    expect(stylesheet).toContain('.content{min-height:0;overscroll-behavior:contain;padding-bottom:104px}');
  });
+  it('keeps award identity available if supplementary compliance evidence temporarily fails',()=>{
+    expect(identity).toContain('verificationUnavailable = Boolean(');
+    expect(identity).not.toContain("throw new Error('Carrier verification evidence is unavailable.')");
+    expect(screen).toContain('Verification temporarily unavailable');
+  });
 });

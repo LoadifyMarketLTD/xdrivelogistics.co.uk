@@ -19,6 +19,7 @@ export type BidderDecisionIdentity = {
   completedJobs: number | null;
   customerRating: number | null;
   documentStatuses: Array<{ name: string; status: string; expiryDate: string | null }>;
+  verificationUnavailable: boolean;
   displayName: string;
   memberId: string | null;
   businessPhone: string | null;
@@ -115,9 +116,8 @@ export async function enrichBidderDecisionIdentities(
     driverIds.length ? admin.from('jobs').select('assigned_driver_id, current_status').in('assigned_driver_id', driverIds).in('current_status', ['delivered', 'completed']).limit(5000) : Promise.resolve(empty),
     reviewedUserIds.length ? admin.from('reviews').select('reviewed_user_id, rating').in('reviewed_user_id', reviewedUserIds) : Promise.resolve(empty),
   ]);
-  if (driverDocs.error || vehicleDocs.error || companyDocs.error || completed.error || reviews.error) {
-    throw new Error('Carrier verification evidence is unavailable.');
-  }
+  // Supplementary verification data must not block core bidder identity or awarding.
+  const verificationUnavailable = Boolean(driverDocs.error || vehicleDocs.error || companyDocs.error);
   const statusOf = (value: unknown, expiry: unknown) => {
     const raw = String(value ?? 'unknown').trim().toLowerCase();
     if (expiry && !Number.isNaN(Date.parse(String(expiry))) && Date.parse(String(expiry)) < Date.now()) return "Expired";
@@ -142,13 +142,13 @@ export async function enrichBidderDecisionIdentities(
     const personName = text(driver?.display_name) ?? text(profile?.full_name);
     const associatedVehicleIds = new Set(vehicles.filter((vehicle) => vehicle.assigned_driver_id === seed.driverId || (!seed.driverId && vehicle.company_id === companyId)).map((vehicle) => vehicle.id));
     const documentStatuses = [
-      ...(driverDocs.data ?? []).filter((doc) => doc.driver_id === seed.driverId).map((doc) => makeRecord('Driver', doc)),
-      ...(vehicleDocs.data ?? []).filter((doc) => associatedVehicleIds.has(doc.vehicle_id)).map((doc) => makeRecord('Vehicle', doc)),
-      ...(companyDocs.data ?? []).filter((doc) => doc.company_id === companyId).map((doc) => makeRecord('Company', doc)),
+      ...(driverDocs.error ? [] : driverDocs.data ?? []).filter((doc) => doc.driver_id === seed.driverId).map((doc) => makeRecord('Driver', doc)),
+      ...(vehicleDocs.error ? [] : vehicleDocs.data ?? []).filter((doc) => associatedVehicleIds.has(doc.vehicle_id)).map((doc) => makeRecord('Vehicle', doc)),
+      ...(companyDocs.error ? [] : companyDocs.data ?? []).filter((doc) => doc.company_id === companyId).map((doc) => makeRecord('Company', doc)),
     ];
-    const completedJobs = seed.driverId ? (completed.data ?? []).filter((job) => job.assigned_driver_id === seed.driverId).length : null;
+    const completedJobs = seed.driverId && !completed.error ? (completed.data ?? []).filter((job) => job.assigned_driver_id === seed.driverId).length : null;
     const subjectUserId = driver?.user_id ?? seed.userId;
-    const ratings = (reviews.data ?? []).filter((review) => review.reviewed_user_id === subjectUserId && typeof review.rating === "number").map((review) => review.rating as number);
+    const ratings = (reviews.error ? [] : reviews.data ?? []).filter((review) => review.reviewed_user_id === subjectUserId && typeof review.rating === "number").map((review) => review.rating as number);
     const customerRating = ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : null;
 
 
@@ -164,6 +164,7 @@ export async function enrichBidderDecisionIdentities(
       completedJobs,
       customerRating,
       documentStatuses,
+      verificationUnavailable,
       displayName: companyName ?? personName ?? 'Carrier profile incomplete',
       memberId: text(company?.xd_id),
       businessPhone: text(company?.phone),

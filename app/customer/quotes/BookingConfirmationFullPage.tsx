@@ -28,6 +28,7 @@ export type BookingConfirmationDetails = {
   completedJobs?: number | null;
   customerRating?: number | null;
   documentStatuses?: Array<{ name: string; status: string; expiryDate: string | null }>;
+  verificationUnavailable?: boolean;
   ownerDriver: boolean;
   message: string | null;
 };
@@ -73,7 +74,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
     return undefined;
   };
   const documentStatusText = (doc?: {status:string;expiryDate:string|null}) => doc ?
-    (doc.status + (doc.expiryDate ? ' · Expires ' + doc.expiryDate : '')) : 'No matching verification record';
+    (doc.status + (doc.expiryDate ? ' · Expires ' + doc.expiryDate : '')) : details.verificationUnavailable ? 'Verification temporarily unavailable' : 'No matching verification record';
   const mappedDocuments = new Set(compliance.map((name) => documentFor(name)?.name).filter(Boolean));
   const otherDocuments = documents.filter((doc) => !mappedDocuments.has(doc.name));
 

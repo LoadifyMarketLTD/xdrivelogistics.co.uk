@@ -31,6 +31,7 @@ type BidderIdentity = {
   completedJobs?: number | null;
   customerRating?: number | null;
   documentStatuses?: Array<{ name: string; status: string; expiryDate: string | null }>;
+  verificationUnavailable?: boolean;
 
   displayName: string;
   memberId: string | null;
@@ -121,6 +122,7 @@ function AwardConfirmation({
         completedJobs: candidate.identity?.completedJobs ?? null,
         customerRating: candidate.identity?.customerRating ?? null,
         documentStatuses: candidate.identity?.documentStatuses ?? [],
+        verificationUnavailable: candidate.identity?.verificationUnavailable ?? false,
         ownerDriver: candidate.identity?.driverType === 'owner_driver' || candidate.identity?.companyType === 'owner_driver' || candidate.isOwnerDriverBid,
         message: candidate.bid.message ?? null,
       }}
