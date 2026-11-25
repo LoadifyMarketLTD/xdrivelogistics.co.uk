@@ -219,7 +219,7 @@ export function MemberProfileOverlay({
     ...(profile.member.driverId ? [['Availability', human(profile.member.availability)], ['Vehicle', human(profile.member.vehicleType)]] : []),
   ] : [];
 
-  const legacyDialog = (
+  const _legacyDialog = (
     <WorkspaceDialog
       ariaLabel="Member profile"
       title={`${profile?.member.name ?? (loading ? 'Loading member…' : 'Member profile')}${profile?.member.memberId && profile.member.companyId ? ` — Member ID ${profile.member.memberId}` : ''}`}
