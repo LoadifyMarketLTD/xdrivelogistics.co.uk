@@ -49,7 +49,14 @@ export default function BookingConfirmationFullPage({ details, working, error, o
   const [detailsAccepted, setDetailsAccepted] = useState(false);
   const [paymentAccepted, setPaymentAccepted] = useState(false);
   const [availabilityAcknowledged, setAvailabilityAcknowledged] = useState(false);
-  const ready = detailsAccepted && paymentAccepted && availabilityAcknowledged && !working;
+  const acknowledgementsComplete = detailsAccepted && paymentAccepted && availabilityAcknowledged;
+  const ready = acknowledgementsComplete && !working;
+  const sendOrShowRequirements = () => {
+    if (working) return;
+    if (acknowledgementsComplete) { onConfirm(); return; }
+    document.getElementById(!detailsAccepted ? 'award-collection-confirm' : !paymentAccepted ? 'award-payment-confirm' : 'award-availability-confirm')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
 
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -97,6 +104,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
                 <span>AGREED QUOTE</span>
                 <strong>{price}</strong>
                 <small>Carrier acceptance required</small>
+                <button className={styles.heroAward} type="button" onClick={sendOrShowRequirements} disabled={working}>{working ? 'Sending…' : 'Award Job · Send Offer'}</button>
               </div>
             </div>
           </div>
@@ -119,7 +127,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
               <div className={styles.fact}><span>Offer status</span><strong>Awaiting send</strong></div>
             </section>
             <section className={styles.panel}>
-              <div className={styles.panelTitle}><span className={styles.icon}>♙</span><strong>Selected Transport Partner</strong><small>{details.ownerDriver ? 'OWNER DRIVER' : 'COMPANY / FLEET'}</small></div>
+              <div className={styles.panelTitle}><span className={styles.icon}>♙</span><strong>Selected Transport Partner</strong><small>{details.ownerDriver ? 'OWNER DRIVER' : 'CARRIER PROFILE'}</small></div>
               <div className={styles.person}>
                 <div className={styles.avatar} aria-hidden="true">{(details.carrierName || '?').trim().split(/\s+/).slice(0, 2).map(s => s[0]?.toUpperCase()).join('')}</div>
                 <div className={styles.personDetails}><strong>{details.carrierName}</strong><span>{details.companyName || 'Company details unavailable'}</span><span>{details.memberId || 'Member ID unavailable'} · {details.phone || 'Phone unavailable'}</span></div>
@@ -144,13 +152,13 @@ export default function BookingConfirmationFullPage({ details, working, error, o
               <div className={styles.panelTitle}><span className={styles.icon}>✓</span><strong>Collection &amp; Delivery Responsibility</strong><small>CUSTOMER / BROKER</small></div>
               <p className={styles.explain}>The Customer / Broker approving this booking must supply the carrier with <strong>complete, correct and up-to-date</strong> collection and delivery information upon booking acceptance, before collection, and communicate any changes promptly.</p>
               <div className={styles.checkList}>{['Full collection address', 'Full delivery address', 'Contact names & numbers', 'Confirmed dates & time windows', 'Cargo, access & handling details', 'References & site instructions'].map(t => <span key={t}>✓ <span>{t}</span></span>)}</div>
-              <label className={styles.confirm}><input type="checkbox" checked={detailsAccepted} onChange={e => setDetailsAccepted(e.target.checked)} /><span>I confirm that my company is responsible for supplying all required full collection and delivery details.</span></label>
+              <label id="award-collection-confirm" className={styles.confirm}><input type="checkbox" checked={detailsAccepted} onChange={e => setDetailsAccepted(e.target.checked)} /><span>I confirm that my company is responsible for supplying all required full collection and delivery details.</span></label>
             </section>
             <section className={styles.panel}>
               <div className={styles.panelTitle}><span className={styles.icon}>§</span><strong>Payment &amp; Legal Agreement</strong><small>REQUIRED ACKNOWLEDGEMENT</small></div>
               <div className={styles.legal}><strong>Agreed price: {price}.</strong> Customer / Broker is responsible for paying the selected carrier under the agreed booking terms. A transport agreement is formed only when the carrier accepts this offer.</div>
               <p className={styles.explain}>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</p>
-              <label className={styles.confirm}><input type="checkbox" checked={paymentAccepted} onChange={e => setPaymentAccepted(e.target.checked)} /><span>I acknowledge my company&apos;s obligation to pay the selected carrier under the agreed booking terms.</span></label>
+              <label id="award-payment-confirm" className={styles.confirm}><input type="checkbox" checked={paymentAccepted} onChange={e => setPaymentAccepted(e.target.checked)} /><span>I acknowledge my company&apos;s obligation to pay the selected carrier under the agreed booking terms.</span></label>
               <p className={styles.help}>Sending the offer creates a pending carrier acceptance request, not an accepted booking.</p>
             </section>
           </div>
@@ -162,7 +170,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
               Sending this booking offer does not guarantee the carrier&apos;s current availability or constitute acceptance by the carrier.
               The transport remains subject to confirmation by an authorised representative of the carrier.
             </p>
-            <label className={styles.confirm}>
+            <label id="award-availability-confirm" className={styles.confirm}>
               <input type="checkbox" checked={availabilityAcknowledged} onChange={event => setAvailabilityAcknowledged(event.target.checked)} />
               <span>I understand that this offer requires carrier acceptance and that the carrier may no longer be available.</span>
             </label>
@@ -175,7 +183,7 @@ export default function BookingConfirmationFullPage({ details, working, error, o
           </div>
           <div className={styles.actions}>
             <button type="button" onClick={onCancel} disabled={working} className={styles.cancel}>Cancel</button>
-            <button type="button" onClick={onConfirm} disabled={!ready} className={styles.send}>{working ? 'Sending…' : 'Send Booking Offer →'}</button>
+            <button type="button" onClick={sendOrShowRequirements} disabled={working} className={styles.send}>{working ? 'Sending…' : ready ? 'Award Job · Send Offer →' : 'Review confirmations · Award Job →'}</button>
           </div>
         </footer>
       </div>
