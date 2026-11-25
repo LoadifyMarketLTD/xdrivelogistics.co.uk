@@ -24,7 +24,6 @@ import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
-import MasterWorkspace from '../try-xdrive-demo/components/MasterWorkspace';
 import master5301 from '../components/workspace/master5301Dashboard.module.css';
 
 type DriverProfile = {
@@ -804,5 +803,5 @@ export default function DriverDashboard(){
   const { user } = useAuth();
   const workspace = resolveWorkspaceRole(user);
   if (workspace === 'owner_driver' || workspace === 'driver') return <DriverDashboardContent/>;
-  return <MasterWorkspace role="Company Driver" authenticated dashboard={<DriverDashboardContent/>}/>;
+  return <DriverDashboardContent/>;
 }

@@ -1,16 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
-
-import TopWorkspaceShell from '../../components/workspace/TopWorkspaceShell';
+import Original3118WorkspaceShell from '../../components/workspace/Original3118WorkspaceShell';
 import { useDriverAvailabilityPresencePublisher } from '../../hooks/useDriverAvailabilityPresencePublisher';
 
-/**
- * Driver and Owner Driver use the canonical operational workspace shell.
- * Role resolution remains inside TopWorkspaceShell so employed-driver and
- * owner-driver capabilities produce different menus without a second navbar.
- */
+/** Driver and Owner Driver retain live presence, but use their own authorised 3118 navigation. */
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   useDriverAvailabilityPresencePublisher();
-  return <TopWorkspaceShell>{children}</TopWorkspaceShell>;
+  return <Original3118WorkspaceShell forcedRole="owner_driver">{children}</Original3118WorkspaceShell>;
 }

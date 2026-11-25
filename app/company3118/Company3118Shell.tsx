@@ -64,6 +64,8 @@ export default function Company3118Shell({ children }: { children: ReactNode }) 
           {navigation.map(([label,url],index) =>
             <button type="button" key={url} className={active === index ? 'active' : ''}
               onClick={() => router.push(url)}>{label}</button>)}
+          <button type="button" className={pathname.startsWith('/admin/settings') ? 'active' : ''}
+            onClick={() => router.push('/admin/settings')}>Settings</button>
         </nav>
         <div className="page">{children}</div>
       </div>
