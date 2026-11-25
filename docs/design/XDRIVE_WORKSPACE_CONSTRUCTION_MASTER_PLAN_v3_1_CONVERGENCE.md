@@ -1,4 +1,8 @@
 # XDRIVE LOGISTICS
+
+> **SUPERSEDED FOR VISUAL UNIFICATION — 25 NOV 2026:** Historical PR #357 convergence instructions do NOT control current visual unification. The owner-approved current task is [`XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md`](XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md). Retain only non-conflicting operational, data/security and execution safeguards as historical reference. Never reinstate an old 3150/legacy visual directive.
+
+
 # WORKSPACE CONSTRUCTION MASTER PLAN
 ## v3.1 — CONVERGENCE & LAUNCH CLOSURE
 
