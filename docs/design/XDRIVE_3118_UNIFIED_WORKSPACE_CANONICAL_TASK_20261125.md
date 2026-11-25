@@ -5,7 +5,7 @@
 **Source of visual truth:** original running Company 3118 at `http://localhost:3118/try-xdrive-company-demo` and original 3118 role workspace components, supplemented by preserved PR #735/#757 sources.
 **Status:** APPROVED EXECUTION TASK — **NOT RELEASE READY**.
 
-**MANDATORY AGENT HANDOFF:** [XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md](XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md). Every receiving agent must read and adhere to it before implementation. It expands this task with exact role-by-role source mapping, source-vs-MAIN functionality matrix, earlier PR evidence, checkpoint state, commands, complete test gates and non-negotiable prohibitions. This handoff adds execution detail; it does not authorize redesign or weaken security.
+**SINGLE MASTER HANDOFF + EXECUTION MODE:** [XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md](XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md). This is the **single operational handoff** for every incoming agent: exact original 3118 visual replacement, seven role-by-role source/target matrices, historical PR evidence, checkpoints, G01–G08 and the complete AUTONOMOUS EXCELLENCE WORKER protocol (GLOBAL / PROJECT / TASK workers; ANALYSE → TRANSPLANT → TEST → FIX → RETEST → VALIDATE → CHECKPOINT → CONTINUE). This canonical policy document remains a concise authority reference, **not an independent or conflicting second assignment**. No redesign or relaxation of security is authorized.
 
 ## 1. Supersession and precedence
 

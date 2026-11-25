@@ -14,6 +14,62 @@
 
 ---
 
+## 0A. MANDATORY EXECUTION MODE — AUTONOMOUS EXCELLENCE WORKER
+
+**Operating mode:** AUTONOMOUS EXECUTION — PROFESSIONAL EXCELLENCE — ZERO COMPROMISE — TRUTH MODE — G01–G08.
+
+**One continuous execution loop, mandatory for every role, page and task:**
+
+**ANALYSE → TRANSPLANT ORIGINAL 3118 → CONNECT REAL MAIN FUNCTIONS → TEST → DIAGNOSE FAIL → FIX → RETEST → VALIDATE → EVIDENCE/CHECKPOINT → CONTINUE AUTONOMOUSLY.**
+
+A checkpoint is a quality boundary, **not** the end of the worker's assignment. Continue to the next unfinished route/workspace without waiting for an owner message saying "CONTINUĂ". Do not request approval for routine safe analysis, integration or local tests. Ask only when a new destructive production action, irreversible data change, permission expansion, external commercial action, or genuinely missing required authorization requires the owner.
+
+### Three execution levels
+
+**GLOBAL WORKER — platform invariant authority**
+- Protect MAIN, security, Supabase data integrity, RBAC/RLS, tenant and actor identity, integrations, protected Super Admin/PWA/native/Loadify code and cross-role regressions.
+- Coordinate reusable adapters and compatibility without visually overriding original 3118 source. Stop unauthorized changes.
+
+**PROJECT WORKER — seven-workspace replacement coordinator**
+- Maintain the single PR #854, source→target acceptance matrix, role-by-role progress, dependencies, blocked operations, test evidence, baseline screenshots and release checklist.
+- Coordinate sequential execution: Company (17 sections) → Broker → Fleet Manager → Dispatcher → Owner Driver → Driver WEB → Company Driver WEB → cross-role regression.
+- A visually complete shell with old page bodies is NOT completion.
+
+**TASK WORKER — concrete page/operation executor**
+- Own one original 3118 page/component at a time; identify all imports/CSS/assets, transplant exact UI, preserve MAIN data/actions, test every tab/button/form/filter, diagnose defects, fix and retest.
+- Produce a small, verified commit and evidence linked to the matrix; move to the next task. Do not make unvalidated broad rewrites.
+
+### Non-negotiable operational behaviour
+
+1. **Do the work, not repeated planning.** Once source and target are established, edit and test. Do not fill owner chat with speculative progress or multiple identical plans.
+2. **No guessing.** Verify actual current branch, exact files, rendered routes, API responses, roles, data and migrations. State uncertainty or access blockers truthfully.
+3. **Do not ask owner to perform QA.** Agent executes available local tests, browser checks and authorized E2E itself. Owner approval is required only for explicitly sensitive actions.
+4. **At every FAIL:** reproduce → inspect logs/data/permissions/DOM/CSS → find root cause → repair the real feature without deleting it → rerun focused regression → rerun relevant G01–G08 gate.
+5. **No fabricated verification.** Unit pass is not browser pass; HTTP 200/307 is not authenticated E2E; UI paint is not functionality; Netlify build is not release validation; sample state is not real data.
+6. **Keep checkpoints after real tests.** Every checkpoint records exact commit SHA, changed files, test commands and exit codes, screenshots, API and database evidence where authorized, outstanding blockers, and next actionable task.
+7. **Fail closed.** No unauthorized Award, document approval, cross-company visibility, GPS tracking or financial mutation. Do not weaken authorization, RLS or eligibility checks for easy test success.
+8. **Protect source fidelity.** Exact original visual files and dimensions remain the design authority. Functional adapters may change state/props/data flows; they must not recreate, aesthetically reinterpret or redraw original markup.
+9. **Protect current MAIN features.** Inspect current implementation before changing. Do not remove or silently conceal a live form, action, report or deep link because it is absent from original 3118 demo.
+10. **Single active integration PR.** Continue #854, avoid proliferating workspace-unification PRs. Do not merge partially implemented role replacements into MAIN.
+11. **Communication contract:** short factual reports only: what was replaced, real PASS/FAIL evidence, actual defect/root cause, repair/checkpoint SHA and next blocked item. No assurances without evidence or requests for repetitive "continue" commands.
+12. **Release gate:** seven authorized web role workspaces, all affected pages, all G01–G08 outcomes and protected regression evidence. Otherwise **HOLD / NOT RELEASE READY**.
+
+### Execution order and completion criteria
+
+| Phase | Worker action | Required handoff evidence |
+| --- | --- | --- |
+| A — Source locking | Inspect 3118 exact source, current MAIN and PR #854; reconcile component hashes, Git status and permission boundary | Source manifest, branch SHA, protected-path baseline |
+| B — Per-route gap audit | Map page/subtab/button/form/modal/filter and all current MAIN business operations | Seven-role matrix with no undiscovered route gaps |
+| C — Exact transplant | Replace entire old visual components with original 3118 source, CSS and assets | Source-target component references and before/after matched viewport images |
+| D — Real integration | Attach authenticated MAIN API/data/authorised writes without changing original visual geometry | API contracts, real field mapping, state/error fidelity |
+| E — Functional QA | Exercise real controls, legitimate QA scenarios, negative authorization tests | Named G01–G06 PASS/FAIL and repro logs |
+| F — Regression QA | Verify shared Maps/Directory, typography, responsive, PWA and Super Admin non-impact, build | G07 output, regression comparisons |
+| G — Checkpoint | Commit only tested work, record matrix and screenshots | Commit SHA, exact test scope and unresolved gaps |
+| H — Continue | Begin next incomplete role/section immediately | No idle approval loops |
+| I — Release | Verify full seven-workspace acceptance on exact merged candidate | G01–G08 evidence; only then RELEASE READY |
+
+---
+
 ## 0. AUTHORITATIVE OWNER DECISION — READ BEFORE ANY TOOL CALL
 
 > **TAKE THE EXACT ORIGINAL 3118 WORKSPACES AND REPLACE THE OLD 3150 / LEGACY WEB WORKSPACES ENTIRELY. DO NOT REDRAW. DO NOT VISUALLY COPY. DO NOT REWRITE THE PRESENTATION. DO NOT "RE-SKIN." DO NOT SUBSTITUTE A SIMILAR COMPONENT. DO NOT PUT NEW COLOURS ON THE OLD SHELL.**
