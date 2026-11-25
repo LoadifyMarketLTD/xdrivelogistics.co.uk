@@ -212,10 +212,10 @@
       "route": "/admin/notifications",
       "original3118Component": "DemoNotifications",
       "commercialPage": "app/admin/notifications/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "original3118Integrated",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "Original 3118 notification board and CSS connected to the existing recipient-scoped workspace inbox. Authenticated E2E and matched viewport evidence pending."
     },
     {
       "section": "Reports",
