@@ -72,50 +72,50 @@
       "route": "/admin/post-load",
       "original3118Component": "PostLoadDemo",
       "commercialPage": "app/admin/post-load/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "MAIN preserves recurring schedules, structured stops, document upload and direct allocation."
     },
     {
       "section": "Loads",
       "route": "/admin/marketplace",
       "original3118Component": "DemoExchangeBoard",
       "commercialPage": "app/admin/marketplace/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "MAIN preserves live map and radius search, saved filters and commercial quote eligibility. Original radius is never applied by the filter and quoting uses a separate demo write contract."
     },
     {
       "section": "Quotes",
       "route": "/admin/exchange",
       "original3118Component": "DemoCompanyQuotes",
       "commercialPage": "app/admin/exchange/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "MAIN preserves quote withdrawal, archive and restore, and inbound quote review. The original board uses the demo quote mutation and lacks archived-state management."
     },
     {
       "section": "Bookings",
       "route": "/admin/won-work",
       "original3118Component": "DemoCompanyBookings",
       "commercialPage": "app/admin/won-work/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "MAIN preserves live won work and booking access. Original booking board uses a separate demo state and cannot represent the current execution lifecycle."
     },
     {
       "section": "My Fleet",
       "route": "/admin/fleet",
       "original3118Component": "DemoFleetBoard",
       "commercialPage": "app/admin/fleet/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "MAIN preserves persistent vehicle editing, assignment, tracking and compliance records."
     },
     {
       "section": "Drivers",
@@ -202,10 +202,10 @@
       "route": "/admin/messages",
       "original3118Component": "DemoMessagesBoard",
       "commercialPage": "app/admin/messages/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "MAIN preserves persistent, participant-scoped conversation access and sends."
     },
     {
       "section": "Notifications",
@@ -222,10 +222,10 @@
       "route": "/admin/finance/reports",
       "original3118Component": "DemoReportsBoard",
       "commercialPage": "app/admin/finance/reports/page.tsx",
-      "implementation": "legacyBody",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": null
+      "note": "MAIN preserves reporting datasets. The original period selector does not constrain the exported job rows and computes invoiced amount from job prices."
     }
   ]
 }

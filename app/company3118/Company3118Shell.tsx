@@ -39,6 +39,10 @@ export default function Company3118Shell({ children }: { children: ReactNode }) 
   const router = useRouter();
   const pathname = usePathname();
   const active = useMemo(() => {
+    // Received quotes use separate authenticated routes from submitted quotes.
+    if (pathname === '/admin/bids' || pathname === '/admin/exchange-quotes') {
+      return navigation.findIndex(([label]) => label === 'Quotes');
+    }
     const exact = navigation.findIndex(([, url]) => pathname === url);
     if (exact >= 0) return exact;
     const matches = navigation.map(([, url], index) => ({ index, url }))
