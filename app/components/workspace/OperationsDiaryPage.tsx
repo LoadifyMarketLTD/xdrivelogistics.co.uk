@@ -6,7 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import CompanyAdminDiaryCalendar from './CompanyAdminDiaryCalendar';
 import {londonDay} from './companyAdminDiaryCalendarModel';
-import {companyDiaryDefaultKey,diaryDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from './companyAdminDiaryFilters';
+import {companyDiaryDefaultKey,diaryBookingDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from './companyAdminDiaryFilters';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
@@ -501,7 +501,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
     const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
 
     return matchingBookings.filter((job) => {
-      if(companyAdmin)return diaryDateMatches(job.pickup_datetime,appliedSearch.dateFrom,appliedSearch.dateTo);
+      if(companyAdmin)return diaryBookingDateMatches(job,appliedSearch.dateFrom,appliedSearch.dateTo);
       if (!fromDate && !toDate) return true;
       if (!job.pickup_datetime) return false;
       const timestamp = new Date(job.pickup_datetime).getTime();
