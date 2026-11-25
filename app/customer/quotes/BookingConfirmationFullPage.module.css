@@ -5,3 +5,10 @@
 .content{min-height:0;overscroll-behavior:contain;padding-bottom:104px}
 .footer{position:fixed;left:0;right:0;bottom:0;z-index:10001;flex-shrink:0;box-shadow:0 -6px 18px rgba(11,47,107,.08)}
 @media(max-width:680px){.footer{flex-wrap:wrap}.actions{width:100%;justify-content:flex-end}}
+
+/* P0: action is available immediately in the review header, regardless of scroll position. */
+.heroAward{display:block;margin-top:10px;padding:10px 14px;border:0;border-radius:8px;background:#f5a300;color:#0a234f;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+.heroAward:hover{background:#ffb52e}
+.heroAward:focus-visible,.send:focus-visible{outline:3px solid #1d57d8;outline-offset:3px}
+.heroAward:disabled{opacity:.65;cursor:wait}
+@media(max-width:680px){.heroAward{white-space:normal;padding:9px 10px;font-size:11px}}
