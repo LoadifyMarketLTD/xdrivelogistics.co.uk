@@ -807,6 +807,19 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
     else if (value === 'today') setSearch((current) => ({ ...current, dateFrom: todayKey, dateTo: todayKey }));
     else if (value === 'tomorrow') setSearch((current) => ({ ...current, dateFrom: tomorrowKey, dateTo: tomorrowKey }));
   };
+  const selectedDiaryDay = appliedSearch.dateFrom === appliedSearch.dateTo ? appliedSearch.dateFrom : '';
+  const setDiaryDay = (value: string) => {
+    if (value && !validDiaryDate(value)) return;
+    setSearchError('');
+    setCustomDateMode(Boolean(value));
+    setSearch(current => ({ ...current, dateFrom: value, dateTo: value }));
+    setAppliedSearch(current => ({ ...current, dateFrom: value, dateTo: value }));
+  };
+  const shiftDiaryDay = (delta: number) => {
+    const day = new Date(`${selectedDiaryDay || todayKey}T12:00:00Z`);
+    day.setUTCDate(day.getUTCDate() + delta);
+    setDiaryDay(day.toISOString().slice(0, 10));
+  };
   const toggleDefaultSearch = (checked: boolean) => {
     setSaveAsDefault(checked);
     if(!defaultSearchKey)return;
@@ -820,6 +833,15 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
       {companyAdmin&&exactJobId&&<section className="workspace-panel company-admin-exact-booking" aria-label="Requested booking"><div className="company-admin-calendar__header"><h2>Requested booking</h2><ActionButton tone="secondary" onClick={()=>router.replace('/admin/diary')}>Close booking</ActionButton></div>{exactBooking?.id===exactJobId&&exactBooking.companyId===companyId&&exactBooking.userId===user?.id?exactBooking.status==='found'?<CompanyJobSheetPanel key={exactJobId} jobId={exactJobId} mode="carrier"/>:<AlertBanner tone="warning">This booking is unavailable in the active company's operational Diary.</AlertBanner>:<p role="status">Checking booking access…</p>}</section>}
+      {companyAdmin && <div className="xd-diary-header">
+        <div><h1>Diary</h1><p>Bookings &amp; Operations Schedule</p></div>
+        <div className="xd-diary-date-nav">
+          <button type="button" onClick={() => shiftDiaryDay(-1)} aria-label="Previous day">‹</button>
+          <input type="date" aria-label="Diary date" value={selectedDiaryDay} onChange={event => setDiaryDay(event.target.value)} />
+          <button type="button" onClick={() => shiftDiaryDay(1)} aria-label="Next day">›</button>
+          <button type="button" className="xd-diary-today" onClick={() => setDiaryDay(todayKey)}>Today</button>
+        </div>
+      </div>}
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
           <div className="cx-diary-rail-nav">
