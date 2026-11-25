@@ -5,6 +5,8 @@
 **Source of visual truth:** original running Company 3118 at `http://localhost:3118/try-xdrive-company-demo` and original 3118 role workspace components, supplemented by preserved PR #735/#757 sources.
 **Status:** APPROVED EXECUTION TASK — **NOT RELEASE READY**.
 
+**MANDATORY AGENT HANDOFF:** [XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md](XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md). Every receiving agent must read and adhere to it before implementation. It expands this task with exact role-by-role source mapping, source-vs-MAIN functionality matrix, earlier PR evidence, checkpoint state, commands, complete test gates and non-negotiable prohibitions. This handoff adds execution detail; it does not authorize redesign or weaken security.
+
 ## 1. Supersession and precedence
 
 This is the **sole active visual-unification and workspace-replacement directive** for XDrive operational WEB workspaces.
