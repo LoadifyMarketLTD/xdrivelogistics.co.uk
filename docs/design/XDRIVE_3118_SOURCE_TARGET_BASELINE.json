@@ -1,0 +1,231 @@
+{
+  "baseline": {
+    "main": "b53f277c7db775bfa61488215252728dd7db4b8b",
+    "branch": "5759e781c7bb3af8b4debd9a40083e3a53f7cbf6",
+    "visualParity": "unverified",
+    "authenticatedE2E": "unverified"
+  },
+  "roles": [
+    {
+      "role": "Company / Carrier Admin",
+      "sourceCommit": "9f76ddeec",
+      "original3118Entry": "app/try-xdrive-company-demo/page.tsx",
+      "commercialEntry": "/admin",
+      "blocker": null
+    },
+    {
+      "role": "Broker",
+      "sourceCommit": "7d0dad00f",
+      "original3118Entry": "app/try-xdrive-broker-demo/page.tsx",
+      "commercialEntry": "/broker",
+      "blocker": null
+    },
+    {
+      "role": "Fleet Manager",
+      "sourceCommit": "9f76ddeec",
+      "original3118Entry": "app/try-xdrive-fleet-demo/page.tsx",
+      "commercialEntry": "/admin/fleet",
+      "blocker": null
+    },
+    {
+      "role": "Dispatcher",
+      "sourceCommit": "9f76ddeec",
+      "original3118Entry": "app/try-xdrive-dispatcher-demo/page.tsx",
+      "commercialEntry": "/admin",
+      "blocker": null
+    },
+    {
+      "role": "Owner Driver",
+      "sourceCommit": "9f76ddeec",
+      "original3118Entry": "app/try-xdrive-owner-driver-demo/page.tsx",
+      "commercialEntry": "/driver",
+      "blocker": null
+    },
+    {
+      "role": "Driver",
+      "sourceCommit": "7d0dad00f",
+      "original3118Entry": "app/try-xdrive-driver-demo/page.tsx",
+      "commercialEntry": "/driver/jobs",
+      "blocker": null
+    },
+    {
+      "role": "Company Driver",
+      "sourceCommit": "7d0dad00f",
+      "original3118Entry": "app/try-xdrive-company-driver-demo/page.tsx",
+      "commercialEntry": "/driver/jobs",
+      "blocker": "Company Driver resolves to driver; both share the production route and need authorized identity-based view selection."
+    }
+  ],
+  "companySections": [
+    {
+      "section": "Dashboard",
+      "route": "/admin",
+      "original3118Component": "DemoCompanyDashboard",
+      "commercialPage": "app/admin/page.tsx",
+      "implementation": "partiallyIntegrated",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": "Shell and dashboard mounted; authenticated parity pending"
+    },
+    {
+      "section": "Post Load",
+      "route": "/admin/post-load",
+      "original3118Component": "PostLoadDemo",
+      "commercialPage": "app/admin/post-load/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Loads",
+      "route": "/admin/marketplace",
+      "original3118Component": "DemoExchangeBoard",
+      "commercialPage": "app/admin/marketplace/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Quotes",
+      "route": "/admin/exchange",
+      "original3118Component": "DemoCompanyQuotes",
+      "commercialPage": "app/admin/exchange/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Bookings",
+      "route": "/admin/won-work",
+      "original3118Component": "DemoCompanyBookings",
+      "commercialPage": "app/admin/won-work/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "My Fleet",
+      "route": "/admin/fleet",
+      "original3118Component": "DemoFleetBoard",
+      "commercialPage": "app/admin/fleet/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Drivers",
+      "route": "/admin/drivers",
+      "original3118Component": "DemoDriversBoard",
+      "commercialPage": "app/admin/drivers/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Diary",
+      "route": "/admin/diary",
+      "original3118Component": "DemoBookingOverview",
+      "commercialPage": "app/admin/diary/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Invoices",
+      "route": "/admin/invoices",
+      "original3118Component": "OperationsDemo inline invoice panel",
+      "commercialPage": "app/admin/invoices/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Network & Tools",
+      "route": "/admin/network-tools",
+      "original3118Component": "DemoNetworkToolsBoard",
+      "commercialPage": "app/admin/network-tools/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Directory",
+      "route": "/admin/marketplace/directory",
+      "original3118Component": "NetworkTools initialView=Directory",
+      "commercialPage": "app/admin/marketplace/directory/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": "Preserve shared MemberDirectoryPage and Saved Network contracts"
+    },
+    {
+      "section": "Live Availability",
+      "route": "/admin/live-availability",
+      "original3118Component": "DemoLiveAvailability",
+      "commercialPage": "app/admin/live-availability/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Return Journeys",
+      "route": "/admin/fleet/returns",
+      "original3118Component": "DemoReturnJourneys",
+      "commercialPage": "app/admin/fleet/returns/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Freight Vision",
+      "route": "/admin/freight-vision",
+      "original3118Component": "DemoFreightVision",
+      "commercialPage": "app/admin/freight-vision/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Messages",
+      "route": "/admin/messages",
+      "original3118Component": "DemoMessagesBoard",
+      "commercialPage": "app/admin/messages/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Notifications",
+      "route": "/admin/notifications",
+      "original3118Component": "DemoNotifications",
+      "commercialPage": "app/admin/notifications/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    },
+    {
+      "section": "Reports",
+      "route": "/admin/finance/reports",
+      "original3118Component": "DemoReportsBoard",
+      "commercialPage": "app/admin/finance/reports/page.tsx",
+      "implementation": "legacyBody",
+      "visualParity": "unverified",
+      "functionality": "unverified",
+      "note": null
+    }
+  ]
+}
