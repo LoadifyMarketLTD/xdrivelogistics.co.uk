@@ -274,5 +274,5 @@ export function MemberProfileOverlay({
           ) : null}
     </WorkspaceDialog>
   );
-  return ownerDirectoryEvidence ? <OwnerMemberProfile profile={profile} evidence={ownerDirectoryEvidence} loading={loading} error={error} tab={tab} onTab={setTab} onRetry={()=>void load()} onClose={onClose}/> : legacyDialog;
+  return <OwnerMemberProfile profile={profile} evidence={ownerDirectoryEvidence} loading={loading} error={error} tab={tab} onTab={setTab} onRetry={()=>void load()} onClose={onClose}/>;
 }
