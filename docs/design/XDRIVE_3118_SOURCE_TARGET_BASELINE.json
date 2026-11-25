@@ -62,10 +62,10 @@
       "route": "/admin",
       "original3118Component": "DemoCompanyDashboard",
       "commercialPage": "app/admin/page.tsx",
-      "implementation": "partiallyIntegrated",
+      "implementation": "retainedMain",
       "visualParity": "unverified",
       "functionality": "unverified",
-      "note": "Shell and dashboard mounted; authenticated parity pending"
+      "note": "MAIN dashboard retained: original adapter does not preserve operational drilldowns or authoritative job and POD classification."
     },
     {
       "section": "Post Load",
