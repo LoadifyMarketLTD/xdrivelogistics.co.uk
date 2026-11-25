@@ -451,7 +451,17 @@ export default function CustomerQuotesCxPage() {
       )}
         </main>
       </div>
-      {candidate ? <AwardConfirmation candidate={candidate} working={working === candidate.bid.id} error={message} onCancel={() => setCandidate(null)} onConfirm={() => void award(candidate.bid.id)} /> : null}
+      {candidate ? <AwardConfirmation
+        candidate={{
+          ...candidate,
+          identity: identities.get(candidate.bid.id) ?? candidate.identity,
+          isOwnerDriverBid: isOwnerDriverIdentity(identities.get(candidate.bid.id) ?? candidate.identity, candidate.bid.company_id ?? null),
+        }}
+        working={working === candidate.bid.id}
+        error={message || identityError}
+        onCancel={() => setCandidate(null)}
+        onConfirm={() => void award(candidate.bid.id)}
+      /> : null}
       {messageCandidate ? <MessageParticipantDialog candidate={messageCandidate} body={messageBody} working={messageWorking} error={messageError} onBodyChange={setMessageBody} onCancel={() => { setMessageCandidate(null); setMessageBody(''); setMessageError(''); }} onSend={() => void sendBidMessage()} /> : null}
     </PageFrame>
   );
