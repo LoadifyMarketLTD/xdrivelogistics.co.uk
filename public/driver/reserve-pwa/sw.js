@@ -2,7 +2,7 @@
  * No jobs, profiles, tokens, location samples, documents, signatures, PODs or invoices.
  * Offline does not imply accepted/delivered/synchronised.
  */
-const CACHE_NAME = 'xdrive-reserve-public-shell-v14-gps-tracking';
+const CACHE_NAME = 'xdrive-reserve-public-shell-v15-driver-auth';
 const ROOT = '/driver/reserve-pwa/';
 const INDEX = ROOT + 'index.html';
 const PUBLIC_ASSET = /\.(?:js|css|png|svg|webp|ico)$/i;
