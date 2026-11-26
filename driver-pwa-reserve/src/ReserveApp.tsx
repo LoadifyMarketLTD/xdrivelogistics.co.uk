@@ -37,6 +37,17 @@ type DeliveryDraft = { recipient: string; leftAt: string; items: string; conditi
 const KEY = 'xdrive-driver-reserve-live-session-v1';
 const driverApi = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 function restored(): LiveSession | null { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); return value && typeof value.token === 'string' && typeof value.refreshToken === 'string' && typeof value.expiresAt === 'number' ? value : null; } catch { return null; } }
+function persistDriverSession(session: LiveSession) {
+  localStorage.setItem(KEY, JSON.stringify(session));
+  if (location.origin === 'https://www.xdrivelogistics.co.uk' && session.token) {
+    const seconds = Math.max(0, Math.floor((session.expiresAt-Date.now())/1000));
+    document.cookie = 'xdrive-route-access-token='+encodeURIComponent(session.token)+'; Path=/; SameSite=Lax; Secure; Max-Age='+seconds;
+  }
+}
+function clearDriverSession() {
+  localStorage.removeItem(KEY);
+  if (location.origin === 'https://www.xdrivelogistics.co.uk') document.cookie='xdrive-route-access-token=; Path=/; SameSite=Lax; Secure; Max-Age=0';
+}
 const gbp = (v: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(v);
 const friendlyService = (value: string | null | undefined) => ({ timed_direct: 'Timed Direct', same_day: 'Same Day', next_day: 'Next Day', on_demand: 'On Demand' } as Record<string,string>)[String(value||'').toLowerCase()] || String(value||'Transport').replaceAll('_',' ').replace(/\b\w/g, c => c.toUpperCase());
 const nextStates = reserveStatusSteps;
@@ -146,7 +157,7 @@ export default function ReserveApp() {
   const markOfferSeen=(j:LiveJob)=>{if(!j.offerId||!j.acceptanceRequired)return;setSeenOffers(previous=>{if(previous.includes(j.offerId!))return previous;const next=[...previous,j.offerId!];try{localStorage.setItem(receiptKey,JSON.stringify(next));}catch{}return next;});};
   const unreadBookingOffers=jobs.filter(j=>j.acceptanceRequired&&j.offerId&&!seenOffers.includes(j.offerId)).length;
   const isAuthFailure=(e:unknown)=>/invalid session|unauthorized|session expired|invalid.grant|refresh.token|already.used|jwt expired|401/i.test(e instanceof Error?e.message:String(e));
-  const clearInvalidSession=()=>{refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});resetLiveSession();clearReserveStopDrafts();localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
+  const clearInvalidSession=()=>{refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});resetLiveSession();clearReserveStopDrafts();clearDriverSession();setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
   useLayoutEffect(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view,tab,id]);
   useEffect(()=>{if('scrollRestoration' in history)history.scrollRestoration='manual';},[]);
   const browserBackRef=useRef(false);
@@ -202,7 +213,7 @@ export default function ReserveApp() {
       notice(source,reason);
       if(/invalid session|unauthorized|jwt expired|401|403/i.test(message)){
         // Do not retain restricted data after an authority failure.
-        refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);resetLiveSession();clearReserveStopDrafts();localStorage.removeItem(KEY);setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
+        refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);resetLiveSession();clearReserveStopDrafts();clearDriverSession();setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
       }
     };
     const offersRequest=secondaryReady.then(()=>current()?bookingOffersGet(token):Promise.reject(new Error('Refresh superseded'))).then(data=>{
@@ -245,7 +256,7 @@ export default function ReserveApp() {
       try{
         const next=await renewSession(session);
         if(disposed||epoch!==refreshGeneration.current)return;
-        if(next.token!==session.token){setSession(next);localStorage.setItem(KEY,JSON.stringify(next));}
+        if(next.token!==session.token){setSession(next);persistDriverSession(next);}
         await fetchJobs(next.token);
       }catch(reason){
         if(disposed)return;
@@ -278,11 +289,11 @@ export default function ReserveApp() {
     },350);
     return ()=>{cancelled=true;clearTimeout(timeout);};
   },[session?.token,tab,bookingSection,bookingSearch]);
-  async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
+  async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);persistDriverSession(s);const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
 
-  useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
-  async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
-  async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');let profileApproved=false;try{const s=await login(email.trim(),password);setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setRole(verifiedRole);profileApproved=true;setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(!profileApproved){resetLiveSession();setVerifiedSession(false);setSession(null);localStorage.removeItem(KEY);}if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
+  useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);persistDriverSession(s);await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
+  async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);persistDriverSession(s);const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
+  async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');let profileApproved=false;try{const s=await login(email.trim(),password);setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setSession(s);persistDriverSession(s);setRole(verifiedRole);profileApproved=true;setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(!profileApproved){resetLiveSession();setVerifiedSession(false);setSession(null);clearDriverSession();}if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
   function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference(LOCAL?'TEST-OPERATOR-001':'');setPackaging(j.packaging||'');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();boundaryEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
@@ -293,13 +304,13 @@ export default function ReserveApp() {
         // credentials before restoring its server-side signed POD draft.
         let authorised=await renewSession(session);
         if(!active)return;
-        if(authorised.token!==session.token){setSession(authorised);localStorage.setItem(KEY,JSON.stringify(authorised));}
+        if(authorised.token!==session.token){setSession(authorised);persistDriverSession(authorised);}
         const endpoint=driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft';
         let res=await fetch(endpoint,{headers:{Authorization:'Bearer '+authorised.token},cache:'no-store'});
         if(res.status===401){
           authorised=await renewSession(authorised,true);
           if(!active)return;
-          setSession(authorised);localStorage.setItem(KEY,JSON.stringify(authorised));
+          setSession(authorised);persistDriverSession(authorised);
           res=await fetch(endpoint,{headers:{Authorization:'Bearer '+authorised.token},cache:'no-store'});
         }
         if(!res.ok)throw new Error('Could not restore the saved POD draft ('+res.status+'). Your stored evidence is preserved. Reconnect and retry.');
@@ -747,7 +758,7 @@ export default function ReserveApp() {
     if(LOCAL){if(!signature||!draft.recipient.trim())throw new Error('Enter recipient and draw signature.');localStorage.setItem('xdrive-local-signature-v4-'+j.id,JSON.stringify({signature,draft}));setVerifiedSignature(signature);return;}
     if(!session||!signature)throw new Error('Draw the recipient signature before saving.');
     const s=await renewSession(session);
-    setSession(s);localStorage.setItem(KEY,JSON.stringify(s));
+    setSession(s);persistDriverSession(s);
     const endpoint=driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft';
     const previousResponse=await fetch(endpoint,{headers:{Authorization:'Bearer '+s.token},cache:'no-store'});
     if(!previousResponse.ok)throw new Error('Could not read existing POD draft ('+previousResponse.status+').');
