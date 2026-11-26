@@ -170,6 +170,7 @@ export default function ReserveApp() {
   const [offersLoading,setOffersLoading]=useState(false);
   const [bidsLoading,setBidsLoading]=useState(false);
   const refreshPending=useRef(false);
+  const signInPending = useRef(false);
   // Session-only snapshots. A successful feed replaces its own previous snapshot;
   // an unavailable feed cannot erase an unrelated feed or expose another account.
   const feedCache=useRef(new Map<string,LiveJob[]>());
@@ -293,7 +294,33 @@ export default function ReserveApp() {
 
   useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);persistDriverSession(s);await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);persistDriverSession(s);const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
-  async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');let profileApproved=false;try{const s=await login(email.trim(),password);setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setSession(s);persistDriverSession(s);setRole(verifiedRole);profileApproved=true;setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(!profileApproved){resetLiveSession();setVerifiedSession(false);setSession(null);clearDriverSession();}if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
+  async function signIn(event: React.FormEvent) {
+    event.preventDefault();
+    if (signInPending.current) return;
+    signInPending.current = true;
+    setLoading(true);
+    setError('');
+    let profileApproved = false;
+    try {
+      const signedIn = await login(email.trim(), password);
+      setPassword('');
+      const profile = await driverGet('/profile', signedIn.token, 7000);
+      const verifiedRole = driverRoleFromProfile(profile);
+      if (!verifiedRole) throw new Error('Driver type could not be verified. Reconnect your account.');
+      setSession(signedIn);
+      persistDriverSession(signedIn);
+      setRole(verifiedRole);
+      setVerifiedSession(true);
+      profileApproved = true;
+      await fetchJobs(signedIn.token);
+    } catch (reason) {
+      if (!profileApproved || isAuthFailure(reason)) clearInvalidSession();
+      setError(reason instanceof Error ? reason.message : 'Authentication failed.');
+    } finally {
+      signInPending.current = false;
+      setLoading(false);
+    }
+  }
   function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference(LOCAL?'TEST-OPERATOR-001':'');setPackaging(j.packaging||'');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();boundaryEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
