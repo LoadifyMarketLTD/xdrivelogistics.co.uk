@@ -19,6 +19,7 @@ import DeliveryHandover from './DeliveryHandover';
 import { routeLabel } from './routeLabel';
 import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
+import { readDriverSessionHandoff, clearDriverSessionHandoff } from '../../lib/driverSessionHandoff';
 import ReserveStopExecution, {clearReserveStopDrafts} from './ReserveStopExecution';
 import {finishReserveDelivery} from './reserveDeliverySequence';
 import {operationalExecutionStops,persistedStops,syncBoundaryStop} from './reserveStopSync';
@@ -70,7 +71,7 @@ function Fact({ name, value }: { name: string; value: string | number }) { retur
 declare const __BOOKING_LOCAL__: boolean;
 const LOCAL = typeof __BOOKING_LOCAL__ !== "undefined" && __BOOKING_LOCAL__;
 export default function ReserveApp() {
-  const [session,setSession] = useState<LiveSession|null>(()=>LOCAL?null:restored());
+  const [session,setSession] = useState<LiveSession|null>(()=>LOCAL?null:readDriverSessionHandoff() ?? restored());
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');
   const [loading,setLoading]=useState(false);const [busy,setBusy]=useState(false);
   const [undoConfirmation,setUndoConfirmation]=useState<LiveJob|null>(null); const [declineConfirmation,setDeclineConfirmation]=useState<LiveJob|null>(null); const [error,setError]=useState('');const [warning,setWarning]=useState('');
@@ -292,7 +293,7 @@ export default function ReserveApp() {
   },[session?.token,tab,bookingSection,bookingSearch]);
   async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);persistDriverSession(s);const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
 
-  useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);persistDriverSession(s);await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
+  useEffect(()=>{if(!LOCAL)clearDriverSessionHandoff();if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);persistDriverSession(s);await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
   async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);persistDriverSession(s);const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
   async function signIn(event: React.FormEvent) {
     event.preventDefault();

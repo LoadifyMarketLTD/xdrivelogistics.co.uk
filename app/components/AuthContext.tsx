@@ -20,6 +20,7 @@ import {
 import { clearRouteAuthCookie, writeRouteAuthCookie } from '../../lib/routeAuthCookie';
 import { isMobileDriverBrowser } from '../../lib/isMobileDriverBrowser';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
+import { stageDriverSession } from '../../lib/driverSessionHandoff';
 
 const LOGIN_TIMEOUT_MS = 45_000;
 const LOGIN_BOOTSTRAP_RETRY_DELAY_MS = 1_500;
@@ -502,6 +503,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const route = getResponsivePostLoginRoute(result.user, typeof window !== 'undefined' && isMobileDriverBrowser());
+      if (route === '/driver/official-pwa-live' && data.session) stageDriverSession(data.session);
       return { success: true, route };
     } catch (error) {
       console.error('Login error:', error);
