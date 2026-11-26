@@ -8,7 +8,7 @@ export default function GpsTracking({token,jobs,onClose,visible}:Props){
  const [lastError,setLastError]=useState<Record<string,string>>({});
  const [retry,setRetry]=useState(0);
  const [sending,setSending]=useState(false);
- const active=jobs.filter(j=>activeStatuses.has(j.status));
+ const active=jobs.filter(j=>activeStatuses.has(j.status)&&!j.acceptanceRequired);
  const activeKey=JSON.stringify([...new Set(active.map(j=>j.id))].sort());
  useEffect(()=>{
   if(!token)return;
@@ -20,7 +20,7 @@ export default function GpsTracking({token,jobs,onClose,visible}:Props){
    if(!live||pending||Date.now()-p.timestamp>30000)return;
    setPermission('Allowed');
    const now=Date.now();
-   const due=ids.filter(id=>now-(successes.get(id)??0)>=290000&&now-(attempts.get(id)??0)>=30000);
+   const due=ids.filter(id=>now-(successes.get(id)??0)>=120000&&now-(attempts.get(id)??0)>=30000);
    if(!due.length)return;
    pending=true;setSending(true);
    controller=new AbortController();const signal=controller.signal;
@@ -38,7 +38,8 @@ export default function GpsTracking({token,jobs,onClose,visible}:Props){
   const options={enableHighAccuracy:true,maximumAge:10000,timeout:15000};
   const watch=navigator.geolocation.watchPosition(p=>void send(p),fail,options);
   const refresh=()=>{if(live&&document.visibilityState==='visible')navigator.geolocation.getCurrentPosition(p=>void send(p),fail,options);};
-  const timer=setInterval(refresh,30000);
+  refresh();
+  const timer=setInterval(refresh,15000);
   document.addEventListener('visibilitychange',refresh);window.addEventListener('online',refresh);
   return()=>{live=false;controller?.abort();navigator.geolocation.clearWatch(watch);clearInterval(timer);document.removeEventListener('visibilitychange',refresh);window.removeEventListener('online',refresh);};
  },[token,activeKey,retry]);
@@ -49,6 +50,6 @@ export default function GpsTracking({token,jobs,onClose,visible}:Props){
  {permission!=='Allowed'&&<button type="button" className="rv-primary rv-wide" onClick={()=>setRetry(v=>v+1)}>Enable location / Retry</button>}
  <p><strong>Publishing:</strong> {sending?'Sending position...':active.length?'Automatic':'No transport in progress'}</p>
  {active.map(j=><div key={j.id}><strong>{j.yourRef||'XDL-'+j.id.slice(0,8).toUpperCase()}</strong><p>{j.from} to {j.to}</p><p>Last successful update: {lastSent[j.id]?new Date(lastSent[j.id]).toLocaleString('en-GB'):'None'}</p>{lastError[j.id]&&<p className="rv-error" role="alert">{lastError[j.id]}</p>}</div>)}
- <small>Updates are attempted every 5 minutes while the app is running. Sharing stops for completed bookings or at sign-out. Android may suspend browser location in the background.</small>
+ <small>Updates are attempted every 2 minutes while the app is running. Sharing stops for completed bookings or at sign-out. Android may suspend browser location in the background.</small>
  </section>
 }
