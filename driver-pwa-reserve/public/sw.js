@@ -2,7 +2,7 @@
  * No jobs, profiles, tokens, location samples, documents, signatures, PODs or invoices.
  * Offline does not imply accepted/delivered/synchronised.
  */
-const CACHE_NAME = 'xdrive-reserve-public-shell-v13-driver-controls';
+const CACHE_NAME = 'xdrive-reserve-public-shell-v14-gps-tracking';
 const ROOT = '/driver/reserve-pwa/';
 const INDEX = ROOT + 'index.html';
 const PUBLIC_ASSET = /\.(?:js|css|png|svg|webp|ico)$/i;
@@ -70,7 +70,7 @@ self.addEventListener('fetch', event => {
       if (stored) return stored;
     }
     try {
-      const response = await fetch(request);
+      const response = await fetch(request, isPublicIndex(url) ? {cache:'no-store'} : undefined);
       if (safeToCache(response)) await cache.put(key, response.clone());
       return response;
     } catch {
