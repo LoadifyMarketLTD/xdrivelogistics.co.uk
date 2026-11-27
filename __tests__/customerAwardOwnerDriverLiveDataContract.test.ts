@@ -13,7 +13,7 @@ const stylesheet=read('app/customer/quotes/BookingConfirmationFullPage.module.cs
 describe('Customer Award authentic Owner Driver information and persistent action',()=>{
  it('takes Owner Driver from the real driver type, not just a missing company id',()=>{
    expect(identity).toContain('driver_type');
-   expect(customer).toContain("candidate.identity?.driverType === 'owner_driver'");
+   expect(customer).toContain("normalize(identity?.driverType) === 'owner_driver'");
    expect(details).toContain("identity?.driverType === 'owner_driver'");
  });
  it('separates actual job cargo from quoted vehicle capacity',()=>{
@@ -42,7 +42,13 @@ describe('Customer Award authentic Owner Driver information and persistent actio
    expect(screen).toContain('checked={detailsAccepted}');
    expect(screen).toContain('checked={paymentAccepted}');
    expect(screen).toContain('checked={availabilityAcknowledged}');
-   expect(screen).toContain('Send Booking Offer');
+   expect(screen).toContain('Award Job');
+   expect(screen).toContain('Send Offer');
+   expect(screen).toContain('const ready = detailsAccepted && paymentAccepted && availabilityAcknowledged && !working;');
+   expect(screen).toContain('if (working) return;');
+   expect(screen).toContain('if (acknowledgementsComplete) { onConfirm(); return; }');
+   expect(screen).toContain('onClick={onConfirm} disabled={!ready}');
+   expect(customer).toContain('ownerDriver: isOwnerDriverIdentity(candidate.identity,');
  });
  it('pins the existing award footer while the review details scroll',()=>{
    expect(stylesheet).toContain('.footer{position:fixed;left:0;right:0;bottom:0;');
