@@ -12,7 +12,6 @@ type Props={
   onSession:(session:LiveSession)=>void;
   onRefresh:(token:string)=>Promise<void>;
   onBack:()=>void;
-  onCancel:()=>void;
   onParentTransition?:()=>void;
   parentBusy?:boolean;
 };
@@ -33,7 +32,7 @@ export function signaturePngFile(image:string):File {
  return new File([bytes],'stop-signature.png',{type:'image/png'});
 }
 const driverApi=import.meta.env.PROD?'/api/driver':'/xdrive-api/driver';
-const outcomes=['Completed Delivery','Incorrect Goods','Incorrect Address','Job Cancelled','Delivery Refused','No Unloading Facilities','Damaged Goods'] as const;
+const outcomes=['Completed Delivery','Incorrect Goods','Incorrect Address','Delivery Refused','No Unloading Facilities','Damaged Goods'] as const;
 const pad=(n:number)=>String(n).padStart(2,'0');
 const localNow=()=>{const d=new Date();return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;};
 
@@ -44,12 +43,12 @@ function StopSignature({recipient,onSave,initialImage,onImageChange,initialSaved
  const save=async()=>{if(!image)return;try{onSave(signaturePngFile(image));setSaved(true);setError('');}catch{setError('Signature could not be prepared. Try again.');onSave(null);}};
  return <div className="rv-delivery-field"><span>Recipient signature *</span><button type="button" className="rv-primary rv-wide" onClick={()=>setOpen(true)}>{image?'Edit Signature':'Add Signature'}</button>{open&&<div className="rv-signature-modal" role="dialog" aria-modal="true" aria-label="Recipient signature"><h2>Recipient signature</h2><p>{recipient}</p><SignaturePad value={image} onChange={change}/><button type="button" className="rv-primary rv-wide" disabled={!image} onClick={()=>setOpen(false)}>Done</button><button type="button" className="rv-outline rv-wide" onClick={()=>setOpen(false)}>Close</button></div>}<button type="button" className={'rv-signature-save'+(saved?' rv-signature-saved':'')} disabled={!image||saved} onClick={()=>void save()}>{saved?'Signature Saved':'Save Signature'}</button>{saved&&<p role="status" className="rv-signature-confirm">Signature prepared. It will be uploaded with stop evidence when you complete the stop.</p>}{error&&<p role="alert">{error}</p>}</div>;
 }
-export default function ReserveStopExecution({job,stop,session,onSession,onRefresh,onBack,onCancel,localTransition,onParentTransition,parentBusy=false}:Props){
+export default function ReserveStopExecution({job,stop,session,onSession,onRefresh,onBack,localTransition,onParentTransition,parentBusy=false}:Props){
   const draftKey=stopDraftKey(job.id,stop.id);
   const restored=stopDrafts.get(draftKey);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
-  const [outcome,setOutcome]=useState(restored?.outcome??'Completed Delivery');
+  const [outcome,setOutcome]=useState(restored?.outcome==='Job Cancelled'?'Completed Delivery':(restored?.outcome??'Completed Delivery'));
   const [recipient,setRecipient]=useState(restored?.recipient??stop.handover?.recipientName??'');
   const [leftAt,setLeftAt]=useState(restored?.leftAt??stop.handover?.leftAt??'Goods Inwards');
   const [items,setItems]=useState(restored?.items??String(stop.handover?.itemCount??(job.routeStops&&job.routeStops.length>2?undefined:job.items)??''));
@@ -135,7 +134,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
 
   const reportException=()=>void run(async current=>{
     if(stop.type!=='delivery')throw new Error('Delivery exceptions apply only to delivery stops.');
-    if(outcome==='Job Cancelled'){onCancel();return;}
+    if(outcome==='Job Cancelled'){setError('Contact the company that allocated this booking by phone.');return;}
     if(outcome==='Completed Delivery')throw new Error('Use Complete Stop for a successful delivery.');
     if(notes.trim().length<3)throw new Error('Describe the exception in Driver Notes.');
     const imageFiles=files.filter(file=>file.type==='image/jpeg'||file.type==='image/png');
@@ -154,12 +153,12 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
     <section className="rv-card rv-stop-destination"><span className="rv-over">DESTINATION</span><strong>{stop.address}</strong><div className="rv-stop-progress" aria-label="Stop progress">{["pending","en_route","arrived","completed"].map((stage,index)=><span key={stage} className={stop.status===stage?"active":""}>{["Pending","En route","On site","Complete"][index]}</span>)}</div>{stop.timeWindowFrom&&<p>{/^\d{2}:\d{2}$/.test(stop.timeWindowFrom)?stop.timeWindowFrom:new Date(stop.timeWindowFrom).toLocaleString('en-GB')}</p>}{stop.notes&&<p>{stop.notes}</p>}</section>
     {error&&<div className="rv-error" role="alert">{error}</div>}
 
-    {stop.status==='pending'&&<><button className="rv-primary rv-wide" disabled={busy} onClick={()=>transition('en_route')}>{busy?'Saving…':returnStop?'On My Way to Return':'On My Way to Stop'}</button><button className="rv-outline rv-wide" disabled={busy} onClick={onCancel}>Record Stop / Job Cancellation</button></>}
-    {stop.status==='en_route'&&<><button className="rv-primary rv-wide" disabled={busy} onClick={()=>transition('arrived')}>{busy?'Saving…':returnStop?'On Site - Return':'On Site - Stop'}</button><button className="rv-outline rv-wide" disabled={busy} onClick={onCancel}>Record Stop / Job Cancellation</button></>}
+    {stop.status==='pending'&&<><button className="rv-primary rv-wide" disabled={busy} onClick={()=>transition('en_route')}>{busy?'Saving…':returnStop?'On My Way to Return':'On My Way to Stop'}</button></>}
+    {stop.status==='en_route'&&<><button className="rv-primary rv-wide" disabled={busy} onClick={()=>transition('arrived')}>{busy?'Saving…':returnStop?'On Site - Return':'On Site - Stop'}</button></>}
 
     {stop.status==='arrived'&&<section className="rv-card">
       {stop.type==='delivery'&&<label className="rv-field"><span>Delivery Status</span><select value={outcome} onChange={e=>setOutcome(e.target.value)}>{outcomes.map(value=><option key={value}>{value}</option>)}</select></label>}
-      {outcome==='Job Cancelled'?<button className="rv-primary rv-wide" type="button" onClick={onCancel}>Open Cancellation Record</button>:<>
+      {<>
         {stop.type==='delivery'&&outcome==='Completed Delivery'&&<>
           <label className="rv-field"><span>Received By *</span><input value={recipient} onChange={e=>setRecipient(e.target.value)} maxLength={160}/></label>
           <StopSignature recipient={recipient} onSave={setSignature} initialImage={signatureImage} onImageChange={setSignatureImage} initialSaved={Boolean(signature)}/>
@@ -176,7 +175,7 @@ export default function ReserveStopExecution({job,stop,session,onSession,onRefre
           ?<button className="rv-primary rv-wide" disabled={busy} onClick={()=>reportException()}>{busy?'Saving…':'Report Delivery Exception'}</button>
           :<button className="rv-primary rv-wide" disabled={busy||parentBusy||parentRequired} onClick={()=>complete()}>{busy?'Saving…':returnStop?'Complete Return / Proof of Return':'Complete Stop'}</button>}
       </>}
-      <button className="rv-outline rv-wide" disabled={busy} onClick={onCancel}>Record Stop / Job Cancellation</button>
+
     </section>}
 
     {stop.status==='cancelled'&&<section className="rv-card"><h2>Cancelled on Instruction</h2><p>This stop is preserved in the booking audit history.</p></section>}

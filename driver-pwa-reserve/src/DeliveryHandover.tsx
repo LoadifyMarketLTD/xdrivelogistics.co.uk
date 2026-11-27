@@ -16,7 +16,6 @@ const deliveryOutcomes=[
   'Completed Delivery',
   'Incorrect Goods',
   'Incorrect Address',
-  'Job Cancelled',
   'Delivery Refused',
   'No Unloading Facilities',
   'Damaged Goods',
@@ -85,7 +84,7 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
  const photoRequiredForException=['Damaged Goods','Incorrect Goods'].includes(value.condition);
  const exceptionReady=!successful&&!cancelled&&value.notes.trim().length>=3&&(!photoRequiredForException||hasDeliveryPhoto);
  const successfulReady=value.recipient.trim().length>=2&&Boolean(signature)&&signatureVerified&&requiredItems&&Boolean(value.leftAt.trim())&&/^\d{4}-\d{2}-\d{2}$/.test(value.deliveredOn)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(value.deliveredTime)&&validTime&&hasDeliveryPhoto&&photosCount<=10&&(!hardCopyRequired||hardCopyAcknowledged);
- const ready=cancelled||exceptionReady||successfulReady;
+ const ready=!cancelled&&(exceptionReady||successfulReady);
  const [fileError,setFileError]=useState('');
  const [cameraOpen,setCameraOpen]=useState(false);
  const [cameraBusy,setCameraBusy]=useState(false);
@@ -116,7 +115,7 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
   <div className="rv-delivery-bar"><button type="button" className="rv-back" onClick={onBack}>Back to Bookings</button><span>DELIVERY ARRIVAL</span>{onUndo&&<button type="button" className="rv-undo-action" disabled={busy} onClick={onUndo}>Undo Last Status</button>}</div>
   <div className="rv-delivery-title"><div><span className="rv-delivery-eyebrow">ON SITE DELIVERY</span><h1>Confirm Arrival</h1></div><span className="rv-delivery-state">On site</span></div>
   <div className="rv-delivery-route"><div><strong>{readableAddress(job.from)}</strong></div><div><strong>{readableAddress(job.to)}</strong></div></div>
-  <div className="rv-delivery-form"><h2>Arrival confirmation</h2><p>Confirm you have arrived. XDrive saves the time automatically. POD, exceptions or cancellation are recorded only after arrival is confirmed.</p></div>
+  <div className="rv-delivery-form"><h2>Arrival confirmation</h2><p>Confirm you have arrived. XDrive saves the time automatically. POD and delivery exceptions are recorded only after arrival is confirmed.</p></div>
   <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy} onClick={onConfirm}>{busy?'Confirming arrival...':'Confirm On Site Delivery'}</button></div>
  </section>;
 
@@ -152,6 +151,6 @@ export default function DeliveryHandover({job,value,onChange,signature,onSignatu
     {!cancelled&&<label className="rv-delivery-field"><span>Driver notes <small>{successful?'Optional':'Required for exception'}</small></span><textarea rows={2} placeholder="Access, shortages, cancellation or delivery instructions" value={value.notes} onChange={e=>set('notes',e.target.value)}/></label>}
   </div>
   {successful&&hardCopyRequired&&<label className="rv-hard-copy-ack"><input type="checkbox" checked={hardCopyAcknowledged} onChange={e=>onHardCopyAcknowledged?.(e.target.checked)}/> I acknowledge that the required paper POD must be retained and handed over as instructed.</label>}
-  <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy||!ready} onClick={onConfirm}>{busy?'Saving...':successful?'Send POD':cancelled?'Record Job / Stop Cancellation':'Report Delivery Exception'}</button><p>{successful&&!ready?'Recipient, signature, date/time, Left At, item count and at least one delivery photo are required.':!successful&&!cancelled&&!ready?'Add a short explanation and required evidence for this exception.':cancelled?'The cancellation form records who instructed it and what happens to any goods in custody.':'Outcome ready to record.'}</p></div>
+  <div className="rv-delivery-footer"><button type="button" className="rv-primary" disabled={busy||!ready} onClick={onConfirm}>{busy?'Saving...':successful?'Send POD':'Report Delivery Exception'}</button><p>{successful&&!ready?'Recipient, signature, date/time, Left At, item count and at least one delivery photo are required.':!successful&&!cancelled&&!ready?'Add a short explanation and required evidence for this exception.':cancelled?'Contact the company that allocated this booking by phone.':'Outcome ready to record.'}</p></div>
  </section>;
 }
