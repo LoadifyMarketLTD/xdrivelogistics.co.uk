@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
+import { stageDriverSession } from '../../lib/driverSessionHandoff';
+import { supabase } from '../../lib/supabaseClient';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
 import { getResponsivePostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
 import styles from './login.module.css';
@@ -55,7 +57,17 @@ export default function LoginPage() {
     const canonicalRoute = getResponsivePostLoginRoute(user, isMobileDriverBrowser());
     const mobileDriver = canonicalRoute === '/driver/official-pwa-live';
     const destination = mobileDriver || user.mustChangePassword ? canonicalRoute : safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
-    router.replace(destination);
+    if (!mobileDriver) {
+      router.replace(destination);
+      return;
+    }
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!cancelled && !error && data.session) stageDriverSession(data.session);
+    }).catch(() => {}).finally(() => {
+      if (!cancelled) router.replace(destination);
+    });
+    return () => { cancelled = true; };
   }, [authLoading, user, router, safeNextPath]);
 
   const handleSubmit = async (event: FormEvent) => {

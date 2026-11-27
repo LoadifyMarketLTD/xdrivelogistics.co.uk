@@ -647,7 +647,7 @@ export function isReservePublicShell(pathname: string): boolean {
   if (pathname === root || pathname === root.slice(0, -1)) return true;
   if (!pathname.startsWith(root)) return false;
   const file = pathname.slice(root.length);
-  return ['index.html', 'manifest.webmanifest', 'sw.js', 'favicon.svg', 'icons.svg',
+  return ['index.html', 'manifest.webmanifest', 'sw.js', 'favicon.svg', 'icons.svg', 'xdrive-logo-horizontal.png',
     'xdrive-logo-company-3150.png', 'icons/icon-192x192.png', 'icons/icon-512x512.png'].includes(file)
     || /^assets\/index-[A-Za-z0-9_-]+\.(?:js|css)$/.test(file);
 }

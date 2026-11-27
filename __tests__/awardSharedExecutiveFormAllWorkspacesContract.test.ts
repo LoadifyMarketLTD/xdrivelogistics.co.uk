@@ -59,7 +59,7 @@ describe('Executive Booking Confirmation remains canonical across buyer workspac
     expect(reviewDetails).toContain('job.payment_terms || null');
     expect(reviewDetails).toContain('Carrier identity unavailable');
     expect(reviewDetails).toContain('job.pallets ?? null');
-    expect(shared).toContain('Not verified in this view');
+    expect(shared).toContain('documentStatusText(documentFor(name))');
     expect(shared).toContain('Awaiting send');
   });
 });

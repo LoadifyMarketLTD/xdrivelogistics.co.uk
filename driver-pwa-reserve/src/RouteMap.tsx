@@ -90,11 +90,15 @@ export async function geocode(address:string, token?:string, signal?:AbortSignal
 /** Use the existing XDrive MAIN authenticated road engine: Mapbox, then OSRM fallback. */
 async function roadRoute(start:Point,end:Point,token:string,signal:AbortSignal):Promise<RoadRoute> {
   const params=new URLSearchParams({aLat:String(start.lat),aLng:String(start.lon),bLat:String(end.lat),bLng:String(end.lon)});
-  let result:Partial<RoadRoute>|null=null;
+  let response:Response|null=null;
   try {
-    const response=await fetch(requestPath("/driver/web/public-route")+"?"+params,{headers:authHeaders(token),signal,cache:"no-store"});
-    if(response.ok)result=await response.json() as Partial<RoadRoute>;
+    response=await fetch(requestPath("/driver/web/public-route")+"?"+params,{headers:authHeaders(token),signal,cache:"no-store"});
   }catch {if(signal.aborted)throw new Error("Routing cancelled");}
+  // An explicit authorization refusal is not a routing outage. Never bypass
+  // the XDrive Driver access decision through a public routing endpoint.
+  if(!LOCAL&&(response?.status===401||response?.status===403))throw new Error("Driver route access denied. Sign in again.");
+  let result:Partial<RoadRoute>|null=null;
+  if(response?.ok){try{result=await response.json() as Partial<RoadRoute>;}catch {/* Invalid upstream response: use the existing road fallback. */}}
   // Restore the verified pre-18-November OSRM fallback when the XDrive
   // routing proxy is unavailable. Never substitute straight-line mileage.
   if(!result){

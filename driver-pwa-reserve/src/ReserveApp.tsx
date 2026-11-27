@@ -14,11 +14,11 @@ import OfficialPodDownload from './OfficialPodDownload';
 import { reserveJobs, type QuoteSection } from './reserveLists';
 import BookingStatusTimeline from './BookingStatusTimeline';
 import ReserveBookingExtras from './ReserveBookingExtras';
-import ReserveCancellationHistory from './ReserveCancellationHistory';
 import DeliveryHandover from './DeliveryHandover';
 import { routeLabel } from './routeLabel';
 import { recoverDeliveredTime } from './podDraftRecovery';
 import { driverRoleFromProfile } from './driverRoleFromProfile';
+import { readDriverSessionHandoff, clearDriverSessionHandoff } from '../../lib/driverSessionHandoff';
 import ReserveStopExecution, {clearReserveStopDrafts} from './ReserveStopExecution';
 import {finishReserveDelivery} from './reserveDeliverySequence';
 import {operationalExecutionStops,persistedStops,syncBoundaryStop} from './reserveStopSync';
@@ -28,15 +28,45 @@ import LoadDetails036 from './LoadDetails036';
 import OriginalMorePwa from './OriginalMorePwa';
 import {defaults as defaultSearchFilters,restoredFilters,matchesLoad,type SearchFilters} from './loadSearchFilters';
 import {searchAvailableLoads} from './searchLocation';
-import ReserveCancellation, { type ReserveCancellationValue } from './ReserveCancellation';
 
 type Tab = 'Loads' | 'Quotes' | 'Bookings';
 type BookingSection = 'Received' | 'Allocated' | 'Delivered';
-type View = 'searchLoads' | 'list' | 'details' | 'quote' | 'quoteDetails' | 'map' | 'incoming' | 'statusHistory' | 'flow' | 'cancel' | 'bookingExtras' | 'invoiceJob' | 'invoices' | 'gps' | 'more';
+const reserveViews = ['searchLoads', 'list', 'details', 'quote', 'quoteDetails', 'map', 'incoming', 'statusHistory', 'flow', 'bookingExtras', 'invoiceJob', 'invoices', 'gps', 'more'] as const;
+type View = typeof reserveViews[number];
+
+function readReserveNavigation(value: unknown, defaultTab: Tab) {
+  const state = (value ?? {}) as Partial<{
+    rvView: View; rvTab: Tab; rvId: string | null; rvDepth: number;
+    rvBookingSection: BookingSection; rvQuoteSection: QuoteSection; rvMapReturnView: View;
+  }>;
+  const id = typeof state.rvId === 'string' && state.rvId ? state.rvId : null;
+  const view = state.rvView && reserveViews.includes(state.rvView) ? state.rvView : 'list';
+  const requiresJob = ['details', 'quote', 'quoteDetails', 'map', 'incoming', 'statusHistory', 'flow', 'bookingExtras', 'invoiceJob'].includes(view);
+  return {
+    id,
+    view: requiresJob && !id ? 'list' as const : view,
+    tab: state.rvTab === 'Loads' || state.rvTab === 'Quotes' || state.rvTab === 'Bookings' ? state.rvTab : defaultTab,
+    bookingSection: state.rvBookingSection === 'Allocated' || state.rvBookingSection === 'Delivered' ? state.rvBookingSection : 'Received' as const,
+    quoteSection: state.rvQuoteSection === 'Awarded' || state.rvQuoteSection === 'History' ? state.rvQuoteSection : 'Submitted' as const,
+    mapReturnView: state.rvMapReturnView && reserveViews.includes(state.rvMapReturnView) ? state.rvMapReturnView : 'list' as const,
+    depth: typeof state.rvDepth === 'number' && Number.isSafeInteger(state.rvDepth) && state.rvDepth >= 0 ? state.rvDepth : 0,
+  };
+}
 type DeliveryDraft = { recipient: string; leftAt: string; items: string; condition: string; notes: string; deliveredOn: string; deliveredTime: string };
 const KEY = 'xdrive-driver-reserve-live-session-v1';
 const driverApi = import.meta.env.PROD ? '/api/driver' : '/xdrive-api/driver';
 function restored(): LiveSession | null { try { const value = JSON.parse(localStorage.getItem(KEY) || 'null'); return value && typeof value.token === 'string' && typeof value.refreshToken === 'string' && typeof value.expiresAt === 'number' ? value : null; } catch { return null; } }
+function persistDriverSession(session: LiveSession) {
+  localStorage.setItem(KEY, JSON.stringify(session));
+  if (location.origin === 'https://www.xdrivelogistics.co.uk' && session.token) {
+    const seconds = Math.max(0, Math.floor((session.expiresAt-Date.now())/1000));
+    document.cookie = 'xdrive-route-access-token='+encodeURIComponent(session.token)+'; Path=/; SameSite=Lax; Secure; Max-Age='+seconds;
+  }
+}
+function clearDriverSession() {
+  localStorage.removeItem(KEY);
+  if (location.origin === 'https://www.xdrivelogistics.co.uk') document.cookie='xdrive-route-access-token=; Path=/; SameSite=Lax; Secure; Max-Age=0';
+}
 const gbp = (v: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(v);
 const friendlyService = (value: string | null | undefined) => ({ timed_direct: 'Timed Direct', same_day: 'Same Day', next_day: 'Next Day', on_demand: 'On Demand' } as Record<string,string>)[String(value||'').toLowerCase()] || String(value||'Transport').replaceAll('_',' ').replace(/\b\w/g, c => c.toUpperCase());
 const nextStates = reserveStatusSteps;
@@ -59,16 +89,17 @@ function Fact({ name, value }: { name: string; value: string | number }) { retur
 declare const __BOOKING_LOCAL__: boolean;
 const LOCAL = typeof __BOOKING_LOCAL__ !== "undefined" && __BOOKING_LOCAL__;
 export default function ReserveApp() {
-  const [session,setSession] = useState<LiveSession|null>(()=>LOCAL?null:restored());
+  const [session,setSession] = useState<LiveSession|null>(()=>LOCAL?null:readDriverSessionHandoff() ?? restored());
   const [email,setEmail]=useState('');const [password,setPassword]=useState('');
   const [loading,setLoading]=useState(false);const [busy,setBusy]=useState(false);
   const [undoConfirmation,setUndoConfirmation]=useState<LiveJob|null>(null); const [declineConfirmation,setDeclineConfirmation]=useState<LiveJob|null>(null); const [error,setError]=useState('');const [warning,setWarning]=useState('');
   const [jobs,setJobs]=useState<LiveJob[]>(()=>{if(!LOCAL)return [];try{const saved=JSON.parse(localStorage.getItem("xdrive-local-bookings-v4")||"null") as LiveJob[]|null;return saved?[...localBookingFixtures.filter(f=>f.customerRef==="DEMO-MULTIDROP-03"&&!saved.some(j=>j.id===f.id)&&!localStorage.getItem("xdrive-local-declined-v4-"+f.id)),...saved].map(j=>{const f=localBookingFixtures.find(f=>f.id===j.id);return {...j,pickupAddress:f?.pickupAddress||j.pickupAddress,deliveryAddress:f?.deliveryAddress||j.deliveryAddress,routeStops:j.routeStops?.map(stop=>({...f?.routeStops?.find(x=>x.id===stop.id),...stop,address:f?.routeStops?.find(x=>x.id===stop.id)?.address||stop.address}))||f?.routeStops};}):localBookingFixtures;}catch{return localBookingFixtures;}}); useEffect(()=>{if(LOCAL)localStorage.setItem("xdrive-local-bookings-v4",JSON.stringify(jobs));},[jobs]);
-  const [tab,setTab]=useState<Tab>(LOCAL?'Bookings':'Loads');const [view,setView]=useState<View>('list');
+  const [initialNavigation] = useState(() => readReserveNavigation(LOCAL || session ? window.history.state : null, LOCAL ? 'Bookings' : 'Loads'));
+  const [tab,setTab]=useState<Tab>(initialNavigation.tab);const [view,setView]=useState<View>(initialNavigation.view);
   const [moreNavigationKey,setMoreNavigationKey]=useState(0);
-  const [id,setId]=useState<string|null>(null);
-  const [quoteSection,setQuoteSection]=useState<QuoteSection>('Submitted');
-  const [bookingSection,setBookingSection]=useState<BookingSection>('Received');
+  const [id,setId]=useState<string|null>(initialNavigation.id);
+  const [quoteSection,setQuoteSection]=useState<QuoteSection>(initialNavigation.quoteSection);
+  const [bookingSection,setBookingSection]=useState<BookingSection>(initialNavigation.bookingSection);
   const [searchFilters,setSearchFilters]=useState<SearchFilters>(()=>{try{return restoredFilters(localStorage.getItem('xdrive-reserve-load-search-v1'));}catch{return defaultSearchFilters();}});
   const [searchResult,setSearchResult]=useState<{ids:Set<string>;unknown:number;pickupRoadMiles:Record<string,number>;filters:SearchFilters}|null>(null);
   const [searchBusy,setSearchBusy]=useState(false);
@@ -90,7 +121,7 @@ export default function ReserveApp() {
   const [historicalSearchError,setHistoricalSearchError]=useState('');
   const [bookingPeriod,setBookingPeriod]=useState('all');
   const [withdrawId,setWithdrawId]=useState<string|null>(null);
-  const [mapReturnView,setMapReturnView]=useState<View>('list');
+  const [mapReturnView,setMapReturnView]=useState<View>(initialNavigation.mapReturnView);
   const [quoteAmount,setQuoteAmount]=useState('');const [quoteEta,setQuoteEta]=useState('30');const [quoteNotes,setQuoteNotes]=useState('');
   const [items,setItems]=useState('');const [weight,setWeight]=useState('');const [pickupItems,setPickupItems]=useState('');const [pickupWeight,setPickupWeight]=useState('');const [yourReference,setYourReference]=useState('');const [carrierReference,setCarrierReference]=useState('');const [pickupNotes,setPickupNotes]=useState('');const [packaging,setPackaging]=useState('');const [deliveryEtaAt,setDeliveryEtaAt]=useState('');
   const [collectionStage,setCollectionStage]=useState<'arrival'|'loaded'>('arrival');
@@ -99,8 +130,6 @@ export default function ReserveApp() {
   const uploadedEvidence=useRef(new Map<File,string>());
   const boundaryEvidence=useRef(new Map<string,Map<File,string>>());
   const [podDone,setPodDone]=useState(false);const [collectionFiles,setCollectionFiles]=useState<File[]>([]);const uploadedCollectionEvidence=useRef(new Map<File,string>());
-  const [cancellationStopId,setCancellationStopId]=useState<string|null>(null);
-   const [cancellationReturnView,setCancellationReturnView]=useState<View>('flow');
    const [collectionCameraOpen,setCollectionCameraOpen]=useState(false);const [collectionCameraBusy,setCollectionCameraBusy]=useState(false);const collectionVideoRef=useRef<HTMLVideoElement>(null);const collectionStreamRef=useRef<MediaStream|null>(null);
   const stopCollectionCamera=()=>{collectionStreamRef.current?.getTracks().forEach(track=>track.stop());collectionStreamRef.current=null;setCollectionCameraOpen(false);};
   useEffect(()=>()=>{collectionStreamRef.current?.getTracks().forEach(track=>track.stop());},[]);
@@ -139,7 +168,6 @@ export default function ReserveApp() {
     return {label:'Check Invoice',target:'invoiceJob'};
   }
   const [localDriver,setLocalDriver]=useState('Me (Owner Driver)');const [localVehicle,setLocalVehicle]=useState('');const [localAllocations,setLocalAllocations]=useState<Record<string,{driver:string;vehicle:string}>>(()=>{try{return JSON.parse(localStorage.getItem('xdrive-local-allocations-v4')||'{}')}catch{return {}}});
-  const connected=LOCAL||Boolean(session);
   // Read receipts are per authenticated driver and per awarded offer, not per tab visit.
   const receiptKey=(()=>{try{const payload=JSON.parse(atob((session?.token||'').split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));return 'xdrive-reserve-booking-seen-v1:'+String(payload.sub||'unknown');}catch{return 'xdrive-reserve-booking-seen-v1:unknown';}})();
   const [seenOffers,setSeenOffers]=useState<string[]>([]);
@@ -147,24 +175,54 @@ export default function ReserveApp() {
   const markOfferSeen=(j:LiveJob)=>{if(!j.offerId||!j.acceptanceRequired)return;setSeenOffers(previous=>{if(previous.includes(j.offerId!))return previous;const next=[...previous,j.offerId!];try{localStorage.setItem(receiptKey,JSON.stringify(next));}catch{}return next;});};
   const unreadBookingOffers=jobs.filter(j=>j.acceptanceRequired&&j.offerId&&!seenOffers.includes(j.offerId)).length;
   const isAuthFailure=(e:unknown)=>/invalid session|unauthorized|session expired|invalid.grant|refresh.token|already.used|jwt expired|401/i.test(e instanceof Error?e.message:String(e));
-  const clearInvalidSession=()=>{refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});resetLiveSession();clearReserveStopDrafts();localStorage.removeItem(KEY);setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
+  const clearInvalidSession=()=>{refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:true,bookings:true,completed:true});resetLiveSession();clearReserveStopDrafts();clearDriverSession();setSession(null);setJobs([]);setId(null);setError('Session expired. Please sign in again.');};
   useLayoutEffect(()=>{window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;const frame=requestAnimationFrame(()=>window.scrollTo(0,0));return()=>cancelAnimationFrame(frame);},[view,tab,id]);
   useEffect(()=>{if('scrollRestoration' in history)history.scrollRestoration='manual';},[]);
-  const browserBackRef=useRef(false);
-  useEffect(()=>{const pop=(event:PopStateEvent)=>{const st=event.state as {rvView?:View;rvTab?:Tab;rvId?:string|null}|null;browserBackRef.current=true;setView(st?.rvView??'list');setTab(st?.rvTab??'Loads');setId(st?.rvId??null);};window.addEventListener('popstate',pop);return()=>window.removeEventListener('popstate',pop);},[]);
-  const historyInitialized=useRef(false);
-  useEffect(()=>{const st={rvView:view,rvTab:tab,rvId:id};if(!historyInitialized.current){historyInitialized.current=true;window.history.replaceState({...window.history.state,...st,rvDepth:0},'');return;}if(browserBackRef.current){browserBackRef.current=false;return;}window.history.pushState({...st,rvDepth:Number(window.history.state?.rvDepth||0)+1},'');},[view,tab,id]);
+  const browserBackRef = useRef(false);
+  useEffect(() => {
+    const pop = (event: PopStateEvent) => {
+      const next = readReserveNavigation(event.state, LOCAL ? 'Bookings' : 'Loads');
+      browserBackRef.current = true;
+      setView(next.view);
+      setTab(next.tab);
+      setId(next.id);
+      setBookingSection(next.bookingSection);
+      setQuoteSection(next.quoteSection);
+      setMapReturnView(next.mapReturnView);
+    };
+    window.addEventListener('popstate', pop);
+    return () => window.removeEventListener('popstate', pop);
+  }, []);
+  const historyInitialized = useRef(false);
+  useEffect(() => {
+    const state = { rvView: view, rvTab: tab, rvId: id, rvBookingSection: bookingSection, rvQuoteSection: quoteSection, rvMapReturnView: mapReturnView };
+    if (browserBackRef.current) {
+      browserBackRef.current = false;
+      return;
+    }
+    const current = window.history.state;
+    const depth = readReserveNavigation(current, tab).depth;
+    if (!historyInitialized.current) {
+      historyInitialized.current = true;
+      window.history.replaceState({ ...current, ...state, rvDepth: depth }, '');
+    } else if (Object.entries(state).some(([key, value]) => current?.[key] !== value)) {
+      window.history.pushState({ ...current, ...state, rvDepth: depth + 1 }, '');
+    }
+  }, [view, tab, id, bookingSection, quoteSection, mapReturnView]);
   const [pendingFeeds,setPendingFeeds]=useState({marketplace:true,bookings:true,completed:true});
   const [failedFeeds,setFailedFeeds]=useState({marketplace:false,bookings:false,completed:false});
   const refreshGeneration=useRef(0);
   const [offersLoading,setOffersLoading]=useState(false);
   const [bidsLoading,setBidsLoading]=useState(false);
   const refreshPending=useRef(false);
+  const signInPending = useRef(false);
   // Session-only snapshots. A successful feed replaces its own previous snapshot;
   // an unavailable feed cannot erase an unrelated feed or expose another account.
   const feedCache=useRef(new Map<string,LiveJob[]>());
   const commercialCache=useRef<{offers?:Awaited<ReturnType<typeof bookingOffersGet>>;bids?:Awaited<ReturnType<typeof driverGet>>}>({});
   const [verifiedSession,setVerifiedSession]=useState(false);
+  const connected=LOCAL||Boolean(session&&verifiedSession);
+
   const fetchJobs=useCallback(async (token:string) => {
     const generation=++refreshGeneration.current;
     const current=()=>generation===refreshGeneration.current;
@@ -201,7 +259,7 @@ export default function ReserveApp() {
       notice(source,reason);
       if(/invalid session|unauthorized|jwt expired|401|403/i.test(message)){
         // Do not retain restricted data after an authority failure.
-        refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);resetLiveSession();clearReserveStopDrafts();localStorage.removeItem(KEY);setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
+        refreshGeneration.current++;refreshPending.current=false;feedCache.current.clear();commercialCache.current={};setVerifiedSession(false);setOffersLoading(false);setBidsLoading(false);setPendingFeeds({marketplace:false,bookings:false,completed:false});setJobs([]);resetLiveSession();clearReserveStopDrafts();clearDriverSession();setSession(null);setId(null);setError('Session expired or access denied. Sign in again.');
       }
     };
     const offersRequest=secondaryReady.then(()=>current()?bookingOffersGet(token):Promise.reject(new Error('Refresh superseded'))).then(data=>{
@@ -244,7 +302,7 @@ export default function ReserveApp() {
       try{
         const next=await renewSession(session);
         if(disposed||epoch!==refreshGeneration.current)return;
-        if(next.token!==session.token){setSession(next);localStorage.setItem(KEY,JSON.stringify(next));}
+        if(next.token!==session.token){setSession(next);persistDriverSession(next);}
         await fetchJobs(next.token);
       }catch(reason){
         if(disposed)return;
@@ -277,12 +335,48 @@ export default function ReserveApp() {
     },350);
     return ()=>{cancelled=true;clearTimeout(timeout);};
   },[session?.token,tab,bookingSection,bookingSearch]);
-  async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
+  async function retryLive(){if(!session||loading)return;setLoading(true);setError('');setWarning('');try{const s=await renewSession(session);setSession(s);persistDriverSession(s);const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Live service unavailable');}finally{setLoading(false);}}
 
-  useEffect(()=>{if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
-  async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
-  async function signIn(e:React.FormEvent){e.preventDefault();setLoading(true);setError('');try{const s=await login(email.trim(),password);setSession(s);localStorage.setItem(KEY,JSON.stringify(s));setPassword('');const verifiedRole=driverRoleFromProfile(await driverGet('/profile',s.token,7000));if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);await fetchJobs(s.token);}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Authentication failed');}finally{setLoading(false)}}
+  useEffect(()=>{if(!LOCAL)clearDriverSessionHandoff();if(!session)return;let active=true;setLoading(true);void (async()=>{try{let s=await renewSession(session);let profile:unknown;try{profile=await driverGet('/profile',s.token,7000)}catch(e){if(!isAuthFailure(e))throw e;s=await renewSession(s,true);profile=await driverGet('/profile',s.token,7000)}if(!active)return;const verifiedRole=driverRoleFromProfile(profile);if(!verifiedRole)throw new Error('Driver type could not be verified. Reconnect your account.');setRole(verifiedRole);setVerifiedSession(true);setSession(s);persistDriverSession(s);await fetchJobs(s.token);}catch(e){if(active){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Could not restore session');}}finally{if(active)setLoading(false);}})();return()=>{active=false};},[]);
+  async function run<T>(action:(s:LiveSession)=>Promise<T>,done?:(result:T)=>void){if(!session||busy)return;setBusy(true);setError('');try{const s=await renewSession(session);setSession(s);persistDriverSession(s);const result=await action(s);done?.(result);void fetchJobs(s.token).catch(refreshError=>{setWarning('Job action saved, but live lists could not refresh: '+(refreshError instanceof Error?refreshError.message:'Unknown refresh failure'));});}catch(e){if(isAuthFailure(e))clearInvalidSession();else setError(e instanceof Error?e.message:'Request failed. Please retry.');}finally{setBusy(false)}}
+  async function signIn(event: React.FormEvent) {
+    event.preventDefault();
+    if (signInPending.current) return;
+    signInPending.current = true;
+    setLoading(true);
+    setError('');
+    let profileApproved = false;
+    try {
+      const signedIn = await login(email.trim(), password);
+      setPassword('');
+      const profile = await driverGet('/profile', signedIn.token, 7000);
+      const verifiedRole = driverRoleFromProfile(profile);
+      if (!verifiedRole) throw new Error('Driver type could not be verified. Reconnect your account.');
+      setSession(signedIn);
+      persistDriverSession(signedIn);
+      setRole(verifiedRole);
+      setVerifiedSession(true);
+      profileApproved = true;
+      await fetchJobs(signedIn.token);
+    } catch (reason) {
+      if (!profileApproved || isAuthFailure(reason)) clearInvalidSession();
+      setError(reason instanceof Error ? reason.message : 'Authentication failed.');
+    } finally {
+      signInPending.current = false;
+      setLoading(false);
+    }
+  }
   function open(j:LiveJob,target:View){if(tab==='Bookings'&&['incoming','details'].includes(target))markOfferSeen(j);setHardCopyAcknowledged(false);setId(j.id);setView(target);setWithdrawId(null);setError('');setPodDone(Boolean(j.podRecorded));setCollectionStage('arrival');setItems(String(j.items??''));setWeight(j.weight?String(j.weight):'');setPickupItems(String(j.items??''));setPickupWeight(j.weight?String(j.weight):'');setYourReference(platformJobReference(j.id,j.yourRef)||'');setCarrierReference(LOCAL?'TEST-OPERATOR-001':'');setPackaging(j.packaging||'');setDeliveryEtaAt('');setPickupNotes('');setCollectionFiles([]);uploadedCollectionEvidence.current.clear();boundaryEvidence.current.clear();setDraft({recipient:'',leftAt:'Goods Inwards',items:String(j.items??''),condition:'Completed Delivery',notes:'',deliveredOn:'',deliveredTime:''});setSignature(null);setVerifiedSignature(null);setPodFiles([]);uploadedEvidence.current.clear();setQuoteAmount(j.quote!=null&&j.bidStatus!=='withdrawn'?String(j.quote):'');setQuoteNotes(j.bidStatus==='withdrawn'?'':j.quoteNotes||'');setQuoteEta(j.bidStatus==='withdrawn'?'30':j.quoteEtaMinutes!=null?String(j.quoteEtaMinutes):'30');}
+  const awaitingRestoredJob = useRef(Boolean(initialNavigation.id));
+  useEffect(() => {
+    if (!awaitingRestoredJob.current) return;
+    if (id !== initialNavigation.id || view !== initialNavigation.view) {
+      awaitingRestoredJob.current = false;
+    } else if (job && connected) {
+      awaitingRestoredJob.current = false;
+      open(job, view);
+    }
+  }, [connected, id, initialNavigation, job, view]);
   useEffect(()=>{
     if(!session||!job||view!=='flow'||!['DELIVERED','POD_SUBMITTED'].includes(job.status)||job.podRecorded||podDone)return;
     let active=true;
@@ -292,13 +386,13 @@ export default function ReserveApp() {
         // credentials before restoring its server-side signed POD draft.
         let authorised=await renewSession(session);
         if(!active)return;
-        if(authorised.token!==session.token){setSession(authorised);localStorage.setItem(KEY,JSON.stringify(authorised));}
+        if(authorised.token!==session.token){setSession(authorised);persistDriverSession(authorised);}
         const endpoint=driverApi+'/web/jobs/'+encodeURIComponent(job.id)+'/pod-draft';
         let res=await fetch(endpoint,{headers:{Authorization:'Bearer '+authorised.token},cache:'no-store'});
         if(res.status===401){
           authorised=await renewSession(authorised,true);
           if(!active)return;
-          setSession(authorised);localStorage.setItem(KEY,JSON.stringify(authorised));
+          setSession(authorised);persistDriverSession(authorised);
           res=await fetch(endpoint,{headers:{Authorization:'Bearer '+authorised.token},cache:'no-store'});
         }
         if(!res.ok)throw new Error('Could not restore the saved POD draft ('+res.status+'). Your stored evidence is preserved. Reconnect and retry.');
@@ -345,7 +439,7 @@ export default function ReserveApp() {
       .catch(()=>{});
     return ()=>{active=false;};
   },[id,view,job?.status,session?.token]);
-  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');if(t==='Bookings')setBookingSection('Received');}
+  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');}
   function openMap(j:LiveJob,back:View='list'){setId(j.id);setMapReturnView(back);setView('map');setError('');}
   function card(j:LiveJob, mode:'list'|'details'='list'){
     const offered=Boolean(j.acceptanceRequired&&j.offerId);
@@ -746,7 +840,7 @@ export default function ReserveApp() {
     if(LOCAL){if(!signature||!draft.recipient.trim())throw new Error('Enter recipient and draw signature.');localStorage.setItem('xdrive-local-signature-v4-'+j.id,JSON.stringify({signature,draft}));setVerifiedSignature(signature);return;}
     if(!session||!signature)throw new Error('Draw the recipient signature before saving.');
     const s=await renewSession(session);
-    setSession(s);localStorage.setItem(KEY,JSON.stringify(s));
+    setSession(s);persistDriverSession(s);
     const endpoint=driverApi+'/web/jobs/'+encodeURIComponent(j.id)+'/pod-draft';
     const previousResponse=await fetch(endpoint,{headers:{Authorization:'Bearer '+s.token},cache:'no-store'});
     if(!previousResponse.ok)throw new Error('Could not read existing POD draft ('+previousResponse.status+').');
@@ -794,9 +888,7 @@ export default function ReserveApp() {
       setError('This route now ends with a return or redirected stop. Complete that stop instead of final delivery POD.');
       return;
     }
-    if(draft.condition==='Job Cancelled'){
-      if(!finalStop){setError('Cancellation requires the persisted route stop.');return;}setCancellationStopId(finalStop.id);setCancellationReturnView('flow');setView('cancel');return;
-    }
+    if(draft.condition==='Job Cancelled'){setError('Contact the company that allocated this booking by phone.');return;}
     if(draft.condition!=='Completed Delivery'){
       if(!finalStop){setError('An exception requires a persisted route stop.');return;}if(draft.notes.trim().length<3){setError('Describe the delivery exception in Driver Notes.');return;}
       if(['Damaged Goods','Incorrect Goods'].includes(draft.condition)&&!podFiles.some(file=>file.type==='image/jpeg'||file.type==='image/png')){
@@ -885,33 +977,6 @@ export default function ReserveApp() {
     },()=>{setPodDone(true);setJobs(rows=>rows.map(row=>row.id===j.id?{...row,status:'DELIVERED',podRecorded:true}:row));});
   }
 
-  function cancellationTarget(j:LiveJob):LiveStop|null{
-    const route=j.routeStops||[];
-    if(!route.length)return null;
-    const unresolved=route.find(stop=>!['completed','cancelled'].includes(stop.status)&&stop.status!=='skipped');
-    if(unresolved)return unresolved;
-    return route.at(-1)||null;
-  }
-
-  function openCancellation(j:LiveJob, stop?:LiveStop|null, returnView:View='flow'){
-    const target=stop||cancellationTarget(j);
-    if(!target){setError('A persisted route stop is required before cancellation can be recorded. Refresh the booking.');return;}
-    setCancellationStopId(target.id);setCancellationReturnView(returnView);setView('cancel');setError('');
-  }
-
-  async function recordCancellation(j:LiveJob, stop:LiveStop, value:ReserveCancellationValue){
-    if(LOCAL){setError('Cancellation requests require the official booking service.');return;}
-    await run(async current=>{
-      const result=await driverPost('/mobile/jobs/'+encodeURIComponent(j.id)+'/cancellation-request',current.token,{stop_id:stop.id,cancellation:value});
-      if(result.ok!==true||result.status!=='pending'||typeof result.requestId!=='string')throw new Error('Cancellation request not confirmed. Check request history.');
-      return result;
-    },()=>{
-      setCancellationStopId(null);
-      setWarning('Cancellation requested, not approved. Do not return or redirect goods until authorised instructions are confirmed.');
-      setView('statusHistory');
-    });
-  }
-
   function flow(){
     if(!job)return null;
     const routeStops=job.routeStops||[];
@@ -923,7 +988,7 @@ export default function ReserveApp() {
     if(legacySkipped)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView('statusHistory')}>← Booking status</button><h1>Stop review required</h1><div className="rv-warning" role="alert">A legacy skipped stop exists. XDrive will not treat it as completed or cancelled until an authorised resolution is recorded.</div></section>;
     const localNext=LOCAL&&routeStops.length>2?[...routeStops].sort((a,b)=>a.sequence-b.sequence).find(s=>s.status!=='completed'):undefined;
     if(localNext&&['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)){
-      return <ReserveStopExecution key={job.id+':'+localNext.id} job={job} stop={localNext} session={null} onSession={setSession} onRefresh={async()=>{}} onBack={()=>setView('statusHistory')} onCancel={()=>openCancellation(job,localNext,'flow')} localTransition={async(status,handover,files=[],sig)=>{
+      return <ReserveStopExecution key={job.id+':'+localNext.id} job={job} stop={localNext} session={null} onSession={setSession} onRefresh={async()=>{}} onBack={()=>setView('statusHistory')} localTransition={async(status,handover,files=[],sig)=>{
         const expected=localNext.status==='pending'?'en_route':localNext.status==='en_route'?'arrived':localNext.status==='arrived'?'completed':null;
         if(status!==expected)throw new Error('Invalid stop transition.');
         const at=new Date().toISOString();
@@ -947,7 +1012,7 @@ export default function ReserveApp() {
         onRefresh={async token=>{await fetchJobs(token);}}
         onParentTransition={()=>void transition(job)} parentBusy={busy}
         onBack={()=>setView('statusHistory')}
-        onCancel={()=>openCancellation(job,activeStop,'flow')}/>;
+        />;
     }
     if(job.status==='ON_SITE_DELIVERY'){
       return <DeliveryHandover job={job} value={draft} onChange={v=>{if(v.recipient!==draft.recipient||v.leftAt!==draft.leftAt||v.items!==draft.items||v.condition!==draft.condition||v.notes!==draft.notes)setVerifiedSignature(null);setDraft(v);setError('');}} signature={signature} onSignature={v=>{setSignature(v);setVerifiedSignature(null);setError('');}} signatureVerified={Boolean(signature)&&verifiedSignature===signature} onSaveSignature={()=>saveRecipientSignature(job)} photos={podFiles} onPhotos={v=>{setPodFiles(v);setError('');}} busy={busy} onBack={()=>setView('statusHistory')} mode="delivery" onConfirm={()=>void completeDelivery(job)}/>;
@@ -1020,13 +1085,7 @@ export default function ReserveApp() {
   }
   const logout=()=>{if(session)void revokeLiveSession(session).catch(()=>{});clearInvalidSession();setError("");setId(null);setView("list");};
   const header=<header className="rv-header rv-official-header"><div className="rv-official-brand"><img src={`${import.meta.env.BASE_URL}xdrive-logo-company-3150.png`} alt="XDrive Logistics"/></div>{connected&&tab==='Loads'&&(view==='list'||view==='searchLoads')?<div className="rv-search-controls"><button className="rv-search-open" type="button" aria-label="Search loads" onClick={()=>{setSearchError('');setView('searchLoads')}}><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke="currentColor" strokeWidth="2.4" fill="none"/><path d="m15.5 15.5 6 6" stroke="currentColor" strokeWidth="2.4"/></svg></button></div>:null}{connected&&<button className="rv-official-logout" type="button" onClick={logout}>Logout</button>}</header>;
-  return <div className={LOCAL?"rv-shell rv-local-preview":"rv-shell"}>{header}{declineConfirmation&&<div className="rv-confirm-overlay" onClick={()=>setDeclineConfirmation(null)}><section className="rv-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rv-decline-title" onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Escape")setDeclineConfirmation(null);}}><h2 id="rv-decline-title">Decline booking?</h2><p>This booking from {declineConfirmation.company} will be declined.</p><div className="rv-actions"><button autoFocus className="rv-outline" onClick={()=>setDeclineConfirmation(null)}>Keep booking</button><button className="rv-danger" disabled={busy} onClick={()=>void confirmDecline(declineConfirmation)}>Decline booking</button></div></section></div>}{undoConfirmation&&<div className="rv-confirm-overlay" onClick={()=>setUndoConfirmation(null)}><section className="rv-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rv-undo-title" aria-describedby="rv-undo-description" onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==='Escape')setUndoConfirmation(null);}}><h2 id="rv-undo-title">Undo last status?</h2><p id="rv-undo-description">The booking will return to its previous transport status. This action will be recorded in booking history.</p><div className="rv-actions"><button autoFocus className="rv-outline" onClick={()=>setUndoConfirmation(null)}>Keep status</button><button className="rv-danger" disabled={busy} onClick={()=>void undoLatestStatus(undoConfirmation,true)}>Undo status</button></div></section></div>}<main key={tab+'-'+view+'-'+(id||'')} className={'rv-main'+(view==='list'&&(tab==='Quotes'||tab==='Bookings')?' rv-card-first-list':'')}>{!connected?<section className="rv-auth"><span className="rv-over">OFFICIAL XDRIVE DRIVER PWA · LIVE AUTH</span><h1>Driver Sign In</h1><p>Connect with your real XDrive driver account. No demonstration jobs are injected.</p><form onSubmit={e=>void signIn(e)}><Field label="Email"><input type="email" required autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/></Field><Field label="Password"><input type="password" required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></Field><button className="rv-primary rv-wide" disabled={loading}>{loading?'Connecting…':'Sign In →'}</button></form></section>:<>{error&&<div className="rv-error" role="alert">{error}</div>}{warning&&view!=='list'&&<details className="rv-api-notes"><summary>Some live information is temporarily unavailable</summary><p>{warning}</p></details>}{view==='searchLoads'&&<SearchLoads initial={searchFilters} busy={searchBusy} error={searchError} onSearch={f=>void applyLoadSearch(f)} onClear={clearLoadSearch} onBack={()=>setView('list')} onSave={f=>{setSearchFilters(f);try{localStorage.setItem('xdrive-reserve-load-search-v1',JSON.stringify(f));}catch{setSearchError('Search preferences could not be saved.');}}}/>}{view==='list'&&list()}{view==='more'&&session&&<OriginalMorePwa key={moreNavigationKey} token={session.token} ownerDriver={verifiedSession&&role==='Owner Driver'} onOpenInvoices={()=>{setTab('Bookings');setView('invoices');setId(null);setError('');}}/>} {view==='details'&&details()}{view==='map'&&job&&<RouteMap bookingJobId={tab==='Bookings'?job.id:undefined} token={session?.token} from={job.status==='OPEN'?(job.fromOutcode||job.from):(job.pickupAddress||job.from)} to={job.status==='OPEN'?(job.toOutcode||job.to):(job.deliveryAddress||job.to)} stops={job.status==="OPEN"?undefined:job.routeStops?.length?job.routeStops.map(s=>({id:s.id,kind:s.type==="collection"?"PICKUP":"DELIVERY",address:s.address?.trim()||(s.type==="collection"?(job.pickupAddress||job.fromOutcode||job.from):(job.deliveryAddress||job.toOutcode||job.to)),completedAt:s.completedAt})):undefined} status={job.status} distanceMiles={job.distanceMiles} travelMinutes={job.travelMinutes} onBack={()=>setView(mapReturnView)}/>} {view==='quoteDetails'&&quoteDetails()}{view==='quote'&&quote()}{view==='incoming'&&incoming()}{view==='statusHistory'&&job&&<><button className="rv-back" onClick={()=>setView('list')}>← Back to Bookings</button><p className="rv-over">BOOKING STATUS</p><h1>{platformJobReference(job.id,job.yourRef)||'Reference unavailable'}</h1>{!job.podRecorded&&!['DELIVERED','POD_SUBMITTED','COMPLETED'].includes(job.status)&&<button className="rv-primary rv-wide" onClick={()=>{if(LOCAL&&job.status==='ON_SITE_PICKUP')setCollectionStage('loaded');setView('flow');}}>{nextStates[job.status]?.label||(job.status==='ON_SITE_DELIVERY'?'Delivered / POD':'View Booking')}</button>}{["DELIVERED","POD_SUBMITTED"].includes(job.status)&&!job.podRecorded&&<button className="rv-primary rv-wide" onClick={()=>setView("flow")}>Send POD</button>}{job.podRecorded&&role==="Owner Driver"&&<button className="rv-primary rv-wide" onClick={()=>setView(invoiceAction(job).target)}>{invoiceAction(job).label}</button>}{!LOCAL&&session&&job.isTest===true&&<button className="rv-outline rv-wide" onClick={()=>setView('bookingExtras')}>Additional Charges / Add item</button>}{!LOCAL&&session&&job.isTest===true&&<ReserveCancellationHistory key={job.id} jobId={job.id} session={session} onRequest={!job.podRecorded&&['ALLOCATED','ON_WAY_TO_PICKUP','ON_SITE_PICKUP','LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY'].includes(job.status)&&Boolean(cancellationTarget(job))?()=>openCancellation(job,null,'statusHistory'):undefined}/>}<BookingStatusTimeline job={job}/>{LOCAL&&job.podRecorded&&<button className="rv-outline rv-wide" onClick={()=>void downloadLocalPod(job.id).catch(e=>setError(e.message))}>Signed POD.pdf (Test)</button>}{job.podRecorded&&session&&job.podEvidenceComplete!==false&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{job.podRecorded&&job.podEvidenceComplete===false&&<p className="rv-warning">Archived POD requires evidence review. This delivery cannot be repeated.</p>}{LOCAL&&job.podRecorded&&localStorage.getItem("xdrive-local-signature-v4-"+job.id)&&<button className="rv-outline rv-wide" onClick={()=>setView("flow")}>View signed POD evidence</button>}{undoTargets[job.status]&&<button className="rv-undo-action rv-wide" disabled={busy} onClick={()=>void undoLatestStatus(job)}>Undo Last Status</button>}{job.podRecorded&&!LOCAL&&role==='Owner Driver'&&null}{['DELIVERED','POD_SUBMITTED'].includes(job.status)&&!job.podRecorded&&<section className="rv-card"><h3>Finalise Proof of Delivery</h3><p>Delivery is marked as completed, but the signed POD has not yet been confirmed as archived. Complete the recipient details, signature and required evidence before invoice eligibility can be checked.</p><button className="rv-primary rv-wide" onClick={()=>setView('flow')}>Complete / Save Signed POD →</button></section>}</>}{view==='flow'&&flow()}{view==='cancel'&&job&&(()=>{
-  const target=job.routeStops?.find(stop=>stop.id===cancellationStopId)??null;
-  if(!target)return <section className="rv-operation-screen"><button className="rv-back" onClick={()=>setView(cancellationReturnView)}>← Back</button><div className="rv-error" role="alert">Cancellation target is unavailable. Refresh the booking before retrying.</div></section>;
-
-  const goodsInCustody=['LOADED','ON_WAY_TO_DELIVERY','ON_SITE_DELIVERY','DELIVERED','POD_SUBMITTED'].includes(job.status)||(job.routeStops?.[0]?.status==='completed');
-  return <ReserveCancellation address={target.address} goodsInCustodyDefault={Boolean(goodsInCustody)} forceJobScope={true} busy={busy} error={error} onBack={()=>setView(cancellationReturnView)} onSubmit={value=>void recordCancellation(job,target,value)}/>;
-})()}{view==='bookingExtras'&&session&&job&&<ReserveBookingExtras key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')}/>}{view==='invoiceJob'&&(LOCAL||session)&&job&&<LiveInvoiceFlow key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')} onList={()=>setView('invoices')}/>}{view==='invoices'&&session&&<><button className="rv-back" onClick={()=>navigate('Bookings')}>← Bookings</button><LiveInvoices session={session} onSession={setSession}/></>}</>}</main>{connected&&session&&tab==='Bookings'&&job&&view==='statusHistory'&&<button className="rv-outline rv-wide" onClick={()=>setView('gps')}>GPS Tracking</button>}{connected&&session&&<GpsTracking token={session.token} jobs={jobs} visible={view==='gps'} onClose={()=>setView('statusHistory')}/>} {connected&&<nav className="rv-nav rv-official-nav">{([{key:'Loads',label:'Loads',icon:'📦'},{key:'Quotes',label:'Quotes',icon:'💬'},{key:'Bookings',label:'Bookings',icon:'🚚'}] as const).map(item=><button key={item.key} className={(item.key===tab&&view!=='invoices'&&view!=='more'?'rv-active ':'')+(item.key==='Bookings'&&unreadBookingOffers>0?'rv-booking-unread':'')} aria-label={item.key==='Bookings'&&unreadBookingOffers>0?'Bookings - '+unreadBookingOffers+' new awarded jobs':item.label} onClick={()=>navigate(item.key)}><span>{item.icon}</span>{item.label}</button>)}<button type="button" className={view==='more'?'rv-active':''} aria-label="More" aria-current={view==='more'?'page':undefined} onClick={()=>{setMoreNavigationKey(value=>value+1);setView('more');setId(null);setError('');}}><span aria-hidden="true">☰</span>More</button></nav>}</div>;
+  return <div className={LOCAL?"rv-shell rv-local-preview":"rv-shell"}>{header}{declineConfirmation&&<div className="rv-confirm-overlay" onClick={()=>setDeclineConfirmation(null)}><section className="rv-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rv-decline-title" onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==="Escape")setDeclineConfirmation(null);}}><h2 id="rv-decline-title">Decline booking?</h2><p>This booking from {declineConfirmation.company} will be declined.</p><div className="rv-actions"><button autoFocus className="rv-outline" onClick={()=>setDeclineConfirmation(null)}>Keep booking</button><button className="rv-danger" disabled={busy} onClick={()=>void confirmDecline(declineConfirmation)}>Decline booking</button></div></section></div>}{undoConfirmation&&<div className="rv-confirm-overlay" onClick={()=>setUndoConfirmation(null)}><section className="rv-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rv-undo-title" aria-describedby="rv-undo-description" onClick={e=>e.stopPropagation()} onKeyDown={e=>{if(e.key==='Escape')setUndoConfirmation(null);}}><h2 id="rv-undo-title">Undo last status?</h2><p id="rv-undo-description">The booking will return to its previous transport status. This action will be recorded in booking history.</p><div className="rv-actions"><button autoFocus className="rv-outline" onClick={()=>setUndoConfirmation(null)}>Keep status</button><button className="rv-danger" disabled={busy} onClick={()=>void undoLatestStatus(undoConfirmation,true)}>Undo status</button></div></section></div>}<main key={tab+'-'+view+'-'+(id||'')} className={'rv-main'+(view==='list'&&(tab==='Quotes'||tab==='Bookings')?' rv-card-first-list':'')}>{!connected&&session?<section className="rv-auth" aria-busy={loading}><h1>{loading?'Restoring session…':'Reconnect to XDrive'}</h1><p role="status">{error||'Verifying your existing secure session.'}</p>{!loading&&<button className="rv-primary rv-wide" onClick={()=>void retryLive()}>Retry connection</button>}{!loading&&<button className="rv-outline rv-wide" onClick={logout}>Sign out</button>}</section>:!connected?<section className="rv-auth rv-android-auth"><img className="rv-android-logo" src="/driver/reserve-pwa/xdrive-logo-horizontal.png" alt="XDrive Logistics"/><h1>Secure XDrive sign in</h1><p>Your company and operational workspace are confirmed by XDrive after authentication.</p><form onSubmit={e=>void signIn(e)}><Field label="Email"><input type="email" required autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/></Field><Field label="Password"><input type="password" required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></Field>{error&&<p role="alert" className="rv-android-error">{error}</p>}<button className="rv-primary rv-wide" disabled={loading}>{loading?'Connecting...':'Sign in'}</button></form><p>Only active, backend-authorised XDrive accounts can access company or driver operations.</p></section>:<>{error&&<div className="rv-error" role="alert">{error}</div>}{warning&&view!=='list'&&<details className="rv-api-notes"><summary>Some live information is temporarily unavailable</summary><p>{warning}</p></details>}{view==='searchLoads'&&<SearchLoads initial={searchFilters} busy={searchBusy} error={searchError} onSearch={f=>void applyLoadSearch(f)} onClear={clearLoadSearch} onBack={()=>setView('list')} onSave={f=>{setSearchFilters(f);try{localStorage.setItem('xdrive-reserve-load-search-v1',JSON.stringify(f));}catch{setSearchError('Search preferences could not be saved.');}}}/>}{id&&!job&&view!=='list'&&<section className='rv-card' role='status'><p>{loading||Object.values(pendingFeeds).some(Boolean)?'Restoring this page…':'This item is unavailable in your current workspace.'}</p><button className='rv-back' onClick={()=>navigate(tab)}>Back to {tab}</button></section>}{view==='list'&&list()}{view==='more'&&session&&<OriginalMorePwa key={moreNavigationKey} token={session.token} ownerDriver={verifiedSession&&role==='Owner Driver'} onOpenInvoices={()=>{setTab('Bookings');setView('invoices');setId(null);setError('');}}/>} {view==='details'&&details()}{view==='map'&&job&&<RouteMap bookingJobId={tab==='Bookings'?job.id:undefined} token={session?.token} from={job.status==='OPEN'?(job.fromOutcode||job.from):(job.pickupAddress||job.from)} to={job.status==='OPEN'?(job.toOutcode||job.to):(job.deliveryAddress||job.to)} stops={job.status==="OPEN"?undefined:job.routeStops?.length?job.routeStops.map(s=>({id:s.id,kind:s.type==="collection"?"PICKUP":"DELIVERY",address:s.address?.trim()||(s.type==="collection"?(job.pickupAddress||job.fromOutcode||job.from):(job.deliveryAddress||job.toOutcode||job.to)),completedAt:s.completedAt})):undefined} status={job.status} distanceMiles={job.distanceMiles} travelMinutes={job.travelMinutes} onBack={()=>setView(mapReturnView)}/>} {view==='quoteDetails'&&quoteDetails()}{view==='quote'&&quote()}{view==='incoming'&&incoming()}{view==='statusHistory'&&job&&<><button className="rv-back" onClick={()=>setView('list')}>← Back to Bookings</button><p className="rv-over">BOOKING STATUS</p><h1>{platformJobReference(job.id,job.yourRef)||'Reference unavailable'}</h1>{!job.podRecorded&&!['DELIVERED','POD_SUBMITTED','COMPLETED'].includes(job.status)&&<button className="rv-primary rv-wide" onClick={()=>{if(LOCAL&&job.status==='ON_SITE_PICKUP')setCollectionStage('loaded');setView('flow');}}>{nextStates[job.status]?.label||(job.status==='ON_SITE_DELIVERY'?'Delivered / POD':'View Booking')}</button>}{["DELIVERED","POD_SUBMITTED"].includes(job.status)&&!job.podRecorded&&<button className="rv-primary rv-wide" onClick={()=>setView("flow")}>Send POD</button>}{job.podRecorded&&role==="Owner Driver"&&<button className="rv-primary rv-wide" onClick={()=>setView(invoiceAction(job).target)}>{invoiceAction(job).label}</button>}{!LOCAL&&session&&job.isTest===true&&<button className="rv-outline rv-wide" onClick={()=>setView('bookingExtras')}>Additional Charges / Add item</button>}<BookingStatusTimeline job={job}/>{LOCAL&&job.podRecorded&&<button className="rv-outline rv-wide" onClick={()=>void downloadLocalPod(job.id).catch(e=>setError(e.message))}>Signed POD.pdf (Test)</button>}{job.podRecorded&&session&&job.podEvidenceComplete!==false&&<OfficialPodDownload jobId={job.id} session={session} onSession={setSession}/>}{job.podRecorded&&job.podEvidenceComplete===false&&<p className="rv-warning">Archived POD requires evidence review. This delivery cannot be repeated.</p>}{LOCAL&&job.podRecorded&&localStorage.getItem("xdrive-local-signature-v4-"+job.id)&&<button className="rv-outline rv-wide" onClick={()=>setView("flow")}>View signed POD evidence</button>}{undoTargets[job.status]&&<button className="rv-undo-action rv-wide" disabled={busy} onClick={()=>void undoLatestStatus(job)}>Undo Last Status</button>}{job.podRecorded&&!LOCAL&&role==='Owner Driver'&&null}{['DELIVERED','POD_SUBMITTED'].includes(job.status)&&!job.podRecorded&&<section className="rv-card"><h3>Finalise Proof of Delivery</h3><p>Delivery is marked as completed, but the signed POD has not yet been confirmed as archived. Complete the recipient details, signature and required evidence before invoice eligibility can be checked.</p><button className="rv-primary rv-wide" onClick={()=>setView('flow')}>Complete / Save Signed POD →</button></section>}</>}{view==='flow'&&flow()}{view==='bookingExtras'&&session&&job&&<ReserveBookingExtras key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')}/>}{view==='invoiceJob'&&(LOCAL||session)&&job&&<LiveInvoiceFlow key={job.id} job={job} session={session} onSession={setSession} onBack={()=>setView('statusHistory')} onList={()=>setView('invoices')}/>}{view==='invoices'&&session&&<><button className="rv-back" onClick={()=>navigate('Bookings')}>← Bookings</button><LiveInvoices session={session} onSession={setSession}/></>}</>}</main>{connected&&session&&tab==='Bookings'&&job&&view==='statusHistory'&&<button className="rv-outline rv-wide" onClick={()=>setView('gps')}>GPS Tracking</button>}{connected&&session&&<GpsTracking token={session.token} jobs={jobs} visible={view==='gps'} onClose={()=>setView('statusHistory')}/>} {connected&&<nav className="rv-nav rv-official-nav">{([{key:'Loads',label:'Loads',icon:'📦'},{key:'Quotes',label:'Quotes',icon:'💬'},{key:'Bookings',label:'Bookings',icon:'🚚'}] as const).map(item=><button key={item.key} className={(item.key===tab&&view!=='invoices'&&view!=='more'?'rv-active ':'')+(item.key==='Bookings'&&unreadBookingOffers>0?'rv-booking-unread':'')} aria-label={item.key==='Bookings'&&unreadBookingOffers>0?'Bookings - '+unreadBookingOffers+' new awarded jobs':item.label} onClick={()=>navigate(item.key)}><span>{item.icon}</span>{item.label}</button>)}<button type="button" className={view==='more'?'rv-active':''} aria-label="More" aria-current={view==='more'?'page':undefined} onClick={()=>{setMoreNavigationKey(value=>value+1);setView('more');setId(null);setError('');}}><span aria-hidden="true">☰</span>More</button></nav>}</div>;
 }
 
 

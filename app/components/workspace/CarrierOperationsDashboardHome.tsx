@@ -517,6 +517,7 @@ export default function CarrierOperationsDashboardHome() {
         </AlertBanner>
       ) : null}
 
+      {companyAdminEnhancements&&<CompanyAdminOperationalOverview data={data}/>}
       <div data-master-dashboard={masterPresentation?'5301':undefined} className={'carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid'+(masterPresentation?' '+master5301.masterGrid:'')}>
         <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column'+(masterPresentation?' '+master5301.masterColumn:'')}>
           <OperationalCard
@@ -901,7 +902,7 @@ export default function CarrierOperationsDashboardHome() {
           </OperationalCard>
         </div>
       </div>
-      {companyAdminEnhancements&&<div className={master5301.complementary}><CompanyAdminOperationalOverview data={data}/></div>}
+
     </div>
   );
 }

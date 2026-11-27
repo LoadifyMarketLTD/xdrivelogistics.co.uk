@@ -26,6 +26,13 @@ type BidderIdentity = {
   companyName: string | null;
   personName: string | null;
   companyType: string | null;
+  driverType: string | null;
+  memberSince?: string | null;
+  completedJobs?: number | null;
+  customerRating?: number | null;
+  documentStatuses?: Array<{ name: string; status: string; expiryDate: string | null }>;
+  verificationUnavailable?: boolean;
+
   displayName: string;
   memberId: string | null;
   businessPhone: string | null;
@@ -36,6 +43,13 @@ type BidderIdentity = {
   driverVehiclePallets: number | null;
   fleetVehicleTypes: string[];
   specialistServices: string[];
+};
+
+const isOwnerDriverIdentity = (identity: BidderIdentity | undefined, companyId: string | null) => {
+  const normalize = (value: string | null | undefined) => (value ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return normalize(identity?.driverType) === 'owner_driver'
+    || normalize(identity?.companyType) === 'owner_driver'
+    || (!companyId && Boolean(identity?.driverId));
 };
 
 type QuoteParticipant = {
@@ -101,7 +115,9 @@ function AwardConfirmation({
         pickupDate: candidate.job.pickup_datetime ?? null,
         deliveryDate: candidate.job.delivery_datetime ?? null,
         vehicle: (candidate.identity?.driverVehicleType ?? candidate.job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' '),
-        pallets: candidate.identity?.driverVehiclePallets ?? null,
+        pallets: candidate.job.pallets ?? null,
+        vehicleCapacityPallets: candidate.identity?.driverVehiclePallets ?? null,
+        loadWeightKg: candidate.job.weight_kg ?? null,
         tailLift: candidate.identity?.driverVehicleTailLift ?? false,
         paymentTerms: candidate.job.payment_terms ?? null,
         carrierName: candidate.identity?.personName || candidate.displayName,
@@ -109,7 +125,12 @@ function AwardConfirmation({
         memberId: candidate.identity?.memberId ?? null,
         phone: candidate.identity?.businessPhone ?? null,
         availability: candidate.identity?.driverAvailability ?? null,
-        ownerDriver: candidate.isOwnerDriverBid,
+        memberSince: candidate.identity?.memberSince ?? null,
+        completedJobs: candidate.identity?.completedJobs ?? null,
+        customerRating: candidate.identity?.customerRating ?? null,
+        documentStatuses: candidate.identity?.documentStatuses ?? [],
+        verificationUnavailable: candidate.identity?.verificationUnavailable ?? false,
+        ownerDriver: isOwnerDriverIdentity(candidate.identity, candidate.bid.company_id ?? null) || candidate.isOwnerDriverBid,
         message: candidate.bid.message ?? null,
       }}
     />
@@ -376,7 +397,7 @@ export default function CustomerQuotesCxPage() {
         <div className="xdrive-cx-quote-list">
           {grouped.flatMap(({ job, quotes }) => quotes.map((bid, index) => {
             const identity = identities.get(bid.id);
-            const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId);
+            const isOwnerDriverBid = isOwnerDriverIdentity(identity, bid.company_id ?? null);
             const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
             const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
             const quoteStage = canonicalQuoteStage(bid, 'poster');
@@ -430,7 +451,17 @@ export default function CustomerQuotesCxPage() {
       )}
         </main>
       </div>
-      {candidate ? <AwardConfirmation candidate={candidate} working={working === candidate.bid.id} error={message} onCancel={() => setCandidate(null)} onConfirm={() => void award(candidate.bid.id)} /> : null}
+      {candidate ? <AwardConfirmation
+        candidate={{
+          ...candidate,
+          identity: identities.get(candidate.bid.id) ?? candidate.identity,
+          isOwnerDriverBid: isOwnerDriverIdentity(identities.get(candidate.bid.id) ?? candidate.identity, candidate.bid.company_id ?? null),
+        }}
+        working={working === candidate.bid.id}
+        error={message || identityError}
+        onCancel={() => setCandidate(null)}
+        onConfirm={() => void award(candidate.bid.id)}
+      /> : null}
       {messageCandidate ? <MessageParticipantDialog candidate={messageCandidate} body={messageBody} working={messageWorking} error={messageError} onBodyChange={setMessageBody} onCancel={() => { setMessageCandidate(null); setMessageBody(''); setMessageError(''); }} onSend={() => void sendBidMessage()} /> : null}
     </PageFrame>
   );
