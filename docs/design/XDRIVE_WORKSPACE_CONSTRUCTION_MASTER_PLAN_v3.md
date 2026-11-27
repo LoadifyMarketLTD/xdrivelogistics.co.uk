@@ -1,4 +1,8 @@
 # XDRIVE LOGISTICS
+
+> **SUPERSEDED FOR VISUAL UNIFICATION — 25 NOV 2026:** The owner revoked this plan's earlier redesign/reconstruction/unification instructions as active visual tasks. The sole active replacement directive is [`XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md`](XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md). This historical plan is retained for traceability and non-conflicting operational/business/security requirements only. Do NOT use it to redraw 3118, maintain 3150 as a competing UI, or reintroduce a legacy workspace shell.
+
+
 # WORKSPACE CONSTRUCTION MASTER PLAN
 ## Master Execution Specification — v3 — Measured CX Baseline
 

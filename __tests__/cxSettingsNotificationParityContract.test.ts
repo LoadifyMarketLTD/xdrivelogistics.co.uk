@@ -16,7 +16,7 @@ describe('current company settings and notification routing contract', () => {
   });
 
   it('routes notification settings to the canonical recipient-scoped inbox', () => {
-    expect(inboxPage).toContain('<WorkspaceNotificationInbox role="admin" />');
+    expect(inboxPage).toContain('<WorkspaceNotificationInbox role="admin" originalCompanyView key=');
     expect(inbox).toContain("fetch('/api/workspace/notifications'");
     expect(inbox).toContain("'Load Alerts'");
     expect(inbox).toContain("'Operational'");

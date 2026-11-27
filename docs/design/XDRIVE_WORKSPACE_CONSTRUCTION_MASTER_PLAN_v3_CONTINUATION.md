@@ -1,4 +1,8 @@
 # XDRIVE LOGISTICS
+
+> **SUPERSEDED FOR VISUAL UNIFICATION — 25 NOV 2026:** The former visual-construction programme and old v3 visual precedence are revoked as active instructions. Follow [`XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md`](XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md) for the complete original 3118 role-specific visual replacement. Keep the documented privacy, member identity, award and tenant-security requirements unless explicitly changed by the owner.
+
+
 # WORKSPACE CONSTRUCTION MASTER PLAN
 ## Master Execution Specification — v3 Continuation — Operational Privacy, Member Identity & Final Delivery Programme
 

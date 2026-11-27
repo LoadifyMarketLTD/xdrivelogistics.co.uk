@@ -1,17 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
-import '../components/workspace/workspace-light-guard.css';
-import '../components/workspace/top-workspace-shell.css';
-import './broker-dashboard-convergence.css';
-import '../components/workspace/workspace-measured-cx-baseline.css';
-import '../admin/carrier-workspace-canonical.css';
-import '../components/workspace/dashboard-compact-global.css';
-import '../components/workspace/admin-marketplace-identity.css';
-import '../components/workspace/workspace-readable-typography.css';
+import Original3118WorkspaceShell from '../components/workspace/Original3118WorkspaceShell';
 
-// Protected workspace documents receive a per-request CSP nonce from middleware.
-// Force dynamic rendering so hard reloads and deep links receive matching nonces.
+// Keep authenticated nonce-based pages dynamic and the production data/actions intact.
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
@@ -21,9 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function BrokerLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace xdrive-broker-workspace">
-      <TopWorkspaceShell forcedRole="broker" masterCommercialSidebar>{children}</TopWorkspaceShell>
-    </div>
-  );
+  return <Original3118WorkspaceShell forcedRole="broker">{children}</Original3118WorkspaceShell>;
 }

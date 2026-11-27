@@ -5,5 +5,5 @@ import WorkspaceNotificationInbox from '../../components/workspace/WorkspaceNoti
 
 export default function Page() {
   const {user}=useAuth();
-  return <WorkspaceNotificationInbox role="admin" key={user?.id??"unresolved"} />;
+  return <WorkspaceNotificationInbox role="admin" originalCompanyView key={user?.id??"unresolved"} />;
 }

@@ -1,5 +1,5 @@
 import {describe,it,expect} from 'vitest';
-import {companyDiaryDefaultKey,diaryDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from '../app/components/workspace/companyAdminDiaryFilters';
+import {companyDiaryDefaultKey,diaryBookingDateMatches,diaryDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from '../app/components/workspace/companyAdminDiaryFilters';
 describe('Company Admin diary filters',()=>{
  it('applies inclusive UK dates across DST rather than the local browser clock',()=>{expect(diaryDateMatches('2026-07-01T23:30:00Z','2026-07-02','2026-07-02')).toBe(true);expect(diaryDateMatches('2026-07-01T23:30:00Z','2026-07-01','2026-07-01')).toBe(false);expect(diaryDateMatches(null,'2026-07-02','')).toBe(false);expect(diaryDateMatches(null,'','')).toBe(true)});
  it('supports either end of an interval',()=>{expect(diaryDateMatches('2026-11-18T12:00:00Z','','2026-11-19')).toBe(true);expect(diaryDateMatches('2026-11-20T12:00:00Z','','2026-11-19')).toBe(false);expect(diaryDateMatches('2026-11-20T12:00:00Z','2026-11-19','')).toBe(true)});
@@ -8,3 +8,5 @@ describe('Company Admin diary filters',()=>{
  it('does not invent a distance, weight or dimensions from absent values',()=>{for(const v of [null,undefined,'',0,-1,'bad'])expect(knownPositiveNumber(v)).toBeNull();expect(knownPositiveNumber('15.5')).toBe(15.5)});
  it('rejects malformed or impossible dates',()=>{expect(validDiaryDate('2026-02-29')).toBe(false);expect(validDiaryDate('2028-02-29')).toBe(true);expect(validDiaryDate('2026-11-1')).toBe(false);expect(validDiaryDate('2026-11-19')).toBe(true)});
 });
+
+it('includes collection and delivery days independently in the Company Diary list',()=>{const job={pickup_datetime:'2026-11-19T09:00:00Z',delivery_datetime:'2026-11-21T12:00:00Z'};expect(diaryBookingDateMatches(job,'2026-11-19','2026-11-19')).toBe(true);expect(diaryBookingDateMatches(job,'2026-11-21','2026-11-21')).toBe(true);expect(diaryBookingDateMatches(job,'2026-11-20','2026-11-20')).toBe(false);expect(diaryBookingDateMatches({pickup_datetime:null,delivery_datetime:job.delivery_datetime},'2026-11-21','2026-11-21')).toBe(true);expect(diaryBookingDateMatches({},'2026-11-21','2026-11-21')).toBe(false);expect(diaryBookingDateMatches({},'','')).toBe(true)});

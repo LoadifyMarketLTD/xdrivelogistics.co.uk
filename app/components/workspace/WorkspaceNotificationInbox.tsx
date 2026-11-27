@@ -13,6 +13,7 @@ import {
   resolveRoleScopedHref,
   type ActionCentreRole,
 } from './actionCentreConfig';
+import Company3118Notifications from '../../company3118/components/Company3118Notifications';
 import NotificationPreferencesPanel from './NotificationPreferencesPanel';
 import {
   ActionButton,
@@ -78,11 +79,13 @@ function entityTypeFromNotification(type: string | null) {
 
 export default function WorkspaceNotificationInbox({
   role,
+  originalCompanyView = false,
   eyebrow = 'Workspace notifications',
   title = 'Notifications',
   description = 'Recipient-scoped operational, marketplace and commercial notifications for the current account.',
 }: {
   role: Exclude<ActionCentreRole, 'platform_owner' | 'driver'>;
+  originalCompanyView?: boolean;
   eyebrow?: string;
   title?: string;
   description?: string;
@@ -225,6 +228,31 @@ export default function WorkspaceNotificationInbox({
     ...(companyAdmin?(['jobs','quotes','bookings','invoices','system'] as const).map(id=>({id,label:notificationCategoryLabel[id]})):[]),
   ];
 
+  const removalDialog = companyAdmin&&removal&&<WorkspaceDialog ariaLabel="Remove notification" title="Remove this notification?" description="This removes the notification from your own inbox, not the underlying job, quote or invoice." dismissDisabled={Boolean(working)} onDismiss={()=>{setRemoveId(null);setDialogError('')}} actions={<><ActionButton tone="secondary" disabled={Boolean(working)} onClick={()=>setRemoveId(null)}>Cancel</ActionButton><ActionButton tone="danger" disabled={Boolean(working)} onClick={()=>void remove(removal.id)}>Confirm remove</ActionButton></>}><p>{removal.title}</p>{dialogError&&<AlertBanner tone="danger">{dialogError}</AlertBanner>}</WorkspaceDialog>;
+
+  if (companyAdmin && originalCompanyView) {
+    return <Company3118Notifications
+      rows={rows}
+      selected={selected}
+      loading={loading}
+      busy={Boolean(working)}
+      error={error}
+      preferences={preferencesOpen ? <NotificationPreferencesPanel /> : null}
+      removalDialog={removalDialog}
+      onPreferences={() => setPreferencesOpen(current => !current)}
+      onOpen={id => {
+        const row = rows.find(notification => notification.id === id);
+        if (row) void openNotification(row);
+      }}
+      onClose={() => setDetailId(null)}
+      onRemove={id => {setDialogError('');setRemoveId(id)}}
+      onMarkRead={id => void markRead(id)}
+      onMarkAllRead={() => void markAllRead()}
+      onRefresh={() => void load()}
+      onNavigate={href => router.push(href)}
+    />;
+  }
+
   return (
     <PageFrame>
       <PageHeader
@@ -235,7 +263,7 @@ export default function WorkspaceNotificationInbox({
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {preferencesOpen && <NotificationPreferencesPanel />}
       {companyAdmin&&selected&&!removal&&<WorkspaceDialog ariaLabel="Notification details" title={selected.title} description={notificationCategoryLabel[notificationCategory(selected.type)]+' · '+when(selected.created_at)} onDismiss={()=>setDetailId(null)} actions={<><ActionButton tone="secondary" onClick={()=>setDetailId(null)}>Close</ActionButton>{notificationModule(selected.type)&&<ActionButton onClick={()=>router.push(notificationModule(selected.type)!.href)}>{notificationModule(selected.type)!.label}</ActionButton>}</>}><p style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{selected.body?.trim()||'No additional details supplied.'}</p><p><StatusBadge value={selected.read_at?'Read':'Unread'}/></p><p style={{fontSize:12,color:'#475569'}}>This notification does not provide a verified record link. The action opens the corresponding workspace register.</p>{dialogError&&<AlertBanner tone="danger">{dialogError}</AlertBanner>}</WorkspaceDialog>}
-      {companyAdmin&&removal&&<WorkspaceDialog ariaLabel="Remove notification" title="Remove this notification?" description="This removes the notification from your own inbox, not the underlying job, quote or invoice." dismissDisabled={Boolean(working)} onDismiss={()=>{setRemoveId(null);setDialogError('')}} actions={<><ActionButton tone="secondary" disabled={Boolean(working)} onClick={()=>setRemoveId(null)}>Cancel</ActionButton><ActionButton tone="danger" disabled={Boolean(working)} onClick={()=>void remove(removal.id)}>Confirm remove</ActionButton></>}><p>{removal.title}</p>{dialogError&&<AlertBanner tone="danger">{dialogError}</AlertBanner>}</WorkspaceDialog>}
+      {removalDialog}
 
       <div className={companyAdmin?'company-admin-inbox-nav':undefined}><div className="workspace-tab-strip" role="tablist" aria-label="Notification inbox filters" style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', marginBottom: 4 }}>
         {tabs.map((item) => (

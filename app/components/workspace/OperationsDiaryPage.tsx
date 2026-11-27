@@ -6,7 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import CompanyAdminDiaryCalendar from './CompanyAdminDiaryCalendar';
 import {londonDay} from './companyAdminDiaryCalendarModel';
-import {companyDiaryDefaultKey,diaryDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from './companyAdminDiaryFilters';
+import {companyDiaryDefaultKey,diaryBookingDateMatches,diaryTimeMatches,diaryTomorrow,knownPositiveNumber,validDiaryDate} from './companyAdminDiaryFilters';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
@@ -456,16 +456,13 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
   }, [groupJobs]);
   const groupById = useMemo(() => new Map(groups.map((group) => [group.id, group])), [groups]);
 
-  const filtered = useMemo(() => {
+  const matchingBookings = useMemo(() => {
     const from = appliedSearch.from.trim().toLowerCase();
     const to = appliedSearch.to.trim().toLowerCase();
     const reference = appliedSearch.reference.trim().toLowerCase();
     const customer = appliedSearch.customer.trim().toLowerCase();
     const memberDriver = appliedSearch.driver.trim().toLowerCase();
     const bookedBy = appliedSearch.bookedBy.trim().toLowerCase();
-    const fromDate = appliedSearch.dateFrom ? new Date(`${appliedSearch.dateFrom}T00:00:00`).getTime() : null;
-    const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
-
     return jobs
       .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? [], companyId))
       .filter((job) => !selectedGroupFilter || (groupIdsByJob.get(job.id) ?? []).includes(selectedGroupFilter))
@@ -494,25 +491,38 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
           .filter(Boolean).join(' ').toLowerCase().includes(bookedBy);
       })
       .filter((job) => companyAdmin?diaryTimeMatches(job.pickup_datetime,appliedSearch.pickupWindow):timeWindowMatches(job.pickup_datetime, appliedSearch.pickupWindow))
-      .filter((job) => companyAdmin?diaryTimeMatches(job.delivery_datetime,appliedSearch.deliveryWindow):timeWindowMatches(job.delivery_datetime, appliedSearch.deliveryWindow))
-      .filter((job) => {
-        if(companyAdmin)return diaryDateMatches(job.pickup_datetime,appliedSearch.dateFrom,appliedSearch.dateTo);
-        if (!fromDate && !toDate) return true;
-        if (!job.pickup_datetime) return false;
-        const timestamp = new Date(job.pickup_datetime).getTime();
-        if (Number.isNaN(timestamp)) return false;
-        if (fromDate && timestamp < fromDate) return false;
-        if (toDate && timestamp > toDate) return false;
-        return true;
-      });
-  }, [appliedSearch, companyId, driverById, groupIdsByJob, intelligence.jobDetailById, jobs, reviewsByJob, selectedGroupFilter, tab,companyAdmin]);
+      .filter((job) => companyAdmin?diaryTimeMatches(job.delivery_datetime,appliedSearch.deliveryWindow):timeWindowMatches(job.delivery_datetime, appliedSearch.deliveryWindow));
+  }, [appliedSearch, companyId, driverById, groupIdsByJob, intelligence.jobDetailById, jobs, reviewsByJob, selectedGroupFilter, tab, companyAdmin]);
+
+  const selectedDiaryDay = appliedSearch.dateFrom === appliedSearch.dateTo ? appliedSearch.dateFrom : '';
+  const calendarBookings = selectedDiaryDay ? matchingBookings : null;
+  const filtered = useMemo(() => {
+    const fromDate = appliedSearch.dateFrom ? new Date(`${appliedSearch.dateFrom}T00:00:00`).getTime() : null;
+    const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
+
+    return matchingBookings.filter((job) => {
+      if(companyAdmin)return diaryBookingDateMatches(job,appliedSearch.dateFrom,appliedSearch.dateTo);
+      if (!fromDate && !toDate) return true;
+      if (!job.pickup_datetime) return false;
+      const timestamp = new Date(job.pickup_datetime).getTime();
+      if (Number.isNaN(timestamp)) return false;
+      if (fromDate && timestamp < fromDate) return false;
+      if (toDate && timestamp > toDate) return false;
+      return true;
+    });
+  }, [appliedSearch.dateFrom, appliedSearch.dateTo, companyAdmin, matchingBookings]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const openCalendarBooking = (jobId:string) => {
     const index=filtered.findIndex(job=>job.id===jobId);
-    if(index<0)return;
+    if (index < 0) {
+      if (companyAdmin && calendarBookings?.some(job => job.id === jobId)) {
+        router.push('/admin/diary?job=' + encodeURIComponent(jobId));
+      }
+      return;
+    }
     setPage(Math.floor(index/pageSize)+1);
     setSelectedJobId(jobId);
     setExpandedIds(current=>new Set([...current,jobId]));
@@ -807,6 +817,18 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
     else if (value === 'today') setSearch((current) => ({ ...current, dateFrom: todayKey, dateTo: todayKey }));
     else if (value === 'tomorrow') setSearch((current) => ({ ...current, dateFrom: tomorrowKey, dateTo: tomorrowKey }));
   };
+  const setDiaryDay = (value: string) => {
+    if (value && !validDiaryDate(value)) return;
+    setSearchError('');
+    setCustomDateMode(Boolean(value));
+    setSearch(current => ({ ...current, dateFrom: value, dateTo: value }));
+    setAppliedSearch(current => ({ ...current, dateFrom: value, dateTo: value }));
+  };
+  const shiftDiaryDay = (delta: number) => {
+    const day = new Date(`${selectedDiaryDay || todayKey}T12:00:00Z`);
+    day.setUTCDate(day.getUTCDate() + delta);
+    setDiaryDay(day.toISOString().slice(0, 10));
+  };
   const toggleDefaultSearch = (checked: boolean) => {
     setSaveAsDefault(checked);
     if(!defaultSearchKey)return;
@@ -820,6 +842,15 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
       {companyAdmin&&exactJobId&&<section className="workspace-panel company-admin-exact-booking" aria-label="Requested booking"><div className="company-admin-calendar__header"><h2>Requested booking</h2><ActionButton tone="secondary" onClick={()=>router.replace('/admin/diary')}>Close booking</ActionButton></div>{exactBooking?.id===exactJobId&&exactBooking.companyId===companyId&&exactBooking.userId===user?.id?exactBooking.status==='found'?<CompanyJobSheetPanel key={exactJobId} jobId={exactJobId} mode="carrier"/>:<AlertBanner tone="warning">This booking is unavailable in the active company's operational Diary.</AlertBanner>:<p role="status">Checking booking access…</p>}</section>}
+      {companyAdmin && <div className="xd-diary-header">
+        <div><h1>Diary</h1><p>Bookings &amp; Operations Schedule</p></div>
+        <div className="xd-diary-date-nav">
+          <button type="button" onClick={() => shiftDiaryDay(-1)} aria-label="Previous day">‹</button>
+          <input type="date" aria-label="Diary date" value={selectedDiaryDay} onChange={event => setDiaryDay(event.target.value)} />
+          <button type="button" onClick={() => shiftDiaryDay(1)} aria-label="Next day">›</button>
+          <button type="button" className="xd-diary-today" onClick={() => setDiaryDay(todayKey)}>Today</button>
+        </div>
+      </div>}
       <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
           <div className="cx-diary-rail-nav">
@@ -865,7 +896,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
           </div>
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
-          ) : companyAdmin&&viewMode==='calendar' ? <CompanyAdminDiaryCalendar key={appliedSearch.dateFrom||'all-dates'} jobs={filtered.map(job=>({...job,status:workspaceJobOperationalLabel(job)}))} onOpen={openCalendarBooking} initialDay={appliedSearch.dateFrom||undefined}/> : visible.length === 0 ? (
+          ) : companyAdmin&&viewMode==='calendar' ? <CompanyAdminDiaryCalendar key={appliedSearch.dateFrom||'all-dates'} jobs={(calendarBookings ?? filtered).map(job=>({...job,status:workspaceJobOperationalLabel(job)}))} onSelectDay={selectedDiaryDay || (!appliedSearch.dateFrom && !appliedSearch.dateTo) ? setDiaryDay : undefined} onOpen={openCalendarBooking} initialDay={appliedSearch.dateFrom||undefined}/> : visible.length === 0 ? (
             <div className="workspace-panel"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div>
           ) : viewMode === 'split' ? (
             <div className="xdrive-diary-split-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(360px,0.82fr) minmax(520px,1.18fr)', gap: 8, alignItems: 'start' }}>

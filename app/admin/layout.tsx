@@ -10,16 +10,9 @@ import '../components/workspace/dashboard-compact-global.css';
 import '../components/workspace/admin-marketplace-identity.css';
 import '../components/workspace/workspace-readable-typography.css';
 
-// Protected workspace documents receive a per-request CSP nonce from middleware.
-// Next.js can only apply that nonce to framework/page scripts when the route is
-// rendered dynamically; static prerendering leaves hard reload/deep-link scripts
-// without the request nonce and the browser blocks them under the strict CSP.
+// Keep the authenticated routes dynamically rendered so the per-request CSP nonce applies.
 export const dynamic = 'force-dynamic';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  return (
-    <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace">
-      <AdminPlatformShell>{children}</AdminPlatformShell>
-    </div>
-  );
+  return <AdminPlatformShell>{children}</AdminPlatformShell>;
 }

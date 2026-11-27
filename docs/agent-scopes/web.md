@@ -1,5 +1,9 @@
 # Agent Scope: WEB
 
+> **Active owner-approved visual workspace task — 2026-11-25:** [`docs/design/XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md`](../design/XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md) controls replacement of legacy/3150 operational WEB visual workspaces with original 3118 components. Older redesign/unification tasks no longer control. Existing security, role permissions and scope boundaries remain mandatory.
+
+
+
 > Product: Next.js website, authenticated workspaces, server API routes  
 > Scope class: `WEB`
 

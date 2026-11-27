@@ -29,3 +29,7 @@ export function knownPositiveNumber(value:unknown){
 export function validDiaryDate(value:string){
   return /^\d{4}-\d{2}-\d{2}$/.test(value)&&londonDay(value+'T12:00:00Z')===value;
 }
+
+export function diaryBookingDateMatches(job:{pickup_datetime?:string|null;delivery_datetime?:string|null},from:string,to:string){
+  return diaryDateMatches(job.pickup_datetime,from,to)||diaryDateMatches(job.delivery_datetime,from,to);
+}

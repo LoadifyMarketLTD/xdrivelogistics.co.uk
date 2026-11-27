@@ -1,5 +1,11 @@
 # XDrive protected invariants
 
+## Active visual workspace directive (owner approved 2026-11-25)
+
+For operational WEB workspace **visual replacement**, the sole current task is [`docs/design/XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md`](docs/design/XDRIVE_3118_UNIFIED_WORKSPACE_CANONICAL_TASK_20261125.md). **Required handoff for every incoming agent:** [`docs/design/XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md`](docs/design/XDRIVE_3118_SEVEN_WORKSPACE_PROFESSIONAL_HANDOFF_20261125.md). Original 3118 role-specific components, dimensions and styles **replace** 3150 visual workspaces; never redraw or layer one over the other. This directive supersedes earlier visual-unification instructions but **does not supersede** the protected invariants, functional contracts, permissions or production safety requirements below.
+
+
+
 These rules are mandatory for every agent working in this repository.
 
 ## Never revert verified production work
