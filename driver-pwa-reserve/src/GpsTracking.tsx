@@ -11,9 +11,9 @@ export default function GpsTracking({token,jobs,onClose,visible}:Props){
  const active=jobs.filter(j=>activeStatuses.has(j.status)&&!j.acceptanceRequired);
  const activeKey=JSON.stringify([...new Set(active.map(j=>j.id))].sort());
  useEffect(()=>{
-  if(!token)return;
-  if(!navigator.geolocation){setPermission('Unavailable');return;}
   const ids=JSON.parse(activeKey) as string[];
+  if(!token||!ids.length)return;
+  if(!navigator.geolocation){setPermission('Unavailable');return;}
   let live=true;let pending=false;let controller:AbortController|undefined;
   const attempts=new Map<string,number>();const successes=new Map<string,number>();
   const send=async(p:GeolocationPosition)=>{
