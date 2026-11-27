@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const sql = readFileSync(
-  join(process.cwd(), 'supabase/migrations/20261111124500_invoice_payment_trigger_net_stripe_reconciliation.sql'),
+  join(process.cwd(), 'supabase/migrations/20261113110352_invoice_payment_trigger_net_stripe_reconciliation.sql'),
   'utf8',
 );
 
