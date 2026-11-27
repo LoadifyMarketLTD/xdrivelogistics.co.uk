@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { getAccessToken } from '../_lib/getAccessToken';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
 import { JobsOperationalTable, jobToRow } from '../../components/workspace/JobsOperationalTable';
@@ -739,6 +740,7 @@ function JobsPageInner() {
  <ProtectedRoute>
  <PendingBookingOffers onChanged={() => { void loadJobs(); }} />
  <JobsOperationalTable
+  company807={(user?.workspaceRole ?? resolveWorkspaceRole(user)) === 'company_admin'}
   filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map(jobToRow)}
   page={jobsPage}
   perPage={JOBS_PER_PAGE}

@@ -16,6 +16,7 @@ import { canCompanyAdminQuote, canCompanyAdminCancelQuote, companyAdminQuoteStag
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
+import { Company807LoadCard, Company807QuoteCard } from './Company807CommercialCards';
 import MarketplaceQuoteNowDialog, { type Canonical3150QuoteMeta } from './MarketplaceQuoteNowDialog';
 import { operationalLocationLabel } from './locationPresentation';
 import { MemberProfileOverlay } from './MemberProfile';
@@ -529,7 +530,8 @@ export default function CompanyMarketplaceExchange({
                 const deliveryWhen = cxSlotParts(load.delivery_datetime, load.delivery_time_slot || (!load.delivery_datetime ? 'ASAP' : null));
                 const requestedVehicle = vehicleLabel(load);
                 const notes = load.special_requirements || load.access_restrictions || '';
-                return <CxLoadCard
+                const LoadPresentation = companyAdmin ? Company807LoadCard : CxLoadCard;
+                return <LoadPresentation
                   key={load.id}
                   from={routeLabel(load.pickup_location, load.pickup_postcode)}
                   to={routeLabel(load.delivery_location, load.delivery_postcode)}
@@ -541,6 +543,7 @@ export default function CompanyMarketplaceExchange({
                   postedAt={load.exchange_posted_at ? <>@ {cxWhen(load.exchange_posted_at)}</> : null}
                   loadId={load.id.slice(0, 8).toUpperCase()}
                   vehicle={requestedVehicle}
+                  paymentTerms={companyAdmin ? load.payment_terms || 'Not Supplied' : undefined}
                   expanded={isExpanded}
                   freight={<>
                     <div><span>Dist:</span><strong>{load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
@@ -617,7 +620,8 @@ export default function CompanyMarketplaceExchange({
                       : stage === 'archived'
                         ? `Archived Quote ${quoteAmount}`
                         : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
-              return <CxQuoteCard
+              const QuotePresentation = companyAdmin ? Company807QuoteCard : CxQuoteCard;
+              return <QuotePresentation
                 key={bid.id}
                 routeFrom={routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)}
                 routeTo={routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}

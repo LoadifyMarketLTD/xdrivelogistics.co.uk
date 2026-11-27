@@ -26,6 +26,7 @@ import { Fragment, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import styles from './WorkspaceUI.module.css';
 import { OperationalExpandAllControl } from './OperationalExpandAllControl';
+import { Company807BookingCard } from './Company807CommercialCards';
 
 /*
  * Business logic is owned by the canonical contract module.
@@ -52,6 +53,7 @@ export {
 } from '../../../lib/jobs/jobOperationalContract';
 
 export interface JobsOperationalTableProps {
+  company807?: boolean;
   /** Filtered + paginated jobs to render in table */
   filteredJobs: JobRow[];
   page: number;
@@ -134,6 +136,7 @@ function fmtDate(iso: string): string {
 }
 
 export function JobsOperationalTable({
+  company807 = false,
   filteredJobs,
   page,
   perPage,
@@ -214,7 +217,7 @@ export function JobsOperationalTable({
     <div className={styles.jobsPageShell}>
       <div className={styles.jobsPageHeader}>
         <div className={styles.jobsPageHeaderText}>
-          <h1 className={styles.jobsPageTitle}>Jobs</h1>
+          <h1 className={styles.jobsPageTitle}>{company807 ? 'Bookings' : 'Jobs'}</h1>
           <p className={styles.jobsPageSubtitle}>Assign, track and complete operational work.</p>
         </div>
         <div className={styles.jobsPageHeaderActions}>
@@ -289,7 +292,7 @@ export function JobsOperationalTable({
       </div>
 
       <div className={styles.jobsTableSection} data-testid="jobs-desktop-table">
-      {!isMobileViewport && (
+      {(!isMobileViewport && !company807) && (
       <div className={styles.operationalTableContainer}>
         <div className={styles.operationalTableScroll}>
           <table className={`${styles.operationalTable} ${styles.operationalTableMinWidth} ${styles.jobsOperationalTable}`}>
@@ -413,8 +416,8 @@ export function JobsOperationalTable({
       )}
       </div>
 
-      <div className={styles.jobsMobileCardList} data-testid="jobs-mobile-cards" aria-label="Jobs list">
-        {isMobileViewport ? (
+      <div className={company807 ? "company-807-booking-list" : styles.jobsMobileCardList} data-testid="jobs-mobile-cards" aria-label="Jobs list">
+        {(isMobileViewport || company807) ? (
           filteredJobs.length === 0 ? (
             <div className={styles.jobsEmptyMobileState}>No jobs match the current filters.</div>
           ) : (
@@ -423,14 +426,14 @@ export function JobsOperationalTable({
               const isExpanded = expandedRows.has(job.id);
               const transitions = allowedStatusTransitions(job.status);
               return (
-                <div key={job.id} className={styles.jobsMobileCard} data-testid="jobs-mobile-card">
+                <Company807BookingCard key={job.id} enabled={company807} statusLabel={statusLabel(job.status)} job={job} driver={resolveDriverName(job.assignedDriverId)} legacyClass={styles.jobsMobileCard}>
                   <div className={styles.jobsMobileCardHeader}>
-                    <span className={styles.jobsMobileCardRef}>{job.jobRef}</span>
-                    <span className={styles.jobsStatusBadge} style={s} aria-label={`Status: ${statusLabel(job.status)}`}>{statusLabel(job.status)}</span>
+                    {!company807 && <span className={styles.jobsMobileCardRef}>{job.jobRef}</span>}
+                    {!company807 && <span className={styles.jobsStatusBadge} style={s} aria-label={`Status: ${statusLabel(job.status)}`}>{statusLabel(job.status)}</span>}
                     <button type="button" className={styles.jobsExpandBtn} onClick={() => toggleRowExpanded(job.id)} aria-label={isExpanded ? `Collapse details for job ${job.jobRef}` : `Expand details for job ${job.jobRef}`} aria-expanded={isExpanded}>{isExpanded ? '▲' : '▼'}</button>
                   </div>
 
-                  <div className={styles.jobsMobileCardBody}>
+                  {!company807 && <div className={styles.jobsMobileCardBody}>
                     <div className={styles.jobsMobileCardRoute}>
                       <div className={styles.jobsMobileCardRouteOrigin}>{job.pickup.location || '—'}{job.pickup.postcode && <span className={styles.jobsMobileRoutePostcode}>{job.pickup.postcode}</span>}</div>
                       <div className={styles.jobsMobileCardRouteDest}><span aria-hidden="true" className={styles.jobsMobileRouteArrow}>↓</span>{job.delivery.location || '—'}{job.delivery.postcode && <span className={styles.jobsMobileRouteMetaPostcode}>{job.delivery.postcode}</span>}</div>
@@ -440,7 +443,7 @@ export function JobsOperationalTable({
                     <div className={styles.jobsMobileCardRow}><span className={styles.jobsMobileCardLabel}>Vehicle</span><span className={styles.jobsCapitalizeText}>{job.vehicleType || '—'}{job.cargo?.type ? ` · ${job.cargo.quantity > 0 ? `${job.cargo.quantity}× ` : ''}${job.cargo.type}` : ''}</span></div>
                     <div className={styles.jobsMobileCardRow}><span className={styles.jobsMobileCardLabel}>Driver</span><span>{resolveDriverName(job.assignedDriverId)}</span></div>
                     <div className={styles.jobsMobileCardRow}><span className={styles.jobsMobileCardLabel}>Customer</span><span>{job.client.name || '—'}</span></div>
-                  </div>
+                  </div>}
 
                   {isExpanded && (
                     <div className={styles.jobsMobileCardDetail}>
@@ -467,12 +470,26 @@ export function JobsOperationalTable({
                     )}
                     {(canManageJob?.(job) ?? true) && isDirectInviteEligible(job) && <button type="button" className={styles.jobsActionBtn} onClick={() => onDirectInvite(job)} aria-label={`Invite carrier for job ${job.jobRef}`}>Invite</button>}
                   </div>
-                </div>
+                </Company807BookingCard>
               );
             })
           )
         ) : null}
       </div>
+      {company807 && <>
+        {totalFiltered > perPage && (
+          <div className={styles.operationalPagination} aria-label="Pagination">
+            <span className={styles.operationalPaginationInfo}>{start}–{end} of {totalFiltered.toLocaleString('en-GB')}</span>
+            <div className={styles.operationalPaginationButtons}>
+              <button type="button" className={styles.operationalPaginationBtn} onClick={() => onPageChange(0)} disabled={page === 0} aria-label="First page">«</button>
+              <button type="button" className={styles.operationalPaginationBtn} onClick={() => onPageChange(Math.max(0, page - 1))} disabled={page === 0} aria-label="Previous page">‹</button>
+              <span className={styles.operationalPaginationCurrent}>{page + 1} / {totalPages}</span>
+              <button type="button" className={styles.operationalPaginationBtn} onClick={() => onPageChange(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} aria-label="Next page">›</button>
+              <button type="button" className={styles.operationalPaginationBtn} onClick={() => onPageChange(totalPages - 1)} disabled={page >= totalPages - 1} aria-label="Last page">»</button>
+            </div>
+          </div>
+        )}
+      </>}
     </div>
   );
 }

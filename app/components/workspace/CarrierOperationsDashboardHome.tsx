@@ -132,7 +132,7 @@ export default function CarrierOperationsDashboardHome() {
   const {user} = useAuth();
   const dashboardRole = user?.workspaceRole ?? resolveWorkspaceRole(user);
   const companyAdminEnhancements = dashboardRole === 'company_admin';
-  const masterPresentation = ['company_admin','company_owner','carrier_admin','fleet_manager'].includes(dashboardRole);
+  const masterPresentation = ['company_owner','carrier_admin','fleet_manager'].includes(dashboardRole);
   const [companyReportRange,setCompanyReportRange] = useState(companyAdminEnhancements?'today':'month');
   const payablesHref = companyAdminEnhancements ? '/admin/finance/carrier-invoices' : '/admin/invoices';
 
@@ -495,32 +495,7 @@ export default function CarrierOperationsDashboardHome() {
     }
   };
 
-  return (
-    <div className="xdrive-admin-dashboard-home">
-      {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
-      {jobsUnavailable ? (
-        <AlertBanner tone="warning">
-          Job data unavailable. Carrier activity and allocation metrics are hidden until the jobs dataset is available.
-        </AlertBanner>
-      ) : jobsPartial ? (
-        <AlertBanner tone="warning">
-          Job data is partial. Carrier activity and allocation metrics may be incomplete.
-        </AlertBanner>
-      ) : null}
-      {invoicesUnavailable ? (
-        <AlertBanner tone="warning">
-          Financial data unavailable. Accounts Payable and commercial totals are hidden until invoice data is available.
-        </AlertBanner>
-      ) : invoicesPartial ? (
-        <AlertBanner tone="warning">
-          Financial data is partial. Accounts Payable and commercial totals remain partial until complete invoice data is available.
-        </AlertBanner>
-      ) : null}
-
-      {companyAdminEnhancements&&<CompanyAdminOperationalOverview data={data}/>}
-      <div data-master-dashboard={masterPresentation?'5301':undefined} className={'carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid'+(masterPresentation?' '+master5301.masterGrid:'')}>
-        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column'+(masterPresentation?' '+master5301.masterColumn:'')}>
-          <OperationalCard
+  const reportingPanel = (<OperationalCard
             title="Reports & Statistics"
             className={companyAdminEnhancements ? "carrier-cx-reporting-card company-admin-reporting-card" : "carrier-cx-reporting-card"}
             actions={companyAdminEnhancements?<select className={master5301.periodSelect} aria-label="Select report date range" value={companyReportRange} onChange={e=>selectReportRange(e.target.value)}><option value="today">Today</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="all">All time</option><option value="custom">Select Dates</option><option value="month">This month</option><option value="90">Last 90 days</option></select>:undefined}
@@ -594,10 +569,8 @@ export default function CarrierOperationsDashboardHome() {
               </button>
               </div>
             </div>
-          </OperationalCard>
-
-          <div className="carrier-cx-dashboard-subgrid xdrive-owner-dashboard-subgrid">
-            <OperationalCard title="Accounts Payable" flush>
+          </OperationalCard>);
+  const payablesPanel = (<OperationalCard title="Accounts Payable" flush>
               <CommercialRow
                 label="Latest Invoices Received"
                 detail="Supplier invoices visible to this company"
@@ -623,9 +596,8 @@ export default function CarrierOperationsDashboardHome() {
                   money(cxDashboard.monthlyPayableTotal))}
                 onClick={() => router.push(payablesHref)}
               />
-            </OperationalCard>
-
-            <OperationalCard title="Reports" flush>
+            </OperationalCard>);
+  const reportsPanel = (<OperationalCard title="Reports" flush>
               <CommercialRow
                 label="Bookings Received"
                 detail="Carrier-awarded bookings in this workspace"
@@ -649,10 +621,8 @@ export default function CarrierOperationsDashboardHome() {
                 detail="Open the published and available return capacity register"
                 onClick={() => router.push('/admin/fleet/returns')}
               />
-            </OperationalCard>
-          </div>
-
-          <OperationalCard
+            </OperationalCard>);
+  const feedbackPanel = (<OperationalCard
             title="Feedback in Last 90 Days"
             className="carrier-cx-feedback-card"
             flush
@@ -712,11 +682,8 @@ export default function CarrierOperationsDashboardHome() {
                 </small>
               </section>
             </div>
-          </OperationalCard>
-        </div>
-
-        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column'+(masterPresentation?' '+master5301.masterColumn:'')}>
-          <OperationalCard
+          </OperationalCard>);
+  const activityPanel = (<OperationalCard
             title="Activity at a glance"
             className="carrier-cx-activity-card"
             flush
@@ -857,9 +824,8 @@ export default function CarrierOperationsDashboardHome() {
                 />
               ) : null}
             </div>
-          </OperationalCard>
-
-          <OperationalCard
+          </OperationalCard>);
+  const compliancePanel = (<OperationalCard
             title="Compliance - Manage Your Suppliers"
             className="carrier-cx-compliance-card"
             actions={(
@@ -899,9 +865,50 @@ export default function CarrierOperationsDashboardHome() {
                 {watchlistError ? <small>{watchlistError}</small> : null}
               </div>
             </div>
-          </OperationalCard>
+          </OperationalCard>);
+  return (
+    <div className="xdrive-admin-dashboard-home">
+      {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
+      {jobsUnavailable ? (
+        <AlertBanner tone="warning">
+          Job data unavailable. Carrier activity and allocation metrics are hidden until the jobs dataset is available.
+        </AlertBanner>
+      ) : jobsPartial ? (
+        <AlertBanner tone="warning">
+          Job data is partial. Carrier activity and allocation metrics may be incomplete.
+        </AlertBanner>
+      ) : null}
+      {invoicesUnavailable ? (
+        <AlertBanner tone="warning">
+          Financial data unavailable. Accounts Payable and commercial totals are hidden until invoice data is available.
+        </AlertBanner>
+      ) : invoicesPartial ? (
+        <AlertBanner tone="warning">
+          Financial data is partial. Accounts Payable and commercial totals remain partial until complete invoice data is available.
+        </AlertBanner>
+      ) : null}
+
+      {companyAdminEnhancements ? <CompanyAdminOperationalOverview data={data} reporting={reportingPanel} payables={payablesPanel} reports={reportsPanel} feedback={feedbackPanel} activity={activityPanel} compliance={compliancePanel}/> : (
+      <div data-master-dashboard={masterPresentation?'5301':undefined} className={'carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid'+(masterPresentation?' '+master5301.masterGrid:'')}>
+        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column'+(masterPresentation?' '+master5301.masterColumn:'')}>
+          {reportingPanel}
+
+          <div className="carrier-cx-dashboard-subgrid xdrive-owner-dashboard-subgrid">
+            {payablesPanel}
+
+            {reportsPanel}
+          </div>
+
+          {feedbackPanel}
+        </div>
+
+        <div className={'carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column'+(masterPresentation?' '+master5301.masterColumn:'')}>
+          {activityPanel}
+
+          {compliancePanel}
         </div>
       </div>
+      )}
 
     </div>
   );

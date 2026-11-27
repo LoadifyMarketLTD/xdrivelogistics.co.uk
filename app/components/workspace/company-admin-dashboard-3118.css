@@ -31,3 +31,9 @@
 @media(max-width:1350px){.company-admin-3118-surface .xd-dashboard-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.company-admin-3118-surface .xd-dash-job{grid-template-columns:100px minmax(0,1fr) 105px}.company-admin-3118-surface .xd-dash-detail{grid-column:3}.company-admin-3118-surface .xd-dashboard-secondary{grid-template-columns:1fr 1fr}.company-admin-3118-surface .xd-performance{grid-row:auto}.company-admin-3118-surface .xd-overview{grid-column:span 2}}
 @media(max-width:900px){.company-admin-3118-surface .xd-dashboard-primary{grid-template-columns:1fr}.company-admin-3118-surface .xd-dashboard-secondary{grid-template-columns:1fr 1fr}}
 @media(max-width:650px){.company-admin-3118-surface .xd-dashboard-kpis,.company-admin-3118-surface .xd-dashboard-secondary{grid-template-columns:1fr 1fr}.company-admin-3118-surface .xd-dashboard-primary{grid-template-columns:1fr}.company-admin-3118-surface .xd-dash-job{grid-template-columns:78px 1fr;gap:8px}.company-admin-3118-surface .xd-dash-assignee,.company-admin-3118-surface .xd-dash-detail{grid-column:2}.company-admin-3118-surface .xd-overview{grid-column:span 2}.company-admin-3118-surface .xd-performance{grid-column:span 2}.company-admin-3118-surface .xd-kpi-content b{font-size:24px}}
+
+/* Company Admin 807: commercial controls remain visible, without a second dashboard. */
+.company-admin-3118-surface .xd-dashboard-commercial{display:grid;grid-template-columns:minmax(0,1.2fr) repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.company-admin-3118-surface .xd-dash-panel-head a{color:#0d60d6;font-size:12px;font-weight:750;text-decoration:none;white-space:nowrap}
+.company-admin-3118-surface .xd-dash-panel .operational-card{border:0;box-shadow:none;border-radius:0}
+@media(max-width:900px){.company-admin-3118-surface .xd-dashboard-commercial{grid-template-columns:1fr}}

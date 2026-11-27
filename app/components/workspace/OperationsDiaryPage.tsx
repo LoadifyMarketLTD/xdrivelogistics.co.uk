@@ -17,6 +17,7 @@ import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOp
 import { useVisibleRefresh } from './useVisibleRefresh';
 import { isCompanyDiaryJobChangeRelevant } from '../../../lib/diary/companyDiaryRealtime';
 import CxDiaryCard from './CxDiaryCard';
+import { Company807DiaryCard } from './Company807CommercialCards';
 import { operationalLocationLabel } from './locationPresentation';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
 import {
@@ -216,6 +217,7 @@ function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 
 export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { companyId: string; jobs: JobRow[]; drivers?: DriverRow[]; reviewsByJob?: Record<string, ReviewRow[]> } } = {}) {
   const { user } = useAuth();
   const companyAdmin = (user?.workspaceRole ?? resolveWorkspaceRole(user)) === 'company_admin';
+  const DiaryPresentation = companyAdmin ? Company807DiaryCard : CxDiaryCard;
   const searchParams = useSearchParams();
   const router = useRouter();
   const companyId = fixtureData?.companyId ?? resolveActiveCompanyId(user);
@@ -935,7 +937,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                 const assignedGroups = assignedGroupIds.map((groupId) => groupById.get(groupId)).filter((group): group is DiaryGroupRow => Boolean(group));
                 const availableGroups = groups.filter((group) => !assignedGroupIds.includes(group.id));
                 return (
-                  <CxDiaryCard
+                  <DiaryPresentation
                     key={job.id}
                     from={operationalLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection not supplied')}
                     to={operationalLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery not supplied')}
@@ -1000,7 +1002,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                         <span style={{ padding: '8px 10px' }}><strong>{stage === 'completed' ? 'Delivered On' : 'Delivery ETA'}</strong><br />{when(job.delivery_datetime)}<br />{job.pod_generated ? 'POD generated' : 'POD pending'}</span>
                       </div>
                     ) : <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'agreement'} />)}
-                  </CxDiaryCard>
+                  </DiaryPresentation>
                 );
               })}
             </div>
