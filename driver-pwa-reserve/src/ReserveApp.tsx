@@ -439,7 +439,7 @@ export default function ReserveApp() {
       .catch(()=>{});
     return ()=>{active=false;};
   },[id,view,job?.status,session?.token]);
-  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');if(t==='Bookings')setBookingSection('Received');}
+  function navigate(t:Tab){setTab(t);setView('list');setId(null);setWithdrawId(null);setError('');}
   function openMap(j:LiveJob,back:View='list'){setId(j.id);setMapReturnView(back);setView('map');setError('');}
   function card(j:LiveJob, mode:'list'|'details'='list'){
     const offered=Boolean(j.acceptanceRequired&&j.offerId);
