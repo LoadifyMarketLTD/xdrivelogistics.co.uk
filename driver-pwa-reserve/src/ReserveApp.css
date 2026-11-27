@@ -360,11 +360,8 @@ html,body,#root{overscroll-behavior-y:none}
 .rv-card-back{border:1px solid #b4c8d8;background:#eaf2f8;color:#1b3d59;border-radius:8px;font-size:12px;font-weight:800;min-height:32px;padding:4px 8px;white-space:nowrap}
 .rv-card-back:focus-visible{outline:2px solid #f47721}
 
-/* Awarded booking alert: red pulse until the actual incoming job is opened. */
-.rv-nav button.rv-booking-unread{background:#c42c34;color:#fff;border-radius:9px;animation:rv-booking-alert 1.1s ease-in-out infinite}
-.rv-nav button.rv-booking-unread.rv-active{color:#fff}
-@keyframes rv-booking-alert{0%,100%{background:#c42c34;box-shadow:0 0 0 0 #d92e3866}50%{background:#e24b48;box-shadow:0 0 0 4px #d92e3820}}
-@media(prefers-reduced-motion:reduce){.rv-nav button.rv-booking-unread{animation:none;background:#c42c34}}
+/* Awarded booking alert: discreet indicator until the incoming job is opened. */
+.rv-nav button.rv-booking-unread{position:relative}.rv-nav button.rv-booking-unread:before{content:"";position:absolute;top:4px;left:calc(50% + 14px);width:9px;height:9px;border-radius:50%;background:#c42c34;box-shadow:0 0 0 2px #fff;pointer-events:none}
 
 /* Persistent live tracking panel: stays mounted when switching workspace tabs. */
 .rv-gps-panel{position:fixed;z-index:15;top:72px;bottom:76px;left:50%;transform:translateX(-50%);width:min(100%,720px);overflow-y:auto;margin:0;padding:18px;background:#f5f7fb;border-radius:0}
