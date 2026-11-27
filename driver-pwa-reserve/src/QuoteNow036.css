@@ -45,3 +45,21 @@
 .xd036-submit{background:#0e3fa9;color:#fff;border:0;border-radius:11px;min-height:48px;font-size:14px;font-weight:900;cursor:pointer;padding:11px 14px;width:100%}
 .xd036-submit:disabled{background:#b8c6df;cursor:not-allowed}
 @media(max-width:390px){.xd036-quote{padding:12px 10px 110px}.xd036-card{padding:14px 12px}.xd036-money-row .xd036-field>span{font-size:11px}.xd036-page-title h1{font-size:22px}}
+
+/* Compact quotation layout, scoped to the individual form. */
+.xd036-quote{padding:0 0 80px;gap:6px}
+.xd036-top{min-height:32px;padding:0 8px;gap:8px}
+.xd036-top strong{font-size:16px;color:var(--qnavy)}
+.xd036-back{min-height:40px;padding:6px 10px}
+.xd036-card{border-radius:6px;padding:10px 12px}
+.xd036-summary h2{margin:0 0 3px}
+.xd036-reference{margin:0 0 6px;color:#51647d;font-size:12px}
+.xd036-tags{gap:6px}
+.xd036-tags span{padding:3px 6px;border-radius:4px}
+.xd036-route{margin:7px 0 3px}
+.xd036-distance{padding-top:6px;margin-top:5px}
+.xd036-field{gap:5px;margin-bottom:12px}
+.xd036-money-row{display:block}
+.xd036-money-row .xd036-field>span{min-height:0}
+.xd036-money-row .xd036-field{margin-bottom:12px}
+.xd036-submit{background:#F5A300;color:#0A234F;border-radius:6px}

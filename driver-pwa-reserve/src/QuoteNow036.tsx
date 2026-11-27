@@ -67,16 +67,12 @@ export default function QuoteNow036(props: Props) {
 
   return <div className="xd036-quote">
     <div className="xd036-top">
-      <button type="button" className="xd036-back" onClick={props.onBack}>← Load details</button>
-      <span>NEW QUOTATION</span>
-    </div>
-    <div className="xd036-page-title">
-      <h1>Quote Now</h1>
-      <p>{props.reference} · Your commercial offer</p>
+      <strong>Quote Now</strong>
+      <button type="button" className="xd036-back" onClick={props.onBack}>Back</button>
     </div>
     <section className="xd036-card xd036-summary">
-      <span className="xd036-eyebrow">LOAD SUMMARY</span>
       <h2>{props.company}</h2>
+      <p className="xd036-reference">{props.reference}</p>
       <div className="xd036-tags">
         <span className="xd036-hot">{props.service}</span>
         <span className="xd036-required">{props.vehicle} required</span>
