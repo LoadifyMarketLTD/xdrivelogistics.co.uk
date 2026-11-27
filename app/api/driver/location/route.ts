@@ -5,7 +5,6 @@ import { maybeCreateOperationalLocationAlerts, type OperationalAlertJob } from '
 
 type LocationPayload = { job_id?: string; lat?: number; lng?: number; heading?: number | null; speed_mph?: number | null };
 type JobCandidate = OperationalAlertJob & {
-  is_test: boolean | null;
   assigned_driver_id: string | null;
   assigned_company_id: string | null;
   awarded_carrier_company_id: string | null;
@@ -54,7 +53,7 @@ export async function POST(request: NextRequest) {
   if (lat === null || lng === null) return NextResponse.json({ error: 'lat and lng are required.' }, { status: 400 });
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return NextResponse.json({ error: 'Invalid lat/lng values.' }, { status: 400 });
 
-  const jobSelect = 'id, company_id, assigned_driver_id, assigned_company_id, awarded_carrier_company_id, current_status, status, is_test, pickup_lat, pickup_lng, delivery_lat, delivery_lng, pickup_postcode, delivery_postcode, delivery_datetime, proximity_alerts_enabled, pickup_proximity_alert_enabled, delivery_proximity_alert_enabled, pickup_alert_radius_miles, delivery_alert_radius_miles, smart_alert_in_app_enabled, smart_alert_email_enabled, smart_alert_push_enabled';
+  const jobSelect = 'id, company_id, assigned_driver_id, assigned_company_id, awarded_carrier_company_id, current_status, status, pickup_lat, pickup_lng, delivery_lat, delivery_lng, pickup_postcode, delivery_postcode, delivery_datetime, proximity_alerts_enabled, pickup_proximity_alert_enabled, delivery_proximity_alert_enabled, pickup_alert_radius_miles, delivery_alert_radius_miles, smart_alert_in_app_enabled, smart_alert_email_enabled, smart_alert_push_enabled';
   let jobRow: JobCandidate | null = null;
   if (requestedJobId) {
     const { data, error } = await supabaseAdmin.from('jobs').select(jobSelect).eq('id', requestedJobId).maybeSingle();
@@ -71,7 +70,6 @@ export async function POST(request: NextRequest) {
   if (!jobRow || jobRow.assigned_driver_id !== driverRow.id || !ACTIVE_JOB_STATUSES.has(statusOf(jobRow))) {
     return NextResponse.json({ error: 'Location publishing is not authorised for this job state.' }, { status: 403 });
   }
-  if (nativeService && jobRow.is_test !== true) return NextResponse.json({ error: 'Native tracking canary requires a test booking.' }, { status: 403 });
   // Match the authoritative lifecycle RPC tenant boundary. The awarded carrier
   // is canonical when present; assigned_company_id remains the fleet/legacy
   // fallback. Individual-driver jobs with no carrier company remain valid.

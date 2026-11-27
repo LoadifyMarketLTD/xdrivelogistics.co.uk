@@ -37,7 +37,7 @@ beforeEach(() => {
     if (table === 'driver_locations') return { insert };
     const result = table === 'drivers'
       ? { id: 'driver', company_id: 'carrier', app_access: true }
-      : { id: 'job', assigned_driver_id: 'driver', awarded_carrier_company_id: 'carrier', current_status: 'loaded', is_test: true };
+      : { id: 'job', assigned_driver_id: 'driver', awarded_carrier_company_id: 'carrier', current_status: 'loaded', is_test: false };
     const lookup = { select: () => lookup, eq: () => lookup, maybeSingle: async () => ({ data: result, error: null }) };
     return lookup;
   });
@@ -58,7 +58,7 @@ describe('Android foreground service location writes', () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
-  it('stores native points with the existing driver_app source', async () => {
+  it('stores native points for an eligible commercial booking', async () => {
     expect((await POST(request(installed))).status).toBe(200);
     expect(checkDevice).toHaveBeenCalledWith(expect.anything(), 'user', 'driver');
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ source: 'driver_app', source_provider: null }));
