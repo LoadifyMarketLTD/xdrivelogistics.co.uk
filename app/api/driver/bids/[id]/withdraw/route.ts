@@ -17,6 +17,9 @@ export async function POST(
 
   const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (driver.driverType !== 'owner_driver' || !driver.canCommercialBid) {
+    return json(403, { error: 'Only an authorised Owner Driver may withdraw a personal commercial quotation.' });
+  }
 
   const { id } = await context.params;
   const bidId = id?.trim();
@@ -24,7 +27,7 @@ export async function POST(
 
   const { data: bid, error: bidError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, bidder_user_id, bidder_driver_id, status')
+    .select('id, job_id, company_id, bidder_user_id, bidder_driver_id, status')
     .eq('id', bidId)
     .eq('bidder_user_id', driver.userId)
     .maybeSingle();
@@ -53,7 +56,7 @@ export async function POST(
     .maybeSingle();
   if (jobError) return json(500, { error: 'The related job could not be verified.' });
   if (!job) return json(409, { error: 'The related job no longer exists.' });
-  if (job.awarded_carrier_company_id || job.assigned_company_id || job.assigned_driver_id) {
+  if ((bid.company_id && (job.awarded_carrier_company_id === bid.company_id || job.assigned_company_id === bid.company_id)) || job.assigned_driver_id === driver.driverId) {
     return json(409, { error: 'This job has already been awarded or allocated, so the quote can no longer be withdrawn.' });
   }
 
@@ -66,6 +69,7 @@ export async function POST(
     .select('id, status')
     .maybeSingle();
 
+  if (updateError?.code === '23514') return json(409, { code: 'BOOKING_OFFER_OR_AGREEMENT_EXISTS', error: 'This quote has already entered the booking process. Review the booking before making changes.' });
   if (updateError) return json(500, { error: 'The quote could not be withdrawn.' });
   if (!updated) return json(409, { error: 'The quote changed before it could be withdrawn. Refresh and try again.' });
 

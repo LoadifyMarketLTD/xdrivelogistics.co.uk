@@ -51,9 +51,16 @@ describe('buyer award and carrier commercial acceptance',()=>{
   });
 
   it('provides explicit Accept Booking and Decline actions to the carrier',()=>{
-    expect(carrierRespond).toContain("z.enum(['accept', 'decline'])");
+    expect(carrierRespond).toContain("z.discriminatedUnion('action'");
+    expect(carrierRespond).toContain('reasonCode: reasonCodeSchema');
+    expect(carrierRespond).toContain('bookingDeclineReasonText');
+    expect(inbox).toContain('Decline Booking Offer');
+    expect(inbox).toContain('BOOKING_DECLINE_REASONS');
     expect(carrierRespond).toContain("'accept_job_booking_offer_atomic'");
     expect(carrierRespond).toContain("'decline_job_booking_offer_atomic'");
+    expect(inbox).toContain('commercial_agreement_id');
+    expect(inbox).toContain("body.status==='declined'");
+    expect(inbox).toContain('Boolean(body.commercial_agreement_id)');
     expect(inbox).toContain('Accept Booking');
     expect(inbox).toContain('A buyer award is not a confirmed transport booking until you accept');
   });

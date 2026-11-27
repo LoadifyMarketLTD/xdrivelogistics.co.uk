@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { isWebDriverContext, requireActiveWebDriver } from '../../../../_lib/webDriverContext';
+import { isVerifiedOfficialPodComplete } from '../../../../../../../lib/server/verifiedPodCompletion';
 
 const respond = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store' } });
@@ -17,7 +18,7 @@ async function authorisedDriverJob(request: NextRequest, jobId: string) {
   const driver = await requireActiveWebDriver(request);
   if (!isWebDriverContext(driver)) return { response: driver };
   const { data, error } = await supabaseAdmin.from('jobs')
-    .select('id,assigned_driver_id,pod_generated')
+    .select('id,assigned_driver_id,pod_generated,pod_generated_at,current_status,status,delivery_photos,delivery_signature_data,client_signature_name')
     .eq('id', jobId)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -30,21 +31,42 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params;
   const access = await authorisedDriverJob(request, id);
   if ('response' in access) return access.response;
-  if (access.job.pod_generated) return respond(200, { draft: null, completed: true });
+  let completed: boolean;
+  try {
+    completed = await isVerifiedOfficialPodComplete(supabaseAdmin!, id, access.job);
+  } catch {
+    return respond(503, { error: 'Official POD completion could not be verified.' });
+  }
+  if (completed) return respond(200, { draft: null, completed: true });
   const { data, error } = await supabaseAdmin!.from('driver_pod_drafts')
     .select('form_data,updated_at')
     .eq('job_id', id)
     .eq('driver_id', access.driver.driverId)
     .maybeSingle();
   if (error) return respond(503, { error: 'POD draft could not be loaded. Check database migration.' });
-  return respond(200, { draft: data?.form_data ?? null, updatedAt: data?.updated_at ?? null });
+  return respond(200, {
+    draft: data?.form_data ?? null,
+    updatedAt: data?.updated_at ?? null,
+    completed: false,
+    needsRepair: access.job.pod_generated === true,
+  });
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const access = await authorisedDriverJob(request, id);
   if ('response' in access) return access.response;
-  if (access.job.pod_generated) return respond(409, { error: 'This POD has already been finalised.' });
+  if (access.job.pod_generated) {
+    const status = String(access.job.current_status ?? access.job.status ?? '').toLowerCase();
+    if (status !== 'delivered') return respond(409, { error: 'A completed or invoiced POD cannot be changed.' });
+    try {
+      if (await isVerifiedOfficialPodComplete(supabaseAdmin!, id, access.job)) {
+        return respond(409, { error: 'This POD has already been finalised.' });
+      }
+    } catch {
+      return respond(503, { error: 'Official POD completion could not be verified.' });
+    }
+  }
   const raw = await request.text();
   if (raw.length > MAX_DRAFT_BYTES) return respond(413, { error: 'POD draft exceeds the maximum size.' });
   let source: Record<string, unknown>;

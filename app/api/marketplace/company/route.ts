@@ -761,7 +761,7 @@ export async function POST(request: NextRequest) {
   if (input.action === 'withdraw_bid') {
     const { data: bid, error: bidError } = await supabaseAdmin
       .from('job_bids')
-      .select('id, company_id, status')
+      .select('id, job_id, company_id, status')
       .eq('id', input.bidId)
       .eq('company_id', input.companyId)
       .maybeSingle();
@@ -774,14 +774,39 @@ export async function POST(request: NextRequest) {
       });
     }
     if (!bid) return respond(404, { error: 'Quote not found.' });
-    if (bid.status !== 'submitted') return respond(409, { error: 'Only a submitted quote can be withdrawn.' });
+    if (bid.status === 'withdrawn') return respond(200, { ok: true, status: 'withdrawn', idempotent: true });
+    if (bid.status !== 'submitted') return respond(409, { error: 'Only active, unawarded quotes can be withdrawn.' });
 
-    const { error: updateError } = await supabaseAdmin
+    // A booking offer is a separate, explicitly declineable commercial decision.
+    const { data: pending, error: pendingError } = await supabaseAdmin
+      .from('job_booking_offers')
+      .select('id')
+      .eq('bid_id', input.bidId)
+      .eq('status', 'pending')
+      .limit(1);
+    if (pendingError) return respond(503, { error: 'Pending booking offers could not be verified.' });
+    if (pending?.length) return respond(409, { code: 'PENDING_BOOKING_OFFER', error: 'Decline the booking offer in Bookings instead of withdrawing this quotation.' });
+
+    const { data: job, error: jobError } = await supabaseAdmin
+      .from('jobs')
+      .select('id, awarded_carrier_company_id, assigned_company_id, assigned_driver_id')
+      .eq('id', bid.job_id)
+      .maybeSingle();
+    if (jobError) return respond(503, { error: 'The related job could not be verified.' });
+    if (!job) return respond(409, { error: 'The related job is no longer available.' });
+    if (job.awarded_carrier_company_id === input.companyId || job.assigned_company_id === input.companyId) {
+      return respond(409, { error: 'The job is already awarded or allocated. A confirmed booking requires the appropriate cancellation process.' });
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
       .from('job_bids')
       .update({ status: 'withdrawn' })
       .eq('id', input.bidId)
       .eq('company_id', input.companyId)
-      .eq('status', 'submitted');
+      .eq('status', 'submitted')
+      .select('id, status')
+      .maybeSingle();
+    if (updateError?.code === '23514') return respond(409, { code: 'BOOKING_OFFER_OR_AGREEMENT_EXISTS', error: 'This quote has already entered the booking process. Review the booking before making changes.' });
     if (updateError) {
       return operationalError({
         message: 'We could not withdraw this quote. Please retry.',
@@ -790,6 +815,7 @@ export async function POST(request: NextRequest) {
         retryable: true,
       });
     }
+    if (!updated) return respond(409, { error: 'The quotation changed before withdrawal. Refresh and try again.' });
     return respond(200, { ok: true, status: 'withdrawn' });
   }
 

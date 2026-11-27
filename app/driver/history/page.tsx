@@ -1,5 +1,7 @@
 'use client';
 
+import { findDriverHistoryReferences } from '../../../lib/jobs/driverHistoryReferencePages';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -32,6 +34,7 @@ type DetailTab = 'pod' | 'order' | 'notes' | 'history' | 'documents' | 'invoice'
 type StatusHistoryEntry = { status?: string | null; timestamp?: string | null; at?: string | null };
 
 type HistoryJob = {
+  your_ref?: string | null;
   id: string;
   company_id: string;
   assigned_company_id?: string | null;
@@ -312,6 +315,8 @@ export default function JobHistoryPage() {
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshInFlightRef = useRef(false);
+  const searchVersionRef = useRef(0);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [error, setError] = useState('');
   const [detailWarning, setDetailWarning] = useState('');
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>('all');
@@ -360,8 +365,10 @@ export default function JobHistoryPage() {
   const fetchHistory = useCallback(async () => {
     if (!isSupabaseConfigured || authLoading || refreshInFlightRef.current) return;
     refreshInFlightRef.current = true;
+    const currentSearchVersion = searchVersionRef.current;
     const finishLoad = () => {
       refreshInFlightRef.current = false;
+      if (currentSearchVersion !== searchVersionRef.current) { setRefreshVersion(v => v + 1); return; }
       hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
@@ -409,7 +416,7 @@ export default function JobHistoryPage() {
     } else {
       const { data, error: fetchError } = await supabase
         .from('jobs')
-        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
+        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, your_ref, companies:companies!jobs_company_id_fkey(name)')
         .eq('assigned_driver_id', driverId)
         .order('updated_at', { ascending: false })
         .limit(250);
@@ -422,7 +429,26 @@ export default function JobHistoryPage() {
       }
 
       const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
-      resolvedJobs = normalized;
+      const reference = appliedSearch.loadRef.trim();
+      if (reference.length >= 2) {
+        try {
+          const matchingRows = await findDriverHistoryReferences(driverId, reference, async (authorizedDriverId, offset, count) => {
+            const result = await supabase.from('jobs')
+              .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, your_ref, companies:companies!jobs_company_id_fkey(name)')
+              .eq('assigned_driver_id', authorizedDriverId)
+              .order('updated_at', { ascending: false })
+              .order('id', { ascending: false })
+              .range(offset, offset + count - 1);
+            return {data: result.data as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }> | null, error: result.error};
+          });
+          const known = new Set(normalized.map(job => job.id));
+          for (const row of matchingRows) {
+            if (!known.has(row.id)) { normalized.push({ ...row, companies: normalizeCompany(row.companies) }); known.add(row.id); }
+          }
+        } catch {
+          setDetailWarning('Historical reference lookup is temporarily unavailable.');
+        }
+      }      resolvedJobs = normalized;
       if (token) {
         try {
           const memberResponse = await fetch('/api/driver/diary/company-names', {
@@ -444,6 +470,7 @@ export default function JobHistoryPage() {
       }
     }
 
+    if (currentSearchVersion !== searchVersionRef.current) { finishLoad(); return; }
     setJobs(resolvedJobs);
     const jobIds = resolvedJobs.map((job) => job.id);
     if (!jobIds.length) {
@@ -457,13 +484,14 @@ export default function JobHistoryPage() {
       supabase.from('job_documents').select('id, job_id, file_name, file_type, file_url, uploaded_at').in('job_id', jobIds).order('uploaded_at', { ascending: false }),
       supabase.from('job_tracking_events').select('id, job_id, event_type, event_time, user_name, notes, message').in('job_id', jobIds).order('event_time', { ascending: false }),
     ]);
+    if (currentSearchVersion !== searchVersionRef.current) { finishLoad(); return; }
     const warnings: string[] = [];
     if (reviewsRes.error) warnings.push('feedback'); else setReviewsByJob(groupByJobId((reviewsRes.data ?? []) as ReviewRow[]));
     if (documentsRes.error) warnings.push('documents'); else setDocumentsByJob(groupByJobId((documentsRes.data ?? []) as DocumentRow[]));
     if (eventsRes.error) warnings.push('history'); else setEventsByJob(groupByJobId((eventsRes.data ?? []) as TrackingEventRow[]));
     if (warnings.length) setDetailWarning((current) => current || `Some Diary detail data is temporarily unavailable: ${warnings.join(', ')}.`);
     finishLoad();
-  }, [authLoading, canViewCompanyDiary, diaryScope, driverId]);
+  }, [authLoading, canViewCompanyDiary, diaryScope, driverId, appliedSearch.loadRef]);
 
   const createInvoiceForJob = async (job: HistoryJob) => {
     if (!canGenerateInvoices) {
@@ -540,7 +568,7 @@ export default function JobHistoryPage() {
     }
   }, [fetchHistory]);
 
-  useEffect(() => { void fetchHistory(); }, [fetchHistory]);
+  useEffect(() => { searchVersionRef.current += 1; void fetchHistory(); }, [fetchHistory, refreshVersion]);
   useVisibleRefresh(fetchHistory, { intervalMs: 30_000, minGapMs: 2_500 });
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
@@ -556,7 +584,7 @@ export default function JobHistoryPage() {
     if (appliedSearch.archive === 'active' && isClosedRecord(job)) return false;
     if (appliedSearch.archive === 'closed' && !isClosedRecord(job)) return false;
     const refNeedle = appliedSearch.loadRef.trim().toLowerCase(); const memberNeedle = appliedSearch.memberName.trim().toLowerCase();
-    if (refNeedle && ![job.id, job.customer_reference, job.booking_reference].filter(Boolean).join(' ').toLowerCase().includes(refNeedle)) return false;
+    if (refNeedle && ![job.id, job.customer_reference, job.booking_reference, job.your_ref].filter(Boolean).join(' ').toLowerCase().includes(refNeedle)) return false;
     if (memberNeedle && !(job.companies?.name ?? '').toLowerCase().includes(memberNeedle)) return false;
     return true;
   }), [appliedSearch, jobs, pickupAreaFilter, deliveryAreaFilter, vehicleTypeFilter]);

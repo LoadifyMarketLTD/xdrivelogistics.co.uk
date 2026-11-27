@@ -26,8 +26,10 @@ describe('full-audit runtime repairs', () => {
     expect(migration).toContain('record_driver_pod_atomic');
     expect(migration).toContain('UPDATE public.jobs');
     expect(migration).toContain('public.proof_of_delivery');
-    expect(mobile).toContain("rpc('record_driver_pod_atomic'");
-    expect(web).toContain("rpc('record_driver_pod_atomic'");
+    expect(mobile).toContain("'record_driver_pod_atomic'");
+    expect(web).toContain("'record_driver_pod_atomic'");
+    expect(mobile).toContain("'repair_incomplete_driver_pod_atomic'");
+    expect(web).toContain("'repair_incomplete_driver_pod_atomic'");
     expect(mobile).not.toContain(".from('proof_of_delivery').insert");
     expect(web).not.toContain(".from('proof_of_delivery').insert");
   });

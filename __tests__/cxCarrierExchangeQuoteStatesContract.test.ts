@@ -10,12 +10,12 @@ describe('CX carrier Exchange Quote state parity', () => {
     expect(source).toContain("type QuoteStateView = 'received' | 'archived' | 'submitted' | 'unsuccessful'");
     for (const label of ['Received', 'Archived', 'Submitted', 'Unsuccessful']) expect(source).toContain(`'${label}'`);
     expect(source).not.toContain("'Accepted / Won'");
-    expect(source).toContain("['archived', 'accepted'].includes(stage)");
-    expect(source).toContain("['unsuccessful', 'withdrawn', 'expired'].includes(stage)");
+    expect(source).toContain("['archived', 'accepted', 'withdrawn'].includes(stage)");
+    expect(source).toContain("['unsuccessful', 'expired'].includes(stage)");
   });
 
   it('derives Archive from canonical stage metadata without inventing a database status', () => {
-    expect(source).toContain("['archived', 'accepted'].includes(stage)");
+    expect(source).toContain("['archived', 'accepted', 'withdrawn'].includes(stage)");
     expect(source).toContain("'archive_bidder'");
     expect(canonical).toContain("quote.bidder_archived_at");
     expect(source).not.toContain("bid.status === 'archived'");
