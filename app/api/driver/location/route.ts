@@ -3,7 +3,7 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../
 import { rejectRevokedNativeAuthSession } from '../mobile/_deviceSessionGate';
 import { maybeCreateOperationalLocationAlerts, type OperationalAlertJob } from '../../../../lib/tracking/operationalAlerts';
 
-type LocationPayload = { job_id?: string; lat?: number; lng?: number; heading?: number | null; speed_mph?: number | null };
+type LocationPayload = { job_id?: string; lat?: number; lng?: number; heading?: number | null; speed_mph?: number | null; location_id?: string; captured_at_ms?: number };
 type JobCandidate = OperationalAlertJob & {
   assigned_driver_id: string | null;
   assigned_company_id: string | null;
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   if (nativeService && !requestedJobId) return NextResponse.json({ error: 'Native tracking requires a booking ID.' }, { status: 400 });
   const lat = typeof body.lat === 'number' ? body.lat : null;
   const lng = typeof body.lng === 'number' ? body.lng : null;
-  if (lat === null || lng === null) return NextResponse.json({ error: 'lat and lng are required.' }, { status: 400 });
+  if (lat === null || lng === null || !Number.isFinite(lat) || !Number.isFinite(lng)) return NextResponse.json({ error: 'lat and lng are required.' }, { status: 400 });
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return NextResponse.json({ error: 'Invalid lat/lng values.' }, { status: 400 });
 
   const jobSelect = 'id, company_id, assigned_driver_id, assigned_company_id, awarded_carrier_company_id, current_status, status, pickup_lat, pickup_lng, delivery_lat, delivery_lng, pickup_postcode, delivery_postcode, delivery_datetime, proximity_alerts_enabled, pickup_proximity_alert_enabled, delivery_proximity_alert_enabled, pickup_alert_radius_miles, delivery_alert_radius_miles, smart_alert_in_app_enabled, smart_alert_email_enabled, smart_alert_push_enabled';
@@ -78,15 +78,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Driver company does not match the assigned carrier.' }, { status: 403 });
   }
 
+  const replay = nativeService && (body.location_id !== undefined || body.captured_at_ms !== undefined);
+  const pointId = replay && typeof body.location_id === 'string' ? body.location_id : null;
+  const captured = replay && typeof body.captured_at_ms === 'number' ? body.captured_at_ms : null;
+  const now = Date.now();
+  if (replay && (!pointId || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pointId) || captured === null || !Number.isSafeInteger(captured) || captured < now - 86400000 || captured > now + 30000)) {
+    return NextResponse.json({ error: 'Invalid native GPS sample.' }, { status: 400 });
+  }
   const heading = typeof body.heading === 'number' && Number.isFinite(body.heading) ? body.heading : null;
   const speedMph = typeof body.speed_mph === 'number' && Number.isFinite(body.speed_mph) && body.speed_mph >= 0 ? body.speed_mph : null;
   const { error: insertError } = await supabaseAdmin.from('driver_locations').insert({
+    ...(pointId ? { id: pointId } : {}),
     driver_id: driverRow.id, company_id: driverRow.company_id ?? null, job_id: jobRow.id, lat, lng, heading, speed_mph: speedMph,
     source: nativeService ? 'driver_app' : 'driver_web',
     source_provider: nativeService ? null : 'browser_geolocation',
-    recorded_at: new Date().toISOString(),
+    recorded_at: new Date(captured ?? now).toISOString(),
   });
+  if (insertError && pointId && insertError.code === '23505') {
+    const { data: prior, error: readError } = await supabaseAdmin.from('driver_locations').select('id, driver_id, job_id, recorded_at, lat, lng').eq('id', pointId).maybeSingle();
+    if (!readError && prior && prior.driver_id === driverRow.id && prior.job_id === jobRow.id && Date.parse(prior.recorded_at) === captured && Number(prior.lat) === lat && Number(prior.lng) === lng) {
+      return NextResponse.json({ ok: true, job_id: jobRow.id, location_id: pointId });
+    }
+    return NextResponse.json({ error: 'GPS sample identity conflict.' }, { status: 409 });
+  }
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
-  await maybeCreateOperationalLocationAlerts(supabaseAdmin, jobRow, lat, lng, 'driver_web').catch(() => undefined);
-  return NextResponse.json({ ok: true, job_id: jobRow.id });
+  if (!replay || (captured !== null && now - captured < 120000)) await maybeCreateOperationalLocationAlerts(supabaseAdmin, jobRow, lat, lng, 'driver_web').catch(() => undefined);
+  return NextResponse.json({ ok: true, job_id: jobRow.id, ...(pointId ? { location_id: pointId } : {}) });
 }

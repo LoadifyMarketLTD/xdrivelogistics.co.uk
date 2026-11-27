@@ -22,10 +22,10 @@ vi.mock('../lib/tracking/operationalAlerts', () => ({
 
 import { POST } from '../app/api/driver/location/route';
 
-const request = (headers: Record<string, string>) => new NextRequest(
+const request = (headers: Record<string, string>, extra: Record<string, unknown> = {}) => new NextRequest(
   'https://www.xdrivelogistics.co.uk/api/driver/location',
   { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers },
-    body: JSON.stringify({ job_id: 'job', lat: 53.8, lng: -1.5 }) },
+    body: JSON.stringify({ job_id: 'job', lat: 53.8, lng: -1.5, ...extra }) },
 );
 
 beforeEach(() => {
@@ -68,5 +68,28 @@ describe('Android foreground service location writes', () => {
     expect((await POST(request({}))).status).toBe(200);
     expect(checkDevice).not.toHaveBeenCalled();
     expect(insert).toHaveBeenCalledWith(expect.objectContaining({ source: 'driver_web', source_provider: 'browser_geolocation' }));
+  });
+  it('preserves sample identity and capture time', async () => {
+    const id = 'e32e10d8-2459-4a17-9b35-d2cd496d0121';
+    const captured = Date.now() - 180000;
+    expect((await POST(request(installed, { location_id: id, captured_at_ms: captured }))).status).toBe(200);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ id, recorded_at: new Date(captured).toISOString() }));
+  });
+  it('rejects invalid replay identity or future timestamp', async () => {
+    expect((await POST(request(installed, { location_id: 'bad', captured_at_ms: Date.now() }))).status).toBe(400);
+    expect((await POST(request(installed, { location_id: 'e32e10d8-2459-4a17-9b35-d2cd496d0121', captured_at_ms: Date.now()+60000 }))).status).toBe(400);
+    expect(insert).not.toHaveBeenCalled();
+  });
+  it('acknowledges only an identical existing sample', async () => {
+    const id = 'e32e10d8-2459-4a17-9b35-d2cd496d0121';
+    const captured = Date.now() - 180000;
+    insert.mockResolvedValue({ error: { code: '23505' } });
+    const original = from.getMockImplementation()!;
+    const prior = { id, driver_id: 'driver', job_id: 'job', recorded_at: new Date(captured).toISOString(), lat: 53.8, lng: -1.5 };
+    const lookup = { insert, select: () => lookup, eq: () => lookup, maybeSingle: async () => ({ data: prior, error: null }) };
+    from.mockImplementation((table: string) => table === 'driver_locations' ? lookup : original(table));
+    expect((await POST(request(installed, { location_id: id, captured_at_ms: captured }))).status).toBe(200);
+    prior.driver_id = 'other';
+    expect((await POST(request(installed, { location_id: id, captured_at_ms: captured }))).status).toBe(409);
   });
 });
