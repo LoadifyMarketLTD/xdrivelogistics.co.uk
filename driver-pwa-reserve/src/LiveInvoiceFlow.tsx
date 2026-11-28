@@ -235,13 +235,21 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  }
  const banners=<>{error&&<div className="rv-error" role="alert">{error}</div>}{notice&&<div className="rv-warning" role="status">{notice}</div>}{loading&&<p role="status">Checking official Finance records…</p>}</>;
  if(invoice&&!editing)return <section className="rv-finance rv-qa-invoice">
-   <button className="rv-back" onClick={onBack}>Back to Booking Status</button><h1>View Invoice</h1>{banners}
-   <section className="rv-card"><div className="rv-row"><strong>{buyer}</strong><h3>{money(officialGross,currency)}</h3></div><p>Invoice no: {invoice.invoice_number||'Not available'}</p><small>{invoice.status||'Unknown'} · {sent?'Sent':'Not sent'}</small></section>
-   <details className="rv-card"><summary>Load details</summary>{row('Job reference',ref)}{row('Collection',job.from)}{row('Delivery',job.to)}</details>
-   <section className="rv-card"><h3>Invoice details</h3>{row('Invoice number',invoice.invoice_number||'Not available')}{row('Your ref',reference)}{row('Invoice date',invoice.invoice_date||'Not available')}{row('Due date',invoice.due_date||'Not available')}<h3>Items</h3>{row('Delivery charge',money(officialNet,currency))}{row('Net total',money(officialNet,currency))}{row('VAT',money(officialVat,currency))}{row('Gross total',money(officialGross,currency))}{invoice.service_description&&<p>{invoice.service_description}</p>}</section>
-   <button className="rv-outline rv-wide" disabled={!canEdit||busy} onClick={beginEdit}>Edit invoice</button>
-   <button className="rv-outline rv-wide" disabled={busy} onClick={()=>void preview()}>Download</button>
-   <button className="rv-outline rv-wide" disabled={busy} onClick={()=>setEmailOpen(v=>!v)}>Email</button>
+   <div className="rv-invoice-heading"><h1>View Invoice</h1><button className="rv-back" onClick={onBack}>Back to Booking Status</button></div>
+   {banners}
+   <section className="rv-card rv-invoice-summary">
+     <div className="rv-invoice-summary-line"><strong>{buyer}</strong><strong>{money(officialGross,currency)}</strong></div>
+     <p>Invoice no: {invoice.invoice_number||'Not available'}</p>
+     <small>{invoice.status||'Unknown'} · {sent?'Sent':'Not sent'}</small>
+   </section>
+   <details className="rv-card rv-invoice-section"><summary>Load details</summary>{row('Job reference',ref)}{row('Collection',job.from)}{row('Delivery',job.to)}</details>
+   <details className="rv-card rv-invoice-section" open><summary>Invoice details</summary>{row('Invoice number',invoice.invoice_number||'Not available')}{row('Your ref',reference)}{row('Invoice date',invoice.invoice_date||'Not available')}{row('Due date',invoice.due_date||'Not available')}</details>
+   <section className="rv-card"><h3>Items and totals</h3>{row('Delivery charge',money(officialNet,currency))}{row('Net total',money(officialNet,currency))}{row('VAT',money(officialVat,currency))}{row('Gross total',money(officialGross,currency))}{invoice.service_description&&<p>{invoice.service_description}</p>}</section>
+   <div className="rv-invoice-actions">
+     <button className="rv-outline" disabled={!canEdit||busy} onClick={beginEdit}>Edit invoice</button>
+     <button className="rv-outline" disabled={busy} onClick={()=>void preview()}>Download</button>
+     <button className="rv-outline" disabled={busy} aria-expanded={emailOpen} onClick={()=>setEmailOpen(v=>!v)}>Email</button>
+   </div>
    {emailOpen&&<section className="rv-card"><h3>Invoice delivery</h3>{row('Recipient',invoice.client_email||'Not provided')}{row('Email delivery state',invoice.delivery_state||'Not sent')}{row('Delivery message ID',invoice.delivery_message_id||'Not confirmed')}{!sent&&draft&&<><label className="rv-confirm"><input type="checkbox" checked={sendApproved} onChange={e=>setSendApproved(e.target.checked)}/> I reviewed the downloaded Invoice + Complete POD PDF and approve sending it to the stated finance recipient.</label><button className="rv-primary rv-wide" disabled={busy||!pdfReviewed||!sendApproved} onClick={()=>void send()}>Send Invoice via XDrive</button></>}<button className="rv-outline rv-wide" disabled={busy} onClick={()=>void verify()}>Verify Delivery Status</button>{(sent||confirmed)&&<p className="rv-success">XDrive recorded invoice delivery with a message ID.</p>}</section>}
  </section>;
  return <section className="rv-finance rv-qa-invoice">
