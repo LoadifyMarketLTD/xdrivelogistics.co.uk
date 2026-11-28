@@ -164,24 +164,22 @@ export default function DriverLoadAlertsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        subtitle="Choose which marketplace loads should reach you and how XDrive should alert you. Exact live coordinates stay private and are used only for matching."
-        availabilityLabel={preference.enabled ? 'Alerts on' : 'Alerts off'}
-        headerActions={<ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
-      >
-        <DriverIntegratedNav label="Load tools" items={[{ href: '/driver/loads', label: 'Loads' }, { href: '/driver/load-alerts', label: 'Matching & Alerts' }]} />
+      <DriverWorkspaceShell hideHeader>
+        <div className="workspace-list-controls driver-workspace-page-toolbar" style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 6, padding: '4px 8px' }}>
+          <strong style={{ whiteSpace: 'nowrap' }}>Load Alerts</strong>
+          <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+            <DriverIntegratedNav label="Load tools" items={[{ href: '/driver/loads', label: 'Loads' }, { href: '/driver/load-alerts', label: 'Matching & Alerts' }]} />
+          </div>
+          <strong style={{ whiteSpace: 'nowrap' }}>Smart Load Alerts</strong>
+          <StatusBadge value={preference.enabled ? 'Enabled' : 'Disabled'} tone={preference.enabled ? 'green' : 'grey'} />
+          <StatusBadge value={preference.enabled ? 'Alerts on' : 'Alerts off'} />
+          <ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>
+        </div>
         {error && <AlertBanner tone={schemaUnavailable ? 'warning' : 'danger'}>{error}</AlertBanner>}
         {warning && <AlertBanner tone="warning">{warning}</AlertBanner>}
         {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-        <section className="workspace-panel" style={{ marginBottom: 8 }}>
-          <div className="workspace-panel__header" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-            <div>
-              <strong>Smart Load Alerts</strong>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Opt in to relevant marketplace work instead of relying on a general notification bell.</div>
-            </div>
-            <StatusBadge value={preference.enabled ? 'Enabled' : 'Disabled'} tone={preference.enabled ? 'green' : 'grey'} />
-          </div>
+        <section className="workspace-panel" style={{ marginBottom: 6 }}>
           <div className="workspace-panel__body">
             <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <input type="checkbox" checked={preference.enabled} onChange={(event) => patch('enabled', event.target.checked)} disabled={loading || schemaUnavailable} />
@@ -190,7 +188,7 @@ export default function DriverLoadAlertsPage() {
           </div>
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 8, alignItems: 'start' }}>
           <section className="workspace-panel">
             <div className="workspace-panel__header"><strong>Where should XDrive match?</strong></div>
             <div className="workspace-panel__body" style={{ display: 'grid', gap: 12 }}>

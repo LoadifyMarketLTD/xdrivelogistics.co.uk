@@ -63,7 +63,10 @@ describe('Driver Smart Load Alerts contract', () => {
     expect(migration).toContain("'delivery_outcode'");
     expect(migration).not.toContain("'pickup_lat', m.pickup_lat");
     expect(migration).not.toContain("'pickup_lng', m.pickup_lng");
-    expect(page).toContain('Exact live coordinates stay private and are used only for matching.');
+    expect(page).toContain('XDrive uses your exact tracking coordinates only while checking whether a load is nearby.');
+    expect(page).toContain('never your live coordinates');
+    expect(page).not.toContain('Choose which marketplace loads should reach you');
+    expect(page).toContain('<DriverWorkspaceShell hideHeader>');
   });
 
   test('uses vehicle/budget filters and idempotent recipient delivery', () => {

@@ -1059,7 +1059,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           </div>
         )}
       </Panel>}
-      <Panel style={{ order: 6 }} title="Smart Alerts" description="Optional pickup and delivery notifications, using authorised location information.">
+      <Panel style={{ order: 6 }} title="Smart / Pro Alerts" description="Optional pickup and delivery notifications, using authorised location information.">
         <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <input type="checkbox" checked={form.proximityAlertsEnabled} onChange={(event) => set('proximityAlertsEnabled', event.target.checked)} />
           <span><strong>Enable pickup and delivery proximity alerts</strong><br /><span style={{ color: '#64748b', fontSize: 11 }}>Notify the posting company when the assigned vehicle enters the configured collection or delivery radius.</span></span>
