@@ -1,3 +1,4 @@
+import { invoiceDescriptionText } from '../../lib/invoiceDescriptionText';
 import { useEffect, useRef, useState } from 'react';
 import { renewSession, type LiveJob, type LiveSession } from './liveApi';
 
@@ -68,7 +69,8 @@ export default function LiveInvoiceFlow({job,session,onSession,onBack,onList}:{j
  async function loadDetail(id:string) {
    const res=await req('/finance/invoices/'+encodeURIComponent(id));
    const data=object(await res.json());
-   return object(data.invoice) as Invoice;
+   const invoice = object(data.invoice) as Invoice;
+   return { ...invoice, service_description: invoiceDescriptionText(invoice.service_description) || 'Transport service' };
  }
  async function discover() {
    setPdfReviewed(false);setSendApproved(false);setConfirmed(false);setLoading(true);setError('');setNotice('');setEligibilityChecked(false);setEligible(null);setCommercialContext(null);setBlocker('');

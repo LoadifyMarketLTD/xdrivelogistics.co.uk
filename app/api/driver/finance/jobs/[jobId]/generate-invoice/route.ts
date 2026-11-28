@@ -1,3 +1,4 @@
+import { invoiceDescriptionText } from '../../../../../../../lib/invoiceDescriptionText';
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { isWebDriverContext, requireActiveWebDriver, type WebDriverContext } from '../../../../_lib/webDriverContext';
@@ -274,7 +275,7 @@ export async function POST(
     : cleanText(body.payment_terms) || '14 days';
   const invoiceDate = new Date().toISOString().slice(0, 10);
   const dueDate = addDays(invoiceDate, resolveDueDays(paymentTerms, marketplace ? agreedDueDays : null));
-  const serviceDescription = cleanText(body.service_description) || cleanText(job.load_details) || 'Transport service';
+  const serviceDescription = invoiceDescriptionText(body.service_description) || invoiceDescriptionText(job.load_details) || 'Transport service';
   const jobReference = cleanText(job.customer_reference) || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
 
   const snapshot = {
